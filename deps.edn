@@ -1,0 +1,7 @@
+{:paths ["src" "resources"]
+ :deps  {arachne-framework/aristotle {:git/url "https://github.com/arachne-framework/aristotle.git"
+                                      :sha     "7b93e62abc45c82c75d5cf6c0ae2c0e21a233e81"}
+
+         ;; Fixes Java 9+ module error present in aristotle (or one of its dependencies).
+         ;; https://github.com/bhauman/lein-figwheel/issues/612#issuecomment-455802580
+         javax.xml.bind/jaxb-api     {:mvn/version "2.4.0-b180830.0359"}}}
