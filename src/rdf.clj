@@ -3,7 +3,25 @@
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.query :as q])
-  (:import [java.io File]))
+  (:import [java.io File]
+           [org.apache.jena.riot Lang LangBuilder RDFParserRegistry]))
+
+(def RDFXML+rdfs
+  "A modified Lang/RDFXML that also accepts .rdfs file extensions."
+  (-> (LangBuilder/create (.getName Lang/RDFXML)
+                          (.getContentType (.getContentType Lang/RDFXML)))
+      (.addAltNames (into-array String (.getAltNames Lang/RDFXML)))
+      (.addFileExtensions (->> (.getFileExtensions Lang/RDFXML)
+                               (concat ["rdfs"])
+                               (into-array String)))
+      (.build)))
+
+;; Since .rdfs file extensions are not picked up by Apache Jena for RDF/XML,
+;; the RDFXML parser must be modified to also accept that file extension.
+(when (RDFParserRegistry/isRegistered Lang/RDFXML)
+  (let [factory (RDFParserRegistry/getFactory Lang/RDFXML)]
+    (RDFParserRegistry/removeRegistration Lang/RDFXML)
+    (RDFParserRegistry/registerLangTriples RDFXML+rdfs factory)))
 
 (defn source-folder
   "Load a `folder` as a source-map to be consumed by rdf/graph."
@@ -13,12 +31,11 @@
         extension (comp second #(str/split % #"\."))]
     (group-by extension filepaths)))
 
-;; TODO: .rdfs files have no content-type, currently omitted - convert to .rdf?
 (defn graph
   "Create a graph from a `source-map`. Optionally append to existing graph `g`."
   [{:strs [owl rdf rdfs] :as source-map} & [g]]
-  (let [files (->> (concat owl rdf)
-                   (remove (partial re-find #"w3c"))
+  (let [files (->> (concat owl rdf rdfs)
+                   (remove (partial re-find #"w3c"))        ; TODO: don't hardcode
                    (map io/file))
         g     (or g (aristotle/graph :simple))]
     (reduce aristotle/read g files)))
