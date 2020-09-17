@@ -2,8 +2,11 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
+            [arachne.aristotle.graph :as graph]
             [arachne.aristotle.query :as q])
   (:import [java.io File]
+           [org.apache.jena.graph NodeFactory]
+           [org.apache.jena.datatypes.xsd XSDDatatype]
            [org.apache.jena.riot Lang LangBuilder RDFParserRegistry]))
 
 (def RDFXML+rdfs
@@ -22,6 +25,18 @@
   (let [factory (RDFParserRegistry/getFactory Lang/RDFXML)]
     (RDFParserRegistry/removeRegistration Lang/RDFXML)
     (RDFParserRegistry/registerLangTriples RDFXML+rdfs factory)))
+
+;; Interpret literals of the format "string@lang" as a string encoded in lang.
+;; Uses existing implementation as a template; only deviates when @ is found.
+(extend-protocol graph/AsNode
+  String
+  (node [obj]
+    (if-let [uri (second (re-find #"^<(.*)>$" obj))]
+      (NodeFactory/createURI uri)
+      (let [[s lang] (str/split obj #"@")]
+        (if (not-empty lang)
+          (NodeFactory/createLiteral ^String s ^String lang)
+          (NodeFactory/createLiteralByValue obj XSDDatatype/XSDstring))))))
 
 (defn source-folder
   "Load a `folder` as a source-map to be consumed by rdf/graph."
@@ -71,4 +86,12 @@
   ;; Fetch all triples where {dumbfounded-...} is the subject in WordNet.
   (q/run wordnet '[:bgp ["<http://www.w3.org/2006/03/wn/wn20/instances/synset-dumbfounded-adjectivesatellite-1>" ?predicate ?object]])
   (q/run unified '[:bgp ["<http://www.w3.org/2006/03/wn/wn20/instances/synset-dumbfounded-adjectivesatellite-1>" ?predicate ?object]])
+
+  ;; Princeton Wordnet uses en-US language-encoded string literals.
+  ;; These language-encoded strings can be accessed using Jena methods directly
+  ;; or by appending "@en-US" to the string. Searching for the string directly
+  ;; will unfortunately not work for language-encoded string literals.
+  (q/run wordnet [:bgp ['?subject '?predicate (NodeFactory/createLiteral "dumbfounded" "en-US")]])
+  (q/run wordnet [:bgp '[?subject ?predicate "dumbfounded@en-US"]])
+  (q/run wordnet [:bgp '[?subject ?predicate "dumbfounded"]]) ; this won't work
   #_.)
