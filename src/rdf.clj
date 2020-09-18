@@ -94,4 +94,11 @@
   (q/run wordnet [:bgp ['?subject '?predicate (NodeFactory/createLiteral "dumbfounded" "en-US")]])
   (q/run wordnet [:bgp '[?subject ?predicate "dumbfounded@en-US"]])
   (q/run wordnet [:bgp '[?subject ?predicate "dumbfounded"]]) ; this won't work
+
+  ;; The filter operations are not actually Clojure functions, but Clojure-like
+  ;; code mimicking Sparql. See: `arachne.aristotle.query.compiler/expr-class`.
+  ;; In this way, the language-encoding can be sidestepped, although the query
+  ;; runs much slower (several seconds).
+  (q/run wordnet '[:filter (regex ?object "^dumbfounded$" "i")
+                   [:bgp [?subject ?predicate ?object]]])
   #_.)
