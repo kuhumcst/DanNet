@@ -3,3 +3,5 @@
 .nrepl-port
 
 resources/
+
+neo4j/*.jar

@@ -1,11 +1,11 @@
-(ns rdf
+(ns dannet.db.jena
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.graph :as graph]
-            [arachne.aristotle.query :as q])
-  (:import [java.io File]
-           [org.apache.jena.graph NodeFactory]
+            [arachne.aristotle.query :as q]
+            [dannet.io :as dio])
+  (:import [org.apache.jena.graph NodeFactory]
            [org.apache.jena.datatypes.xsd XSDDatatype]
            [org.apache.jena.riot Lang LangBuilder RDFParserRegistry]))
 
@@ -38,17 +38,9 @@
           (NodeFactory/createLiteral ^String s ^String lang)
           (NodeFactory/createLiteralByValue obj XSDDatatype/XSDstring))))))
 
-(defn source-folder
-  "Load a `folder` as a source-map to be consumed by rdf/graph."
-  [^File folder]
-  (let [filenames (.list folder)
-        filepaths (map (partial str (.getAbsolutePath folder) "/") filenames)
-        extension (comp second #(str/split % #"\."))]
-    (group-by extension filepaths)))
-
-(defn graph
-  "Create a graph from a `source-map`. Optionally append to existing graph `g`."
-  [{:strs [owl rdf rdfs] :as source-map} & [g]]
+(defn import-rdf
+  "Create a graph from a `source` map. Optionally append to existing graph `g`."
+  [{:strs [owl rdf rdfs] :as source} & [g]]
   (let [files (->> (concat owl rdf rdfs)
                    (remove (partial re-find #"w3c"))        ; TODO: don't hardcode
                    (map io/file))
@@ -58,7 +50,7 @@
 (defn load-graph
   "Create or append to a graph `g` given an RDF `source` folder."
   ([g source]
-   (graph (-> source io/file source-folder) g))
+   (import-rdf (-> source io/file dio/source-folder) g))
   ([source]
    (load-graph nil source)))
 
