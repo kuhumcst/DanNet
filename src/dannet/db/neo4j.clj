@@ -33,26 +33,26 @@
   ;; A quick neo4j database instance launched using Docker.
   ;; Build and run a Docker container from the Dockerfile supplied in neo4j/.
   ;; Note: You must supply the neosemantics JAR in the Dockerfile directory!
-  (def neo4j-db
+  (def conn
     (neo4j/connect (URI. "bolt://localhost:7687")
                    "neo4j"
                    "1234"))
 
-  ;; TODO: rewrite, possibly put in function
-  ;; Initialisation step.
-  (neo4j/defquery unique
-    "CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE")
-  (neo4j/with-transaction neo4j-db tx
-    (doall (unique tx)))
-  (neo4j/defquery init
-    "call n10s.graphconfig.init()")
-  (neo4j/with-transaction neo4j-db tx
-    (doall (init tx)))
+  ;; Neosemantics initialisation step for a completely new database. Run once.
+  (do
+    (neo4j/with-transaction conn tx
+      (neo4j/execute tx
+        "CREATE CONSTRAINT n10s_unique_uri
+        ON (r:Resource)
+        ASSERT r.uri IS UNIQUE"))
+    (neo4j/with-transaction conn tx
+      (doall (neo4j/execute tx
+               "CALL n10s.graphconfig.init()"))))
 
   ;; Load DanNet and Princeton WordNet.
   ;; Note: The initialisation step must have run beforehand.
-  (let [docker-path-fn (fn [s] (str "file:///resources/" resource "/" s))
-        source         "dannet/rdf"]
-    (load-graph! neo4j-db "dannet/rdf" (docker-path-fn "dannet/rdf"))
-    (load-graph! neo4j-db "wordnet/rdf" (docker-path-fn "wordnet/rdf")))
+  (let [->docker-path #(str "file:///resources/" %1 "/" %2)
+        source        "dannet/rdf"]
+    (load-graph! conn "dannet/rdf" (partial ->docker-path "dannet/rdf"))
+    (load-graph! conn "wordnet/rdf" (partial ->docker-path "wordnet/rdf")))
   #_.)
