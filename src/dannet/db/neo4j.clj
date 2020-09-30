@@ -1,14 +1,20 @@
 (ns dannet.db.neo4j
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.datafy :refer [datafy]]
             [clojure.core.protocols :as p]
             [clojure.reflect :refer [reflect]]              ; for REPL use
             [neo4j-clj.core :as neo4j]
-            [dannet.io :as dio]
-            [clojure.string :as str])
+            [clj-http.client :as client]
+            [ubergraph.core :as uber]
+            [dannet.io :as dio])
   (:import [java.net URI]
-           [org.neo4j.driver.types Relationship Path Entity]
-           [org.neo4j.driver QueryRunner Result Record]))
+           [org.neo4j.driver QueryRunner]
+           [org.neo4j.driver.internal InternalNode
+                                      InternalRelationship
+                                      InternalPath
+                                      InternalRecord
+                                      InternalResult]))
 
 (defn fetch-path!
   "Fetch the `path` with a specific serialisation `fmt` in the given db `sess`."
@@ -50,35 +56,52 @@
 ;; conversion is forced in `neo4j-clj.core/execute` also needlessly cuts the
 ;; link to the underlying Java objects.
 (extend-protocol p/Datafiable
-  Result
+  InternalResult
   (datafy [result]
-    (mapv datafy (doall (iterator-seq result))))
+    (map datafy (doall (iterator-seq result))))
 
-  Record
+  InternalRecord
   (datafy [record]
     (into {} (for [[k v] (.asMap record)]
                [(keywordize k) (datafy v)])))
 
-  Entity
-  (datafy [entity]
-    {:id         (.id entity)
-     :properties (into {} (for [[k v] (.asMap entity)]
-                            [(keywordize k) (datafy v)]))})
-
-  Relationship
-  (datafy [rel]
-    {:id         (.id rel)
-     :start      (.startNodeId rel)
-     :end        (.endNodeId rel)
-     :type       (keywordize (.type rel))
-     :properties (datafy (.asMap rel))})
-
-  Path
+  ;; Represent Paths using the Ubergraph EDN representation.
+  ;; The results come in order, so specifying start and end nodes is irrelevant.
+  InternalPath
   (datafy [path]
-    {:start         (datafy (.start path))
-     :end           (datafy (.end path))
-     :nodes         (mapv datafy (.nodes path))
-     :relationships (mapv datafy (.relationships path))}))
+    {:nodes          (map datafy (.nodes path))
+     :directed-edges (map datafy (.relationships path))})
+
+  ;; Represent Nodes as Ubergraph node vectors.
+  InternalNode
+  (datafy [node]
+    (let [id         (.id node)
+          labels     (map keywordize (.labels node))
+          properties (into {} (for [[k v] (.asMap node)]
+                                [(keywordize k) (datafy v)]))]
+      [id (assoc properties
+            'labels labels)]))
+
+  ;; Represent Relationships as Ubergraph edge vectors.
+  InternalRelationship
+  (datafy [relationship]
+    (let [id         (.id relationship)
+          start      (.startNodeId relationship)
+          end        (.endNodeId relationship)
+          type       (keywordize (.type relationship))
+          properties (into {} (.asMap relationship))]
+      [start end (assoc properties
+                   'type type
+                   'id id)])))
+
+(defn result->graph
+  "Create an Ubergraph digraph from the datafied `results` of a Neo4j query."
+  [& results]
+  (->> (mapcat vals results)
+       (map #(if (map? %)
+               (uber/edn->ubergraph %)
+               %))
+       (apply uber/ubergraph false false)))
 
 
 (comment
@@ -118,5 +141,20 @@
           LIMIT 100"
          (q tx)
          (datafy)))
-  #_.)
 
+  ;; Create an Ubergraph from a result set and pretty-print it.
+  (neo4j/with-transaction conn tx
+    (let [res (q tx "MATCH p=(m)-[n]-(o{rdfs__label: 'hoved'})
+                     RETURN m, n, o, p
+                     LIMIT 100")]
+      (->> res
+           datafy
+           (apply result->graph)
+           ;uber/viz-graph)))
+           uber/pprint)))
+
+  ;; Accessing the Neo4j HTTP API directly.
+  ;; Other than this basic helloe world, the HTTP API is underspecified,
+  ;; overcomplicated, and obviously mostly meant for internal use.
+  (client/get "http://localhost:7474/" {:accept :json})
+  #_.)
