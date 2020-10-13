@@ -129,8 +129,7 @@
 
   ;; Load DanNet and Princeton WordNet.
   ;; Note: The initialisation step must have run beforehand.
-  (let [->docker-path #(str "file:///resources/" %1 "/" %2)
-        source        "dannet/rdf"]
+  (let [->docker-path #(str "file:///resources/" %1 "/" %2)]
     (load-graph! conn "dannet/rdf" (partial ->docker-path "dannet/rdf"))
     (load-graph! conn "wordnet/rdf" (partial ->docker-path "wordnet/rdf")))
 
