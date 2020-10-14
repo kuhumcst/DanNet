@@ -1,6 +1,6 @@
 DanNet
 ======
-[DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. Currently, DanNet is modelled as tables in a relational database along with two serialised representations: RDF/XML and a custom CSV format. This project is an attempt at representing DanNet fully as RDF, including its database representation, as well as allowing for representing any part of the network as an RDF-compatible graph in the application space.
+[DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. Currently, DanNet is modelled as tables in a relational database along with two serialised representations: [RDF/XML 1.0](https://www.w3.org/TR/2004/REC-rdf-syntax-grammar-20040210/) and a custom CSV format. This project is an attempt at representing DanNet fully as RDF, including its database representation, as well as allowing for representing any part of the network as an RDF-compatible graph in the application space.
 
 Currently, this means modelling DanNet as [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) inside [Neo4j](https://neo4j.com/), while allowing for query results to be represented as [Ubergraph](https://github.com/Engelberg/ubergraph) data structures. Example code also exists for loading DanNet and Princeton WordNet into an in-memory [Apache Jena](https://jena.apache.org/) triplestore.
 
@@ -12,11 +12,11 @@ _(subject to change)_
 
 * Export the full DanNet dataset as RDF/XML
   - ... with some help from [DSL](https://dsl.dk/).
-* Convert the dataset to RDF 1.1
+* Convert the dataset to [RDF 1.1](https://www.w3.org/TR/rdf11-concepts/)
   - Possibly using: https://github.com/jmccrae/gwn-scala-api
 * Remap the dataset to adhere to [lemon-based RDF](https://globalwordnet.github.io/schemas/)
 * Fully represent the dataset within a Neo4j database.
-    - Work out kinks with Neosemantics and add lots of tests.
+    - Work out kinks with [Neosemantics](https://github.com/neo4j-labs/neosemantics) and add lots of tests.
 * Conversion between various compatible graph formats
     - Neo4j graphs
     - Ubergraph
@@ -75,7 +75,7 @@ In summary, triplets...
 * can be extended to perform advanced computational tasks that are harder to do using a relational data model.
 
 ### RDF
-While the basic triplet can be represented in most programming or query languages, any data interchange across the wire and data integration will need a more formal standard. RDF, a W3C standard, both restricts the allowed contents of the triplets and defines several serialisation formats for its more restricted data model (RDF/XML, Turtle, JSON-lD, and others).
+While the basic triplet can be represented in most programming or query languages, any data interchange across the wire and data integration will need a more formal standard. RDF, a W3C standard, both restricts the allowed contents of the triplets and defines several serialisation formats for its more restricted data model (RDF/XML, Turtle, JSON-LD, and others).
 
 It is important to note that, in principle, the RDF standard is simply an abstraction over an information model designed to represent a [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). The formats themselves are interchangeable and simply different ways to serialise the RDF information model, e.g. for sending over the wire or for long term storage.
 
@@ -97,6 +97,6 @@ In summary:
 * Graphs can be decomposed into triplets.
 * RDF is a graph abstraction using triplets as its fundamental data structure.
 
-An optional data representation for DanNet would allow it to be both compatible with the RDF standard, decomposable into basic triplets, and represented as a graph in any context, i.e. at the application or at the database level. In addition, the data can always be serialised and loaded into another RDF-compatible application or be integrated with other RDF knowledge graphs, e.g. the Princeton WordNet.
+An optimal data representation for DanNet would allow it to be both compatible with the RDF standard, decomposable into basic triplets, and represented as a graph in any context, i.e. at the application or at the database level. In addition, the data can always be serialised and loaded into another RDF-compatible application or be integrated with other RDF knowledge graphs, e.g. the Princeton WordNet or its spiritual successor: the [English WordNet](https://github.com/globalwordnet/english-wordnet).
 
 Treating DanNet in this way does not bind it to a specific brand of database or type of serialisation format. Instead, each of these levels of abstraction are concerned only with data modelling and are mutually compatible. The database representation is then just another view of the data.
