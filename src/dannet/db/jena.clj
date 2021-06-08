@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
+            [arachne.aristotle.registry :as reg]
             [arachne.aristotle.graph :as graph]
             [arachne.aristotle.query :as q]
             [dannet.io :as dio])
@@ -55,6 +56,12 @@
    (load-graph nil source)))
 
 (comment
+  (do
+    (reg/prefix 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
+    (reg/prefix 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
+    (reg/prefix 'wn "http://www.w3.org/2006/03/wn/wn20/instances/")
+    (reg/prefix 'wns "http://www.w3.org/2006/03/wn/wn20/schema/"))
+
   (def dannet
     (load-graph (io/resource "dannet/rdf")))
 
@@ -78,6 +85,10 @@
   ;; Fetch all triples where {dumbfounded-...} is the subject in WordNet.
   (q/run wordnet '[:bgp ["<http://www.w3.org/2006/03/wn/wn20/instances/synset-dumbfounded-adjectivesatellite-1>" ?predicate ?object]])
   (q/run unified '[:bgp ["<http://www.w3.org/2006/03/wn/wn20/instances/synset-dumbfounded-adjectivesatellite-1>" ?predicate ?object]])
+
+  ;; Using prefixes for more readable code and results  (run reg/prefix first)
+  (q/run unified '[:bgp [:dn/synset-1337 ?predicate ?object]])
+  (q/run unified '[:bgp [:wn/synset-dumbfounded-adjectivesatellite-1 ?predicate ?object]])
 
   ;; Princeton Wordnet uses en-US language-encoded string literals.
   ;; These language-encoded strings can be accessed using Jena methods directly
