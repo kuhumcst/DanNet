@@ -1,4 +1,4 @@
-(ns dannet.io
+(ns dk.wordnet.io
   (:require [clojure.string :as str])
   (:import [java.io File]))
 

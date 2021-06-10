@@ -1,10 +1,16 @@
 {:paths ["src" "resources"]
- :deps  {arachne-framework/aristotle {:git/url "https://github.com/arachne-framework/aristotle.git"
-                                      :sha     "7b93e62abc45c82c75d5cf6c0ae2c0e21a233e81"}
-         gorillalabs/neo4j-clj       {:mvn/version "4.1.0"}
-         clj-http                    {:mvn/version "3.10.3"}
-         ubergraph                   {:mvn/version "0.8.2"}
+ :deps  {arachne-framework/aristotle      {:git/url "https://github.com/arachne-framework/aristotle.git"
+                                           :sha     "7b93e62abc45c82c75d5cf6c0ae2c0e21a233e81"}
+         ont-app/igraph-jena              {:mvn/version "0.1.0"}
+
+         ;; Keep aristotle jena deps in line with igraph-jena (3.4.0 -> 3.14.0)
+         org.apache.jena/apache-jena-libs {:mvn/version "3.14.0"
+                                           :extension   "pom"}
+
+         gorillalabs/neo4j-clj            {:mvn/version "4.1.0"}
+         clj-http                         {:mvn/version "3.10.3"}
+         ubergraph                        {:mvn/version "0.8.2"}
 
          ;; Fixes Java 9+ module error present in aristotle (or one of its dependencies).
          ;; https://github.com/bhauman/lein-figwheel/issues/612#issuecomment-455802580
-         javax.xml.bind/jaxb-api     {:mvn/version "2.4.0-b180830.0359"}}}
+         javax.xml.bind/jaxb-api          {:mvn/version "2.4.0-b180830.0359"}}}

@@ -5,3 +5,5 @@
 resources/
 
 neo4j/*.jar
+
+.cpcache
