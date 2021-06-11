@@ -10,6 +10,7 @@
          gorillalabs/neo4j-clj            {:mvn/version "4.1.0"}
          clj-http                         {:mvn/version "3.10.3"}
          ubergraph                        {:mvn/version "0.8.2"}
+         org.clojure/data.csv             {:mvn/version "1.0.0"}
 
          ;; Fixes Java 9+ module error present in aristotle (or one of its dependencies).
          ;; https://github.com/bhauman/lein-figwheel/issues/612#issuecomment-455802580
