@@ -95,13 +95,6 @@
           word
           (recur rem-words))))))
 
-;; TODO: usage triples
-;; https://www.w3.org/2016/05/ontolex/#usage
-;; Ideally this should be triples of the form:
-#_#{[wordsense :ontolex/usage '_usage]
-    ['_usage :rdf/value usage-example]}
-;; This requires mapping the word form and synset to the matching wordsense.
-
 (defn ->synset-usages
   "Convert a `row` from 'synsets.csv' to usage key-value pairs."
   [[synset-id label gloss _ :as row]]
@@ -116,7 +109,6 @@
   (when (= (count row) 5)
     (let [synset (synset-uri synset-id)]
       #{[synset :rdfs/label label]
-        ;; TODO: separate usage example from definition
         [synset :skos/definition (str/replace gloss brug "")]
         [synset :dns/ontologicalType ontological-type]
         [synset :rdf/type :ontolex/LexicalConcept]})))
@@ -154,8 +146,6 @@
         [word :rdf/type :ontolex/lexicalEntry]
         [word :rdf/type (form->lexical-entry form)]})))
 
-;; TODO: register mapping
-;; https://www.w3.org/2016/05/ontolex/#lexical-sense-reference
 (defn ->wordsense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[wordsense-id word-id synset-id register :as row]]
