@@ -1,8 +1,11 @@
 (ns dk.wordnet.db
-  (:require [arachne.aristotle :as aristotle]
+  (:require [clojure.java.io :as io]
+            [arachne.aristotle :as aristotle]
             [arachne.aristotle.registry :as reg]
             [arachne.aristotle.query :as q]
-            [dk.wordnet.csv :as dn-csv]))
+            [dk.wordnet.csv :as dn-csv])
+  (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
+           [org.apache.jena.graph Graph]))
 
 (reg/prefix 'wn "https://globalwordnet.github.io/schemas/wn#")
 (reg/prefix 'ontolex "http://www.w3.org/ns/lemon/ontolex#")
@@ -26,6 +29,15 @@
       (aristotle/graph :simple)
       (vals csv-imports))))
 
+;; TODO: exported resources need to be namespaced
+;; TODO: RDFXML export causes OutOfMemoryError - investigate
+;; https://jena.apache.org/documentation/io/rdf-output.html
+(defn export-db!
+  "Export the `db` to the file with the given `filename`."
+  [filename db & {:keys [fmt]
+                  :or   {fmt RDFFormat/TURTLE_PRETTY}}]
+  (RDFDataMgr/write (io/writer filename) ^Graph db ^RDFFormat fmt))
+
 (defn synonyms
   "Return synonyms of the word with the given `lemma`."
   [db lemma]
@@ -45,6 +57,9 @@
 (comment
   (def dannet
     (->dannet dn-csv/csv-imports))
+
+  ;; Export the contents of the db
+  (export-db! "resources/dannet.ttl" dannet)
 
   ;; Querying DanNet for various synonyms
   (synonyms dannet "vand")

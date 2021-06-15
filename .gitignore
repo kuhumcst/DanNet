@@ -7,3 +7,4 @@ resources/
 neo4j/*.jar
 
 .cpcache
+.DS_Store
