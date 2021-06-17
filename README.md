@@ -26,7 +26,17 @@ For this project we have created a couple of prototypes demonstrating DanNet's v
 
 Setup
 -----
-The code is all written in Clojure and it must be compiled to Java Bytecode and run inside a Java Virtual Machine (JVM). The primary means to do this is Clojure's [official CLI tools](https://clojure.org/guides/deps_and_cli) which can both fetch dependencies and build/run Clojure code.
+The code is all written in Clojure and it must be compiled to Java Bytecode and run inside a Java Virtual Machine (JVM). The primary means to do this is Clojure's [official CLI tools](https://clojure.org/guides/deps_and_cli) which can both fetch dependencies and build/run Clojure code. The project dependencies are specified in the [deps.edn file](deps.edn).
+
+### Resource dependencies
+This project assumes that the [ZIP-files containing DanNet 2.2](https://cst.ku.dk/english/projects/dannet/) have been downloaded in advance and extracted into a subdirectory called "resources":
+
+- `resources/dannet/csv`: contains the CSV files.
+- `resources/dannet/rdf`: contains the RDF, RDFS, OWL files.
+
+In addition, for some of the prototype code, [version 2.0 of the Princeton WordNet](https://wordnet.princeton.edu/download/old-versions) is also needed:
+
+- `resources/wordnet/rdf`: contains the Princeton WordNet files.
 
 ### JAXP00010001 error
 When running both the Neo4j code or the updated Jena code in a more recent JVM, you will probably encounter this XML-related error message:
