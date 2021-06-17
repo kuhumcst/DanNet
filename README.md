@@ -51,6 +51,10 @@ To avoid this error, the JVM process should be run with the following JVM arg:
 -Djdk.xml.entityExpansionLimit=0
 ```
 
+Querying DanNet
+---------------
+Currently, there is no graphical user interface available for querying DanNet - that is still to come! The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](queries.md).
+
 Roadmap
 -------
 _(subject to change)_
