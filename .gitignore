@@ -4,7 +4,7 @@
 
 resources/
 
-neo4j/*.jar
+docker/neo4j/*.jar
 
 .cpcache
 .DS_Store

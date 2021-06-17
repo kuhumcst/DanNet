@@ -1,4 +1,4 @@
-(ns dk.wordnet.db.neo4j
+(ns dk.wordnet.prototypes.neo4j
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.datafy :refer [datafy]]

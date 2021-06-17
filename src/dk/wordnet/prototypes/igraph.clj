@@ -1,9 +1,9 @@
-(ns dk.wordnet.db.jena.igraph
+(ns dk.wordnet.prototypes.igraph
   (:require [clojure.java.io :as io]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.vocabulary.core :as voc]
             [ont-app.igraph.core :as igraph]
-            [dk.wordnet.db.jena.aristotle :as dannet-aristotle])
+            [dk.wordnet.prototypes.aristotle :as dannet-aristotle])
   (:import [org.apache.jena.rdf.model ModelFactory]))
 
 (comment

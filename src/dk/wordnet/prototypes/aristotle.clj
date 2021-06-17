@@ -1,4 +1,4 @@
-(ns dk.wordnet.db.jena.aristotle
+(ns dk.wordnet.prototypes.aristotle
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
