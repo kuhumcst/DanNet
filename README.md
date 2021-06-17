@@ -62,19 +62,22 @@ To avoid this error, the JVM process should be run with the following JVM arg:
 
 Querying DanNet
 ---------------
-Currently, there is no graphical user interface available for querying DanNet - that is still to come! The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
+The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
+
+At the moment, there is no graphical user interface available for querying DanNet - that is still to come! One option might be setting up [Apache Jena Fuseki](https://jena.apache.org/documentation/fuseki2/), which is a web-based application for querying Apache Jena using SPARQL. This requires first setting up DanNet as a persistent [TDB database](https://jena.apache.org/documentation/tdb/index.html) rather than the in-memory database in use right now.
 
 Roadmap
 -------
 _(subject to change)_
 
 * [x] Remap the dataset to adhere to [lemon-based RDF](https://globalwordnet.github.io/schemas/).
-* [ ] Export the full DanNet dataset as **CSV** ~~RDF/XML~~
+* [ ] Export the full DanNet dataset as **CSV**
   - ... with some help from [DSL](https://dsl.dk/).
-* [ ] Fully represent the dataset within **Apache Jena** ~~a Neo4j database~~.
-    - Work out kinks with [Neosemantics](https://github.com/neo4j-labs/neosemantics) and add lots of tests.
+* [ ] Fully represent the dataset within **Apache Jena**
+* [ ] Allow for persisting the database, probably using TDB
 * [ ] Develop a GUI for viewing and editing RDF graph data
-  - Generic reagent component for editing triple-based graphs ~~ubergraph data~~
+  - Apache Jena Fuseki, possibly through Docker
+  - Generic reagent component for editing triple-based graphs
     - Perhaps using https://github.com/wbkd/react-flow or a similar library
       * Need temporary conversion to/from JS objects
   - Specialised reagent components for DanNet-specific tasks
