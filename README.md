@@ -6,6 +6,15 @@ Standards-based
 ---------------
 The previous version of DanNet was modelled as tables inside a relational database. Two serialised representations also exist: [RDF/XML 1.0](https://www.w3.org/TR/2004/REC-rdf-syntax-grammar-20040210/) and a custom CSV format. The latter now serves as input for the new data model, remapping the relations described in these files onto a modern WordNet based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) standard combined with the various [relations](https://globalwordnet.github.io/gwadoc/) defined by the Global Wordnet Association as used in the official [GWA RDF standard](https://globalwordnet.github.io/schemas/#rdf).
 
+In Ontolex-lemon...
+
+* Synsets are analogous to `ontolex:LexicalConcept`.
+* Wordsenses are analogous to `ontolex:LexicalSense`.
+* Words are analogous to `ontolex:LexicalEntry`.
+* Forms are analogous to `ontolex:Form`.
+
+![alt text](doc/ontolex.png "The Ontolex-lemon representation of a WordNet")
+
 By choosing these standards, we maximise DanNet's ability to integrate with other lexical resources, in particular with other WordNets. 
 
 Knowledge graphs
