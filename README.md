@@ -12,7 +12,7 @@ Knowledge graphs
 ----------------
 The main database that the new tooling has been developed for is [Apache Jena](https://jena.apache.org/), which is a mature RDF triplestore that also supports [OWL](https://www.w3.org/OWL/). When represented inside Jena, the many relations of DanNet are turned into a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). The new DanNet is developed in the Clojure programming language (an alternative to Java on the JVM) which has multiple libraries for interacting with the Java-based Apache Jena, e.g. [Aristotle](https://github.com/arachne-framework/aristotle) and [igraph-jena](https://github.com/ont-app/igraph-jena).
 
-However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](rationale.md) for more.
+However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](doc/rationale.md) for more.
 
 ### Earlier prototypes
 For this project we have created a couple of prototypes demonstrating DanNet's viability as a queryable RDF graph. These proof-of-concept knowledge graphs demonstrate alternative ways to query the data while using the old RDF/XML export as the source:
@@ -53,7 +53,7 @@ To avoid this error, the JVM process should be run with the following JVM arg:
 
 Querying DanNet
 ---------------
-Currently, there is no graphical user interface available for querying DanNet - that is still to come! The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](queries.md).
+Currently, there is no graphical user interface available for querying DanNet - that is still to come! The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
 
 Roadmap
 -------
