@@ -1,32 +1,16 @@
 (ns dk.wordnet.db
   (:require [clojure.java.io :as io]
             [arachne.aristotle :as aristotle]
-            [arachne.aristotle.registry :as reg]
             [arachne.aristotle.query :as q]
             [ont-app.igraph-jena.core :as igraph-jena]
-            [ont-app.vocabulary.core :as voc]
             [ont-app.igraph.core :as igraph]
-            [dk.wordnet.csv :as dn-csv])
+            [dk.wordnet.csv :as dn-csv]
+            [dk.wordnet.db.queries :as queries])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.graph Graph]
-           [org.apache.jena.rdf.model ModelFactory]))
-
-(defn reg-prefix
-  "Register `ns-prefix` for `uri` in both Aristotle and igraph."
-  [ns-prefix uri]
-  (reg/prefix ns-prefix uri)
-  (let [prefix-str (name ns-prefix)]
-    (when-not (get (voc/prefix-to-ns) prefix-str)
-      (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
-                                   :vann/preferredNamespaceUri    uri}))))
-
-(reg-prefix 'wn "https://globalwordnet.github.io/schemas/wn#")
-(reg-prefix 'ontolex "http://www.w3.org/ns/lemon/ontolex#")
-(reg-prefix 'skos "http://www.w3.org/2004/02/skos#")
-(reg-prefix 'lexinfo "http://www.lexinfo.net/ontology/2.0/lexinfo#")
-;; TODO: use new DanNet namespaces instead
-(reg-prefix 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
-(reg-prefix 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
+           [org.apache.jena.tdb2 TDB2Factory]
+           [org.apache.jena.rdf.model ModelFactory]
+           [org.apache.jena.system Txn]))
 
 (defn ->dannet
   "Create an in-memory Jena database based on the DanNet 2.2 `csv-imports`.
@@ -53,16 +37,7 @@
 (defn synonyms
   "Return synonyms in `db` of the word with the given `lemma`."
   [db lemma]
-  (->> (q/run db
-              '[?synonym]
-              '[:bgp
-                [?form :ontolex/writtenRep ?lemma]
-                [?word :ontolex/canonicalForm ?form]
-                [?word :ontolex/evokes ?synset]
-                [?word* :ontolex/evokes ?synset]
-                [?word* :ontolex/canonicalForm ?form*]
-                [?form* :ontolex/writtenRep ?synonym]]
-              {'?lemma lemma})
+  (->> (q/run db '[?synonym] queries/synonyms {'?lemma lemma})
        (apply concat)
        (remove #{lemma})))
 
