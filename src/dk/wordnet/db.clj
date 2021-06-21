@@ -44,13 +44,15 @@
   (RDFDataMgr/write (io/output-stream filename) ^Graph graph ^RDFFormat fmt))
 
 (defn synonyms
-  "Return synonyms in `db` of the word with the given `lemma`."
-  [db lemma]
-  (->> (q/run db '[?synonym] q/synonyms {'?lemma lemma})
+  "Return synonyms in Graph `g` of the word with the given `lemma`."
+  [g lemma]
+  (->> (q/run g '[?synonym] q/synonyms {'?lemma lemma})
        (apply concat)
        (remove #{lemma})))
 
 (comment
+  (type (:graph dannet))                                    ; Check graph type
+
   ;; Load an existing TDB DanNet from disk.
   (def dannet
     (->dannet :tdb-path "resources/tdb"))
@@ -65,34 +67,58 @@
   (def dannet
     (->dannet :csv-imports dn-csv/csv-imports))
 
-  ;; Check the class of the DanNet graph.
-  (type (:graph dannet))
+  ;; Def everything used below.
+  (do
+    (def graph (:graph dannet))
+    (def model (:model dannet))
+    (def dataset (:dataset dannet))
 
-  ;; Wrap the DanNet model with igraph.
-  (def ig
-    (-> (:model dannet)
-        (igraph-jena/make-jena-graph)))
+    ;; Wrap the DanNet model with igraph.
+    (def ig
+      (igraph-jena/make-jena-graph model)))
 
   ;; Export the contents of the db
   (export-db! "resources/dannet.ttl" dannet)
 
   ;; Querying DanNet for various synonyms
-  (synonyms dannet "vand")
-  (synonyms dannet "sild")
-  (synonyms dannet "hoved")
-  (synonyms dannet "bil")
+  (synonyms graph "vand")
+  (synonyms graph "sild")
+  (synonyms graph "hoved")
+  (synonyms graph "bil")
+  (synonyms graph "ord")
 
-  (take 30 (igraph/subjects ig))
+  ;; Working replacement for igraph/subjects
+  (defn subjects
+    [jena-model]
+    (->> (.listSubjects jena-model)
+         (iterator-seq)
+         (map ont-app.igraph-jena.core/interpret-binding-element)
+         #_(lazy-seq)))
+
+  ;; Also works dataset and graph, despite accessing the model object.
+  (q/transact graph
+    (take 10 (subjects model)))
+  (q/transact model
+    (take 10 (subjects model)))
+  (q/transact dataset
+    (take 10 (subjects model)))
+
+  ;; TODO: doesn't work, TDBTransactionException: Not in a transaction
+  (q/transact model
+     (take 10 (igraph/subjects model)))
 
   ;; Look up "citron" using igraph
-  (-> (ig :dn/word-11007846)
-      (igraph/flatten-description))
+  (q/transact model
+    (-> (ig :dn/word-11007846)
+        (igraph/flatten-description)))
 
-  ;; Find all hypernyms of a Synset in the graph ("birkes").
-  ;; Note: contains two separate paths!
+  ;; Find all hypernyms of a Synset in the graph ("birkes"; note: two paths).
+  ;; Laziness and threading macros doesn't work well Jena transactions, so be
+  ;; sure to transact database-accessing code while leaving out post-processing.
   (let [hypernym (igraph/transitive-closure :wn/hypernym)]
-    (->> (igraph/traverse ig hypernym {} [] [:dn/synset-999])
-         (map ig)
+    (->> (q/transact model
+           (->> (igraph/traverse ig hypernym {} [] [:dn/synset-999])))
+         (map #(q/transact model (ig %)))
          (map :rdfs/label)
          (map first)))
   #_.)

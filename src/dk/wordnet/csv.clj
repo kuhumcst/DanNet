@@ -30,7 +30,9 @@
 ;; TODO: get this approved
 (defn lexical-form-uri
   [word-id form]
-  (keyword "dn" (str "form-" word-id "-" (str/replace form #" " "_"))))
+  ;; Originally, spaces were replaced with "_" but this caused issues with Jena
+  ;; - specifically, some encoding issue related to TDB - so now "+" is used.
+  (keyword "dn" (str "form-" word-id "-" (str/replace form #" " "+"))))
 
 ;; Note: a single "used_for_qualby" rel exists in the dataset - likely an error
 ;; https://github.com/globalwordnet/schemas
