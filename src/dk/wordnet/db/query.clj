@@ -1,4 +1,4 @@
-(ns dk.wordnet.db.queries
+(ns dk.wordnet.db.query
   "Various pre-compiled Aristotle queries."
   (:require [arachne.aristotle.query :as q]
             [arachne.aristotle.registry :as reg]
@@ -20,6 +20,10 @@
 ;; TODO: use new DanNet namespaces instead
 (register-prefix 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
 (register-prefix 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
+
+(defn run
+  [{:keys [graph]} & remaining-args]
+  (apply q/run graph remaining-args))
 
 (def synonyms
   (q/build
