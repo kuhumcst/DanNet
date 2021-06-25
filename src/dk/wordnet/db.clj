@@ -1,4 +1,5 @@
 (ns dk.wordnet.db
+  "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
             [arachne.aristotle :as aristotle]
             [ont-app.igraph-jena.core :as igraph-jena]
@@ -8,22 +9,33 @@
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.graph Graph]
            [org.apache.jena.tdb TDBFactory]
+           [org.apache.jena.tdb2 TDB2Factory]
            [org.apache.jena.rdf.model ModelFactory]))
 
 (defn ->dannet
-  "Create a Jena database based on the DanNet 2.2 `csv-imports`. If a `tdb-path`
-  is supplied, will make use of a persistent TDB 1 instance.
+  "Create a Jena graph from DanNet 2.2 `imports`, a `db-type`, and a `db-path`.
 
-  The returned database uses the new GWA relations rather than the old ones."
-  [& {:keys [csv-imports tdb-path]}]
-  (let [imports      (vals csv-imports)
+   The `db-path` is optional. If supplied, the data is persisted inside TDB.
+   Both :tdb1 and :tdb2 are supported. TDB 1 does not require transactions until
+   after the first transaction has taken place, while TDB 2 *always* requires
+   transactions when reading from or writing to the database.
+
+  The returned graph uses the new GWA relations rather than the old ones."
+  [& {:keys [imports db-path db-type]
+      :or   {db-type :graph-mem}}]
+  (let [imports      (vals imports)
         read-triples #(->> (dn-csv/read-triples %1 %2)
                            (remove nil?)
                            (remove dn-csv/unmapped?))
         add-triples  (fn [g [row->triples file]]
-                       (aristotle/add g (read-triples row->triples file)))]
-    (if tdb-path
-      (let [dataset (TDBFactory/createDataset ^String tdb-path)
+                       (if (= db-type :tdb2)
+                         (q/transact g
+                           (aristotle/add g (read-triples row->triples file)))
+                         (aristotle/add g (read-triples row->triples file))))]
+    (if db-path
+      (let [dataset (case db-type
+                      :tdb1 (TDBFactory/createDataset ^String db-path)
+                      :tdb2 (TDB2Factory/connectDataset ^String db-path))
             model   (.getDefaultModel dataset)
             graph   (reduce add-triples (.getGraph model) imports)]
         {:dataset dataset
@@ -53,19 +65,24 @@
 (comment
   (type (:graph dannet))                                    ; Check graph type
 
+  ;; Create a new in-memory DanNet from the CSV imports.
+  (def dannet (->dannet :imports dn-csv/csv-imports))
+
   ;; Load an existing TDB DanNet from disk.
-  (def dannet
-    (->dannet :tdb-path "resources/tdb"))
+  (def dannet (->dannet :db-path "resources/tdb1" :db-type :tdb1))
+  (def dannet (->dannet :db-path "resources/tdb2" :db-type :tdb2))
 
   ;; Create a new TDB1 DanNet from the CSV imports.
   (def dannet
     (->dannet
-      :csv-imports dn-csv/csv-imports
-      :tdb-path "resources/tdb"))
-
-  ;; Create a new in-memory DanNet from the CSV imports.
+      :imports dn-csv/csv-imports
+      :db-path "resources/tdb1"
+      :db-type :tdb1))
   (def dannet
-    (->dannet :csv-imports dn-csv/csv-imports))
+    (->dannet
+      :imports dn-csv/csv-imports
+      :db-path "resources/tdb2"
+      :db-type :tdb2))
 
   ;; Def everything used below.
   (do
@@ -104,8 +121,9 @@
     (take 10 (subjects model)))
 
   ;; TODO: doesn't work, TDBTransactionException: Not in a transaction
+  ;; https://github.com/ont-app/igraph-jena/issues/2
   (q/transact model
-     (take 10 (igraph/subjects model)))
+    (take 10 (igraph/subjects ig)))
 
   ;; Look up "citron" using igraph
   (q/transact model
