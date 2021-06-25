@@ -71,10 +71,10 @@ Roadmap
 _(subject to change)_
 
 * [x] Remap the dataset to adhere to [lemon-based RDF](https://globalwordnet.github.io/schemas/).
+* [x] Allow for persisting the database, probably using TDB
 * [ ] Export the full DanNet dataset as **CSV**
   - ... with some help from [DSL](https://dsl.dk/).
-* [ ] Fully represent the dataset within **Apache Jena**
-* [ ] Allow for persisting the database, probably using TDB
+  - [ ] Fully represent the exported data within **Apache Jena**
 * [ ] Develop a GUI for viewing and editing RDF graph data
   - Apache Jena Fuseki, possibly through Docker
   - Generic reagent component for editing triple-based graphs
