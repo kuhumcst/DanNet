@@ -60,6 +60,17 @@ To avoid this error, the JVM process should be run with the following JVM arg:
 -Djdk.xml.entityExpansionLimit=0
 ```
 
+### Memory usage
+The total memory usage of the resulting graph can be estimated using [clj-memory-meter](https://github.com/clojure-goes-fast/clj-memory-meter) which is available using the `:mm` Clojure CLI alias (defined in the `deps.edn` file).
+
+> Currently, the default OWL-enabled in-memory graph _without_ any forward-chaining inference in cache takes up **~500 MB**. After querying the graph for the triple `[:dn/word-11007846 ?p ?o]` to force more  triples to materialize, the total memory usage jumps to **~520 MB**.
+
+To be able to evaluate `(mm/measure graph)`, the JVM must be started with the following JVM option:
+
+```
+-Djdk.attach.allowAttachSelf
+```
+
 Querying DanNet
 ---------------
 The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).

@@ -7,6 +7,9 @@
     - eq_has_hyperonym: mapping to an old version of Princeton Wordnet
     - used_for_qualby:  not in use, just 1 full triple + 3 broken ones
 
+  Inverse relations are not explicitly created, but rather handled by way of
+  inference using a Jena OWL reasoner.
+
   See: https://www.w3.org/2016/05/ontolex"
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
@@ -115,7 +118,6 @@
         [synset :dns/ontologicalType ontological-type]
         [synset :rdf/type :ontolex/LexicalConcept]})))
 
-;; TODO: generate reverse relations?
 ;; TODO: inheritance comment currently ignored - what to do?
 (defn ->relation-triples
   "Convert a `row` from 'relations.csv' to triples.
@@ -145,8 +147,10 @@
         [word :rdfs/label form]
         [word :ontolex/canonicalForm lexical-form]
         [word :lexinfo/partOfSpeech pos]
-        [word :rdf/type :ontolex/lexicalEntry]
-        [word :rdf/type (form->lexical-entry form)]})))
+        [word :rdf/type (form->lexical-entry form)]
+
+        ;; This is inferred by the subclass provided by form->lexical-entry
+        #_[word :rdf/type :ontolex/LexicalEntry]})))
 
 (defn ->wordsense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
@@ -156,20 +160,20 @@
           word      (word-uri word-id)
           synset    (synset-uri synset-id)]
       #{[wordsense :rdf/type :ontolex/LexicalSense]
-        [wordsense :ontolex/isLexicalizedSenseOf synset]
-        [wordsense :ontolex/isSenseOf word]
-
         [word :ontolex/evokes synset]
         [word :ontolex/sense wordsense]
+        [synset :ontolex/lexicalizedSense wordsense]
 
-        [synset :ontolex/isEvokedBy word]
-        [synset :ontolex/lexicalizedSense wordsense]})))
+        ;; Inverse relations (handled by OWL inference instead)
+        #_[synset :ontolex/isEvokedBy word]
+        #_[wordsense :ontolex/isSenseOf word]
+        #_[wordsense :ontolex/isLexicalizedSenseOf synset]})))
 
 (defn unmapped?
   [triples]
   (some (comp string? second) triples))
 
-(def csv-imports
+(def imports
   {:synsets    [->synset-triples (io/resource "dannet/csv/synsets.csv")]
    :relations  [->relation-triples (io/resource "dannet/csv/relations.csv")]
    :words      [->word-triples (io/resource "dannet/csv/words.csv")]

@@ -57,5 +57,7 @@ Since RDF triples constitute a directed graph, this graph can be queried program
 
 One way to do this is by invoking the [igraph](https://github.com/kuhumcst/DanNet/tree/feature/igraph) Clojure library which has [Apache Jena integration](https://github.com/ont-app/igraph-jena). An example traversal of the transitive closure of hyponyms can be found in the `dk.wordnet.prototypes.igraph` namespace.
 
+> Note that currently some functions available in igraph don't work well with models that perform triple inferencing, e.g. OWL-enabled graphs. They are too slow (in the realm of several minutes) for any production application to use them.
+
 ### Relevant links
 * [The traversal section of the igraph README](https://github.com/ont-app/igraph#Traversal)

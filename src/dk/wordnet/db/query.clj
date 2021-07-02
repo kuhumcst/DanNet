@@ -1,6 +1,7 @@
 (ns dk.wordnet.db.query
   "Various pre-compiled Aristotle queries."
-  (:require [arachne.aristotle.query :as q]
+  (:require [clojure.string :as str]
+            [arachne.aristotle.query :as q]
             [arachne.aristotle.registry :as reg]
             [ont-app.vocabulary.core :as voc])
   (:import [org.apache.jena.rdf.model Model]
@@ -8,6 +9,16 @@
            [org.apache.jena.sparql.core Transactional]
            [org.apache.jena.graph Graph]
            [java.util.function Supplier]))
+
+(def schemas
+  {'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
+             :alt "https://raw.githubusercontent.com/globalwordnet/schemas/master/wn-lemon-1.1.rdf"}
+   'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
+   'lemon   {:uri "http://lemon-model.net/lemon#"}
+   'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"}
+   'skos    {:uri "http://www.w3.org/2004/02/skos#"
+             :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
+   'lexinfo {:uri "http://www.lexinfo.net/ontology/2.0/lexinfo#"}})
 
 (defn register-prefix
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
@@ -18,10 +29,9 @@
       (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
                                    :vann/preferredNamespaceUri    uri}))))
 
-(register-prefix 'wn "https://globalwordnet.github.io/schemas/wn#")
-(register-prefix 'ontolex "http://www.w3.org/ns/lemon/ontolex#")
-(register-prefix 'skos "http://www.w3.org/2004/02/skos#")
-(register-prefix 'lexinfo "http://www.lexinfo.net/ontology/2.0/lexinfo#")
+(doseq [[ns-prefix {:keys [uri]}] schemas]
+  (register-prefix ns-prefix uri))
+
 ;; TODO: use new DanNet namespaces instead
 (register-prefix 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
 (register-prefix 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
@@ -53,6 +63,22 @@
   (let [g (gensym)]
     `(let [~g ~db]
        (do-transaction! ~g #(do ~@body)))))
+
+(defn anonymous?
+  [resource]
+  (and (symbol? resource)
+       (str/starts-with? resource "_")))
+
+(defn only-uris
+  "Exclude anonymous resource `results`, optionally keyed under `k`.
+
+  The OWL reasoner produces a bunch of triples with anonymous resources in the
+  object position. This is a way to remove these triples from the results of an
+  Aristotle query."
+  ([k results]
+   (remove (comp anonymous? k) results))
+  ([results]
+   (remove (comp #(some anonymous? %) vals) results)))
 
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed."
