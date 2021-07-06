@@ -102,6 +102,13 @@
        (apply concat)
        (remove #{lemma})))
 
+(defn registers
+  "Return all register values found in Graph `g`."
+  [g]
+  (->> (q/run g '[?register] q/registers)
+       (apply concat)
+       (sort)))
+
 (comment
   (type (:graph dannet))                                    ; Check graph type
 
@@ -219,4 +226,7 @@
   ;; See: https://github.com/clojure-goes-fast/clj-memory-meter#usage
   (require '[clj-memory-meter.core :as mm])
   (mm/measure graph)
+
+  ;; List all register values in db; helpful when extending ->register-triples.
+  (registers graph)
   #_.)

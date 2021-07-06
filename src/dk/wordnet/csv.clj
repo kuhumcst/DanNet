@@ -23,9 +23,9 @@
   [id]
   (keyword "dn" (str "word-" id)))
 
-(defn wordsense-uri
+(defn sense-uri
   [id]
-  (keyword "dn" (str "wordsense-" id)))
+  (keyword "dn" (str "sense-" id)))
 
 (def brug
   #"\s*\(Brug: \"(.+)\"")
@@ -152,32 +152,53 @@
         ;; This is inferred by the subclass provided by form->lexical-entry
         #_[word :rdf/type :ontolex/LexicalEntry]})))
 
-(defn ->wordsense-triples
-  "Convert a `row` from 'wordsenses.csv' to triples."
-  [[wordsense-id word-id synset-id register :as row]]
-  (when (= (count row) 5)
-    (let [wordsense (wordsense-uri wordsense-id)
-          word      (word-uri word-id)
-          synset    (synset-uri synset-id)]
-      #{[wordsense :rdf/type :ontolex/LexicalSense]
-        [word :ontolex/evokes synset]
-        [word :ontolex/sense wordsense]
-        [synset :ontolex/lexicalizedSense wordsense]
+(defn- ->register-triples
+  "Convert the `register` of a `sense` to appropriate triples."
+  [sense register]
+  (if (empty? register)
+    #{}
+    (let [blank-node (symbol (str "_" (name sense) "-register"))]
+      ;; TODO: :lexinfo/usageNote or :ontolex/usage?
+      (cond-> #{[sense :lexinfo/usageNote blank-node]
+                [blank-node :rdf/value register]}
 
-        ;; Inverse relations (handled by OWL inference instead)
-        #_[synset :ontolex/isEvokedBy word]
-        #_[wordsense :ontolex/isSenseOf word]
-        #_[wordsense :ontolex/isLexicalizedSenseOf synset]})))
+        (re-find #"gl." register)
+        (conj [sense :lexinfo/dating :lexinfo/old])
+
+        (re-find #"sj." register)
+        (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
+
+        (re-find #"slang" register)
+        (conj [sense :lexinfo/register :lexinfo/slangRegister])))))
+
+(defn ->sense-triples
+  "Convert a `row` from 'wordsenses.csv' to triples."
+  [[sense-id word-id synset-id register :as row]]
+  (when (= (count row) 5)
+    (let [sense  (sense-uri sense-id)
+          word   (word-uri word-id)
+          synset (synset-uri synset-id)]
+      (merge
+        (->register-triples sense register)
+        #{[sense :rdf/type :ontolex/LexicalSense]
+          [word :ontolex/evokes synset]
+          [word :ontolex/sense sense]
+          [synset :ontolex/lexicalizedSense sense]
+
+          ;; Inverse relations (handled by OWL inference instead)
+          #_[synset :ontolex/isEvokedBy word]
+          #_[sense :ontolex/isSenseOf word]
+          #_[sense :ontolex/isLexicalizedSenseOf synset]}))))
 
 (defn unmapped?
   [triples]
   (some (comp string? second) triples))
 
 (def imports
-  {:synsets    [->synset-triples (io/resource "dannet/csv/synsets.csv")]
-   :relations  [->relation-triples (io/resource "dannet/csv/relations.csv")]
-   :words      [->word-triples (io/resource "dannet/csv/words.csv")]
-   :wordsenses [->wordsense-triples (io/resource "dannet/csv/wordsenses.csv")]})
+  {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
+   :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
+   :words     [->word-triples (io/resource "dannet/csv/words.csv")]
+   :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
@@ -202,7 +223,7 @@
        (take 10))
 
   ;; Example Wordsenses
-  (->> (apply read-triples (resources :wordsenses))
+  (->> (apply read-triples (resources :senses))
        (take 10))
 
   ;; Example relations

@@ -95,3 +95,9 @@
       [?word* :ontolex/evokes ?synset]
       [?word* :ontolex/canonicalForm ?form*]
       [?form* :ontolex/writtenRep ?synonym]]))
+
+(def registers
+  (q/build
+    '[:bgp
+      [?sense :lexinfo/usageNote ?blank-node]
+      [?blank-node :rdf/value ?register]]))
