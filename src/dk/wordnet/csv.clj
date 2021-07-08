@@ -11,7 +11,8 @@
   inference using a Jena OWL reasoner.
 
   See: https://www.w3.org/2016/05/ontolex"
-  (:require [clojure.java.io :as io]
+  (:require [clojure.set :as set]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]))
 
@@ -178,7 +179,7 @@
     (let [sense  (sense-uri sense-id)
           word   (word-uri word-id)
           synset (synset-uri synset-id)]
-      (merge
+      (set/union
         (->register-triples sense register)
         #{[sense :rdf/type :ontolex/LexicalSense]
           [word :ontolex/evokes synset]
