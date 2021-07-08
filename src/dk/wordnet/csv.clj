@@ -216,31 +216,31 @@
        (take 10))
 
   ;; Example Synsets
-  (->> (apply read-triples (resources :synsets))
+  (->> (apply read-triples (:synsets imports))
        (take 10))
 
   ;; Example Words
-  (->> (apply read-triples (resources :words))
+  (->> (apply read-triples (:words imports))
        (take 10))
 
   ;; Example Wordsenses
-  (->> (apply read-triples (resources :senses))
+  (->> (apply read-triples (:senses imports))
        (take 10))
 
   ;; Example relations
-  (->> (apply read-triples (resources :relations))
+  (->> (apply read-triples (:relations imports))
        (remove unmapped?)
        (take 10))
 
   ;; unconverted relations
-  (->> (apply read-triples (resources :relations))
+  (->> (apply read-triples (:relations imports))
        (map (comp second first))
        (filter string?)
        (into #{}))
 
   ;; Find instances of a specific relation
   (let [rel "used_for_qualby"]
-    (->> (read-triples ->relation-triples (resources :relations))
+    (->> (apply read-triples (:relations imports))
          (filter (comp (partial = rel) second first))
          (into #{})))
   #_.)
