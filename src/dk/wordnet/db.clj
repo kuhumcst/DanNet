@@ -1,6 +1,7 @@
 (ns dk.wordnet.db
   "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [arachne.aristotle :as aristotle]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
@@ -43,6 +44,25 @@
               (ModelFactory/createOntologyModel spec base)
               owl-uris))))
 
+(defn ->usage-triples
+  "Create usage triples from a DanNet `g` and the `usages` from 'imports'."
+  [g usages]
+  (for [[synset lemma] (keys usages)]
+    (let [results     (q/run g q/usage-targets {'?synset synset '?lemma lemma})
+          usage-str   (get usages [synset lemma])
+          blank-usage (symbol (str "_" (name lemma)
+                                   "-" (name synset)
+                                   "-usage"))]
+      (apply set/union (for [{:syms [?sense]} results]
+                         (when ?sense
+                           #{[?sense :ontolex/usage blank-usage]
+                             [blank-usage :rdf/value usage-str]}))))))
+
+(defn add-usages!
+  "Add `usages` from the 'imports' map to a DanNet `g`."
+  [g usages]
+  (reduce #(aristotle/add %1 %2) g (->usage-triples g usages)))
+
 (defn ->dannet
   "Create a Jena graph from DanNet 2.2 from an options map:
 
@@ -58,11 +78,14 @@
   The returned graph uses the new GWA relations rather than the old ones."
   [& {:keys [imports db-path db-type owl-uris]
       :or   {db-type :graph-mem}}]
-  (let [imports      (vals imports)
+  (let [input        (vals (dissoc imports :usages))
+        usages       (->> (:usages imports)
+                          (apply dn-csv/read-triples)
+                          (apply merge))
         read-triples #(->> (dn-csv/read-triples %1 %2)
                            (remove nil?)
                            (remove dn-csv/unmapped?))
-        add-triples  (fn [g [row->triples file]]
+        add-triples! (fn [g [row->triples file]]
                        (if (= db-type :tdb2)
                          (q/transact g
                            (aristotle/add g (read-triples row->triples file)))
@@ -72,16 +95,19 @@
                       :tdb1 (TDBFactory/createDataset ^String db-path)
                       :tdb2 (TDB2Factory/connectDataset ^String db-path))
             model   (.getDefaultModel dataset)
-            graph   (reduce add-triples (.getGraph model) imports)]
+            graph   (-> (reduce add-triples! (.getGraph model) input)
+                        (add-usages! usages))]
         {:dataset dataset
          :model   model
          :graph   graph})
       (if owl-uris
         (let [model (owl-model owl-uris)
-              graph (reduce add-triples (.getGraph model) imports)]
+              graph (-> (reduce add-triples! (.getGraph model) input)
+                        (add-usages! usages))]
           {:model model
            :graph graph})
-        (let [graph (reduce add-triples (aristotle/graph :simple) imports)
+        (let [graph (-> (reduce add-triples! (aristotle/graph :simple) input)
+                        (add-usages! usages))
               model (ModelFactory/createModelForGraph graph)]
           {:model model
            :graph graph})))))
@@ -220,6 +246,10 @@
       {?p :rdf/type, ?o :semowl/Expression}
       {?p :rdf/type, ?o :lemon/LemonElement}
       {?p :rdf/type, ?o :rdfs/Resource}}
+
+  ;; Test retrieval of usages
+  (q/run graph q/usages '{?sense :dn/sense-21011843})
+  (q/run graph q/usages '{?sense :dn/sense-21011111})
 
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.
   ;; The JVM must be run with the JVM option '-Djdk.attach.allowAttachSelf'.

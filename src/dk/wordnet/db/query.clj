@@ -101,3 +101,19 @@
     '[:bgp
       [?sense :lexinfo/usageNote ?blank-node]
       [?blank-node :rdf/value ?register]]))
+
+(def usage-targets
+  "Used during initial graph creation to attach usages to senses."
+  (q/build
+    '[:bgp
+      [?word :ontolex/evokes ?synset]
+      [?word :ontolex/canonicalForm ?form]
+      [?form :ontolex/writtenRep ?lemma]
+      [?word :ontolex/sense ?sense]
+      [?synset :ontolex/lexicalizedSense ?sense]]))
+
+(def usages
+  (q/build
+    '[:bgp
+      [?sense :ontolex/usage ?usage]
+      [?usage :rdf/value ?usage-str]]))

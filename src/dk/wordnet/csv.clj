@@ -88,26 +88,28 @@
 
     :else :ontolex/Word))
 
-(defn determine-usage-word
+;; This is an imperfect method of mapping usages to senses, since the tokens of
+;; the example sentences have not been lemmatised. It would be preferable to get
+;; the full set of usage sentences mapped correctly to senses by DSL.
+(defn determine-usage-token
   "Given a `label` from the synsets.csv file and an example `usage`,
   determine which of the words in the label the example pertains to."
   [label usage]
   (let [usage* (str/lower-case usage)
-        label* (str/lower-case label)
-        words  (map str/trim (re-seq #"[-æøå a-z]+" label*))]
-    (loop [[word & rem-words] words]
-      (when word
-        (if (str/includes? usage* word)
-          word
-          (recur rem-words))))))
+        label* (str/lower-case label)]
+    (loop [[token & tokens] (map str/trim (re-seq #"[-æøå a-z]+" label*))]
+      (when token
+        (if (str/includes? usage* token)
+          token
+          (recur tokens))))))
 
-(defn ->synset-usages
+(defn usages
   "Convert a `row` from 'synsets.csv' to usage key-value pairs."
   [[synset-id label gloss _ :as row]]
   (when-let [[_ usage-str] (re-find brug gloss)]
-    (for [usage (str/split usage-str #" \|\| |\"; \"")]
-      (when-let [word (determine-usage-word label usage)]
-        [(synset-uri synset-id) word usage]))))
+    (into {} (for [usage (str/split usage-str #" \|\| |\"; \"")]
+               (when-let [token (determine-usage-token label usage)]
+                 [[(synset-uri synset-id) token] usage])))))
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
@@ -199,7 +201,11 @@
   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
-   :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]})
+   :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
+
+   ;; Usages are a special case - these are not actual RDF triples!
+   ;; Need to query the resulting graph to generate the real usage triples.
+   :usages    [usages (io/resource "dannet/csv/synsets.csv")]})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
@@ -210,11 +216,6 @@
          (doall))))
 
 (comment
-  ;; Example usages
-  (->> (read-triples ->synset-usages (io/resource "dannet/csv/synsets.csv"))
-       (remove nil?)
-       (take 10))
-
   ;; Example Synsets
   (->> (apply read-triples (:synsets imports))
        (take 10))
