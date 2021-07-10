@@ -32,6 +32,7 @@ Although the algebraic form is mapped directly to Java classes in Apache Jena, t
 * [Convert SPARQL to SPARQL Algebra](http://sparql.org/query-validator.html)
 * [W3C document on SPARQL Algebra](https://www.w3.org/2011/09/SparqlAlgebra/ARQalgebra)
 * [Jena tutorial on SPARQL Algebra](https://jena.apache.org/documentation/query/manipulating_sparql_using_arq.html)
+* [SPARQL S-Expressions](https://jena.apache.org/documentation/notes/sse.html)
 
 Aristotle queries
 -----------------
