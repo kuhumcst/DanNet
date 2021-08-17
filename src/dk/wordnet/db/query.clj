@@ -39,30 +39,45 @@
 (defn do-transaction!
   "Runs `f` as a transaction inside `db` which may be a Graph, Model, or
   Transactional (e.g. Dataset)."
-  [db f]
-  (let [supplier (reify Supplier (get [_] (f)))]
+  [db f & {:keys [return?]}]
+  (let [action (if return?
+                 (reify Supplier (get [_] (f)))
+                 (reify Runnable (run [_] (f))))]
     (cond
       (instance? Graph db)
       (let [handler (.getTransactionHandler db)]
         (if (.transactionsSupported handler)
-          (.calculate handler supplier)
+          (if return?
+            (.calculate handler action)
+            (.execute handler action))
           (f)))
 
       (instance? Model db)
       (if (.supportsTransactions db)
-        (.calculateInTxn db supplier)
+        (if return?
+          (.calculateInTxn db action)
+          (.executeInTxn db action))
         (f))
 
       ;; Dataset implements the Transactional interface and is covered here.
       (instance? Transactional db)
-      (Txn/calculate db supplier))))
+      (if return?
+        (Txn/calculate db action)
+        (Txn/execute db action)))))
 
 (defmacro transact
-  "Transact `body` within `db`."
+  "Transact `body` within `db`. Does not return the result."
   [db & body]
   (let [g (gensym)]
     `(let [~g ~db]
        (do-transaction! ~g #(do ~@body)))))
+
+(defmacro transact-return
+  "Transact `body` within `db` and return the result. Use with queries."
+  [db & body]
+  (let [g (gensym)]
+    `(let [~g ~db]
+       (do-transaction! ~g #(do ~@body) :return? true))))
 
 (defn anonymous?
   [resource]
@@ -83,7 +98,7 @@
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed."
   [g & remaining-args]
-  (transact g
+  (transact-return g
     (apply q/run g remaining-args)))
 
 (def synonyms
