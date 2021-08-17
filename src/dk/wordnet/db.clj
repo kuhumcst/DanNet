@@ -9,10 +9,10 @@
             [dk.wordnet.db.query :as q])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.ontology OntModel OntModelSpec]
-           [org.apache.jena.graph Graph]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.rdf.model ModelFactory]))
+           [org.apache.jena.rdf.model ModelFactory Model]
+           [org.apache.jena.query Dataset]))
 
 (def owl-uris
   "URIs where relevant OWL schemas can be fetched."
@@ -97,7 +97,7 @@
       (let [dataset (case db-type
                       :tdb1 (TDBFactory/createDataset ^String db-path)
                       :tdb2 (TDB2Factory/connectDataset ^String db-path))
-            model   (.getDefaultModel dataset)
+            model   (.getDefaultModel ^Dataset dataset)
             graph   (if imports
                       (add-imports! (.getGraph model))
                       (.getGraph model))]
@@ -114,14 +114,23 @@
           {:model model
            :graph graph})))))
 
-;; TODO: exported resources need to be namespaced
-;; TODO: RDFXML export causes OutOfMemoryError - investigate
-;; https://jena.apache.org/documentation/io/rdf-output.html
+(defn add-registry-prefixes!
+  "Adds the prefixes from the Aristotle registry to the `model`."
+  [model]
+  (doseq [[prefix m] (:prefixes arachne.aristotle.registry/*registry*)]
+    (.setNsPrefix ^Model model prefix (:arachne.aristotle.registry/= m))))
+
 (defn export-db!
-  "Export the `db` to the file with the given `filename`."
-  [filename {:keys [graph] :as db} & {:keys [fmt]
+  "Export the `db` to the file with the given `filename`. Defaults to Turtle.
+  The current prefixes in the Aristotle registry are used for the output.
+
+  See: https://jena.apache.org/documentation/io/rdf-output.html"
+  [filename {:keys [model] :as db} & {:keys [fmt]
                                       :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (RDFDataMgr/write (io/output-stream filename) ^Graph graph ^RDFFormat fmt))
+  (q/transact model
+    (add-registry-prefixes! model)
+    (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
+    (.clearNsPrefixMap ^Model model)))
 
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."
