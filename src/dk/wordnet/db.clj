@@ -58,11 +58,6 @@
                            #{[?sense :ontolex/usage blank-usage]
                              [blank-usage :rdf/value usage-str]}))))))
 
-(defn add-usages!
-  "Add `usages` from the 'imports' map to a DanNet `g`."
-  [g usages]
-  (reduce #(aristotle/add %1 %2) g (->usage-triples g usages)))
-
 (defn ->dannet
   "Create a Jena graph from DanNet 2.2 from an options map:
 
@@ -79,35 +74,42 @@
   [& {:keys [imports db-path db-type owl-uris]
       :or   {db-type :graph-mem}}]
   (let [input        (vals (dissoc imports :usages))
-        usages       (->> (:usages imports)
-                          (apply dn-csv/read-triples)
-                          (apply merge))
+        usages       (when-let [raw-usages (:usages imports)]
+                       (->> (apply dn-csv/read-triples raw-usages)
+                            (apply merge)))
         read-triples #(->> (dn-csv/read-triples %1 %2)
                            (remove nil?)
                            (remove dn-csv/unmapped?))
         add-triples! (fn [g [row->triples file]]
-                       (if (= db-type :tdb2)
+                       (aristotle/add g (read-triples row->triples file)))
+        add-imports! (fn [g]
+                       (q/transact g
+                         (reduce add-triples! g input))
+
+                       ;; As ->usage-triples needs to read the graph to create
+                       ;; triples, it must be done after the write transaction.
+                       ;; Clojure's default laziness also has to be accounted
+                       ;; for before adding the
+                       (let [usage-triples (doall (->usage-triples g usages))]
                          (q/transact g
-                           (aristotle/add g (read-triples row->triples file)))
-                         (aristotle/add g (read-triples row->triples file))))]
+                           (aristotle/add g usage-triples))))]
     (if db-path
       (let [dataset (case db-type
                       :tdb1 (TDBFactory/createDataset ^String db-path)
                       :tdb2 (TDB2Factory/connectDataset ^String db-path))
             model   (.getDefaultModel dataset)
-            graph   (-> (reduce add-triples! (.getGraph model) input)
-                        (add-usages! usages))]
+            graph   (if imports
+                      (add-imports! (.getGraph model))
+                      (.getGraph model))]
         {:dataset dataset
          :model   model
          :graph   graph})
       (if owl-uris
         (let [model (owl-model owl-uris)
-              graph (-> (reduce add-triples! (.getGraph model) input)
-                        (add-usages! usages))]
+              graph (add-imports! (.getGraph model))]
           {:model model
            :graph graph})
-        (let [graph (-> (reduce add-triples! (aristotle/graph :simple) input)
-                        (add-usages! usages))
+        (let [graph (add-imports! (aristotle/graph :simple))
               model (ModelFactory/createModelForGraph graph)]
           {:model model
            :graph graph})))))
