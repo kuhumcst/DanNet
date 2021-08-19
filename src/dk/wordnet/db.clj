@@ -92,7 +92,11 @@
                        ;; for before adding the
                        (let [usage-triples (doall (->usage-triples g usages))]
                          (q/transact g
-                           (aristotle/add g usage-triples))))]
+                           (aristotle/add g usage-triples)))
+
+                       ;; Return object once mutations have been applied.
+                       g)]
+
     (if db-path
       (let [dataset (case db-type
                       :tdb1 (TDBFactory/createDataset ^String db-path)
@@ -203,11 +207,11 @@
          #_(lazy-seq)))
 
   ;; Also works dataset and graph, despite accessing the model object.
-  (q/transact graph
+  (q/transact-return graph
     (take 10 (subjects model)))
-  (q/transact model
+  (q/transact-return model
     (take 10 (subjects model)))
-  (q/transact dataset
+  (q/transact-return dataset
     (take 10 (subjects model)))
 
   ;; TODO: doesn't work, TDBTransactionException: Not in a transaction
