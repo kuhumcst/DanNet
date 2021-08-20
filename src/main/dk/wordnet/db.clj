@@ -6,7 +6,7 @@
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [dk.wordnet.csv :as dn-csv]
-            [dk.wordnet.db.query :as q])
+            [dk.wordnet.query :as q])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.ontology OntModel OntModelSpec]
            [org.apache.jena.tdb TDBFactory]

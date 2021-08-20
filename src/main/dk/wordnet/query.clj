@@ -1,4 +1,4 @@
-(ns dk.wordnet.db.query
+(ns dk.wordnet.query
   "Various pre-compiled Aristotle queries."
   (:require [clojure.string :as str]
             [arachne.aristotle.query :as q]
