@@ -136,6 +136,16 @@
     (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
     (.clearNsPrefixMap ^Model model)))
 
+;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
+(defn add!
+  "Add `content` to a `db`. The content can be a variety of things, including
+  another DanNet instance."
+  [{:keys [model] :as db} content]
+  (q/transact model
+    (.add model (if (map? content)
+                  (:model content)
+                  content))))
+
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."
   [g lemma]
