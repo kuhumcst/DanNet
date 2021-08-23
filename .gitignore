@@ -2,9 +2,14 @@
 .idea/
 .nrepl-port
 
-resources/
+resources/dannet
+resources/wordnet
+dannet.ttl
+
+classes/
 
 docker/neo4j/*.jar
 
 .cpcache
 .DS_Store
+

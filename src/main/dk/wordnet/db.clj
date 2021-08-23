@@ -8,19 +8,34 @@
             [dk.wordnet.csv :as dn-csv]
             [dk.wordnet.query :as q])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
-           [org.apache.jena.ontology OntModel OntModelSpec]
+           [org.apache.jena.ontology OntModel OntModelSpec ProfileRegistry]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
            [org.apache.jena.rdf.model ModelFactory Model]
-           [org.apache.jena.query Dataset]))
+           [org.apache.jena.query Dataset]
+           [org.apache.jena.reasoner ReasonerFactory]
+           [dk.wordnet DanNetReasoner]))
 
 (def owl-uris
   "URIs where relevant OWL schemas can be fetched."
   (for [{:keys [alt uri]} (vals q/schemas)]
     (or alt uri)))
 
-;; TODO: is OWL_MEM_MICRO_RULE_INF sufficient?
-;; TODO: inference for TDB models (need to reify a ModelMaker)
+;; NOTE: DanNetReasoner class must be precompiled: clj -X:compile-java
+(def reasoner-factory
+  (reify ReasonerFactory
+    (create [this configuration] (DanNetReasoner. this))
+    (getCapabilities [this] nil)
+    (getURI [this] "http://wordnet.dk/reasoners/DanNetReasoner")))
+
+;; Based on OntModelSpec/OWL_MEM_MICRO_RULE_INF
+(def ont-model-spec
+  (OntModelSpec.
+    (ModelFactory/createMemModelMaker)
+    nil
+    reasoner-factory
+    ProfileRegistry/OWL_LANG))
+
 ;; According to Dave Reynolds from the Apache Jena team, calling '.prepare' will
 ;; only compute the forward reasoning in advance, while the backward reasoning
 ;; will still run on-demand. In order to materialize every inferred triple,
@@ -35,7 +50,7 @@
   (let [prepare-fn  (or prepare-fn #(doto ^OntModel % (.prepare)))
         model-maker (ModelFactory/createMemModelMaker)
         base        (.createDefaultModel model-maker)
-        spec        (doto (OntModelSpec. OntModelSpec/OWL_MEM_MICRO_RULE_INF)
+        spec        (doto ont-model-spec
                       (.setBaseModelMaker model-maker)
                       (.setImportModelMaker model-maker))]
     (prepare-fn
@@ -169,19 +184,19 @@
   (def dannet (->dannet :imports dn-csv/imports))
 
   ;; Load an existing TDB DanNet from disk.
-  (def dannet (->dannet :db-path "resources/tdb1" :db-type :tdb1))
-  (def dannet (->dannet :db-path "resources/tdb2" :db-type :tdb2))
+  (def dannet (->dannet :db-path "resources/db/tdb1" :db-type :tdb1))
+  (def dannet (->dannet :db-path "resources/db/tdb2" :db-type :tdb2))
 
   ;; Create a new TDB DanNet from the CSV imports.
   (def dannet
     (->dannet
       :imports dn-csv/imports
-      :db-path "resources/tdb1"
+      :db-path "resources/db/tdb1"
       :db-type :tdb1))
   (def dannet
     (->dannet
       :imports dn-csv/imports
-      :db-path "resources/tdb2"
+      :db-path "resources/db/tdb2"
       :db-type :tdb2))
 
   ;; Def everything used below.
@@ -212,7 +227,6 @@
   (q/transact dataset
     (take 10 (igraph/subjects ig)))
 
-  ;; TODO: super slow with inferencing - fix
   ;; Look up "citron" using igraph
   (q/transact model
     (-> (ig :dn/word-11007846)
