@@ -209,7 +209,7 @@
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
-  [row->triples file]
+  [[row->triples file]]
   (with-open [reader (io/reader file :encoding "ISO-8859-1")]
     (->> (csv/read-csv reader :separator \@)
          (map row->triples)
@@ -217,31 +217,31 @@
 
 (comment
   ;; Example Synsets
-  (->> (apply read-triples (:synsets imports))
+  (->> (read-triples (:synsets imports))
        (take 10))
 
   ;; Example Words
-  (->> (apply read-triples (:words imports))
+  (->> (read-triples (:words imports))
        (take 10))
 
   ;; Example Wordsenses
-  (->> (apply read-triples (:senses imports))
+  (->> (read-triples (:senses imports))
        (take 10))
 
   ;; Example relations
-  (->> (apply read-triples (:relations imports))
+  (->> (read-triples (:relations imports))
        (remove unmapped?)
        (take 10))
 
   ;; unconverted relations
-  (->> (apply read-triples (:relations imports))
+  (->> (read-triples (:relations imports))
        (map (comp second first))
        (filter string?)
        (into #{}))
 
   ;; Find instances of a specific relation
   (let [rel "used_for_qualby"]
-    (->> (apply read-triples (:relations imports))
+    (->> (read-triples (:relations imports))
          (filter (comp (partial = rel) second first))
          (into #{})))
   #_.)

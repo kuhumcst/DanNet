@@ -58,8 +58,29 @@
                            #{[?sense :ontolex/usage blank-usage]
                              [blank-usage :rdf/value usage-str]}))))))
 
+(defn add-imports!
+  "Add `imports` from the old DanNet CSV files to a Jena Graph `g`."
+  [g imports]
+  (let [input  (vals (dissoc imports :usages))
+        usages (when-let [raw-usages (:usages imports)]
+                 (apply merge (dn-csv/read-triples raw-usages)))]
+    (q/transact-exec g
+      (->> (mapcat dn-csv/read-triples input)
+           (remove dn-csv/unmapped?)
+           (remove nil?)
+           (reduce aristotle/add g)))
+
+    ;; As ->usage-triples needs to read the graph to create
+    ;; triples, it must be done after the write transaction.
+    ;; Clojure's laziness also has to be accounted for.
+    (let [usage-triples (doall (->usage-triples g usages))]
+      (q/transact-exec g
+        (aristotle/add g usage-triples)))
+
+    g))
+
 (defn ->dannet
-  "Create a Jena graph from DanNet 2.2 from an options map:
+  "Create a Jena Graph from DanNet 2.2 imports based on the options:
 
     :imports  - DanNet CSV imports (kvs of ->triple fns and table data).
     :db-type  - Both :tdb1 and :tdb2 are supported.
@@ -70,53 +91,28 @@
    taken place, while TDB 2 *always* requires transactions when reading from or
    writing to the database.
 
-  The returned graph uses the new GWA relations rather than the old ones."
-  [& {:keys [imports db-path db-type owl-uris]
-      :or   {db-type :graph-mem}}]
-  (let [input        (vals (dissoc imports :usages))
-        usages       (when-let [raw-usages (:usages imports)]
-                       (->> (apply dn-csv/read-triples raw-usages)
-                            (apply merge)))
-        read-triples #(->> (dn-csv/read-triples %1 %2)
-                           (remove nil?)
-                           (remove dn-csv/unmapped?))
-        add-triples! (fn [g [row->triples file]]
-                       (aristotle/add g (read-triples row->triples file)))
-        add-imports! (fn [g]
-                       (q/transact-exec g
-                         (reduce add-triples! g input))
-
-                       ;; As ->usage-triples needs to read the graph to create
-                       ;; triples, it must be done after the write transaction.
-                       ;; Clojure's default laziness also has to be accounted
-                       ;; for before adding the
-                       (let [usage-triples (doall (->usage-triples g usages))]
-                         (q/transact-exec g
-                           (aristotle/add g usage-triples)))
-
-                       ;; Return object once mutations have been applied.
-                       g)]
-
-    (if db-path
-      (let [dataset (case db-type
-                      :tdb1 (TDBFactory/createDataset ^String db-path)
-                      :tdb2 (TDB2Factory/connectDataset ^String db-path))
-            model   (.getDefaultModel ^Dataset dataset)
-            graph   (if imports
-                      (add-imports! (.getGraph model))
-                      (.getGraph model))]
-        {:dataset dataset
-         :model   model
-         :graph   graph})
-      (if owl-uris
-        (let [model (owl-model owl-uris)
-              graph (add-imports! (.getGraph model))]
-          {:model model
-           :graph graph})
-        (let [graph (add-imports! (aristotle/graph :simple))
-              model (ModelFactory/createModelForGraph graph)]
-          {:model model
-           :graph graph})))))
+  The returned graph uses the GWA relations within the framework of Ontolex."
+  [& {:keys [imports db-path db-type owl-uris]}]
+  (if db-path
+    (let [dataset (case db-type
+                    :tdb1 (TDBFactory/createDataset ^String db-path)
+                    :tdb2 (TDB2Factory/connectDataset ^String db-path))
+          model   (.getDefaultModel ^Dataset dataset)
+          graph   (if imports
+                    (add-imports! (.getGraph model) imports)
+                    (.getGraph model))]
+      {:dataset dataset
+       :model   model
+       :graph   graph})
+    (if owl-uris
+      (let [model (owl-model owl-uris)
+            graph (add-imports! (.getGraph model) imports)]
+        {:model model
+         :graph graph})
+      (let [graph (add-imports! (aristotle/graph :simple) imports)
+            model (ModelFactory/createModelForGraph graph)]
+        {:model model
+         :graph graph}))))
 
 (defn add-registry-prefixes!
   "Adds the prefixes from the Aristotle registry to the `model`."
