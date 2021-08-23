@@ -29,7 +29,8 @@
     (getURI [this] "http://wordnet.dk/reasoners/DanNetReasoner")))
 
 ;; Based on OntModelSpec/OWL_MEM_MICRO_RULE_INF
-(def ont-model-spec
+(defn ->ont-model-spec
+  []
   (OntModelSpec.
     (ModelFactory/createMemModelMaker)
     nil
@@ -50,7 +51,7 @@
   (let [prepare-fn  (or prepare-fn #(doto ^OntModel % (.prepare)))
         model-maker (ModelFactory/createMemModelMaker)
         base        (.createDefaultModel model-maker)
-        spec        (doto ont-model-spec
+        spec        (doto (->ont-model-spec)
                       (.setBaseModelMaker model-maker)
                       (.setImportModelMaker model-maker))]
     (prepare-fn
