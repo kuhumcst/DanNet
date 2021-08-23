@@ -83,7 +83,7 @@
         add-triples! (fn [g [row->triples file]]
                        (aristotle/add g (read-triples row->triples file)))
         add-imports! (fn [g]
-                       (q/transact g
+                       (q/transact-exec g
                          (reduce add-triples! g input))
 
                        ;; As ->usage-triples needs to read the graph to create
@@ -91,7 +91,7 @@
                        ;; Clojure's default laziness also has to be accounted
                        ;; for before adding the
                        (let [usage-triples (doall (->usage-triples g usages))]
-                         (q/transact g
+                         (q/transact-exec g
                            (aristotle/add g usage-triples)))
 
                        ;; Return object once mutations have been applied.
@@ -131,7 +131,7 @@
   See: https://jena.apache.org/documentation/io/rdf-output.html"
   [filename {:keys [model] :as db} & {:keys [fmt]
                                       :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (q/transact model
+  (q/transact-exec model
     (add-registry-prefixes! model)
     (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
     (.clearNsPrefixMap ^Model model)))
@@ -141,7 +141,7 @@
   "Add `content` to a `db`. The content can be a variety of things, including
   another DanNet instance."
   [{:keys [model] :as db} content]
-  (q/transact model
+  (q/transact-exec model
     (.add model (if (map? content)
                   (:model content)
                   content))))
@@ -208,25 +208,12 @@
   (synonyms graph "bil")
   (synonyms graph "ord")
 
-  ;; Working replacement for igraph/subjects
-  (defn subjects
-    [jena-model]
-    (->> (.listSubjects jena-model)
-         (iterator-seq)
-         (map ont-app.igraph-jena.core/interpret-binding-element)
-         #_(lazy-seq)))
-
   ;; Also works dataset and graph, despite accessing the model object.
-  (q/transact-return graph
-    (take 10 (subjects model)))
-  (q/transact-return model
-    (take 10 (subjects model)))
-  (q/transact-return dataset
-    (take 10 (subjects model)))
-
-  ;; TODO: doesn't work, TDBTransactionException: Not in a transaction
-  ;; https://github.com/ont-app/igraph-jena/issues/2
+  (q/transact graph
+    (take 10 (igraph/subjects ig)))
   (q/transact model
+    (take 10 (igraph/subjects ig)))
+  (q/transact dataset
     (take 10 (igraph/subjects ig)))
 
   ;; TODO: super slow with inferencing - fix
@@ -240,7 +227,7 @@
   ;; sure to transact database-accessing code while leaving out post-processing.
   (let [hypernym (igraph/transitive-closure :wn/hypernym)]
     (->> (q/transact model
-           (->> (igraph/traverse ig hypernym {} [] [:dn/synset-999])))
+           (igraph/traverse ig hypernym {} [] [:dn/synset-999]))
          (map #(q/transact model (ig %)))
          (map :rdfs/label)
          (map first)))

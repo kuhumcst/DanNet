@@ -1,10 +1,10 @@
 {:paths   ["src/main" "resources"]
  :deps    {arachne-framework/aristotle      {:git/url "https://github.com/arachne-framework/aristotle.git"
                                              :sha     "7b93e62abc45c82c75d5cf6c0ae2c0e21a233e81"}
-           ont-app/igraph-jena              {:mvn/version "0.1.0"}
+           ont-app/igraph-jena              {:mvn/version "0.1.1"}
 
-           ;; Keep aristotle jena deps in line with igraph-jena (3.4.0 -> 3.14.0)
-           org.apache.jena/apache-jena-libs {:mvn/version "3.14.0"
+           ;; Keep aristotle jena deps in line with igraph-jena (3.4.0 -> 3.17.0)
+           org.apache.jena/apache-jena-libs {:mvn/version "3.17.0"
                                              :extension   "pom"}
 
            org.clojure/data.csv             {:mvn/version "1.0.0"}

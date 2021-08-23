@@ -65,14 +65,14 @@
         (Txn/calculate db action)
         (Txn/execute db action)))))
 
-(defmacro transact
-  "Transact `body` within `db`. Does not return the result."
+(defmacro transact-exec
+  "Transact `body` within `db`. Only executes - does not return the result!"
   [db & body]
   (let [g (gensym)]
     `(let [~g ~db]
        (do-transaction! ~g #(do ~@body)))))
 
-(defmacro transact-return
+(defmacro transact
   "Transact `body` within `db` and return the result. Use with queries."
   [db & body]
   (let [g (gensym)]
@@ -98,7 +98,7 @@
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed."
   [g & remaining-args]
-  (transact-return g
+  (transact g
     (apply q/run g remaining-args)))
 
 (def synonyms
