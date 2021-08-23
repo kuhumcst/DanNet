@@ -138,19 +138,25 @@
           #{[subj rel* obj]}
           #{[subj rel obj-id]})))))
 
+;; TODO: investigate semantics of ' in input forms of multiword expressions
+;; TODO: how should definitions with slashes be handled? e.g. tales/snakkes ved
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
   [[word-id form pos :as row]]
   (when (= (count row) 4)
     (let [word         (word-uri word-id)
-          lexical-form (lexical-form-uri word-id form)]
-      #{[lexical-form :ontolex/writtenRep form]
+          rdf-type     (form->lexical-entry form)
+          form*        (if (= rdf-type :ontolex/MultiwordExpression)
+                         (str/replace form #"'" "")
+                         form)
+          lexical-form (lexical-form-uri word-id form*)]
+      #{[lexical-form :ontolex/writtenRep form*]
         [lexical-form :rdf/type :ontolex/Form]
 
-        [word :rdfs/label form]
+        [word :rdfs/label form*]
         [word :ontolex/canonicalForm lexical-form]
         [word :lexinfo/partOfSpeech pos]
-        [word :rdf/type (form->lexical-entry form)]
+        [word :rdf/type rdf-type]
 
         ;; This is inferred by the subclass provided by form->lexical-entry
         #_[word :rdf/type :ontolex/LexicalEntry]})))

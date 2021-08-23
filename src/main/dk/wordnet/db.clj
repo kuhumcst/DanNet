@@ -257,6 +257,21 @@
            '[:bgp
              [:dn/word-11007846 ?p ?o]]))
 
+  ;; Combining graph queries and regular Clojure data manipulation:
+  ;;   1. Fetch all multi-word expressions in the graph.
+  ;;   2. Fetch synonyms where applicable.
+  ;;   3. Create a mapping from multi-word expression to synonyms
+  (->> '[:bgp
+         [?word :rdf/type :ontolex/MultiwordExpression]
+         [?word :ontolex/canonicalForm ?form]
+         [?form :ontolex/writtenRep ?lemma]]
+       (q/run graph '[?lemma])
+       (apply concat)
+       (map (fn [lemma]
+              (when-let [synonyms (not-empty (synonyms graph lemma))]
+                [lemma synonyms])))
+       (into {}))
+
   ;; These triples were added as OWL inferences (excluding anonymous objects).
   ;; They are pretty much all redundant, solely existing as links to other
   ;; ontologies, e.g. lemon and semowl, or as meaningless roots like :owl/Thing.
