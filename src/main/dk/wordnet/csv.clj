@@ -111,6 +111,7 @@
                (when-let [token (determine-usage-token label usage)]
                  [[(synset-uri synset-id) token] usage])))))
 
+;; TODO: handle :skos/definition = "(ingen definition)", e.g. :dn/synset-51997
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
   [[synset-id label gloss ontological-type :as row]]
