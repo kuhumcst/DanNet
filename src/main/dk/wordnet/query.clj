@@ -2,6 +2,7 @@
   "Various pre-compiled Aristotle queries."
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
+            [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
             [arachne.aristotle.registry :as reg]
             [ont-app.vocabulary.core :as voc])
@@ -97,11 +98,69 @@
   ([results]
    (remove (comp #(some anonymous? %) vals) results)))
 
+(defn entity?
+  "Is `x` an RDF entity?"
+  [x]
+  (or (keyword? x)
+      (and (string? x)
+           (re-matches #"<.+>" x))))
+
+(declare entity)
+(declare run)
+
+(defn- nav-subjects
+  "Helper function for 'nav-meta'."
+  [g & subject-triples]
+  (->> (into [:bgp] subject-triples)
+       (run g)
+       (only-uris)
+       (mapcat vals)
+       (into #{})))
+
+(defn nav-meta
+  "Create metadata with a generalised Navigable implementation for a Graph `g`.
+
+  For RDF entities, returns the entity description as a map.
+  For literals, returns all the subjects of the same relation to the literal.
+  For one-to-many relations, returns all subjects with the same set of objects."
+  [g]
+  {`p/nav (fn [coll k v]
+            (cond
+              (entity? v)
+              (entity g v)
+
+              (set? v)
+              (with-meta (apply nav-subjects g (for [o v] [(gensym "?") k o]))
+                         (nav-meta g))
+
+              :else
+              (with-meta (nav-subjects g ['?s k v])
+                         (nav-meta g))))})
+
+(defn- set-nav-merge
+  "Helper function for merge-with in 'entity'."
+  [g]
+  (fn [v1 v2]
+    (if (set? v1)
+      (with-meta (conj v1 v2) (meta v1))
+      (vary-meta (hash-set v1 v2) merge (nav-meta g)))))
+
+(defn entity
+  "Return the entity description of `subject` in Graph `g`."
+  [g subject]
+  (when-let [e (->> (run g [:bgp [subject '?p '?o]])
+                    (only-uris)
+                    (map (comp (partial apply hash-map) (juxt '?p '?o)))
+                    (apply merge-with (set-nav-merge g)))]
+    (with-meta e (nav-meta g))))
+
 (defn run
-  "Wraps the 'run' function from Aristotle, providing transactions when needed."
+  "Wraps the 'run' function from Aristotle, providing transactions when needed.
+  The results are also made Navigable using for use with e.g. Reveal or REBL."
   [g & remaining-args]
-  (transact g
-    (apply q/run g remaining-args)))
+  (->> (transact g
+         (apply q/run g remaining-args))
+       (map #(vary-meta % merge (nav-meta g)))))
 
 (def synonyms
   (q/build
