@@ -1,6 +1,7 @@
 (ns dk.wordnet.query
   "Various pre-compiled Aristotle queries."
   (:require [clojure.string :as str]
+            [clojure.java.io :as io]
             [arachne.aristotle.query :as q]
             [arachne.aristotle.registry :as reg]
             [ont-app.vocabulary.core :as voc])
@@ -15,7 +16,8 @@
              :alt "https://raw.githubusercontent.com/globalwordnet/schemas/master/wn-lemon-1.1.rdf"}
    'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
    'lemon   {:uri "http://lemon-model.net/lemon#"}
-   'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"}
+   'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
+             :alt (str (io/resource "schemas/semiotics.owl"))}
    'skos    {:uri "http://www.w3.org/2004/02/skos/core#"
              :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
    'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"}})

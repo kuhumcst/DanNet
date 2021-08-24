@@ -1,0 +1,503 @@
+<?xml version="1.0"?>
+
+
+<!DOCTYPE rdf:RDF [
+    <!ENTITY owl "http://www.w3.org/2002/07/owl#" >
+    <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#" >
+    <!ENTITY rdfs "http://www.w3.org/2000/01/rdf-schema#" >
+    <!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#" >
+    <!ENTITY semiotics "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#" >
+    <!ENTITY agentrole "http://www.ontologydesignpatterns.org/cp/owl/agentrole.owl#" >
+    <!ENTITY situation "http://www.ontologydesignpatterns.org/cp/owl/situation.owl#" >
+    <!ENTITY cpannotationschema "http://www.ontologydesignpatterns.org/schemas/cpannotationschema.owl#" >
+]>
+
+
+<rdf:RDF xmlns="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
+     xml:base="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"
+     xmlns:semiotics="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
+     xmlns:agentrole="http://www.ontologydesignpatterns.org/cp/owl/agentrole.owl#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:cpannotationschema="http://www.ontologydesignpatterns.org/schemas/cpannotationschema.owl#"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:situation="http://www.ontologydesignpatterns.org/cp/owl/situation.owl#">
+    <owl:Ontology rdf:about="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl">
+        <owl:versionInfo rdf:datatype="&xsd;string">1.1
+- Revised, added OWL2 axioms, added annotations for ODP submission
+1.0
+- Created by Aldo Gangemi (2007)</owl:versionInfo>
+        <owl:versionInfo rdf:datatype="&xsd;string">1.1 added rdfs:isDefinedBy for all named entities</owl:versionInfo>
+        <rdfs:comment rdf:datatype="&rdf;PlainLiteral">A content ontology pattern that encodes a basic semiotic theory, by reusing the situation pattern.
+The basic classes are: Expression, Meaning, Reference (the semiotic triangle), LinguisticAct (for the pragmatics), and Agent.
+A linguistic act is said to be context for expressions, with their meanings and references, and agents involved.
+Based on this pattern, several specific linguistic acts, such as &#39;tagging&#39;, &#39;translating&#39;, &#39;defining&#39;, &#39;formalizing&#39;, etc. can be defined, so constituting a formal vocabulary for a pragmatic web.
+This pattern has been extracted from a larger reference ontology, LMM, which is used in conjunction with DOLCE+DnS (http://www.ontologydesignpatterns.org/ont/dul/DUL.owl), in order to provide a metamodel to Wordnet, Linked Open Data, natural language processing data, etc.</rdfs:comment>
+        <cpannotationschema:hasAuthor rdf:datatype="&rdf;PlainLiteral">Aldo Gangemi</cpannotationschema:hasAuthor>
+        <cpannotationschema:relatedCPs rdf:datatype="&rdf;PlainLiteral">IntensionExtension</cpannotationschema:relatedCPs>
+        <cpannotationschema:hasConsequences rdf:datatype="&rdf;PlainLiteral">We can represent meanings or references of expressions, the context in which they have been used (e.g. the agent who used them), their manifestation.
+It differs from intensionextension.owl, which is purely about meaning and reference of expressions.
+A property chain also allows to infer aboutness and meaning of manifestations, not only (immaterial) information objects.</cpannotationschema:hasConsequences>
+        <cpannotationschema:coversRequirements rdf:datatype="&rdf;PlainLiteral">What&#39;s the meaning of that expression?,What that expression is about?,Who said that, and what was it referring to?,In what contexts that expression means this?,How that expression, referring to a certain thing, has been manifested by whom?</cpannotationschema:coversRequirements>
+        <cpannotationschema:extractedFrom rdf:datatype="&rdf;PlainLiteral">http://www.ontologydesignpatterns.org/ont/lmm/LMM_L1.owl</cpannotationschema:extractedFrom>
+        <owl:imports rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/situation.owl"/>
+    </owl:Ontology>
+
+
+
+    <!--
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Annotation properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    <owl:AnnotationProperty rdf:about="&cpannotationschema;hasAuthor"/>
+    <owl:AnnotationProperty rdf:about="&owl;versionInfo"/>
+    <owl:AnnotationProperty rdf:about="&cpannotationschema;hasConsequences"/>
+    <owl:AnnotationProperty rdf:about="&cpannotationschema;extractedFrom"/>
+    <owl:AnnotationProperty rdf:about="&rdfs;isDefinedBy"/>
+    <owl:AnnotationProperty rdf:about="&cpannotationschema;coversRequirements"/>
+    <owl:AnnotationProperty rdf:about="&rdfs;label"/>
+    <owl:AnnotationProperty rdf:about="&rdfs;comment"/>
+    <owl:AnnotationProperty rdf:about="&cpannotationschema;relatedCPs"/>
+
+
+
+    <!--
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Object Properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#denotes -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;denotes">
+        <rdfs:label xml:lang="en">denotes</rdfs:label>
+        <rdfs:comment>A relation between expressions and anything (including expressions).
+It can be used to talk about e.g. entities denoted by proper nouns: the proper noun &#39;Leonardo da Vinci&#39; denotes the person Leonardo da Vinci; as well as to talk about sets of entities that can be described by a common noun: the common noun &#39;person&#39; denotes the collection of all persons in a domain of discourse. In OWL2, punning can be used to represent denotation of concept names with owl class extensions, e.g. &#39;mouse&#39; denotes owl:Class:Mouse.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:range rdf:resource="&semiotics;Reference"/>
+        <owl:propertyChainAxiom rdf:parseType="Collection">
+            <rdf:Description rdf:about="&semiotics;isManifestationOf"/>
+            <rdf:Description rdf:about="&semiotics;denotes"/>
+        </owl:propertyChainAxiom>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#expresses -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;expresses">
+        <rdfs:label xml:lang="en">expresses</rdfs:label>
+        <rdfs:label xml:lang="it">esprime</rdfs:label>
+        <rdfs:comment rdf:datatype="&xsd;string">A relation between an Expression and a Meaning. For example: &#39;A Beehive is a structure in which bees are kept, typically in the form of a dome or box.&#39; (Oxford dictionary)&#39;; &#39;the term Beehive expresses the concept Beehive in my apiculture ontology&#39;.
+The intuition for &#39;meaning&#39; is intended to be very broad. A separate, large comment is included for those who want to investigate more on what kind of meaning can be represented in what form.</rdfs:comment>
+        <rdfs:comment>This is a large comment field for those who want to investigate the different uses of the &#39;expresses&#39; relation for modeling different approaches to meaning characterization and modeling.
+For example, in all these cases, some aspect of meaning is involved:
+
+- Beehive means &quot;a structure in which bees are kept, typically in the form of a dome or box.&quot; (Oxford dictionary)
+- &#39;Beehive&#39; is a synonym in noun synset 09218159 &quot;beehive|hive&quot; (WordNet)
+- &#39;the term Beehive can be interpreted as the fact of &#39;being a beehive&#39;, i.e. a relation that holds for concepts such as Bee, Honey, Hosting, etc.&#39;
+- &#39;the text of Italian apiculture regulation expresses a rule by which beehives should be kept at least one kilometer away from inhabited areas&#39;
+- &#39;the term Beehive expresses the concept Beehive&#39;
+- &#39;&#39;Beehive&#39; for apiculturists does not express the same meaning as for, say, fishermen&#39;
+- &#39;Your meaning of &#39;Beautiful&#39; does not seem to fit mine&#39;
+- &#39;&#39;Beehive&#39; is formally interpreted as the set of all beehives&#39;
+- &#39;from the term &#39;Beehive&#39;, we can build a vector space of statistically significant cooccurring terms in the documents that contain it&#39;
+- the lexeme &#39;Belly&#39; expresses the role &#39;Body_Part&#39; in the frame &#39;ObservableBodyParts&#39; (FrameNet)
+
+As the examples suggest, the &#39;meaning of meaning&#39; is dependent on the background approach/theory that one assumes. One can hardly make a summary of the too many approaches and theories of meaning, therefore this relation is maybe the most controversial and difficult to explain; normally, in such cases it would be better to give up formalizing.
+However, the usefulness of having a &#39;semantic abstraction&#39; in modeling information objects is so high (e.g. for the semantic web, interoperability, reengineering, etc.), that we accept this challenging task, although without taking any particular position in the debate.
+We provide here some examples, which we want to generalize upon when using the &#39;expresses&#39; relation to model semantic aspects of social reality.
+
+In the most common approach, lexicographers that write dictionaries, glossaries, etc. assume that the meaning of a term is a paraphrase (or &#39;gloss&#39;, or &#39;definition&#39;).
+Another approach is provided by concept schemes like thesauri and lexicons, which assume that the meaning of a term is a &#39;concept&#39;, encoded as a &#39;lemma&#39;, &#39;synset&#39;, or &#39;descriptor&#39;.
+Still another approach is that of psychologists and cognitive scientists, which often assume that the meaning of an information object is a concept encoded in the mind or cognitive system of an agent.
+A radically different approach is taken by social scientists and semioticians, who usually assume that meanings of an information object are spread across the members of a community that use that object.
+Another approach that tackles the distributed nature of meaning is assumed by geometrical models of semantics, which assume that the meaning of an InformationObject (e.g. a word) results from the set of informational contexts (e.g. within texts) in which that object is used similarly.
+The logical approach to meaning is still different, since it assumes that the meaning of e.g. a term is equivalent to the set of individuals that the term can be applied to; for example, the meaning of &#39;Ali&#39; is e.g. an individual person called Ali, the meaning of &#39;Airplane&#39; is e.g. the set of airplanes, etc.
+Finally, an approach taken by structuralist linguistics and frame semantics is that a meaning is the relational context in which an information object can be applied; for example, a meaning of &#39;Airplane&#39; is situated e.g. in the context (&#39;frame&#39;) of passenger airline flights.
+
+These different approaches are not necessarily conflicting, and they mostly talk about different aspects of so-called &#39;semantics&#39;. They can be summarized and modelled as follows (notice that such list is far from exhaustive):
+
+(1) Informal meaning (as for linguistic or commonsense semantics: a distinction is assumed between (informal) meaning and reference
+	- Paraphrase meaning (as for lexicographic semantics). Here it is modelled as the expresses relation between instances of Expression and different instances of Expression that act as &#39;paraphrases&#39;
+	- Conceptual meaning (as for &#39;concept scheme&#39; semantics). Here it is modelled as the expresses relation between instances of Expression and instances of a concept (a kind of Meaning)
+	- Relational meaning (as for frame semantics). Here it is modelled as the expresses relation between instances of Expression and instances of a frame/relation (other kinds of Meaning)
+	- Cognitive meaning (as for &#39;psychological&#39; semantics). Here it is modelled as the expresses relation between any instance of Expression and any different instance of IExpression that isRealizedBy a mental, cognitive or neural state (depending on which theory of mind is assumed). Such states can be considered here as instances of processes (occurring in the mind, cognitive system, or neural system of an agent)
+	- Cultural meaning (as for &#39;social science&#39; semantics). Here it is modelled as the expresses relation between instances of Expression and instances of social objects (another kind of Meaning: institutions, cultural paradigms, norms, social practices, etc.)
+	- Distributional meaning (as for geometrical models of meaning). Here it is modelled as the expresses relation between any instance of Expression and any different instance of Expression that is formally representedIn some (geometrical) region (e.g. a vector space)
+
+(2) Formal meaning (as for logic and formal semantics: no distinction is assumed between informal meaning and reference, therefore between &#39;expresses&#39; and &#39;isAbout&#39;, which can be used interchangeably)
+	- Object-level formal meaning (as in the traditional first-order logic semantics). Here it is modelled as the expresses relation between an instance of Expression and an instance of a collection that is a grounding for (in most cases) a set
+
+This is only a first step to provide a framework, in which one can model different aspects of Meaning. A more developed ontology should approach the problem of integrating the different uses of &#39;expresses&#39;, so that different theories, resources, and methods can interoperate.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;Expression"/>
+        <rdfs:range rdf:resource="&semiotics;Meaning"/>
+        <rdfs:subPropertyOf rdf:resource="&semiotics;hasInterpretant"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#hasConceptualization -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;hasConceptualization">
+        <rdfs:label xml:lang="en">has conceptualization</rdfs:label>
+        <rdfs:comment>The relation between a Meaning and a Reference : a Meaning conceptualizes an entity or a collection of entities.
+A same Reference can be given different conceptualizations, for example, an old cradle can be given a unifying Meaning based on the original aesthetic design, the functionality it was built for, or a new aesthetic functionality in which it can be used as a flower pot. Example: myoldcradle hasConceptualization FlowerPot. In OWL2, punning can be used to use the intension of an OWL class as a meaning, e.g. myoldcradle hasConceptualization owl:Class:FlowerPot.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:range rdf:resource="&semiotics;Meaning"/>
+        <rdfs:domain rdf:resource="&semiotics;Reference"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#hasInterpretant -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;hasInterpretant">
+        <rdfs:label rdf:datatype="&xsd;string">has meaning</rdfs:label>
+        <rdfs:label xml:lang="en">has interpretant</rdfs:label>
+        <rdfs:comment>The Peircean interpretant relation, widely adopted in semiotics: an Expression isInterpretantFor another, e.g. fourLeggedFriendOfHumans isInterpretantFor dog.
+Synonymy, translation, associativity, and topical proximity are all sources for interpretants, e.g.: domestic dog isInterpretantFor dog (synonymy); cane isInterpretantFor dog (translation); bark isInterpretantFor dog (associativity); veterinary isInterpretantFor dog (topical proximity).
+Semantic mechanisms such as metonymy depend on the interpretant relation.
+The interpretant relation is here taken as very broad, also accepting Manifestation(s) as interpretants.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:range rdf:resource="&semiotics;Meaning"/>
+        <owl:inverseOf rdf:resource="&semiotics;isInterpretantFor"/>
+        <owl:propertyChainAxiom rdf:parseType="Collection">
+            <rdf:Description rdf:about="&semiotics;isManifestationOf"/>
+            <rdf:Description rdf:about="&semiotics;hasInterpretant"/>
+        </owl:propertyChainAxiom>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#hasManifestation -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;hasManifestation">
+        <rdfs:label>semiotics.owl#hasManifestation</rdfs:label>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:range rdf:resource="&semiotics;Manifestation"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#isConceptualizationOf -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;isConceptualizationOf">
+        <rdfs:label xml:lang="en">is conceptualization of</rdfs:label>
+        <rdfs:comment>The relation between a Meaning and a Reference : a Meaning conceptualizes an entity or a collection of entities.
+A same Reference can be given different conceptualizations, for example, an old cradle can be given a unifying Meaning based on the original aesthetic design, the functionality it was built for, or a new aesthetic functionality in which it can be used as a flower pot. Example: myoldcradle hasConceptualization FlowerPot. In OWL2, punning can be used to use the intension of an OWL class as a meaning, e.g. myoldcradle hasConceptualization owl:Class:FlowerPot.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;Meaning"/>
+        <rdfs:range rdf:resource="&semiotics;Reference"/>
+        <owl:inverseOf rdf:resource="&semiotics;hasConceptualization"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#isDenotedBy -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;isDenotedBy">
+        <rdfs:comment>A relation between expressions and anything (including expressions).
+It can be used to talk about e.g. entities denoted by proper nouns: the proper noun &#39;Leonardo da Vinci&#39; denotes the person Leonardo da Vinci; as well as to talk about sets of entities that can be described by a common noun: the common noun &#39;person&#39; denotes the collection of all persons in a domain of discourse. In OWL2, punning can be used to represent denotation of concept names with owl class extensions, e.g. &#39;mouse&#39; denotes owl:Class:Mouse.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:range rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:domain rdf:resource="&semiotics;Reference"/>
+        <owl:inverseOf rdf:resource="&semiotics;denotes"/>
+        <owl:propertyChainAxiom rdf:parseType="Collection">
+            <rdf:Description rdf:about="&semiotics;isDenotedBy"/>
+            <rdf:Description rdf:about="&semiotics;hasManifestation"/>
+        </owl:propertyChainAxiom>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#isExpressedBy -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;isExpressedBy">
+        <rdfs:comment>A relation between an Expression and a Meaning. For example: &#39;A Beehive is a structure in which bees are kept, typically in the form of a dome or box.&#39; (Oxford dictionary)&#39;; &#39;the term Beehive expresses the concept Beehive in my apiculture ontology&#39;.
+The intuition for &#39;meaning&#39; is intended to be very broad. A separate, large comment is included for those who want to investigate more on what kind of meaning can be represented in what form.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:range rdf:resource="&semiotics;Expression"/>
+        <rdfs:domain rdf:resource="&semiotics;Meaning"/>
+        <owl:inverseOf rdf:resource="&semiotics;expresses"/>
+        <rdfs:subPropertyOf rdf:resource="&semiotics;isInterpretantFor"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#isInterpretantFor -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;isInterpretantFor">
+        <rdfs:comment>The Peircean interpretant relation, widely adopted in semiotics: an Expression isInterpretantFor another, e.g. fourLeggedFriendOfHumans isInterpretantFor dog.
+Synonymy, translation, associativity, and topical proximity are all sources for interpretants, e.g.: domestic dog isInterpretantFor dog (synonymy); cane isInterpretantFor dog (translation); bark isInterpretantFor dog (associativity); veterinary isInterpretantFor dog (topical proximity).
+Semantic mechanisms such as metonymy depend on the interpretant relation.
+The interpretant relation is here taken as very broad, also accepting Manifestation(s) as interpretants.</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:range rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:domain rdf:resource="&semiotics;Meaning"/>
+        <owl:propertyChainAxiom rdf:parseType="Collection">
+            <rdf:Description rdf:about="&semiotics;isInterpretantFor"/>
+            <rdf:Description rdf:about="&semiotics;hasManifestation"/>
+        </owl:propertyChainAxiom>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#isManifestationOf -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;isManifestationOf">
+        <rdfs:label>semiotics.owl#isManifestationOf</rdfs:label>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:range rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:domain rdf:resource="&semiotics;Manifestation"/>
+        <owl:inverseOf rdf:resource="&semiotics;hasManifestation"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#relatedMeaning -->
+
+    <owl:ObjectProperty rdf:about="&semiotics;relatedMeaning">
+        <rdf:type rdf:resource="&owl;SymmetricProperty"/>
+        <rdfs:label xml:lang="en">related meaning</rdfs:label>
+        <rdfs:comment>A relation between any two Meaning(s).</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+        <rdfs:domain rdf:resource="&semiotics;Meaning"/>
+        <rdfs:range rdf:resource="&semiotics;Meaning"/>
+        <owl:inverseOf rdf:resource="&semiotics;relatedMeaning"/>
+    </owl:ObjectProperty>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/situation.owl#isSettingFor -->
+
+    <owl:ObjectProperty rdf:about="&situation;isSettingFor"/>
+
+
+
+    <!--
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Data properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/schemas/cpannotationschema.owl#hasComponent -->
+
+    <owl:DatatypeProperty rdf:about="&cpannotationschema;hasComponent"/>
+
+
+
+    <!--
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/agentrole.owl#Agent -->
+
+    <owl:Class rdf:about="&agentrole;Agent">
+        <rdfs:label xml:lang="en">agent</rdfs:label>
+        <rdfs:comment>An agent playing some role in a linguistic act</rdfs:comment>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#Expression -->
+
+    <owl:Class rdf:about="&semiotics;Expression">
+        <rdfs:label xml:lang="en">Expression</rdfs:label>
+        <owl:equivalentClass>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&semiotics;expresses"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Meaning"/>
+            </owl:Restriction>
+        </owl:equivalentClass>
+        <rdfs:subClassOf rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&semiotics;hasManifestation"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Manifestation"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:comment rdf:datatype="&xsd;string">Any information that either dul:expresses a Meaning or denotes a Reference</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#InformationEntity -->
+
+    <owl:Class rdf:about="&semiotics;InformationEntity">
+        <rdfs:label>InformationEntity</rdfs:label>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:unionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="&semiotics;Expression"/>
+                    <rdf:Description rdf:about="&semiotics;Manifestation"/>
+                </owl:unionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:unionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;denotes"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;Reference"/>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;hasInterpretant"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;Meaning"/>
+                    </owl:Restriction>
+                </owl:unionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:comment>Either an information object (expression) or its realization (manifestation).</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#LinguisticAct -->
+
+    <owl:Class rdf:about="&semiotics;LinguisticAct">
+        <rdfs:label xml:lang="en">Linguistic act</rdfs:label>
+        <rdfs:label xml:lang="it">Atto linguistico</rdfs:label>
+        <rdfs:subClassOf rdf:resource="&situation;Situation"/>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&situation;isSettingFor"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Manifestation"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&situation;isSettingFor"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Reference"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&situation;isSettingFor"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Meaning"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&situation;isSettingFor"/>
+                <owl:someValuesFrom rdf:resource="&agentrole;Agent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&situation;isSettingFor"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;Expression"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:comment>A communicative situation including expressions, agents, and the semiotic elements: physical (manifestations), conceptual (meanings), and referential (references).</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#Manifestation -->
+
+    <owl:Class rdf:about="&semiotics;Manifestation">
+        <owl:equivalentClass>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="&semiotics;isManifestationOf"/>
+                <owl:someValuesFrom rdf:resource="&semiotics;InformationEntity"/>
+            </owl:Restriction>
+        </owl:equivalentClass>
+        <rdfs:subClassOf rdf:resource="&semiotics;InformationEntity"/>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#Meaning -->
+
+    <owl:Class rdf:about="&semiotics;Meaning">
+        <rdfs:label xml:lang="en">Meaning</rdfs:label>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:unionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;isConceptualizationOf"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;Reference"/>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;isInterpretantFor"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;InformationEntity"/>
+                    </owl:Restriction>
+                </owl:unionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:comment>Any conceptualization that isExpressedBy an Expression, or isInterpretationOf a Reference</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#Reference -->
+
+    <owl:Class rdf:about="&semiotics;Reference">
+        <rdfs:label xml:lang="en">Reference</rdfs:label>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:unionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;hasConceptualization"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;Meaning"/>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="&semiotics;isDenotedBy"/>
+                        <owl:someValuesFrom rdf:resource="&semiotics;InformationEntity"/>
+                    </owl:Restriction>
+                </owl:unionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:comment>Anything that isDenotedBy an Expression, or that hasInterpretation some Meaning</rdfs:comment>
+        <rdfs:isDefinedBy rdf:resource="http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl"/>
+    </owl:Class>
+
+
+
+    <!-- http://www.ontologydesignpatterns.org/cp/owl/situation.owl#Situation -->
+
+    <owl:Class rdf:about="&situation;Situation"/>
+
+
+
+    <!-- http://www.w3.org/2002/07/owl#Thing -->
+
+    <owl:Class rdf:about="&owl;Thing"/>
+</rdf:RDF>
+
+
+
+<!-- Generated by the OWL API (version 3.1.0.1602) http://owlapi.sourceforge.net -->
+
