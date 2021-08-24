@@ -6,8 +6,6 @@ resources/dannet
 resources/wordnet
 dannet.ttl
 
-classes/
-
 docker/neo4j/*.jar
 
 .cpcache

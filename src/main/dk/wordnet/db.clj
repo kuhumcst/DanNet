@@ -14,22 +14,29 @@
            [org.apache.jena.rdf.model ModelFactory Model]
            [org.apache.jena.query Dataset]
            [org.apache.jena.reasoner ReasonerFactory]
-           [dk.wordnet DanNetReasoner]))
+           [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
 (def owl-uris
   "URIs where relevant OWL schemas can be fetched."
   (for [{:keys [alt uri]} (vals q/schemas)]
     (or alt uri)))
 
-;; NOTE: DanNetReasoner class must be precompiled: clj -X:compile-java
 (def reasoner-factory
-  (reify ReasonerFactory
-    (create [this configuration] (DanNetReasoner. this))
-    (getCapabilities [this] nil)
-    (getURI [this] "http://wordnet.dk/reasoners/DanNetReasoner")))
+  "A reusable ReasonerFactory implementation which contains an instance of
+  GenericRuleReasoner that applies a custom set of inference rules for DanNet."
+  (let [rules (Rule/parseRules (slurp (io/resource "etc/dannet.rules")))]
+    (reify ReasonerFactory
+      (create [this configuration]
+        (doto (GenericRuleReasoner. rules this)
+          (.setOWLTranslation true)
+          (.setMode GenericRuleReasoner/HYBRID)
+          (.setTransitiveClosureCaching true)))
+      (getCapabilities [this] nil)                          ; TODO: implement
+      (getURI [this] "http://wordnet.dk/reasoners/DanNetReasoner"))))
 
-;; Based on OntModelSpec/OWL_MEM_MICRO_RULE_INF
+;; TODO: the importModelMaker is here and redefined in the owl-model fn...?
 (defn ->ont-model-spec
+  "Create a new instance of an OntModelSpec using a custom DanNet reasoner."
   []
   (OntModelSpec.
     (ModelFactory/createMemModelMaker)
