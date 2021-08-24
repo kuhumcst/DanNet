@@ -172,6 +172,13 @@
        (apply concat)
        (remove #{lemma})))
 
+(defn alt-representations
+  "Return alternatives in Graph `g` for the word with the given `written-rep`."
+  [g written-rep]
+  (->> (q/run g '[?alt-rep] q/alt-representations {'?written-rep written-rep})
+       (apply concat)
+       (remove #{written-rep})))
+
 (defn registers
   "Return all register values found in Graph `g`."
   [g]
@@ -226,6 +233,11 @@
   (synonyms graph "hoved")
   (synonyms graph "bil")
   (synonyms graph "ord")
+
+  ;; Querying DanNet for alternative written representations.
+  (alt-representations graph "mørkets fyrste")
+  (alt-representations graph "offentlig transport")
+  (alt-representations graph "kaste håndklædet i ringen")
 
   ;; Also works dataset and graph, despite accessing the model object.
   (q/transact graph

@@ -113,6 +113,13 @@
       [?word* :ontolex/canonicalForm ?form*]
       [?form* :ontolex/writtenRep ?synonym]]))
 
+(def alt-representations
+  "Certain words contain alternative written representations."
+  (q/build
+    '[:bgp
+      [?form :ontolex/writtenRep ?written-rep]
+      [?form :ontolex/writtenRep ?alt-rep]]))
+
 (def registers
   (q/build
     '[:bgp

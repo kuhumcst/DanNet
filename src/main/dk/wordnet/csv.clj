@@ -138,28 +138,41 @@
           #{[subj rel* obj]}
           #{[subj rel obj-id]})))))
 
+;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
+(defn explode-written-reps
+  "Create writtenRep triple(s) based on a `lexical-form` and a `written-rep`.
+
+  In certain cases, multi-word expressions mark multiple written representations
+  using slashes. These representations are exploded into multiple triples."
+  [lexical-form written-rep]
+  (if-let [block (re-find #"[^\s]+/[^\s]+" written-rep)]
+    (let [replace-block (partial str/replace written-rep block)]
+      (for [exploded-rep (map replace-block (str/split block #"/"))]
+        [lexical-form :ontolex/writtenRep exploded-rep]))
+    #{[lexical-form :ontolex/writtenRep written-rep]}))
+
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
-;; TODO: how should definitions with slashes be handled? e.g. tales/snakkes ved
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
   [[word-id form pos :as row]]
   (when (= (count row) 4)
     (let [word         (word-uri word-id)
           rdf-type     (form->lexical-entry form)
-          form*        (if (= rdf-type :ontolex/MultiwordExpression)
+          written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
                          (str/replace form #"'" "")
                          form)
-          lexical-form (lexical-form-uri word-id form*)]
-      #{[lexical-form :ontolex/writtenRep form*]
-        [lexical-form :rdf/type :ontolex/Form]
+          lexical-form (lexical-form-uri word-id written-rep)]
+      (set/union
+        #{[lexical-form :rdf/type :ontolex/Form]
 
-        [word :rdfs/label form*]
-        [word :ontolex/canonicalForm lexical-form]
-        [word :lexinfo/partOfSpeech pos]
-        [word :rdf/type rdf-type]
+          [word :rdfs/label written-rep]
+          [word :ontolex/canonicalForm lexical-form]
+          [word :lexinfo/partOfSpeech pos]
+          [word :rdf/type rdf-type]
 
-        ;; This is inferred by the subclass provided by form->lexical-entry
-        #_[word :rdf/type :ontolex/LexicalEntry]})))
+          ;; This is inferred by the subclass provided by form->lexical-entry
+          #_[word :rdf/type :ontolex/LexicalEntry]}
+        (explode-written-reps lexical-form written-rep)))))
 
 (defn- ->register-triples
   "Convert the `register` of a `sense` to appropriate triples."
