@@ -87,6 +87,7 @@
   (and (symbol? resource)
        (str/starts-with? resource "_")))
 
+;; TODO: currently removes usages which is not desirable - fix?
 (defn only-uris
   "Exclude anonymous resource `results`, optionally keyed under `k`.
 
@@ -98,6 +99,7 @@
   ([results]
    (remove (comp #(some anonymous? %) vals) results)))
 
+;; TODO: what about symbols? Some are ?vars, others are _blank-resources
 (defn entity?
   "Is `x` an RDF entity?"
   [x]
