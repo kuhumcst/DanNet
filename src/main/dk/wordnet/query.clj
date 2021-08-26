@@ -111,11 +111,14 @@
 (defn- nav-subjects
   "Helper function for 'nav-meta'."
   [g & subject-triples]
-  (->> (into [:bgp] subject-triples)
-       (run g)
-       (only-uris)
-       (mapcat vals)
-       (into #{})))
+  (let [results (->> (into [:bgp] subject-triples)
+                     (run g)
+                     (only-uris)
+                     (mapcat vals)
+                     (into #{}))]
+    (if (= 1 (count results))
+      (entity g (first results))
+      results)))
 
 (defn nav-meta
   "Create metadata with a generalised Navigable implementation for a Graph `g`.
@@ -152,7 +155,8 @@
                     (only-uris)
                     (map (comp (partial apply hash-map) (juxt '?p '?o)))
                     (apply merge-with (set-nav-merge g)))]
-    (with-meta e (nav-meta g))))
+    (with-meta e (assoc (nav-meta g)
+                   :entity subject))))
 
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.
