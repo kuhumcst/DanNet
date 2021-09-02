@@ -1,86 +1,9 @@
 (ns dk.wordnet.query
-  "Various pre-compiled Aristotle queries."
+  "Functions for querying and navigating an Apache Jena graph."
   (:require [clojure.string :as str]
-            [clojure.java.io :as io]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
-            [arachne.aristotle.registry :as reg]
-            [ont-app.vocabulary.core :as voc])
-  (:import [org.apache.jena.rdf.model Model]
-           [org.apache.jena.system Txn]
-           [org.apache.jena.sparql.core Transactional]
-           [org.apache.jena.graph Graph]
-           [java.util.function Supplier]))
-
-(def schemas
-  {'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
-             :alt "https://raw.githubusercontent.com/globalwordnet/schemas/master/wn-lemon-1.1.rdf"}
-   'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
-   'lemon   {:uri "http://lemon-model.net/lemon#"}
-   'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
-             :alt (str (io/resource "schemas/semiotics.owl"))}
-   'skos    {:uri "http://www.w3.org/2004/02/skos/core#"
-             :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
-   'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"}})
-
-(defn register-prefix
-  "Register `ns-prefix` for `uri` in both Aristotle and igraph."
-  [ns-prefix uri]
-  (reg/prefix ns-prefix uri)
-  (let [prefix-str (name ns-prefix)]
-    (when-not (get (voc/prefix-to-ns) prefix-str)
-      (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
-                                   :vann/preferredNamespaceUri    uri}))))
-
-(doseq [[ns-prefix {:keys [uri]}] schemas]
-  (register-prefix ns-prefix uri))
-
-;; TODO: use new DanNet namespaces instead
-(register-prefix 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
-(register-prefix 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
-
-(defn do-transaction!
-  "Runs `f` as a transaction inside `db` which may be a Graph, Model, or
-  Transactional (e.g. Dataset)."
-  [db f & {:keys [return?]}]
-  (let [action (if return?
-                 (reify Supplier (get [_] (f)))
-                 (reify Runnable (run [_] (f))))]
-    (cond
-      (instance? Graph db)
-      (let [handler (.getTransactionHandler db)]
-        (if (.transactionsSupported handler)
-          (if return?
-            (.calculate handler action)
-            (.execute handler action))
-          (f)))
-
-      (instance? Model db)
-      (if (.supportsTransactions db)
-        (if return?
-          (.calculateInTxn db action)
-          (.executeInTxn db action))
-        (f))
-
-      ;; Dataset implements the Transactional interface and is covered here.
-      (instance? Transactional db)
-      (if return?
-        (Txn/calculate db action)
-        (Txn/execute db action)))))
-
-(defmacro transact-exec
-  "Transact `body` within `db`. Only executes - does not return the result!"
-  [db & body]
-  (let [g (gensym)]
-    `(let [~g ~db]
-       (do-transaction! ~g #(do ~@body)))))
-
-(defmacro transact
-  "Transact `body` within `db` and return the result. Use with queries."
-  [db & body]
-  (let [g (gensym)]
-    `(let [~g ~db]
-       (do-transaction! ~g #(do ~@body) :return? true))))
+            [dk.wordnet.transaction :as txn]))
 
 (defn anonymous?
   [resource]
@@ -164,45 +87,6 @@
   "Wraps the 'run' function from Aristotle, providing transactions when needed.
   The results are also made Navigable using for use with e.g. Reveal or REBL."
   [g & remaining-args]
-  (->> (transact g
+  (->> (txn/transact g
          (apply q/run g remaining-args))
        (map #(vary-meta % merge (nav-meta g)))))
-
-(def synonyms
-  (q/build
-    '[:bgp
-      [?form :ontolex/writtenRep ?lemma]
-      [?word :ontolex/canonicalForm ?form]
-      [?word :ontolex/evokes ?synset]
-      [?word* :ontolex/evokes ?synset]
-      [?word* :ontolex/canonicalForm ?form*]
-      [?form* :ontolex/writtenRep ?synonym]]))
-
-(def alt-representations
-  "Certain words contain alternative written representations."
-  (q/build
-    '[:bgp
-      [?form :ontolex/writtenRep ?written-rep]
-      [?form :ontolex/writtenRep ?alt-rep]]))
-
-(def registers
-  (q/build
-    '[:bgp
-      [?sense :lexinfo/usageNote ?blank-node]
-      [?blank-node :rdf/value ?register]]))
-
-(def usage-targets
-  "Used during initial graph creation to attach usages to senses."
-  (q/build
-    '[:bgp
-      [?word :ontolex/evokes ?synset]
-      [?word :ontolex/canonicalForm ?form]
-      [?form :ontolex/writtenRep ?lemma]
-      [?word :ontolex/sense ?sense]
-      [?synset :ontolex/lexicalizedSense ?sense]]))
-
-(def usages
-  (q/build
-    '[:bgp
-      [?sense :ontolex/usage ?usage]
-      [?usage :rdf/value ?usage-str]]))

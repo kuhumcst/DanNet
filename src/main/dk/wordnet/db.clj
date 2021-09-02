@@ -5,8 +5,11 @@
             [arachne.aristotle :as aristotle]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
+            [dk.wordnet.prefix :as prefix]
             [dk.wordnet.csv :as dn-csv]
-            [dk.wordnet.query :as q])
+            [dk.wordnet.query :as q]
+            [dk.wordnet.query.operation :as op]
+            [dk.wordnet.transaction :as txn])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.ontology OntModel OntModelSpec ProfileRegistry]
            [org.apache.jena.tdb TDBFactory]
@@ -18,7 +21,7 @@
 
 (def owl-uris
   "URIs where relevant OWL schemas can be fetched."
-  (for [{:keys [alt uri]} (vals q/schemas)]
+  (for [{:keys [alt uri]} (vals prefix/schemas)]
     (or alt uri)))
 
 (def reasoner-factory
@@ -71,7 +74,7 @@
   "Create usage triples from a DanNet `g` and the `usages` from 'imports'."
   [g usages]
   (for [[synset lemma] (keys usages)]
-    (let [results     (q/run g q/usage-targets {'?synset synset '?lemma lemma})
+    (let [results     (q/run g op/usage-targets {'?synset synset '?lemma lemma})
           usage-str   (get usages [synset lemma])
           blank-usage (symbol (str "_" (name lemma)
                                    "-" (name synset)
@@ -87,7 +90,7 @@
   (let [input  (vals (dissoc imports :usages))
         usages (when-let [raw-usages (:usages imports)]
                  (apply merge (dn-csv/read-triples raw-usages)))]
-    (q/transact-exec g
+    (txn/transact-exec g
       (->> (mapcat dn-csv/read-triples input)
            (remove dn-csv/unmapped?)
            (remove nil?)
@@ -97,7 +100,7 @@
     ;; triples, it must be done after the write transaction.
     ;; Clojure's laziness also has to be accounted for.
     (let [usage-triples (doall (->usage-triples g usages))]
-      (q/transact-exec g
+      (txn/transact-exec g
         (aristotle/add g usage-triples)))
 
     g))
@@ -150,7 +153,7 @@
   See: https://jena.apache.org/documentation/io/rdf-output.html"
   [filename {:keys [model] :as db} & {:keys [fmt]
                                       :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (q/transact-exec model
+  (txn/transact-exec model
     (add-registry-prefixes! model)
     (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
     (.clearNsPrefixMap ^Model model)))
@@ -160,7 +163,7 @@
   "Add `content` to a `db`. The content can be a variety of things, including
   another DanNet instance."
   [{:keys [model] :as db} content]
-  (q/transact-exec model
+  (txn/transact-exec model
     (.add model (if (map? content)
                   (:model content)
                   content))))
@@ -168,21 +171,21 @@
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."
   [g lemma]
-  (->> (q/run g '[?synonym] q/synonyms {'?lemma lemma})
+  (->> (q/run g '[?synonym] op/synonyms {'?lemma lemma})
        (apply concat)
        (remove #{lemma})))
 
 (defn alt-representations
   "Return alternatives in Graph `g` for the word with the given `written-rep`."
   [g written-rep]
-  (->> (q/run g '[?alt-rep] q/alt-representations {'?written-rep written-rep})
+  (->> (q/run g '[?alt-rep] op/alt-representations {'?written-rep written-rep})
        (apply concat)
        (remove #{written-rep})))
 
 (defn registers
   "Return all register values found in Graph `g`."
   [g]
-  (->> (q/run g '[?register] q/registers)
+  (->> (q/run g '[?register] op/registers)
        (apply concat)
        (sort)))
 
@@ -240,15 +243,15 @@
   (alt-representations graph "kaste håndklædet i ringen")
 
   ;; Also works dataset and graph, despite accessing the model object.
-  (q/transact graph
+  (txn/transact graph
     (take 10 (igraph/subjects ig)))
-  (q/transact model
+  (txn/transact model
     (take 10 (igraph/subjects ig)))
-  (q/transact dataset
+  (txn/transact dataset
     (take 10 (igraph/subjects ig)))
 
   ;; Look up "citron" using igraph
-  (q/transact model
+  (txn/transact model
     (-> (ig :dn/word-11007846)
         (igraph/flatten-description)))
 
@@ -256,9 +259,9 @@
   ;; Laziness and threading macros doesn't work well Jena transactions, so be
   ;; sure to transact database-accessing code while leaving out post-processing.
   (let [hypernym (igraph/transitive-closure :wn/hypernym)]
-    (->> (q/transact model
+    (->> (txn/transact model
            (igraph/traverse ig hypernym {} [] [:dn/synset-999]))
-         (map #(q/transact model (ig %)))
+         (map #(txn/transact model (ig %)))
          (map :rdfs/label)
          (map first)))
 
@@ -305,8 +308,8 @@
       {?p :rdf/type, ?o :rdfs/Resource}}
 
   ;; Test retrieval of usages
-  (q/run graph q/usages '{?sense :dn/sense-21011843})
-  (q/run graph q/usages '{?sense :dn/sense-21011111})
+  (q/run graph op/usages '{?sense :dn/sense-21011843})
+  (q/run graph op/usages '{?sense :dn/sense-21011111})
 
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.
   ;; The JVM must be run with the JVM option '-Djdk.attach.allowAttachSelf'.
