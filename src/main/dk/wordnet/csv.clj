@@ -111,16 +111,47 @@
                (when-let [token (determine-usage-token label usage)]
                  [[(synset-uri synset-id) token] usage])))))
 
+(defn sanitize-ontological-type
+  "Sanitizes the `ontological-type` string before conversion to resource names.
+
+    - Removes parentheses from the `ontological-type` string.
+    - Replaces numbers which might have complicated using concepts as names in
+    certain circumstances.
+    - Replaces plus signs with dashes."
+  [ontological-type]
+  (-> ontological-type
+      (str/replace #"\(|\)" "")
+      (str/replace #"\+" "-")
+      (str/replace #"1st" "First")
+      (str/replace #"2nd" "Second")
+      (str/replace #"3rd" "Third")))
+
+;; TODO: what is the meaning behind certain parentheses? e.g. (+Institution)
+;; TODO: make a schema to define these new RDF resources
+(defn explode-ontological-type
+  "Create ontologicalType triple(s) based on a `synset` and the legacy DanNet
+  `ontological-type` string."
+  [synset ontological-type]
+  (for [concept (str/split ontological-type #"-")]
+    [synset :dnc/concept (keyword "dnc" concept)]))
+
 ;; TODO: handle :skos/definition = "(ingen definition)", e.g. :dn/synset-51997
 (defn ->synset-triples
-  "Convert a `row` from 'synsets.csv' to triples."
+  "Convert a `row` from 'synsets.csv' to triples.
+
+  The legacy `ontological-type` string is converted into concept triples along
+  with a conceptComposite triple which is analogous to the old composite string.
+  All the resulting triples reference RDF resources rather than plain strings."
   [[synset-id label gloss ontological-type :as row]]
   (when (= (count row) 5)
-    (let [synset (synset-uri synset-id)]
-      #{[synset :rdfs/label label]
-        [synset :skos/definition (str/replace gloss brug "")]
-        [synset :dns/ontologicalType ontological-type]
-        [synset :rdf/type :ontolex/LexicalConcept]})))
+    (let [synset            (synset-uri synset-id)
+          ontological-type* (sanitize-ontological-type ontological-type)]
+      (set/union
+        #{[synset :rdfs/label label]
+          [synset :rdf/type :ontolex/LexicalConcept]
+          [synset :skos/definition (str/replace gloss brug "")]
+          [synset :dnc/conceptComposite (keyword "dnc" ontological-type*)]}
+        (explode-ontological-type synset ontological-type*)))))
 
 ;; TODO: inheritance comment currently ignored - what to do?
 (defn ->relation-triples
@@ -239,6 +270,15 @@
   ;; Example Synsets
   (->> (read-triples (:synsets imports))
        (take 10))
+
+  ;; Find concepts (or alternatively, concept composites)
+  (->> (read-triples (:synsets imports))
+       (reduce into #{})
+       (filter (comp #{:dnc/concept} second))
+       (map #(nth % 2))
+       (into #{})
+       (map (comp symbol name))
+       (sort))
 
   ;; Example Words
   (->> (read-triples (:words imports))

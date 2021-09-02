@@ -29,4 +29,5 @@
 
 ;; TODO: use new DanNet namespaces instead
 (register 'dn "http://www.wordnet.dk/owl/instance/2009/03/instances/")
+(register 'dnc "http://www.wordnet.dk/owl/instance/2009/03/ontologicalType/")
 (register 'dns "http://www.wordnet.dk/owl/instance/2009/03/schema/")
