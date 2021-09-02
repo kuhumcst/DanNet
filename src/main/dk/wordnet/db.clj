@@ -2,6 +2,7 @@
   "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
@@ -65,8 +66,10 @@
                       (.setBaseModelMaker model-maker)
                       (.setImportModelMaker model-maker))]
     (prepare-fn
-      (reduce (fn [model owl-uri]
-                (.read model owl-uri))
+      (reduce (fn [model ^String owl-uri]
+                (if (str/ends-with? owl-uri ".ttl")
+                  (.read model owl-uri "TURTLE")
+                  (.read model owl-uri "RDF/XML")))
               (ModelFactory/createOntologyModel spec base)
               owl-uris))))
 

@@ -1,0 +1,1084 @@
+@prefix : <http://www.wordnet.dk/owl/instance/2009/03/concept/> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:concept a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range :Concept ;
+  rdfs:comment "The EuroWordNet concept class of the Synset"@en ;
+  rdfs:label "EuroWordNet concept"@en .
+
+:Concept a owl:Class ;
+  rdfs:label "EuroWordNet concept"@en ;
+  rdfs:comment "A concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet, see: https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html"@en ;
+  owl:oneOf (
+    :Agentive
+    :Animal
+    :Artifact
+    :Artwork
+    :BodyPart
+    :BoundedEvent
+    :Building
+    :Cause
+    :Colour
+    :Comestible
+    :Communication
+    :Condition
+    :Container
+    :Covering
+    :Creature
+    :Domain
+    :Dynamic
+    :Existence
+    :Experience
+    :FirstOrderEntity
+    :Form
+    :Furniture
+    :Garment
+    :GeopoliticalPlace
+    :Group
+    :Human
+    :Imagerepresentation
+    :Institution
+    :Instrument
+    :LanguageRepresentation
+    :Liquid
+    :Living
+    :Location
+    :Manner
+    :Mental
+    :MoneyRepresentation
+    :Natural
+    :Object
+    :Occupation
+    :Part
+    :Phenomenal
+    :Physical
+    :Place
+    :Plant
+    :Possession
+    :Property
+    :Purpose
+    :Quantity
+    :Relation
+    :Representation
+    :SecondOrderEntity
+    :Social
+    :Software
+    :Static
+    :Stimulating
+    :Substance
+    :ThirdOrderEntity
+    :Time
+    :UnboundedEvent
+    :Underspecified
+    :Vehicle ) .
+
+:Agentive a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artwork a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BodyPart a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Building a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Cause a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Colour a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Communication a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Condition a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Container a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Covering a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Creature a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Domain a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Existence a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Experience a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:FirstOrderEntity a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Form a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Furniture a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Garment a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:GeopoliticalPlace a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Group a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Human a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Imagerepresentation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Institution a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Instrument a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:LanguageRepresentation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Liquid a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Living a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Location a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Manner a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Mental a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:MoneyRepresentation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Object a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Occupation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Part a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Phenomenal a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Physical a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Possession a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Purpose a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Quantity a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Relation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Representation a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:SecondOrderEntity a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Social a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Software a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Stimulating a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Substance a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Time a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Underspecified a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Vehicle a :Concept ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+
+:conceptComposite a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range :ConceptComposite ;
+  rdfs:comment "The EuroWordNet concept composite class of the Synset"@en ;
+  rdfs:label "EuroWordNet concept composite"@en .
+
+:ConceptComposite a owl:Class ;
+  rdfs:label "EuroWordNet concept composite"@en ;
+  rdfs:comment "A composite of the concepts based on the 1st, 2nd, and 3rd order entities from EuroWordNet, see: https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html"@en ;
+  owl:oneOf (
+    :Animal-Comestible-Object
+    :Animal-Comestible-Part
+    :Animal-Comestible-Substance
+    :Animal-Object
+    :Animal-Object-Group
+    :Animal-Object-Part
+    :Artifact-Object
+    :Artifact-Object-Artwork
+    :Artifact-Object-Group
+    :Artifact-Object-Part
+    :Artifact-Substance
+    :Artifact-Substance-Part
+    :BoundedEvent
+    :BoundedEvent-Agentive
+    :BoundedEvent-Agentive-Condition-Physical
+    :BoundedEvent-Agentive-Existence
+    :BoundedEvent-Agentive-Experience-Condition-Purpose
+    :BoundedEvent-Agentive-Mental
+    :BoundedEvent-Agentive-Mental-Communication
+    :BoundedEvent-Agentive-Mental-Purpose
+    :BoundedEvent-Agentive-Physical-Existence
+    :BoundedEvent-Agentive-Physical-Existence-Purpose
+    :BoundedEvent-Agentive-Physical-Location
+    :BoundedEvent-Agentive-Physical-Purpose
+    :BoundedEvent-Agentive-Physical-Social
+    :BoundedEvent-Agentive-Possession
+    :BoundedEvent-Agentive-Purpose
+    :BoundedEvent-Agentive-Purpose-Communication
+    :BoundedEvent-Agentive-Purpose-Possession
+    :BoundedEvent-Agentive-Purpose-Possession-Social
+    :BoundedEvent-Agentive-Purpose-Social
+    :BoundedEvent-Agentive-Time
+    :BoundedEvent-Cause
+    :BoundedEvent-Cause-Existence
+    :BoundedEvent-Cause-Location-Physical
+    :BoundedEvent-Cause-Physical
+    :BoundedEvent-Communication
+    :BoundedEvent-Experience-Mental
+    :BoundedEvent-Experience-Physical
+    :BoundedEvent-Location
+    :BoundedEvent-Mental
+    :BoundedEvent-Phenomenal
+    :BoundedEvent-Physical
+    :BoundedEvent-Physical-Location
+    :BoundedEvent-Possession
+    :BoundedEvent-Social
+    :Building-Object
+    :Building-Object-Group
+    :Building-Object-Part
+    :Comestible
+    :Comestible-Artifact-Liquid
+    :Comestible-Artifact-Object
+    :Comestible-Artifact-Object-Part
+    :Comestible-Artifact-Substance
+    :Comestible-Artifact-Substance-Part
+    :Comestible-Group
+    :Comestible-Natural-Liquid
+    :Comestible-Natural-Substance
+    :Comestible-Natural-Substance-Part
+    :Container-Artifact-Object
+    :Container-Artifact-Object-Group
+    :Container-Artifact-Object-Part
+    :Covering
+    :Creature
+    :Dynamic
+    :Dynamic-Agentive
+    :Dynamic-Agentive-Communication
+    :Dynamic-Agentive-Mental
+    :Dynamic-Agentive-Mental-Purpose
+    :Dynamic-Agentive-Physical-Location
+    :Dynamic-Agentive-Physical-Purpose
+    :Dynamic-Agentive-Physical-Purpose-Social
+    :Dynamic-Agentive-Purpose
+    :Dynamic-Agentive-Purpose-Social
+    :Dynamic-Agentive-Social
+    :Dynamic-Cause-Physical
+    :Dynamic-Experience
+    :Dynamic-Experience-Mental
+    :Dynamic-Experience-Physical
+    :Dynamic-Phenomenal
+    :Dynamic-Phenomenal-Physical
+    :Dynamic-Phenomenal-Physical-Condition
+    :Dynamic-Possession
+    :FirstOrderEntity
+    :Form
+    :Furniture-Artifact-Object
+    :Furniture-Artifact-Object-Group
+    :Furniture-Artifact-Object-Part
+    :Garment
+    :Garment-Artifact-Object
+    :Garment-Artifact-Object-Group
+    :Garment-Artifact-Object-Part
+    :GeopoliticalPlace-Object-Artifact
+    :Group
+    :Group-Object
+    :Group-Object-Living
+    :Group-Object-Natural
+    :Human-Object
+    :Human-Object-Group
+    :Human-Object-Occupation
+    :Human-Object-Part
+    :Imagerepresentation-Artifact-Object
+    :Instrument-Artifact-Object
+    :Instrument-Artifact-Object-Group
+    :Instrument-Artifact-Object-Part
+    :LanguageRepresentation-Artifact-Object
+    :LanguageRepresentation-Artifact-Object-Group
+    :LanguageRepresentation-Artifact-Object-Part
+    :Liquid
+    :Liquid-Artifact
+    :Liquid-Natural
+    :Living-Object
+    :MoneyRepresentation
+    :Natural-Group
+    :Natural-Object
+    :Natural-Object-BodyPart
+    :Natural-Object-Part
+    :Natural-Substance
+    :Natural-Substance-Part
+    :Object
+    :Object-Part
+    :Part
+    :Place
+    :Place-Liquid-Natural
+    :Place-Object
+    :Place-Object-Artifact
+    :Place-Object-Artifact-Part
+    :Place-Object-Group
+    :Place-Object-Natural
+    :Place-Object-Natural-Part
+    :Place-Object-Part
+    :Plant-Group
+    :Plant-Object
+    :Plant-Object-Comestible
+    :Plant-Object-Part
+    :Plant-Object-Part-Comestible
+    :Property
+    :Property-Existence
+    :Property-LanguageRepresentation
+    :Property-Location
+    :Property-Mental
+    :Property-Physical
+    :Property-Physical-Colour
+    :Property-Physical-Condition
+    :Property-Physical-Form
+    :Property-Social
+    :Property-Stimulating-Physical
+    :Property-Time
+    :Relation
+    :Relation-Location
+    :Relation-Possession
+    :Representation
+    :SecondOrderEntity
+    :Software
+    :Static
+    :Static-Existence
+    :Static-Location
+    :Static-Mental
+    :Static-Relation
+    :Static-Social
+    :Substance
+    :ThirdOrderEntity
+    :ThirdOrderEntity-Mental
+    :ThirdOrderEntity-Mental-Experience
+    :ThirdOrderEntity-Mental-Location
+    :ThirdOrderEntity-Mental-Purpose
+    :ThirdOrderEntity-Mental-Purpose-Domain
+    :ThirdOrderEntity-Mental-Purpose-Manner
+    :ThirdOrderEntity-Mental-Purpose-Social
+    :ThirdOrderEntity-Mental-Purpose-Social-Institution
+    :ThirdOrderEntity-Mental-Social
+    :ThirdOrderEntity-Part
+    :ThirdOrderEntity-Quantity
+    :ThirdOrderEntity-Quantity-MoneyRepresentation
+    :ThirdOrderEntity-Quantity-Part
+    :ThirdOrderEntity-Relation
+    :ThirdOrderEntity-Time
+    :ThirdOrderEntity-Time-Part
+    :UnboundedEvent
+    :UnboundedEvent-Agentive
+    :UnboundedEvent-Agentive-Communication-Social
+    :UnboundedEvent-Agentive-Existence
+    :UnboundedEvent-Agentive-Mental
+    :UnboundedEvent-Agentive-Physical
+    :UnboundedEvent-Agentive-Physical-Location
+    :UnboundedEvent-Agentive-Physical-Purpose
+    :UnboundedEvent-Agentive-Physical-Social
+    :UnboundedEvent-Agentive-Purpose
+    :UnboundedEvent-Cause
+    :UnboundedEvent-Cause-Physical
+    :UnboundedEvent-Cause-Physical-Location
+    :UnboundedEvent-Communication-Purpose-Social
+    :UnboundedEvent-Experience-Physical
+    :UnboundedEvent-Mental
+    :UnboundedEvent-Phenomenal
+    :UnboundedEvent-Phenomenal-Physical
+    :UnboundedEvent-Physical-Location
+    :UnboundedEvent-Social
+    :UnboundedEvent-Time
+    :Underspecified
+    :Vehicle-Object-Artifact
+    :Vehicle-Object-Artifact-Group
+    :Vehicle-Object-Artifact-Part ) .
+
+:Animal-Comestible-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal-Comestible-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal-Comestible-Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Animal-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Object-Artwork a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Artifact-Substance-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Condition-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Experience-Condition-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Mental-Communication a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Mental-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Physical-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Physical-Existence-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Physical-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Physical-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Possession a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Purpose-Communication a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Purpose-Possession a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Purpose-Possession-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Purpose-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Agentive-Time a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Cause a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Cause-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Cause-Location-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Cause-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Communication a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Experience-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Experience-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Phenomenal a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Possession a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:BoundedEvent-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Building-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Building-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Building-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Artifact-Liquid a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Artifact-Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Artifact-Substance-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Natural-Liquid a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Natural-Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Comestible-Natural-Substance-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Container-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Container-Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Container-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Covering a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Creature a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Communication a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Mental-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Physical-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Physical-Purpose-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Purpose-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Agentive-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Cause-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Experience a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Experience-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Experience-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Phenomenal a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Phenomenal-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Phenomenal-Physical-Condition a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Dynamic-Possession a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:FirstOrderEntity a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Form a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Furniture-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Furniture-Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Furniture-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Garment a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Garment-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Garment-Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Garment-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:GeopoliticalPlace-Object-Artifact a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Group-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Group-Object-Living a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Group-Object-Natural a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Human-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Human-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Human-Object-Occupation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Human-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Imagerepresentation-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Instrument-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Instrument-Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Instrument-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:LanguageRepresentation-Artifact-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:LanguageRepresentation-Artifact-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:LanguageRepresentation-Artifact-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Liquid a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Liquid-Artifact a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Liquid-Natural a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Living-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:MoneyRepresentation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Object-BodyPart a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Natural-Substance-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Liquid-Natural a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Artifact a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Artifact-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Natural a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Natural-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Place-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant-Object a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant-Object-Comestible a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant-Object-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Plant-Object-Part-Comestible a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-LanguageRepresentation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Physical-Colour a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Physical-Condition a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Physical-Form a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Stimulating-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Property-Time a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Relation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Relation-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Relation-Possession a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Representation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:SecondOrderEntity a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Software a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static-Relation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Static-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Substance a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Experience a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Purpose-Domain a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Purpose-Manner a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Purpose-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Purpose-Social-Institution a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Mental-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Quantity a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Quantity-MoneyRepresentation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Quantity-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Relation a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Time a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:ThirdOrderEntity-Time-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Communication-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Existence a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Physical-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Physical-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Agentive-Purpose a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Cause a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Cause-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Cause-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Communication-Purpose-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Experience-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Mental a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Phenomenal a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Phenomenal-Physical a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Physical-Location a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Social a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:UnboundedEvent-Time a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Underspecified a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Vehicle-Object-Artifact a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Vehicle-Object-Artifact-Group a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
+:Vehicle-Object-Artifact-Part a :ConceptComposite ;
+  rdfs:label ""@en ;
+  rdfs:comment ""@en .
