@@ -7,7 +7,7 @@
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [dk.wordnet.prefix :as prefix]
-            [dk.wordnet.csv :as dn-csv]
+            [dk.wordnet.bootstrap :as bootstrap]
             [dk.wordnet.query :as q]
             [dk.wordnet.query.operation :as op]
             [dk.wordnet.transaction :as txn])
@@ -92,10 +92,10 @@
   [g imports]
   (let [input  (vals (dissoc imports :usages))
         usages (when-let [raw-usages (:usages imports)]
-                 (apply merge (dn-csv/read-triples raw-usages)))]
+                 (apply merge (bootstrap/read-triples raw-usages)))]
     (txn/transact-exec g
-      (->> (mapcat dn-csv/read-triples input)
-           (remove dn-csv/unmapped?)
+      (->> (mapcat bootstrap/read-triples input)
+           (remove bootstrap/unmapped?)
            (remove nil?)
            (reduce aristotle/add g)))
 
@@ -198,11 +198,11 @@
   ;; Create a new in-memory DanNet from the CSV imports with OWL inference.
   (def dannet
     (->dannet
-      :imports dn-csv/imports
+      :imports bootstrap/imports
       :owl-uris owl-uris))
 
   ;; Create a new in-memory DanNet from the CSV imports (no inference)
-  (def dannet (->dannet :imports dn-csv/imports))
+  (def dannet (->dannet :imports bootstrap/imports))
 
   ;; Load an existing TDB DanNet from disk.
   (def dannet (->dannet :db-path "resources/db/tdb1" :db-type :tdb1))
@@ -211,12 +211,12 @@
   ;; Create a new TDB DanNet from the CSV imports.
   (def dannet
     (->dannet
-      :imports dn-csv/imports
+      :imports bootstrap/imports
       :db-path "resources/db/tdb1"
       :db-type :tdb1))
   (def dannet
     (->dannet
-      :imports dn-csv/imports
+      :imports bootstrap/imports
       :db-path "resources/db/tdb2"
       :db-type :tdb2))
 

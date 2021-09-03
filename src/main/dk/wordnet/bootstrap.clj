@@ -1,5 +1,6 @@
-(ns dk.wordnet.csv
-  "Mapping the old DanNet CSV export to Ontolex-lemon.
+(ns dk.wordnet.bootstrap
+  "Bootstrapping DanNet by mapping the old DanNet CSV export to Ontolex-lemon
+  and Global WordNet Assocation relations.
 
   The following relations are excluded as part of the import:
     - eq_has_synonym:   mapping to an old version of Princeton Wordnet
