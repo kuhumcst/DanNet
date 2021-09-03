@@ -10,14 +10,27 @@
   rdfs:label "EuroWordNet concept"@en .
 
 :Concept a owl:Class ;
+  rdfs:label "Concept"@en ;
+  rdfs:comment "A concept found in either DanNet or EuroWordNet."@en .
+
+:DanNetConcept a owl:Class ;
+  rdfs:subClassOf :Concept ;
+  rdfs:label "DanNet Concept"@en ;
+  rdfs:comment "A concept created specifically for DanNet that extends the concepts from EuroWordNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en ;
+  owl:oneOf (
+    :Artwork
+    :BodyPart
+    :Domain
+    :Institution ) .
+
+:EuroWordNetConcept a owl:Class ;
+  rdfs:subClassOf :Concept ;
   rdfs:label "EuroWordNet concept"@en ;
   rdfs:comment "A concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see: <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
   owl:oneOf (
     :Agentive
     :Animal
     :Artifact
-    :Artwork
-    :BodyPart
     :BoundedEvent
     :Building
     :Cause
@@ -28,7 +41,6 @@
     :Container
     :Covering
     :Creature
-    :Domain
     :Dynamic
     :Existence
     :Experience
@@ -40,7 +52,6 @@
     :Group
     :Human
     :Imagerepresentation
-    :Institution
     :Instrument
     :LanguageRepresentation
     :Liquid
@@ -75,187 +86,187 @@
     :Underspecified
     :Vehicle ) .
 
-:Agentive a :Concept ;
+:Agentive a :EuroWordNetConcept ;
   rdfs:label "Agentive"@en ;
   rdfs:comment "The Agentive Concept from EuroWordNet."@en .
-:Animal a :Concept ;
+:Animal a :EuroWordNetConcept ;
   rdfs:label "Animal"@en ;
   rdfs:comment "The Animal Concept from EuroWordNet."@en .
-:Artifact a :Concept ;
+:Artifact a :EuroWordNetConcept ;
   rdfs:label "Artifact"@en ;
   rdfs:comment "The Artifact Concept from EuroWordNet."@en .
-:Artwork a :Concept ;
+:Artwork a :DanNetConcept ;
   rdfs:label "Artwork"@en ;
-  rdfs:comment "The Artwork Concept from EuroWordNet."@en .
-:BodyPart a :Concept ;
+  rdfs:comment "The Artwork Concept from DanNet."@en .
+:BodyPart a :DanNetConcept ;
   rdfs:label "BodyPart"@en ;
-  rdfs:comment "The BodyPart Concept from EuroWordNet."@en .
-:BoundedEvent a :Concept ;
+  rdfs:comment "The BodyPart Concept from DanNet."@en .
+:BoundedEvent a :EuroWordNetConcept ;
   rdfs:label "BoundedEvent"@en ;
   rdfs:comment "The BoundedEvent Concept from EuroWordNet."@en .
-:Building a :Concept ;
+:Building a :EuroWordNetConcept ;
   rdfs:label "Building"@en ;
   rdfs:comment "The Building Concept from EuroWordNet."@en .
-:Cause a :Concept ;
+:Cause a :EuroWordNetConcept ;
   rdfs:label "Cause"@en ;
   rdfs:comment "The Cause Concept from EuroWordNet."@en .
-:Colour a :Concept ;
+:Colour a :EuroWordNetConcept ;
   rdfs:label "Colour"@en ;
   rdfs:comment "The Colour Concept from EuroWordNet."@en .
-:Comestible a :Concept ;
+:Comestible a :EuroWordNetConcept ;
   rdfs:label "Comestible"@en ;
   rdfs:comment "The Comestible Concept from EuroWordNet."@en .
-:Communication a :Concept ;
+:Communication a :EuroWordNetConcept ;
   rdfs:label "Communication"@en ;
   rdfs:comment "The Communication Concept from EuroWordNet."@en .
-:Condition a :Concept ;
+:Condition a :EuroWordNetConcept ;
   rdfs:label "Condition"@en ;
   rdfs:comment "The Condition Concept from EuroWordNet."@en .
-:Container a :Concept ;
+:Container a :EuroWordNetConcept ;
   rdfs:label "Container"@en ;
   rdfs:comment "The Container Concept from EuroWordNet."@en .
-:Covering a :Concept ;
+:Covering a :EuroWordNetConcept ;
   rdfs:label "Covering"@en ;
   rdfs:comment "The Covering Concept from EuroWordNet."@en .
-:Creature a :Concept ;
+:Creature a :EuroWordNetConcept ;
   rdfs:label "Creature"@en ;
   rdfs:comment "The Creature Concept from EuroWordNet."@en .
-:Domain a :Concept ;
+:Domain a :DanNetConcept ;
   rdfs:label "Domain"@en ;
-  rdfs:comment "The Domain Concept from EuroWordNet."@en .
-:Dynamic a :Concept ;
+  rdfs:comment "The Domain Concept from DanNet."@en .
+:Dynamic a :EuroWordNetConcept ;
   rdfs:label "Dynamic"@en ;
   rdfs:comment "The Dynamic Concept from EuroWordNet."@en .
-:Existence a :Concept ;
+:Existence a :EuroWordNetConcept ;
   rdfs:label "Existence"@en ;
   rdfs:comment "The Existence Concept from EuroWordNet."@en .
-:Experience a :Concept ;
+:Experience a :EuroWordNetConcept ;
   rdfs:label "Experience"@en ;
   rdfs:comment "The Experience Concept from EuroWordNet."@en .
-:FirstOrderEntity a :Concept ;
+:FirstOrderEntity a :EuroWordNetConcept ;
   rdfs:label "FirstOrderEntity"@en ;
   rdfs:comment "The FirstOrderEntity Concept from EuroWordNet."@en .
-:Form a :Concept ;
+:Form a :EuroWordNetConcept ;
   rdfs:label "Form"@en ;
   rdfs:comment "The Form Concept from EuroWordNet."@en .
-:Furniture a :Concept ;
+:Furniture a :EuroWordNetConcept ;
   rdfs:label "Furniture"@en ;
   rdfs:comment "The Furniture Concept from EuroWordNet."@en .
-:Garment a :Concept ;
+:Garment a :EuroWordNetConcept ;
   rdfs:label "Garment"@en ;
   rdfs:comment "The Garment Concept from EuroWordNet."@en .
-:GeopoliticalPlace a :Concept ;
+:GeopoliticalPlace a :EuroWordNetConcept ;
   rdfs:label "GeopoliticalPlace"@en ;
   rdfs:comment "The GeopoliticalPlace Concept from EuroWordNet."@en .
-:Group a :Concept ;
+:Group a :EuroWordNetConcept ;
   rdfs:label "Group"@en ;
   rdfs:comment "The Group Concept from EuroWordNet."@en .
-:Human a :Concept ;
+:Human a :EuroWordNetConcept ;
   rdfs:label "Human"@en ;
   rdfs:comment "The Human Concept from EuroWordNet."@en .
-:Imagerepresentation a :Concept ;
+:Imagerepresentation a :EuroWordNetConcept ;
   rdfs:label "Imagerepresentation"@en ;
   rdfs:comment "The Imagerepresentation Concept from EuroWordNet."@en .
-:Institution a :Concept ;
+:Institution a :DanNetConcept ;
   rdfs:label "Institution"@en ;
-  rdfs:comment "The Institution Concept from EuroWordNet."@en .
-:Instrument a :Concept ;
+  rdfs:comment "The Institution Concept from DanNet."@en .
+:Instrument a :EuroWordNetConcept ;
   rdfs:label "Instrument"@en ;
   rdfs:comment "The Instrument Concept from EuroWordNet."@en .
-:LanguageRepresentation a :Concept ;
+:LanguageRepresentation a :EuroWordNetConcept ;
   rdfs:label "LanguageRepresentation"@en ;
   rdfs:comment "The LanguageRepresentation Concept from EuroWordNet."@en .
-:Liquid a :Concept ;
+:Liquid a :EuroWordNetConcept ;
   rdfs:label "Liquid"@en ;
   rdfs:comment "The Liquid Concept from EuroWordNet."@en .
-:Living a :Concept ;
+:Living a :EuroWordNetConcept ;
   rdfs:label "Living"@en ;
   rdfs:comment "The Living Concept from EuroWordNet."@en .
-:Location a :Concept ;
+:Location a :EuroWordNetConcept ;
   rdfs:label "Location"@en ;
   rdfs:comment "The Location Concept from EuroWordNet."@en .
-:Manner a :Concept ;
+:Manner a :EuroWordNetConcept ;
   rdfs:label "Manner"@en ;
   rdfs:comment "The Manner Concept from EuroWordNet."@en .
-:Mental a :Concept ;
+:Mental a :EuroWordNetConcept ;
   rdfs:label "Mental"@en ;
   rdfs:comment "The Mental Concept from EuroWordNet."@en .
-:MoneyRepresentation a :Concept ;
+:MoneyRepresentation a :EuroWordNetConcept ;
   rdfs:label "MoneyRepresentation"@en ;
   rdfs:comment "The MoneyRepresentation Concept from EuroWordNet."@en .
-:Natural a :Concept ;
+:Natural a :EuroWordNetConcept ;
   rdfs:label "Natural"@en ;
   rdfs:comment "The Natural Concept from EuroWordNet."@en .
-:Object a :Concept ;
+:Object a :EuroWordNetConcept ;
   rdfs:label "Object"@en ;
   rdfs:comment "The Object Concept from EuroWordNet."@en .
-:Occupation a :Concept ;
+:Occupation a :EuroWordNetConcept ;
   rdfs:label "Occupation"@en ;
   rdfs:comment "The Occupation Concept from EuroWordNet."@en .
-:Part a :Concept ;
+:Part a :EuroWordNetConcept ;
   rdfs:label "Part"@en ;
   rdfs:comment "The Part Concept from EuroWordNet."@en .
-:Phenomenal a :Concept ;
+:Phenomenal a :EuroWordNetConcept ;
   rdfs:label "Phenomenal"@en ;
   rdfs:comment "The Phenomenal Concept from EuroWordNet."@en .
-:Physical a :Concept ;
+:Physical a :EuroWordNetConcept ;
   rdfs:label "Physical"@en ;
   rdfs:comment "The Physical Concept from EuroWordNet."@en .
-:Place a :Concept ;
+:Place a :EuroWordNetConcept ;
   rdfs:label "Place"@en ;
   rdfs:comment "The Place Concept from EuroWordNet."@en .
-:Plant a :Concept ;
+:Plant a :EuroWordNetConcept ;
   rdfs:label "Plant"@en ;
   rdfs:comment "The Plant Concept from EuroWordNet."@en .
-:Possession a :Concept ;
+:Possession a :EuroWordNetConcept ;
   rdfs:label "Possession"@en ;
   rdfs:comment "The Possession Concept from EuroWordNet."@en .
-:Property a :Concept ;
+:Property a :EuroWordNetConcept ;
   rdfs:label "Property"@en ;
   rdfs:comment "The Property Concept from EuroWordNet."@en .
-:Purpose a :Concept ;
+:Purpose a :EuroWordNetConcept ;
   rdfs:label "Purpose"@en ;
   rdfs:comment "The Purpose Concept from EuroWordNet."@en .
-:Quantity a :Concept ;
+:Quantity a :EuroWordNetConcept ;
   rdfs:label "Quantity"@en ;
   rdfs:comment "The Quantity Concept from EuroWordNet."@en .
-:Relation a :Concept ;
+:Relation a :EuroWordNetConcept ;
   rdfs:label "Relation"@en ;
   rdfs:comment "The Relation Concept from EuroWordNet."@en .
-:Representation a :Concept ;
+:Representation a :EuroWordNetConcept ;
   rdfs:label "Representation"@en ;
   rdfs:comment "The Representation Concept from EuroWordNet."@en .
-:SecondOrderEntity a :Concept ;
+:SecondOrderEntity a :EuroWordNetConcept ;
   rdfs:label "SecondOrderEntity"@en ;
   rdfs:comment "The SecondOrderEntity Concept from EuroWordNet."@en .
-:Social a :Concept ;
+:Social a :EuroWordNetConcept ;
   rdfs:label "Social"@en ;
   rdfs:comment "The Social Concept from EuroWordNet."@en .
-:Software a :Concept ;
+:Software a :EuroWordNetConcept ;
   rdfs:label "Software"@en ;
   rdfs:comment "The Software Concept from EuroWordNet."@en .
-:Static a :Concept ;
+:Static a :EuroWordNetConcept ;
   rdfs:label "Static"@en ;
   rdfs:comment "The Static Concept from EuroWordNet."@en .
-:Stimulating a :Concept ;
+:Stimulating a :EuroWordNetConcept ;
   rdfs:label "Stimulating"@en ;
   rdfs:comment "The Stimulating Concept from EuroWordNet."@en .
-:Substance a :Concept ;
+:Substance a :EuroWordNetConcept ;
   rdfs:label "Substance"@en ;
   rdfs:comment "The Substance Concept from EuroWordNet."@en .
-:ThirdOrderEntity a :Concept ;
+:ThirdOrderEntity a :EuroWordNetConcept ;
   rdfs:label "ThirdOrderEntity"@en ;
   rdfs:comment "The ThirdOrderEntity Concept from EuroWordNet."@en .
-:Time a :Concept ;
+:Time a :EuroWordNetConcept ;
   rdfs:label "Time"@en ;
   rdfs:comment "The Time Concept from EuroWordNet."@en .
-:UnboundedEvent a :Concept ;
+:UnboundedEvent a :EuroWordNetConcept ;
   rdfs:label "UnboundedEvent"@en ;
   rdfs:comment "The UnboundedEvent Concept from EuroWordNet."@en .
-:Underspecified a :Concept ;
+:Underspecified a :EuroWordNetConcept ;
   rdfs:label "Underspecified"@en ;
   rdfs:comment "The Underspecified Concept from EuroWordNet."@en .
-:Vehicle a :Concept ;
+:Vehicle a :EuroWordNetConcept ;
   rdfs:label "Vehicle"@en ;
   rdfs:comment "The Vehicle Concept from EuroWordNet."@en .
 
@@ -266,8 +277,8 @@
   rdfs:label "EuroWordNet concept composite"@en .
 
 :ConceptComposite a owl:Class ;
-  rdfs:label "EuroWordNet Concept composite"@en ;
-  rdfs:comment "A composite of the concepts based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see: <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
+  rdfs:label "DanNet/EuroWordNet concept composite"@en ;
+  rdfs:comment "A composite of the concepts from EuroWordNet and/or DanNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en ;
   owl:oneOf (
     :Animal-Comestible-Object
     :Animal-Comestible-Part
@@ -473,612 +484,613 @@
     :Vehicle-Object-Artifact-Group
     :Vehicle-Object-Artifact-Part ) .
 
+# TODO: single-item :ConceptComposite share Resource with regular :Concept...?
 :Animal-Comestible-Object a :ConceptComposite ;
   rdfs:label "Animal-Comestible-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Comestible-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Comestible-Object."@en .
 :Animal-Comestible-Part a :ConceptComposite ;
   rdfs:label "Animal-Comestible-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Comestible-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Comestible-Part."@en .
 :Animal-Comestible-Substance a :ConceptComposite ;
   rdfs:label "Animal-Comestible-Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Comestible-Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Comestible-Substance."@en .
 :Animal-Object a :ConceptComposite ;
   rdfs:label "Animal-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Object."@en .
 :Animal-Object-Group a :ConceptComposite ;
   rdfs:label "Animal-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Object-Group."@en .
 :Animal-Object-Part a :ConceptComposite ;
   rdfs:label "Animal-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Animal-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Animal-Object-Part."@en .
 :Artifact-Object a :ConceptComposite ;
   rdfs:label "Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Object."@en .
 :Artifact-Object-Artwork a :ConceptComposite ;
   rdfs:label "Artifact-Object-Artwork"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Object-Artwork."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Object-Artwork."@en .
 :Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Object-Group."@en .
 :Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Object-Part."@en .
 :Artifact-Substance a :ConceptComposite ;
   rdfs:label "Artifact-Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Substance."@en .
 :Artifact-Substance-Part a :ConceptComposite ;
   rdfs:label "Artifact-Substance-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Artifact-Substance-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Artifact-Substance-Part."@en .
 :BoundedEvent a :ConceptComposite ;
   rdfs:label "BoundedEvent"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent."@en .
 :BoundedEvent-Agentive a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive."@en .
 :BoundedEvent-Agentive-Condition-Physical a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Condition-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Condition-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Condition-Physical."@en .
 :BoundedEvent-Agentive-Existence a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Existence."@en .
 :BoundedEvent-Agentive-Experience-Condition-Purpose a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Experience-Condition-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Experience-Condition-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Experience-Condition-Purpose."@en .
 :BoundedEvent-Agentive-Mental a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Mental."@en .
 :BoundedEvent-Agentive-Mental-Communication a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Mental-Communication"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Mental-Communication."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Mental-Communication."@en .
 :BoundedEvent-Agentive-Mental-Purpose a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Mental-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Mental-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Mental-Purpose."@en .
 :BoundedEvent-Agentive-Physical-Existence a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Physical-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Physical-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Physical-Existence."@en .
 :BoundedEvent-Agentive-Physical-Existence-Purpose a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Physical-Existence-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Physical-Existence-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Physical-Existence-Purpose."@en .
 :BoundedEvent-Agentive-Physical-Location a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Physical-Location."@en .
 :BoundedEvent-Agentive-Physical-Purpose a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Physical-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Physical-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Physical-Purpose."@en .
 :BoundedEvent-Agentive-Physical-Social a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Physical-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Physical-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Physical-Social."@en .
 :BoundedEvent-Agentive-Possession a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Possession"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Possession."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Possession."@en .
 :BoundedEvent-Agentive-Purpose a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Purpose."@en .
 :BoundedEvent-Agentive-Purpose-Communication a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Purpose-Communication"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Purpose-Communication."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Purpose-Communication."@en .
 :BoundedEvent-Agentive-Purpose-Possession a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Purpose-Possession"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Purpose-Possession."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Purpose-Possession."@en .
 :BoundedEvent-Agentive-Purpose-Possession-Social a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Purpose-Possession-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Purpose-Possession-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Purpose-Possession-Social."@en .
 :BoundedEvent-Agentive-Purpose-Social a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Purpose-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Purpose-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Purpose-Social."@en .
 :BoundedEvent-Agentive-Time a :ConceptComposite ;
   rdfs:label "BoundedEvent-Agentive-Time"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Agentive-Time."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Agentive-Time."@en .
 :BoundedEvent-Cause a :ConceptComposite ;
   rdfs:label "BoundedEvent-Cause"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Cause."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Cause."@en .
 :BoundedEvent-Cause-Existence a :ConceptComposite ;
   rdfs:label "BoundedEvent-Cause-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Cause-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Cause-Existence."@en .
 :BoundedEvent-Cause-Location-Physical a :ConceptComposite ;
   rdfs:label "BoundedEvent-Cause-Location-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Cause-Location-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Cause-Location-Physical."@en .
 :BoundedEvent-Cause-Physical a :ConceptComposite ;
   rdfs:label "BoundedEvent-Cause-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Cause-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Cause-Physical."@en .
 :BoundedEvent-Communication a :ConceptComposite ;
   rdfs:label "BoundedEvent-Communication"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Communication."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Communication."@en .
 :BoundedEvent-Experience-Mental a :ConceptComposite ;
   rdfs:label "BoundedEvent-Experience-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Experience-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Experience-Mental."@en .
 :BoundedEvent-Experience-Physical a :ConceptComposite ;
   rdfs:label "BoundedEvent-Experience-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Experience-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Experience-Physical."@en .
 :BoundedEvent-Location a :ConceptComposite ;
   rdfs:label "BoundedEvent-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Location."@en .
 :BoundedEvent-Mental a :ConceptComposite ;
   rdfs:label "BoundedEvent-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Mental."@en .
 :BoundedEvent-Phenomenal a :ConceptComposite ;
   rdfs:label "BoundedEvent-Phenomenal"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Phenomenal."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Phenomenal."@en .
 :BoundedEvent-Physical a :ConceptComposite ;
   rdfs:label "BoundedEvent-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Physical."@en .
 :BoundedEvent-Physical-Location a :ConceptComposite ;
   rdfs:label "BoundedEvent-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Physical-Location."@en .
 :BoundedEvent-Possession a :ConceptComposite ;
   rdfs:label "BoundedEvent-Possession"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Possession."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Possession."@en .
 :BoundedEvent-Social a :ConceptComposite ;
   rdfs:label "BoundedEvent-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts BoundedEvent-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts BoundedEvent-Social."@en .
 :Building-Object a :ConceptComposite ;
   rdfs:label "Building-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Building-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Building-Object."@en .
 :Building-Object-Group a :ConceptComposite ;
   rdfs:label "Building-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Building-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Building-Object-Group."@en .
 :Building-Object-Part a :ConceptComposite ;
   rdfs:label "Building-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Building-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Building-Object-Part."@en .
 :Comestible a :ConceptComposite ;
   rdfs:label "Comestible"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible."@en .
 :Comestible-Artifact-Liquid a :ConceptComposite ;
   rdfs:label "Comestible-Artifact-Liquid"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Artifact-Liquid."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Artifact-Liquid."@en .
 :Comestible-Artifact-Object a :ConceptComposite ;
   rdfs:label "Comestible-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Artifact-Object."@en .
 :Comestible-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Comestible-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Artifact-Object-Part."@en .
 :Comestible-Artifact-Substance a :ConceptComposite ;
   rdfs:label "Comestible-Artifact-Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Artifact-Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Artifact-Substance."@en .
 :Comestible-Artifact-Substance-Part a :ConceptComposite ;
   rdfs:label "Comestible-Artifact-Substance-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Artifact-Substance-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Artifact-Substance-Part."@en .
 :Comestible-Group a :ConceptComposite ;
   rdfs:label "Comestible-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Group."@en .
 :Comestible-Natural-Liquid a :ConceptComposite ;
   rdfs:label "Comestible-Natural-Liquid"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Natural-Liquid."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Natural-Liquid."@en .
 :Comestible-Natural-Substance a :ConceptComposite ;
   rdfs:label "Comestible-Natural-Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Natural-Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Natural-Substance."@en .
 :Comestible-Natural-Substance-Part a :ConceptComposite ;
   rdfs:label "Comestible-Natural-Substance-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Comestible-Natural-Substance-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Comestible-Natural-Substance-Part."@en .
 :Container-Artifact-Object a :ConceptComposite ;
   rdfs:label "Container-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Container-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Container-Artifact-Object."@en .
 :Container-Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "Container-Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Container-Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Container-Artifact-Object-Group."@en .
 :Container-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Container-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Container-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Container-Artifact-Object-Part."@en .
 :Covering a :ConceptComposite ;
   rdfs:label "Covering"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Covering."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Covering."@en .
 :Creature a :ConceptComposite ;
   rdfs:label "Creature"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Creature."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Creature."@en .
 :Dynamic a :ConceptComposite ;
   rdfs:label "Dynamic"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic."@en .
 :Dynamic-Agentive a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive."@en .
 :Dynamic-Agentive-Communication a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Communication"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Communication."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Communication."@en .
 :Dynamic-Agentive-Mental a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Mental."@en .
 :Dynamic-Agentive-Mental-Purpose a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Mental-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Mental-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Mental-Purpose."@en .
 :Dynamic-Agentive-Physical-Location a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Physical-Location."@en .
 :Dynamic-Agentive-Physical-Purpose a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Physical-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Physical-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Physical-Purpose."@en .
 :Dynamic-Agentive-Physical-Purpose-Social a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Physical-Purpose-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Physical-Purpose-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Physical-Purpose-Social."@en .
 :Dynamic-Agentive-Purpose a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Purpose."@en .
 :Dynamic-Agentive-Purpose-Social a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Purpose-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Purpose-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Purpose-Social."@en .
 :Dynamic-Agentive-Social a :ConceptComposite ;
   rdfs:label "Dynamic-Agentive-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Agentive-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Agentive-Social."@en .
 :Dynamic-Cause-Physical a :ConceptComposite ;
   rdfs:label "Dynamic-Cause-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Cause-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Cause-Physical."@en .
 :Dynamic-Experience a :ConceptComposite ;
   rdfs:label "Dynamic-Experience"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Experience."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Experience."@en .
 :Dynamic-Experience-Mental a :ConceptComposite ;
   rdfs:label "Dynamic-Experience-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Experience-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Experience-Mental."@en .
 :Dynamic-Experience-Physical a :ConceptComposite ;
   rdfs:label "Dynamic-Experience-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Experience-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Experience-Physical."@en .
 :Dynamic-Phenomenal a :ConceptComposite ;
   rdfs:label "Dynamic-Phenomenal"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Phenomenal."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Phenomenal."@en .
 :Dynamic-Phenomenal-Physical a :ConceptComposite ;
   rdfs:label "Dynamic-Phenomenal-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Phenomenal-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Phenomenal-Physical."@en .
 :Dynamic-Phenomenal-Physical-Condition a :ConceptComposite ;
   rdfs:label "Dynamic-Phenomenal-Physical-Condition"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Phenomenal-Physical-Condition."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Phenomenal-Physical-Condition."@en .
 :Dynamic-Possession a :ConceptComposite ;
   rdfs:label "Dynamic-Possession"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Dynamic-Possession."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Dynamic-Possession."@en .
 :FirstOrderEntity a :ConceptComposite ;
   rdfs:label "FirstOrderEntity"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts FirstOrderEntity."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts FirstOrderEntity."@en .
 :Form a :ConceptComposite ;
   rdfs:label "Form"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Form."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Form."@en .
 :Furniture-Artifact-Object a :ConceptComposite ;
   rdfs:label "Furniture-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Furniture-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Furniture-Artifact-Object."@en .
 :Furniture-Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "Furniture-Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Furniture-Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Furniture-Artifact-Object-Group."@en .
 :Furniture-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Furniture-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Furniture-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Furniture-Artifact-Object-Part."@en .
 :Garment a :ConceptComposite ;
   rdfs:label "Garment"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Garment."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Garment."@en .
 :Garment-Artifact-Object a :ConceptComposite ;
   rdfs:label "Garment-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Garment-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Garment-Artifact-Object."@en .
 :Garment-Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "Garment-Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Garment-Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Garment-Artifact-Object-Group."@en .
 :Garment-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Garment-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Garment-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Garment-Artifact-Object-Part."@en .
 :GeopoliticalPlace-Object-Artifact a :ConceptComposite ;
   rdfs:label "GeopoliticalPlace-Object-Artifact"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts GeopoliticalPlace-Object-Artifact."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts GeopoliticalPlace-Object-Artifact."@en .
 :Group a :ConceptComposite ;
   rdfs:label "Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Group."@en .
 :Group-Object a :ConceptComposite ;
   rdfs:label "Group-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Group-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Group-Object."@en .
 :Group-Object-Living a :ConceptComposite ;
   rdfs:label "Group-Object-Living"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Group-Object-Living."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Group-Object-Living."@en .
 :Group-Object-Natural a :ConceptComposite ;
   rdfs:label "Group-Object-Natural"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Group-Object-Natural."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Group-Object-Natural."@en .
 :Human-Object a :ConceptComposite ;
   rdfs:label "Human-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Human-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Human-Object."@en .
 :Human-Object-Group a :ConceptComposite ;
   rdfs:label "Human-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Human-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Human-Object-Group."@en .
 :Human-Object-Occupation a :ConceptComposite ;
   rdfs:label "Human-Object-Occupation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Human-Object-Occupation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Human-Object-Occupation."@en .
 :Human-Object-Part a :ConceptComposite ;
   rdfs:label "Human-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Human-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Human-Object-Part."@en .
 :Imagerepresentation-Artifact-Object a :ConceptComposite ;
   rdfs:label "Imagerepresentation-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Imagerepresentation-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Imagerepresentation-Artifact-Object."@en .
 :Instrument-Artifact-Object a :ConceptComposite ;
   rdfs:label "Instrument-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Instrument-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Instrument-Artifact-Object."@en .
 :Instrument-Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "Instrument-Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Instrument-Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Instrument-Artifact-Object-Group."@en .
 :Instrument-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "Instrument-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Instrument-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Instrument-Artifact-Object-Part."@en .
 :LanguageRepresentation-Artifact-Object a :ConceptComposite ;
   rdfs:label "LanguageRepresentation-Artifact-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts LanguageRepresentation-Artifact-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts LanguageRepresentation-Artifact-Object."@en .
 :LanguageRepresentation-Artifact-Object-Group a :ConceptComposite ;
   rdfs:label "LanguageRepresentation-Artifact-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts LanguageRepresentation-Artifact-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts LanguageRepresentation-Artifact-Object-Group."@en .
 :LanguageRepresentation-Artifact-Object-Part a :ConceptComposite ;
   rdfs:label "LanguageRepresentation-Artifact-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts LanguageRepresentation-Artifact-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts LanguageRepresentation-Artifact-Object-Part."@en .
 :Liquid a :ConceptComposite ;
   rdfs:label "Liquid"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Liquid."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Liquid."@en .
 :Liquid-Artifact a :ConceptComposite ;
   rdfs:label "Liquid-Artifact"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Liquid-Artifact."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Liquid-Artifact."@en .
 :Liquid-Natural a :ConceptComposite ;
   rdfs:label "Liquid-Natural"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Liquid-Natural."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Liquid-Natural."@en .
 :Living-Object a :ConceptComposite ;
   rdfs:label "Living-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Living-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Living-Object."@en .
 :MoneyRepresentation a :ConceptComposite ;
   rdfs:label "MoneyRepresentation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts MoneyRepresentation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts MoneyRepresentation."@en .
 :Natural-Group a :ConceptComposite ;
   rdfs:label "Natural-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Group."@en .
 :Natural-Object a :ConceptComposite ;
   rdfs:label "Natural-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Object."@en .
 :Natural-Object-BodyPart a :ConceptComposite ;
   rdfs:label "Natural-Object-BodyPart"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Object-BodyPart."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Object-BodyPart."@en .
 :Natural-Object-Part a :ConceptComposite ;
   rdfs:label "Natural-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Object-Part."@en .
 :Natural-Substance a :ConceptComposite ;
   rdfs:label "Natural-Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Substance."@en .
 :Natural-Substance-Part a :ConceptComposite ;
   rdfs:label "Natural-Substance-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Natural-Substance-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Natural-Substance-Part."@en .
 :Object a :ConceptComposite ;
   rdfs:label "Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Object."@en .
 :Object-Part a :ConceptComposite ;
   rdfs:label "Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Object-Part."@en .
 :Part a :ConceptComposite ;
   rdfs:label "Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Part."@en .
 :Place a :ConceptComposite ;
   rdfs:label "Place"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place."@en .
 :Place-Liquid-Natural a :ConceptComposite ;
   rdfs:label "Place-Liquid-Natural"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Liquid-Natural."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Liquid-Natural."@en .
 :Place-Object a :ConceptComposite ;
   rdfs:label "Place-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object."@en .
 :Place-Object-Artifact a :ConceptComposite ;
   rdfs:label "Place-Object-Artifact"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Artifact."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Artifact."@en .
 :Place-Object-Artifact-Part a :ConceptComposite ;
   rdfs:label "Place-Object-Artifact-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Artifact-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Artifact-Part."@en .
 :Place-Object-Group a :ConceptComposite ;
   rdfs:label "Place-Object-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Group."@en .
 :Place-Object-Natural a :ConceptComposite ;
   rdfs:label "Place-Object-Natural"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Natural."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Natural."@en .
 :Place-Object-Natural-Part a :ConceptComposite ;
   rdfs:label "Place-Object-Natural-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Natural-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Natural-Part."@en .
 :Place-Object-Part a :ConceptComposite ;
   rdfs:label "Place-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Place-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Place-Object-Part."@en .
 :Plant-Group a :ConceptComposite ;
   rdfs:label "Plant-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Plant-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Plant-Group."@en .
 :Plant-Object a :ConceptComposite ;
   rdfs:label "Plant-Object"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Plant-Object."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Plant-Object."@en .
 :Plant-Object-Comestible a :ConceptComposite ;
   rdfs:label "Plant-Object-Comestible"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Plant-Object-Comestible."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Plant-Object-Comestible."@en .
 :Plant-Object-Part a :ConceptComposite ;
   rdfs:label "Plant-Object-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Plant-Object-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Plant-Object-Part."@en .
 :Plant-Object-Part-Comestible a :ConceptComposite ;
   rdfs:label "Plant-Object-Part-Comestible"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Plant-Object-Part-Comestible."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Plant-Object-Part-Comestible."@en .
 :Property a :ConceptComposite ;
   rdfs:label "Property"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property."@en .
 :Property-Existence a :ConceptComposite ;
   rdfs:label "Property-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Existence."@en .
 :Property-LanguageRepresentation a :ConceptComposite ;
   rdfs:label "Property-LanguageRepresentation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-LanguageRepresentation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-LanguageRepresentation."@en .
 :Property-Location a :ConceptComposite ;
   rdfs:label "Property-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Location."@en .
 :Property-Mental a :ConceptComposite ;
   rdfs:label "Property-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Mental."@en .
 :Property-Physical a :ConceptComposite ;
   rdfs:label "Property-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Physical."@en .
 :Property-Physical-Colour a :ConceptComposite ;
   rdfs:label "Property-Physical-Colour"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Physical-Colour."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Physical-Colour."@en .
 :Property-Physical-Condition a :ConceptComposite ;
   rdfs:label "Property-Physical-Condition"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Physical-Condition."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Physical-Condition."@en .
 :Property-Physical-Form a :ConceptComposite ;
   rdfs:label "Property-Physical-Form"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Physical-Form."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Physical-Form."@en .
 :Property-Social a :ConceptComposite ;
   rdfs:label "Property-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Social."@en .
 :Property-Stimulating-Physical a :ConceptComposite ;
   rdfs:label "Property-Stimulating-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Stimulating-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Stimulating-Physical."@en .
 :Property-Time a :ConceptComposite ;
   rdfs:label "Property-Time"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Property-Time."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Property-Time."@en .
 :Relation a :ConceptComposite ;
   rdfs:label "Relation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Relation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Relation."@en .
 :Relation-Location a :ConceptComposite ;
   rdfs:label "Relation-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Relation-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Relation-Location."@en .
 :Relation-Possession a :ConceptComposite ;
   rdfs:label "Relation-Possession"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Relation-Possession."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Relation-Possession."@en .
 :Representation a :ConceptComposite ;
   rdfs:label "Representation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Representation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Representation."@en .
 :SecondOrderEntity a :ConceptComposite ;
   rdfs:label "SecondOrderEntity"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts SecondOrderEntity."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts SecondOrderEntity."@en .
 :Software a :ConceptComposite ;
   rdfs:label "Software"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Software."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Software."@en .
 :Static a :ConceptComposite ;
   rdfs:label "Static"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static."@en .
 :Static-Existence a :ConceptComposite ;
   rdfs:label "Static-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static-Existence."@en .
 :Static-Location a :ConceptComposite ;
   rdfs:label "Static-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static-Location."@en .
 :Static-Mental a :ConceptComposite ;
   rdfs:label "Static-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static-Mental."@en .
 :Static-Relation a :ConceptComposite ;
   rdfs:label "Static-Relation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static-Relation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static-Relation."@en .
 :Static-Social a :ConceptComposite ;
   rdfs:label "Static-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Static-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Static-Social."@en .
 :Substance a :ConceptComposite ;
   rdfs:label "Substance"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Substance."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Substance."@en .
 :ThirdOrderEntity a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity."@en .
 :ThirdOrderEntity-Mental a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental."@en .
 :ThirdOrderEntity-Mental-Experience a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Experience"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Experience."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Experience."@en .
 :ThirdOrderEntity-Mental-Location a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Location."@en .
 :ThirdOrderEntity-Mental-Purpose a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Purpose."@en .
 :ThirdOrderEntity-Mental-Purpose-Domain a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Purpose-Domain"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Purpose-Domain."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Purpose-Domain."@en .
 :ThirdOrderEntity-Mental-Purpose-Manner a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Purpose-Manner"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Purpose-Manner."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Purpose-Manner."@en .
 :ThirdOrderEntity-Mental-Purpose-Social a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Purpose-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Purpose-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Purpose-Social."@en .
 :ThirdOrderEntity-Mental-Purpose-Social-Institution a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Purpose-Social-Institution"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Purpose-Social-Institution."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Purpose-Social-Institution."@en .
 :ThirdOrderEntity-Mental-Social a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Mental-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Mental-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Mental-Social."@en .
 :ThirdOrderEntity-Part a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Part."@en .
 :ThirdOrderEntity-Quantity a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Quantity"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Quantity."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Quantity."@en .
 :ThirdOrderEntity-Quantity-MoneyRepresentation a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Quantity-MoneyRepresentation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Quantity-MoneyRepresentation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Quantity-MoneyRepresentation."@en .
 :ThirdOrderEntity-Quantity-Part a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Quantity-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Quantity-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Quantity-Part."@en .
 :ThirdOrderEntity-Relation a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Relation"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Relation."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Relation."@en .
 :ThirdOrderEntity-Time a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Time"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Time."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Time."@en .
 :ThirdOrderEntity-Time-Part a :ConceptComposite ;
   rdfs:label "ThirdOrderEntity-Time-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts ThirdOrderEntity-Time-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts ThirdOrderEntity-Time-Part."@en .
 :UnboundedEvent a :ConceptComposite ;
   rdfs:label "UnboundedEvent"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent."@en .
 :UnboundedEvent-Agentive a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive."@en .
 :UnboundedEvent-Agentive-Communication-Social a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Communication-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Communication-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Communication-Social."@en .
 :UnboundedEvent-Agentive-Existence a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Existence"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Existence."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Existence."@en .
 :UnboundedEvent-Agentive-Mental a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Mental."@en .
 :UnboundedEvent-Agentive-Physical a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Physical."@en .
 :UnboundedEvent-Agentive-Physical-Location a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Physical-Location."@en .
 :UnboundedEvent-Agentive-Physical-Purpose a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Physical-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Physical-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Physical-Purpose."@en .
 :UnboundedEvent-Agentive-Physical-Social a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Physical-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Physical-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Physical-Social."@en .
 :UnboundedEvent-Agentive-Purpose a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Agentive-Purpose"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Agentive-Purpose."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Agentive-Purpose."@en .
 :UnboundedEvent-Cause a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Cause"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Cause."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Cause."@en .
 :UnboundedEvent-Cause-Physical a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Cause-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Cause-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Cause-Physical."@en .
 :UnboundedEvent-Cause-Physical-Location a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Cause-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Cause-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Cause-Physical-Location."@en .
 :UnboundedEvent-Communication-Purpose-Social a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Communication-Purpose-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Communication-Purpose-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Communication-Purpose-Social."@en .
 :UnboundedEvent-Experience-Physical a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Experience-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Experience-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Experience-Physical."@en .
 :UnboundedEvent-Mental a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Mental"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Mental."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Mental."@en .
 :UnboundedEvent-Phenomenal a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Phenomenal"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Phenomenal."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Phenomenal."@en .
 :UnboundedEvent-Phenomenal-Physical a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Phenomenal-Physical"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Phenomenal-Physical."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Phenomenal-Physical."@en .
 :UnboundedEvent-Physical-Location a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Physical-Location"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Physical-Location."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Physical-Location."@en .
 :UnboundedEvent-Social a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Social"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Social."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Social."@en .
 :UnboundedEvent-Time a :ConceptComposite ;
   rdfs:label "UnboundedEvent-Time"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts UnboundedEvent-Time."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts UnboundedEvent-Time."@en .
 :Underspecified a :ConceptComposite ;
   rdfs:label "Underspecified"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Underspecified."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Underspecified."@en .
 :Vehicle-Object-Artifact a :ConceptComposite ;
   rdfs:label "Vehicle-Object-Artifact"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Vehicle-Object-Artifact."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Vehicle-Object-Artifact."@en .
 :Vehicle-Object-Artifact-Group a :ConceptComposite ;
   rdfs:label "Vehicle-Object-Artifact-Group"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Vehicle-Object-Artifact-Group."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Vehicle-Object-Artifact-Group."@en .
 :Vehicle-Object-Artifact-Part a :ConceptComposite ;
   rdfs:label "Vehicle-Object-Artifact-Part"@en ;
-  rdfs:comment "The composite of the EuroWordNet Concepts Vehicle-Object-Artifact-Part."@en .
+  rdfs:comment "The composite of the DanNet/EuroWordNet concepts Vehicle-Object-Artifact-Part."@en .
