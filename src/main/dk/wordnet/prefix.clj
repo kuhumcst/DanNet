@@ -6,7 +6,7 @@
 
 (def schemas
   {'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
-             :alt "https://raw.githubusercontent.com/globalwordnet/schemas/master/wn-lemon-1.1.rdf"}
+             :alt (str (io/resource "schemas/wn-lemon-1.2.ttl"))}
    'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
    'lemon   {:uri "http://lemon-model.net/lemon#"}
    'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
