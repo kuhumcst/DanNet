@@ -223,6 +223,9 @@
         (re-find #"sj." register)
         (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
 
+        (re-find #"jargon" register)
+        (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
+
         (re-find #"slang" register)
         (conj [sense :lexinfo/register :lexinfo/slangRegister])))))
 
