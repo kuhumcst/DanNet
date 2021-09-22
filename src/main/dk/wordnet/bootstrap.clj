@@ -32,7 +32,6 @@
 (def brug
   #"\s*\(Brug: \"(.+)\"")
 
-;; TODO: get this approved
 (defn lexical-form-uri
   [word-id form]
   ;; Originally, spaces were replaced with "_" but this caused issues with Jena
@@ -163,6 +162,7 @@
           obj  (synset-uri obj-id)]
       (if (and (= taxonomic "nontaxonomic")
                (= rel "has_hyperonym"))
+        ;; TODO: define in OWL schema
         #{[subj :dns/hypernym_ortho obj]
           [subj (gwa-rel rel) obj]}
         (if-let [rel* (gwa-rel rel)]
