@@ -127,8 +127,6 @@
       (str/replace #"2nd" "Second")
       (str/replace #"3rd" "Third")))
 
-;; TODO: what is the meaning behind certain parentheses? e.g. (+Institution)
-;; TODO: make a schema to define these new RDF resources
 (defn explode-ontological-type
   "Create ontologicalType triple(s) based on a `synset` and the legacy DanNet
   `ontological-type` string."
