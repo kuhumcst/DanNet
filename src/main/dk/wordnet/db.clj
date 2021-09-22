@@ -192,6 +192,13 @@
        (apply concat)
        (sort)))
 
+(defn synset-relations
+  [g relation]
+  (q/run g
+         '[?l1 ?s1 ?relation ?s2 ?l2]
+         op/synset-relations
+         {'?relation relation}))
+
 (comment
   (type (:graph dannet))                                    ; Check graph type
 
@@ -244,6 +251,12 @@
   (alt-representations graph "mørkets fyrste")
   (alt-representations graph "offentlig transport")
   (alt-representations graph "kaste håndklædet i ringen")
+
+  ;; Checking various synset relations.
+  (synset-relations graph :wn/instance_hypernym)
+  (synset-relations graph :wn/co_agent_instrument)
+  (synset-relations graph :wn/antonym)
+  (synset-relations graph :wn/also)
 
   ;; Also works dataset and graph, despite accessing the model object.
   (txn/transact graph

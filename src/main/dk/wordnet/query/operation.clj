@@ -43,3 +43,10 @@
     '[:bgp
       [?sense :ontolex/usage ?usage]
       [?usage :rdf/value ?usage-str]]))
+
+(def synset-relations
+  (q/build
+    '[:bgp
+      [?s1 :rdfs/label ?l1]
+      [?s1 ?relation ?s2]
+      [?s2 :rdfs/label ?l2]]))

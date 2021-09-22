@@ -45,7 +45,7 @@
 ;; https://github.com/globalwordnet/schemas/blob/master/wn-lemon-1.1.rdf
 ;; @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 (def gwa-rel
-  {"concerns"            :wn/also                           ;TODO
+  {"concerns"            :wn/also
    "used_for"            :wn/instrument
    "used_for_object"     :wn/involved_instrument
    "has_holonym"         :wn/holonym
@@ -60,12 +60,12 @@
    "has_mero_madeof"     :wn/mero_substance
    "has_mero_member"     :wn/mero_member
    "has_mero_part"       :wn/mero_part
-   "involved_agent"      :wn/co_agent_instrument            ;TODO
-   "involved_instrument" :wn/co_instrument_agent            ;TODO
-   "involved_patient"    :wn/involved_patient               ;TODO
+   "involved_agent"      :wn/co_agent_instrument
+   "involved_instrument" :wn/co_instrument_agent
+   "involved_patient"    :wn/involved_patient
    "made_by"             :wn/result
    "near_synonym"        :wn/similar
-   "near_antonym"        :wn/antonym                        ;TODO: information loss?
+   "near_antonym"        :wn/antonym
    "role_agent"          :wn/agent
    "role_patient"        :wn/patient
    "domain"              :wn/has_domain_topic
