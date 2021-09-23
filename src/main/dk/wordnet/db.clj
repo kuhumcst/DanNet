@@ -22,8 +22,10 @@
 
 (def owl-uris
   "URIs where relevant OWL schemas can be fetched."
-  (for [{:keys [alt uri]} (vals prefix/schemas)]
-    (or alt uri)))
+  (->> (for [{:keys [alt uri instance-ns?]} (vals prefix/schemas)]
+         (when-not instance-ns?
+           (or alt uri)))
+       (filter some?)))
 
 (def reasoner-factory
   "A reusable ReasonerFactory implementation which contains an instance of
@@ -238,7 +240,7 @@
       (igraph-jena/make-jena-graph model)))
 
   ;; Export the contents of the db
-  (export-db! "resources/dannet.ttl" dannet)
+  (export-db! "resources/export/dannet.ttl" dannet)
 
   ;; Querying DanNet for various synonyms
   (synonyms graph "vand")

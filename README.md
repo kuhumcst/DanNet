@@ -34,6 +34,24 @@ Support for Apache Jena transactions is built-in and enabled automatically when 
 
 Furthermore, DanNet query results are all decorated with support for the Clojure `Navigable` protocol. The entire RDF graph can therefore easily be navigated in tools such as [REBL](https://docs.datomic.com/cloud/other-tools/REBL.html) or [Reveal](https://github.com/vlaaad/reveal) from a single query result. 
 
+Significant changes
+-------------------
+
+### New schema, prefixes, URIs
+DanNet uses a new schema, [available in this repository](resources/schemas/dannet-schema-2022.ttl) and eventually at http://www.wordnet.dk/dannet/2022/schema/. 
+
+DanNet uses the following URI prefixes for the dataset instances and the schema:
+
+* `dn` -> http://www.wordnet.dk/dannet/2022/instances/
+* `dns` -> http://www.wordnet.dk/dannet/2022/schema/
+
+These new prefixes/URIs take over from the ones used for DanNet 2.2:
+
+* `dn` -> http://www.wordnet.dk/owl/instance/2009/03/instances/
+* `dn_schema` -> http://www.wordnet.dk/owl/instance/2009/03/schema/
+
+Eventually, all of these new URIs should resolve, which is to say that accessing a resource with a GET request (e.g. through a web browser) should always return data for the resource (or schema) in question.
+
 Implementations
 ---------------
 The main database that the new tooling has been developed for is [Apache Jena](https://jena.apache.org/), which is a mature RDF triplestore that also supports [OWL](https://www.w3.org/OWL/). When represented inside Jena, the many relations of DanNet are turned into a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). The new DanNet is developed in the Clojure programming language (an alternative to Java on the JVM) which has multiple libraries for interacting with the Java-based Apache Jena, e.g. [Aristotle](https://github.com/arachne-framework/aristotle) and [igraph-jena](https://github.com/ont-app/igraph-jena).

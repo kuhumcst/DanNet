@@ -131,7 +131,7 @@
   `ontological-type` string."
   [synset ontological-type]
   (for [concept (str/split ontological-type #"-")]
-    [synset :dnc/concept (keyword "dnc" concept)]))
+    [synset :dns/concept (keyword "dns" concept)]))
 
 ;; TODO: handle :skos/definition = "(ingen definition)", e.g. :dn/synset-51997
 (defn ->synset-triples
@@ -148,7 +148,7 @@
         #{[synset :rdfs/label label]
           [synset :rdf/type :ontolex/LexicalConcept]
           [synset :skos/definition (str/replace gloss brug "")]
-          [synset :dnc/conceptComposite (keyword "dnc" ontological-type*)]}
+          [synset :dns/conceptComposite (keyword "dns" ontological-type*)]}
         (explode-ontological-type synset ontological-type*)))))
 
 ;; TODO: inheritance comment currently ignored - what to do?
@@ -276,7 +276,7 @@
   ;; Find concepts (or alternatively, concept composites)
   (->> (read-triples (:synsets imports))
        (reduce into #{})
-       (filter (comp #{:dnc/concept} second))
+       (filter (comp #{:dns/concept} second))
        (map #(nth % 2))
        (into #{})
        (map (comp symbol name))

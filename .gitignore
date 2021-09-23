@@ -5,6 +5,7 @@
 resources/dannet
 resources/wordnet
 resources/db/
+resources/export/
 dannet.ttl
 
 docker/neo4j/*.jar

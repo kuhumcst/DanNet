@@ -1,4 +1,4 @@
-@prefix : <http://www.wordnet.dk/owl/instance/2009/03/concept/> .
+@prefix : <http://www.wordnet.dk/dannet/2022/schema/> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
