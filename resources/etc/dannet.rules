@@ -86,45 +86,45 @@
 -> (rdf:XMLLiteral rdf:type rdfs:Datatype).
 -> (rdfs:Datatype rdfs:subClassOf rdfs:Class).
 
-#------------------------------------------------------------------
-# RDFS Closure rules
-#------------------------------------------------------------------
-
-[rdf1and4: (?x ?p ?y) -> (?p rdf:type rdf:Property)]
-
-[rdfs7b: (?a rdf:type rdfs:Class) -> (?a rdfs:subClassOf rdfs:Resource)]
-
-[rdfs2:  (?p rdfs:domain ?c) -> [(?x rdf:type ?c) <- (?x ?p ?y)] ]
-[rdfs3:  (?p rdfs:range ?c)  -> [(?y rdf:type ?c) <- (?x ?p ?y)] ]
-[rdfs5b: (?a rdf:type rdf:Property) -> (?a rdfs:subPropertyOf ?a)]
-[rdfs6:  (?p rdfs:subPropertyOf ?q), notEqual(?p,?q) -> table(?p, ?q), [ (?a ?q ?b) <- (?a ?p ?b)] ]
-[rdfs7:  (?a rdf:type rdfs:Class) -> (?a rdfs:subClassOf ?a)]
-[rdfs10: (?x rdf:type rdfs:ContainerMembershipProperty) -> (?x rdfs:subPropertyOf rdfs:member)]
-
-[rdfs2-partial: (?p rdfs:domain ?c) -> (?c rdf:type rdfs:Class)]
-[rdfs3-partial: (?p rdfs:range ?c)  -> (?c rdf:type rdfs:Class)]
-
-[rdfs9-alt:  (?a rdf:type ?y) <- bound(?y) (?x rdfs:subClassOf ?y), (?a rdf:type ?x) ]
-[rdfs9-alt:  (?a rdf:type ?y) <- unbound(?y) (?a rdf:type ?x) (?x rdfs:subClassOf ?y) ]
-
-#------------------------------------------------------------------
-# RDFS iff extensions needed for OWL
-#------------------------------------------------------------------
-
-[rdfs2a: (?x rdfs:domain ?z) <- bound(?x), (?x rdfs:domain ?y), (?y rdfs:subClassOf ?z) ]
-[rdfs2a: (?x rdfs:domain ?z) <- unbound(?x), (?y rdfs:subClassOf ?z), (?x rdfs:domain ?y) ]
-[rdfs3a: (?x rdfs:range  ?z) <- bound(?x), (?x rdfs:range  ?y), (?y rdfs:subClassOf ?z) ]
-[rdfs3a: (?x rdfs:range  ?z) <- unbound(?x), (?y rdfs:subClassOf ?z), (?x rdfs:range  ?y) ]
-
-[rdfs12a: (rdf:type rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdfs:Resource rdfs:subClassOf ?y)]
-[rdfs12a: (rdfs:subClassOf rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdfs:Class rdfs:subClassOf ?y)]
-[rdfs12a: (rdfs:subPropertyOf rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdf:Property rdfs:subClassOf ?y)]
-
-[rdfs12b: (rdfs:subClassOf rdfs:subPropertyOf ?z), (?z rdfs:range ?y) -> (rdfs:Class rdfs:subClassOf ?y)]
-[rdfs12b: (rdfs:subPropertyOf rdfs:subPropertyOf ?z), (?z rdfs:range ?y) -> (rdf:Property rdfs:subClassOf ?y)]
-
-[rdfsder1: (?p rdfs:range ?z) <- (?p rdfs:subPropertyOf ?q), notEqual(?p, ?q), (?q rdfs:range ?z)]
-[rdfsder2: (?p rdfs:domain ?z) <- (?p rdfs:subPropertyOf ?q), notEqual(?p, ?q), (?q rdfs:domain ?z)]
+###------------------------------------------------------------------
+### RDFS Closure rules
+###------------------------------------------------------------------
+##
+##[rdf1and4: (?x ?p ?y) -> (?p rdf:type rdf:Property)]
+##
+##[rdfs7b: (?a rdf:type rdfs:Class) -> (?a rdfs:subClassOf rdfs:Resource)]
+##
+##[rdfs2:  (?p rdfs:domain ?c) -> [(?x rdf:type ?c) <- (?x ?p ?y)] ]
+##[rdfs3:  (?p rdfs:range ?c)  -> [(?y rdf:type ?c) <- (?x ?p ?y)] ]
+##[rdfs5b: (?a rdf:type rdf:Property) -> (?a rdfs:subPropertyOf ?a)]
+##[rdfs6:  (?p rdfs:subPropertyOf ?q), notEqual(?p,?q) -> table(?p, ?q), [ (?a ?q ?b) <- (?a ?p ?b)] ]
+##[rdfs7:  (?a rdf:type rdfs:Class) -> (?a rdfs:subClassOf ?a)]
+##[rdfs10: (?x rdf:type rdfs:ContainerMembershipProperty) -> (?x rdfs:subPropertyOf rdfs:member)]
+##
+##[rdfs2-partial: (?p rdfs:domain ?c) -> (?c rdf:type rdfs:Class)]
+##[rdfs3-partial: (?p rdfs:range ?c)  -> (?c rdf:type rdfs:Class)]
+##
+##[rdfs9-alt:  (?a rdf:type ?y) <- bound(?y) (?x rdfs:subClassOf ?y), (?a rdf:type ?x) ]
+##[rdfs9-alt:  (?a rdf:type ?y) <- unbound(?y) (?a rdf:type ?x) (?x rdfs:subClassOf ?y) ]
+##
+###------------------------------------------------------------------
+### RDFS iff extensions needed for OWL
+###------------------------------------------------------------------
+##
+##[rdfs2a: (?x rdfs:domain ?z) <- bound(?x), (?x rdfs:domain ?y), (?y rdfs:subClassOf ?z) ]
+##[rdfs2a: (?x rdfs:domain ?z) <- unbound(?x), (?y rdfs:subClassOf ?z), (?x rdfs:domain ?y) ]
+##[rdfs3a: (?x rdfs:range  ?z) <- bound(?x), (?x rdfs:range  ?y), (?y rdfs:subClassOf ?z) ]
+##[rdfs3a: (?x rdfs:range  ?z) <- unbound(?x), (?y rdfs:subClassOf ?z), (?x rdfs:range  ?y) ]
+##
+##[rdfs12a: (rdf:type rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdfs:Resource rdfs:subClassOf ?y)]
+##[rdfs12a: (rdfs:subClassOf rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdfs:Class rdfs:subClassOf ?y)]
+##[rdfs12a: (rdfs:subPropertyOf rdfs:subPropertyOf ?z), (?z rdfs:domain ?y) -> (rdf:Property rdfs:subClassOf ?y)]
+##
+##[rdfs12b: (rdfs:subClassOf rdfs:subPropertyOf ?z), (?z rdfs:range ?y) -> (rdfs:Class rdfs:subClassOf ?y)]
+##[rdfs12b: (rdfs:subPropertyOf rdfs:subPropertyOf ?z), (?z rdfs:range ?y) -> (rdf:Property rdfs:subClassOf ?y)]
+##
+##[rdfsder1: (?p rdfs:range ?z) <- (?p rdfs:subPropertyOf ?q), notEqual(?p, ?q), (?q rdfs:range ?z)]
+##[rdfsder2: (?p rdfs:domain ?z) <- (?p rdfs:subPropertyOf ?q), notEqual(?p, ?q), (?q rdfs:domain ?z)]
 
 #------------------------------------------------------------------
 # OWL axioms

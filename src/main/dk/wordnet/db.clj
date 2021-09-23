@@ -268,10 +268,9 @@
   (txn/transact dataset
     (take 10 (igraph/subjects ig)))
 
-  ;; Look up "citron" using igraph
+  ;; Look up "citrusfrugt" synset using igraph
   (txn/transact model
-    (-> (ig :dn/word-11007846)
-        (igraph/flatten-description)))
+    (ig :dn/synset-514))
 
   ;; Find all hypernyms of a Synset in the graph ("birkes"; note: two paths).
   ;; Laziness and threading macros doesn't work well Jena transactions, so be
