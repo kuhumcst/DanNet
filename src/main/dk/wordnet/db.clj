@@ -12,68 +12,35 @@
             [dk.wordnet.query.operation :as op]
             [dk.wordnet.transaction :as txn])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
-           [org.apache.jena.ontology OntModel OntModelSpec ProfileRegistry]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
            [org.apache.jena.rdf.model ModelFactory Model]
            [org.apache.jena.query Dataset]
-           [org.apache.jena.reasoner ReasonerFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
-(def owl-uris
-  "URIs where relevant OWL schemas can be fetched."
+(def schema-uris
+  "URIs where relevant schemas can be fetched."
   (->> (for [{:keys [alt uri instance-ns?]} (vals prefix/schemas)]
          (when-not instance-ns?
            (or alt uri)))
        (filter some?)))
 
-(def reasoner-factory
-  "A reusable ReasonerFactory implementation which contains an instance of
-  GenericRuleReasoner that applies a custom set of inference rules for DanNet."
+(defn ->schema-model
+  "Create a Model containing the schemas found at the given `uris`."
+  [uris]
+  (reduce (fn [model ^String schema-uri]
+            (if (str/ends-with? schema-uri ".ttl")
+              (.read model schema-uri "TURTLE")
+              (.read model schema-uri "RDF/XML")))
+          (ModelFactory/createDefaultModel)
+          uris))
+
+(def reasoner
   (let [rules (Rule/parseRules (slurp (io/resource "etc/dannet.rules")))]
-    (reify ReasonerFactory
-      (create [this configuration]
-        (doto (GenericRuleReasoner. rules this)
-          (.setOWLTranslation true)
-          (.setMode GenericRuleReasoner/HYBRID)
-          (.setTransitiveClosureCaching true)))
-      (getCapabilities [this] nil)                          ; TODO: implement
-      (getURI [this] "http://wordnet.dk/reasoners/DanNetReasoner"))))
-
-;; TODO: the importModelMaker is here and redefined in the owl-model fn...?
-(defn ->ont-model-spec
-  "Create a new instance of an OntModelSpec using a custom DanNet reasoner."
-  []
-  (OntModelSpec.
-    (ModelFactory/createMemModelMaker)
-    nil
-    reasoner-factory
-    ProfileRegistry/OWL_LANG))
-
-;; According to Dave Reynolds from the Apache Jena team, calling '.prepare' will
-;; only compute the forward reasoning in advance, while the backward reasoning
-;; will still run on-demand. In order to materialize every inferred triple,
-;; in principle _EVERY_ triple should be queried in advance.
-;;
-;; An alternative to that is calling each expected query type in advance in
-;; order to clear a path for future queries of the same type.
-(defn owl-model
-  "Create an OntModel with inference capabilities based on provided `owl-uris`.
-  If needed, a `prepare-fn` may also be provided to post-process the model."
-  [owl-uris & [prepare-fn]]
-  (let [prepare-fn  (or prepare-fn #(doto ^OntModel % (.prepare)))
-        model-maker (ModelFactory/createMemModelMaker)
-        base        (.createDefaultModel model-maker)
-        spec        (doto (->ont-model-spec)
-                      (.setBaseModelMaker model-maker)
-                      (.setImportModelMaker model-maker))]
-    (prepare-fn
-      (reduce (fn [model ^String owl-uri]
-                (if (str/ends-with? owl-uri ".ttl")
-                  (.read model owl-uri "TURTLE")
-                  (.read model owl-uri "RDF/XML")))
-              (ModelFactory/createOntologyModel spec base)
-              owl-uris))))
+    (doto (GenericRuleReasoner. rules)
+      (.setOWLTranslation true)
+      (.setMode GenericRuleReasoner/HYBRID)
+      (.setTransitiveClosureCaching true))))
 
 (defn ->usage-triples
   "Create usage triples from a DanNet `g` and the `usages` from 'imports'."
@@ -113,17 +80,17 @@
 (defn ->dannet
   "Create a Jena Graph from DanNet 2.2 imports based on the options:
 
-    :imports  - DanNet CSV imports (kvs of ->triple fns and table data).
-    :db-type  - Both :tdb1 and :tdb2 are supported.
-    :db-path  - If supplied, the data is persisted inside TDB.
-    :owl-uris - A collection of URIs containing OWL schemas.
+    :imports     - DanNet CSV imports (kvs of ->triple fns and table data).
+    :db-type     - Both :tdb1 and :tdb2 are supported.
+    :db-path     - If supplied, the data is persisted inside TDB.
+    :schema-uris - A collection of URIs containing schemas.
 
    TDB 1 does not require transactions until after the first transaction has
    taken place, while TDB 2 *always* requires transactions when reading from or
    writing to the database.
 
   The returned graph uses the GWA relations within the framework of Ontolex."
-  [& {:keys [imports db-path db-type owl-uris]}]
+  [& {:keys [imports db-path db-type schema-uris] :as opts}]
   (if db-path
     (let [dataset (case db-type
                     :tdb1 (TDBFactory/createDataset ^String db-path)
@@ -135,14 +102,16 @@
       {:dataset dataset
        :model   model
        :graph   graph})
-    (if owl-uris
-      (let [model (owl-model owl-uris)
-            graph (add-imports! (.getGraph model) imports)]
-        {:model model
-         :graph graph})
-      (let [graph (add-imports! (aristotle/graph :simple) imports)
-            model (ModelFactory/createModelForGraph graph)]
-        {:model model
+    (if schema-uris
+      (let [{:keys [model]} (->dannet (dissoc opts :schema-uris))
+            schema    (->schema-model schema-uris)
+            inf-model (ModelFactory/createInfModel reasoner schema model)]
+        {:base-model   model
+         :schema-model schema
+         :model        inf-model
+         :graph        (.getGraph inf-model)})
+      (let [graph (add-imports! (aristotle/graph :simple) imports)]
+        {:model (ModelFactory/createModelForGraph graph)
          :graph graph}))))
 
 (defn add-registry-prefixes!
@@ -151,17 +120,41 @@
   (doseq [[prefix m] (:prefixes arachne.aristotle.registry/*registry*)]
     (.setNsPrefix ^Model model prefix (:arachne.aristotle.registry/= m))))
 
-(defn export-db!
-  "Export the `db` to the file with the given `filename`. Defaults to Turtle.
+(defn expanded-model
+  "Remove the schemas from the model in the `db` map.
+
+  There is no clear way in Apache Jena (AFAIK) to not mix schemas and data, but
+  thankfully basic set operations can be applied, e.g. difference."
+  [{:keys [model schema-model] :as db}]
+  (.difference model schema-model))
+
+(defn inferred-model
+  "Return only the inferred data from the model in the `db` map."
+  [{:keys [base-model] :as db}]
+  (.difference (expanded-model db) base-model))
+
+(defn export-model!
+  "Export the `model` to the file with the given `filename`. Defaults to Turtle.
   The current prefixes in the Aristotle registry are used for the output.
 
   See: https://jena.apache.org/documentation/io/rdf-output.html"
-  [filename {:keys [model] :as db} & {:keys [fmt]
-                                      :or   {fmt RDFFormat/TURTLE_PRETTY}}]
+  [filename model & {:keys [fmt]
+                     :or   {fmt RDFFormat/TURTLE_PRETTY}}]
   (txn/transact-exec model
     (add-registry-prefixes! model)
     (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
-    (.clearNsPrefixMap ^Model model)))
+    (.clearNsPrefixMap ^Model model))
+  nil)
+
+;; TODO: currently expects schema-model, base-model keys in db - fix
+(defn export!
+  "Exports multiple RDF datasets based on the data in the `db` into `dir`."
+  ([{:keys [base-model] :as db} dir]
+   (export-model! (str dir "dannet-base.ttl") base-model)
+   (export-model! (str dir "dannet-expanded.ttl") (expanded-model db))
+   (export-model! (str dir "dannet-inferred.ttl") (inferred-model db)))
+  ([db]
+   (export! db "resources/export/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!
@@ -204,11 +197,11 @@
 (comment
   (type (:graph dannet))                                    ; Check graph type
 
-  ;; Create a new in-memory DanNet from the CSV imports with OWL inference.
+  ;; Create a new in-memory DanNet from the CSV imports with inference.
   (def dannet
     (->dannet
       :imports bootstrap/imports
-      :owl-uris owl-uris))
+      :schema-uris schema-uris))
 
   ;; Create a new in-memory DanNet from the CSV imports (no inference)
   (def dannet (->dannet :imports bootstrap/imports))
@@ -240,7 +233,7 @@
       (igraph-jena/make-jena-graph model)))
 
   ;; Export the contents of the db
-  (export-db! "resources/export/dannet.ttl" dannet)
+  (export! dannet)
 
   ;; Querying DanNet for various synonyms
   (synonyms graph "vand")
@@ -289,9 +282,6 @@
            [?word :ontolex/canonicalForm ?form]
            [?synset :ontolex/isEvokedBy ?word]])
 
-  ;; Running this query caches most of the inferred relations. Takes ~10 minutes
-  ;; on my Macbook with 'OntModelSpec/OWL_MEM_MICRO_RULE_INF', but after that
-  ;; other queries all seem to run fast.
   (q/only-uris
     (q/run graph
            '[:bgp
@@ -311,18 +301,6 @@
               (when-let [synonyms (not-empty (synonyms graph lemma))]
                 [lemma synonyms])))
        (into {}))
-
-  ;; These triples were added as OWL inferences (excluding anonymous objects).
-  ;; They are pretty much all redundant, solely existing as links to other
-  ;; ontologies, e.g. lemon and semowl, or as meaningless roots like :owl/Thing.
-  #_#{{?p :lexinfo/morphosyntacticProperty, ?o "Noun"}
-      {?p :rdf/type, ?o :ontolex/LexicalEntry}
-      {?p :ontolex/lexicalForm, ?o :dn/form-11007846-citron}
-      {?p :lemon/property, ?o "Noun"}
-      {?p :rdf/type, ?o :owl/Thing}
-      {?p :rdf/type, ?o :semowl/Expression}
-      {?p :rdf/type, ?o :lemon/LemonElement}
-      {?p :rdf/type, ?o :rdfs/Resource}}
 
   ;; Test retrieval of usages
   (q/run graph op/usages '{?sense :dn/sense-21011843})
