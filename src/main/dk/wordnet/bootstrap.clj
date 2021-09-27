@@ -184,6 +184,20 @@
         [lexical-form :ontolex/writtenRep exploded-rep]))
     #{[lexical-form :ontolex/writtenRep written-rep]}))
 
+(def pos-fixes
+  "Ten words had 'None' as their POS tag. Looking at the other words in their
+  synsets clearly inform the correct POS tags to use."
+  {:dn/word-12005324-2 "Adjective"
+   :dn/word-12002785   "Noun"
+   :dn/word-11006697   "Noun"
+   :dn/word-11022554   "Noun"
+   :dn/word-11043739   "Noun"
+   :dn/word-12007550   "Noun"
+   :dn/word-11038834   "Noun"
+   :dn/word-11047932   "Noun"
+   :dn/word-12005626-1 "Verb"
+   :dn/word-11018863   "Noun"})
+
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
@@ -194,14 +208,21 @@
           written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
                          (str/replace form #"'" "")
                          form)
-          lexical-form (lexical-form-uri word-id written-rep)]
+          lexical-form (lexical-form-uri word-id written-rep)
+          fixed-pos    (get pos-fixes word pos)
+          lexinfo-pos  (keyword "lexinfo" fixed-pos)
+          wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
 
+          [word :rdf/type rdf-type]
           [word :rdfs/label written-rep]
           [word :ontolex/canonicalForm lexical-form]
-          [word :lexinfo/partOfSpeech pos]
-          [word :rdf/type rdf-type]
+
+          ;; GWA and Ontolex have competing part-of-speech relations.
+          ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
+          [word :lexinfo/partOfSpeech lexinfo-pos]
+          [word :wn/partOfSpeech wn-pos]
 
           ;; This is inferred by the subclass provided by form->lexical-entry
           #_[word :rdf/type :ontolex/LexicalEntry]}
