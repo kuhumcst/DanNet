@@ -41,6 +41,9 @@
 (def usages
   (q/build
     '[:bgp
+      [?form :ontolex/writtenRep ?lemma]
+      [?word :ontolex/canonicalForm ?form]
+      [?word :ontolex/sense ?sense]
       [?sense :ontolex/usage ?usage]
       [?usage :rdf/value ?usage-str]]))
 

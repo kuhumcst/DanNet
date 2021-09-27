@@ -17,6 +17,8 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]))
 
+;; TODO: http://www.wordnet.dk/dannet/2022/instances/form-temporary_606-Torshavn|Thorshavn
+
 (defn synset-uri
   [id]
   (keyword "dn" (str "synset-" id)))

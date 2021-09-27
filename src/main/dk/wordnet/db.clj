@@ -314,4 +314,12 @@
 
   ;; List all register values in db; helpful when extending ->register-triples.
   (registers graph)
+
+  ;; Mark the relevant lemma in all ~38539 example usages.
+  ;; I tried the same query (as SPARQL) in Python's rdflib and it was painfully
+  ;; slow, to the point where I wonder
+  (map (fn [[?lemma ?usage-str]]
+         (let [marked-lemma (str "{" (str/upper-case ?lemma) "}")]
+           (str/replace ?usage-str ?lemma marked-lemma)))
+       (q/run graph '[?lemma ?usage-str] op/usages))
   #_.)
