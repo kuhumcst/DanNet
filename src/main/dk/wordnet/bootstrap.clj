@@ -32,7 +32,7 @@
   (keyword "dn" (str "sense-" id)))
 
 (def brug
-  #"\s*\(Brug: \"(.+)\"")
+  #"\s*\(Brug: \"(.+)\"\)")
 
 (defn lexical-form-uri
   [word-id form]
