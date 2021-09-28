@@ -233,10 +233,7 @@
           ;; GWA and Ontolex have competing part-of-speech relations.
           ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
           [word :lexinfo/partOfSpeech lexinfo-pos]
-          [word :wn/partOfSpeech wn-pos]
-
-          ;; This is inferred by the subclass provided by form->lexical-entry
-          #_[word :rdf/type :ontolex/LexicalEntry]}
+          [word :wn/partOfSpeech wn-pos]}
         (explode-written-reps lexical-form written-rep)))))
 
 (defn- ->register-triples
@@ -245,7 +242,6 @@
   (if (empty? register)
     #{}
     (let [blank-node (symbol (str "_" (name sense) "-register"))]
-      ;; TODO: :lexinfo/usageNote or :ontolex/usage?
       (cond-> #{[sense :lexinfo/usageNote blank-node]
                 [blank-node :rdf/value register]}
 
@@ -273,12 +269,7 @@
         #{[sense :rdf/type :ontolex/LexicalSense]
           [word :ontolex/evokes synset]
           [word :ontolex/sense sense]
-          [synset :ontolex/lexicalizedSense sense]
-
-          ;; Inverse relations (handled by OWL inference instead)
-          #_[synset :ontolex/isEvokedBy word]
-          #_[sense :ontolex/isSenseOf word]
-          #_[sense :ontolex/isLexicalizedSenseOf synset]}))))
+          [synset :ontolex/lexicalizedSense sense]}))))
 
 (defn unmapped?
   "Are some `triples` not mapped according to GWA/Ontolex?"
