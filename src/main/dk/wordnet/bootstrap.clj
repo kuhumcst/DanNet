@@ -164,8 +164,7 @@
           obj  (synset-uri obj-id)]
       (if (and (= taxonomic "nontaxonomic")
                (= rel "has_hyperonym"))
-        ;; TODO: define in OWL schema
-        #{[subj :dns/hypernym_ortho obj]
+        #{[subj :dns/orthogonalHypernym obj]
           [subj (gwa-rel rel) obj]}
         (if-let [rel* (gwa-rel rel)]
           #{[subj rel* obj]}

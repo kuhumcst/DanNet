@@ -3,6 +3,20 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
+:orthogonalHypernym a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:label "Orthogonal hypernym"@en ;
+  owl:inverseOf :orthogonalHyponym .
+
+:orthogonalHyponym a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:label "Orthogonal hyponym"@en ;
+  owl:inverseOf :orthogonalHypernym .
+
 :concept a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range :Concept ;
