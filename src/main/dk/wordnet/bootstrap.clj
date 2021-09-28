@@ -17,8 +17,6 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]))
 
-;; TODO: http://www.wordnet.dk/dannet/2022/instances/form-temporary_606-Torshavn|Thorshavn
-
 (defn synset-uri
   [id]
   (keyword "dn" (str "synset-" id)))
@@ -39,6 +37,10 @@
   ;; Originally, spaces were replaced with "_" but this caused issues with Jena
   ;; - specifically, some encoding issue related to TDB - so now "+" is used.
   (keyword "dn" (str "form-" word-id "-" (str/replace form #" " "+"))))
+
+(def special-case->replacement
+  {"Torshavn|Thorshavn"     "Thorshavn"
+   "{Torshavn|Thorshavn_1}" "{Thorshavn_1}"})
 
 ;; Note: a single "used_for_qualby" rel exists in the dataset - likely an error
 ;; https://github.com/globalwordnet/schemas
@@ -147,7 +149,7 @@
           ontological-type* (sanitize-ontological-type ontological-type)
           definition        (str/replace gloss brug "")]
       (set/union
-        #{[synset :rdfs/label label]
+        #{[synset :rdfs/label (get special-case->replacement label label)]
           [synset :rdf/type :ontolex/LexicalConcept]
           [synset :dns/conceptComposite (keyword "dns" ontological-type*)]}
         (when (not= definition "(ingen definition)")
@@ -212,6 +214,7 @@
   [[word-id form pos :as row]]
   (when (= (count row) 4)
     (let [word         (word-uri word-id)
+          form         (get special-case->replacement form form)
           rdf-type     (form->lexical-entry form)
           written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
                          (str/replace form #"'" "")
