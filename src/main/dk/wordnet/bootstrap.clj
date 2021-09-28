@@ -135,13 +135,13 @@
   `ontological-type` string."
   [synset ontological-type]
   (for [concept (str/split ontological-type #"-")]
-    [synset :dns/concept (keyword "dns" concept)]))
+    [synset :dns/ontologicalFacet (keyword "dns" concept)]))
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples.
 
-  The legacy `ontological-type` string is converted into concept triples along
-  with a conceptComposite triple which is analogous to the old composite string.
+  The legacy `ontological-type` string is converted into facet triples along
+  with an ontologicalType triple which is analogous to the old composite string.
   All the resulting triples reference RDF resources rather than plain strings."
   [[synset-id label gloss ontological-type :as row]]
   (when (= (count row) 5)
@@ -151,7 +151,7 @@
       (set/union
         #{[synset :rdfs/label (get special-case->replacement label label)]
           [synset :rdf/type :ontolex/LexicalConcept]
-          [synset :dns/conceptComposite (keyword "dns" ontological-type*)]}
+          [synset :dns/ontologicalType (keyword "dns" ontological-type*)]}
         (when (not= definition "(ingen definition)")
           #{[synset :skos/definition definition]})
         (explode-ontological-type synset ontological-type*)))))
@@ -281,6 +281,7 @@
           #_[sense :ontolex/isLexicalizedSenseOf synset]}))))
 
 (defn unmapped?
+  "Are some `triples` not mapped according to GWA/Ontolex?"
   [triples]
   (some (comp string? second) triples))
 
@@ -310,7 +311,7 @@
   ;; Find concepts (or alternatively, concept composites)
   (->> (read-triples (:synsets imports))
        (reduce into #{})
-       (filter (comp #{:dns/concept} second))
+       (filter (comp #{:dns/ontologicalFacet} second))
        (map #(nth % 2))
        (into #{})
        (map (comp symbol name))

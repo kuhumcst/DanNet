@@ -17,11 +17,11 @@
   rdfs:label "Orthogonal hyponym"@en ;
   owl:inverseOf :orthogonalHypernym .
 
-:concept a owl:ObjectProperty ;
+:ontologicalFacet a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range :Concept ;
-  rdfs:comment "The EuroWordNet Concept class of the synset."@en ;
-  rdfs:label "EuroWordNet concept"@en .
+  rdfs:comment "The EuroWordNet Concept describing a facet of the synset."@en ;
+  rdfs:label "Ontological facet"@en .
 
 :Concept a owl:Class ;
   rdfs:label "Concept"@en ;
@@ -284,11 +284,11 @@
   rdfs:label "Vehicle"@en ;
   rdfs:comment "The Vehicle Concept from EuroWordNet."@en .
 
-:conceptComposite a owl:ObjectProperty ;
+:ontologicalType a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range :ConceptComposite ;
-  rdfs:comment "The DanNet/EuroWordNet concept composite class of the synset, formerly known as the 'ontologicalType'."@en ;
-  rdfs:label "DanNet/EuroWordNet concept composite"@en .
+  rdfs:comment "The DanNet/EuroWordNet concept composite describing multiple facets of the synset."@en ;
+  rdfs:label "Ontological type"@en .
 
 :ConceptComposite a owl:Class ;
   rdfs:label "DanNet/EuroWordNet concept composite"@en ;
