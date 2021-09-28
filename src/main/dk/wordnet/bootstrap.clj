@@ -32,6 +32,16 @@
 (def brug
   #"\s*\(Brug: \"(.+)\"\)")
 
+(defn- princeton-synset?
+  [id]
+  (re-find #"(::|:\d\d|:_b)$" id))
+
+(def ignored-relations
+  #{"eq_has_synonym"
+    "eq_has_hyponym"
+    "eq_has_hyperonym"
+    "used_for_qualby"})
+
 (defn lexical-form-uri
   [word-id form]
   ;; Originally, spaces were replaced with "_" but this caused issues with Jena
@@ -169,17 +179,18 @@
 
   Note: certain rows are unmapped, so the relation will remain a string!"
   [[subj-id _ rel obj-id taxonomic inheritance :as row]]
-  (when (= (count row) 7)
+  (when (and (= (count row) 7)
+             (not (ignored-relations rel)))
     (let [subj    (synset-uri subj-id)
           obj     (synset-uri obj-id)
-          comment (not-empty inheritance)]
-      (cond-> (if (and (= taxonomic "nontaxonomic")
-                       (= rel "has_hyperonym"))
-                #{[subj :dns/orthogonalHypernym obj]}
-                (if-let [rel* (gwa-rel rel)]
-                  #{[subj rel* obj]}
-                  #{[subj rel obj-id]}))
-        comment (conj #{[subj :rdfs/comment (adjust-comment comment)]})))))
+          comment (not-empty inheritance)
+          triples (if (and (= taxonomic "nontaxonomic")
+                           (= rel "has_hyperonym"))
+                    #{[subj :dns/orthogonalHypernym obj]}
+                    #{[subj (gwa-rel rel) obj]})]
+      (if comment
+        (conj triples [subj :rdfs/comment (adjust-comment comment)])
+        triples))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
@@ -212,7 +223,8 @@
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
   [[word-id form pos :as row]]
-  (when (= (count row) 4)
+  (when (and (= (count row) 4)
+             (not= word-id "None-None"))                    ; a special case
     (let [word         (word-uri word-id)
           form         (get special-case->replacement form form)
           rdf-type     (form->lexical-entry form)
@@ -260,7 +272,8 @@
 (defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[sense-id word-id synset-id register :as row]]
-  (when (= (count row) 5)
+  (when (and (= (count row) 5)
+             (not (princeton-synset? synset-id)))
     (let [sense  (sense-uri sense-id)
           word   (word-uri word-id)
           synset (synset-uri synset-id)]
@@ -270,11 +283,6 @@
           [word :ontolex/evokes synset]
           [word :ontolex/sense sense]
           [synset :ontolex/lexicalizedSense sense]}))))
-
-(defn unmapped?
-  "Are some `triples` not mapped according to GWA/Ontolex?"
-  [triples]
-  (some (comp string? second) triples))
 
 (def imports
   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
@@ -318,7 +326,6 @@
 
   ;; Example relations
   (->> (read-triples (:relations imports))
-       (remove unmapped?)
        (take 10))
 
   ;; unconverted relations

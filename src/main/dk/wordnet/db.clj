@@ -64,7 +64,6 @@
                  (apply merge (bootstrap/read-triples raw-usages)))]
     (txn/transact-exec g
       (->> (mapcat bootstrap/read-triples input)
-           (remove bootstrap/unmapped?)
            (remove nil?)
            (reduce aristotle/add g)))
 
