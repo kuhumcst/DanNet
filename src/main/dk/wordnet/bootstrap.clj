@@ -135,7 +135,6 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/concept (keyword "dns" concept)]))
 
-;; TODO: handle :skos/definition = "(ingen definition)", e.g. :dn/synset-51997
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples.
 
@@ -145,12 +144,14 @@
   [[synset-id label gloss ontological-type :as row]]
   (when (= (count row) 5)
     (let [synset            (synset-uri synset-id)
-          ontological-type* (sanitize-ontological-type ontological-type)]
+          ontological-type* (sanitize-ontological-type ontological-type)
+          definition        (str/replace gloss brug "")]
       (set/union
         #{[synset :rdfs/label label]
           [synset :rdf/type :ontolex/LexicalConcept]
-          [synset :skos/definition (str/replace gloss brug "")]
           [synset :dns/conceptComposite (keyword "dns" ontological-type*)]}
+        (when (not= definition "(ingen definition)")
+          #{[synset :skos/definition definition]})
         (explode-ontological-type synset ontological-type*)))))
 
 (defn- adjust-comment
