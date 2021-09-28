@@ -153,22 +153,30 @@
           [synset :dns/conceptComposite (keyword "dns" ontological-type*)]}
         (explode-ontological-type synset ontological-type*)))))
 
-;; TODO: inheritance comment currently ignored - what to do?
+(defn- adjust-comment
+  "Slighly rewords the inheritance comments present in the old DanNet dataset."
+  [comment]
+  (-> comment
+      (str/replace #"^Inherited from" "Some relations inherited from")
+      (str/replace #"synset with id (\d+)" "dn:synset-$1")
+      (str/replace #" \((.+)\)$" " $1.")))
+
 (defn ->relation-triples
   "Convert a `row` from 'relations.csv' to triples.
 
   Note: certain rows are unmapped, so the relation will remain a string!"
-  [[subj-id _ rel obj-id taxonomic _ :as row]]
+  [[subj-id _ rel obj-id taxonomic inheritance :as row]]
   (when (= (count row) 7)
-    (let [subj (synset-uri subj-id)
-          obj  (synset-uri obj-id)]
-      (if (and (= taxonomic "nontaxonomic")
-               (= rel "has_hyperonym"))
-        #{[subj :dns/orthogonalHypernym obj]
-          [subj (gwa-rel rel) obj]}
-        (if-let [rel* (gwa-rel rel)]
-          #{[subj rel* obj]}
-          #{[subj rel obj-id]})))))
+    (let [subj    (synset-uri subj-id)
+          obj     (synset-uri obj-id)
+          comment (not-empty inheritance)]
+      (cond-> (if (and (= taxonomic "nontaxonomic")
+                       (= rel "has_hyperonym"))
+                #{[subj :dns/orthogonalHypernym obj]}
+                (if-let [rel* (gwa-rel rel)]
+                  #{[subj rel* obj]}
+                  #{[subj rel obj-id]}))
+        comment (conj #{[subj :rdfs/comment (adjust-comment comment)]})))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
