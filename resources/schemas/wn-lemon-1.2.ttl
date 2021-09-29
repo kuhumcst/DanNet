@@ -2,6 +2,7 @@
 @prefix cc: <http://creativecommons.org/ns#> .
 @prefix dc: <http://purl.org/dc/elements/1.1/> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/3.0/lexinfo#> .
 @prefix synsem: <http://www.w3.org/ns/lemon/synsem#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -39,12 +40,14 @@
   rdfs:label "confidence score"@en .
 
 :partOfSpeech a owl:ObjectProperty ;
+  rdfs:subPropertyOf lexinfo:partOfSpeech ;
   rdfs:domain ontolex:LexicalEntry ;
   rdfs:range :PartOfSpeech ;
   rdfs:label "part of speech"@en ;
   rdfs:comment "The syntactic class of the entry, e.g., noun, verb"@en .
 
 :PartOfSpeech a owl:Class ;
+  rdfs:subClassOf lexinfo:PartOfSpeech ;
   rdfs:label "part of speech"@en ;
   rdfs:comment "The syntactic class of the entry, e.g., noun, verb"@en ;
   owl:oneOf (
@@ -53,20 +56,26 @@
 
 
 :noun a :PartOfSpeech ;
+  owl:sameAs lexinfo:noun ;
   rdfs:label "noun"@en.
 :verb a :PartOfSpeech ;
+  owl:sameAs lexinfo:verb ;
   rdfs:label "verb"@en .
 :adjective a :PartOfSpeech ;
+  owl:sameAs lexinfo:adjective ;
   rdfs:label "adjective"@en .
 :adverb a :PartOfSpeech ;
+  owl:sameAs lexinfo:adverb ;
   rdfs:label "adverb"@en .
 :adjective_satellite a :PartOfSpeech ;
   rdfs:label "adjective satellite"@en .
 :named_entity a :PartOfSpeech ;
   rdfs:label "named entity"@en .
 :conjunction a :PartOfSpeech ;
+  owl:sameAs lexinfo:conjunction ;
   rdfs:label "conjunction"@en .
 :adposition a :PartOfSpeech ;
+  owl:sameAs lexinfo:adposition ;
   rdfs:label "adposition"@en .
 :other_pos a :PartOfSpeech ;
   rdfs:label "other pos"@en .
