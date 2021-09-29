@@ -232,9 +232,7 @@
                          (str/replace form #"'" "")
                          form)
           lexical-form (lexical-form-uri word-id written-rep)
-          fixed-pos    (get pos-fixes word pos)
-          lexinfo-pos  (keyword "lexinfo" fixed-pos)
-          wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
+          fixed-pos    (get pos-fixes word pos)]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
 
@@ -244,8 +242,11 @@
 
           ;; GWA and Ontolex have competing part-of-speech relations.
           ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
-          [word :lexinfo/partOfSpeech lexinfo-pos]
-          [word :wn/partOfSpeech wn-pos]}
+          ;; At the moment, we infer the ontolex:partOfSpeech relation using
+          ;; the wn:PartOfSpeech instance as the object. Ideally, we would
+          ;; also - only - infer the wn:PartOfSpeech owl:sameAs instance.
+          ;; TODO: improve inference, look at other .rules files
+          [word :wn/partOfSpeech (keyword "wn" (str/lower-case fixed-pos))]}
         (explode-written-reps lexical-form written-rep)))))
 
 (defn- ->register-triples

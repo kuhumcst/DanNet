@@ -99,6 +99,14 @@ To avoid this error, the JVM process should be run with the following JVM arg:
 ```
 
 ### Memory usage
+Triple inference can be quite memory-intensive! The custom DanNet Reasoner is being tuned continuously, trying to make the best possible trade-off between inference and memory usage.
+
+To allow inference to work without blowing the heap, it's best to set max heap memory to at least 4GB using this JVM option:
+
+```
+-Xmx4G
+```
+
 The total memory usage of the resulting graph can be estimated using [clj-memory-meter](https://github.com/clojure-goes-fast/clj-memory-meter) which is available using the `:mm` Clojure CLI alias (defined in the `deps.edn` file).
 
 > Currently, the default OWL-enabled in-memory graph _without_ any forward-chaining inference in cache takes up **~500 MB**. After querying the graph for the triple `[:dn/word-11007846 ?p ?o]` to force more  triples to materialize, the total memory usage jumps to **~520 MB**.
