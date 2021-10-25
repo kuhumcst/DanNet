@@ -18,6 +18,8 @@
              :alt (str (io/resource "schemas/lexinfo-3.0.owl"))}
    'dn      {:uri          "http://www.wordnet.dk/dannet/2022/instances/"
              :instance-ns? true}
+   'dnc     {:uri "http://www.wordnet.dk/dannet/2022/concepts/"
+             :alt (str (io/resource "schemas/dannet-concepts-2022.ttl"))}
    'dns     {:uri "http://www.wordnet.dk/dannet/2022/schema/"
              :alt (str (io/resource "schemas/dannet-schema-2022.ttl"))}})
 

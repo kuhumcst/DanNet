@@ -145,7 +145,7 @@
   `ontological-type` string."
   [synset ontological-type]
   (for [concept (str/split ontological-type #"-")]
-    [synset :dns/ontologicalFacet (keyword "dns" concept)]))
+    [synset :dns/ontologicalFacet (keyword "dnc" concept)]))
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples.
@@ -161,7 +161,7 @@
       (set/union
         #{[synset :rdfs/label (get special-case->replacement label label)]
           [synset :rdf/type :ontolex/LexicalConcept]
-          [synset :dns/ontologicalType (keyword "dns" ontological-type*)]}
+          [synset :dns/ontologicalType (keyword "dnc" ontological-type*)]}
         (when (not= definition "(ingen definition)")
           #{[synset :skos/definition definition]})
         (explode-ontological-type synset ontological-type*)))))

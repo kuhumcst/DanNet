@@ -42,9 +42,10 @@ Significant changes
 ### New schema, prefixes, URIs
 DanNet uses a new schema, [available in this repository](resources/schemas/dannet-schema-2022.ttl) and eventually at http://www.wordnet.dk/dannet/2022/schema/. 
 
-DanNet uses the following URI prefixes for the dataset instances and the schema:
+DanNet uses the following URI prefixes for the dataset instances, concepts (the range of `dns:ontologicalFacet` and `dns:ontologicalType`) and the schema itself:
 
 * `dn` -> http://www.wordnet.dk/dannet/2022/instances/
+* `dnc` -> http://www.wordnet.dk/dannet/2022/concepts/
 * `dns` -> http://www.wordnet.dk/dannet/2022/schema/
 
 These new prefixes/URIs take over from the ones used for DanNet 2.2:
@@ -52,7 +53,7 @@ These new prefixes/URIs take over from the ones used for DanNet 2.2:
 * `dn` -> http://www.wordnet.dk/owl/instance/2009/03/instances/
 * `dn_schema` -> http://www.wordnet.dk/owl/instance/2009/03/schema/
 
-Eventually, all of these new URIs should resolve, which is to say that accessing a resource with a GET request (e.g. through a web browser) should always return data for the resource (or schema) in question.
+Eventually, all of these new URIs should resolve to schema files, which is to say that accessing a resource with a GET request (e.g. through a web browser) should always return data for the resource (or schema) in question.
 
 Implementation
 --------------
