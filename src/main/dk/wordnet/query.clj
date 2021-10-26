@@ -83,6 +83,47 @@
     (with-meta e (assoc (nav-meta g)
                    :entity subject))))
 
+
+(defn- set-merge
+  "Helper function for merge-with in 'entity-label-mapping'."
+  [v1 v2]
+  (cond
+    (= v1 v2)
+    v1
+
+    (set? v1)
+    (conj v1 v2)
+
+    :else
+    (hash-set v1 v2)))
+
+
+(defn- entity-label-mapping
+  "Create a mapping from keyword -> rdfs:label based on the `xe` that is the
+   result of the 'expanded-entity' query."
+  [xe]
+  (loop [[head & tail] xe
+         m {}]
+    (if-let [{:syms [?p ?pl ?o ?ol]} head]
+      (let [pm (when ?pl {?p ?pl})
+            om (when ?ol {?o ?ol})]
+        (recur tail (merge-with set-merge m pm om)))
+      m)))
+
+(defn expanded-entity
+  "Return the expanded entity description of `subject` in Graph `g`."
+  [g subject]
+  (when-let [xe (only-uris (run g [:conditional
+                                   [:conditional
+                                    [:bgp [subject '?p '?o]]
+                                    [:bgp ['?p :rdfs/label '?pl]]]
+                                   [:bgp ['?o :rdfs/label '?ol]]]))]
+    (let [e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
+                 (apply merge-with (set-nav-merge g)))]
+      (with-meta e (assoc (nav-meta g)
+                     :k->label (entity-label-mapping xe)
+                     :entity subject)))))
+
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.
   The results are also made Navigable using for use with e.g. Reveal or REBL."

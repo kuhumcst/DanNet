@@ -22,7 +22,12 @@
   "URIs where relevant schemas can be fetched."
   (->> (for [{:keys [alt uri instance-ns?]} (vals prefix/schemas)]
          (when-not instance-ns?
-           (or alt uri)))
+           (if alt
+             (if (or (str/starts-with? alt "http://")
+                     (str/starts-with? alt "https://"))
+               alt
+               (str (io/resource alt)))
+             uri)))
        (filter some?)))
 
 (defn ->schema-model

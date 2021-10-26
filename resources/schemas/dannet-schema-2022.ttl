@@ -8,35 +8,35 @@
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:label "Orthogonal hypernym"@en ;
+  rdfs:label "orthogonal hypernym"@en ;
   owl:inverseOf :orthogonalHyponym .
 
 :orthogonalHyponym a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:label "Orthogonal hyponym"@en ;
+  rdfs:label "orthogonal hyponym"@en ;
   owl:inverseOf :orthogonalHypernym .
 
 :ontologicalFacet a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range :Concept ;
   rdfs:comment "The DanNet/EuroWordNet Concept describing a facet of the synset."@en ;
-  rdfs:label "Ontological facet"@en .
+  rdfs:label "ontological facet"@en .
 
 :ontologicalType a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range :ConceptComposite ;
   rdfs:comment "The DanNet/EuroWordNet concept composite describing multiple facets of the synset."@en ;
-  rdfs:label "Ontological type"@en .
+  rdfs:label "ontological type"@en .
 
 :Concept a owl:Class ;
-  rdfs:label "Concept"@en ;
+  rdfs:label "concept"@en ;
   rdfs:comment "A concept found in either DanNet or EuroWordNet."@en .
 
 :DanNetConcept a owl:Class ;
   rdfs:subClassOf :Concept ;
-  rdfs:label "DanNet Concept"@en ;
+  rdfs:label "DanNet concept"@en ;
   rdfs:comment "A concept created specifically for DanNet that extends the concepts from EuroWordNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en .
 
 :EuroWordNetConcept a owl:Class ;
