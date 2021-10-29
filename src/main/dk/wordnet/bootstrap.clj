@@ -15,7 +15,8 @@
   (:require [clojure.set :as set]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.data.csv :as csv]))
+            [clojure.data.csv :as csv]
+            [ont-app.vocabulary.lstr :refer [->LangStr]]))
 
 (defn synset-uri
   [id]
@@ -48,7 +49,7 @@
   ;; - specifically, some encoding issue related to TDB - so now "+" is used.
   (keyword "dn" (str "form-" word-id "-" (str/replace form #" " "+"))))
 
-(def special-case->replacement
+(def special-cases
   {"Torshavn|Thorshavn"     "Thorshavn"
    "{Torshavn|Thorshavn_1}" "{Thorshavn_1}"})
 
@@ -159,11 +160,11 @@
           ontological-type* (sanitize-ontological-type ontological-type)
           definition        (str/replace gloss brug "")]
       (set/union
-        #{[synset :rdfs/label (get special-case->replacement label label)]
+        #{[synset :rdfs/label (->LangStr (get special-cases label label) "da")]
           [synset :rdf/type :ontolex/LexicalConcept]
           [synset :dns/ontologicalType (keyword "dnc" ontological-type*)]}
         (when (not= definition "(ingen definition)")
-          #{[synset :skos/definition definition]})
+          #{[synset :skos/definition (->LangStr definition "da")]})
         (explode-ontological-type synset ontological-type*)))))
 
 (defn- adjust-comment
@@ -189,7 +190,8 @@
                     #{[subj :dns/orthogonalHypernym obj]}
                     #{[subj (gwa-rel rel) obj]})]
       (if comment
-        (conj triples [subj :rdfs/comment (adjust-comment comment)])
+        (conj triples [subj :rdfs/comment (-> (adjust-comment comment)
+                                              (->LangStr "en"))])
         triples))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
@@ -226,7 +228,7 @@
   (when (and (= (count row) 4)
              (not= word-id "None-None"))                    ; a special case
     (let [word         (word-uri word-id)
-          form         (get special-case->replacement form form)
+          form         (get special-cases form form)
           rdf-type     (form->lexical-entry form)
           written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
                          (str/replace form #"'" "")
@@ -239,7 +241,7 @@
         #{[lexical-form :rdf/type :ontolex/Form]
 
           [word :rdf/type rdf-type]
-          [word :rdfs/label written-rep]
+          [word :rdfs/label (->LangStr written-rep "da")]
           [word :ontolex/canonicalForm lexical-form]
 
           ;; GWA and Ontolex have competing part-of-speech relations.
