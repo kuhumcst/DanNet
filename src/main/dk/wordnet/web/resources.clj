@@ -298,7 +298,16 @@
                               (name subject))]
                    (when uri
                      [:p uri [:em (name subject)]])]]
-                 tables)]])))})
+                 (conj (vec tables)
+                       [:footer
+                        [:p {:lang "da"}
+                         "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
+                                    "Centre for Language Technology"]
+                         ", " [:abbr {:title "University of Copenhagen"}
+                               "KU"] "."]
+                        [:p "The source code for DanNet is available at our "
+                         [:a {:href "https://github.com/kuhumcst/DanNet"}
+                          "Github repository"] "."]]))]])))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a

@@ -18,8 +18,18 @@ article {
     max-width: 100ch;
 }
 
-header {
+header, footer {
     text-align: center;
+}
+
+footer {
+    margin-top: 48px;
+}
+
+footer p {
+    font-size: 14px;
+    margin: 4px;
+    padding: 0;
 }
 
 a {
