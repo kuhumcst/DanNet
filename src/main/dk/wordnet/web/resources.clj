@@ -151,11 +151,9 @@
             (recur tail)))))
     x))
 
-(def select-label*
-  (partial select-label lang-prefs))
-
-(def select-str*
-  (partial select-str lang-prefs))
+;; TODO: use e.g. core.memoize rather than naïve memoisation
+(def select-label* (memoize (partial select-label lang-prefs)))
+(def select-str* (memoize (partial select-str lang-prefs)))
 
 (defn anchor-elem
   "Entity hyperlink from an entity `kw` and (optionally) a string label `s`."
@@ -193,6 +191,14 @@
        (anchor-elem v (select-label* (k->label v)))])
     [:td.string (escape-html (select-str* v))]))
 
+(defn sort-keyfn
+  "Keyfn for sorting keywords and other content based on a `k->label` mapping."
+  [k->label]
+  (fn [item]
+    (if (keyword? item)
+      (str (select-label* (k->label item)))
+      str)))
+
 ;; TODO: deal with lang-encoded strings (used by e.g. ontolex)
 (defn html-table
   [entity k->label & [ks]]
@@ -223,7 +229,7 @@
                                 s))]
 
                 :else
-                (let [li (for [item (sort-by str v)]
+                (let [li (for [item (sort-by (sort-keyfn k->label) v)]
                            (if (keyword? item)
                              (let [prefix (symbol (namespace item))
                                    label  (select-label* (k->label item))]
