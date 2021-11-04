@@ -158,19 +158,20 @@
   (partial select-str lang-prefs))
 
 (defn anchor-elem
+  "Entity hyperlink from an entity `kw` and (optionally) a string label `s`."
   ([kw s]
    [:a {:href  (resolve-href kw)
         :title (prefix/kw->qname kw)
         :class (str (if s "string" "keyword")
                     (str " " (get prefix-groups (symbol (namespace kw)))))}
-    (if s
-      s
-      (name kw))])
+    (or s (name kw))])
   ([kw] (anchor-elem kw nil)))
 
 (defn prefix-elem
+  "Visual representation of a `prefix` based on its associated symbol."
   [prefix]
-  [:span.prefix {:class (get prefix-groups prefix)}
+  [:span.prefix {:title (:uri (get prefix/schemas prefix))
+                 :class (get prefix-groups prefix)}
    (str prefix ":")])
 
 ;; TODO: do something about omitted content
@@ -291,11 +292,12 @@
            [:link {:rel "stylesheet" :href "/css/main.css"}]]
           [:body
            (into [:article
-                  [:header [:h1 {:title qname}
+                  [:header [:h1
                             (prefix-elem prefix)
-                            (if-let [label (:rdfs/label entity*)]
-                              (select-label* label)
-                              (name subject))]
+                            [:span {:title qname}
+                             (if-let [label (:rdfs/label entity*)]
+                               (select-label* label)
+                               (name subject))]]
                    (when uri
                      [:p uri [:em (name subject)]])]]
                  (conj (vec tables)
