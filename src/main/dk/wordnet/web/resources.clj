@@ -159,7 +159,7 @@
   "Entity hyperlink from an entity `kw` and (optionally) a string label `s`."
   ([kw s]
    [:a {:href  (resolve-href kw)
-        :title (prefix/kw->qname kw)
+        :title (name kw)
         :class (str (if s "string" "keyword")
                     (str " " (get prefix-groups (symbol (namespace kw)))))}
     (or s (name kw))])
@@ -266,7 +266,6 @@
      (let [subject     (-> entity meta :entity)
            k->label    (-> entity meta :k->label)
            entity*     (filter-entity entity)
-           qname       (prefix/kw->qname subject)
            prefix      (symbol (namespace subject))
            uri         (:uri (get prefix/schemas (symbol prefix)))
            ks-defs     (map second sections)
@@ -274,7 +273,7 @@
                          (get (set (apply concat (filter coll? ks-defs)))
                               k))
            in-section? (apply some-fn in-ks? (filter fn? ks-defs))
-           other       ["Other" (complement in-section?)]
+           other       ["Other attributes" (complement in-section?)]
            tables      (for [[title ks] (conj sections other)]
                          (let [m (if (coll? ks)
                                    (into (fop/ordered-map)
@@ -292,7 +291,7 @@
        (hiccup/html
          [:html
           [:head
-           [:title qname]
+           [:title (prefix/kw->qname subject)]
            [:meta {:charset "UTF-8"}]
            [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
            [:link {:rel "stylesheet" :href "/css/main.css"}]]
@@ -300,7 +299,7 @@
            (into [:article
                   [:header [:h1
                             (prefix-elem prefix)
-                            [:span {:title qname}
+                            [:span {:title (name subject)}
                              (if-let [label (:rdfs/label entity*)]
                                (select-label* label)
                                (name subject))]]
