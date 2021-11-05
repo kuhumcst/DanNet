@@ -10,7 +10,7 @@
   (and (symbol? resource)
        (str/starts-with? resource "_")))
 
-;; TODO: currently removes usages which is not desirable - fix?
+;; TODO: currently removes examples which is not desirable - fix?
 (defn only-uris
   "Exclude anonymous resource `results`, optionally keyed under `k`.
 

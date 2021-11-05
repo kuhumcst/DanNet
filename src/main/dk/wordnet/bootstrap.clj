@@ -103,28 +103,28 @@
 
     :else :ontolex/Word))
 
-;; This is an imperfect method of mapping usages to senses, since the tokens of
-;; the example sentences have not been lemmatised. It would be preferable to get
-;; the full set of usage sentences mapped correctly to senses by DSL.
-(defn determine-usage-token
-  "Given a `label` from the synsets.csv file and an example `usage`,
+;; An imperfect method of mapping examples to senses, since the tokens of the
+;; example sentences have not been lemmatised. It would be preferable to get the
+;; full set of example sentences mapped correctly to senses by DSL.
+(defn determine-example-token
+  "Given a `label` from the synsets.csv file and an example `example`,
   determine which of the words in the label the example pertains to."
-  [label usage]
-  (let [usage* (str/lower-case usage)
-        label* (str/lower-case label)]
+  [label example]
+  (let [example* (str/lower-case example)
+        label*   (str/lower-case label)]
     (loop [[token & tokens] (map str/trim (re-seq #"[-æøå a-z]+" label*))]
       (when token
-        (if (str/includes? usage* token)
+        (if (str/includes? example* token)
           token
           (recur tokens))))))
 
-(defn usages
-  "Convert a `row` from 'synsets.csv' to usage key-value pairs."
+(defn examples
+  "Convert a `row` from 'synsets.csv' to example key-value pairs."
   [[synset-id label gloss _ :as row]]
-  (when-let [[_ usage-str] (re-find brug gloss)]
-    (into {} (for [usage (str/split usage-str #" \|\| |\"; \"")]
-               (when-let [token (determine-usage-token label usage)]
-                 [[(synset-uri synset-id) token] (->LangStr usage "da")])))))
+  (when-let [[_ example-str] (re-find brug gloss)]
+    (into {} (for [example (str/split example-str #" \|\| |\"; \"")]
+               (when-let [token (determine-example-token label example)]
+                 [[(synset-uri synset-id) token] (->LangStr example "da")])))))
 
 (defn sanitize-ontological-type
   "Sanitizes the `ontological-type` string before conversion to resource names.
@@ -295,9 +295,9 @@
    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
    :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
 
-   ;; Usages are a special case - these are not actual RDF triples!
-   ;; Need to query the resulting graph to generate the real usage triples.
-   :usages    [usages (io/resource "dannet/csv/synsets.csv")]})
+   ;; Examples are a special case - these are not actual RDF triples!
+   ;; Need to query the resulting graph to generate the real example triples.
+   :examples  [examples (io/resource "dannet/csv/synsets.csv")]})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."

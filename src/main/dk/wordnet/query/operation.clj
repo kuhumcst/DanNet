@@ -28,8 +28,8 @@
       [?sense :lexinfo/usageNote ?blank-node]
       [?blank-node :rdf/value ?register]]))
 
-(def usage-targets
-  "Used during initial graph creation to attach usages to senses."
+(def example-targets
+  "Used during initial graph creation to attach examples to senses."
   (q/build
     '[:bgp
       [?word :ontolex/evokes ?synset]
@@ -38,14 +38,14 @@
       [?word :ontolex/sense ?sense]
       [?synset :ontolex/lexicalizedSense ?sense]]))
 
-(def usages
+(def examples
   (q/build
     '[:bgp
       [?form :ontolex/writtenRep ?lemma]
       [?word :ontolex/canonicalForm ?form]
       [?word :ontolex/sense ?sense]
-      [?sense :ontolex/usage ?usage]
-      [?usage :rdf/value ?usage-str]]))
+      [?sense :lexinfo/senseExample ?example]
+      [?example :rdf/value ?example-str]]))
 
 (def synset-relations
   (q/build

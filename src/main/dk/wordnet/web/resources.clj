@@ -69,7 +69,7 @@
                            :ontolex/isSenseOf
                            :ontolex/lexicalizedSense
                            :ontolex/isLexicalizedSenseOf
-                           :ontolex/usage]]
+                           :lexinfo/senseExample]]
    ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
                                  (comp #{:dns/orthogonalHyponym
                                          :dns/orthogonalHypernym} first))]])
@@ -336,7 +336,8 @@
           [:head
            [:title (prefix/kw->qname subject)]
            [:meta {:charset "UTF-8"}]
-           [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+           [:meta {:name    "viewport"
+                   :content "width=device-width, initial-scale=1.0"}]
            [:link {:rel "stylesheet" :href "/css/main.css"}]]
           [:body
            (into [:article

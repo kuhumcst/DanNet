@@ -47,37 +47,38 @@
       (.setMode GenericRuleReasoner/HYBRID)
       (.setTransitiveClosureCaching true))))
 
-(defn ->usage-triples
-  "Create usage triples from a DanNet `g` and the `usages` from 'imports'."
-  [g usages]
-  (for [[synset lemma] (keys usages)]
-    (let [results     (q/run g op/usage-targets {'?synset synset '?lemma lemma})
-          usage-str   (get usages [synset lemma])
-          blank-usage (symbol (str "_" (name lemma)
-                                   "-" (name synset)
-                                   "-usage"))]
+(defn ->example-triples
+  "Create example triples from a DanNet `g` and the `examples` from 'imports'."
+  [g examples]
+  (for [[synset lemma] (keys examples)]
+    (let [results       (q/run g op/example-targets {'?synset synset
+                                                     '?lemma  lemma})
+          example-str   (get examples [synset lemma])
+          blank-example (symbol (str "_" (name lemma)
+                                     "-" (name synset)
+                                     "-example"))]
       (apply set/union (for [{:syms [?sense]} results]
                          (when ?sense
-                           #{[?sense :ontolex/usage blank-usage]
-                             [blank-usage :rdf/value usage-str]}))))))
+                           #{[?sense :lexinfo/senseExample blank-example]
+                             [blank-example :rdf/value example-str]}))))))
 
 (defn add-imports!
   "Add `imports` from the old DanNet CSV files to a Jena Graph `g`."
   [g imports]
-  (let [input  (vals (dissoc imports :usages))
-        usages (when-let [raw-usages (:usages imports)]
-                 (apply merge (bootstrap/read-triples raw-usages)))]
+  (let [input    (vals (dissoc imports :examples))
+        examples (when-let [raw-examples (:examples imports)]
+                   (apply merge (bootstrap/read-triples raw-examples)))]
     (txn/transact-exec g
       (->> (mapcat bootstrap/read-triples input)
            (remove nil?)
            (reduce aristotle/add g)))
 
-    ;; As ->usage-triples needs to read the graph to create
+    ;; As ->example-triples needs to read the graph to create
     ;; triples, it must be done after the write transaction.
     ;; Clojure's laziness also has to be accounted for.
-    (let [usage-triples (doall (->usage-triples g usages))]
+    (let [example-triples (doall (->example-triples g examples))]
       (txn/transact-exec g
-        (aristotle/add g usage-triples)))
+        (aristotle/add g example-triples)))
 
     g))
 
@@ -306,9 +307,9 @@
                 [lemma synonyms])))
        (into {}))
 
-  ;; Test retrieval of usages
-  (q/run graph op/usages '{?sense :dn/sense-21011843})
-  (q/run graph op/usages '{?sense :dn/sense-21011111})
+  ;; Test retrieval of examples
+  (q/run graph op/examples '{?sense :dn/sense-21011843})
+  (q/run graph op/examples '{?sense :dn/sense-21011111})
 
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.
   ;; The JVM must be run with the JVM option '-Djdk.attach.allowAttachSelf'.
@@ -319,11 +320,11 @@
   ;; List all register values in db; helpful when extending ->register-triples.
   (registers graph)
 
-  ;; Mark the relevant lemma in all ~38539 example usages.
+  ;; Mark the relevant lemma in all ~38539 example sentences.
   ;; I tried the same query (as SPARQL) in Python's rdflib and it was painfully
   ;; slow, to the point where I wonder how people even use that library...
-  (map (fn [[?lemma ?usage-str]]
+  (map (fn [[?lemma ?example-str]]
          (let [marked-lemma (str "{" (str/upper-case ?lemma) "}")]
-           (str/replace ?usage-str ?lemma marked-lemma)))
-       (q/run graph '[?lemma ?usage-str] op/usages))
+           (str/replace example-str ?lemma marked-lemma)))
+       (q/run graph '[?lemma ?example-str] op/examples))
   #_.)
