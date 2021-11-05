@@ -77,12 +77,21 @@
   "Return the entity description of `subject` in Graph `g`."
   [g subject]
   (when-let [e (->> (run g [:bgp [subject '?p '?o]])
-                    (only-uris)
+                    #_(only-uris)
                     (map (comp (partial apply hash-map) (juxt '?p '?o)))
                     (apply merge-with (set-nav-merge g)))]
     (with-meta e (assoc (nav-meta g)
-                   :entity subject))))
+                   :subject subject))))
 
+;; TODO: what about blank-expanded-entity?
+(defn blank-entity
+  "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
+  [g subject predicate]
+  (->> (q/run g ['?p '?o] [:bgp
+                           [subject predicate '?blank]
+                           '[?blank ?p ?o]])
+       (map (fn [[p o]] {p #{o}}))
+       (apply merge-with into)))
 
 (defn- set-merge
   "Helper function for merge-with in 'entity-label-mapping'."
@@ -113,16 +122,17 @@
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
-  (when-let [xe (only-uris (run g [:conditional
-                                   [:conditional
-                                    [:bgp [subject '?p '?o]]
-                                    [:bgp ['?p :rdfs/label '?pl]]]
-                                   [:bgp ['?o :rdfs/label '?ol]]]))]
+  (when-let [xe (-> (run g [:conditional
+                            [:conditional
+                             [:bgp [subject '?p '?o]]
+                             [:bgp ['?p :rdfs/label '?pl]]]
+                            [:bgp ['?o :rdfs/label '?ol]]])
+                    #_(only-uris))]
     (let [e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
                  (apply merge-with (set-nav-merge g)))]
       (with-meta e (assoc (nav-meta g)
                      :k->label (entity-label-mapping xe)
-                     :entity subject)))))
+                     :subject subject)))))
 
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.

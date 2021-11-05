@@ -124,7 +124,7 @@
   (when-let [[_ usage-str] (re-find brug gloss)]
     (into {} (for [usage (str/split usage-str #" \|\| |\"; \"")]
                (when-let [token (determine-usage-token label usage)]
-                 [[(synset-uri synset-id) token] usage])))))
+                 [[(synset-uri synset-id) token] (->LangStr usage "da")])))))
 
 (defn sanitize-ontological-type
   "Sanitizes the `ontological-type` string before conversion to resource names.

@@ -19,7 +19,7 @@ body {
 
 article {
     padding: 24px;
-    max-width: 100ch;
+    max-width: 120ch;
 }
 
 header, footer {
@@ -56,7 +56,7 @@ table {
 }
 
 col:last-of-type {
-    width: 70ch;
+    width: 80ch;
 }
 
 table span.prefix {
@@ -148,6 +148,12 @@ table {
     font-size: 16px;
     border-collapse: collapse;
     border: 1px solid #AAA;
+    box-shadow: 0 0 12px rgba(0,0,0,0.2);
+}
+
+table table {
+    border: 1px solid #CCC;
+    box-shadow: 0 0 4px rgba(0,0,0,0.2);
 }
 
 td.prefix {
@@ -205,6 +211,7 @@ details[open] ul {
     border: 1px solid #AAA;
     border-radius: 2px;
     background: #DDD;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
 }
 
 li {

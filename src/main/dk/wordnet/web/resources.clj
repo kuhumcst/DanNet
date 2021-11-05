@@ -17,6 +17,10 @@
             [dk.wordnet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
+;; TODO: add language tag as superscript using attr and CSS
+;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
+;; TODO: special content functions, e.g. for "Some relations inherited from..."
+
 (defonce db
   (delay
     (db/->dannet
@@ -65,7 +69,8 @@
                            :ontolex/sense
                            :ontolex/isSenseOf
                            :ontolex/lexicalizedSense
-                           :ontolex/isLexicalizedSenseOf]]
+                           :ontolex/isLexicalizedSenseOf
+                           :ontolex/usage]]
    ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
                                  (comp #{:dns/orthogonalHyponym
                                          :dns/orthogonalHypernym} first))]])
@@ -179,16 +184,26 @@
   [entity]
   (into {} (filter (comp keyword? first) entity)))
 
-(defn v-td
+(declare html-table)
+
+(defn html-table-cell
   [k->label v]
-  (if (keyword? v)
+  (cond
+    (keyword? v)
     (if (empty? (name v))
       (let [prefix (symbol (namespace v))]
         (or [:td (:uri (get prefix/schemas prefix))]
             [:td [:span.prefix {:class (get prefix-groups prefix)} prefix]]))
       [:td
        (prefix-elem (symbol (namespace v)))
-       (anchor-elem v (select-label* (k->label v)))])
+       (anchor-elem v (select-label* (get k->label v)))])
+
+    ;; Display blank resources as inlined tables
+    (symbol? v)
+    (let [{:keys [s p]} (meta v)]
+      [:td.string (html-table (q/blank-entity (:graph @db) s p) nil nil)])
+
+    :else
     [:td.string (escape-html (select-str* v))]))
 
 (defn sort-keyfn
@@ -196,12 +211,11 @@
   [k->label]
   (fn [item]
     (if (keyword? item)
-      (str (select-label* (k->label item)))
-      str)))
+      (str (select-label* (get k->label item)))
+      (str item))))
 
-;; TODO: deal with lang-encoded strings (used by e.g. ontolex)
 (defn html-table
-  [entity k->label & [ks]]
+  [entity subject k->label & [ks]]
   [:table
    [:colgroup
     [:col]
@@ -210,7 +224,7 @@
    (into [:tbody]
          (for [[k v] entity
                :let [prefix (symbol (namespace k))
-                     k-str  (select-label* (k->label k))]]
+                     k-str  (select-label* (get k->label k))]]
            [:tr
             [:td.prefix (prefix-elem prefix)]
             [:td (anchor-elem k k-str)]
@@ -218,7 +232,11 @@
               (set? v)
               (cond
                 (= 1 (count v))
-                (v-td k->label (first v))
+                (let [v* (first v)]
+                  (if (symbol? v*)
+                    (html-table-cell k->label (with-meta v* {:s subject
+                                                             :p      k}))
+                    (html-table-cell k->label v*)))
 
                 (instance? LangStr (first v))
                 [:td.string (let [s (select-str* v)]
@@ -230,12 +248,18 @@
 
                 :else
                 (let [li (for [item (sort-by (sort-keyfn k->label) v)]
-                           (if (keyword? item)
+                           (cond
+                             (keyword? item)
                              (let [prefix (symbol (namespace item))
-                                   label  (select-label* (k->label item))]
+                                   label  (select-label* (get k->label item))]
                                [:li
                                 (prefix-elem prefix)
                                 (anchor-elem item label)])
+
+                             (symbol? item)
+                             nil
+
+                             :else
                              [:li.string (escape-html item)]))]
                   [:td
                    (if (> (count li) 5)
@@ -243,7 +267,11 @@
                      (into [:ul.keyword] li))]))
 
               (keyword? v)
-              (v-td k->label v)
+              (html-table-cell k->label v)
+
+              (symbol? v)
+              (html-table-cell k->label (with-meta v {:s subject
+                                                      :p      k}))
 
               :else
               [:td.string (escape-html v)])]))])
@@ -263,7 +291,7 @@
 
    "text/html"
    (fn [entity]
-     (let [subject     (-> entity meta :entity)
+     (let [subject     (-> entity meta :subject)
            k->label    (-> entity meta :k->label)
            entity*     (filter-entity entity)
            prefix      (symbol (namespace subject))
@@ -286,8 +314,8 @@
                              (if title
                                [:div
                                 [:h2 title]
-                                (html-table m k->label)]
-                               (html-table m k->label)))))]
+                                (html-table m subject k->label)]
+                               (html-table m subject k->label)))))]
        (hiccup/html
          [:html
           [:head
