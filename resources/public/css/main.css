@@ -45,10 +45,14 @@ a:hover {
     text-decoration: underline;
 }
 
-td.string {
+.string {
     color: #333;
 }
+.omitted {
+    color: #AAA;
+    font-style: italic;
 
+}
 table {
     width: 100%;
     max-width: 100%;

@@ -205,9 +205,12 @@
        (anchor-elem v (select-label* (get k->label v)))])
 
     ;; Display blank resources as inlined tables
+    ;; Note that doubly inlined tables are omitted entirely.
     (symbol? v)
     (let [{:keys [s p]} (meta v)]
-      [:td.string (html-table (q/blank-entity (:graph @db) s p) nil nil)])
+      (if-let [entity (q/blank-entity (:graph @db) s p)]
+        [:td.string (html-table entity nil nil)]
+        [:td.omitted {:lang "en"} "(details omitted)"]))
 
     :else
     (let [s (select-str* v)]
@@ -341,7 +344,7 @@
                             (prefix-elem prefix)
                             (let [label (select-label* (:rdfs/label entity*))]
                               [:span {:title (name subject)
-                                      :lang (lang label)}
+                                      :lang  (lang label)}
                                (or label (name subject))])]
                    (when uri
                      [:p uri [:em (name subject)]])]]

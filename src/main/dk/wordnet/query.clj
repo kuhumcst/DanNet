@@ -87,11 +87,12 @@
 (defn blank-entity
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
   [g subject predicate]
-  (->> (q/run g ['?p '?o] [:bgp
-                           [subject predicate '?blank]
-                           '[?blank ?p ?o]])
-       (map (fn [[p o]] {p #{o}}))
-       (apply merge-with into)))
+  (when (and subject predicate)
+    (->> (q/run g ['?p '?o] [:bgp
+                             [subject predicate '?blank]
+                             '[?blank ?p ?o]])
+         (map (fn [[p o]] {p #{o}}))
+         (apply merge-with into))))
 
 (defn- set-merge
   "Helper function for merge-with in 'entity-label-mapping'."
