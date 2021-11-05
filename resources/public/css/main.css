@@ -92,6 +92,17 @@ table span.prefix {
     color: #387111;
 }
 
+[lang]:not(footer)::after {
+    content: attr(lang);
+    margin-left: 0.4ch;
+    vertical-align: super;
+    font-size: 50%;
+    opacity: 0.5;
+    text-decoration: none;
+    font-variant: small-caps;
+    display: inline-block; /* nullifies text-decoration: underline */
+}
+
 h1 {
    font-size: 32px;
    font-weight: normal;
@@ -99,6 +110,10 @@ h1 {
    margin: 0 0 32px 0;
    letter-spacing: 0.2ch;
    font-variant: small-caps;
+}
+
+h1 span[lang]::after {
+    margin-right: -4px;
 }
 
 h1 span.prefix {
@@ -169,6 +184,14 @@ td.prefix + td {
 td {
     padding: 16px;
     vertical-align: top;
+}
+
+td:nth-child(2) {
+    padding-right: 8px;
+}
+
+td:nth-child(3) {
+    padding-left: 8px;
 }
 
 

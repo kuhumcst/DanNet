@@ -17,7 +17,6 @@
             [dk.wordnet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
-;; TODO: add language tag as superscript using attr and CSS
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: special content functions, e.g. for "Some relations inherited from..."
 
@@ -122,6 +121,12 @@
       (-> (str prefix/dannet-root "external/" (namespace kw) "/" (name kw))
           (uri->path)))))
 
+(defn lang
+  "Return the language abbreviation of `s` if available."
+  [s]
+  (when (instance? LangStr s)
+    (lstr/lang s)))
+
 ;; TODO: what about mixed sets of LangStr/regular strings?
 (defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
@@ -129,7 +134,7 @@
   [languages x]
   (if (and (set? x)
            (every? #(instance? LangStr %) x))
-    (let [lang->s (into {} (map (juxt lstr/lang str) x))]
+    (let [lang->s (into {} (map (juxt lstr/lang identity) x))]
       (loop [[head & tail] languages]
         (when head
           (if-let [ret (lang->s head)]
@@ -165,6 +170,7 @@
   ([kw s]
    [:a {:href  (resolve-href kw)
         :title (name kw)
+        :lang  (lang s)
         :class (str (if s "string" "keyword")
                     (str " " (get prefix-groups (symbol (namespace kw)))))}
     (or s (name kw))])
@@ -204,7 +210,8 @@
       [:td.string (html-table (q/blank-entity (:graph @db) s p) nil nil)])
 
     :else
-    [:td.string (escape-html (select-str* v))]))
+    (let [s (select-str* v)]
+      [:td.string {:lang (lang s)} (escape-html s)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping."
@@ -239,12 +246,13 @@
                     (html-table-cell k->label v*)))
 
                 (instance? LangStr (first v))
-                [:td.string (let [s (select-str* v)]
-                              (if (coll? s)
-                                [:ul
-                                 (for [object (sort-by str s)]
-                                   [:li.string (escape-html object)])]
-                                s))]
+                (let [s (select-str* v)]
+                  (if (coll? s)
+                    [:td.string
+                     [:ul
+                      (for [s* (sort-by str s)]
+                        [:li.string {:lang (lang s*)} (escape-html s*)])]]
+                    [:td.string {:lang (lang s)} s]))
 
                 :else
                 (let [lis (for [item (sort-by (sort-keyfn k->label) v)]
@@ -260,7 +268,8 @@
                               nil
 
                               :else
-                              [:li.string (escape-html item)]))]
+                              [:li.string {:lang (lang item)}
+                               (escape-html item)]))]
                   [:td
                    (if (> (count lis) 5)
                      [:details [:summary ""] (into [:ul.keyword] lis)]
@@ -277,7 +286,7 @@
                                                       :p k}))
 
               :else
-              [:td.string (escape-html v)])]))])
+              [:td.string {:lang (lang v)} (escape-html v)])]))])
 
 (def content-type->body-fn
   {"application/edn"
@@ -330,15 +339,15 @@
            (into [:article
                   [:header [:h1
                             (prefix-elem prefix)
-                            [:span {:title (name subject)}
-                             (if-let [label (:rdfs/label entity*)]
-                               (select-label* label)
-                               (name subject))]]
+                            (let [label (select-label* (:rdfs/label entity*))]
+                              [:span {:title (name subject)
+                                      :lang (lang label)}
+                               (or label (name subject))])]
                    (when uri
                      [:p uri [:em (name subject)]])]]
                  (conj (vec tables)
-                       [:footer
-                        [:p {:lang "da"}
+                       [:footer {:lang "da"}
+                        [:p
                          "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
                                     "Centre for Language Technology"]
                          ", " [:abbr {:title "University of Copenhagen"}
