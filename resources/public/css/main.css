@@ -195,11 +195,11 @@ td:nth-child(3) {
 }
 
 
-tr:nth-child(odd) {
+tr:nth-child(odd), tr tr:nth-child(even) {
     background: white;
 }
 
-tr:nth-child(even) {
+tr:nth-child(even), tr tr:nth-child(odd) {
     background: #F2F2F2;
 }
 
