@@ -47,6 +47,13 @@
       (.setMode GenericRuleReasoner/HYBRID)
       (.setTransitiveClosureCaching true))))
 
+(defn ->sense-label-triples
+  "Create label triples for the - otherwise unlabeled - senses of a DanNet `g`."
+  [g]
+  (->> (for [{:syms [?sense ?label]} (q/run g op/sense-label-targets)]
+         [?sense :rdfs/label ?label])
+       (into #{})))
+
 (defn ->example-triples
   "Create example triples from a DanNet `g` and the `examples` from 'imports'."
   [g examples]
@@ -58,7 +65,7 @@
                                      "-" (name synset)
                                      "-example"))]
       (apply set/union (for [{:syms [?sense]} results]
-                         (when ?sense
+                         (when example-str
                            #{[?sense :lexinfo/senseExample blank-example]
                              [blank-example :rdf/value example-str]}))))))
 
@@ -79,6 +86,12 @@
     (let [example-triples (doall (->example-triples g examples))]
       (txn/transact-exec g
         (aristotle/add g example-triples)))
+
+    ;; Senses are unlabeled in the raw dataset and also need to query the graph
+    ;; to steal labels from the words they are senses of.
+    (let [sense-label-triples (doall (->sense-label-triples g))]
+      (txn/transact-exec g
+        (aristotle/add g sense-label-triples)))
 
     g))
 

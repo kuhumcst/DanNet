@@ -28,6 +28,13 @@
       [?sense :lexinfo/usageNote ?blank-node]
       [?blank-node :rdf/value ?register]]))
 
+(def sense-label-targets
+  "Used during initial graph creation to attach labels to senses."
+  (q/build
+    '[:bgp
+      [?word :rdfs/label ?label]
+      [?word :ontolex/sense ?sense]]))
+
 (def example-targets
   "Used during initial graph creation to attach examples to senses."
   (q/build
