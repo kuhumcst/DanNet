@@ -235,7 +235,7 @@
                 (let [v* (first v)]
                   (if (symbol? v*)
                     (html-table-cell k->label (with-meta v* {:s subject
-                                                             :p      k}))
+                                                             :p k}))
                     (html-table-cell k->label v*)))
 
                 (instance? LangStr (first v))
@@ -247,31 +247,34 @@
                                 s))]
 
                 :else
-                (let [li (for [item (sort-by (sort-keyfn k->label) v)]
-                           (cond
-                             (keyword? item)
-                             (let [prefix (symbol (namespace item))
-                                   label  (select-label* (get k->label item))]
-                               [:li
-                                (prefix-elem prefix)
-                                (anchor-elem item label)])
+                (let [lis (for [item (sort-by (sort-keyfn k->label) v)]
+                            (cond
+                              (keyword? item)
+                              (let [prefix (symbol (namespace item))
+                                    label  (select-label* (get k->label item))]
+                                [:li
+                                 (prefix-elem prefix)
+                                 (anchor-elem item label)])
 
-                             (symbol? item)
-                             nil
+                              (symbol? item)
+                              nil
 
-                             :else
-                             [:li.string (escape-html item)]))]
+                              :else
+                              [:li.string (escape-html item)]))]
                   [:td
-                   (if (> (count li) 5)
-                     [:details [:summary ""] (into [:ul.keyword] li)]
-                     (into [:ul.keyword] li))]))
+                   (if (> (count lis) 5)
+                     [:details [:summary ""] (into [:ul.keyword] lis)]
+                     (into (if (keyword? (first v))
+                             [:ul.keyword]
+                             [:ul.string])
+                           lis))]))
 
               (keyword? v)
               (html-table-cell k->label v)
 
               (symbol? v)
               (html-table-cell k->label (with-meta v {:s subject
-                                                      :p      k}))
+                                                      :p k}))
 
               :else
               [:td.string (escape-html v)])]))])
@@ -395,4 +398,9 @@
 (comment
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
   (q/expanded-entity (:graph @db) :dn/synset-4849)
+
+  ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
+  (q/run (:graph @db) [:bgp
+                       ['?word :ontolex/canonicalForm '?form]
+                       ['?form :ontolex/writtenRep "fandens karl"]])
   #_.)

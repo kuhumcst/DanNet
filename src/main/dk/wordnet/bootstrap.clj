@@ -46,8 +46,8 @@
 (defn lexical-form-uri
   [word-id form]
   ;; Originally, spaces were replaced with "_" but this caused issues with Jena
-  ;; - specifically, some encoding issue related to TDB - so now "+" is used.
-  (keyword "dn" (str "form-" word-id "-" (str/replace form #" " "+"))))
+  ;; - specifically, some encoding issue related to TDB - so now "-" is used.
+  (keyword "dn" (str "form-" word-id "-" (str/replace form #" |/" "-"))))
 
 (def special-cases
   {"Torshavn|Thorshavn"     "Thorshavn"
@@ -160,7 +160,9 @@
           ontological-type* (sanitize-ontological-type ontological-type)
           definition        (str/replace gloss brug "")]
       (set/union
-        #{[synset :rdfs/label (->LangStr (get special-cases label label) "da")]
+        #{[synset :rdfs/label (-> (get special-cases label label)
+                                  (str/replace #"'" "")     ; only in MWEs
+                                  (->LangStr "da"))]
           [synset :rdf/type :ontolex/LexicalConcept]
           [synset :dns/ontologicalType (keyword "dnc" ontological-type*)]}
         (when (not= definition "(ingen definition)")
@@ -239,6 +241,7 @@
           wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
+          [lexical-form :rdfs/label (->LangStr written-rep "da")]
 
           [word :rdf/type rdf-type]
           [word :rdfs/label (->LangStr written-rep "da")]
