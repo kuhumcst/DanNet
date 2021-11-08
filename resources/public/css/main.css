@@ -198,6 +198,11 @@ td:nth-child(3) {
     padding-left: 8px;
 }
 
+/* Hide prefixes in objects by default */
+td:nth-child(3) > .prefix, td:nth-child(3) ul > li > .prefix {
+    display: none;
+}
+
 
 tr:nth-child(odd), tr tr:nth-child(even) {
     background: white;
