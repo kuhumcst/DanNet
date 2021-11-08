@@ -1,0 +1,108 @@
+@prefix : <http://www.wordnet.dk/dannet/2022/translations/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix semowl: <http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/3.0/lexinfo#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
+
+rdf:type rdfs:label "type"@da .
+rdf:type rdfs:comment "Subjektet er en instans af en klasse."@da .
+rdf:value rdfs:label "værdi"@da .
+
+rdf:Property rdfs:label "egenskab"@da .
+rdf:Property rdfs:comment "Klassen af RDF-egenskaber."@da .
+
+rdfs:label rdfs:label "etiket"@da .
+rdfs:label rdfs:comment "Et navn for subjektet der kan læses af mennesker."@da .
+rdfs:comment rdfs:label "kommentar"@da .
+rdfs:comment rdfs:comment "En beskrivelse af subjektets ressource."@da .
+rdfs:isDefinedBy rdfs:label "er defineret i"@da .
+rdfs:subClassOf rdfs:label "subklasse af"@da .
+rdfs:subPropertyOf rdfs:label "subegenskab af"@da .
+rdfs:domain rdfs:label "definitionsmængde"@da .
+rdfs:range rdfs:label "værdimængde"@da .
+rdfs:seeAlso rdfs:label "se også"@da .
+
+rdfs:Class rdfs:label "klasse"@da .
+rdfs:Class rdfs:comment "Klassen af klasser."@da .
+rdfs:Literal rdfs:label "litteral"@da .
+rdfs:Literal rdfs:comment "Klassen af datalogiske 'litteraler', eksempelvis tekststrenge og heltal."@da .
+rdfs:DataType rdfs:label "datatype"@da .
+rdfs:DataType rdfs:comment "Klassen af RDF-datatyper."@da .
+rdfs:langString rdfs:label "sprog-tagged tekst."@da .
+rdfs:langString rdfs:comment "Datatypen for sprog-tagged tekst."@da .
+rdfs:Resource rdfs:label "ressource"@da .
+rdfs:Resource rdfs:comment "Klasseressourcen, alting."@da .
+
+owl:Thing rdfs:label "ting"@da .
+owl:Thing rdfs:comment "Klassen af OWL-individer."@da .
+owl:equivalentClass rdfs:label "ækvivalent klasse"@da .
+owl:equivalentClass rdfs:comment "Relation der fastsætter at to angivne klasser er ækvivalente; brugt til at specificere datatype-definitioner."@da .
+owl:inverseOf rdfs:label "modsat"@da .
+owl:priorVersion rdfs:label "tidligere version"@da .
+owl:Ontology rdfs:label "ontologi"@da .
+owl:OntologyProperty rdfs:label "ontologisk egenskab"@da .
+owl:Class rdfs:label "klasse"@da .
+owl:Class rdfs:comment "Klassen af OWL-klasser."@da .
+owl:AnnotationProperty rdfs:label "annoteringsegenskab"@da .
+owl:AnnotationProperty rdfs:comment "Klassen af annoteringsegenskaber."@da .
+owl:ObjectProperty rdfs:label "objekt-egenskab"@da .
+owl:ObjectProperty rdfs:comment "Klassen af objekt-egenskaber."@da .
+owl:DatatypeProperty rdfs:label "datatype-egenskab"@da .
+owl:DatatypeProperty rdfs:comment "Klassen af datatype-egenskaber."@da .
+
+semowl:Meaning rdfs:label "betydning"@da .
+
+lexinfo:senseExample rdfs:label "betydningseksempel"@da .
+lexinfo:morphosyntacticProperty rdfs:label "morfosyntaktisk egenskab"@da .
+lexinfo:partOfSpeech rdfs:label "ordklasse"@da .
+lexinfo:Noun rdfs:label "substantiv"@da .
+lexinfo:Verb rdfs:label "verbum"@da .
+lexinfo:Adjective rdfs:label "adjektiv"@da .
+lexinfo:Adverb rdfs:label "adverbium"@da .
+
+skos:note rdfs:label "bemærkning"@da .
+skos:note skos:definition "En generel bemærkning til alle slags formål."@da .
+skos:definition rdfs:label "definition"@da .
+skos:definition skos:definition "Et udsagn eller en formel forklaring af betydningen af et koncept."@da .
+skos:scopeNote rdfs:label "omfangsbemærkning"@da .
+skos:scopeNote skos:definition "En bemærkning der hjælper til at tydeliggøre betydningen og/eller brugen af et koncept."@da .
+
+skos:concept rdfs:label "koncept"@da .
+skos:concept skos:definition "En idé eller et begreb; en tankeenhed."@da .
+
+ontolex:evokes rdfs:label "fremkalder"@da .
+ontolex:evokes rdfs:comment "Denne relation forbinder et leksikalsk opslagsord med et af de leksikalske koncepter det fremkalder, dvs. det mentale koncept som lytteren måske vil associere det leksikalske opslagsord med."@da .
+ontolex:isEvokedBy rdfs:label "fremkaldes af"@da .
+ontolex:isEvokedBy rdfs:comment "Modparten til 'fremkalder'-relationen.'"@da .
+ontolex:sense rdfs:label "betydning"@da .
+ontolex:sense rdfs:comment "Relationen mellem et leksikalsk opslagsord og et af dets betydninger."@da .
+ontolex:isSenseOf rdfs:label "er betydning af"@da .
+ontolex:isSenseOf rdfs:comment "Modparten til 'betydning'-relationen.'"@da .
+ontolex:lexicalizedSense rdfs:label "leksikaliseret betydning"@da .
+ontolex:lexicalizedSense rdfs:comment "Den leksikaliserede betydning relaterer et leksikalsk koncept til den tilsvarende betydning der leksikaliserer konceptet."@da .
+ontolex:isLexicalizedSenseOf rdfs:label "er leksikaliseret betydning af"@da .
+ontolex:isLexicalizedSenseOf rdfs:comment "Modparten til 'leksikaliseret betydning'-relationen.'"@da .
+ontolex:canonicalForm rdfs:label "opslagsform"@da .
+ontolex:representation rdfs:label "repræsentation"@da .
+ontolex:representation rdfs:comment "'Repræsentation' angiver en tekststreng som ordformen repræsenteres med i henhold til en bestemt ortografi."@da .
+ontolex:writtenRep rdfs:label "skriftlig repræsentation"@da .
+ontolex:writtenRep rdfs:comment "Den skriftlige repræsentation angiver den måde ordformen skrives på."@da .
+
+ontolex:Word rdfs:label "ord"@da .
+ontolex:Word rdfs:comment "Et ord et et leksikalsk opslagsord der består af kun ét ord."@da .
+ontolex:MultiWordExpression rdfs:label "flerords-udtryk"@da .
+ontolex:MultiWordExpression rdfs:comment "Et flerords-udtryk et et leksikalsk opslagsord der består af to eller flere ord."@da .
+ontolex:Affix rdfs:label "affix"@da .
+ontolex:Affix rdfs:comment "Et affix er et leksikalsk opslagsord, der består af et morfem (suffix, præfix, infix, circumfix) der sættes på ordstammen for at danne et nyt ord."@da .
+ontolex:Form rdfs:label "ordform"@da .
+ontolex:Form rdfs:comment "En ordform repræsenterer en grammatisk realisering af et leksikalsk opslagsord."@da .
+ontolex:LexicalEntry rdfs:label "leksikalsk opslagsord"@da .
+ontolex:LexicalEntry rdfs:comment "Et leksikalsk opslagsord repræsenterer den enhed i den leksikografiske ressource, der består af et sæt af ordformer og et sæt af grundbetydninger associeret med disse ordformer. Altså er et leksikalsk opslagsord dermed et ord, et udtryk bestående af flere ord eller et affix med en bestemt ordklasse, morfologisk mønster, etymologi eller sæt af betydninger."@da .
+ontolex:LexicalSense rdfs:label "leksikalsk betydning"@da .
+ontolex:LexicalSense rdfs:comment "En leksikalsk betydning repræsenterer betydningen af et leksikalsk opslagsord, forstået som refererende til det tilsvarende ontologiske element. En leksikalsk betydning repræsenterer dermed en tingsliggørelse af parret bestående af ét bestemt leksikalsk opslagsord og den unikke ontologiske enhed der refereres til. En forbindelse mellem et leksikalsk opslagsord og en ontologisk enhed via et leksikalsk betydningsobjekt medfører, at det leksikalske opslagsord kan bruges som reference til den pågældende ontologiske enhed."@da .
+ontolex:LexicalConcept rdfs:label "leksikalsk koncept"@da .
+ontolex:LexicalConcept rdfs:comment "Et leksikalsk koncept repræsenterer en mental abstraktion, et koncept eller en tankeenhed, der omfatter ét eller flere leksikalske opslagsord."@da .

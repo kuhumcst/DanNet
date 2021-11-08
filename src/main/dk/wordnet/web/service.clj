@@ -16,6 +16,7 @@
       (res/prefix->entity-route 'dnc)
       (res/prefix->entity-route 'dns)
 
+      (res/prefix->schema-route 'en->da)
       (res/prefix->schema-route 'dnc)
       (res/prefix->schema-route 'dns)}))
 
