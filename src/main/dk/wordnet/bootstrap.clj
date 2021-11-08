@@ -148,7 +148,6 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/ontologicalFacet (keyword "dnc" concept)]))
 
-;; TODO: also clean the comments
 (defn- clean-synset-label
   "Removes legacy internal implementation details from the synset `label`."
   [label]
@@ -180,7 +179,8 @@
   (-> comment
       (str/replace #"^Inherited from" "Some relations inherited from")
       (str/replace #"synset with id (\d+)" "dn:synset-$1")
-      (str/replace #" \((.+)\)$" " $1.")))
+      (str/replace #" \((.+)\)$" " $1.")
+      (str/replace #"\{[^}]+\}" clean-synset-label)))
 
 (defn ->relation-triples
   "Convert a `row` from 'relations.csv' to triples.
