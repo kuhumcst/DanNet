@@ -34,7 +34,7 @@
   "private, max-age=86400")
 
 (def lang-prefs
-  ["da" "en"])
+  ["da" "en" "xx"])
 
 (defn invert-map
   [m]
@@ -125,17 +125,17 @@
 (defn lang
   "Return the language abbreviation of `s` if available."
   [s]
-  (when (instance? LangStr s)
-    (lstr/lang s)))
+  (if (instance? LangStr s)
+    (lstr/lang s)
+    nil))
 
 ;; TODO: what about mixed sets of LangStr/regular strings?
 (defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is."
   [languages x]
-  (if (and (set? x)
-           (every? #(instance? LangStr %) x))
-    (let [lang->s (into {} (map (juxt lstr/lang identity) x))]
+  (if (set? x)
+    (let [lang->s (into {} (map (juxt lang identity) x))]
       (loop [[head & tail] languages]
         (when head
           (if-let [ret (lang->s head)]
@@ -150,9 +150,8 @@
   This function differs from 'select-label' by allowing for multiple strings
   to be returned instead of just one."
   [languages x]
-  (if (and (set? x)
-           (every? #(instance? LangStr %) x))
-    (let [m (group-by lstr/lang x)]
+  (if (set? x)
+    (let [m (group-by lang x)]
       (loop [[head & tail] languages]
         (when head
           (if-let [ret (get m head)]
@@ -262,7 +261,8 @@
                                                              :p k}))
                     (html-table-cell k->label v*)))
 
-                (instance? LangStr (first v))
+                (or (instance? LangStr (first v))
+                    (string? (first v)))
                 (let [s (select-str* v)]
                   (if (coll? s)
                     [:td
