@@ -1,5 +1,6 @@
 * {
     line-height: 1.5; /* looks better when wrapping to next line */
+    color: #333;
 }
 
 html {
@@ -45,9 +46,6 @@ a:hover {
     text-decoration: underline;
 }
 
-.string {
-    color: #333;
-}
 .omitted {
     color: #AAA;
     font-style: italic;
@@ -98,10 +96,10 @@ table span.prefix {
 
 [lang]:not(footer)::after {
     content: attr(lang);
-    margin-left: 0.4ch;
+    margin-left: 0.2ch;
     vertical-align: super;
-    font-size: 50%;
-    opacity: 0.5;
+    font-size: 60%;
+    opacity: 0.4;
     text-decoration: none;
     font-variant: small-caps;
     display: inline-block; /* nullifies text-decoration: underline */
@@ -230,18 +228,12 @@ details[open] summary::after {
 ol {
     margin-bottom: 0;
     padding-left: 24px;
-}
-
-ol {
     list-style-type: upper-roman;
 }
 
-details ol.keyword {
+details[open] ol {
     padding: 12px;
     margin-top: 24px;
-}
-
-details[open] ol {
     border: 1px solid #AAA;
     border-radius: 2px;
     list-style-type: none;

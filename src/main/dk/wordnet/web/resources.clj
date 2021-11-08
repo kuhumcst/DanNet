@@ -172,8 +172,7 @@
    [:a {:href  (resolve-href kw)
         :title (name kw)
         :lang  (lang s)
-        :class (str (if s "string" "keyword")
-                    (str " " (get prefix-groups (symbol (namespace kw)))))}
+        :class (get prefix-groups (symbol (namespace kw)))}
     (or s (name kw))])
   ([kw] (anchor-elem kw nil)))
 
@@ -223,12 +222,12 @@
     (symbol? v)
     (let [{:keys [s p]} (meta v)]
       (if-let [entity (q/blank-entity (:graph @db) s p)]
-        [:td.string (html-table entity nil nil)]
+        [:td (html-table entity nil nil)]
         [:td.omitted {:lang "en"} "(details omitted)"]))
 
     :else
     (let [s (select-str* v)]
-      [:td.string {:lang (lang s)} (str-transformation s)])))
+      [:td {:lang (lang s)} (str-transformation s)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
@@ -266,11 +265,11 @@
                 (instance? LangStr (first v))
                 (let [s (select-str* v)]
                   (if (coll? s)
-                    [:td.string
+                    [:td
                      [:ol
                       (for [s* (sort-by str s)]
-                        [:li.string {:lang (lang s*)} (str-transformation s*)])]]
-                    [:td.string {:lang (lang s)} (str-transformation s)]))
+                        [:li {:lang (lang s*)} (str-transformation s*)])]]
+                    [:td {:lang (lang s)} (str-transformation s)]))
 
                 ;; TODO: use sublist for identical labels
                 :else
@@ -287,15 +286,12 @@
                               nil
 
                               :else
-                              [:li.string {:lang (lang item)}
+                              [:li {:lang (lang item)}
                                (str-transformation item)]))]
                   [:td
                    (if (> (count lis) 5)
-                     [:details [:summary ""] (into [:ol.keyword] lis)]
-                     (into (if (keyword? (first v))
-                             [:ol.keyword]
-                             [:ol.string])
-                           lis))]))
+                     [:details [:summary ""] (into [:ol] lis)]
+                     (into [:ol] lis))]))
 
               (keyword? v)
               (html-table-cell k->label v)
@@ -305,7 +301,7 @@
                                                       :p k}))
 
               :else
-              [:td.string {:lang (lang v)} (str-transformation v)])]))])
+              [:td {:lang (lang v)} (str-transformation v)])]))])
 
 (def content-type->body-fn
   {"application/edn"
