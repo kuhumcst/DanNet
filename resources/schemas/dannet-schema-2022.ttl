@@ -8,14 +8,18 @@
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
   rdfs:label "orthogonal hypernym"@en ;
+  rdfs:label "ortogonalt hyperonym"@da ;
   owl:inverseOf :orthogonalHyponym .
 
 :orthogonalHyponym a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:comment "Hyponymer der er ortogonale i taxonomien; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
   rdfs:label "orthogonal hyponym"@en ;
+  rdfs:label "ortogonalt hyponym"@da ;
   owl:inverseOf :orthogonalHypernym .
 
 :ontologicalType a owl:ObjectProperty ;
