@@ -219,12 +219,13 @@
       [:td.string {:lang (lang s)} (escape-html s)])))
 
 (defn sort-keyfn
-  "Keyfn for sorting keywords and other content based on a `k->label` mapping."
+  "Keyfn for sorting keywords and other content based on a `k->label` mapping.
+  Returns vectors so that identical labels are sorted by keywords secondly."
   [k->label]
   (fn [item]
     (if (keyword? item)
-      (str (select-label* (get k->label item)))
-      (str item))))
+      [(str (select-label* (get k->label item))) item]
+      [(str item) nil])))
 
 (defn html-table
   [entity subject k->label & [ks]]
@@ -254,11 +255,12 @@
                 (let [s (select-str* v)]
                   (if (coll? s)
                     [:td.string
-                     [:ul
+                     [:ol
                       (for [s* (sort-by str s)]
                         [:li.string {:lang (lang s*)} (escape-html s*)])]]
                     [:td.string {:lang (lang s)} s]))
 
+                ;; TODO: use sublist for identical labels
                 :else
                 (let [lis (for [item (sort-by (sort-keyfn k->label) v)]
                             (cond
@@ -277,10 +279,10 @@
                                (escape-html item)]))]
                   [:td
                    (if (> (count lis) 5)
-                     [:details [:summary ""] (into [:ul.keyword] lis)]
+                     [:details [:summary ""] (into [:ol.keyword] lis)]
                      (into (if (keyword? (first v))
-                             [:ul.keyword]
-                             [:ul.string])
+                             [:ol.keyword]
+                             [:ol.string])
                            lis))]))
 
               (keyword? v)

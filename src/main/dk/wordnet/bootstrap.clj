@@ -148,6 +148,7 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/ontologicalFacet (keyword "dnc" concept)]))
 
+;; TODO: also clean the comments
 (defn- clean-synset-label
   "Removes legacy internal implementation details from the synset `label`."
   [label]

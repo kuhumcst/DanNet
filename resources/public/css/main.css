@@ -19,7 +19,7 @@ body {
 
 article {
     padding: 24px;
-    max-width: 120ch;
+    max-width: 100ch;
 }
 
 header, footer {
@@ -60,7 +60,7 @@ table {
 }
 
 col:last-of-type {
-    width: 80ch;
+    width: 65ch;
 }
 
 table span.prefix {
@@ -199,7 +199,7 @@ td:nth-child(3) {
 }
 
 /* Hide prefixes in objects by default */
-td:nth-child(3) > .prefix, td:nth-child(3) ul > li > .prefix {
+td:nth-child(3) > .prefix, td:nth-child(3) ol > li > .prefix {
     display: none;
 }
 
@@ -224,24 +224,24 @@ details[open] summary::after {
     content: "";
 }
 
-ul {
-    padding-left: 18px;
+ol {
     margin-bottom: 0;
+    padding-left: 24px;
 }
 
-ul.keyword {
-    list-style: none;
-    padding: 0;
+ol.keyword {
+    list-style-type: upper-roman;
 }
 
-details ul.keyword {
+details ol.keyword {
     padding: 12px;
     margin-top: 24px;
 }
 
-details[open] ul {
+details[open] ol {
     border: 1px solid #AAA;
     border-radius: 2px;
+    list-style-type: none;
     background: #DDD;
     box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
 }
@@ -252,4 +252,9 @@ li {
 
 li:last-of-type {
     padding-bottom: 0;
+}
+
+li::marker {
+    color: #999;
+    font-size: 12px;
 }
