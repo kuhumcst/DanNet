@@ -17,6 +17,8 @@
             [dk.wordnet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
+;; TODO: duplicate synsets? http://0.0.0.0:8080/dannet/2022/instances/word-11013159
+;; TODO: semowl link should be grey, not #333 like text
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: special content functions, e.g. for "Some relations inherited from..."
 
@@ -376,15 +378,19 @@
                   subject      (-> request
                                    (get-in [:path-params :subject])
                                    (decode-query-part)
-                                   (->> (keyword (name prefix*))))]
-              (if-let [entity (q/expanded-entity (:graph @db) subject)]
+                                   (->> (keyword (name prefix*))))
+                  entity       (if (= content-type "text/html")
+                                 (q/expanded-entity (:graph @db) subject)
+                                 (q/entity (:graph @db) subject))]
+              (if entity
                 (-> ctx
                     (update :response assoc
                             :status 200
                             :body (entity->body entity))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
-                               "Cache-Control" one-day-cache))
+                               ;; TODO: use cache in production
+                               #_#_"Cache-Control" one-day-cache))
                 (update ctx :response assoc
                         :status 404
                         :headers {}))))})
@@ -404,7 +410,7 @@
 (def external-entity-route
   "Look-up route for external resources. Doesn't conform to the actual URIs."
   [(str (uri->path prefix/dannet-root) "external/:prefix/:subject")
-   :get [(negotiate-content (keys content-type->body-fn))
+   :get [content-negotiation-ic
          (->entity-ic)]
    :route-name ::external-entity])
 
