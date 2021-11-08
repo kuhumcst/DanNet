@@ -148,6 +148,12 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/ontologicalFacet (keyword "dnc" concept)]))
 
+(defn- clean-synset-label
+  "Removes legacy internal implementation details from the synset `label`."
+  [label]
+  (-> (get special-cases label label)
+      (str/replace  #"'|_|\d+|," "")))
+
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples.
 
@@ -160,9 +166,7 @@
           ontological-type* (sanitize-ontological-type ontological-type)
           definition        (str/replace gloss brug "")]
       (set/union
-        #{[synset :rdfs/label (-> (get special-cases label label)
-                                  (str/replace #"'" "")     ; only in MWEs
-                                  (->LangStr "da"))]
+        #{[synset :rdfs/label (->LangStr (clean-synset-label label) "da")]
           [synset :rdf/type :ontolex/LexicalConcept]
           [synset :dns/ontologicalType (keyword "dnc" ontological-type*)]}
         (when (not= definition "(ingen definition)")
