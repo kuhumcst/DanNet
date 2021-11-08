@@ -8,7 +8,7 @@
             [ring.util.response :as ring]
             [com.wsscode.transito :as transito]
             [hiccup.core :as hiccup]
-            [hiccup.util :refer [escape-html]]
+            [hiccup.util :as hutil]
             [ont-app.vocabulary.lstr :as lstr]
             [flatland.ordered.map :as fop]
             [dk.wordnet.prefix :as prefix]
@@ -20,7 +20,6 @@
 ;; TODO: duplicate synsets? http://0.0.0.0:8080/dannet/2022/instances/word-11013159
 ;; TODO: semowl link should be grey, not #333 like text
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
-;; TODO: special content functions, e.g. for "Some relations inherited from..."
 
 (defonce db
   (delay
@@ -185,6 +184,19 @@
                  :class (get prefix-groups prefix)}
    (str prefix ":")])
 
+(def inheritance-pattern
+  #"dn:(synset-\d+) (\{.+\}).$")
+
+(defn str-transformation
+  "Performs basic transformations of `s`; just synset hyperlinks for now."
+  [s]
+  (if-let [[_ synset-id label] (re-find inheritance-pattern (str s))]
+    [:span (hutil/escape-html (str/replace s inheritance-pattern ""))
+     (prefix-elem 'dn)
+     (anchor-elem (keyword "dn" synset-id) label)
+     "."]
+    (hutil/escape-html s)))
+
 ;; TODO: do something about omitted content
 ;; e.g. "<http://www.w3.org/2003/06/sw-vocab-status/ns#term_status>"
 (defn filter-entity
@@ -216,7 +228,7 @@
 
     :else
     (let [s (select-str* v)]
-      [:td.string {:lang (lang s)} (escape-html s)])))
+      [:td.string {:lang (lang s)} (str-transformation s)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
@@ -257,7 +269,7 @@
                     [:td.string
                      [:ol
                       (for [s* (sort-by str s)]
-                        [:li.string {:lang (lang s*)} (escape-html s*)])]]
+                        [:li.string {:lang (lang s*)} (str-transformation s*)])]]
                     [:td.string {:lang (lang s)} s]))
 
                 ;; TODO: use sublist for identical labels
@@ -276,7 +288,7 @@
 
                               :else
                               [:li.string {:lang (lang item)}
-                               (escape-html item)]))]
+                               (str-transformation item)]))]
                   [:td
                    (if (> (count lis) 5)
                      [:details [:summary ""] (into [:ol.keyword] lis)]
@@ -293,7 +305,7 @@
                                                       :p k}))
 
               :else
-              [:td.string {:lang (lang v)} (escape-html v)])]))])
+              [:td.string {:lang (lang v)} (str-transformation v)])]))])
 
 (def content-type->body-fn
   {"application/edn"
