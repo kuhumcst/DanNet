@@ -146,32 +146,27 @@
   `ontological-type` string."
   [synset ontological-type]
   (for [concept (str/split ontological-type #"-")]
-    [synset :dns/ontologicalFacet (keyword "dnc" concept)]))
+    [synset :dns/ontologicalType (keyword "dnc" concept)]))
 
 (defn- clean-synset-label
   "Removes legacy internal implementation details from the synset `label`."
   [label]
   (-> (get special-cases label label)
-      (str/replace  #"'|_|\d+|," "")))
+      (str/replace #"'|_|\d+|," "")))
 
 (defn ->synset-triples
-  "Convert a `row` from 'synsets.csv' to triples.
-
-  The legacy `ontological-type` string is converted into facet triples along
-  with an ontologicalType triple which is analogous to the old composite string.
-  All the resulting triples reference RDF resources rather than plain strings."
+  "Convert a `row` from 'synsets.csv' to triples."
   [[synset-id label gloss ontological-type :as row]]
   (when (= (count row) 5)
-    (let [synset            (synset-uri synset-id)
-          ontological-type* (sanitize-ontological-type ontological-type)
-          definition        (str/replace gloss brug "")]
+    (let [synset     (synset-uri synset-id)
+          definition (str/replace gloss brug "")]
       (set/union
         #{[synset :rdfs/label (->LangStr (clean-synset-label label) "da")]
-          [synset :rdf/type :ontolex/LexicalConcept]
-          [synset :dns/ontologicalType (keyword "dnc" ontological-type*)]}
+          [synset :rdf/type :ontolex/LexicalConcept]}
         (when (not= definition "(ingen definition)")
           #{[synset :skos/definition (->LangStr definition "da")]})
-        (explode-ontological-type synset ontological-type*)))))
+        (->> (sanitize-ontological-type ontological-type)
+             (explode-ontological-type synset))))))
 
 (defn- adjust-comment
   "Slighly rewords the inheritance comments present in the old DanNet dataset."
@@ -317,10 +312,10 @@
   (->> (read-triples (:synsets imports))
        (take 10))
 
-  ;; Find concepts (or alternatively, concept composites)
+  ;; Find facets, i.e. ontologicalType
   (->> (read-triples (:synsets imports))
        (reduce into #{})
-       (filter (comp #{:dns/ontologicalFacet} second))
+       (filter (comp #{:dns/ontologicalType} second))
        (map #(nth % 2))
        (into #{})
        (map (comp symbol name))

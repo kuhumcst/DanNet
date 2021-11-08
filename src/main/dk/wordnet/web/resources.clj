@@ -270,7 +270,7 @@
                      [:ol
                       (for [s* (sort-by str s)]
                         [:li.string {:lang (lang s*)} (str-transformation s*)])]]
-                    [:td.string {:lang (lang s)} s]))
+                    [:td.string {:lang (lang s)} (str-transformation s)]))
 
                 ;; TODO: use sublist for identical labels
                 :else

@@ -18,32 +18,30 @@
   rdfs:label "orthogonal hyponym"@en ;
   owl:inverseOf :orthogonalHypernym .
 
-:ontologicalFacet a owl:ObjectProperty ;
-  rdfs:domain ontolex:LexicalConcept ;
-  rdfs:range :Concept ;
-  rdfs:comment "The DanNet/EuroWordNet Concept describing a facet of the synset."@en ;
-  rdfs:label "ontological facet"@en .
-
 :ontologicalType a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
-  rdfs:range :ConceptComposite ;
-  rdfs:comment "The DanNet/EuroWordNet concept composite describing multiple facets of the synset."@en ;
-  rdfs:label "ontological type"@en .
+  rdfs:range :OntologicalConcept ;
+  rdfs:comment "A DanNet/EuroWordNet Concept describing a facet of a synset."@en ;
+  rdfs:comment "Et DanNet/EuroWordNet-koncept der beskriver en facet af et synset."@da ;
+  rdfs:label "ontological type"@en ;
+  rdfs:label "ontologisk type"@da .
 
-:Concept a owl:Class ;
-  rdfs:label "concept"@en ;
-  rdfs:comment "A concept found in either DanNet or EuroWordNet."@en .
+:OntologicalConcept a owl:Class ;
+  rdfs:label "ontological concept"@en ;
+  rdfs:label "ontologisk koncept"@da ;
+  rdfs:comment "An ontological concept found in either DanNet or EuroWordNet."@en ;
+  rdfs:comment "Et ontologisk koncept fundet i enten DanNet eller EuroWordNet."@da .
 
 :DanNetConcept a owl:Class ;
-  rdfs:subClassOf :Concept ;
+  rdfs:subClassOf :OntologicalConcept ;
   rdfs:label "DanNet concept"@en ;
-  rdfs:comment "A concept created specifically for DanNet that extends the concepts from EuroWordNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en .
+  rdfs:label "DanNet-koncept"@da ;
+  rdfs:comment "An ontological concept created specifically for DanNet extending the concepts from EuroWordNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en ;
+  rdfs:comment "Et ontologisk koncept skabt specifikt til DanNet, som udvider konceptsættet fra EuroWordNet; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@da .
 
 :EuroWordNetConcept a owl:Class ;
-  rdfs:subClassOf :Concept ;
+  rdfs:subClassOf :OntologicalConcept ;
   rdfs:label "EuroWordNet concept"@en ;
-  rdfs:comment "A concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see: <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en .
-
-:ConceptComposite a owl:Class ;
-  rdfs:label "DanNet/EuroWordNet concept composite"@en ;
-  rdfs:comment "A composite of one or more concepts from DanNet/EuroWordNet used to categorize synsets in DanNet; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en .
+  rdfs:label "EuroWordNet-koncept"@da ;
+  rdfs:comment "An ontological concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see: <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
+  rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se: <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da .
