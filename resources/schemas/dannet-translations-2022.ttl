@@ -11,6 +11,7 @@
 rdf:type rdfs:label "type"@da .
 rdf:type rdfs:comment "Subjektet er en instans af en klasse."@da .
 rdf:value rdfs:label "værdi"@da .
+rdf:value rdfs:comment "Idiomatisk egenskab brugt til strukturerede værdier."@da .
 
 rdf:Property rdfs:label "egenskab"@da .
 rdf:Property rdfs:comment "Klassen af RDF-egenskaber."@da .
@@ -67,15 +68,15 @@ lexinfo:Adverb rdfs:label "adverbium"@da .
 skos:note rdfs:label "bemærkning"@da .
 skos:note skos:definition "En generel bemærkning til alle slags formål."@da .
 skos:definition rdfs:label "definition"@da .
-skos:definition skos:definition "Et udsagn eller en formel forklaring af betydningen af et koncept."@da .
+skos:definition skos:definition "Et udsagn eller en formel forklaring af betydningen af et begreb."@da .
 skos:scopeNote rdfs:label "omfangsbemærkning"@da .
-skos:scopeNote skos:definition "En bemærkning der hjælper til at tydeliggøre betydningen og/eller brugen af et koncept."@da .
+skos:scopeNote skos:definition "En bemærkning der hjælper til at tydeliggøre betydningen og/eller brugen af et begreb."@da .
 
-skos:Concept rdfs:label "koncept"@da .
+skos:Concept rdfs:label "begreb"@da .
 skos:Concept skos:definition "En idé eller et begreb; en tankeenhed."@da .
 
 ontolex:evokes rdfs:label "fremkalder"@da .
-ontolex:evokes rdfs:comment "Denne relation forbinder et leksikalsk opslagsord med et af de leksikalske koncepter det fremkalder, dvs. det mentale koncept som lytteren måske vil associere det leksikalske opslagsord med."@da .
+ontolex:evokes rdfs:comment "Denne relation forbinder et leksikalsk opslagsord med et af de leksikalske begreber det fremkalder, dvs. det begreb som lytteren måske vil associere det leksikalske opslagsord med."@da .
 ontolex:isEvokedBy rdfs:label "fremkaldes af"@da .
 ontolex:isEvokedBy rdfs:comment "Modparten til 'fremkalder'-relationen.'"@da .
 ontolex:sense rdfs:label "betydning"@da .
@@ -83,7 +84,7 @@ ontolex:sense rdfs:comment "Relationen mellem et leksikalsk opslagsord og et af 
 ontolex:isSenseOf rdfs:label "er betydning af"@da .
 ontolex:isSenseOf rdfs:comment "Modparten til 'betydning'-relationen.'"@da .
 ontolex:lexicalizedSense rdfs:label "leksikaliseret betydning"@da .
-ontolex:lexicalizedSense rdfs:comment "Den leksikaliserede betydning relaterer et leksikalsk koncept til den tilsvarende betydning der leksikaliserer konceptet."@da .
+ontolex:lexicalizedSense rdfs:comment "Den leksikaliserede betydning relaterer et leksikalsk begreb til den tilsvarende betydning der leksikaliserer begrebet."@da .
 ontolex:isLexicalizedSenseOf rdfs:label "er leksikaliseret betydning af"@da .
 ontolex:isLexicalizedSenseOf rdfs:comment "Modparten til 'leksikaliseret betydning'-relationen.'"@da .
 ontolex:canonicalForm rdfs:label "opslagsform"@da .
@@ -104,5 +105,5 @@ ontolex:LexicalEntry rdfs:label "leksikalsk opslagsord"@da .
 ontolex:LexicalEntry rdfs:comment "Et leksikalsk opslagsord repræsenterer den enhed i den leksikografiske ressource, der består af et sæt af ordformer og et sæt af grundbetydninger associeret med disse ordformer. Altså er et leksikalsk opslagsord dermed et ord, et udtryk bestående af flere ord eller et affix med en bestemt ordklasse, morfologisk mønster, etymologi eller sæt af betydninger."@da .
 ontolex:LexicalSense rdfs:label "leksikalsk betydning"@da .
 ontolex:LexicalSense rdfs:comment "En leksikalsk betydning repræsenterer betydningen af et leksikalsk opslagsord, forstået som refererende til det tilsvarende ontologiske element. En leksikalsk betydning repræsenterer dermed en tingsliggørelse af parret bestående af ét bestemt leksikalsk opslagsord og den unikke ontologiske enhed der refereres til. En forbindelse mellem et leksikalsk opslagsord og en ontologisk enhed via et leksikalsk betydningsobjekt medfører, at det leksikalske opslagsord kan bruges som reference til den pågældende ontologiske enhed."@da .
-ontolex:LexicalConcept rdfs:label "leksikalsk koncept"@da .
-ontolex:LexicalConcept rdfs:comment "Et leksikalsk koncept repræsenterer en mental abstraktion, et koncept eller en tankeenhed, der omfatter ét eller flere leksikalske opslagsord."@da .
+ontolex:LexicalConcept rdfs:label "leksikalsk begreb"@da .
+ontolex:LexicalConcept rdfs:comment "Et leksikalsk begreb repræsenterer en mental abstraktion, et begreb eller en tankeenhed, der omfatter ét eller flere leksikalske opslagsord."@da .

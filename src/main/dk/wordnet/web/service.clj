@@ -10,7 +10,9 @@
 (defn routes
   []
   (route/expand-routes
-    #{res/external-entity-route
+    #{res/search-route
+      res/autocomplete-route
+      res/external-entity-route
 
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)

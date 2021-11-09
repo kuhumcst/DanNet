@@ -6,6 +6,7 @@
             [arachne.aristotle :as aristotle]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
+            [flatland.ordered.map :as fop]
             [dk.wordnet.prefix :as prefix]
             [dk.wordnet.bootstrap :as bootstrap]
             [dk.wordnet.query :as q]
@@ -211,6 +212,54 @@
          '[?l1 ?s1 ?relation ?s2 ?l2]
          op/synset-relations
          {'?relation relation}))
+
+(def sym->kw
+  {'?synset     :rdf/value
+   '?definition :skos/definition
+   '?ontotype   :dns/ontologicalType})
+
+(def label-lookup
+  (memoize
+    (fn [g]
+      (let [search-labels   (q/run g op/synset-search-labels)
+            ontotype-labels (q/run g op/ontotype-labels)]
+        (merge (set/rename-keys (apply merge-with q/set-merge search-labels)
+                                sym->kw)
+               (->> (for [{:syms [?ontotype ?label]} ontotype-labels]
+                      {?ontotype ?label})
+                    (apply merge-with q/set-merge)))))))
+
+(def search-keyfn
+  (let [m->label (fn [{:keys [rdf/value] :as m}]
+                   (str (get (:k->label (meta m)) value)))]
+    (comp (juxt (comp count m->label)
+                (comp m->label)
+                (comp str :skos/definition)
+                (comp :rdf/value))
+          second)))
+
+;; TODO: need to also numerically order by synset key, not just alphabetically
+(defn look-up
+  "Look up synsets in Graph `g` based on the given `lemma`."
+  [g lemma]
+  (let [k->label (label-lookup g)]
+    (->> (q/run g op/synset-search {'?lemma lemma})
+         (group-by '?synset)
+         (map (fn [[k ms]]
+                (let [{:syms [?label ?synset]
+                       :as   base} (apply merge-with q/set-merge ms)
+                      v (with-meta (-> base
+                                       (dissoc '?lemma
+                                               '?form
+                                               '?word
+                                               '?label
+                                               '?sense)
+                                       (set/rename-keys sym->kw))
+                                   {:k->label (assoc k->label
+                                                ?synset ?label)})]
+                  [k v])))
+         (sort-by search-keyfn)
+         (into (fop/ordered-map)))))
 
 (comment
   (type (:graph dannet))                                    ; Check graph type

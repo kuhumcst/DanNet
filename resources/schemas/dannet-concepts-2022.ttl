@@ -3,185 +3,124 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 :Agentive a dns:EuroWordNetConcept ;
-  rdfs:label "agentive"@en ;
-  rdfs:label "agentiv"@da . # TODO: find more suitable Danish word?
+  rdfs:label "agentive"@en .
 :Animal a dns:EuroWordNetConcept ;
-  rdfs:label "animal"@en ;
-  rdfs:label "dyr"@da .
+  rdfs:label "animal"@en .
 :Artifact a dns:EuroWordNetConcept ;
-  rdfs:label "artifact"@en ;
-  rdfs:label "genstand"@da .
+  rdfs:label "artifact"@en .
 :Artwork a dns:DanNetConcept ;
-  rdfs:label "artwork"@en ;
-  rdfs:label "kunstværk"@da .
+  rdfs:label "artwork"@en .
 :BodyPart a dns:DanNetConcept ;
-  rdfs:label "body part"@en ;
-  rdfs:label "kropsdel"@da .
+  rdfs:label "body part"@en .
 :BoundedEvent a dns:EuroWordNetConcept ;
-  rdfs:label "bounded event"@en ;
-  rdfs:label "afgrænset begivenhed"@da .
+  rdfs:label "bounded event"@en .
 :Building a dns:EuroWordNetConcept ;
-  rdfs:label "building"@en ;
-  rdfs:label "bygning"@da .
+  rdfs:label "building"@en .
 :Cause a dns:EuroWordNetConcept ;
-  rdfs:label "cause"@en ;
-  rdfs:label "grund"@da .
+  rdfs:label "cause"@en .
 :Colour a dns:EuroWordNetConcept ;
-  rdfs:label "colour"@en ;
-  rdfs:label "farve"@da .
+  rdfs:label "colour"@en .
 :Comestible a dns:EuroWordNetConcept ;
-  rdfs:label "comestible"@en ;
-  rdfs:label "spiselig"@da .
+  rdfs:label "comestible"@en .
 :Communication a dns:EuroWordNetConcept ;
-  rdfs:label "communication"@en ;
-  rdfs:label "kommunikation"@da .
+  rdfs:label "communication"@en .
 :Condition a dns:EuroWordNetConcept ;
-  rdfs:label "condition"@en ;
-  rdfs:label "tilstand"@da .
+  rdfs:label "condition"@en .
 :Container a dns:EuroWordNetConcept ;
-  rdfs:label "container"@en ;
-  rdfs:label "beholder"@da .
+  rdfs:label "container"@en .
 :Covering a dns:EuroWordNetConcept ;
-  rdfs:label "covering"@en ;
-  rdfs:label "afdækning"@da .
+  rdfs:label "covering"@en .
 :Creature a dns:EuroWordNetConcept ;
-  rdfs:label "creature"@en ;
-  rdfs:label "skabning"@da .
+  rdfs:label "creature"@en .
 :Domain a dns:DanNetConcept ;
-  rdfs:label "domain"@en ;
-  rdfs:label "domæne"@da .
+  rdfs:label "domain"@en .
 :Dynamic a dns:EuroWordNetConcept ;
-  rdfs:label "dynamic"@en ;
-  rdfs:label "dynamisk"@da .
+  rdfs:label "dynamic"@en .
 :Existence a dns:EuroWordNetConcept ;
-  rdfs:label "existence"@en ;
-  rdfs:label "eksistens"@da .
+  rdfs:label "existence"@en .
 :Experience a dns:EuroWordNetConcept ;
-  rdfs:label "experience"@en ;
-  rdfs:label "oplevelse"@da .
+  rdfs:label "experience"@en .
 :FirstOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "1st order entity"@en ;
-  rdfs:label "1. ordens enhed"@da .
+  rdfs:label "1st order entity"@en .
 :Form a dns:EuroWordNetConcept ;
-  rdfs:label "form"@en ;
-  rdfs:label "form"@da .
+  rdfs:label "form"@en .
 :Furniture a dns:EuroWordNetConcept ;
-  rdfs:label "furniture"@en ;
-  rdfs:label "møbel"@da .
+  rdfs:label "furniture"@en .
 :Garment a dns:EuroWordNetConcept ;
-  rdfs:label "garment"@en ;
-  rdfs:label "klæde"@da .
+  rdfs:label "garment"@en .
 :GeopoliticalPlace a dns:EuroWordNetConcept ;
-  rdfs:label "geopolitical place"@en ;
-  rdfs:label "geopolitisk sted"@da .
+  rdfs:label "geopolitical place"@en .
 :Group a dns:EuroWordNetConcept ;
-  rdfs:label "group"@en ;
-  rdfs:label "gruppe"@da .
+  rdfs:label "group"@en .
 :Human a dns:EuroWordNetConcept ;
-  rdfs:label "human"@en ;
-  rdfs:label "menneske"@da .
+  rdfs:label "human"@en .
 :Imagerepresentation a dns:EuroWordNetConcept ;
-  rdfs:label "image representation"@en ;
-  rdfs:label "billedlig repræsentation"@da .
+  rdfs:label "image representation"@en .
 :Institution a dns:DanNetConcept ;
-  rdfs:label "institution"@en ;
-  rdfs:label "institution"@da .
+  rdfs:label "institution"@en .
 :Instrument a dns:EuroWordNetConcept ;
-  rdfs:label "instrument"@en ;
-  rdfs:label "instrument"@da .
+  rdfs:label "instrument"@en .
 :LanguageRepresentation a dns:EuroWordNetConcept ;
-  rdfs:label "language representation"@en ;
-  rdfs:label "sproglig repræsentation"@da .
+  rdfs:label "language representation"@en .
 :Liquid a dns:EuroWordNetConcept ;
-  rdfs:label "liquid"@en ;
-  rdfs:label "væske"@da .
+  rdfs:label "liquid"@en .
 :Living a dns:EuroWordNetConcept ;
-  rdfs:label "living"@en ;
-  rdfs:label "levende"@da .
+  rdfs:label "living"@en .
 :Location a dns:EuroWordNetConcept ;
-  rdfs:label "location"@en ;
-  rdfs:label "lokation"@da .
+  rdfs:label "location"@en .
 :Manner a dns:EuroWordNetConcept ;
-  rdfs:label "manner"@en ;
-  rdfs:label "måde"@da .
+  rdfs:label "manner"@en .
 :Mental a dns:EuroWordNetConcept ;
-  rdfs:label "mental"@en ;
-  rdfs:label "mental"@da .
+  rdfs:label "mental"@en .
 :MoneyRepresentation a dns:EuroWordNetConcept ;
-  rdfs:label "money representation"@en ;
-  rdfs:label "pengelig repræsentation"@da .
+  rdfs:label "money representation"@en .
 :Natural a dns:EuroWordNetConcept ;
-  rdfs:label "natural"@en ;
-  rdfs:label "naturlig"@da .
+  rdfs:label "natural"@en .
 :Object a dns:EuroWordNetConcept ;
-  rdfs:label "object"@en ;
-  rdfs:label "objekt"@da .
+  rdfs:label "object"@en .
 :Occupation a dns:EuroWordNetConcept ;
-  rdfs:label "occupation"@en ;
-  rdfs:label "beskæftigelse"@da .
+  rdfs:label "occupation"@en .
 :Part a dns:EuroWordNetConcept ;
-  rdfs:label "part"@en ;
-  rdfs:label "del"@da .
+  rdfs:label "part"@en .
 :Phenomenal a dns:EuroWordNetConcept ;
-  rdfs:label "phenomenal"@en ;
-  rdfs:label "fænomenal"@da .
+  rdfs:label "phenomenal"@en .
 :Physical a dns:EuroWordNetConcept ;
-  rdfs:label "physical"@en ;
-  rdfs:label "fysisk"@da .
+  rdfs:label "physical"@en .
 :Place a dns:EuroWordNetConcept ;
-  rdfs:label "place"@en ;
-  rdfs:label "sted"@da .
+  rdfs:label "place"@en .
 :Plant a dns:EuroWordNetConcept ;
-  rdfs:label "plant"@en ;
-  rdfs:label "plante"@da .
+  rdfs:label "plant"@en .
 :Possession a dns:EuroWordNetConcept ;
-  rdfs:label "possession"@en ;
-  rdfs:label "ejendel"@da .
+  rdfs:label "possession"@en .
 :Property a dns:EuroWordNetConcept ;
-  rdfs:label "property"@en ;
-  rdfs:label "ejendom"@da .
+  rdfs:label "property"@en .
 :Purpose a dns:EuroWordNetConcept ;
-  rdfs:label "purpose"@en ;
-  rdfs:label "formål"@da .
+  rdfs:label "purpose"@en .
 :Quantity a dns:EuroWordNetConcept ;
-  rdfs:label "quantity"@en ;
-  rdfs:label "mængde"@da .
+  rdfs:label "quantity"@en .
 :Relation a dns:EuroWordNetConcept ;
-  rdfs:label "relation"@en ;
-  rdfs:label "relation"@da .
+  rdfs:label "relation"@en .
 :Representation a dns:EuroWordNetConcept ;
-  rdfs:label "representation"@en ;
-  rdfs:label "repræsentation"@da .
+  rdfs:label "representation"@en .
 :SecondOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "2nd order entity"@en ;
-  rdfs:label "2. ordens enhed"@da .
+  rdfs:label "2nd order entity"@en .
 :Social a dns:EuroWordNetConcept ;
-  rdfs:label "social"@en ;
-  rdfs:label "social"@da .
+  rdfs:label "social"@en .
 :Software a dns:EuroWordNetConcept ;
-  rdfs:label "software"@en ;
-  rdfs:label "software"@da .
+  rdfs:label "software"@en .
 :Static a dns:EuroWordNetConcept ;
-  rdfs:label "static"@en ;
-  rdfs:label "statisk"@da .
+  rdfs:label "static"@en .
 :Stimulating a dns:EuroWordNetConcept ;
-  rdfs:label "stimulating"@en ;
-  rdfs:label "stimulerende"@da .
+  rdfs:label "stimulating"@en .
 :Substance a dns:EuroWordNetConcept ;
-  rdfs:label "substance"@en ;
-  rdfs:label "substans"@da .
+  rdfs:label "substance"@en .
 :ThirdOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "3rd order entity"@en ;
-  rdfs:label "3. ordens enhed"@da .
+  rdfs:label "3rd order entity"@en .
 :Time a dns:EuroWordNetConcept ;
-  rdfs:label "time"@en ;
-  rdfs:label "tid"@da .
+  rdfs:label "time"@en .
 :UnboundedEvent a dns:EuroWordNetConcept ;
-  rdfs:label "unbounded event"@en ;
-  rdfs:label "uafgrænset begivenhed"@da .
+  rdfs:label "unbounded event"@en .
 :Underspecified a dns:EuroWordNetConcept ;
-  rdfs:label "underspecified"@en ;
-  rdfs:label "underspecificeret"@da .
+  rdfs:label "underspecified"@en .
 :Vehicle a dns:EuroWordNetConcept ;
-  rdfs:label "vehicle"@en ;
-  rdfs:label "transportmiddel"@da .
+  rdfs:label "vehicle"@en .

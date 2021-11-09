@@ -18,6 +18,33 @@ body {
     letter-spacing: 0.2ch;
 }
 
+/* TODO */
+body.entry {
+}
+
+body.search {
+    place-content: start center;
+}
+
+body.search table + table {
+    margin-top: 48px;
+}
+
+body.search form {
+    display: flex;
+    margin: 24px 0;
+}
+
+body.search form input {
+    font-size: 24px;
+    padding: 6px;
+}
+
+body.search form input + input {
+    margin-left: 12px;
+}
+
+/* TODO: should probably be main? */
 article {
     padding: 24px;
     max-width: 110ch;
@@ -217,6 +244,7 @@ tr:nth-child(even), tr tr:nth-child(odd) {
 
 details summary {
     height: 0;
+    cursor: pointer;
 }
 
 details summary::after {
@@ -235,12 +263,23 @@ ol {
 
 details[open] ol {
     padding: 12px;
+    padding-left: 36px;
     margin-top: 24px;
     border: 1px solid #AAA;
     border-radius: 2px;
-    list-style-type: none;
+    list-style-type: decimal;
     background: #DDD;
     box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
+}
+
+details[open] ol.three-digits {
+    padding-left: 48px;
+}
+details[open] ol.four-digits {
+    padding-left: 52px;
+}
+details[open] ol.five-digits {
+    padding-left: 64px;
 }
 
 li {

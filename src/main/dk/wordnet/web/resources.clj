@@ -11,22 +11,31 @@
             [hiccup.util :as hutil]
             [ont-app.vocabulary.lstr :as lstr]
             [flatland.ordered.map :as fop]
+            [com.owoga.trie :as trie]
             [dk.wordnet.prefix :as prefix]
             [dk.wordnet.db :as db]
             [dk.wordnet.query :as q]
+            [dk.wordnet.query.operation :as op]
             [dk.wordnet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
+;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
+;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
+;; TODO: co-agent instrument confusion http://0.0.0.0:8080/dannet/2022/instances/synset-4249
 ;; TODO: add missing labels, e.g. http://0.0.0.0:8080/dannet/2022/instances/synset-49069
-;; TODO: duplicate synsets? http://0.0.0.0:8080/dannet/2022/instances/word-11013159
-;; TODO: semowl link should be grey, not #333 like text
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 
 (defonce db
-  (delay
+  (future
     (db/->dannet
       :imports bootstrap/imports
       :schema-uris db/schema-uris)))
+
+;; TODO: should be transformed into a tightly packed tried (currently loose)
+(defonce search-trie
+  (future
+    (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
+      (apply trie/make-trie (mapcat concat words words)))))
 
 (def one-month-cache
   "private, max-age=2592000")
@@ -290,9 +299,26 @@
                               [:li {:lang (lang item)}
                                (str-transformation item)]))]
                   [:td
-                   (if (> (count lis) 5)
-                     [:details [:summary ""] (into [:ol] lis)]
-                     (into [:ol] lis))]))
+                   (let [amount (count lis)]
+                     (cond
+                       (<= amount 5)
+                       (into [:ol] lis)
+
+                       (< amount 100)
+                       [:details [:summary ""]
+                        (into [:ol] lis)]
+
+                       (< amount 1000)
+                       [:details [:summary ""]
+                        (into [:ol.three-digits] lis)]
+
+                       (< amount 10000)
+                       [:details [:summary ""]
+                        (into [:ol.four-digits] lis)]
+
+                       :else
+                       [:details [:summary ""]
+                        (into [:ol.five-digits] lis)]))]))
 
               (keyword? v)
               (html-table-cell k->label v)
@@ -407,6 +433,92 @@
                         :status 404
                         :headers {}))))})
 
+(def search-path
+  (str (uri->path prefix/dannet-root) "search"))
+
+(def autocomplete-path
+  (str (uri->path prefix/dannet-root) "autocomplete"))
+
+(defn autocomplete
+  "Return autocompletions for `s` found in the graph."
+  [s]
+  (->> (trie/lookup @search-trie s)
+       (remove (comp nil? second))                          ; remove partial
+       (map second)                                         ; grab full words
+       (sort)))
+
+(def autocomplete* (memoize autocomplete))
+
+(defn html-search-result
+  [lemma results]
+  (let [tables (mapcat (fn [[kw result]]
+                         (let [{:keys [k->label]} (meta result)
+                               s (select-label* (:rdfs/label result))]
+                           [(html-table result nil k->label)]))
+                       results)]
+    (hiccup/html
+      [:html
+       [:head
+        [:title "Search: " lemma]
+        [:meta {:charset "UTF-8"}]
+        [:meta {:name    "viewport"
+                :content "width=device-width, initial-scale=1.0"}]
+        [:link {:rel "stylesheet" :href "/css/main.css"}]]
+       [:body.search
+        [:form {:action search-path
+                :method "get"}
+         [:input {:type  "text"
+                  :name  "lemma"
+                  :value lemma}]
+         [:input {:type  "submit"
+                  :value "Search"}]]
+        (if (empty? tables)
+          [:article
+           [:p "No results."]]
+          (into [:article] tables))]])))
+
+(def search-ic
+  {:name  ::search
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [content-type (get-in request [:accept :field] "text/plain")
+                  ;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  lemma        (-> request
+                                   (get-in [:query-params :lemma])
+                                   (decode-query-part))]
+              (if-let [results (db/look-up (:graph @db) lemma)]
+                (-> ctx
+                    (update :response assoc
+                            :status 200
+                            :body (html-search-result lemma results))
+                    (update-in [:response :headers] assoc
+                               "Content-Type" content-type
+                               ;; TODO: use cache in production
+                               #_#_"Cache-Control" one-day-cache))
+                (update ctx :response assoc
+                        :status 404
+                        :headers {}))))})
+
+(def autocomplete-ic
+  {:name  ::autocomplete
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  s (-> request
+                        (get-in [:query-params :s])
+                        (decode-query-part))]
+              (if (> (count s) 2)
+                (-> ctx
+                    (update :response assoc
+                            :status 200
+                            :body (str/join "\n" (autocomplete* s)))
+                    (update-in [:response :headers] assoc
+                               "Content-Type" "text/plain"
+                               "Cache-Control" one-day-cache))
+                (update ctx :response assoc
+                        :status 404
+                        :headers {}))))})
+
 (def content-negotiation-ic
   (negotiate-content (keys content-type->body-fn)))
 
@@ -426,6 +538,17 @@
          (->entity-ic)]
    :route-name ::external-entity])
 
+(def search-route
+  [search-path
+   :get [content-negotiation-ic
+         search-ic]
+   :route-name ::search])
+
+(def autocomplete-route
+  [autocomplete-path
+   :get [autocomplete-ic]
+   :route-name ::autocomplete])
+
 (comment
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
   (q/expanded-entity (:graph @db) :dn/synset-4849)
@@ -434,4 +557,13 @@
   (q/run (:graph @db) [:bgp
                        ['?word :ontolex/canonicalForm '?form]
                        ['?form :ontolex/writtenRep "fandens karl"]])
+
+  ;; Testing autocompletion
+  (autocomplete "sar")
+  (autocomplete "spo")
+  (autocomplete "tran")
+
+  ;; Look up synsets based on the lemma "have"
+  (db/look-up (:graph @db) "have")
+  (db/label-lookup (:graph @db))
   #_.)

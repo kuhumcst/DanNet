@@ -126,8 +126,8 @@
                (when-let [token (determine-example-token label example)]
                  [[(synset-uri synset-id) token] (->LangStr example "da")])))))
 
-(defn sanitize-ontological-type
-  "Sanitizes the `ontological-type` string before conversion to resource names.
+(defn clean-ontological-type
+  "Clean up the `ontological-type` string before conversion to resource names.
 
     - Removes parentheses from the `ontological-type` string.
     - Replaces numbers which might have complicated using concepts as names in
@@ -148,11 +148,15 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/ontologicalType (keyword "dnc" concept)]))
 
-(defn- clean-synset-label
-  "Removes legacy internal implementation details from the synset `label`."
+;; TODO: a better alternative is to derive labels from ontolex:writtenRep data
+(defn clean-synset-label
+  "Remove legacy internal implementation details from the synset `label`."
   [label]
   (-> (get special-cases label label)
-      (str/replace #"'|_|\d+|," "")))
+      (str/replace #" '" " ")                               ; in multi-word ex.
+      (str/replace #"(;|\{)[^;]+: " "$1 ")                  ; MWO DDO listings
+      (str/replace #"\{ " "{")                              ; fix odd spaces
+      (str/replace #"_[^;}]+|,[^;}]+" "")))                 ; other DDO listings
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
@@ -165,7 +169,7 @@
           [synset :rdf/type :ontolex/LexicalConcept]}
         (when (not= definition "(ingen definition)")
           #{[synset :skos/definition (->LangStr definition "da")]})
-        (->> (sanitize-ontological-type ontological-type)
+        (->> (clean-ontological-type ontological-type)
              (explode-ontological-type synset))))))
 
 (defn- adjust-comment
@@ -344,4 +348,11 @@
     (->> (read-triples (:relations imports))
          (filter (comp (partial = rel) second first))
          (into #{})))
+
+  ;; Edge cases while cleaning synset labels
+  (clean-synset-label "{45-knallert; EU-knallert}")
+  (clean-synset-label "{3. g'er_1}")
+  (clean-synset-label "{tænke_13: tænke 'højt}")
+  (clean-synset-label "{indtale_1; tale,2_26: tale 'ind}")
+  (clean-synset-label "{brud,2_2: hvid brud}")
   #_.)

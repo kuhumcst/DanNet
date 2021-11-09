@@ -94,7 +94,7 @@
          (map (fn [[p o]] {p #{o}}))
          (apply merge-with into))))
 
-(defn- set-merge
+(defn set-merge
   "Helper function for merge-with in 'entity-label-mapping'."
   [v1 v2]
   (cond
@@ -106,7 +106,6 @@
 
     :else
     (hash-set v1 v2)))
-
 
 (defn- entity-label-mapping
   "Create a mapping from keyword -> rdfs:label based on the `xe` that is the

@@ -60,3 +60,43 @@
       [?s1 :rdfs/label ?l1]
       [?s1 ?relation ?s2]
       [?s2 :rdfs/label ?l2]]))
+
+(def synset-search
+  "Look up synsets based on a lemma."
+  (q/build
+    [:conditional
+     [:conditional
+      [:conditional
+       '[:bgp
+         [?form :ontolex/writtenRep ?lemma]
+         [?word :ontolex/canonicalForm ?form]
+         [?word :ontolex/evokes ?synset]
+         [?word :ontolex/evokes ?synset]]
+       '[:bgp
+         [?synset :rdfs/label ?label]]]
+      '[:bgp
+        [?synset :skos/definition ?definition]]]
+     '[:bgp
+       [?synset :dns/ontologicalType ?ontotype]]]))
+
+(def synset-search-labels
+  (q/build
+    [:bgp
+     [:rdf/value :rdfs/label '?synset]
+     [:skos/definition :rdfs/label '?definition]
+     [:dns/ontologicalType :rdfs/label '?ontotype]]))
+
+(def ontotype-labels
+  (q/build
+    [:union
+     [:bgp
+      ['?ontotype :rdfs/label '?label]
+      ['?ontotype :rdf/type :dns/DanNetConcept]]
+     [:bgp
+      ['?ontotype :rdfs/label '?label]
+      ['?ontotype :rdf/type :dns/EuroWordNetConcept]]]))
+
+(def written-representations
+  (q/build
+    [:bgp
+     '[?form :ontolex/writtenRep ?writtenRep]]))
