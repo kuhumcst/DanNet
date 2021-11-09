@@ -71,8 +71,8 @@ skos:definition skos:definition "Et udsagn eller en formel forklaring af betydni
 skos:scopeNote rdfs:label "omfangsbemærkning"@da .
 skos:scopeNote skos:definition "En bemærkning der hjælper til at tydeliggøre betydningen og/eller brugen af et koncept."@da .
 
-skos:concept rdfs:label "koncept"@da .
-skos:concept skos:definition "En idé eller et begreb; en tankeenhed."@da .
+skos:Concept rdfs:label "koncept"@da .
+skos:Concept skos:definition "En idé eller et begreb; en tankeenhed."@da .
 
 ontolex:evokes rdfs:label "fremkalder"@da .
 ontolex:evokes rdfs:comment "Denne relation forbinder et leksikalsk opslagsord med et af de leksikalske koncepter det fremkalder, dvs. det mentale koncept som lytteren måske vil associere det leksikalske opslagsord med."@da .

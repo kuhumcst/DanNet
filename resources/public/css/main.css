@@ -20,7 +20,7 @@ body {
 
 article {
     padding: 24px;
-    max-width: 100ch;
+    max-width: 110ch;
 }
 
 header, footer {
@@ -58,7 +58,7 @@ table {
 }
 
 col:last-of-type {
-    width: 65ch;
+    width: 80ch;
 }
 
 table span.prefix {
@@ -106,12 +106,14 @@ table span.prefix {
 }
 
 h1 {
-   font-size: 32px;
-   font-weight: normal;
-   padding: 0;
-   margin: 0 0 32px 0;
-   letter-spacing: 0.2ch;
-   font-variant: small-caps;
+    font-size: 36px;
+    font-weight: normal;
+    padding: 0;
+    margin: 0 0 32px 0;
+    letter-spacing: 0.2ch;
+    font-variant: small-caps;
+    word-break: normal;
+    overflow-wrap: anywhere;
 }
 
 h1 span[lang]::after {
@@ -136,12 +138,12 @@ h2 {
    letter-spacing: 0.2ch;
 }
 
-h1::before, h2::before {
+h2::before {
     content: "⊱ ";
     opacity: 0.33;
 }
 
-h1::after, h2::after {
+h2::after {
     content: " ⊰";
     opacity: 0.33;
 }

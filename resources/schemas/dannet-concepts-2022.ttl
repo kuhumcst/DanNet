@@ -4,7 +4,7 @@
 
 :Agentive a dns:EuroWordNetConcept ;
   rdfs:label "agentive"@en ;
-  rdfs:label "handlende"@da .
+  rdfs:label "agentiv"@da . # TODO: find more suitable Danish word?
 :Animal a dns:EuroWordNetConcept ;
   rdfs:label "animal"@en ;
   rdfs:label "dyr"@da .
@@ -60,8 +60,8 @@
   rdfs:label "experience"@en ;
   rdfs:label "oplevelse"@da .
 :FirstOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "first order entity"@en ;
-  rdfs:label "førsteordens-enhed"@da .
+  rdfs:label "1st order entity"@en ;
+  rdfs:label "1. ordens enhed"@da .
 :Form a dns:EuroWordNetConcept ;
   rdfs:label "form"@en ;
   rdfs:label "form"@da .
@@ -153,8 +153,8 @@
   rdfs:label "representation"@en ;
   rdfs:label "repræsentation"@da .
 :SecondOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "second order entity"@en ;
-  rdfs:label "andenordens-enhed"@da .
+  rdfs:label "2nd order entity"@en ;
+  rdfs:label "2. ordens enhed"@da .
 :Social a dns:EuroWordNetConcept ;
   rdfs:label "social"@en ;
   rdfs:label "social"@da .
@@ -171,8 +171,8 @@
   rdfs:label "substance"@en ;
   rdfs:label "substans"@da .
 :ThirdOrderEntity a dns:EuroWordNetConcept ;
-  rdfs:label "third order entity"@en ;
-  rdfs:label "tredjeordens-enhed"@da .
+  rdfs:label "3rd order entity"@en ;
+  rdfs:label "3. ordens enhed"@da .
 :Time a dns:EuroWordNetConcept ;
   rdfs:label "time"@en ;
   rdfs:label "tid"@da .

@@ -17,6 +17,7 @@
             [dk.wordnet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
+;; TODO: add missing labels, e.g. http://0.0.0.0:8080/dannet/2022/instances/synset-49069
 ;; TODO: duplicate synsets? http://0.0.0.0:8080/dannet/2022/instances/word-11013159
 ;; TODO: semowl link should be grey, not #333 like text
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
@@ -33,8 +34,9 @@
 (def one-day-cache
   "private, max-age=86400")
 
+;; TODO: build dynamically from HTTP request using language negotiation
 (def lang-prefs
-  ["da" "en" "xx"])
+  ["da" "en" nil])
 
 (defn invert-map
   [m]
@@ -56,6 +58,7 @@
       (and (not (except k))
            (= (namespace k) (name prefix))))))
 
+;; TODO: use sets of langStrings for titles
 (def sections
   [[nil [:rdf/type
          :rdfs/label
@@ -123,13 +126,11 @@
           (uri->path)))))
 
 (defn lang
-  "Return the language abbreviation of `s` if available."
+  "Return the language abbreviation of `s` if available  or nil if not."
   [s]
-  (if (instance? LangStr s)
-    (lstr/lang s)
-    nil))
+  (when (instance? LangStr s)
+    (lstr/lang s)))
 
-;; TODO: what about mixed sets of LangStr/regular strings?
 (defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is."
@@ -238,7 +239,7 @@
       [(str item) nil])))
 
 (defn html-table
-  [entity subject k->label & [ks]]
+  [entity subject k->label]
   [:table
    [:colgroup
     [:col]
@@ -330,13 +331,14 @@
            in-section? (apply some-fn in-ks? (filter fn? ks-defs))
            other       ["Other attributes" (complement in-section?)]
            tables      (for [[title ks] (conj sections other)]
-                         (let [m (if (coll? ks)
-                                   (into (fop/ordered-map)
+                         (let [m (into (fop/ordered-map)
+                                       (if (coll? ks)
                                          (->> (for [k ks]
                                                 (when-let [v (k entity*)]
                                                   [k v]))
-                                              (remove nil?)))
-                                   (into {} (sort (filter ks entity*))))]
+                                              (remove nil?))
+                                         (sort-by (sort-keyfn k->label)
+                                                  (filter ks entity*))))]
                            (when (not-empty m)
                              (if title
                                [:div
