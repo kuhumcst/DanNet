@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clojure.pprint :refer [pprint print-table]]
             [io.pedestal.http.route :refer [decode-query-part]]
-            [io.pedestal.http.content-negotiation :refer [negotiate-content]]
+            [io.pedestal.http.content-negotiation :as conneg]
             [ring.util.response :as ring]
             [com.wsscode.transito :as transito]
             [hiccup.core :as hiccup]
@@ -43,9 +43,8 @@
 (def one-day-cache
   "private, max-age=86400")
 
-;; TODO: build dynamically from HTTP request using language negotiation
-(def lang-prefs
-  ["da" "en" nil])
+(def supported-languages
+  ["da" "en"])
 
 (defn invert-map
   [m]
@@ -146,11 +145,12 @@
   [languages x]
   (if (set? x)
     (let [lang->s (into {} (map (juxt lang identity) x))]
-      (loop [[head & tail] languages]
-        (when head
-          (if-let [ret (lang->s head)]
-            ret
-            (recur tail)))))
+      (or (loop [[head & tail] languages]
+            (when head
+              (if-let [ret (lang->s head)]
+                ret
+                (recur tail))))
+          (lang->s nil)))
     x))
 
 (defn select-str
@@ -161,19 +161,20 @@
   to be returned instead of just one."
   [languages x]
   (if (set? x)
-    (let [m (group-by lang x)]
-      (loop [[head & tail] languages]
-        (when head
-          (if-let [ret (get m head)]
-            (if (= 1 (count ret))
-              (first ret)
-              ret)
-            (recur tail)))))
+    (let [lang->strs (group-by lang x)
+          ret        (loop [[head & tail] languages]
+                       (when head
+                         (or (get lang->strs head)
+                             (recur tail))))
+          strs       (or ret (get lang->strs nil))]
+      (if (= 1 (count strs))
+        (first strs)
+        strs))
     x))
 
 ;; TODO: use e.g. core.memoize rather than naïve memoisation
-(def select-label* (memoize (partial select-label lang-prefs)))
-(def select-str* (memoize (partial select-str lang-prefs)))
+(def select-label* (memoize select-label))
+(def select-str* (memoize select-str))
 
 (defn anchor-elem
   "Entity hyperlink from an entity `kw` and (optionally) a string label `s`."
@@ -215,7 +216,7 @@
 (declare html-table)
 
 (defn html-table-cell
-  [k->label v]
+  [languages k->label v]
   (cond
     (keyword? v)
     (if (empty? (name v))
@@ -224,31 +225,31 @@
             [:td [:span.prefix {:class (get prefix-groups prefix)} prefix]]))
       [:td
        (prefix-elem (symbol (namespace v)))
-       (anchor-elem v (select-label* (get k->label v)))])
+       (anchor-elem v (select-label* languages (get k->label v)))])
 
     ;; Display blank resources as inlined tables
     ;; Note that doubly inlined tables are omitted entirely.
     (symbol? v)
     (let [{:keys [s p]} (meta v)]
       (if-let [entity (q/blank-entity (:graph @db) s p)]
-        [:td (html-table entity nil nil)]
+        [:td (html-table languages entity nil nil)]
         [:td.omitted {:lang "en"} "(details omitted)"]))
 
     :else
-    (let [s (select-str* v)]
+    (let [s (select-str* languages v)]
       [:td {:lang (lang s)} (str-transformation s)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
   Returns vectors so that identical labels are sorted by keywords secondly."
-  [k->label]
+  [languages k->label]
   (fn [item]
     (if (keyword? item)
-      [(str (select-label* (get k->label item))) item]
+      [(str (select-label* languages (get k->label item))) item]
       [(str item) nil])))
 
 (defn html-table
-  [entity subject k->label]
+  [languages entity subject k->label]
   [:table
    [:colgroup
     [:col]
@@ -257,7 +258,7 @@
    (into [:tbody]
          (for [[k v] entity
                :let [prefix (symbol (namespace k))
-                     k-str  (select-label* (get k->label k))]]
+                     k-str  (select-label* languages (get k->label k))]]
            [:tr
             [:td.prefix (prefix-elem prefix)]
             [:td (anchor-elem k k-str)]
@@ -267,13 +268,13 @@
                 (= 1 (count v))
                 (let [v* (first v)]
                   (if (symbol? v*)
-                    (html-table-cell k->label (with-meta v* {:s subject
-                                                             :p k}))
-                    (html-table-cell k->label v*)))
+                    (html-table-cell languages k->label (with-meta v* {:s subject
+                                                                       :p k}))
+                    (html-table-cell languages k->label v*)))
 
                 (or (instance? LangStr (first v))
                     (string? (first v)))
-                (let [s (select-str* v)]
+                (let [s (select-str* languages v)]
                   (if (coll? s)
                     [:td
                      [:ol
@@ -283,11 +284,11 @@
 
                 ;; TODO: use sublist for identical labels
                 :else
-                (let [lis (for [item (sort-by (sort-keyfn k->label) v)]
+                (let [lis (for [item (sort-by (sort-keyfn languages k->label) v)]
                             (cond
                               (keyword? item)
                               (let [prefix (symbol (namespace item))
-                                    label  (select-label* (get k->label item))]
+                                    label  (select-label* languages (get k->label item))]
                                 [:li
                                  (prefix-elem prefix)
                                  (anchor-elem item label)])
@@ -321,11 +322,11 @@
                         (into [:ol.five-digits] lis)]))]))
 
               (keyword? v)
-              (html-table-cell k->label v)
+              (html-table-cell languages k->label v)
 
               (symbol? v)
-              (html-table-cell k->label (with-meta v {:s subject
-                                                      :p k}))
+              (html-table-cell languages k->label (with-meta v {:s subject
+                                                                :p k}))
 
               :else
               [:td {:lang (lang v)} (str-transformation v)])]))])
@@ -344,7 +345,7 @@
      (ascii-table entity))
 
    "text/html"
-   (fn [entity]
+   (fn [entity & [languages]]
      (let [subject     (-> entity meta :subject)
            k->label    (-> entity meta :k->label)
            entity*     (filter-entity entity)
@@ -363,14 +364,14 @@
                                                 (when-let [v (k entity*)]
                                                   [k v]))
                                               (remove nil?))
-                                         (sort-by (sort-keyfn k->label)
+                                         (sort-by (sort-keyfn languages k->label)
                                                   (filter ks entity*))))]
                            (when (not-empty m)
                              (if title
                                [:div
                                 [:h2 title]
-                                (html-table m subject k->label)]
-                               (html-table m subject k->label)))))]
+                                (html-table languages m subject k->label)]
+                               (html-table languages m subject k->label)))))]
        (hiccup/html
          [:html
           [:head
@@ -383,7 +384,7 @@
            (into [:article
                   [:header [:h1
                             (prefix-elem prefix)
-                            (let [label (select-label* (:rdfs/label entity*))]
+                            (let [label (select-label* languages (:rdfs/label entity*))]
                               [:span {:title (name subject)
                                       :lang  (lang label)}
                                (or label (name subject))])]
@@ -408,6 +409,7 @@
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
+                  lang         (get-in request [:accept-language :field])
                   entity->body (content-type->body-fn content-type)
                   prefix*      (or (get-in request [:path-params :prefix])
                                    prefix)
@@ -424,7 +426,11 @@
                 (-> ctx
                     (update :response assoc
                             :status 200
-                            :body (entity->body entity))
+                            :body (if (= content-type "text/html")
+                                    (if lang
+                                      (entity->body entity [lang "en"])
+                                      (entity->body entity ["en"]))
+                                    (entity->body entity)))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production
@@ -450,11 +456,10 @@
 (def autocomplete* (memoize autocomplete))
 
 (defn html-search-result
-  [lemma results]
+  [languages lemma results]
   (let [tables (mapcat (fn [[kw result]]
-                         (let [{:keys [k->label]} (meta result)
-                               s (select-label* (:rdfs/label result))]
-                           [(html-table result nil k->label)]))
+                         (let [{:keys [k->label]} (meta result)]
+                           [(html-table languages result nil k->label)]))
                        results)]
     (hiccup/html
       [:html
@@ -481,6 +486,8 @@
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
+                  lang         (get-in request [:accept-language :field])
+                  languages    (if lang [lang "en"] ["en"])
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   lemma        (-> request
@@ -490,7 +497,7 @@
                 (-> ctx
                     (update :response assoc
                             :status 200
-                            :body (html-search-result lemma results))
+                            :body (html-search-result languages lemma results))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production
@@ -519,8 +526,34 @@
                         :status 404
                         :headers {}))))})
 
+(defn ->language-negotiation-ic
+  "Make a language negotiation interceptor from a coll of `supported-languages`.
+
+  The interceptor reuses Pedestal's content-negotiation logic, but unlike the
+  included content negotiation interceptor this one does not create a 406
+  response if no match is found."
+  [supported-languages]
+  (let [match-fn   (conneg/best-match-fn supported-languages)
+        lang-paths [[:request :headers "accept-language"]
+                    [:request :headers :accept-language]]]
+    {:name  ::negotiate-language
+     :enter (fn [ctx]
+              (if-let [accept-param (loop [[path & paths] lang-paths]
+                                      (if-let [param (get-in ctx path)]
+                                        param
+                                        (when (not-empty paths)
+                                          (recur paths))))]
+                (if-let [language (->> (conneg/parse-accept-* accept-param)
+                                       (conneg/best-match match-fn))]
+                  (assoc-in ctx [:request :accept-language] language)
+                  ctx)
+                ctx))}))
+
+(def language-negotiation-ic
+  (->language-negotiation-ic supported-languages))
+
 (def content-negotiation-ic
-  (negotiate-content (keys content-type->body-fn)))
+  (conneg/negotiate-content (keys content-type->body-fn)))
 
 (defn prefix->entity-route
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
@@ -528,6 +561,7 @@
   [prefix]
   [(str (-> prefix prefix/schemas :uri uri->path) ":subject")
    :get [content-negotiation-ic
+         language-negotiation-ic
          (->entity-ic prefix)]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
@@ -535,12 +569,14 @@
   "Look-up route for external resources. Doesn't conform to the actual URIs."
   [(str (uri->path prefix/dannet-root) "external/:prefix/:subject")
    :get [content-negotiation-ic
+         language-negotiation-ic
          (->entity-ic)]
    :route-name ::external-entity])
 
 (def search-route
   [search-path
    :get [content-negotiation-ic
+         language-negotiation-ic
          search-ic]
    :route-name ::search])
 
