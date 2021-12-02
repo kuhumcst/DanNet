@@ -53,6 +53,11 @@
   {"Torshavn|Thorshavn"     "Thorshavn"
    "{Torshavn|Thorshavn_1}" "{Thorshavn_1}"})
 
+;; TODO: remove relevant relations during bootstrap (hyper- and hypo-)
+(def self-referential-hyponyms
+  "These synsets for some reason list themselves as their hyponym."
+  #{:dn/synset-3010 :dn/synset-48917})
+
 ;; Note: a single "used_for_qualby" rel exists in the dataset - likely an error
 ;; https://github.com/globalwordnet/schemas
 ;; https://github.com/globalwordnet/schemas/blob/master/wn-lemon-1.1.ttl
