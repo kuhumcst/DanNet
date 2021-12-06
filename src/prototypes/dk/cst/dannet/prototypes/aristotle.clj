@@ -1,11 +1,11 @@
-(ns dk.wordnet.prototypes.aristotle
+(ns dk.cst.dannet.prototypes.aristotle
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.registry :as reg]
             [arachne.aristotle.graph :as graph]
             [arachne.aristotle.query :as q]
-            [dk.wordnet.io :as dio])
+            [dk.cst.dannet.io :as dio])
   (:import [org.apache.jena.graph NodeFactory]
            [org.apache.jena.datatypes.xsd XSDDatatype]
            [org.apache.jena.riot Lang LangBuilder RDFParserRegistry]))

@@ -1,4 +1,4 @@
-(ns dk.wordnet.prototypes.neo4j
+(ns dk.cst.dannet.prototypes.neo4j
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.datafy :refer [datafy]]
@@ -7,7 +7,7 @@
             [neo4j-clj.core :as neo4j]
             [clj-http.client :as client]
             [ubergraph.core :as uber]
-            [dk.wordnet.io :as dio])
+            [dk.cst.dannet.io :as dio])
   (:import [java.net URI]
            [org.neo4j.driver QueryRunner]
            [org.neo4j.driver.internal InternalNode

@@ -1,4 +1,4 @@
-(ns dk.wordnet.bootstrap
+(ns dk.cst.dannet.bootstrap
   "Bootstrapping DanNet by mapping the old DanNet CSV export to Ontolex-lemon
   and Global WordNet Assocation relations.
 
@@ -317,6 +317,7 @@
          (doall))))
 
 (comment
+
   ;; Example Synsets
   (->> (read-triples (:synsets imports))
        (take 10))

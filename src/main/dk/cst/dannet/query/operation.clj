@@ -1,9 +1,9 @@
-(ns dk.wordnet.query.operation
+(ns dk.cst.dannet.query.operation
   "Pre-built Apache Jena query operation objects (Op)."
   (:require [arachne.aristotle.query :as q]
 
             ;; Prefix registration required for the queries below to build.
-            [dk.wordnet.prefix]))
+            [dk.cst.dannet.prefix]))
 
 (def synonyms
   (q/build

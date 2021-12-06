@@ -2,7 +2,7 @@ DanNet
 ======
 [DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. The goal of this project is to represent DanNet in full using [RDF](https://www.w3.org/RDF/) as its native representation at both the database level, in the application space, and as its primary serialisation format.
 
-The initial dataset has been [bootstrapped from the old DanNet 2.2 CSV files](src/main/dk/wordnet/bootstrap.clj). The old CSV export mirrors the SQL tables of the old DanNet database. This process will eventually be made obsolete once the next version of DanNet has been published.
+The initial dataset has been [bootstrapped from the old DanNet 2.2 CSV files](src/main/dk/cst/dannet/bootstrap.clj). The old CSV export mirrors the SQL tables of the old DanNet database. This process will eventually be made obsolete once the next version of DanNet has been published.
 
 Compatibility
 -------------
@@ -111,6 +111,6 @@ To be able to evaluate `(mm/measure graph)`, the JVM must be started with the fo
 
 Querying DanNet
 ---------------
-The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.wordnet.dk` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
+The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.cst.dannet.db` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
 
 At the moment, there is no graphical user interface available for querying DanNet - that is still to come! One option might be setting up [Apache Jena Fuseki](https://jena.apache.org/documentation/fuseki2/), which is a web-based application for querying Apache Jena using SPARQL. This requires either setting up DanNet as a persistent [TDB database](https://jena.apache.org/documentation/tdb/index.html) or creating as Fuseki instance from a published DanNet dataset.

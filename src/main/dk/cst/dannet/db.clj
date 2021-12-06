@@ -1,4 +1,4 @@
-(ns dk.wordnet.db
+(ns dk.cst.dannet.db
   "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
@@ -7,11 +7,11 @@
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [flatland.ordered.map :as fop]
-            [dk.wordnet.prefix :as prefix]
-            [dk.wordnet.bootstrap :as bootstrap]
-            [dk.wordnet.query :as q]
-            [dk.wordnet.query.operation :as op]
-            [dk.wordnet.transaction :as txn])
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.query :as q]
+            [dk.cst.dannet.query.operation :as op]
+            [dk.cst.dannet.transaction :as txn])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]

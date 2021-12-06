@@ -1,7 +1,7 @@
-(ns dk.wordnet.web.service
+(ns dk.cst.dannet.web.service
   "Web service handling entity look-ups and schema downloads."
   (:require [io.pedestal.http :as http]
-            [dk.wordnet.web.resources :as res]
+            [dk.cst.dannet.web.resources :as res]
             [io.pedestal.http.route :as route]))
 
 (defonce server (atom nil))

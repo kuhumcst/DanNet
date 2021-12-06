@@ -1,4 +1,4 @@
-(ns dk.wordnet.web.resources
+(ns dk.cst.dannet.web.resources
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
@@ -12,11 +12,11 @@
             [ont-app.vocabulary.lstr :as lstr]
             [flatland.ordered.map :as fop]
             [com.owoga.trie :as trie]
-            [dk.wordnet.prefix :as prefix]
-            [dk.wordnet.db :as db]
-            [dk.wordnet.query :as q]
-            [dk.wordnet.query.operation :as op]
-            [dk.wordnet.bootstrap :as bootstrap])
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.query :as q]
+            [dk.cst.dannet.query.operation :as op]
+            [dk.cst.dannet.bootstrap :as bootstrap])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead

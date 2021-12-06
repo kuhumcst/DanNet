@@ -9,7 +9,7 @@ DanNet can queried in a variety of ways. This plurality is intentional as explai
 
 Furthermore, by importing DanNet into another RDF-supporting database, the query language of this database may also be used to query DanNet, e.g. Neo4j's Cypher query language.
 
-> Note: when querying Apache Jena's persisted TDB rather than an in-memory graph, you will need to wrap the querying code inside transactions. The `dk.wordnet.db.query` namespace contains functionality to help with this aspect of using Apache Jena. Transactions are _always_ required for TDB 2, while they are only required for TDB 1 if at least one transaction has _already_ occurred!
+> Note: when querying Apache Jena's persisted TDB rather than an in-memory graph, you will need to wrap the querying code inside transactions. The `dk.cst.dannet.db.query` namespace contains functionality to help with this aspect of using Apache Jena. Transactions are _always_ required for TDB 2, while they are only required for TDB 1 if at least one transaction has _already_ occurred!
 
 SPARQL
 ------
@@ -56,7 +56,7 @@ Graph traversal
 ---------------
 Since RDF triples constitute a directed graph, this graph can be queried programmatically using graph traversal algorithms.
 
-One way to do this is by invoking the [igraph](https://github.com/kuhumcst/DanNet/tree/feature/igraph) Clojure library which has [Apache Jena integration](https://github.com/ont-app/igraph-jena). An example traversal of the transitive closure of hyponyms can be found in the `dk.wordnet.prototypes.igraph` namespace.
+One way to do this is by invoking the [igraph](https://github.com/kuhumcst/DanNet/tree/feature/igraph) Clojure library which has [Apache Jena integration](https://github.com/ont-app/igraph-jena). An example traversal of the transitive closure of hyponyms can be found in the `dk.cst.dannet.prototypes.igraph` namespace.
 
 > Note that currently some functions available in igraph don't work well with models that perform triple inferencing, e.g. OWL-enabled graphs. They are too slow (in the realm of several minutes) for any production application to use them.
 

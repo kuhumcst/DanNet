@@ -1,4 +1,4 @@
-(ns dk.wordnet.prefix
+(ns dk.cst.dannet.prefix
   "Prefix registration for the various schemas used by DanNet."
   (:require [arachne.aristotle.registry :as reg]
             [ont-app.vocabulary.core :as voc]

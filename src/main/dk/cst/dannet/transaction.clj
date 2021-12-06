@@ -1,4 +1,4 @@
-(ns dk.wordnet.transaction
+(ns dk.cst.dannet.transaction
   "Support for Apache Jena transactions."
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.system Txn]

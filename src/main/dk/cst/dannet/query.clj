@@ -1,9 +1,9 @@
-(ns dk.wordnet.query
+(ns dk.cst.dannet.query
   "Functions for querying and navigating an Apache Jena graph."
   (:require [clojure.string :as str]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
-            [dk.wordnet.transaction :as txn]))
+            [dk.cst.dannet.transaction :as txn]))
 
 (defn anonymous?
   [resource]
