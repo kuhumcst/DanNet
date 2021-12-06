@@ -194,16 +194,22 @@
    (str prefix ":")])
 
 (def inheritance-pattern
-  #"dn:(synset-\d+) (\{.+\}).$")
+  #"^The (.+) relation was inherited from dn:(synset-\d+) (\{.+\}).$")
 
+;; For instance, synset-2128 {ambulance} has 6 inherited relations.
 (defn str-transformation
   "Performs basic transformations of `s`; just synset hyperlinks for now."
   [s]
-  (if-let [[_ synset-id label] (re-find inheritance-pattern (str s))]
-    [:span (hutil/escape-html (str/replace s inheritance-pattern ""))
-     (prefix-elem 'dn)
-     (anchor-elem (keyword "dn" synset-id) label)
-     "."]
+  (if-let [[_ qname synset-id label] (re-find inheritance-pattern (str s))]
+    (let [[prefix rel] (str/split qname #":")]
+      [:span
+       "The "
+       (prefix-elem (symbol prefix))
+       (anchor-elem (keyword prefix rel) rel)
+       " relation was inherited from "
+       (prefix-elem 'dn)
+       (anchor-elem (keyword "dn" synset-id) label)
+       "."])
     (hutil/escape-html s)))
 
 ;; TODO: do something about omitted content

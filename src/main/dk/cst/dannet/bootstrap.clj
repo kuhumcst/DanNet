@@ -16,7 +16,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
-            [ont-app.vocabulary.lstr :refer [->LangStr]]))
+            [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.dannet.prefix :as prefix]))
 
 (defn synset-uri
   [id]
@@ -179,9 +180,10 @@
 
 (defn- adjust-comment
   "Slighly rewords the inheritance comments present in the old DanNet dataset."
-  [comment]
+  [rel comment]
   (-> comment
-      (str/replace #"^Inherited from" "Some relations inherited from")
+      (str/replace #"^Inherited from" (str "The " (prefix/kw->qname rel)
+                                           " relation was inherited from"))
       (str/replace #"synset with id (\d+)" "dn:synset-$1")
       (str/replace #" \((.+)\)$" " $1.")
       (str/replace #"\{[^}]+\}" clean-synset-label)))
@@ -196,14 +198,13 @@
     (let [subj    (synset-uri subj-id)
           obj     (synset-uri obj-id)
           comment (not-empty inheritance)
-          triples (if (and (= taxonomic "nontaxonomic")
+          rel*    (if (and (= taxonomic "nontaxonomic")
                            (= rel "has_hyperonym"))
-                    #{[subj :dns/orthogonalHypernym obj]}
-                    #{[subj (gwa-rel rel) obj]})]
-      (if comment
-        (conj triples [subj :rdfs/comment (-> (adjust-comment comment)
-                                              (->LangStr "en"))])
-        triples))))
+                    :dns/orthogonalHypernym
+                    (gwa-rel rel))]
+      (cond-> #{[subj rel* obj]}
+        comment (conj [subj :rdfs/comment (-> (adjust-comment rel* comment)
+                                              (->LangStr "en"))])))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
