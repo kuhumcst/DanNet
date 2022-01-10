@@ -7,8 +7,7 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [ring.util.response :as ring]
             [com.wsscode.transito :as transito]
-            [hiccup.core :as hiccup]
-            [hiccup.util :as hutil]
+            [lambdaisland.hiccup :as hiccup]
             [ont-app.vocabulary.lstr :as lstr]
             [flatland.ordered.map :as fop]
             [com.owoga.trie :as trie]
@@ -210,7 +209,7 @@
        (prefix-elem 'dn)
        (anchor-elem (keyword "dn" synset-id) label)
        "."])
-    (hutil/escape-html s)))
+    s))
 
 ;; TODO: do something about omitted content
 ;; e.g. "<http://www.w3.org/2003/06/sw-vocab-status/ns#term_status>"
@@ -378,7 +377,7 @@
                                 [:h2 title]
                                 (html-table languages m subject k->label)]
                                (html-table languages m subject k->label)))))]
-       (hiccup/html
+       (hiccup/render
          [:html
           [:head
            [:title (prefix/kw->qname subject)]
@@ -467,7 +466,7 @@
                          (let [{:keys [k->label]} (meta result)]
                            [(html-table languages result nil k->label)]))
                        results)]
-    (hiccup/html
+    (hiccup/render
       [:html
        [:head
         [:title "Search: " lemma]
