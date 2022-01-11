@@ -190,7 +190,7 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td (html-table languages v nil nil)]
+    [:td [html-table languages v nil nil]]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -231,9 +231,8 @@
                 (= 1 (count v))
                 (let [v* (first v)]
                   (if (symbol? v*)
-                    (html-table-cell languages k->label (with-meta v* {:s subject
-                                                                       :p k}))
-                    (html-table-cell languages k->label v*)))
+                    [html-table-cell languages k->label (meta v*)]
+                    [html-table-cell languages k->label v*]))
 
                 (or (instance? LangStr (first v))
                     (string? (first v)))
@@ -256,8 +255,12 @@
                                  (prefix-elem prefix)
                                  (anchor-elem item label)])
 
+                              ;; TODO: handle blank resources better?
+                              ;; Currently not including these as they seem to
+                              ;; be entirely garbage temp data, e.g. check out
+                              ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
                               (symbol? item)
-                              nil
+                              nil #_[:li [html-table languages (meta item) nil nil]]
 
                               :else
                               [:li {:lang (lang item)}
@@ -285,11 +288,10 @@
                         (into [:ol.five-digits] lis)]))]))
 
               (keyword? v)
-              (html-table-cell languages k->label v)
+              [html-table-cell languages k->label v]
 
               (symbol? v)
-              (html-table-cell languages k->label (with-meta v {:s subject
-                                                                :p k}))
+              [html-table-cell languages k->label (meta v)]
 
               :else
               [:td {:lang (lang v)} (str-transformation v)])]))])
@@ -331,8 +333,8 @@
               (if title
                 [:div
                  [:h2 title]
-                 (html-table languages m subject k->label)]
-                (html-table languages m subject k->label)))))))
+                 [html-table languages m subject k->label]]
+                [html-table languages m subject k->label]))))))
 
 (defn entity-page
   [languages entity]

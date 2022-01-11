@@ -131,8 +131,10 @@
                 (vector? x)
                 (do (reset! predicate (first x)) x)
 
+                ;; In order to avoid infinite recursive walks, entity maps are
+                ;; hidden in metadata rather than directly replacing symbols.
                 (symbol? x)
-                (blank-entity g subject @predicate)
+                (with-meta x (blank-entity g subject @predicate))
 
                 :else x))
       entity)))
