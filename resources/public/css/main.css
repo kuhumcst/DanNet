@@ -266,7 +266,7 @@ details[open] summary::after {
 }
 
 ol {
-    margin-bottom: 0;
+    margin: 0;
     padding-left: 24px;
     list-style-type: upper-roman;
 }
