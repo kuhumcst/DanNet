@@ -19,6 +19,7 @@
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
 ;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
 ;; TODO: co-agent instrument confusion http://0.0.0.0:8080/dannet/2022/instances/synset-4249
+;; TODO: involved instrument confusion http://0.0.0.0:8080/dannet/2022/instances/synset-65998
 ;; TODO: add missing labels, e.g. http://0.0.0.0:8080/dannet/2022/instances/synset-49069
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 
