@@ -98,6 +98,14 @@ table span.prefix {
     margin-right: 8px;
 }
 
+span.unknown {
+    color: #999;
+}
+.prefix.unknown {
+    background: white;
+    border: 1px dashed #999;
+    color: #999;
+}
 .prefix.dannet {
     background: #901a1e;
 }

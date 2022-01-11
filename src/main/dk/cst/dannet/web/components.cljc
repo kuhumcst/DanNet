@@ -103,23 +103,57 @@
 (def select-label* (memoize select-label))
 (def select-str* (memoize select-str))
 
+(defn- partition-str
+  "Partition a string `s` by the character `ch`.
+
+  Works similarly to str/split, except the splits are also kept as parts."
+  [ch s]
+  (map (partial apply str) (partition-by (partial = ch) s)))
+
+(defn- guess-parts
+  [qname]
+  (cond
+    (re-find #"#" qname)
+    (partition-str \# qname)
+
+    (re-find #"/" qname)
+    (partition-str \/ qname)))
+
+(defn guess-local-name
+  "Given a `qname` with an unknown namespace, attempt to guess the local name."
+  [qname]
+  (last (guess-parts qname)))
+
+(defn guess-namespace
+  "Given a `qname` with an unknown namespace, attempt to guess the namespace."
+  [qname]
+  (str/join (butlast (guess-parts qname))))
+
 (defn anchor-elem
-  "Entity hyperlink from an entity `kw` and (optionally) a string label `s`."
-  ([kw s]
-   [:a {:href  (resolve-href kw)
-        :title (name kw)
-        :lang  (lang s)
-        :class (get prefix-groups (symbol (namespace kw)))}
-    (or s (name kw))])
+  "Entity hyperlink from a `resource` and (optionally) a string label `s`."
+  ([resource s]
+   (if (keyword? resource)
+     [:a {:href  (resolve-href resource)
+          :title (name resource)
+          :lang  (lang s)
+          :class (get prefix-groups (symbol (namespace resource)))}
+      (or s (name resource))]
+     (let [qname      (subs resource 1 (dec (count resource)))
+           local-name (guess-local-name qname)]
+       [:span.unknown {:title local-name}
+        local-name])))
   ([kw] (anchor-elem kw nil)))
 
 (defn prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
   [prefix]
-  [:span.prefix {:title (:uri (get prefix/schemas prefix))
-                 :class (get prefix-groups prefix)}
-   (str prefix ":")])
-
+  (if (symbol? prefix)
+    [:span.prefix {:title (:uri (get prefix/schemas prefix))
+                   :class (get prefix-groups prefix)}
+     (str prefix ":")]
+    [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
+                   :class "unknown"}
+     "???:"]))
 
 (def inheritance-pattern
   #"^The (.+) relation was inherited from dn:(synset-\d+) (\{.+\}).$")
@@ -139,13 +173,6 @@
        (anchor-elem (keyword "dn" synset-id) label)
        "."])
     s))
-
-;; TODO: do something about omitted content
-;; e.g. "<http://www.w3.org/2003/06/sw-vocab-status/ns#term_status>"
-(defn filter-entity
-  "Remove <...> RDF resource keys from `entity` since they mess up sorting."
-  [entity]
-  (into {} (filter (comp keyword? first) entity)))
 
 (declare html-table)
 
@@ -191,7 +218,9 @@
     [:col]]
    (into [:tbody]
          (for [[k v] entity
-               :let [prefix (symbol (namespace k))
+               :let [prefix (if (keyword? k)
+                              (symbol (namespace k))
+                              k)
                      k-str  (select-label* languages (get k->label k))]]
            [:tr
             [:td.prefix (prefix-elem prefix)]
@@ -287,17 +316,17 @@
        "Github repository"] "."]]]])
 
 (defn entity-tables
-  [subject languages other entity* k->label]
+  [subject languages other entity k->label]
   (into [:<>]
         (for [[title ks] (conj sections other)]
           (let [m (into (fop/ordered-map)
                         (if (coll? ks)
                           (->> (for [k ks]
-                                 (when-let [v (k entity*)]
+                                 (when-let [v (k entity)]
                                    [k v]))
                                (remove nil?))
                           (sort-by (sort-keyfn languages k->label)
-                                   (filter ks entity*))))]
+                                   (filter ks entity))))]
             (when (not-empty m)
               (if title
                 [:div
@@ -309,7 +338,6 @@
   [languages entity]
   (let [subject     (-> entity meta :subject)
         k->label    (-> entity meta :k->label)
-        entity*     (filter-entity entity)
         prefix      (symbol (namespace subject))
         uri         (:uri (get prefix/schemas (symbol prefix)))
         ks-defs     (map second sections)
@@ -322,13 +350,13 @@
      [:article
       [:header [:h1
                 (prefix-elem prefix)
-                (let [label (select-label* languages (:rdfs/label entity*))]
+                (let [label (select-label* languages (:rdfs/label entity))]
                   [:span {:title (name subject)
                           :lang  (lang label)}
                    (or label (name subject))])]
        (when uri
          [:p uri [:em (name subject)]])]
-      [entity-tables subject languages other entity* k->label]]]))
+      [entity-tables subject languages other entity k->label]]]))
 
 (defn search-page
   [lemma search-path tables]
