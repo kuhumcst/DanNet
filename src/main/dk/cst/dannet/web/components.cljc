@@ -161,15 +161,13 @@
        (prefix-elem (symbol (namespace v)))
        (anchor-elem v (select-label* languages (get k->label v)))])
 
-    ;; TODO: reimplement, probably by doing the extra look-up at a lower level
-    ;; Display blank resources as inlined tables
-    ;; Note that doubly inlined tables are omitted entirely.
-    (symbol? v)
-    [:td {:style {:color "red"}} "TODO: need to reimplement"]
-    #_(let [{:keys [s p]} (meta v)]
-        (if-let [entity (q/blank-entity (:graph @db) s p)]
-          [:td (html-table languages entity nil nil)]
-          [:td.omitted {:lang "en"} "(details omitted)"]))
+    ;; Display blank resources as inlined tables.
+    (map? v)
+    [:td (html-table languages v nil nil)]
+
+    ;; Doubly inlined tables are omitted entirely.
+    (nil? v)
+    [:td.omitted {:lang "en"} "(details omitted)"]
 
     :else
     (let [s (select-str* languages v)]

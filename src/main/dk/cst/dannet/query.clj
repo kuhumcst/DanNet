@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.query
   "Functions for querying and navigating an Apache Jena graph."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
             [dk.cst.dannet.transaction :as txn]))
@@ -119,6 +120,23 @@
         (recur tail (merge-with set-merge m pm om)))
       m)))
 
+;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
+;; resort to this hack.
+(defn- attach-blank-entities
+  "Replace blank resources in `entity` of `subject` in `g` with entity maps."
+  [g subject entity]
+  (let [predicate (atom nil)]
+    (walk/prewalk
+      (fn [x] (cond
+                (vector? x)
+                (do (reset! predicate (first x)) x)
+
+                (symbol? x)
+                (blank-entity g subject @predicate)
+
+                :else x))
+      entity)))
+
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
@@ -129,7 +147,8 @@
                             [:bgp ['?o :rdfs/label '?ol]]])
                     #_(only-uris))]
     (let [e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
-                 (apply merge-with (set-nav-merge g)))]
+                 (apply merge-with (set-nav-merge g))
+                 (attach-blank-entities g subject))]
       (with-meta e (assoc (nav-meta g)
                      :k->label (entity-label-mapping xe)
                      :subject subject)))))
