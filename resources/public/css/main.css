@@ -18,21 +18,13 @@ body {
     letter-spacing: 0.2ch;
 }
 
-/* TODO */
-body.entry {
-}
-
-section.search {
-    place-content: start center;
-}
-
 section.search table + table {
     margin-top: 48px;
 }
 
 section.search form {
     display: flex;
-    margin: 24px 0;
+    margin: 24px;
 }
 
 section.search form input {

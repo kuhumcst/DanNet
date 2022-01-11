@@ -154,15 +154,6 @@
 
 (def autocomplete* (memoize autocomplete))
 
-(defn html-search-result
-  [languages lemma results]
-  (let [tables (mapcat (fn [[kw result]]
-                         (let [{:keys [k->label]} (meta result)]
-                           [(com/html-table languages result nil k->label)]))
-                       results)]
-    (hiccup/render
-      [com/search-page lemma search-path tables])))
-
 (def search-ic
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
@@ -178,7 +169,8 @@
                 (-> ctx
                     (update :response assoc
                             :status 200
-                            :body (html-search-result languages lemma results))
+                            :body (hiccup/render
+                                    [com/search-page lemma search-path languages results]))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production

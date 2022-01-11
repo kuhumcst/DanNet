@@ -361,7 +361,7 @@
       [entity-tables subject languages other entity k->label]]]))
 
 (defn search-page
-  [lemma search-path tables]
+  [lemma search-path languages results]
   [shell (str "Search: " lemma)
    [:section.search
     [:form {:action search-path
@@ -371,7 +371,11 @@
               :value lemma}]
      [:input {:type  "submit"
               :value "Search"}]]
-    (if (empty? tables)
+    (if (empty? results)
       [:article
        [:p "No results."]]
-      (into [:article] tables))]])
+      (into [:article]
+            (map (fn [[kw result]]
+                   (let [{:keys [k->label]} (meta result)]
+                     [html-table languages result nil k->label]))
+                 results)))]])
