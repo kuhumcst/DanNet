@@ -13,6 +13,7 @@
    'owl     {:uri "http://www.w3.org/2002/07/owl#"}
    'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
              :alt "schemas/wn-lemon-1.2.ttl"}
+   'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"}
    'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
    'lemon   {:uri "http://lemon-model.net/lemon#"
              :alt "schemas/lemon-model.ttl"}
