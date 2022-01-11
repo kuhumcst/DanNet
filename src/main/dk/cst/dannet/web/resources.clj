@@ -8,7 +8,6 @@
             [ring.util.response :as ring]
             [com.wsscode.transito :as transito]
             [lambdaisland.hiccup :as hiccup]
-            [flatland.ordered.map :as fop]
             [com.owoga.trie :as trie]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
