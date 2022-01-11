@@ -1,6 +1,6 @@
 (ns dk.cst.dannet.prefix
   "Prefix registration for the various schemas used by DanNet."
-  (:require [arachne.aristotle.registry :as reg]
+  (:require #?(:clj [arachne.aristotle.registry :as reg])
             [ont-app.vocabulary.core :as voc]
             [clojure.string :as str]))
 
@@ -36,12 +36,13 @@
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
-  (reg/prefix ns-prefix uri)
+  #?(:clj (reg/prefix ns-prefix uri))
   (let [prefix-str (name ns-prefix)]
     (when-not (get (voc/prefix-to-ns) prefix-str)
       (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
                                    :vann/preferredNamespaceUri    uri}))))
 
+;; TODO: is registration necessary in CLJS?
 (doseq [[ns-prefix {:keys [uri]}] schemas]
   (register ns-prefix uri))
 

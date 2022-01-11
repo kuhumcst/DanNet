@@ -22,25 +22,25 @@ body {
 body.entry {
 }
 
-body.search {
+section.search {
     place-content: start center;
 }
 
-body.search table + table {
+section.search table + table {
     margin-top: 48px;
 }
 
-body.search form {
+section.search form {
     display: flex;
     margin: 24px 0;
 }
 
-body.search form input {
+section.search form input {
     font-size: 24px;
     padding: 6px;
 }
 
-body.search form input + input {
+section.search form input + input {
     margin-left: 12px;
 }
 
@@ -54,8 +54,10 @@ header, footer {
     text-align: center;
 }
 
+/* TODO: fix weird positioning on small pages */
 footer {
     margin-top: 48px;
+    padding-bottom: 48px;
 }
 
 footer p {
