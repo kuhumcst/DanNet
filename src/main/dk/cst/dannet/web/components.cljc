@@ -2,17 +2,10 @@
   "Shared frontend/backend Hiccup components."
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
+            [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n])
   (:import [ont_app.vocabulary.lstr LangStr]))
-
-(defn- <>
-  "Inline `coll` using a fragment element.
-
-  This is supported by *both* reagent and lambdaisland/hiccup and makes up for
-  the fact that lambdaisland/hiccup *doesn't* support inlining seqs."
-  [coll]
-  (into [:<>] coll))
 
 (defn invert-map
   [m]
@@ -89,7 +82,7 @@
   [qname]
   (str/join (butlast (guess-parts qname))))
 
-(defn anchor-elem
+(rum/defc anchor-elem
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
   ([resource s]
    (if (keyword? resource)
@@ -104,7 +97,7 @@
         local-name])))
   ([resource] (anchor-elem resource nil)))
 
-(defn prefix-elem
+(rum/defc prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
   [prefix]
   (if (symbol? prefix)
@@ -136,7 +129,7 @@
 
 (declare html-table)
 
-(defn html-table-cell
+(rum/defc html-table-cell
   [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
@@ -169,7 +162,7 @@
       [(str (i18n/select-label languages (get k->label item))) item]
       [(str item) nil])))
 
-(defn list-item
+(rum/defc list-item
   [{:keys [languages k->label] :as opts} item]
   (cond
     (keyword? item)
@@ -184,17 +177,17 @@
     ;; be entirely garbage temp data, e.g. check out
     ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
     (symbol? item)
-    nil #_[:li [html-table opts (meta item)]]
+    nil #_[:li (html-table opts (meta item))]
 
     :else
     [:li {:lang (i18n/lang item)}
      (str-transformation item)]))
 
-(defn list-cell
+(rum/defc list-cell
   [{:keys [languages k->label] :as opts} coll]
   (let [amount (count coll)
-        lis    [<> (for [item (sort-by (sort-keyfn opts) coll)]
-                     [list-item opts item])]]
+        lis    (for [item (sort-by (sort-keyfn opts) coll)]
+                 (list-item opts item))]
     [:td
      (cond
        (<= amount 5)
@@ -216,7 +209,7 @@
        [:details [:summary ""]
         [:ol.five-digits lis]])]))
 
-(defn html-table
+(rum/defc html-table
   [{:keys [languages k->label] :as opts} subentity]
   [:table
    [:colgroup
@@ -224,46 +217,46 @@
     [:col]
     [:col]]
    [:tbody
-    [<> (for [[k v] subentity
-              :let [prefix (if (keyword? k)
-                             (symbol (namespace k))
-                             k)]]
-          [:tr
-           [:td.prefix (prefix-elem prefix)]
-           [:td (anchor-elem k (i18n/select-label languages (get k->label k)))]
-           (cond
-             (set? v)
-             (cond
-               (= 1 (count v))
-               (let [v* (first v)]
-                 [html-table-cell opts (if (symbol? v*)
-                                         (meta v*)
-                                         v*)])
+    (for [[k v] subentity
+          :let [prefix (if (keyword? k)
+                         (symbol (namespace k))
+                         k)]]
+      [:tr
+       [:td.prefix (prefix-elem prefix)]
+       [:td (anchor-elem k (i18n/select-label languages (get k->label k)))]
+       (cond
+         (set? v)
+         (cond
+           (= 1 (count v))
+           (let [v* (first v)]
+             (html-table-cell opts (if (symbol? v*)
+                                     (meta v*)
+                                     v*)))
 
-               (or (instance? LangStr (first v))
-                   (string? (first v)))
-               (let [s (i18n/select-str languages v)]
-                 (if (coll? s)
-                   [:td
-                    [:ol
-                     (for [s* (sort-by str s)]
-                       [:li {:lang (i18n/lang s*)} (str-transformation s*)])]]
-                   [:td {:lang (i18n/lang s)} (str-transformation s)]))
+           (or (instance? LangStr (first v))
+               (string? (first v)))
+           (let [s (i18n/select-str languages v)]
+             (if (coll? s)
+               [:td
+                [:ol
+                 (for [s* (sort-by str s)]
+                   [:li {:lang (i18n/lang s*)} (str-transformation s*)])]]
+               [:td {:lang (i18n/lang s)} (str-transformation s)]))
 
-               ;; TODO: use sublist for identical labels
-               :else
-               [list-cell opts v])
+           ;; TODO: use sublist for identical labels
+           :else
+           (list-cell opts v))
 
-             (keyword? v)
-             [html-table-cell opts v]
+         (keyword? v)
+         (html-table-cell opts v)
 
-             (symbol? v)
-             [html-table-cell opts (meta v)]
+         (symbol? v)
+         (html-table-cell opts (meta v))
 
-             :else
-             [:td {:lang (i18n/lang v)} (str-transformation v)])])]]])
+         :else
+         [:td {:lang (i18n/lang v)} (str-transformation v)])])]])
 
-(defn page-shell
+(rum/defc page-shell
   "The outer shell of an HTML page; needs a `title` and a `content` element."
   [title content]
   [:html
@@ -285,8 +278,9 @@
       [:a {:href "https://github.com/kuhumcst/DanNet"}
        "Github repository"] "."]]]])
 
-(defn select-subentity
-  "Select a subentity from `entity` based on `ks` (may be a predicate too)."
+(defn- ordered-subentity
+  "Select a subentity from `entity` based on `ks` (may be a predicate too) and
+  order it according to the labels of the preferred languages."
   [{:keys [languages k->label] :as opts} ks entity]
   (not-empty
     (into (fop/ordered-map)
@@ -298,48 +292,49 @@
             (sort-by (sort-keyfn opts)
                      (filter ks entity))))))
 
-(defn entity-page
+(rum/defc entity-page
   "Display the entity map of a specific RDF resource."
   [{:keys [languages k->label subject] :as opts} entity]
   (let [local-name (name subject)
         prefix     (symbol (namespace subject))
         label      (i18n/select-label languages (:rdfs/label entity))]
-    [page-shell (prefix/kw->qname subject)
-     [:article
-      [:header [:h1
-                (prefix-elem prefix)
-                [:span {:title local-name
-                        :lang  (i18n/lang label)}
-                 (or label local-name)]]
-       (when-let [uri (prefix/prefix->uri prefix)]
-         [:p uri [:em local-name]])]
-      [<> (for [[title ks] sections]
-            (when-let [subentity (select-subentity opts ks entity)]
-              (if title
-                [:<>
-                 [:h2 title]
-                 [html-table opts subentity]]
-                [html-table opts subentity])))]]]))
+    (page-shell
+      (prefix/kw->qname subject)
+      [:article
+       [:header [:h1
+                 (prefix-elem prefix)
+                 [:span {:title local-name
+                         :lang  (i18n/lang label)}
+                  (or label local-name)]]
+        (when-let [uri (prefix/prefix->uri prefix)]
+          [:p uri [:em local-name]])]
+       (for [[title ks] sections]
+         (when-let [subentity (ordered-subentity opts ks entity)]
+           (if title
+             [:<>
+              [:h2 title]
+              (html-table opts subentity)]
+             (html-table opts subentity))))])))
 
-(defn search-page
+(rum/defc search-page
   "Display search results for a given lemma."
   [{:keys [languages lemma search-path] :as opts} search-results]
-  [page-shell (str "Search: " lemma)
-   [:section.search
-    [:form {:action search-path
-            :method "get"}
-     [:input {:type  "text"
-              :name  "lemma"
-              :value lemma}]
-     [:input {:type  "submit"
-              :value "Search"}]]
-    (if (empty? search-results)
-      [:article
-       [:p "No search-results."]]
-      [:article
-       [<> (for [[k entity] search-results]
-             (let [{:keys [k->label]} (meta entity)]
-               (prn entity)
-               [html-table {:languages languages
-                            :k->label  k->label}
-                entity]))]])]])
+  (page-shell
+    (str "Search: " lemma)
+    [:section.search
+     [:form {:action search-path
+             :method "get"}
+      [:input {:type  "text"
+               :name  "lemma"
+               :value lemma}]
+      [:input {:type  "submit"
+               :value "Search"}]]
+     (if (empty? search-results)
+       [:article
+        [:p "No search-results."]]
+       [:article
+        (for [[k entity] search-results]
+          (let [{:keys [k->label]} (meta entity)]
+            (html-table {:languages languages
+                         :k->label  k->label}
+                        entity)))])]))

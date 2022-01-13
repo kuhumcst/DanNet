@@ -7,7 +7,7 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [ring.util.response :as ring]
             [com.wsscode.transito :as transito]
-            [lambdaisland.hiccup :as hiccup]
+            [rum.core :as rum]
             [com.owoga.trie :as trie]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
@@ -97,11 +97,12 @@
 
    "text/html"
    (fn [entity & [languages]]
-     (hiccup/render
-       [com/entity-page {:languages languages
-                         :k->label  (-> entity meta :k->label)
-                         :subject   (-> entity meta :subject)}
-        entity]))})
+     (rum/render-static-markup
+       (com/entity-page
+         {:languages languages
+          :k->label  (-> entity meta :k->label)
+          :subject   (-> entity meta :subject)}
+         entity)))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -172,11 +173,12 @@
                 (-> ctx
                     (update :response assoc
                             :status 200
-                            :body (hiccup/render
-                                    [com/search-page {:languages   languages
-                                                      :lemma       lemma
-                                                      :search-path search-path}
-                                     search-results]))
+                            :body (rum/render-static-markup
+                                    (com/search-page
+                                      {:languages   languages
+                                       :lemma       lemma
+                                       :search-path search-path}
+                                      search-results)))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production

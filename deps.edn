@@ -22,7 +22,7 @@
                                      com.owoga/tightly-packed-trie {:mvn/version "0.2.3"}
                                      org.slf4j/slf4j-simple        {:mvn/version "1.7.32"}
                                      com.wsscode/transito          {:mvn/version "2021.07.04"}
-                                     com.lambdaisland/hiccup       {:mvn/version "0.0.4"}}}
+                                     rum/rum                       {:mvn/version "0.12.8"}}}
            :prototypes {:extra-paths ["src/prototypes"]
                         :extra-deps  {gorillalabs/neo4j-clj {:mvn/version "4.1.0"}
                                       clj-http              {:mvn/version "3.10.3"}
