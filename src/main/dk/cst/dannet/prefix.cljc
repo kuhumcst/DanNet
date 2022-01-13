@@ -54,6 +54,11 @@
   [kw]
   (str/replace (subs (str kw) 1) #"/" ":"))
 
+(defn prefix->uri
+  "Return the URI registered for a `prefix`."
+  [prefix]
+  (-> schemas prefix :uri))
+
 (defn uri->path
   "Remove every part of the `uri` aside from the path."
   [uri]

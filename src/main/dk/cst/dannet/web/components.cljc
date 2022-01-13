@@ -20,7 +20,7 @@
                  prefix prefixes]
              [prefix group])))
 
-(def prefix-groups
+(def prefix->css-class
   (invert-map
     {"dannet"  #{'dn 'dnc 'dns}
      "w3c"     #{'rdf 'rdfs 'owl}
@@ -28,6 +28,7 @@
      "wordnet" #{'wn}}))
 
 (defn with-prefix
+  "Return predicate accepting keywords with `prefix`, optionally `except` set."
   [prefix & {:keys [except]}]
   (fn [[k v]]
     (when (keyword? k)
@@ -87,7 +88,7 @@
      [:a {:href  (prefix/resolve-href resource)
           :title (name resource)
           :lang  (i18n/lang s)
-          :class (get prefix-groups (symbol (namespace resource)))}
+          :class (prefix->css-class (symbol (namespace resource)))}
       (or s (name resource))]
      (let [qname      (subs resource 1 (dec (count resource)))
            local-name (guess-local-name qname)]
@@ -99,8 +100,8 @@
   "Visual representation of a `prefix` based on its associated symbol."
   [prefix]
   (if (symbol? prefix)
-    [:span.prefix {:title (:uri (get prefix/schemas prefix))
-                   :class (get prefix-groups prefix)}
+    [:span.prefix {:title (prefix/prefix->uri prefix)
+                   :class (prefix->css-class prefix)}
      (str prefix ":")]
     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
                    :class "unknown"}
@@ -133,8 +134,8 @@
     (keyword? v)
     (if (empty? (name v))
       (let [prefix (symbol (namespace v))]
-        (or [:td (:uri (get prefix/schemas prefix))]
-            [:td [:span.prefix {:class (get prefix-groups prefix)} prefix]]))
+        (or [:td (prefix/prefix->uri prefix)]
+            [:td [:span.prefix {:class (prefix->css-class prefix)} prefix]]))
       [:td
        (prefix-elem (symbol (namespace v)))
        (anchor-elem v (i18n/select-label languages (get k->label v)))])
@@ -297,7 +298,7 @@
                   [:span {:title (name subject)
                           :lang  (i18n/lang label)}
                    (or label (name subject))])]
-       (when-let [uri (:uri (get prefix/schemas (symbol prefix)))]
+       (when-let [uri (prefix/prefix->uri prefix)]
          [:p uri [:em (name subject)]])]
       [<> (for [[title ks] (conj sections other)]
             (when-let [m (not-empty
