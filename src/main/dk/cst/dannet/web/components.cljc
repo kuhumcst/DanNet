@@ -1,12 +1,18 @@
 (ns dk.cst.dannet.web.components
-  "Shared frontend/backend Hiccup components."
+  "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.web.i18n :as i18n])
-  (:import [ont_app.vocabulary.lstr LangStr]))
+            [dk.cst.dannet.web.i18n :as i18n]
+            #?(:cljs [lambdaisland.uri :as uri])
+            #?(:cljs [reitit.frontend.history :as rfh])
+            #?(:cljs [reitit.frontend.easy :as rfe])
+            #?(:cljs [ont-app.vocabulary.lstr :refer [LangStr]]))
+  #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
+;; TODO: http://0.0.0.0:7777/dannet/2022/external/ontolex/evokes not working
+;; TODO: http://0.0.0.0:8080/dannet/2022/external/semowl/Meaning not working
 (defn invert-map
   [m]
   (into {} (for [[group prefixes] m
@@ -90,7 +96,7 @@
           :title (name resource)
           :lang  (i18n/lang s)
           :class (prefix->css-class (symbol (namespace resource)))}
-      (or s (name resource))]
+      (str (or s (name resource)))]
      (let [qname      (subs resource 1 (dec (count resource)))
            local-name (guess-local-name qname)]
        [:span.unknown {:title local-name}
@@ -125,7 +131,7 @@
        (prefix-elem 'dn)
        (anchor-elem (keyword "dn" synset-id) label)
        "."])
-    s))
+    (str s)))
 
 (declare html-table)
 
@@ -158,9 +164,8 @@
   Returns vectors so that identical labels are sorted by keywords secondly."
   [{:keys [languages k->label] :as opts}]
   (fn [item]
-    (if (keyword? item)
-      [(str (i18n/select-label languages (get k->label item))) item]
-      [(str item) nil])))
+    (let [k (if (map-entry? item) (first item) item)]
+      [(str (i18n/select-label languages (get k->label k))) item])))
 
 (rum/defc list-item
   [{:keys [languages k->label] :as opts} item]
@@ -221,7 +226,7 @@
           :let [prefix (if (keyword? k)
                          (symbol (namespace k))
                          k)]]
-      [:tr
+      [:tr {:key k}
        [:td.prefix (prefix-elem prefix)]
        [:td (anchor-elem k (i18n/select-label languages (get k->label k)))]
        (cond
@@ -240,7 +245,9 @@
                [:td
                 [:ol
                  (for [s* (sort-by str s)]
-                   [:li {:lang (i18n/lang s*)} (str-transformation s*)])]]
+                   [:li {:key  s*
+                         :lang (i18n/lang s*)}
+                    (str-transformation s*)])]]
                [:td {:lang (i18n/lang s)} (str-transformation s)]))
 
            ;; TODO: use sublist for identical labels
@@ -255,28 +262,6 @@
 
          :else
          [:td {:lang (i18n/lang v)} (str-transformation v)])])]])
-
-(rum/defc page-shell
-  "The outer shell of an HTML page; needs a `title` and a `content` element."
-  [title content]
-  [:html
-   [:head
-    [:title title]
-    [:meta {:charset "UTF-8"}]
-    [:meta {:name    "viewport"
-            :content "width=device-width, initial-scale=1.0"}]
-    [:link {:rel "stylesheet" :href "/css/main.css"}]]
-   [:body
-    content
-    [:footer {:lang "en"}
-     [:p
-      "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
-                 "Centre for Language Technology"]
-      ", " [:abbr {:title "University of Copenhagen"}
-            "KU"] "."]
-     [:p "The source code for DanNet is available at our "
-      [:a {:href "https://github.com/kuhumcst/DanNet"}
-       "Github repository"] "."]]]])
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
@@ -293,48 +278,78 @@
                      (filter ks entity))))))
 
 (rum/defc entity-page
-  "Display the entity map of a specific RDF resource."
-  [{:keys [languages k->label subject] :as opts} entity]
+  [{:keys [languages k->label subject entity] :as opts}]
   (let [local-name (name subject)
         prefix     (symbol (namespace subject))
         label      (i18n/select-label languages (:rdfs/label entity))]
-    (page-shell
-      (prefix/kw->qname subject)
-      [:article
-       [:header [:h1
-                 (prefix-elem prefix)
-                 [:span {:title local-name
-                         :lang  (i18n/lang label)}
-                  (or label local-name)]]
-        (when-let [uri (prefix/prefix->uri prefix)]
-          [:p uri [:em local-name]])]
-       (for [[title ks] sections]
-         (when-let [subentity (ordered-subentity opts ks entity)]
-           (if title
-             [:<>
-              [:h2 title]
-              (html-table opts subentity)]
-             (html-table opts subentity))))])))
+    [:article
+     [:header [:h1
+               (prefix-elem prefix)
+               [:span {:title local-name
+                       :lang  (i18n/lang label)}
+                (str (or label local-name))]]
+      (when-let [uri (prefix/prefix->uri prefix)]
+        [:p uri [:em local-name]])]
+     (for [[title ks] sections]
+       (when-let [subentity (ordered-subentity opts ks entity)]
+         (if title
+           [:<> {:key (str ks)}
+            [:h2 title]
+            (html-table opts subentity)]
+           (rum/with-key (html-table opts subentity) (str ks)))))]))
+
+(defn- form-elements->query-params
+  "Retrieve a map of query parameters from HTML `form-elements`."
+  [form-elements]
+  (into {} (for [form-element form-elements]
+             (when (not-empty (.-name form-element))
+               [(.-name form-element) (.-value form-element)]))))
+
+(defn- navigate-to
+  "Navigate to internal `url` using reitit."
+  [url]
+  #?(:cljs (let [history @rfe/history]
+             (.pushState js/window.history nil "" (rfh/-href history url))
+             (rfh/-on-navigate history url))))
+
+;; TODO: handle other methods (only handles GET for now)
+(defn on-submit
+  "Generic function handling form submit events in Rum components."
+  [e]
+  #?(:cljs (let [action    (.. e -target -action)
+                 query-str (-> (.. e -target -elements)
+                               (form-elements->query-params)
+                               (uri/map->query-string))
+                 url       (str action (when query-str)
+                                (str "?" query-str))]
+             (.preventDefault e)
+             (navigate-to url))))
 
 (rum/defc search-page
-  "Display search results for a given lemma."
-  [{:keys [languages lemma search-path] :as opts} search-results]
-  (page-shell
-    (str "Search: " lemma)
-    [:section.search
-     [:form {:action search-path
-             :method "get"}
-      [:input {:type  "text"
-               :name  "lemma"
-               :value lemma}]
-      [:input {:type  "submit"
-               :value "Search"}]]
-     (if (empty? search-results)
-       [:article
-        [:p "No search-results."]]
-       [:article
-        (for [[k entity] search-results]
-          (let [{:keys [k->label]} (meta entity)]
-            (html-table {:languages languages
-                         :k->label  k->label}
-                        entity)))])]))
+  [{:keys [languages lemma search-path search-results] :as opts}]
+  [:section.search
+   [:form {:action    search-path
+           :on-submit on-submit
+           :method    "get"}
+    [:input {:type          "text"
+             :name          "lemma"
+             :default-value lemma}]
+    [:input {:type  "submit"
+             :value "Search"}]]
+   (if (empty? search-results)
+     [:article
+      [:p "No search-results."]]
+     [:article
+      (for [[k entity] search-results]
+        (let [{:keys [k->label]} (meta entity)]
+          (rum/with-key (html-table {:languages languages
+                                     :k->label  k->label}
+                                    entity)
+                        k)))])])
+
+(def pages
+  {:entity entity-page
+   :search search-page})
+
+(def data->page
+  (comp pages :page meta))

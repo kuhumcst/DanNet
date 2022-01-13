@@ -1,7 +1,8 @@
 (ns dk.cst.dannet.web.i18n
   "Functions for working with RDF LangStrings."
-  (:require [ont-app.vocabulary.lstr :as lstr])
-  (:import [ont_app.vocabulary.lstr LangStr]))
+  #?(:clj  (:require [ont-app.vocabulary.lstr :as lstr])
+     :cljs (:require [ont-app.vocabulary.lstr :as lstr :refer [LangStr]]))
+  #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
 (defn lang
   "Return the language abbreviation of `s` if available or nil if not."

@@ -11,7 +11,7 @@
   []
   (route/expand-routes
     #{res/search-route
-      res/autocomplete-route
+      #_res/autocomplete-route
       res/external-entity-route
 
       (res/prefix->entity-route 'dn)
@@ -24,19 +24,24 @@
 
 (defn ->service-map
   [conf]
-  (let [csp {:default-src "'none'"
-             :script-src  "'self'"
-             :connect-src "'self'"
-             :img-src     "'self'"
-             :font-src    "'self'"
-             :style-src   "'self'"
-             :base-uri    "'self'"}]
+  (let [csp (if res/development?
+              {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:*"}
+              {:default-src "'none'"
+               :script-src  "'self' 'unsafe-inline'"        ; unsafe-eval possibly only needed for dev main.js
+               :connect-src "'self'"
+               :img-src     "'self'"
+               :font-src    "'self'"
+               :style-src   "'self' 'unsafe-inline'"
+               :base-uri    "'self'"})]
     (cond-> {::http/routes         #((deref #'routes))
              ::http/type           :jetty
              ::http/host           "0.0.0.0"
              ::http/port           8080
              ::http/resource-path  "/public"
-             ::http/secure-headers {:content-security-policy-settings csp}})))
+             ::http/secure-headers {:content-security-policy-settings csp}}
+
+      ;; Make sure we can communicate with the Shadow CLJS app during dev.
+      res/development? (assoc ::http/allowed-origins (constantly true)))))
 
 (defn start []
   (let [service-map (->service-map @conf)]

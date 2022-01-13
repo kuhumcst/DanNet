@@ -13,3 +13,8 @@ docker/neo4j/*.jar
 .cpcache
 .DS_Store
 
+.shadow-cljs
+node_modules
+package-lock.json
+package.json
+resources/public/js/compiled

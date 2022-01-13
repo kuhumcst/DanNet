@@ -153,6 +153,7 @@
                  (attach-blank-entities g subject))]
       (with-meta e (assoc (nav-meta g)
                      :k->label (entity-label-mapping xe)
+                     ;; TODO: is it necessary to attach subject?
                      :subject subject)))))
 
 (defn run

@@ -1,0 +1,12 @@
+{:deps     {:aliases [:frontend :backend :test]}
+ :dev-http {7777 {:root    "resources/public"
+                  :handler dk.cst.dannet.web.resources/shadow-handler}}
+ :builds   {:app  {:target            :browser
+                   :output-dir        "resources/public/js/compiled"
+                   :asset-path        "/js/compiled"
+                   :module-hash-names true
+                   :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
+            :test {:target   :browser-test
+                   :test-dir "resources/public/js/test"
+                   :devtools {:http-port 7776
+                              :http-root "resources/public/js/test"}}}}

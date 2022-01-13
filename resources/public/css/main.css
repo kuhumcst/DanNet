@@ -3,12 +3,25 @@
     color: #333;
 }
 
+@keyframes fade-in {
+  0% {opacity:0}
+  100% {opacity:1}
+}
+
+@keyframes clear-up {
+  0% {filter: blur(12px);}
+  100% {filter: none;}
+}
+
 html {
     padding: 0;
     background: #DDD;
 }
 
 body {
+    animation:
+        fade-in 0.33s ease-in,
+        clear-up 0.66s ease;
     display: grid;
     place-items: center;
     height: 100vh;
@@ -150,6 +163,7 @@ h1 span[lang]::after {
 }
 
 h1 span.prefix {
+    transition: background 0.5s;
     background: grey;
     margin-right: 8px;
     padding: 4px 8px;

@@ -2,19 +2,21 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.edn :as edn]
             [clojure.pprint :refer [pprint print-table]]
+            [cognitect.transit :as t]
+            [com.wsscode.transito :as to]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
             [ring.util.response :as ring]
-            [com.wsscode.transito :as transito]
+            [ont-app.vocabulary.lstr]
             [rum.core :as rum]
-            [com.owoga.trie :as trie]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.bootstrap :as bootstrap]
-            [dk.cst.dannet.web.components :as com]))
+            [dk.cst.dannet.web.components :as com])
+  (:import [ont_app.vocabulary.lstr LangStr]))
 
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
 ;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
@@ -29,11 +31,18 @@
       :imports bootstrap/imports
       :schema-uris db/schema-uris)))
 
-;; TODO: should be transformed into a tightly packed tried (currently loose)
-(defonce search-trie
-  (future
-    (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
-      (apply trie/make-trie (mapcat concat words words)))))
+(def main-js
+  "When making a release, the filename will be appended with a hash;
+  that is not the case when running the regular shadow-cljs watch process.
+
+  Relies on the :module-hash-names being set to true in shadow-cljs.edn."
+  (if-let [url (io/resource "public/js/compiled/manifest.edn")]
+    (-> url slurp edn/read-string first :output-name)
+    "main.js"))
+
+(def development?
+  "Source of truth for whether this is a development build or not. "
+  (= main-js "main.js"))
 
 (def one-month-cache
   "private, max-age=2592000")
@@ -82,27 +91,59 @@
                       (str "{ " (first (sort v)) " , ... }")
                       v)}))))
 
+(defn html-page
+  "A full HTML page ready to be hydrated. Needs a `title` and `content`."
+  [title content]
+  (rum/render-static-markup
+    [:html
+     [:head
+      [:title title]
+      [:meta {:charset "UTF-8"}]
+      [:meta {:name    "viewport"
+              :content "width=device-width, initial-scale=1.0"}]
+      [:link {:rel "stylesheet" :href "/css/main.css"}]
+      ;; Disable animation when JS is unavailable, otherwise much too frequent!
+      [:noscript [:style {:type "text/css"} "body { animation: none; }"]]]
+     [:body
+      [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
+      [:footer {:lang "en"}
+       [:p
+        "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
+                   "Centre for Language Technology"]
+        ", " [:abbr {:title "University of Copenhagen"}
+              "KU"] "."]
+       [:p "The source code for DanNet is available at our "
+        [:a {:href "https://github.component/kuhumcst/DanNet"}
+         "Github repository"] "."]]
+      [:script (str "var inDevelopmentEnvironment = " development? ";")]
+      [:script {:src (str "/js/compiled/" main-js)}]]]))
+
+(defn- lstr->s
+  [lstr]
+  (str (.s lstr) "@" (.lang lstr)))
+
 (def content-type->body-fn
-  {"application/edn"
-   (fn [entity]
-     (pr-str entity))
+  {"text/plain"
+   (fn [& {:keys [data]}]
+     (ascii-table data))
+
+   "application/edn"
+   (fn [& {:keys [data]}]
+     (pr-str data))
 
    "application/transit+json"
-   (fn [entity]
-     (transito/write-str entity))
-
-   "text/plain"
-   (fn [entity]
-     (ascii-table entity))
+   (fn [& {:keys [data page]}]
+     (to/write-str (vary-meta data assoc :page page)
+                   {:handlers {LangStr (t/write-handler "lstr" lstr->s)}}))
 
    "text/html"
-   (fn [entity & [languages]]
-     (rum/render-static-markup
-       (com/entity-page
-         {:languages languages
-          :k->label  (-> entity meta :k->label)
-          :subject   (-> entity meta :subject)}
-         entity)))})
+   (fn [& {:keys [data page title]}]
+     (html-page
+       title
+       ((get com/pages page) data)))})
+
+(def use-lang?
+  #{"application/transit+json" "text/html"})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -113,7 +154,6 @@
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
                   lang         (get-in request [:accept-language :field])
-                  entity->body (content-type->body-fn content-type)
                   prefix*      (or (get-in request [:path-params :prefix])
                                    prefix)
                   ;; TODO: why is decoding necessary?
@@ -122,18 +162,22 @@
                                    (get-in [:path-params :subject])
                                    (decode-query-part)
                                    (->> (keyword (name prefix*))))
-                  entity       (if (= content-type "text/html")
+                  entity       (if (use-lang? content-type)
                                  (q/expanded-entity (:graph @db) subject)
-                                 (q/entity (:graph @db) subject))]
+                                 (q/entity (:graph @db) subject))
+                  languages    (if lang [lang "en"] ["en"])
+                  data         {:languages languages
+                                :k->label  (-> entity meta :k->label)
+                                :subject   (-> entity meta :subject)
+                                :entity    entity}]
               (if entity
                 (-> ctx
                     (update :response assoc
                             :status 200
-                            :body (if (= content-type "text/html")
-                                    (if lang
-                                      (entity->body entity [lang "en"])
-                                      (entity->body entity ["en"]))
-                                    (entity->body entity)))
+                            :body ((content-type->body-fn content-type)
+                                   :data data
+                                   :title (:subject data)
+                                   :page :entity))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production
@@ -144,19 +188,6 @@
 
 (def search-path
   (str (uri->path prefix/dannet-root) "search"))
-
-(def autocomplete-path
-  (str (uri->path prefix/dannet-root) "autocomplete"))
-
-(defn autocomplete
-  "Return autocompletions for `s` found in the graph."
-  [s]
-  (->> (trie/lookup @search-trie s)
-       (remove (comp nil? second))                          ; remove partial
-       (map second)                                         ; grab full words
-       (sort)))
-
-(def autocomplete* (memoize autocomplete))
 
 (def search-ic
   {:name  ::search
@@ -170,39 +201,21 @@
                                    (get-in [:query-params :lemma])
                                    (decode-query-part))]
               (if-let [search-results (db/look-up (:graph @db) lemma)]
-                (-> ctx
-                    (update :response assoc
-                            :status 200
-                            :body (rum/render-static-markup
-                                    (com/search-page
-                                      {:languages   languages
-                                       :lemma       lemma
-                                       :search-path search-path}
-                                      search-results)))
-                    (update-in [:response :headers] assoc
-                               "Content-Type" content-type
-                               ;; TODO: use cache in production
-                               #_#_"Cache-Control" one-day-cache))
-                (update ctx :response assoc
-                        :status 404
-                        :headers {}))))})
-
-(def autocomplete-ic
-  {:name  ::autocomplete
-   :leave (fn [{:keys [request] :as ctx}]
-            (let [;; TODO: why is decoding necessary?
-                  ;; You would think that the path-params-decoder handled this.
-                  s (-> request
-                        (get-in [:query-params :s])
-                        (decode-query-part))]
-              (if (> (count s) 2)
-                (-> ctx
-                    (update :response assoc
-                            :status 200
-                            :body (str/join "\n" (autocomplete* s)))
-                    (update-in [:response :headers] assoc
-                               "Content-Type" "text/plain"
-                               "Cache-Control" one-day-cache))
+                (let [data {:languages      languages
+                            :lemma          lemma
+                            :search-path    search-path
+                            :search-results search-results}]
+                  (-> ctx
+                      (update :response assoc
+                              :status 200
+                              :body ((content-type->body-fn content-type)
+                                     :data data
+                                     :title (str "Search: " lemma)
+                                     :page :search))
+                      (update-in [:response :headers] assoc
+                                 "Content-Type" content-type
+                                 ;; TODO: use cache in production
+                                 #_#_"Cache-Control" one-day-cache)))
                 (update ctx :response assoc
                         :status 404
                         :headers {}))))})
@@ -261,10 +274,59 @@
          search-ic]
    :route-name ::search])
 
-(def autocomplete-route
-  [autocomplete-path
-   :get [autocomplete-ic]
-   :route-name ::autocomplete])
+#_(def autocomplete-path
+    (str (uri->path prefix/dannet-root) "autocomplete"))
+
+;; TODO: should be transformed into a tightly packed tried (currently loose)
+#_(defonce search-trie
+    (future
+      (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
+        (apply trie/make-trie (mapcat concat words words)))))
+
+#_(defn autocomplete
+    "Return autocompletions for `s` found in the graph."
+    [s]
+    (->> (trie/lookup @search-trie s)
+         (remove (comp nil? second))                        ; remove partial
+         (map second)                                       ; grab full words
+         (sort)))
+
+#_(def autocomplete* (memoize autocomplete))
+
+#_(def autocomplete-ic
+    {:name  ::autocomplete
+     :leave (fn [{:keys [request] :as ctx}]
+              (let [;; TODO: why is decoding necessary?
+                    ;; You would think that the path-params-decoder handled this.
+                    s (-> request
+                          (get-in [:query-params :s])
+                          (decode-query-part))]
+                (if (> (count s) 2)
+                  (-> ctx
+                      (update :response assoc
+                              :status 200
+                              :body (str/join "\n" (autocomplete* s)))
+                      (update-in [:response :headers] assoc
+                                 "Content-Type" "text/plain"
+                                 "Cache-Control" one-day-cache))
+                  (update ctx :response assoc
+                          :status 404
+                          :headers {}))))})
+
+#_(def autocomplete-route
+    [autocomplete-path
+     :get [autocomplete-ic]
+     :route-name ::autocomplete])
+
+(defn shadow-handler
+  "Handler used by shadow-cljs to orient itself on page load.
+  Note that the backend web service must be running on http://0.0.0.0:8080!"
+  [{:keys [uri query-string] :as request}]
+  {:status  200
+   :headers {"Content-Type" "text/html"}
+   :body    (slurp (str "http://localhost:8080" uri
+                        (when query-string
+                          (str "?" query-string))))})
 
 (comment
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
