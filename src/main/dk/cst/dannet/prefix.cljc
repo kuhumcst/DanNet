@@ -34,6 +34,9 @@
    'en->da  {:uri (str dannet-root "translations/")
              :alt "schemas/dannet-translations-2022.ttl"}})
 
+(def internal-prefixes
+  #{'dn 'dnc 'dns})
+
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
@@ -50,3 +53,17 @@
 (defn kw->qname
   [kw]
   (str/replace (subs (str kw) 1) #"/" ":"))
+
+(defn uri->path
+  "Remove every part of the `uri` aside from the path."
+  [uri]
+  (second (str/split uri #"http://[^/]+")))
+
+(defn resolve-href
+  "Given a namespaced `kw`, resolve the href for the resource."
+  [kw]
+  (let [prefix (symbol (namespace kw))]
+    (if (get internal-prefixes prefix)
+      (str (-> prefix schemas :uri uri->path) (name kw))
+      (-> (str dannet-root "external/" (namespace kw) "/" (name kw))
+          (uri->path)))))

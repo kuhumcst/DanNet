@@ -54,20 +54,6 @@
                                  (comp #{:dns/orthogonalHyponym
                                          :dns/orthogonalHypernym} first))]])
 
-(defn uri->path
-  "Remove every part of the `uri` aside from the path."
-  [uri]
-  (second (str/split uri #"http://[^/]+")))
-
-(defn resolve-href
-  "Given a namespaced `kw`, resolve the href for the resource."
-  [kw]
-  (let [prefix (symbol (namespace kw))]
-    (if (get #{'dn 'dnc 'dns} prefix)
-      (str (-> prefix prefix/schemas :uri uri->path) (name kw))
-      (-> (str prefix/dannet-root "external/" (namespace kw) "/" (name kw))
-          (uri->path)))))
-
 (defn- partition-str
   "Partition a string `s` by the character `ch`.
 
@@ -98,7 +84,7 @@
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
   ([resource s]
    (if (keyword? resource)
-     [:a {:href  (resolve-href resource)
+     [:a {:href  (prefix/resolve-href resource)
           :title (name resource)
           :lang  (i18n/lang s)
           :class (get prefix-groups (symbol (namespace resource)))}
