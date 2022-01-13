@@ -99,7 +99,9 @@
    (fn [entity & [languages]]
      (hiccup/render
        [com/entity-page {:languages languages
-                         :entity    entity}]))})
+                         :k->label  (-> entity meta :k->label)
+                         :subject   (-> entity meta :subject)}
+        entity]))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -171,10 +173,10 @@
                     (update :response assoc
                             :status 200
                             :body (hiccup/render
-                                    [com/search-page {:lemma       lemma
-                                                      :search-path search-path
-                                                      :languages   languages
-                                                      :results     results}]))
+                                    [com/search-page {:languages   languages
+                                                      :lemma       lemma
+                                                      :search-path search-path}
+                                     results]))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production

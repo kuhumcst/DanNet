@@ -129,7 +129,7 @@
 (declare html-table)
 
 (defn html-table-cell
-  [{:keys [languages k->label v]}]
+  [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
     (if (empty? (name v))
@@ -142,8 +142,7 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td [html-table {:languages languages
-                      :entity    v}]]
+    [:td [html-table opts v]]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -163,7 +162,7 @@
       [(str item) nil])))
 
 (defn list-item
-  [{:keys [languages k->label item]}]
+  [{:keys [languages k->label] :as opts} item]
   (cond
     (keyword? item)
     (let [prefix (symbol (namespace item))
@@ -177,19 +176,16 @@
     ;; be entirely garbage temp data, e.g. check out
     ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
     (symbol? item)
-    nil #_[:li [html-table {:languages languages
-                            :entity    (meta item)}]]
+    nil #_[:li [html-table opts (meta item)]]
 
     :else
     [:li {:lang (i18n/lang item)}
      (str-transformation item)]))
 
 (defn list-cell
-  [{:keys [languages k->label coll]}]
+  [{:keys [languages k->label] :as opts} coll]
   (let [lis (for [item (sort-by (sort-keyfn languages k->label) coll)]
-              [list-item {:languages languages
-                          :k->label  k->label
-                          :item      item}])]
+              [list-item opts item])]
     [:td
      (let [amount (count lis)]
        (cond
@@ -213,7 +209,7 @@
           [:ol.five-digits [<> lis]]]))]))
 
 (defn html-table
-  [{:keys [languages entity k->label]}]
+  [{:keys [languages k->label] :as opts} entity]
   [:table
    [:colgroup
     [:col]
@@ -232,11 +228,9 @@
              (cond
                (= 1 (count v))
                (let [v* (first v)]
-                 [html-table-cell {:languages languages
-                                   :k->label  k->label
-                                   :v         (if (symbol? v*)
-                                                (meta v*)
-                                                v*)}])
+                 [html-table-cell opts (if (symbol? v*)
+                                         (meta v*)
+                                         v*)])
 
                (or (instance? LangStr (first v))
                    (string? (first v)))
@@ -250,19 +244,13 @@
 
                ;; TODO: use sublist for identical labels
                :else
-               [list-cell {:languages languages
-                           :k->label  k->label
-                           :coll      v}])
+               [list-cell opts v])
 
              (keyword? v)
-             [html-table-cell {:languages languages
-                               :k->label  k->label
-                               :v         v}]
+             [html-table-cell opts v]
 
              (symbol? v)
-             [html-table-cell {:languages languages
-                               :k->label  k->label
-                               :v         (meta v)}]
+             [html-table-cell opts (meta v)]
 
              :else
              [:td {:lang (i18n/lang v)} (str-transformation v)])])]]])
@@ -291,10 +279,8 @@
 
 (defn entity-page
   "A view of the entity map of a specific RDF resource."
-  [{:keys [languages entity]}]
-  (let [subject     (-> entity meta :subject)
-        k->label    (-> entity meta :k->label)
-        prefix      (symbol (namespace subject))
+  [{:keys [languages k->label subject] :as opts} entity]
+  (let [prefix      (symbol (namespace subject))
         ks-defs     (map second sections)
         in-ks?      (fn [[k v]]
                       (get (set (apply concat (filter coll? ks-defs)))
@@ -324,16 +310,12 @@
               (if title
                 [:<>
                  [:h2 title]
-                 [html-table {:languages languages
-                              :entity    m
-                              :k->label  k->label}]]
-                [html-table {:languages languages
-                             :entity    m
-                             :k->label  k->label}])))]]]))
+                 [html-table opts m]]
+                [html-table opts m])))]]]))
 
 (defn search-page
   "Search results for a given lemma."
-  [{:keys [lemma search-path languages results]}]
+  [{:keys [languages lemma search-path] :as opts} results]
   [page-shell (str "Search: " lemma)
    [:section.search
     [:form {:action search-path
@@ -347,8 +329,9 @@
       [:article
        [:p "No results."]]
       [:article
-       [<> (for [[kw result] results]
-             (let [{:keys [k->label]} (meta result)]
+       [<> (for [[k entity] results]
+             (let [{:keys [k->label]} (meta entity)]
+               (prn entity)
                [html-table {:languages languages
-                            :entity    result
-                            :k->label  k->label}]))]])]])
+                            :k->label  k->label}
+                entity]))]])]])
