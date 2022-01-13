@@ -6,6 +6,14 @@
             [dk.cst.dannet.prefix :as prefix])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
+(defn- <>
+  "Inline `coll` using a fragment element.
+
+  This is supported by *both* reagent and lambdaisland/hiccup and makes up for
+  the fact that lambdaisland/hiccup *doesn't* support inlining seqs."
+  [coll]
+  (into [:<>] coll))
+
 (defn invert-map
   [m]
   (into {} (for [[group prefixes] m
@@ -216,85 +224,85 @@
     [:col]
     [:col]
     [:col]]
-   (into [:tbody]
-         (for [[k v] entity
-               :let [prefix (if (keyword? k)
-                              (symbol (namespace k))
-                              k)
-                     k-str  (select-label* languages (get k->label k))]]
-           [:tr
-            [:td.prefix (prefix-elem prefix)]
-            [:td (anchor-elem k k-str)]
-            (cond
-              (set? v)
-              (cond
-                (= 1 (count v))
-                (let [v* (first v)]
-                  (if (symbol? v*)
-                    [html-table-cell languages k->label (meta v*)]
-                    [html-table-cell languages k->label v*]))
+   [:tbody
+    [<> (for [[k v] entity
+              :let [prefix (if (keyword? k)
+                             (symbol (namespace k))
+                             k)
+                    k-str  (select-label* languages (get k->label k))]]
+          [:tr
+           [:td.prefix (prefix-elem prefix)]
+           [:td (anchor-elem k k-str)]
+           (cond
+             (set? v)
+             (cond
+               (= 1 (count v))
+               (let [v* (first v)]
+                 (if (symbol? v*)
+                   [html-table-cell languages k->label (meta v*)]
+                   [html-table-cell languages k->label v*]))
 
-                (or (instance? LangStr (first v))
-                    (string? (first v)))
-                (let [s (select-str* languages v)]
-                  (if (coll? s)
-                    [:td
-                     [:ol
-                      (for [s* (sort-by str s)]
-                        [:li {:lang (lang s*)} (str-transformation s*)])]]
-                    [:td {:lang (lang s)} (str-transformation s)]))
+               (or (instance? LangStr (first v))
+                   (string? (first v)))
+               (let [s (select-str* languages v)]
+                 (if (coll? s)
+                   [:td
+                    [:ol
+                     (for [s* (sort-by str s)]
+                       [:li {:lang (lang s*)} (str-transformation s*)])]]
+                   [:td {:lang (lang s)} (str-transformation s)]))
 
-                ;; TODO: use sublist for identical labels
-                :else
-                (let [lis (for [item (sort-by (sort-keyfn languages k->label) v)]
-                            (cond
-                              (keyword? item)
-                              (let [prefix (symbol (namespace item))
-                                    label  (select-label* languages (get k->label item))]
-                                [:li
-                                 (prefix-elem prefix)
-                                 (anchor-elem item label)])
+               ;; TODO: use sublist for identical labels
+               :else
+               (let [lis (for [item (sort-by (sort-keyfn languages k->label) v)]
+                           (cond
+                             (keyword? item)
+                             (let [prefix (symbol (namespace item))
+                                   label  (select-label* languages (get k->label item))]
+                               [:li
+                                (prefix-elem prefix)
+                                (anchor-elem item label)])
 
-                              ;; TODO: handle blank resources better?
-                              ;; Currently not including these as they seem to
-                              ;; be entirely garbage temp data, e.g. check out
-                              ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
-                              (symbol? item)
-                              nil #_[:li [html-table languages (meta item) nil nil]]
+                             ;; TODO: handle blank resources better?
+                             ;; Currently not including these as they seem to
+                             ;; be entirely garbage temp data, e.g. check out
+                             ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
+                             (symbol? item)
+                             nil #_[:li [html-table languages (meta item) nil nil]]
 
-                              :else
-                              [:li {:lang (lang item)}
-                               (str-transformation item)]))]
-                  [:td
-                   (let [amount (count lis)]
-                     (cond
-                       (<= amount 5)
-                       (into [:ol] lis)
+                             :else
+                             [:li {:lang (lang item)}
+                              (str-transformation item)]))]
+                 [:td
+                  (let [amount (count lis)]
+                    (cond
+                      (<= amount 5)
+                      [:ol [<> lis]]
 
-                       (< amount 100)
-                       [:details [:summary ""]
-                        (into [:ol] lis)]
+                      (< amount 100)
+                      [:details [:summary ""]
+                       [:ol [<> lis]]]
 
-                       (< amount 1000)
-                       [:details [:summary ""]
-                        (into [:ol.three-digits] lis)]
+                      (< amount 1000)
+                      [:details [:summary ""]
+                       [:ol.three-digits [<> lis]]]
 
-                       (< amount 10000)
-                       [:details [:summary ""]
-                        (into [:ol.four-digits] lis)]
+                      (< amount 10000)
+                      [:details [:summary ""]
+                       [:ol.four-digits [<> lis]]]
 
-                       :else
-                       [:details [:summary ""]
-                        (into [:ol.five-digits] lis)]))]))
+                      :else
+                      [:details [:summary ""]
+                       [:ol.five-digits [<> lis]]]))]))
 
-              (keyword? v)
-              [html-table-cell languages k->label v]
+             (keyword? v)
+             [html-table-cell languages k->label v]
 
-              (symbol? v)
-              [html-table-cell languages k->label (meta v)]
+             (symbol? v)
+             [html-table-cell languages k->label (meta v)]
 
-              :else
-              [:td {:lang (lang v)} (str-transformation v)])]))])
+             :else
+             [:td {:lang (lang v)} (str-transformation v)])])]]])
 
 (defn shell
   [title body]
@@ -319,22 +327,21 @@
 
 (defn entity-tables
   [subject languages other entity k->label]
-  (into [:<>]
-        (for [[title ks] (conj sections other)]
-          (let [m (into (fop/ordered-map)
-                        (if (coll? ks)
-                          (->> (for [k ks]
-                                 (when-let [v (k entity)]
-                                   [k v]))
-                               (remove nil?))
-                          (sort-by (sort-keyfn languages k->label)
-                                   (filter ks entity))))]
-            (when (not-empty m)
-              (if title
-                [:div
-                 [:h2 title]
-                 [html-table languages m subject k->label]]
-                [html-table languages m subject k->label]))))))
+  [<> (for [[title ks] (conj sections other)]
+        (let [m (into (fop/ordered-map)
+                      (if (coll? ks)
+                        (->> (for [k ks]
+                               (when-let [v (k entity)]
+                                 [k v]))
+                             (remove nil?))
+                        (sort-by (sort-keyfn languages k->label)
+                                 (filter ks entity))))]
+          (when (not-empty m)
+            (if title
+              [:div
+               [:h2 title]
+               [html-table languages m subject k->label]]
+              [html-table languages m subject k->label]))))])
 
 (defn entity-page
   [languages entity]
@@ -374,8 +381,7 @@
     (if (empty? results)
       [:article
        [:p "No results."]]
-      (into [:article]
-            (map (fn [[kw result]]
-                   (let [{:keys [k->label]} (meta result)]
-                     [html-table languages result nil k->label]))
-                 results)))]])
+      [:article
+       [<> (for [[kw result] results]
+             (let [{:keys [k->label]} (meta result)]
+               [html-table languages result nil k->label]))]])]])
