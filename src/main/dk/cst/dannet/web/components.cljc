@@ -172,7 +172,7 @@
   [s]
   (if-let [[_ qname synset-id label] (re-find inheritance-pattern (str s))]
     (let [[prefix rel] (str/split qname #":")]
-      [:span
+      [:<>
        "The "
        (prefix-elem (symbol prefix))
        (anchor-elem (keyword prefix rel) rel)
@@ -185,7 +185,7 @@
 (declare html-table)
 
 (defn html-table-cell
-  [languages k->label v]
+  [{:keys [languages k->label v]}]
   (cond
     (keyword? v)
     (if (empty? (name v))
@@ -198,7 +198,8 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td [html-table languages v nil nil]]
+    [:td [html-table {:languages languages
+                      :entity    v}]]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -218,7 +219,7 @@
       [(str item) nil])))
 
 (defn html-table
-  [languages entity subject k->label]
+  [{:keys [languages entity k->label]}]
   [:table
    [:colgroup
     [:col]
@@ -238,9 +239,11 @@
              (cond
                (= 1 (count v))
                (let [v* (first v)]
-                 (if (symbol? v*)
-                   [html-table-cell languages k->label (meta v*)]
-                   [html-table-cell languages k->label v*]))
+                 [html-table-cell {:languages languages
+                                   :k->label  k->label
+                                   :v         (if (symbol? v*)
+                                                (meta v*)
+                                                v*)}])
 
                (or (instance? LangStr (first v))
                    (string? (first v)))
@@ -268,7 +271,8 @@
                              ;; be entirely garbage temp data, e.g. check out
                              ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
                              (symbol? item)
-                             nil #_[:li [html-table languages (meta item) nil nil]]
+                             nil #_[:li [html-table {:languages languages
+                                                     :entity    (meta item)}]]
 
                              :else
                              [:li {:lang (lang item)}
@@ -296,16 +300,21 @@
                        [:ol.five-digits [<> lis]]]))]))
 
              (keyword? v)
-             [html-table-cell languages k->label v]
+             [html-table-cell {:languages languages
+                               :k->label  k->label
+                               :v         v}]
 
              (symbol? v)
-             [html-table-cell languages k->label (meta v)]
+             [html-table-cell {:languages languages
+                               :k->label  k->label
+                               :v         (meta v)}]
 
              :else
              [:td {:lang (lang v)} (str-transformation v)])])]]])
 
-(defn shell
-  [title body]
+(defn page-shell
+  "The outer shell of an HTML page; needs a `title` and a `content` element."
+  [title content]
   [:html
    [:head
     [:title title]
@@ -314,7 +323,7 @@
             :content "width=device-width, initial-scale=1.0"}]
     [:link {:rel "stylesheet" :href "/css/main.css"}]]
    [:body
-    body
+    content
     [:footer {:lang "da"}
      [:p
       "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
@@ -325,37 +334,19 @@
       [:a {:href "https://github.com/kuhumcst/DanNet"}
        "Github repository"] "."]]]])
 
-(defn entity-tables
-  [subject languages other entity k->label]
-  [<> (for [[title ks] (conj sections other)]
-        (let [m (into (fop/ordered-map)
-                      (if (coll? ks)
-                        (->> (for [k ks]
-                               (when-let [v (k entity)]
-                                 [k v]))
-                             (remove nil?))
-                        (sort-by (sort-keyfn languages k->label)
-                                 (filter ks entity))))]
-          (when (not-empty m)
-            (if title
-              [:div
-               [:h2 title]
-               [html-table languages m subject k->label]]
-              [html-table languages m subject k->label]))))])
-
 (defn entity-page
-  [languages entity]
+  "A view of the entity map of a specific RDF resource."
+  [{:keys [languages entity]}]
   (let [subject     (-> entity meta :subject)
         k->label    (-> entity meta :k->label)
         prefix      (symbol (namespace subject))
-        uri         (:uri (get prefix/schemas (symbol prefix)))
         ks-defs     (map second sections)
         in-ks?      (fn [[k v]]
                       (get (set (apply concat (filter coll? ks-defs)))
                            k))
         in-section? (apply some-fn in-ks? (filter fn? ks-defs))
         other       ["Other attributes" (complement in-section?)]]
-    [shell (prefix/kw->qname subject)
+    [page-shell (prefix/kw->qname subject)
      [:article
       [:header [:h1
                 (prefix-elem prefix)
@@ -363,13 +354,32 @@
                   [:span {:title (name subject)
                           :lang  (lang label)}
                    (or label (name subject))])]
-       (when uri
+       (when-let [uri (:uri (get prefix/schemas (symbol prefix)))]
          [:p uri [:em (name subject)]])]
-      [entity-tables subject languages other entity k->label]]]))
+      [<> (for [[title ks] (conj sections other)]
+            (when-let [m (not-empty
+                           (into (fop/ordered-map)
+                                 (if (coll? ks)
+                                   (->> (for [k ks]
+                                          (when-let [v (k entity)]
+                                            [k v]))
+                                        (remove nil?))
+                                   (sort-by (sort-keyfn languages k->label)
+                                            (filter ks entity)))))]
+              (if title
+                [:<>
+                 [:h2 title]
+                 [html-table {:languages languages
+                              :entity    m
+                              :k->label  k->label}]]
+                [html-table {:languages languages
+                             :entity    m
+                             :k->label  k->label}])))]]]))
 
 (defn search-page
-  [lemma search-path languages results]
-  [shell (str "Search: " lemma)
+  "Search results for a given lemma."
+  [{:keys [lemma search-path languages results]}]
+  [page-shell (str "Search: " lemma)
    [:section.search
     [:form {:action search-path
             :method "get"}
@@ -384,4 +394,6 @@
       [:article
        [<> (for [[kw result] results]
              (let [{:keys [k->label]} (meta result)]
-               [html-table languages result nil k->label]))]])]])
+               [html-table {:languages languages
+                            :entity    result
+                            :k->label  k->label}]))]])]])
