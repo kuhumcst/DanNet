@@ -168,7 +168,7 @@
                   lemma        (-> request
                                    (get-in [:query-params :lemma])
                                    (decode-query-part))]
-              (if-let [results (db/look-up (:graph @db) lemma)]
+              (if-let [search-results (db/look-up (:graph @db) lemma)]
                 (-> ctx
                     (update :response assoc
                             :status 200
@@ -176,7 +176,7 @@
                                     [com/search-page {:languages   languages
                                                       :lemma       lemma
                                                       :search-path search-path}
-                                     results]))
+                                     search-results]))
                     (update-in [:response :headers] assoc
                                "Content-Type" content-type
                                ;; TODO: use cache in production

@@ -36,7 +36,7 @@
            (= (namespace k) (name prefix))))))
 
 ;; TODO: use sets of langStrings for titles
-(def sections
+(def defined-sections
   [[nil [:rdf/type
          :rdfs/label
          :rdfs/comment]]
@@ -54,6 +54,14 @@
    ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
                                  (comp #{:dns/orthogonalHyponym
                                          :dns/orthogonalHypernym} first))]])
+
+(def sections
+  (let [ks-defs     (map second defined-sections)
+        in-ks?      (fn [[k v]]
+                      (get (set (apply concat (filter coll? ks-defs)))
+                           k))
+        in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
+    (conj defined-sections ["Other attributes" (complement in-section?)])))
 
 (defn- partition-str
   "Partition a string `s` by the character `ch`.
@@ -209,14 +217,14 @@
           [:ol.five-digits [<> lis]]]))]))
 
 (defn html-table
-  [{:keys [languages k->label] :as opts} entity]
+  [{:keys [languages k->label] :as opts} subentity]
   [:table
    [:colgroup
     [:col]
     [:col]
     [:col]]
    [:tbody
-    [<> (for [[k v] entity
+    [<> (for [[k v] subentity
               :let [prefix (if (keyword? k)
                              (symbol (namespace k))
                              k)]]
@@ -267,7 +275,7 @@
     [:link {:rel "stylesheet" :href "/css/main.css"}]]
    [:body
     content
-    [:footer {:lang "da"}
+    [:footer {:lang "en"}
      [:p
       "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
                  "Centre for Language Technology"]
@@ -277,45 +285,45 @@
       [:a {:href "https://github.com/kuhumcst/DanNet"}
        "Github repository"] "."]]]])
 
+(defn select-subentity
+  "Select a subentity from `entity` based on `ks` (may be a predicate too)."
+  [{:keys [languages k->label] :as opts} ks entity]
+  (not-empty
+    (into (fop/ordered-map)
+          (if (coll? ks)
+            (->> (for [k ks]
+                   (when-let [v (k entity)]
+                     [k v]))
+                 (remove nil?))
+            (sort-by (sort-keyfn languages k->label)
+                     (filter ks entity))))))
+
 (defn entity-page
-  "A view of the entity map of a specific RDF resource."
+  "Display the entity map of a specific RDF resource."
   [{:keys [languages k->label subject] :as opts} entity]
-  (let [prefix      (symbol (namespace subject))
-        ks-defs     (map second sections)
-        in-ks?      (fn [[k v]]
-                      (get (set (apply concat (filter coll? ks-defs)))
-                           k))
-        in-section? (apply some-fn in-ks? (filter fn? ks-defs))
-        other       ["Other attributes" (complement in-section?)]]
+  (let [local-name (name subject)
+        prefix     (symbol (namespace subject))
+        label      (i18n/select-label languages (:rdfs/label entity))]
     [page-shell (prefix/kw->qname subject)
      [:article
       [:header [:h1
                 (prefix-elem prefix)
-                (let [label (i18n/select-label languages (:rdfs/label entity))]
-                  [:span {:title (name subject)
-                          :lang  (i18n/lang label)}
-                   (or label (name subject))])]
+                [:span {:title local-name
+                        :lang  (i18n/lang label)}
+                 (or label local-name)]]
        (when-let [uri (prefix/prefix->uri prefix)]
-         [:p uri [:em (name subject)]])]
-      [<> (for [[title ks] (conj sections other)]
-            (when-let [m (not-empty
-                           (into (fop/ordered-map)
-                                 (if (coll? ks)
-                                   (->> (for [k ks]
-                                          (when-let [v (k entity)]
-                                            [k v]))
-                                        (remove nil?))
-                                   (sort-by (sort-keyfn languages k->label)
-                                            (filter ks entity)))))]
+         [:p uri [:em local-name]])]
+      [<> (for [[title ks] sections]
+            (when-let [subentity (select-subentity opts ks entity)]
               (if title
                 [:<>
                  [:h2 title]
-                 [html-table opts m]]
-                [html-table opts m])))]]]))
+                 [html-table opts subentity]]
+                [html-table opts subentity])))]]]))
 
 (defn search-page
-  "Search results for a given lemma."
-  [{:keys [languages lemma search-path] :as opts} results]
+  "Display search results for a given lemma."
+  [{:keys [languages lemma search-path] :as opts} search-results]
   [page-shell (str "Search: " lemma)
    [:section.search
     [:form {:action search-path
@@ -325,11 +333,11 @@
               :value lemma}]
      [:input {:type  "submit"
               :value "Search"}]]
-    (if (empty? results)
+    (if (empty? search-results)
       [:article
-       [:p "No results."]]
+       [:p "No search-results."]]
       [:article
-       [<> (for [[k entity] results]
+       [<> (for [[k entity] search-results]
              (let [{:keys [k->label]} (meta entity)]
                (prn entity)
                [html-table {:languages languages
