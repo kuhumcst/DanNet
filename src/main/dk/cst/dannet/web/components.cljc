@@ -1,9 +1,9 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Hiccup components."
   (:require [clojure.string :as str]
-            [ont-app.vocabulary.lstr :as lstr]
             [flatland.ordered.map :as fop]
-            [dk.cst.dannet.prefix :as prefix])
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.web.i18n :as i18n])
   (:import [ont_app.vocabulary.lstr LangStr]))
 
 (defn- <>
@@ -68,49 +68,6 @@
       (-> (str prefix/dannet-root "external/" (namespace kw) "/" (name kw))
           (uri->path)))))
 
-(defn lang
-  "Return the language abbreviation of `s` if available  or nil if not."
-  [s]
-  (when (instance? LangStr s)
-    (lstr/lang s)))
-
-(defn select-label
-  "Select a single label from set of labels `x` based on preferred `languages`.
-  If `x` is a not a set, e.g. a string, it is just returned as-is."
-  [languages x]
-  (if (set? x)
-    (let [lang->s (into {} (map (juxt lang identity) x))]
-      (or (loop [[head & tail] languages]
-            (when head
-              (if-let [ret (lang->s head)]
-                ret
-                (recur tail))))
-          (lang->s nil)))
-    x))
-
-(defn select-str
-  "Select strings in a set of strings `x` based on preferred `languages`.
-  If `x` is a not a set, e.g. a string, it is just returned as-is.
-
-  This function differs from 'select-label' by allowing for multiple strings
-  to be returned instead of just one."
-  [languages x]
-  (if (set? x)
-    (let [lang->strs (group-by lang x)
-          ret        (loop [[head & tail] languages]
-                       (when head
-                         (or (get lang->strs head)
-                             (recur tail))))
-          strs       (or ret (get lang->strs nil))]
-      (if (= 1 (count strs))
-        (first strs)
-        strs))
-    x))
-
-;; TODO: use e.g. core.memoize rather than naïve memoisation
-(def select-label* (memoize select-label))
-(def select-str* (memoize select-str))
-
 (defn- partition-str
   "Partition a string `s` by the character `ch`.
 
@@ -143,7 +100,7 @@
    (if (keyword? resource)
      [:a {:href  (resolve-href resource)
           :title (name resource)
-          :lang  (lang s)
+          :lang  (i18n/lang s)
           :class (get prefix-groups (symbol (namespace resource)))}
       (or s (name resource))]
      (let [qname      (subs resource 1 (dec (count resource)))
@@ -194,7 +151,7 @@
             [:td [:span.prefix {:class (get prefix-groups prefix)} prefix]]))
       [:td
        (prefix-elem (symbol (namespace v)))
-       (anchor-elem v (select-label* languages (get k->label v)))])
+       (anchor-elem v (i18n/select-label languages (get k->label v)))])
 
     ;; Display blank resources as inlined tables.
     (map? v)
@@ -206,8 +163,8 @@
     [:td.omitted {:lang "en"} "(details omitted)"]
 
     :else
-    (let [s (select-str* languages v)]
-      [:td {:lang (lang s)} (str-transformation s)])))
+    (let [s (i18n/select-str languages v)]
+      [:td {:lang (i18n/lang s)} (str-transformation s)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
@@ -215,7 +172,7 @@
   [languages k->label]
   (fn [item]
     (if (keyword? item)
-      [(str (select-label* languages (get k->label item))) item]
+      [(str (i18n/select-label languages (get k->label item))) item]
       [(str item) nil])))
 
 (defn html-table
@@ -230,7 +187,7 @@
               :let [prefix (if (keyword? k)
                              (symbol (namespace k))
                              k)
-                    k-str  (select-label* languages (get k->label k))]]
+                    k-str  (i18n/select-label languages (get k->label k))]]
           [:tr
            [:td.prefix (prefix-elem prefix)]
            [:td (anchor-elem k k-str)]
@@ -247,13 +204,13 @@
 
                (or (instance? LangStr (first v))
                    (string? (first v)))
-               (let [s (select-str* languages v)]
+               (let [s (i18n/select-str languages v)]
                  (if (coll? s)
                    [:td
                     [:ol
                      (for [s* (sort-by str s)]
-                       [:li {:lang (lang s*)} (str-transformation s*)])]]
-                   [:td {:lang (lang s)} (str-transformation s)]))
+                       [:li {:lang (i18n/lang s*)} (str-transformation s*)])]]
+                   [:td {:lang (i18n/lang s)} (str-transformation s)]))
 
                ;; TODO: use sublist for identical labels
                :else
@@ -261,7 +218,7 @@
                            (cond
                              (keyword? item)
                              (let [prefix (symbol (namespace item))
-                                   label  (select-label* languages (get k->label item))]
+                                   label  (i18n/select-label languages (get k->label item))]
                                [:li
                                 (prefix-elem prefix)
                                 (anchor-elem item label)])
@@ -275,7 +232,7 @@
                                                      :entity    (meta item)}]]
 
                              :else
-                             [:li {:lang (lang item)}
+                             [:li {:lang (i18n/lang item)}
                               (str-transformation item)]))]
                  [:td
                   (let [amount (count lis)]
@@ -310,7 +267,7 @@
                                :v         (meta v)}]
 
              :else
-             [:td {:lang (lang v)} (str-transformation v)])])]]])
+             [:td {:lang (i18n/lang v)} (str-transformation v)])])]]])
 
 (defn page-shell
   "The outer shell of an HTML page; needs a `title` and a `content` element."
@@ -350,9 +307,9 @@
      [:article
       [:header [:h1
                 (prefix-elem prefix)
-                (let [label (select-label* languages (:rdfs/label entity))]
+                (let [label (i18n/select-label languages (:rdfs/label entity))]
                   [:span {:title (name subject)
-                          :lang  (lang label)}
+                          :lang  (i18n/lang label)}
                    (or label (name subject))])]
        (when-let [uri (:uri (get prefix/schemas (symbol prefix)))]
          [:p uri [:em (name subject)]])]
