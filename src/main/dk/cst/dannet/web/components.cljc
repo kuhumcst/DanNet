@@ -163,7 +163,7 @@
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
   Returns vectors so that identical labels are sorted by keywords secondly."
-  [languages k->label]
+  [{:keys [languages k->label] :as opts}]
   (fn [item]
     (if (keyword? item)
       [(str (i18n/select-label languages (get k->label item))) item]
@@ -192,29 +192,29 @@
 
 (defn list-cell
   [{:keys [languages k->label] :as opts} coll]
-  (let [lis (for [item (sort-by (sort-keyfn languages k->label) coll)]
-              [list-item opts item])]
+  (let [amount (count coll)
+        lis    [<> (for [item (sort-by (sort-keyfn opts) coll)]
+                     [list-item opts item])]]
     [:td
-     (let [amount (count lis)]
-       (cond
-         (<= amount 5)
-         [:ol [<> lis]]
+     (cond
+       (<= amount 5)
+       [:ol lis]
 
-         (< amount 100)
-         [:details [:summary ""]
-          [:ol [<> lis]]]
+       (< amount 100)
+       [:details [:summary ""]
+        [:ol lis]]
 
-         (< amount 1000)
-         [:details [:summary ""]
-          [:ol.three-digits [<> lis]]]
+       (< amount 1000)
+       [:details [:summary ""]
+        [:ol.three-digits lis]]
 
-         (< amount 10000)
-         [:details [:summary ""]
-          [:ol.four-digits [<> lis]]]
+       (< amount 10000)
+       [:details [:summary ""]
+        [:ol.four-digits lis]]
 
-         :else
-         [:details [:summary ""]
-          [:ol.five-digits [<> lis]]]))]))
+       :else
+       [:details [:summary ""]
+        [:ol.five-digits lis]])]))
 
 (defn html-table
   [{:keys [languages k->label] :as opts} subentity]
@@ -295,7 +295,7 @@
                    (when-let [v (k entity)]
                      [k v]))
                  (remove nil?))
-            (sort-by (sort-keyfn languages k->label)
+            (sort-by (sort-keyfn opts)
                      (filter ks entity))))))
 
 (defn entity-page
