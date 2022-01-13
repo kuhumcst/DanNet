@@ -94,7 +94,7 @@
            local-name (guess-local-name qname)]
        [:span.unknown {:title local-name}
         local-name])))
-  ([kw] (anchor-elem kw nil)))
+  ([resource] (anchor-elem resource nil)))
 
 (defn prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
@@ -162,6 +162,56 @@
       [(str (i18n/select-label languages (get k->label item))) item]
       [(str item) nil])))
 
+(defn list-item
+  [{:keys [languages k->label item]}]
+  (cond
+    (keyword? item)
+    (let [prefix (symbol (namespace item))
+          label  (i18n/select-label languages (get k->label item))]
+      [:li
+       (prefix-elem prefix)
+       (anchor-elem item label)])
+
+    ;; TODO: handle blank resources better?
+    ;; Currently not including these as they seem to
+    ;; be entirely garbage temp data, e.g. check out
+    ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
+    (symbol? item)
+    nil #_[:li [html-table {:languages languages
+                            :entity    (meta item)}]]
+
+    :else
+    [:li {:lang (i18n/lang item)}
+     (str-transformation item)]))
+
+(defn list-cell
+  [{:keys [languages k->label coll]}]
+  (let [lis (for [item (sort-by (sort-keyfn languages k->label) coll)]
+              [list-item {:languages languages
+                          :k->label  k->label
+                          :item      item}])]
+    [:td
+     (let [amount (count lis)]
+       (cond
+         (<= amount 5)
+         [:ol [<> lis]]
+
+         (< amount 100)
+         [:details [:summary ""]
+          [:ol [<> lis]]]
+
+         (< amount 1000)
+         [:details [:summary ""]
+          [:ol.three-digits [<> lis]]]
+
+         (< amount 10000)
+         [:details [:summary ""]
+          [:ol.four-digits [<> lis]]]
+
+         :else
+         [:details [:summary ""]
+          [:ol.five-digits [<> lis]]]))]))
+
 (defn html-table
   [{:keys [languages entity k->label]}]
   [:table
@@ -173,11 +223,10 @@
     [<> (for [[k v] entity
               :let [prefix (if (keyword? k)
                              (symbol (namespace k))
-                             k)
-                    k-str  (i18n/select-label languages (get k->label k))]]
+                             k)]]
           [:tr
            [:td.prefix (prefix-elem prefix)]
-           [:td (anchor-elem k k-str)]
+           [:td (anchor-elem k (i18n/select-label languages (get k->label k)))]
            (cond
              (set? v)
              (cond
@@ -201,47 +250,9 @@
 
                ;; TODO: use sublist for identical labels
                :else
-               (let [lis (for [item (sort-by (sort-keyfn languages k->label) v)]
-                           (cond
-                             (keyword? item)
-                             (let [prefix (symbol (namespace item))
-                                   label  (i18n/select-label languages (get k->label item))]
-                               [:li
-                                (prefix-elem prefix)
-                                (anchor-elem item label)])
-
-                             ;; TODO: handle blank resources better?
-                             ;; Currently not including these as they seem to
-                             ;; be entirely garbage temp data, e.g. check out
-                             ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
-                             (symbol? item)
-                             nil #_[:li [html-table {:languages languages
-                                                     :entity    (meta item)}]]
-
-                             :else
-                             [:li {:lang (i18n/lang item)}
-                              (str-transformation item)]))]
-                 [:td
-                  (let [amount (count lis)]
-                    (cond
-                      (<= amount 5)
-                      [:ol [<> lis]]
-
-                      (< amount 100)
-                      [:details [:summary ""]
-                       [:ol [<> lis]]]
-
-                      (< amount 1000)
-                      [:details [:summary ""]
-                       [:ol.three-digits [<> lis]]]
-
-                      (< amount 10000)
-                      [:details [:summary ""]
-                       [:ol.four-digits [<> lis]]]
-
-                      :else
-                      [:details [:summary ""]
-                       [:ol.five-digits [<> lis]]]))]))
+               [list-cell {:languages languages
+                           :k->label  k->label
+                           :coll      v}])
 
              (keyword? v)
              [html-table-cell {:languages languages
