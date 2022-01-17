@@ -4,6 +4,7 @@
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
             [lambdaisland.fetch :as fetch]
+            [applied-science.js-interop :as j]
             [lambdaisland.uri :as uri]
             [cognitect.transit :as t]
             [kitchen-async.promise :as p]
@@ -16,6 +17,9 @@
 
 (defonce location
   (atom {}))
+
+(defonce visited-urls
+  (atom #{}))
 
 (def app
   (js/document.getElementById "app"))
@@ -36,22 +40,22 @@
 ;; situation where clicking the back button and then forward sometimes results
 ;; in transit data being displayed rather than an HTML page.
 (defn fetch
-  "Do a GET request for the resource at `url`, returning the response body.
-  Bad response codes result in a dialog asking the user to refresh the page.
-
-  Usually, bad responses (e.g. 403) are caused by frontend-server mismatch
-  which can be resolved by loading the latest version of the frontend app."
+  "Do a GET request for the resource at `url`, returning the response body."
   [url & [{:keys [query-params] :as opts}]]
   (let [from-query-string (uri/query-string->map (:query (uri/uri url)))
         all-query-params  (assoc (merge from-query-string query-params)
                             :transit true)
         opts*             (merge {:transit-json-reader reader}
                                  (assoc opts :query-params all-query-params))]
-    (p/let [{:keys [status body]} (fetch/get (normalize-url url) opts*)]
-      body)))
+    (p/let [response (fetch/get (normalize-url url) opts*)]
+      response)))
 
 (def routes
   [["{*path}" :delegate]])
+
+(defn- response->url
+  [response]
+  (-> response meta ::lambdaisland.fetch/request (j/get :url)))
 
 (defn set-up-navigation!
   []
@@ -59,12 +63,19 @@
     (rf/router routes)
     (fn [{:keys [path query-params] :as m}]
       (p/then (fetch path {:query-params query-params})
-              #(let [page-component (com/data->page %)]
+              #(let [url            (response->url %)
+                     data           (:body %)
+                     page-component (com/data->page data)]
                  (reset! location {:path path
-                                   :data %})
-                 (rum/mount (page-component %) app)
-                 ;; TODO: remember scroll position
-                 (js/window.scrollTo #js {:top 0 :behavior "smooth"}))))
+                                   :data data})
+                 (rum/mount (page-component data) app)
+
+                 ;; Fake classic page load behaviour for all new pages.
+                 ;; Ignores hard refreshes, letting the browser stay in place.
+                 (when (not (get @visited-urls url))
+                   (when (not-empty @visited-urls)
+                     (js/window.scrollTo #js {:top 0}))
+                   (swap! visited-urls conj url)))))
     {:use-fragment false}))
 
 (defn ^:dev/after-load render
@@ -79,6 +90,7 @@
   []
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
     (p/then (fetch entry-url)
-            #(let [page (com/data->page %)]
-               (rum/hydrate (page %) app)
+            #(let [data (:body %)
+                   page (com/data->page data)]
+               (rum/hydrate (page data) app)
                (set-up-navigation!)))))
