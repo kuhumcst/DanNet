@@ -11,8 +11,6 @@
             #?(:cljs [ont-app.vocabulary.lstr :refer [LangStr]]))
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
-;; TODO: http://0.0.0.0:7777/dannet/2022/external/ontolex/evokes not working
-;; TODO: http://0.0.0.0:8080/dannet/2022/external/semowl/Meaning not working
 (defn invert-map
   [m]
   (into {} (for [[group prefixes] m

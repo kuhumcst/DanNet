@@ -29,20 +29,25 @@
 (def reader
   (t/reader :json {:handlers {"lstr" lstr/read-LangStr}}))
 
+;; Currently lambdaisland/fetch silently loses query strings, so the
+;; `from-query-string` is needed to keep the query string intact.
+;; The reason that `:transit true` is assoc'd is to circumvent the browser
+;; caching the transit data instead of an HTML page, which can result in a weird
+;; situation where clicking the back button and then forward sometimes results
+;; in transit data being displayed rather than an HTML page.
 (defn fetch
   "Do a GET request for the resource at `url`, returning the response body.
   Bad response codes result in a dialog asking the user to refresh the page.
 
   Usually, bad responses (e.g. 403) are caused by frontend-server mismatch
   which can be resolved by loading the latest version of the frontend app."
-  [url & [opts]]
-  ;; Currently lambdaisland/fetch silently loses query strings, so this line is
-  ;; needed to keep the query string intact.
-  (let [query-params (uri/query-string->map (:query (uri/uri url)))
-        default-opts {:transit-json-reader reader
-                      :query-params        query-params}]
-    (p/let [{:keys [status body]} (fetch/get (normalize-url url)
-                                             (merge default-opts opts))]
+  [url & [{:keys [query-params] :as opts}]]
+  (let [from-query-string (uri/query-string->map (:query (uri/uri url)))
+        all-query-params  (assoc (merge from-query-string query-params)
+                            :transit true)
+        opts*             (merge {:transit-json-reader reader}
+                                 (assoc opts :query-params all-query-params))]
+    (p/let [{:keys [status body]} (fetch/get (normalize-url url) opts*)]
       body)))
 
 (def routes
