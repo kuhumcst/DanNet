@@ -149,7 +149,7 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td [html-table opts v]]
+    [:td (html-table opts v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
