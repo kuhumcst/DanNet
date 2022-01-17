@@ -71,6 +71,15 @@ For this project we have created a couple of prototypes demonstrating DanNet's v
     * ... using [aristotle](https://github.com/arachne-framework/aristotle)
     * ... using [igraph-jena](https://github.com/ont-app/igraph-jena)
 
+Web app
+-------
+The IRIs of each of the resources in DanNet resolve to actual HTML pages with content relating to the resource at the IRI. The frontend is built using [Rum](https://github.com/tonsky/rum) and is served by [Pedestal](https://github.com/pedestal/pedestal) in the backend. If JavaScript is turned on, the initial HTML page becomes the entrypoint of a single-page app. If JavaScript is unavailable, this web app converts to a regular HTML website with some animations and the more dynamic features disabled.
+
+### Architecture
+Every DanNet resource accessible through a web browser has both an HTML representation and several _other_ representations which can be accessed via HTTP content negotiation. When JavaScript is disabled, usually only the HTML representation is used by the browser. However, when JavaScript _is_ available, a frontend router ([reitit](https://github.com/metosin/reitit)) reroutes all navigation requests (e.g. clicking a hyperlink or submitting a form) towards fetching the `application/transit+json` representation instead. This data is used to refresh the Rum components, allowing them to update in place, while "fake" browser history item is inserted by reitit. The very same Rum components are also used to render the static HTML webpages.
+
+Language negotiation is used to select the most suitable RDF data when multiple languages are available in the dataset.
+
 Setup
 -----
 The code is all written in Clojure and it must be compiled to Java Bytecode and run inside a Java Virtual Machine (JVM). The primary means to do this is Clojure's [official CLI tools](https://clojure.org/guides/deps_and_cli) which can both fetch dependencies and build/run Clojure code. The project dependencies are specified in the [deps.edn file](deps.edn).
