@@ -3,13 +3,15 @@
   (:require [rum.core :as rum]
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
+            [reitit.frontend.history :as rfh]
             [lambdaisland.fetch :as fetch]
             [applied-science.js-interop :as j]
             [lambdaisland.uri :as uri]
             [cognitect.transit :as t]
             [kitchen-async.promise :as p]
             [dk.cst.dannet.web.components :as com]
-            [ont-app.vocabulary.lstr :as lstr]))
+            [ont-app.vocabulary.lstr :as lstr])
+  (:import [goog Uri]))
 
 (defonce development?
   (when (exists? js/inDevelopmentEnvironment)
@@ -25,10 +27,10 @@
   (js/document.getElementById "app"))
 
 (defn normalize-url
-  [url]
+  [path]
   (if development?
-    (str "http://localhost:8080" url)
-    url))
+    (str "http://localhost:8080" path)
+    path))
 
 (def reader
   (t/reader :json {:handlers {"lstr" lstr/read-LangStr}}))
@@ -57,26 +59,48 @@
   [response]
   (-> response meta ::lambdaisland.fetch/request (j/get :url)))
 
+(defn- update-scroll-state!
+  "Scroll to the top of the page if `url` has not been visited before.
+
+  This fakes classic page load behaviour for new pages. Hard refreshes are
+  ignored letting the browser stay in place using the cached scroll state.
+  Clicking a hyperlink will *always* scroll to the top, however, since they are
+  intercepted by the custom 'ignore-anchor-click?' function defined below."
+  [url]
+  (let [already-visited @visited-urls
+        refresh-page?   (-> already-visited meta :refresh-page?)]
+    (if refresh-page?                                       ; hyperlink clicks
+      (js/window.scrollTo #js {:top 0 :behavior "smooth"})
+      (when (not (already-visited url))
+        (when (not-empty already-visited)                   ; hard refreshes
+          (js/window.scrollTo #js {:top 0 :behavior "smooth"}))
+        (swap! visited-urls conj url)))
+    (swap! visited-urls vary-meta dissoc :refresh-page?)))
+
+(defn- ignore-anchor-click?
+  "Adds a side-effect to any intercepted anchor clicks in reitit making sure
+  that the scroll state always resets when intentionally clicking a link.
+
+  Works in conjunction with 'update-scroll-state!' defined above."
+  [router e el uri]
+  (when (rfh/ignore-anchor-click? router e el uri)
+    (swap! visited-urls vary-meta assoc :refresh-page? true)
+    true))
+
 (defn set-up-navigation!
   []
   (rfe/start!
     (rf/router routes)
     (fn [{:keys [path query-params] :as m}]
       (p/then (fetch path {:query-params query-params})
-              #(let [url            (response->url %)
-                     data           (:body %)
+              #(let [data           (:body %)
                      page-component (com/data->page data)]
                  (reset! location {:path path
                                    :data data})
-                 (rum/mount (page-component data) app)
-
-                 ;; Fake classic page load behaviour for all new pages.
-                 ;; Ignores hard refreshes, letting the browser stay in place.
-                 (when (not (get @visited-urls url))
-                   (when (not-empty @visited-urls)
-                     (js/window.scrollTo #js {:top 0}))
-                   (swap! visited-urls conj url)))))
-    {:use-fragment false}))
+                 (update-scroll-state! (response->url %))
+                 (rum/mount (page-component data) app))))
+    {:use-fragment         false
+     :ignore-anchor-click? ignore-anchor-click?}))
 
 (defn ^:dev/after-load render
   []
