@@ -73,6 +73,8 @@ For this project we have created a couple of prototypes demonstrating DanNet's v
 
 Web app
 -------
+> Note: A more detailed explanation is available at [doc/web.md](doc/web.md).
+
 The IRIs of each of the resources in DanNet resolve to actual HTML pages with content relating to the resource at the IRI. The frontend is built using [Rum](https://github.com/tonsky/rum) and is served by [Pedestal](https://github.com/pedestal/pedestal) in the backend. If JavaScript is turned on, the initial HTML page becomes the entrypoint of a single-page app. If JavaScript is unavailable, this web app converts to a regular HTML website with some animations and the more dynamic features disabled.
 
 ### Architecture
