@@ -9,9 +9,34 @@
 }
 
 @keyframes clear-up {
-  0% {filter: blur(12px);}
+  0% {filter: blur(2px);}
   100% {filter: none;}
 }
+
+@keyframes fall-down {
+  0% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 16px 8px rgba(0,0,0,0.5));
+    }
+  100% {}
+}
+
+@keyframes slide-left {
+  0% {transform: translateX(12px);}
+  100% {}
+}
+
+@keyframes slide-down {
+  0% {transform: translateY(-6px);}
+  100% {}
+}
+
+@keyframes glow {
+  0% {filter: hue-rotate(30deg);}
+  100% {}
+}
+
+
 
 html {
     padding: 0;
@@ -19,8 +44,7 @@ html {
 
 body {
     animation:
-        fade-in 0.33s ease-in,
-        clear-up 0.66s ease;
+        fade-in 0.33s ease-in;
     display: grid;
     place-items: center;
     background: #DDD;
@@ -85,6 +109,7 @@ a:hover {
 
 }
 table {
+   /* animation: fall-down 0.33s ease, fade-in 0.33s ease; */
     width: 100%;
     max-width: 100%;
 
@@ -146,6 +171,10 @@ span.unknown {
     display: inline-block; /* nullifies text-decoration: underline */
 }
 
+h2 {
+    animation: clear-up 0.33s ease;
+}
+
 h1 {
     font-size: 36px;
     font-weight: normal;
@@ -161,8 +190,12 @@ h1 span[lang]::after {
     margin-right: -4px;
 }
 
+h1 span {
+    animation: clear-up 0.33s ease;
+}
+
 h1 span.prefix {
-    transition: background 0.66s;
+    transition: background 0.33s;
     background: grey;
     margin-right: 8px;
     padding: 4px 8px;
@@ -195,6 +228,7 @@ header {
 }
 
 header p {
+    animation: clear-up 0.33s ease;
     font-size: 14px;
     font-style: italic;
     color: #999;
@@ -202,6 +236,7 @@ header p {
 }
 
 header p > em {
+    animation: clear-up 0.33s ease;
     color: #333;
 }
 
@@ -209,7 +244,7 @@ table {
     font-size: 16px;
     border-collapse: collapse;
     border: 1px solid #AAA;
-    box-shadow: 0 0 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 12px rgba(0,0,0,0.3);
 }
 
 table table {
@@ -227,7 +262,15 @@ td.prefix + td {
     padding-left: 0;
 }
 
+h1, h2 {
+    filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
+}
+
+
 td {
+    animation:
+        slide-down 0.33s ease,
+        fade-in 0.33s ease;
     padding: 16px;
     vertical-align: top;
 }
@@ -247,7 +290,6 @@ td:nth-child(3) ol > li > .prefix,
 td:nth-child(3) ol > li > span > .prefix {
     display: none;
 }
-
 
 tr:nth-child(odd), tr tr:nth-child(even) {
     background: white;

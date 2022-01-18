@@ -102,8 +102,9 @@
       [:meta {:name    "viewport"
               :content "width=device-width, initial-scale=1.0"}]
       [:link {:rel "stylesheet" :href "/css/main.css"}]
+      ;; TODO: make this much more clean
       ;; Disable animation when JS is unavailable, otherwise much too frequent!
-      [:noscript [:style {:type "text/css"} "body { animation: none; }"]]]
+      [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]]
      [:body
       [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
       [:footer {:lang "en"}

@@ -232,34 +232,35 @@
          (cond
            (= 1 (count v))
            (let [v* (first v)]
-             (html-table-cell opts (if (symbol? v*)
-                                     (meta v*)
-                                     v*)))
+             (rum/with-key (html-table-cell opts (if (symbol? v*)
+                                                   (meta v*)
+                                                   v*))
+                           v))
 
            (or (instance? LangStr (first v))
                (string? (first v)))
            (let [s (i18n/select-str languages v)]
              (if (coll? s)
-               [:td
+               [:td {:key v}
                 [:ol
                  (for [s* (sort-by str s)]
                    [:li {:key  s*
                          :lang (i18n/lang s*)}
                     (str-transformation s*)])]]
-               [:td {:lang (i18n/lang s)} (str-transformation s)]))
+               [:td {:lang (i18n/lang s) :key v} (str-transformation s)]))
 
            ;; TODO: use sublist for identical labels
            :else
            (list-cell opts v))
 
          (keyword? v)
-         (html-table-cell opts v)
+         (rum/with-key (html-table-cell opts v) v)
 
          (symbol? v)
-         (html-table-cell opts (meta v))
+         (rum/with-key (html-table-cell opts (meta v)) v)
 
          :else
-         [:td {:lang (i18n/lang v)} (str-transformation v)])])]])
+         [:td {:lang (i18n/lang v) :key v} (str-transformation v)])])]])
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
@@ -281,13 +282,15 @@
         prefix     (symbol (namespace subject))
         label      (i18n/select-label languages (:rdfs/label entity))]
     [:article
-     [:header [:h1
-               (prefix-elem prefix)
-               [:span {:title local-name
-                       :lang  (i18n/lang label)}
-                (str (or label local-name))]]
+     [:header
+      [:h1
+       (rum/with-key (prefix-elem prefix) prefix)
+       [:span {:title local-name
+               :key   subject
+               :lang  (i18n/lang label)}
+        (str (or label local-name))]]
       (when-let [uri (prefix/prefix->uri prefix)]
-        [:p uri [:em local-name]])]
+        [:p {:key uri} uri [:em {:key local-name} local-name]])]
      (for [[title ks] sections]
        (when-let [subentity (ordered-subentity opts ks entity)]
          (if title

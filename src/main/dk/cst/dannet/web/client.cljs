@@ -70,10 +70,10 @@
   (let [already-visited @visited-urls
         refresh-page?   (-> already-visited meta :refresh-page?)]
     (if refresh-page?                                       ; hyperlink clicks
-      (js/window.scrollTo #js {:top 0 :behavior "smooth"})
+      (js/window.scrollTo #js {:top 0})
       (when (not (already-visited url))
         (when (not-empty already-visited)                   ; hard refreshes
-          (js/window.scrollTo #js {:top 0 :behavior "smooth"}))
+          (js/window.scrollTo #js {:top 0}))
         (swap! visited-urls conj url)))
     (swap! visited-urls vary-meta dissoc :refresh-page?)))
 
