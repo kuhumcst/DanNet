@@ -15,7 +15,6 @@
 
 html {
     padding: 0;
-    background: #DDD;
 }
 
 body {
@@ -24,7 +23,7 @@ body {
         clear-up 0.66s ease;
     display: grid;
     place-items: center;
-    height: 100vh;
+    background: #DDD;
     margin: 0;
     color: #333;
     font-family: Georgia, serif;
@@ -163,7 +162,7 @@ h1 span[lang]::after {
 }
 
 h1 span.prefix {
-    transition: background 0.5s;
+    transition: background 0.66s;
     background: grey;
     margin-right: 8px;
     padding: 4px 8px;

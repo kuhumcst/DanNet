@@ -124,6 +124,7 @@
 
 (def content-type->body-fn
   {"text/plain"
+   ;; TODO: make generic
    (fn [& {:keys [data]}]
      (ascii-table data))
 
