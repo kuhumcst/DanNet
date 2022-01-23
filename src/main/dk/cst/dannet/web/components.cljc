@@ -318,8 +318,8 @@
                  query-str (-> (.. e -target -elements)
                                (form-elements->query-params)
                                (uri/map->query-string))
-                 url       (str action (when query-str)
-                                (str "?" query-str))]
+                 url       (str action (when query-str
+                                         (str "?" query-str)))]
              (.preventDefault e)
              (navigate-to url))))
 
