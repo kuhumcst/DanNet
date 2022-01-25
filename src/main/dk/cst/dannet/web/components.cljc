@@ -363,3 +363,7 @@
 (def data->page
   "Get the page referenced in the page data's metadata."
   (comp pages :page meta))
+
+;; TODO: eventually support LangStr for titles too
+(def data->title
+  (comp :title meta))

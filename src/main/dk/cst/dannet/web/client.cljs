@@ -87,20 +87,24 @@
     (swap! visited-urls vary-meta assoc :refresh-page? true)
     true))
 
+(defn on-navigate
+  [{:keys [path query-params] :as m}]
+  (p/then (fetch path {:query-params query-params})
+          #(let [data           (:body %)
+                 page-component (com/data->page data)
+                 page-title     (com/data->title data)]
+             (set! js/document.title page-title)
+             (reset! location {:path path
+                               :data data})
+             (update-scroll-state! (response->url %))
+             (rum/mount (page-component data) app))))
+
 (defn set-up-navigation!
   []
-  (rfe/start!
-    (rf/router routes)
-    (fn [{:keys [path query-params] :as m}]
-      (p/then (fetch path {:query-params query-params})
-              #(let [data           (:body %)
-                     page-component (com/data->page data)]
-                 (reset! location {:path path
-                                   :data data})
-                 (update-scroll-state! (response->url %))
-                 (rum/mount (page-component data) app))))
-    {:use-fragment         false
-     :ignore-anchor-click? ignore-anchor-click?}))
+  (rfe/start! (rf/router routes)
+              on-navigate
+              {:use-fragment         false
+               :ignore-anchor-click? ignore-anchor-click?}))
 
 (defn ^:dev/after-load render
   []

@@ -134,8 +134,8 @@
      (pr-str data))
 
    "application/transit+json"
-   (fn [& {:keys [data page]}]
-     (to/write-str (vary-meta data assoc :page page)
+   (fn [& {:keys [data page title]}]
+     (to/write-str (vary-meta data assoc :page page :title title)
                    {:handlers {LangStr (t/write-handler "lstr" lstr->s)}}))
 
    "text/html"
