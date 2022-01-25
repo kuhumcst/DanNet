@@ -131,14 +131,17 @@
        "."])
     (str s)))
 
-(declare html-table)
+(declare attr-val-table)
 
-(rum/defc html-table-cell
+(rum/defc val-cell
+  "A table cell of an 'attr-val-table' which contains a single `v`. The single
+  value can either be a literal or an inlined table (i.e. a blank RDF node)."
   [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
     (if (empty? (name v))
       (let [prefix (symbol (namespace v))]
+        ;; TODO: what is going on here???
         (or [:td (prefix/prefix->uri prefix)]
             [:td [:span.prefix {:class (prefix->css-class prefix)} prefix]]))
       [:td
@@ -147,7 +150,7 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td (html-table opts v)]
+    [:td (attr-val-table opts v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -165,7 +168,8 @@
     (let [k (if (map-entry? item) (first item) item)]
       [(str (i18n/select-label languages (get k->label k))) item])))
 
-(rum/defc list-item
+(rum/defc val-list-item
+  "A list item element of a 'val-list-cell'."
   [{:keys [languages k->label] :as opts} item]
   (cond
     (keyword? item)
@@ -180,44 +184,46 @@
     ;; be entirely garbage temp data, e.g. check out
     ;; http://0.0.0.0:8080/dannet/2022/external/ontolex/LexicalSense
     (symbol? item)
-    nil #_[:li (html-table opts (meta item))]
+    nil #_[:li (attr-val-table opts (meta item))]
 
     :else
     [:li {:lang (i18n/lang item)}
      (str-transformation item)]))
 
-(rum/defc list-cell
+(rum/defc val-list-cell
+  "A table cell of an 'attr-val-table' that contains multiple values in `coll`."
   [{:keys [languages k->label] :as opts} coll]
-  (let [amount (count coll)
-        lis    (for [item (sort-by (sort-keyfn opts) coll)]
-                 (list-item opts item))]
+  (let [amount     (count coll)
+        list-items (for [item (sort-by (sort-keyfn opts) coll)]
+                     (val-list-item opts item))]
     [:td
      (cond
        (<= amount 5)
-       [:ol lis]
+       [:ol list-items]
 
        (< amount 100)
        [:details [:summary ""]
-        [:ol lis]]
+        [:ol list-items]]
 
        (< amount 1000)
        [:details [:summary ""]
-        [:ol.three-digits lis]]
+        [:ol.three-digits list-items]]
 
        (< amount 10000)
        [:details [:summary ""]
-        [:ol.four-digits lis]]
+        [:ol.four-digits list-items]]
 
        :else
        [:details [:summary ""]
-        [:ol.five-digits lis]])]))
+        [:ol.five-digits list-items]])]))
 
-(rum/defc html-table
+(rum/defc attr-val-table
+  "A table which lists attributes and corresponding values of an RDF resource."
   [{:keys [languages k->label] :as opts} subentity]
-  [:table
+  [:table {:class "attr-val"}
    [:colgroup
-    [:col]
-    [:col]
+    [:col]                                                  ; attr prefix
+    [:col]                                                  ; attr local name
     [:col]]
    [:tbody
     (for [[k v] subentity
@@ -225,20 +231,21 @@
                          (symbol (namespace k))
                          k)]]
       [:tr {:key k}
-       [:td.prefix (prefix-elem prefix)]
-       [:td (anchor-elem k (i18n/select-label languages (get k->label k)))]
+       [:td.attr-prefix (prefix-elem prefix)]
+       [:td.attr-name (->> (get k->label k)
+                           (i18n/select-label languages)
+                           (anchor-elem k))]
        (cond
          (set? v)
          (cond
            (= 1 (count v))
            (let [v* (first v)]
-             (rum/with-key (html-table-cell opts (if (symbol? v*)
-                                                   (meta v*)
-                                                   v*))
+             (rum/with-key (val-cell opts (if (symbol? v*)
+                                            (meta v*)
+                                            v*))
                            v))
 
-           (or (instance? LangStr (first v))
-               (string? (first v)))
+           (every? i18n/rdf-string? v)
            (let [s (i18n/select-str languages v)]
              (if (coll? s)
                [:td {:key v}
@@ -251,13 +258,13 @@
 
            ;; TODO: use sublist for identical labels
            :else
-           (list-cell opts v))
+           (val-list-cell opts v))
 
          (keyword? v)
-         (rum/with-key (html-table-cell opts v) v)
+         (rum/with-key (val-cell opts v) v)
 
          (symbol? v)
-         (rum/with-key (html-table-cell opts (meta v)) v)
+         (rum/with-key (val-cell opts (meta v)) v)
 
          :else
          [:td {:lang (i18n/lang v) :key v} (str-transformation v)])])]])
@@ -296,8 +303,8 @@
          (if title
            [:<> {:key (str ks)}
             [:h2 title]
-            (html-table opts subentity)]
-           (rum/with-key (html-table opts subentity) (str ks)))))]))
+            (attr-val-table opts subentity)]
+           (rum/with-key (attr-val-table opts subentity) (str ks)))))]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
@@ -343,14 +350,16 @@
      [:article
       (for [[k entity] search-results]
         (let [{:keys [k->label]} (meta entity)]
-          (rum/with-key (html-table {:languages languages
-                                     :k->label  k->label}
-                                    entity)
+          (rum/with-key (attr-val-table {:languages languages
+                                         :k->label  k->label}
+                                        entity)
                         k)))])])
 
 (def pages
+  "Mapping from page data metadata :page key to the relevant Rum component."
   {:entity entity-page
    :search search-page})
 
 (def data->page
+  "Get the page referenced in the page data's metadata."
   (comp pages :page meta))

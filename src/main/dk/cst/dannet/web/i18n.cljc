@@ -4,6 +4,10 @@
      :cljs (:require [ont-app.vocabulary.lstr :as lstr :refer [LangStr]]))
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
+(def rdf-string?
+  "Tests whether the input is an RDF string value."
+  (some-fn string? #(instance? LangStr %)))
+
 (defn lang
   "Return the language abbreviation of `s` if available or nil if not."
   [s]

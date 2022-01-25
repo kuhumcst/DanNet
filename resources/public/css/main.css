@@ -275,19 +275,19 @@ td {
     vertical-align: top;
 }
 
-td:nth-child(2) {
+td.attr-prefix {
     padding-right: 8px;
 }
 
-td:nth-child(3) {
+td:last-child {
     padding-left: 8px;
 }
 
 /* Hide prefixes in objects by default */
-td:nth-child(3) > .prefix,
-td:nth-child(3) > span > .prefix,
-td:nth-child(3) ol > li > .prefix,
-td:nth-child(3) ol > li > span > .prefix {
+td:last-child > .prefix,
+td:last-child > span > .prefix,
+td:last-child ol > li > .prefix,
+td:last-child ol > li > span > .prefix {
     display: none;
 }
 
