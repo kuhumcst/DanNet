@@ -134,8 +134,8 @@
 (declare attr-val-table)
 
 (rum/defc val-cell
-  "A table cell of an 'attr-val-table' which contains a single `v`. The single
-  value can either be a literal or an inlined table (i.e. a blank RDF node)."
+  "A table cell of an 'attr-val-table' containing a single `v`. The single value
+  can either be a literal or an inlined table (i.e. a blank RDF node)."
   [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
@@ -163,8 +163,8 @@
     (let [k (if (map-entry? item) (first item) item)]
       [(str (i18n/select-label languages (get k->label k))) item])))
 
-(rum/defc val-list-item
-  "A list item element of a 'val-list-cell'."
+(rum/defc list-item
+  "A list item element of a 'list-cell'."
   [{:keys [languages k->label] :as opts} item]
   (cond
     (keyword? item)
@@ -185,12 +185,12 @@
     [:li {:lang (i18n/lang item)}
      (str-transformation item)]))
 
-(rum/defc val-list-cell
-  "A table cell of an 'attr-val-table' that contains multiple values in `coll`."
-  [{:keys [languages k->label] :as opts} coll]
+(rum/defc list-cell
+  "A table cell of an 'attr-val-table' containing multiple values in `coll`."
+  [opts coll]
   (let [amount     (count coll)
         list-items (for [item (sort-by (sort-keyfn opts) coll)]
-                     (val-list-item opts item))]
+                     (list-item opts item))]
     [:td
      (cond
        (<= amount 5)
@@ -211,6 +211,19 @@
        :else
        [:details [:summary ""]
         [:ol.five-digits list-items]])]))
+
+(rum/defc str-list-cell
+  "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
+  [{:keys [languages] :as opts} coll]
+  (let [s (i18n/select-str languages coll)]
+    (if (coll? s)
+      [:td {:key coll}
+       [:ol
+        (for [s* (sort-by str s)]
+          [:li {:key  s*
+                :lang (i18n/lang s*)}
+           (str-transformation s*)])]]
+      [:td {:lang (i18n/lang s) :key coll} (str-transformation s)])))
 
 (rum/defc attr-val-table
   "A table which lists attributes and corresponding values of an RDF resource."
@@ -241,19 +254,11 @@
                            v))
 
            (every? i18n/rdf-string? v)
-           (let [s (i18n/select-str languages v)]
-             (if (coll? s)
-               [:td {:key v}
-                [:ol
-                 (for [s* (sort-by str s)]
-                   [:li {:key  s*
-                         :lang (i18n/lang s*)}
-                    (str-transformation s*)])]]
-               [:td {:lang (i18n/lang s) :key v} (str-transformation s)]))
+           (str-list-cell opts v)
 
            ;; TODO: use sublist for identical labels
            :else
-           (val-list-cell opts v))
+           (list-cell opts v))
 
          (keyword? v)
          (rum/with-key (val-cell opts v) v)
@@ -267,7 +272,7 @@
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
   order it according to the labels of the preferred languages."
-  [{:keys [languages k->label] :as opts} ks entity]
+  [opts ks entity]
   (not-empty
     (into (fop/ordered-map)
           (if (coll? ks)
@@ -279,7 +284,7 @@
                      (filter ks entity))))))
 
 (rum/defc entity-page
-  [{:keys [languages k->label subject entity] :as opts}]
+  [{:keys [languages subject entity] :as opts}]
   (let [local-name (name subject)
         prefix     (symbol (namespace subject))
         label      (i18n/select-label languages (:rdfs/label entity))]
