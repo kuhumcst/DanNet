@@ -291,20 +291,22 @@
     [:article
      [:header
       [:h1
-       (rum/with-key (prefix-elem prefix) prefix)
+       (prefix-elem prefix)
        [:span {:title local-name
                :key   subject
                :lang  (i18n/lang label)}
         (str (or label local-name))]]
-      (when-let [uri (prefix/prefix->uri prefix)]
-        [:p {:key uri} uri [:em {:key local-name} local-name]])]
+      (when-let [uri-prefix (prefix/prefix->uri prefix)]
+        [:div.rdf-uri
+         [:span.rdf-uri__prefix {:key uri-prefix} uri-prefix]
+         [:span.rdf-uri__name {:key local-name} local-name]])]
      (for [[title ks] sections]
        (when-let [subentity (ordered-subentity opts ks entity)]
          (if title
-           [:<> {:key (str ks)}
+           [:<> {:key title}
             [:h2 title]
             (attr-val-table opts subentity)]
-           (rum/with-key (attr-val-table opts subentity) (str ks)))))]))
+           (rum/with-key (attr-val-table opts subentity) :no-title))))]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."

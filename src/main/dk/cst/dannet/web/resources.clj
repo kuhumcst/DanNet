@@ -108,6 +108,7 @@
      [:body
       [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
       [:footer {:lang "en"}
+       [:hr]
        [:p
         "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
                    "Centre for Language Technology"]

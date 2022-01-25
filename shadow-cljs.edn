@@ -1,4 +1,4 @@
-{:deps     {:aliases [:frontend :backend :test]}
+{:deps     {:aliases [:frontend :backend :test :devtools]}
  :dev-http {7777 {:root    "resources/public"
                   :handler dk.cst.dannet.web.resources/shadow-handler}}
  :builds   {:app  {:target            :browser

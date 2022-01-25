@@ -15,14 +15,14 @@
            ;; Fixes Java 9+ module error present in aristotle (or one of its dependencies).
            ;; https://github.com/bhauman/lein-figwheel/issues/612#issuecomment-455802580
            javax.xml.bind/jaxb-api          {:mvn/version "2.4.0-b180830.0359"}}
- :aliases {:backend    {:extra-deps {io.pedestal/pedestal.service  {:mvn/version "0.5.9"}
-                                     io.pedestal/pedestal.route    {:mvn/version "0.5.9"}
-                                     io.pedestal/pedestal.jetty    {:mvn/version "0.5.9"}
-                                     ring/ring-core                {:mvn/version "1.9.4"}
+ :aliases {:backend    {:extra-deps {io.pedestal/pedestal.service {:mvn/version "0.5.9"}
+                                     io.pedestal/pedestal.route   {:mvn/version "0.5.9"}
+                                     io.pedestal/pedestal.jetty   {:mvn/version "0.5.9"}
+                                     ring/ring-core               {:mvn/version "1.9.4"}
                                      #_#_com.owoga/tightly-packed-trie {:mvn/version "0.2.3"}
-                                     org.slf4j/slf4j-simple        {:mvn/version "1.7.32"}
-                                     com.wsscode/transito          {:mvn/version "2021.07.04"}
-                                     rum/rum                       {:mvn/version "0.12.8"}}}
+                                     org.slf4j/slf4j-simple       {:mvn/version "1.7.32"}
+                                     com.wsscode/transito         {:mvn/version "2021.07.04"}
+                                     rum/rum                      {:mvn/version "0.12.8"}}}
            :frontend   {:extra-deps {org.clojure/clojurescript                       {:mvn/version "1.10.914"}
                                      thheller/shadow-cljs                            {:mvn/version "2.16.12"}
                                      com.google.javascript/closure-compiler-unshaded {:mvn/version "v20211006"}
@@ -30,6 +30,7 @@
                                      reagent/reagent                                 {:mvn/version "1.1.0"}
                                      lambdaisland/fetch                              {:mvn/version "1.0.41"}
                                      kitchen-async/kitchen-async                     {:mvn/version "0.1.0-SNAPSHOT"}}}
+           :devtools   {:extra-deps {binaryage/devtools {:mvn/version "1.0.4"}}}
            :prototypes {:extra-paths ["src/prototypes"]
                         :extra-deps  {gorillalabs/neo4j-clj {:mvn/version "4.1.0"}
                                       clj-http              {:mvn/version "3.10.3"}

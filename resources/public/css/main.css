@@ -15,7 +15,7 @@
 
 @keyframes fall-down {
   0% {
-    transform: scale(1.05);
+    transform: scale(1.1);
     filter: drop-shadow(0 16px 8px rgba(0,0,0,0.5));
     }
   100% {}
@@ -23,6 +23,11 @@
 
 @keyframes slide-left {
   0% {transform: translateX(12px);}
+  100% {}
+}
+
+@keyframes slide-right {
+  0% {transform: translateX(-12px);}
   100% {}
 }
 
@@ -43,15 +48,25 @@ html {
 }
 
 body {
-    animation:
-        fade-in 0.33s ease-in;
-    display: grid;
-    place-items: center;
+    animation: fade-in 0.33s ease-in;
+
+    /* Center content & footer horizontally. */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
     background: #DDD;
     margin: 0;
     color: #333;
     font-family: Georgia, serif;
     letter-spacing: 0.2ch;
+}
+
+div#app {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
 }
 
 section.search table + table {
@@ -75,7 +90,7 @@ section.search form input + input {
 /* TODO: should probably be main? */
 article {
     padding: 24px;
-    max-width: 110ch;
+    width: 100ch;
 }
 
 header, footer {
@@ -84,8 +99,12 @@ header, footer {
 
 /* TODO: fix weird positioning on small pages */
 footer {
-    margin-top: 48px;
-    padding-bottom: 48px;
+    margin-top: 24px;
+    padding-bottom: 24px;
+}
+
+footer hr {
+    display: none;
 }
 
 footer p {
@@ -112,11 +131,10 @@ table {
    /* animation: fall-down 0.33s ease, fade-in 0.33s ease; */
     width: 100%;
     max-width: 100%;
-
 }
 
 col:last-of-type {
-    width: 80ch;
+    width: 70ch;
 }
 
 table span.prefix {
@@ -171,8 +189,12 @@ span.unknown {
     display: inline-block; /* nullifies text-decoration: underline */
 }
 
-h2 {
-    animation: clear-up 0.33s ease;
+td,
+h1 span,
+h2,
+header .rdf-uri__prefix,
+header .rdf-uri__name {
+    animation: clear-up 0.33s;
 }
 
 h1 {
@@ -190,12 +212,8 @@ h1 span[lang]::after {
     margin-right: -4px;
 }
 
-h1 span {
-    animation: clear-up 0.33s ease;
-}
-
 h1 span.prefix {
-    transition: background 0.33s;
+    transition: background 0.66s;
     background: grey;
     margin-right: 8px;
     padding: 4px 8px;
@@ -227,16 +245,17 @@ header {
     word-break: break-all; /* fixes long labels/URIs breaking the layout */
 }
 
-header p {
-    animation: clear-up 0.33s ease;
+header > .rdf-uri {
     font-size: 14px;
     font-style: italic;
-    color: #999;
     margin: -24px 0 24px 0;
 }
 
-header p > em {
-    animation: clear-up 0.33s ease;
+header > .rdf-uri .rdf-uri__prefix {
+    color: #999;
+}
+
+header > .rdf-uri .rdf-uri__name {
     color: #333;
 }
 
@@ -268,15 +287,18 @@ h1, h2 {
 
 
 td {
-    animation:
-        slide-down 0.33s ease,
-        fade-in 0.33s ease;
     padding: 16px;
     vertical-align: top;
 }
 
 td.attr-prefix {
-    padding-right: 8px;
+    padding-right: 0;
+    text-align: right;
+    width: 1px;
+}
+
+td.attr-name {
+    padding-left: 0;
 }
 
 td:last-child {
