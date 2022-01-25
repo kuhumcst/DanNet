@@ -139,14 +139,9 @@
   [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
-    (if (empty? (name v))
-      (let [prefix (symbol (namespace v))]
-        ;; TODO: what is going on here???
-        (or [:td (prefix/prefix->uri prefix)]
-            [:td [:span.prefix {:class (prefix->css-class prefix)} prefix]]))
-      [:td
-       (prefix-elem (symbol (namespace v)))
-       (anchor-elem v (i18n/select-label languages (get k->label v)))])
+    [:td
+     (prefix-elem (symbol (namespace v)))
+     (anchor-elem v (i18n/select-label languages (get k->label v)))]
 
     ;; Display blank resources as inlined tables.
     (map? v)
