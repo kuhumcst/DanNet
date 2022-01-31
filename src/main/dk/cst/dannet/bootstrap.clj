@@ -80,8 +80,8 @@
    "has_mero_madeof"     :wn/mero_substance
    "has_mero_member"     :wn/mero_member
    "has_mero_part"       :wn/mero_part
-   "involved_agent"      :wn/co_agent_instrument            ; TODO: feels awkward, due to prior inheritance?
-   "involved_instrument" :wn/co_instrument_agent            ; TODO: feels awkward, due to prior inheritance?
+   "involved_agent"      :wn/co_instrument_agent
+   "involved_instrument" :wn/co_agent_instrument
    "involved_patient"    :wn/involved_patient
    "made_by"             :wn/result
    "near_synonym"        :wn/similar
