@@ -4,6 +4,33 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
+:usedFor a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "A lexical concept which the subject concept may be used for; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:label "used for"@en ;
+  rdfs:label "brugt til"@da ;
+  owl:inverseOf :usedForObject .
+
+:usedForObject a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "A lexical concept which makes the usage denoted by the subject concept possible; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:comment "Et leksikalsk begreb som gør brugen, der er betegnet af subjekt-begrebet, mulig; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:label "made possible by"@en ;
+  rdfs:label "muliggjort af"@da ;
+  owl:inverseOf :usedFor .
+
+:nearAntonym a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "A lexical concept which is a near antonym of the subject concept; see: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
+  rdfs:comment "Et leksikalsk begreb som er et nær-antonym af subjekt-begrebet; se: <https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:label "near antonym"@en ;
+  rdfs:label "nær-antonym"@da ;
+  owl:inverseOf :nearAntonym .
+
 :orthogonalHypernym a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;

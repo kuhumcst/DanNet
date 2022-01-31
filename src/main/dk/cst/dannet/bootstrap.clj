@@ -66,8 +66,8 @@
 ;; @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 (def gwa-rel
   {"concerns"            :wn/also                           ; TODO: ask GWA to rename to concerns/associated?
-   "used_for"            :wn/instrument                     ; TODO: make used_for (a more generic relation)
-   "used_for_object"     :wn/involved_instrument            ; TODO: make used_for (a more generic relation)
+   "used_for"            :dns/usedFor
+   "used_for_object"     :dns/usedForObject
    "has_holonym"         :wn/holonym
    "has_holo_location"   :wn/holo_location
    "has_holo_madeof"     :wn/holo_substance
@@ -85,7 +85,7 @@
    "involved_patient"    :wn/involved_patient
    "made_by"             :wn/result
    "near_synonym"        :wn/similar
-   "near_antonym"        :wn/antonym                        ; TODO: make near_antonym relation
+   "near_antonym"        :dns/nearAntonym
    "role_agent"          :wn/agent
    "role_patient"        :wn/patient
    "domain"              :wn/has_domain_topic

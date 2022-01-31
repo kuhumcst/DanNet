@@ -49,7 +49,10 @@
                            :ontolex/isLexicalizedSenseOf
                            :lexinfo/senseExample]]
    ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
-                                 (comp #{:dns/orthogonalHyponym
+                                 (comp #{:dns/usedFor
+                                         :dns/usedForObject
+                                         :dns/nearAntonym
+                                         :dns/orthogonalHyponym
                                          :dns/orthogonalHypernym} first))]])
 
 (def sections
