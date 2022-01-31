@@ -65,9 +65,9 @@
 ;; https://github.com/globalwordnet/schemas/blob/master/wn-lemon-1.1.rdf
 ;; @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 (def gwa-rel
-  {"concerns"            :wn/also
-   "used_for"            :wn/instrument
-   "used_for_object"     :wn/involved_instrument
+  {"concerns"            :wn/also                           ; TODO: ask GWA to rename to concerns/associated?
+   "used_for"            :wn/instrument                     ; TODO: make used_for (a more generic relation)
+   "used_for_object"     :wn/involved_instrument            ; TODO: make used_for (a more generic relation)
    "has_holonym"         :wn/holonym
    "has_holo_location"   :wn/holo_location
    "has_holo_madeof"     :wn/holo_substance
@@ -80,12 +80,12 @@
    "has_mero_madeof"     :wn/mero_substance
    "has_mero_member"     :wn/mero_member
    "has_mero_part"       :wn/mero_part
-   "involved_agent"      :wn/co_agent_instrument
-   "involved_instrument" :wn/co_instrument_agent
+   "involved_agent"      :wn/co_agent_instrument            ; TODO: feels awkward, due to prior inheritance?
+   "involved_instrument" :wn/co_instrument_agent            ; TODO: feels awkward, due to prior inheritance?
    "involved_patient"    :wn/involved_patient
    "made_by"             :wn/result
    "near_synonym"        :wn/similar
-   "near_antonym"        :wn/antonym
+   "near_antonym"        :wn/antonym                        ; TODO: make near_antonym relation
    "role_agent"          :wn/agent
    "role_patient"        :wn/patient
    "domain"              :wn/has_domain_topic
