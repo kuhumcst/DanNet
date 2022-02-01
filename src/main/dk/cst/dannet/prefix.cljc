@@ -5,7 +5,7 @@
             [clojure.string :as str]))
 
 (def dannet-root
-  "http://www.wordnet.dk/dannet/2022/")
+  "http://www.wordnet.dk/dannet/")
 
 (def schemas
   {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
@@ -23,8 +23,22 @@
              :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
    'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"
              :alt "schemas/lexinfo-3.0.owl"}
-   'dn      {:uri          (str dannet-root "instances/")
-             :instance-ns? true}
+
+   ;; Metadata-related namespaces.
+   'dcat    {:uri "http://www.w3.org/ns/dcat#"
+             :alt "schemas/dcat2.ttl"}
+   'cc      {:uri "https://creativecommons.org/ns#"
+             :alt "schemas/cc.rdf"}
+   'vann    {:uri "http://purl.org/vocab/vann/"
+             :alt "schemas/vann.ttl"}
+   'foaf    {:uri "http://xmlns.com/foaf/0.1/"
+             :alt "schemas/foaf.rdf"}
+   'dct     {:uri "http://purl.org/dc/terms/"
+             :alt "schemas/dublin_core_terms.ttl"}
+
+   ;; The three internal DanNet namespaces.
+   'dn      {:uri     (str dannet-root "data/")
+             :schema? false}
    'dnc     {:uri (str dannet-root "concepts/")
              :alt "schemas/dannet-concepts-2022.ttl"}
    'dns     {:uri (str dannet-root "schema/")

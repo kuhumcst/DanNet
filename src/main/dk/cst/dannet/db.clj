@@ -21,8 +21,8 @@
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
-  (->> (for [{:keys [alt uri instance-ns?]} (vals prefix/schemas)]
-         (when-not instance-ns?
+  (->> (for [{:keys [alt uri schema?]} (vals prefix/schemas)]
+         (when-not (false? schema?)
            (if alt
              (if (or (str/starts-with? alt "http://")
                      (str/starts-with? alt "https://"))
