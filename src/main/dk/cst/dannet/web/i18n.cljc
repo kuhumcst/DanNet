@@ -18,7 +18,7 @@
   "Select a single label from set of labels `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is."
   [languages x]
-  (if (set? x)
+  (if (coll? x)
     (let [lang->s (into {} (map (juxt lang identity) x))]
       (or (loop [[head & tail] languages]
             (when head
@@ -35,7 +35,7 @@
   This function differs from 'select-label' by allowing for multiple strings
   to be returned instead of just one."
   [languages x]
-  (if (set? x)
+  (if (coll? x)
     (let [lang->strs (group-by lang x)
           ret        (loop [[head & tail] languages]
                        (when head

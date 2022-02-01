@@ -15,6 +15,7 @@
       res/search-route
       #_res/autocomplete-route
       res/external-entity-route
+      res/unknown-external-entity-route
 
       (res/prefix->dataset-entity-route 'dn)
 

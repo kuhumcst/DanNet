@@ -22,7 +22,7 @@
 
 ;; TODO: add the others as contributors too
 (def <simongray>
-  (prefix/rdf-resource "http://simongray.dk"))
+  (prefix/uri->rdf-resource "http://simongray.dk"))
 
 ;; TODO: add more, perhaps from dcat? rdf type indicating dataset?
 (def metadata-triples
@@ -49,7 +49,7 @@
     [<dn> :dcat/downloadURL (-> (prefix/prefix->uri 'dn)
                                 (prefix/remove-trailing-slash)
                                 (str ".ttl")
-                                (prefix/rdf-resource))]})
+                                (prefix/uri->rdf-resource))]})
 
 (defn synset-uri
   [id]

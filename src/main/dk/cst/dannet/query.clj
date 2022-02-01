@@ -142,19 +142,21 @@
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
-  (when-let [xe (-> (run g [:conditional
-                            [:conditional
-                             [:bgp [subject '?p '?o]]
-                             [:bgp ['?p :rdfs/label '?pl]]]
-                            [:bgp ['?o :rdfs/label '?ol]]])
-                    #_(only-uris))]
-    (let [e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
-                 (apply merge-with (set-nav-merge g))
-                 (attach-blank-entities g subject))]
-      (with-meta e (assoc (nav-meta g)
-                     :k->label (entity-label-mapping xe)
-                     ;; TODO: is it necessary to attach subject?
-                     :subject subject)))))
+  (let [xe (-> (run g [:conditional
+                       [:conditional
+                        [:bgp [subject '?p '?o]]
+                        [:bgp ['?p :rdfs/label '?pl]]]
+                       [:bgp ['?o :rdfs/label '?ol]]])
+               #_(only-uris))
+        e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
+               (apply merge-with (set-nav-merge g))
+               (attach-blank-entities g subject))]
+      (if e
+        (with-meta e (assoc (nav-meta g)
+                       :k->label (entity-label-mapping xe)
+                       ;; TODO: is it necessary to attach subject?
+                       :subject subject))
+        (with-meta {} {:subject subject}))))
 
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.

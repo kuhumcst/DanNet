@@ -116,7 +116,9 @@
     (symbol? prefix)
     [:span.prefix {:title (prefix/prefix->uri prefix)
                    :class (prefix->css-class prefix)}
-     (str prefix (when-not no-local-name? ":"))]
+     (if no-local-name?
+       (str prefix)
+       (str prefix ":"))]
 
     (string? prefix)
     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
@@ -129,13 +131,24 @@
 (def rdf-resource-re
   #"^<(.+)>$")
 
+(defn rdf-resource-path
+  [rdf-resource]
+  (str prefix/external-path "?subject=" rdf-resource))
+
+(rum/defc rdf-uri-hyperlink
+  [uri]
+  [:a.rdf-uri {:href (if (str/starts-with? uri prefix/dannet-root)
+                       (prefix/uri->path uri)
+                       (rdf-resource-path (prefix/uri->rdf-resource uri)))}
+   uri])
+
 ;; For instance, synset-2128 {ambulance} has 6 inherited relations.
 (defn str-transformation
   "Performs convenient transformations of `s`."
   [s]
   (let [s (str s)
-        [_ qname synset-id label :as inherit] (re-find inherit-re s)
-        [_ uri :as resource] (re-find rdf-resource-re s)]
+        [inherit qname synset-id label] (re-find inherit-re s)
+        [rdf-resource uri] (re-find rdf-resource-re s)]
     (cond
       inherit
       (let [[prefix rel] (str/split qname #":")]
@@ -148,8 +161,8 @@
          (anchor-elem (keyword "dn" synset-id) label)
          "."])
 
-      resource
-      [:span.rdf-uri [:a {:href uri} uri]]
+      rdf-resource
+      (rdf-uri-hyperlink uri)
 
       :else s)))
 
@@ -161,9 +174,13 @@
   [{:keys [languages k->label] :as opts} v]
   (cond
     (keyword? v)
-    [:td
-     (prefix-elem (symbol (namespace v)))
-     (anchor-elem v (i18n/select-label languages (get k->label v)))]
+    (if (empty? (name v))
+      ;; Handle cases such as :rdfs/ which have been keywordised by Aristotle.
+      [:td
+       (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri))]
+      [:td
+       (prefix-elem (symbol (namespace v)))
+       (anchor-elem v (i18n/select-label languages (get k->label v)))])
 
     ;; Display blank resources as inlined tables.
     (map? v)
@@ -316,7 +333,38 @@
     (:vann/preferredNamespacePrefix entity)
     [(symbol (:vann/preferredNamespacePrefix entity))
      (:dct/title entity)
-     (str/replace subject #"<|>" "")]))
+     (str/replace subject #"<|>" "")]
+
+    :else
+    (let [local-name (str/replace subject #"<|>" "")]
+      [nil
+       local-name
+       local-name])))
+
+(rum/defc no-entity-data
+  [languages rdf-uri]
+  ;; TODO: should be more intelligent than a hardcoded value
+  (if (= languages ["da" "en"])
+    [:section.text
+     [:p {:lang "da"}
+      "Der er desværre intet data som beskriver denne "
+      [:abbr {:title "Resource Description Framework"}
+       "RDF"]
+      "-ressource i DanNet."]
+     [:p {:lang "da"}
+      "Kunne du i stedet for tænke dig at besøge webstedet "
+      [:a {:href rdf-uri} rdf-uri]
+      " i din browser?"]]
+    [:section.text
+     [:p {:lang "en"}
+      "There is unfortunately no data describing this "
+      [:abbr {:title "Resource Description Framework"}
+       "RDF"]
+      " resource in DanNet."]
+     [:p {:lang "en"}
+      "Would you instead like to visit the website "
+      [:a {:href rdf-uri} rdf-uri]
+      " in your browser?"]]))
 
 (rum/defc entity-page
   [{:keys [languages subject entity] :as opts}]
@@ -336,13 +384,15 @@
           [:div.rdf-uri
            [:span.rdf-uri__prefix {:key uri-prefix} uri-prefix]
            [:span.rdf-uri__name {:key local-name} local-name]]))]
-     (for [[title ks] sections]
-       (when-let [subentity (ordered-subentity opts ks entity)]
-         (if title
-           [:<> {:key title}
-            [:h2 title]
-            (attr-val-table opts subentity)]
-           (rum/with-key (attr-val-table opts subentity) :no-title))))]))
+     (if (empty? entity)
+       (no-entity-data languages rdf-uri)
+       (for [[title ks] sections]
+         (when-let [subentity (ordered-subentity opts ks entity)]
+           (if title
+             [:<> {:key title}
+              [:h2 title]
+              (attr-val-table opts subentity)]
+             (rum/with-key (attr-val-table opts subentity) :no-title)))))]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
@@ -371,27 +421,32 @@
              (.preventDefault e)
              (navigate-to url))))
 
+(rum/defc search-form
+  [{:keys [lemma] :as opts}]
+  [:form {:role      "search"
+          :action    prefix/search-path
+          :on-submit on-submit
+          :method    "get"}
+   [:input {:type          "search"
+            :name          "lemma"
+            :on-focus      (fn [e] (.select (.-target e)))
+            :default-value (or lemma "")}]
+   [:input {:type  "submit"
+            :value "Search"}]])
+
 (rum/defc search-page
-  [{:keys [languages lemma search-path search-results] :as opts}]
-  [:section.search
-   [:form {:action    search-path
-           :on-submit on-submit
-           :method    "get"}
-    [:input {:type          "text"
-             :name          "lemma"
-             :default-value lemma}]
-    [:input {:type  "submit"
-             :value "Search"}]]
+  [{:keys [languages lemma search-results] :as opts}]
+  [:article.search
+   [:header
+    [:h1 (str "\"" lemma "\"")]]
    (if (empty? search-results)
-     [:article
-      [:p "No search-results."]]
-     [:article
-      (for [[k entity] search-results]
-        (let [{:keys [k->label]} (meta entity)]
-          (rum/with-key (attr-val-table {:languages languages
-                                         :k->label  k->label}
-                                        entity)
-                        k)))])])
+     [:p "No search-results."]
+     (for [[k entity] search-results]
+       (let [{:keys [k->label]} (meta entity)]
+         (rum/with-key (attr-val-table {:languages languages
+                                        :k->label  k->label}
+                                       entity)
+                       k))))])
 
 (def pages
   "Mapping from page data metadata :page key to the relevant Rum component."
@@ -400,8 +455,16 @@
 
 (def data->page
   "Get the page referenced in the page data's metadata."
-  (comp pages :page meta))
+  (comp :page meta))
 
 ;; TODO: eventually support LangStr for titles too
 (def data->title
   (comp :title meta))
+
+(rum/defc page-shell
+  [page data]
+  (let [page-component (get pages page)]
+    [:<>
+     (search-form {})
+     [:main
+      (page-component data)]]))

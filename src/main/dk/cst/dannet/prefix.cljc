@@ -72,10 +72,22 @@
   [prefix]
   (-> schemas prefix :uri))
 
-(defn rdf-resource
+(defn uri->rdf-resource
   "Surround `uri` with < and > to indicate that it is an RDF resource."
   [uri]
   (str "<" uri ">"))
+
+(defn rdf-resource->uri
+  "Surround `uri` with < and > to indicate that it is an RDF resource."
+  [uri]
+  (subs uri 1 (dec (count uri))))
+
+(defn rdf-resource?
+  "Is `s` an RDF resource string?"
+  [s]
+  (and (string? s)
+       (str/starts-with? s "<")
+       (str/ends-with? s ">")))
 
 (defn uri->path
   "Remove every part of the `uri` aside from the path."
@@ -102,4 +114,10 @@
   "The RDF resource URI for the DanNet dataset."
   (-> (prefix->uri 'dn)
       (remove-trailing-slash)
-      (rdf-resource)))
+      (uri->rdf-resource)))
+
+(def external-path
+  (str (uri->path dannet-root) "external"))
+
+(def search-path
+  (str (uri->path dannet-root) "search"))

@@ -63,31 +63,67 @@ body {
     letter-spacing: 0.2ch;
 }
 
-div#app {
+main {
     display: flex;
     flex-direction: row;
     justify-content: center;
 }
 
-section.search table + table {
+article.search table + table {
     margin-top: 48px;
 }
 
-section.search form {
+article.search form {
     display: flex;
     margin: 24px;
 }
 
-section.search form input {
+article.search form input {
     font-size: 24px;
     padding: 6px;
 }
 
-section.search form input + input {
+article.search form input + input {
     margin-left: 12px;
 }
 
-/* TODO: should probably be main? */
+form[role=search] {
+    position: sticky;
+    top: 0;
+    width: calc(100% - 8px);
+    margin: 0;
+    z-index: 9999;
+
+    display: flex;
+    justify-content: center;
+
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(2px);
+    padding: 4px;
+}
+
+form[role=search] input[type=search] {
+    flex-grow: 1;
+}
+
+form[role=search] input {
+    transition: all 0.1s;
+    font-size: 12px;
+    border: 1px solid rgba(0,0,0,0.5);
+    border-radius: 2px;
+    background: rgba(255,255,255,0.5);
+}
+
+form[role=search] input[type=search]:focus,
+form[role=search] input:focus + input {
+    background: white;
+    font-size: 24px;
+}
+
+form[role=search] * + * {
+    margin-left: 4px;
+}
+
 article {
     padding: 24px;
     width: 100ch;
@@ -116,6 +152,7 @@ footer p {
 a {
     color: grey;
     text-decoration: none;
+    cursor: pointer;
 }
 
 a:hover {
@@ -307,6 +344,22 @@ h1, h2 {
 td {
     padding: 16px;
     vertical-align: top;
+}
+
+section.text {
+    padding: 16px;
+    background: white;
+    font-size: 16px;
+    border: 1px solid #AAA;
+    box-shadow: 0 0 12px rgba(0,0,0,0.3);
+}
+
+section.text p {
+    margin: 0 0 24px 0;
+}
+
+section.text p:last-child {
+    margin-bottom: 0;
 }
 
 td.attr-prefix {

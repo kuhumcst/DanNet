@@ -135,10 +135,10 @@
                                XSDDateTime (t/write-handler "datetime" str)}}))
 
    "text/html"
-   (fn [& {:keys [data page title]}]
+   (fn [& {:keys [data page title] :as opts}]
      (html-page
        title
-       ((get com/pages page) data)))})
+       (com/page-shell page data)))})
 
 (def use-lang?
   #{"application/transit+json" "text/html"})
@@ -147,46 +147,37 @@
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
   within the path-params."
-  [& {:keys [prefix subject]}]
+  [& {:keys [prefix subject] :as static-params}]
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
                   lang         (get-in request [:accept-language :field])
-                  prefix*      (or (get-in request [:path-params :prefix])
-                                   prefix)
+                  {:keys [prefix subject]} (merge (:path-params request)
+                                                  (:query-params request)
+                                                  static-params)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  subject      (or subject
-                                   (-> request
-                                       (get-in [:path-params :subject])
-                                       (decode-query-part)
-                                       (->> (keyword (name prefix*)))))
+                  subject*     (cond->> (decode-query-part subject)
+                                        prefix (keyword (name prefix)))
                   entity       (if (use-lang? content-type)
-                                 (q/expanded-entity (:graph @db) subject)
-                                 (q/entity (:graph @db) subject))
+                                 (q/expanded-entity (:graph @db) subject*)
+                                 (q/entity (:graph @db) subject*))
                   languages    (if lang [lang "en"] ["en"])
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
                                 :subject   (-> entity meta :subject)
                                 :entity    entity}]
-              (if entity
-                (-> ctx
-                    (update :response assoc
-                            :status 200
-                            :body ((content-type->body-fn content-type)
-                                   :data data
-                                   :title (:subject data)
-                                   :page :entity))
-                    (update-in [:response :headers] assoc
-                               "Content-Type" content-type
-                               ;; TODO: use cache in production
-                               #_#_"Cache-Control" one-day-cache))
-                (update ctx :response assoc
-                        :status 404
-                        :headers {}))))})
-
-(def search-path
-  (str (uri->path prefix/dannet-root) "search"))
+              (-> ctx
+                  (update :response assoc
+                          :status (if entity 200 404)
+                          :body ((content-type->body-fn content-type)
+                                 :data data
+                                 :title (:subject data)
+                                 :page :entity))
+                  (update-in [:response :headers] assoc
+                             "Content-Type" content-type
+                             ;; TODO: use cache in production
+                             #_#_"Cache-Control" one-day-cache))))})
 
 (def search-ic
   {:name  ::search
@@ -202,7 +193,6 @@
               (if-let [search-results (db/look-up (:graph @db) lemma)]
                 (let [data {:languages      languages
                             :lemma          lemma
-                            :search-path    search-path
                             :search-results search-results}]
                   (-> ctx
                       (update :response assoc
@@ -260,11 +250,18 @@
 
 (def external-entity-route
   "Look-up route for external resources. Doesn't conform to the actual URIs."
-  [(str (uri->path prefix/dannet-root) "external/:prefix/:subject")
+  [(str prefix/external-path "/:prefix/:subject")
    :get [content-negotiation-ic
          language-negotiation-ic
          (->entity-ic)]
    :route-name ::external-entity])
+
+(def unknown-external-entity-route
+  [prefix/external-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         (->entity-ic)]
+   :route-name ::unknown-external-entity])
 
 (defn prefix->dataset-entity-route
   [prefix]
@@ -272,11 +269,11 @@
     [(prefix/uri->path uri)
      :get [content-negotiation-ic
            language-negotiation-ic
-           (->entity-ic :subject (prefix/rdf-resource uri))]
+           (->entity-ic :subject (prefix/uri->rdf-resource uri))]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
 (def search-route
-  [search-path
+  [prefix/search-path
    :get [content-negotiation-ic
          language-negotiation-ic
          search-ic]

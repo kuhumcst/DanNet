@@ -93,13 +93,13 @@
   [{:keys [path query-params] :as m}]
   (p/then (fetch path {:query-params query-params})
           #(let [data           (:body %)
-                 page-component (com/data->page data)
+                 page-component (com/page-shell (com/data->page data) data)
                  page-title     (com/data->title data)]
              (set! js/document.title page-title)
              (reset! location {:path path
                                :data data})
              (update-scroll-state! (response->url %))
-             (rum/mount (page-component data) app))))
+             (rum/mount page-component app))))
 
 (defn set-up-navigation!
   []
@@ -110,17 +110,17 @@
 
 (defn ^:dev/after-load render
   []
-  (let [data (:data @location)
-        page (com/data->page data)]
+  (let [data           (:data @location)
+        page-component (com/page-shell (com/data->page data) data)]
     (set-up-navigation!)                                    ; keep up-to-date
-    (rum/mount (page data) app)))
+    (rum/mount page-component app)))
 
 (defn init!
   "The entry point of the frontend app."
   []
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
     (p/then (fetch entry-url)
-            #(let [data (:body %)
-                   page (com/data->page data)]
-               (rum/hydrate (page data) app)
+            #(let [data           (:body %)
+                   page-component (com/page-shell (com/data->page data) data)]
+               (rum/hydrate page-component app)
                (set-up-navigation!)))))
