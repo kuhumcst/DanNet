@@ -32,8 +32,10 @@
     (str "http://localhost:8080" path)
     path))
 
+;; TODO: handle datetime more satisfyingly typewise and in the web UI
 (def reader
-  (t/reader :json {:handlers {"lstr" lstr/read-LangStr}}))
+  (t/reader :json {:handlers {"lstr"     lstr/read-LangStr
+                              "datetime" identity}}))
 
 ;; Currently lambdaisland/fetch silently loses query strings, so the
 ;; `from-query-string` is needed to keep the query string intact.

@@ -16,7 +16,8 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.bootstrap :as bootstrap]
             [dk.cst.dannet.web.components :as com])
-  (:import [ont_app.vocabulary.lstr LangStr]))
+  (:import [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.datatypes.xsd XSDDateTime]))
 
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
 ;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
@@ -130,7 +131,8 @@
    "application/transit+json"
    (fn [& {:keys [data page title]}]
      (to/write-str (vary-meta data assoc :page page :title title)
-                   {:handlers {LangStr (t/write-handler "lstr" lstr->s)}}))
+                   {:handlers {LangStr     (t/write-handler "lstr" lstr->s)
+                               XSDDateTime (t/write-handler "datetime" str)}}))
 
    "text/html"
    (fn [& {:keys [data page title]}]
