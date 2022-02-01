@@ -1,5 +1,5 @@
-@prefix : <http://www.wordnet.dk/dannet/2022/concepts/> .
-@prefix dns: <http://www.wordnet.dk/dannet/2022/schema/> .
+@prefix : <http://www.wordnet.dk/dannet/concepts/> .
+@prefix dns: <http://www.wordnet.dk/dannet/schema/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 :Agentive a dns:EuroWordNetConcept ;

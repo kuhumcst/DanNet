@@ -4,6 +4,7 @@
             [ont-app.vocabulary.core :as voc]
             [clojure.string :as str]))
 
+;; NOTE: you must also edit the DanNet schema files if changing this!
 (def dannet-root
   "http://www.wordnet.dk/dannet/")
 
