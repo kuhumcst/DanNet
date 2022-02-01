@@ -73,6 +73,16 @@
   [prefix]
   (-> schemas prefix :uri))
 
+(defn rdf-resource
+  "Surround `uri` with < and > to indicate that it is an RDF resource."
+  [uri]
+  (str "<" uri ">"))
+
+(defn prefix-><uri>
+  "Return the RDF resource URI registered for a `prefix`."
+  [prefix]
+  (rdf-resource (prefix->uri prefix)))
+
 (defn uri->path
   "Remove every part of the `uri` aside from the path."
   [uri]
@@ -86,3 +96,16 @@
       (str (-> prefix schemas :uri uri->path) (name kw))
       (-> (str dannet-root "external/" (namespace kw) "/" (name kw))
           (uri->path)))))
+
+;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
+(defn remove-trailing-slash
+  [uri]
+  (if (= \/ (last uri))
+    (subs uri 0 (dec (count uri)))
+    uri))
+
+(def <dn>
+  "The RDF resource URI for the DanNet dataset."
+  (-> (prefix->uri 'dn)
+      (remove-trailing-slash)
+      (rdf-resource)))

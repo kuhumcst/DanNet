@@ -373,6 +373,10 @@
   (q/run graph op/examples '{?sense :dn/sense-21011843})
   (q/run graph op/examples '{?sense :dn/sense-21011111})
 
+  ;; Retrieval of dataset metadata
+  (q/run graph [:bgp [prefix/<dn> '?p '?o]])
+  (q/run graph [:bgp [bootstrap/<simongray> '?p '?o]])
+
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.
   ;; The JVM must be run with the JVM option '-Djdk.attach.allowAttachSelf'.
   ;; See: https://github.com/clojure-goes-fast/clj-memory-meter#usage

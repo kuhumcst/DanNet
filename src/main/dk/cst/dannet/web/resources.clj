@@ -53,13 +53,6 @@
 (def supported-languages
   ["da" "en"])
 
-;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
-(defn remove-trailing-slash
-  [uri]
-  (if (= \/ (last uri))
-    (subs uri 0 (dec (count uri)))
-    uri))
-
 (defn uri->path
   "Remove every part of the `uri` aside from the path."
   [uri]
@@ -78,7 +71,7 @@
                          (assoc-in [:headers "Cache-Control"] one-month-cache)
                          (assoc-in [:headers "Content-Disposition"] disp)))
         route-name (keyword (str *ns*) (str prefix "-schema"))]
-    [(remove-trailing-slash path) :get handler :route-name route-name]))
+    [(prefix/remove-trailing-slash path) :get handler :route-name route-name]))
 
 ;; TODO: needs some work
 (defn ascii-table

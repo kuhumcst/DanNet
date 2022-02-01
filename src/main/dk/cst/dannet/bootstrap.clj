@@ -17,7 +17,38 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.prefix :as prefix]))
+            [dk.cst.dannet.prefix :as prefix :refer [<dn>]])
+  (:import [java.util Date]))
+
+;; TODO: add the others as contributors too
+(def <simongray>
+  (prefix/rdf-resource "http://simongray.dk"))
+
+;; TODO: add more, perhaps from dca? rdf type indicating dataset?
+(def metadata-triples
+  "Metadata for the DanNet dataset is defined here since it doesn't have a
+  associated .ttl file. The Dublin Core Terms NS is used below which supersedes
+  the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
+  #{[<dn> :vann/preferredNamespacePrefix "dn"]
+    [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
+    [<dn> :dct/title "DanNet"]
+    [<dn> :dct/description #lstr "The Danish WordNet.@en"]
+    [<dn> :dct/issued #inst "2022-07-01"]    ;TODO
+    [<dn> :dct/modified (new Date)]
+    [<dn> :dct/contributor <simongray>]
+    [<dn> :dct/publisher "<http://cst.ku.dk>"]
+    [<dn> :dct/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
+    [<dn> :cc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"] ;TODO
+    [<dn> :cc/attributionName #lstr "University of Copenhagen & Society for Danish Language and Literature.@en"]
+    [<dn> :cc/attributionURL <dn>]
+    [<simongray> :rdf/type :foaf/Person]
+    [<simongray> :foaf/name "Simon Gray"]
+    [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]
+    [<dn> :foaf/homepage <dn>]
+    [<dn> :dcat/downloadURL (-> (prefix/prefix->uri 'dn)
+                                (prefix/remove-trailing-slash)
+                                (str ".ttl")
+                                (prefix/rdf-resource))]})
 
 (defn synset-uri
   [id]
@@ -304,6 +335,7 @@
    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
    :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
+   :metadata  [nil metadata-triples]
 
    ;; Examples are a special case - these are not actual RDF triples!
    ;; Need to query the resulting graph to generate the real example triples.
@@ -312,10 +344,12 @@
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
   [[row->triples file]]
-  (with-open [reader (io/reader file :encoding "ISO-8859-1")]
-    (->> (csv/read-csv reader :separator \@)
-         (map row->triples)
-         (doall))))
+  (if (set? file)                                           ; metadata triples?
+    file
+    (with-open [reader (io/reader file :encoding "ISO-8859-1")]
+      (->> (csv/read-csv reader :separator \@)
+           (map row->triples)
+           (doall)))))
 
 (comment
 
