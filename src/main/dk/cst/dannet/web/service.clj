@@ -14,6 +14,8 @@
       #_res/autocomplete-route
       res/external-entity-route
 
+      (res/prefix->dataset-entity-route 'dn)
+
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
       (res/prefix->entity-route 'dns)

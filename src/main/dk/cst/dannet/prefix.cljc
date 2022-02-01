@@ -28,8 +28,6 @@
    ;; Metadata-related namespaces.
    'dcat    {:uri "http://www.w3.org/ns/dcat#"
              :alt "schemas/dcat2.ttl"}
-   'cc      {:uri "https://creativecommons.org/ns#"
-             :alt "schemas/cc.rdf"}
    'vann    {:uri "http://purl.org/vocab/vann/"
              :alt "schemas/vann.ttl"}
    'foaf    {:uri "http://xmlns.com/foaf/0.1/"
@@ -78,11 +76,6 @@
   "Surround `uri` with < and > to indicate that it is an RDF resource."
   [uri]
   (str "<" uri ">"))
-
-(defn prefix-><uri>
-  "Return the RDF resource URI registered for a `prefix`."
-  [prefix]
-  (rdf-resource (prefix->uri prefix)))
 
 (defn uri->path
   "Remove every part of the `uri` aside from the path."

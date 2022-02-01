@@ -24,7 +24,7 @@
 (def <simongray>
   (prefix/rdf-resource "http://simongray.dk"))
 
-;; TODO: add more, perhaps from dca? rdf type indicating dataset?
+;; TODO: add more, perhaps from dcat? rdf type indicating dataset?
 (def metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
@@ -33,14 +33,15 @@
     [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
     [<dn> :dct/title "DanNet"]
     [<dn> :dct/description #lstr "The Danish WordNet.@en"]
+    [<dn> :dct/description #lstr "Det danske WordNet.@da"]
     [<dn> :dct/issued #inst "2022-07-01"]    ;TODO
     [<dn> :dct/modified (new Date)]
     [<dn> :dct/contributor <simongray>]
     [<dn> :dct/publisher "<http://cst.ku.dk>"]
+    ;; TODO: should be dct:RightsStatement
     [<dn> :dct/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
-    [<dn> :cc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"] ;TODO
-    [<dn> :cc/attributionName #lstr "University of Copenhagen & Society for Danish Language and Literature.@en"]
-    [<dn> :cc/attributionURL <dn>]
+    ;; TODO: should be dct:LicenseDocument
+    [<dn> :dct/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
     [<simongray> :rdf/type :foaf/Person]
     [<simongray> :foaf/name "Simon Gray"]
     [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]

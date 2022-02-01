@@ -21,6 +21,7 @@
   (invert-map
     {"dannet"  #{'dn 'dnc 'dns}
      "w3c"     #{'rdf 'rdfs 'owl}
+     "meta"    #{'dct 'vann 'dcat}
      "ontolex" #{'ontolex 'skos 'lexinfo}
      "wordnet" #{'wn}}))
 
@@ -36,7 +37,11 @@
 (def defined-sections
   [[nil [:rdf/type
          :rdfs/label
-         :rdfs/comment]]
+         :rdfs/comment
+         :dct/title
+         :dct/description
+         :dct/rights
+         :dcat/downloadURL]]
    ["Lexical information" [:ontolex/writtenRep
                            :skos/definition
                            :lexinfo/partOfSpeech
@@ -106,11 +111,14 @@
 
 (rum/defc prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
-  [prefix]
-  (if (symbol? prefix)
+  [prefix & {:keys [no-local-name?]}]
+  (cond
+    (symbol? prefix)
     [:span.prefix {:title (prefix/prefix->uri prefix)
                    :class (prefix->css-class prefix)}
-     (str prefix ":")]
+     (str prefix (when-not no-local-name? ":"))]
+
+    (string? prefix)
     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
                    :class "unknown"}
      "???:"]))
@@ -286,23 +294,37 @@
             (sort-by (sort-keyfn opts)
                      (filter ks entity))))))
 
+(defn- resolve-names
+  [{:keys [subject entity] :as opts}]
+  (cond
+    (keyword? subject)
+    [(symbol (namespace subject))
+     (name subject)
+     nil]
+
+    (:vann/preferredNamespacePrefix entity)
+    [(symbol (:vann/preferredNamespacePrefix entity))
+     (:dct/title entity)
+     (str/replace subject #"<|>" "")]))
+
 (rum/defc entity-page
   [{:keys [languages subject entity] :as opts}]
-  (let [local-name (name subject)
-        prefix     (symbol (namespace subject))
-        label      (i18n/select-label languages (:rdfs/label entity))]
+  (let [[prefix local-name rdf-uri] (resolve-names opts)
+        label (i18n/select-label languages (:rdfs/label entity))]
     [:article
      [:header
       [:h1
-       (prefix-elem prefix)
-       [:span {:title local-name
+       (prefix-elem prefix :no-local-name? (empty? local-name))
+       [:span {:title (or local-name subject)
                :key   subject
                :lang  (i18n/lang label)}
         (str (or label local-name))]]
-      (when-let [uri-prefix (prefix/prefix->uri prefix)]
-        [:div.rdf-uri
-         [:span.rdf-uri__prefix {:key uri-prefix} uri-prefix]
-         [:span.rdf-uri__name {:key local-name} local-name]])]
+      (if rdf-uri
+        [:div.rdf-uri {:key rdf-uri} rdf-uri]
+        (when-let [uri-prefix (prefix/prefix->uri prefix)]
+          [:div.rdf-uri
+           [:span.rdf-uri__prefix {:key uri-prefix} uri-prefix]
+           [:span.rdf-uri__name {:key local-name} local-name]]))]
      (for [[title ks] sections]
        (when-let [subentity (ordered-subentity opts ks entity)]
          (if title

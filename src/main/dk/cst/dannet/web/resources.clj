@@ -147,7 +147,7 @@
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
   within the path-params."
-  [& [prefix]]
+  [& {:keys [prefix subject]}]
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
@@ -156,10 +156,11 @@
                                    prefix)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  subject      (-> request
-                                   (get-in [:path-params :subject])
-                                   (decode-query-part)
-                                   (->> (keyword (name prefix*))))
+                  subject      (or subject
+                                   (-> request
+                                       (get-in [:path-params :subject])
+                                       (decode-query-part)
+                                       (->> (keyword (name prefix*)))))
                   entity       (if (use-lang? content-type)
                                  (q/expanded-entity (:graph @db) subject)
                                  (q/entity (:graph @db) subject))
@@ -254,7 +255,7 @@
   [(str (-> prefix prefix/schemas :uri uri->path) ":subject")
    :get [content-negotiation-ic
          language-negotiation-ic
-         (->entity-ic prefix)]
+         (->entity-ic :prefix prefix)]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
 (def external-entity-route
@@ -264,6 +265,15 @@
          language-negotiation-ic
          (->entity-ic)]
    :route-name ::external-entity])
+
+(defn prefix->dataset-entity-route
+  [prefix]
+  (let [uri (-> prefix prefix/prefix->uri prefix/remove-trailing-slash)]
+    [(prefix/uri->path uri)
+     :get [content-negotiation-ic
+           language-negotiation-ic
+           (->entity-ic :subject (prefix/rdf-resource uri))]
+     :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
 (def search-route
   [search-path

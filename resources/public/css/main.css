@@ -159,6 +159,9 @@ span.unknown {
 .prefix.w3c {
     background: #55f;
 }
+.prefix.meta {
+    background: #019fa1;
+}
 .prefix.ontolex {
     background: #df7300;
 }
@@ -170,6 +173,9 @@ span.unknown {
 }
 .w3c {
     color: #55f;
+}
+.meta {
+    color: #019fa1;
 }
 .ontolex {
     color: #df7300;
@@ -257,6 +263,18 @@ header > .rdf-uri .rdf-uri__prefix {
 
 header > .rdf-uri .rdf-uri__name {
     color: #333;
+}
+
+.rdf-uri::before {
+    content: "<";
+    margin-right: 2px;
+    opacity: 0.3;
+}
+
+.rdf-uri::after {
+    content: ">";
+    margin-left: 2px;
+    opacity: 0.3;
 }
 
 table {
