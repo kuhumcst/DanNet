@@ -282,6 +282,18 @@
          search-ic]
    :route-name ::search])
 
+(def dannet-metadata-redirect
+  [(fn [_] {:status  301
+            :headers {"Location" (-> (prefix/prefix->uri 'dn)
+                                     (prefix/remove-trailing-slash)
+                                     (prefix/uri->path))}})])
+
+(def root-route
+  ["/" :get dannet-metadata-redirect :route-name ::root])
+
+(def dannet-route
+  ["/dannet" :get dannet-metadata-redirect :route-name ::dannet])
+
 #_(def autocomplete-path
     (str (uri->path prefix/dannet-root) "autocomplete"))
 

@@ -1,8 +1,8 @@
 (ns dk.cst.dannet.web.service
   "Web service handling entity look-ups and schema downloads."
   (:require [io.pedestal.http :as http]
-            [dk.cst.dannet.web.resources :as res]
-            [io.pedestal.http.route :as route]))
+            [io.pedestal.http.route :as route]
+            [dk.cst.dannet.web.resources :as res]))
 
 (defonce server (atom nil))
 (defonce conf (atom {}))                                    ;TODO: use?
@@ -10,7 +10,9 @@
 (defn routes
   []
   (route/expand-routes
-    #{res/search-route
+    #{res/root-route
+      res/dannet-route
+      res/search-route
       #_res/autocomplete-route
       res/external-entity-route
 
