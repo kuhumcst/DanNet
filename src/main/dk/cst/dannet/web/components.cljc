@@ -123,24 +123,35 @@
                    :class "unknown"}
      "???:"]))
 
-(def inheritance-pattern
+(def inherit-re
   #"^The (.+) relation was inherited from dn:(synset-\d+) (\{.+\}).$")
+
+(def rdf-resource-re
+  #"^<(.+)>$")
 
 ;; For instance, synset-2128 {ambulance} has 6 inherited relations.
 (defn str-transformation
-  "Performs basic transformations of `s`; just synset hyperlinks for now."
+  "Performs convenient transformations of `s`."
   [s]
-  (if-let [[_ qname synset-id label] (re-find inheritance-pattern (str s))]
-    (let [[prefix rel] (str/split qname #":")]
-      [:<>
-       "The "
-       (prefix-elem (symbol prefix))
-       (anchor-elem (keyword prefix rel) rel)
-       " relation was inherited from "
-       (prefix-elem 'dn)
-       (anchor-elem (keyword "dn" synset-id) label)
-       "."])
-    (str s)))
+  (let [s (str s)
+        [_ qname synset-id label :as inherit] (re-find inherit-re s)
+        [_ uri :as resource] (re-find rdf-resource-re s)]
+    (cond
+      inherit
+      (let [[prefix rel] (str/split qname #":")]
+        [:<>
+         "The "
+         (prefix-elem (symbol prefix))
+         (anchor-elem (keyword prefix rel) rel)
+         " relation was inherited from "
+         (prefix-elem 'dn)
+         (anchor-elem (keyword "dn" synset-id) label)
+         "."])
+
+      resource
+      [:span.rdf-uri [:a {:href uri} uri]]
+
+      :else s)))
 
 (declare attr-val-table)
 
