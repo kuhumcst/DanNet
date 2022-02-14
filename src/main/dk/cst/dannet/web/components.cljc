@@ -461,10 +461,24 @@
 (def data->title
   (comp :title meta))
 
+(rum/defc page-footer
+  [{}]
+  [:footer {:lang "en"}
+   [:p
+    "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
+               "Centre for Language Technology"]
+    ", " [:abbr {:title "University of Copenhagen"}
+          "KU"] "."]
+   [:p "The source code for DanNet is available at our "
+    [:a {:href "https://github.component/kuhumcst/DanNet"}
+     "Github repository"] "."]])
+
 (rum/defc page-shell
   [page data]
   (let [page-component (get pages page)]
     [:<>
      (search-form {})
      [:main
-      (page-component data)]]))
+      (page-component data)]
+     [:hr]
+     (page-footer {})]))

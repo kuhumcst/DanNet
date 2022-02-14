@@ -43,11 +43,13 @@
 
 
 
-html {
+html, body {
     padding: 0;
+    margin: 0;
+    background: #DDD;
 }
 
-body {
+#app {
     animation: fade-in 0.33s ease-in;
 
     /* Center content & footer horizontally. */
@@ -57,7 +59,6 @@ body {
     justify-content: space-between;
 
     background: #DDD;
-    margin: 0;
     color: #333;
     font-family: Georgia, serif;
     letter-spacing: 0.2ch;
@@ -139,7 +140,7 @@ footer {
     padding-bottom: 24px;
 }
 
-footer hr {
+hr {
     display: none;
 }
 

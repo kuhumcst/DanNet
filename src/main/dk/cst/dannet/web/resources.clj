@@ -101,16 +101,6 @@
       [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]]
      [:body
       [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
-      [:footer {:lang "en"}
-       [:hr]
-       [:p
-        "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
-                   "Centre for Language Technology"]
-        ", " [:abbr {:title "University of Copenhagen"}
-              "KU"] "."]
-       [:p "The source code for DanNet is available at our "
-        [:a {:href "https://github.component/kuhumcst/DanNet"}
-         "Github repository"] "."]]
       [:script (str "var inDevelopmentEnvironment = " development? ";")]
       [:script {:src (str "/js/compiled/" main-js)}]]]))
 
