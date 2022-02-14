@@ -1,5 +1,5 @@
 {:paths   ["src/main" "resources"]
- :deps    {org.clojure/clojure              {:mvn/version "1.11.0-alpha4"}
+ :deps    {org.clojure/clojure              {:mvn/version "1.11.0-beta1"}
            arachne-framework/aristotle      {:git/url "https://github.com/kuhumcst/aristotle.git"
                                              :sha     "46c76d5dccbd9c45bf7660f79d283e979d468fba"}
            ont-app/igraph-jena              {:mvn/version "0.1.1"}
