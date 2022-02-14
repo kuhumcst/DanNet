@@ -388,11 +388,9 @@
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
          (when-let [subentity (ordered-subentity opts ks entity)]
-           (if title
-             [:<> {:key title}
-              [:h2 title]
-              (attr-val-table opts subentity)]
-             (rum/with-key (attr-val-table opts subentity) :no-title)))))]))
+           [:section {:key (or title :no-title)}
+            (when title [:h2 title])
+            (attr-val-table opts subentity)])))]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
@@ -419,8 +417,10 @@
                  url       (str action (when query-str
                                          (str "?" query-str)))]
              (.preventDefault e)
+             (js/document.activeElement.blur)
              (navigate-to url))))
 
+;; TODO: language localisation
 (rum/defc search-form
   [{:keys [lemma] :as opts}]
   [:form {:role      "search"
@@ -429,10 +429,11 @@
           :method    "get"}
    [:input {:type          "search"
             :name          "lemma"
+            :title         "Search for synsets"
+            :placeholder   "search term"
             :on-focus      (fn [e] (.select (.-target e)))
-            :default-value (or lemma "")}]
-   [:input {:type  "submit"
-            :value "Search"}]])
+            :autocomplete  "off"
+            :default-value (or lemma "")}]])
 
 (rum/defc search-page
   [{:keys [languages lemma search-results] :as opts}]
@@ -461,6 +462,7 @@
 (def data->title
   (comp :title meta))
 
+;; TODO: language localisation
 (rum/defc page-footer
   [{}]
   [:footer {:lang "en"}
@@ -468,17 +470,21 @@
     "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
                "Centre for Language Technology"]
     ", " [:abbr {:title "University of Copenhagen"}
-          "KU"] "."]
-   [:p "The source code for DanNet is available at our "
-    [:a {:href "https://github.component/kuhumcst/DanNet"}
-     "Github repository"] "."]])
+          "KU"] "."]])
 
 (rum/defc page-shell
   [page data]
-  (let [page-component (get pages page)]
+  (let [page-component (get pages page)
+        [prefix local-name rdf-uri] (if (:subject data)
+                                      (resolve-names data)
+                                      [nil nil nil])]
     [:<>
-     (search-form {})
-     [:main
-      (page-component data)]
-     [:hr]
-     (page-footer {})]))
+     [:nav {:class ["prefix" (prefix->css-class prefix)]}
+      (search-form data)
+      [:a.github {:title "The source code for DanNet is available on Github"
+                  :href  "https://github.com/kuhumcst/DanNet"}]]
+     [:div#content
+      [:main
+       (page-component data)]
+      [:hr]
+      (page-footer {})]]))

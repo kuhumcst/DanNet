@@ -20,8 +20,9 @@
 (defonce location
   (atom {}))
 
-(defonce visited-urls
-  (atom #{}))
+(defonce visited
+  (atom {:back    '()
+         :forward '()}))
 
 (def app
   (js/document.getElementById "app"))
@@ -52,7 +53,7 @@
         opts*             (merge {:transit-json-reader reader}
                                  (assoc opts :query-params all-query-params))]
     (p/let [response (fetch/get (normalize-url url) opts*)]
-      response)))
+           response)))
 
 (def routes
   [["{*path}" :delegate]])
@@ -61,23 +62,47 @@
   [response]
   (-> response meta ::lambdaisland.fetch/request (j/get :url)))
 
-(defn- update-scroll-state!
-  "Scroll to the top of the page if `url` has not been visited before.
+;; TODO: also do this for back/forward button
+(defn- update-scroll-opts
+  [history opts]
+  (conj
+    (rest history)
+    [(ffirst history) opts]))
 
-  This fakes classic page load behaviour for new pages. Hard refreshes are
-  ignored letting the browser stay in place using the cached scroll state.
-  Clicking a hyperlink will *always* scroll to the top, however, since they are
-  intercepted by the custom 'ignore-anchor-click?' function defined below."
+(defn- update-scroll-state!
+  "Scroll to the top of the page if `url` is not from back/forward button."
   [url]
-  (let [already-visited @visited-urls
-        refresh-page?   (-> already-visited meta :refresh-page?)]
-    (if refresh-page?                                       ; hyperlink clicks
-      (js/window.scrollTo #js {:top 0})
-      (when (not (already-visited url))
-        (when (not-empty already-visited)                   ; hard refreshes
-          (js/window.scrollTo #js {:top 0}))
-        (swap! visited-urls conj url)))
-    (swap! visited-urls vary-meta dissoc :refresh-page?)))
+  (let [{:keys [back forward] :as urls} @visited
+        [back-url back-opts] (first (rest back))
+        [forward-url forward-opts] (first forward)
+        anchor-click?   (-> urls meta :anchor-click?)
+        back-button?    (= url back-url)
+        forward-button? (= url forward-url)
+        content-element (js/document.getElementById "content")]
+    (swap! visited vary-meta dissoc :anchor-click?)
+    (if (or anchor-click? (not (or back-button? forward-button?)))
+      (let [opts (clj->js {:top (.-scrollTop content-element)})]
+        (.scroll content-element #js {:top 0})
+        (swap! visited assoc
+               :back (if (empty? back)
+                       (list [url #js {:top 0}])
+                       (conj (update-scroll-opts back opts)
+                             [url #js {:top 0}]))
+               :forward '()))
+      (cond
+        back-button?
+        (do
+          (.scroll content-element back-opts)
+          (swap! visited assoc
+                 :back (rest back)
+                 :forward (cons (first back) forward)))
+
+        forward-button?
+        (do
+          (.scroll content-element forward-opts)
+          (swap! visited assoc
+                 :back (conj back (first forward))
+                 :forward (rest forward)))))))
 
 (defn- ignore-anchor-click?
   "Adds a side-effect to any intercepted anchor clicks in reitit making sure
@@ -86,7 +111,7 @@
   Works in conjunction with 'update-scroll-state!' defined above."
   [router e el uri]
   (when (rfh/ignore-anchor-click? router e el uri)
-    (swap! visited-urls vary-meta assoc :refresh-page? true)
+    (swap! visited vary-meta assoc :anchor-click? true)
     true))
 
 (defn on-navigate

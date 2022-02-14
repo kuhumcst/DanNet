@@ -1,7 +1,14 @@
 * {
     line-height: 1.5; /* looks better when wrapping to next line */
     color: #333;
+    hyphens: auto;
 }
+
+/* The clear X button in the input is annoying and not needed. */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration { display: none; }
 
 @keyframes fade-in {
   0% {opacity:0}
@@ -41,27 +48,37 @@
   100% {}
 }
 
-
-
 html, body {
     padding: 0;
     margin: 0;
+    height: 100%;
     background: #DDD;
 }
 
 #app {
     animation: fade-in 0.33s ease-in;
 
-    /* Center content & footer horizontally. */
-    height: 100%;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100%;
 
-    background: #DDD;
     color: #333;
     font-family: Georgia, serif;
     letter-spacing: 0.2ch;
+}
+
+#content {
+    flex-grow: 1;
+    overflow-y: auto;
+
+    /* Center content & footer horizontally. */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 main {
@@ -74,51 +91,70 @@ article.search table + table {
     margin-top: 48px;
 }
 
-article.search form {
+nav {
+    transition: background 0.66s;
     display: flex;
-    margin: 24px;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px;
+    background-color: #333;
+    box-shadow:
+        0 0 12px rgba(0,0,0,0.8),
+        inset 24px 0 24px rgba(255,255,255,0.15);
+    border: 1px solid transparent;
+    border-right: 1px solid rgba(0,0,0,0.5);
 }
 
-article.search form input {
-    font-size: 24px;
-    padding: 6px;
-}
-
-article.search form input + input {
-    margin-left: 12px;
-}
-
-form[role=search] {
-    position: sticky;
-    top: 0;
-    width: calc(100% - 8px);
-    margin: 0;
-    z-index: 9999;
-
-    display: flex;
-    justify-content: center;
-
-    background: rgba(255,255,255,0.2);
-    backdrop-filter: blur(2px);
+a.github {
+    transition: opacity 0.2s;
+    background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
+    background-size: 24px;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 24px;
+    height: 24px;
+    opacity: 0.8;
     padding: 4px;
 }
 
-form[role=search] input[type=search] {
-    flex-grow: 1;
+a.github:hover {
+    opacity: 1;
 }
 
-form[role=search] input {
-    transition: all 0.1s;
-    font-size: 12px;
+form[role=search] {
+    opacity: 0.8; /* Same as text in h1 prefix badge. */
+    background: url(/images/search.svg);
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+form[role=search]:focus-within {
+    opacity: 1;
+    background: none;
+}
+
+form[role=search]:hover input[type=search] {
+    opacity: 0.5;
+}
+
+form[role=search] input[type=search]:not(:focus)::placeholder {
+    color: transparent;
+}
+
+form[role=search] input[type=search] {
+    transition: all 0.2s;
+    font-size: 16px;
+    color: white;
     border: 1px solid rgba(0,0,0,0.5);
     border-radius: 2px;
-    background: rgba(255,255,255,0.5);
+    width: 32px;
+    opacity: 0;
 }
 
-form[role=search] input[type=search]:focus,
-form[role=search] input:focus + input {
-    background: white;
-    font-size: 24px;
+form[role=search] input[type=search]:focus {
+    width: 24ch;
+    color: #333;
+    opacity: 0.8;
 }
 
 form[role=search] * + * {
@@ -127,7 +163,7 @@ form[role=search] * + * {
 
 article {
     padding: 24px;
-    width: 100ch;
+    max-width: 100ch;
 }
 
 header, footer {
@@ -136,7 +172,6 @@ header, footer {
 
 /* TODO: fix weird positioning on small pages */
 footer {
-    margin-top: 24px;
     padding-bottom: 24px;
 }
 
@@ -151,7 +186,7 @@ footer p {
 }
 
 a {
-    color: grey;
+    color: #808080;
     text-decoration: none;
     cursor: pointer;
 }
@@ -165,21 +200,17 @@ a:hover {
     font-style: italic;
 
 }
-table {
-   /* animation: fall-down 0.33s ease, fade-in 0.33s ease; */
-    width: 100%;
-    max-width: 100%;
-}
 
 col:last-of-type {
     width: 70ch;
 }
 
 table span.prefix {
-    background: grey;
+    background: #333;
     color: rgba(255,255,255,0.8);
     border-radius: 2px;
-    padding: 4px 8px;
+    border: 1px solid rgba(0,0,0,0.33);
+    padding: 3px 7px;
     margin-right: 8px;
 }
 
@@ -187,24 +218,24 @@ span.unknown {
     color: #999;
 }
 .prefix.unknown {
-    background: white;
+    background-color: white;
     border: 1px dashed #999;
     color: #999;
 }
 .prefix.dannet {
-    background: #901a1e;
+    background-color: #901a1e;
 }
 .prefix.w3c {
-    background: #55f;
+    background-color: #55f;
 }
 .prefix.meta {
-    background: #019fa1;
+    background-color: #019fa1;
 }
 .prefix.ontolex {
-    background: #df7300;
+    background-color: #df7300;
 }
 .prefix.wordnet {
-    background: #387111;
+    background-color: #387111;
 }
 .dannet {
     color: #901a1e;
@@ -249,7 +280,6 @@ h1 {
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;
-    overflow-wrap: anywhere;
 }
 
 h1 span[lang]::after {
@@ -258,10 +288,11 @@ h1 span[lang]::after {
 
 h1 span.prefix {
     transition: background 0.66s;
-    background: grey;
+    background: #333;
     margin-right: 8px;
-    padding: 4px 8px;
+    padding: 1px 9px 5px 9px;
     border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.33);
     color: rgba(255,255,255,0.8);
 }
 
@@ -315,11 +346,17 @@ header > .rdf-uri .rdf-uri__name {
     opacity: 0.3;
 }
 
+/* For table to inherit. */
+main > article {
+    width: 100%;
+}
+
 table {
     font-size: 16px;
     border-collapse: collapse;
-    border: 1px solid #AAA;
+    border: 1px solid rgba(0,0,0,0.5);
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
+    width: 100%;
 }
 
 table table {
@@ -340,7 +377,6 @@ td.prefix + td {
 h1, h2 {
     filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
 }
-
 
 td {
     padding: 16px;
@@ -375,6 +411,9 @@ td.attr-name {
 
 td:last-child {
     padding-left: 8px;
+
+    /* TODO: remove once URIs a properly <wbr>'ified */
+    word-break: break-all;
 }
 
 /* Hide prefixes in objects by default */

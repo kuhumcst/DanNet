@@ -155,14 +155,17 @@
                   languages    (if lang [lang "en"] ["en"])
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
-                                :subject   (-> entity meta :subject)
-                                :entity    entity}]
+                                :subject   subject*
+                                :entity    entity}
+                  qname        (if (keyword? subject*)
+                                 (prefix/kw->qname subject*)
+                                 subject*)]
               (-> ctx
                   (update :response assoc
                           :status (if entity 200 404)
                           :body ((content-type->body-fn content-type)
                                  :data data
-                                 :title (:subject data)
+                                 :title qname
                                  :page :entity))
                   (update-in [:response :headers] assoc
                              "Content-Type" content-type
