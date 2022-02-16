@@ -416,6 +416,10 @@ td:last-child {
     word-break: break-all;
 }
 
+td:last-child table {
+    word-break: normal;
+}
+
 /* Hide prefixes in objects by default */
 td:last-child > .prefix,
 td:last-child > span > .prefix,
