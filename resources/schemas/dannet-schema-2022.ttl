@@ -4,6 +4,36 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
+:Inheritance a owl:Class ;
+  rdfs:label "inheritance"@en ;
+  rdfs:label "nedarvning"@da ;
+  rdfs:comment "Meta-property documenting inherited relations in DanNet."@en ;
+  rdfs:comment "Meta-egenskab der dokumenterer nedarvede relationer i DanNet."@da .
+
+:inherited a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range :Inheritance ;
+  rdfs:comment "Inherited concept-concept relation."@en ;
+  rdfs:comment "Nedarvet begreb-begreb relation."@da ;
+  rdfs:label "inherited"@en ;
+  rdfs:label "nedarvet"@da .
+
+:inheritedFrom a owl:ObjectProperty ;
+  rdfs:domain :Inheritance ;
+  rdfs:range owl:ObjectProperty ;
+  rdfs:comment "Source of an inherited relation."@en ;
+  rdfs:comment "Kilde til en nedarvet relation."@da ;
+  rdfs:label "inherited from"@en ;
+  rdfs:label "nedarvet fra"@da .
+
+:inheritedRelation a owl:ObjectProperty ;
+  rdfs:domain :Inheritance ;
+  rdfs:range owl:ObjectProperty ;
+  rdfs:comment "Relation inherited from other concept."@en ;
+  rdfs:comment "Relation nedarvet fra andet begreb."@da ;
+  rdfs:label "inherited relation"@en ;
+  rdfs:label "nedarvet relation"@da .
+
 :usedFor a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;

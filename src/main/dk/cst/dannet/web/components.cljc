@@ -125,9 +125,6 @@
                    :class "unknown"}
      "???:"]))
 
-(def inherit-re
-  #"^The (.+) relation was inherited from dn:(synset-\d+) (\{.+\}).$")
-
 (def rdf-resource-re
   #"^<(.+)>$")
 
@@ -147,20 +144,8 @@
   "Performs convenient transformations of `s`."
   [s]
   (let [s (str s)
-        [inherit qname synset-id label] (re-find inherit-re s)
         [rdf-resource uri] (re-find rdf-resource-re s)]
     (cond
-      inherit
-      (let [[prefix rel] (str/split qname #":")]
-        [:<>
-         "The "
-         (prefix-elem (symbol prefix))
-         (anchor-elem (keyword prefix rel) rel)
-         " relation was inherited from "
-         (prefix-elem 'dn)
-         (anchor-elem (keyword "dn" synset-id) label)
-         "."])
-
       rdf-resource
       (rdf-uri-hyperlink uri)
 

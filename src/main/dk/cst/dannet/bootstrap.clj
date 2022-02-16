@@ -34,7 +34,7 @@
     [<dn> :dct/title "DanNet"]
     [<dn> :dct/description #lstr "The Danish WordNet.@en"]
     [<dn> :dct/description #lstr "Det danske WordNet.@da"]
-    [<dn> :dct/issued #inst "2022-07-01"]    ;TODO
+    [<dn> :dct/issued #inst "2022-07-01"]                   ;TODO
     [<dn> :dct/modified (new Date)]
     [<dn> :dct/contributor <simongray>]
     [<dn> :dct/publisher "<http://cst.ku.dk>"]
@@ -210,15 +210,20 @@
         (->> (clean-ontological-type ontological-type)
              (explode-ontological-type synset))))))
 
-(defn- adjust-comment
-  "Slighly rewords the inheritance comments present in the old DanNet dataset."
-  [rel comment]
-  (-> comment
-      (str/replace #"^Inherited from" (str "The " (prefix/kw->qname rel)
-                                           " relation was inherited from"))
-      (str/replace #"synset with id (\d+)" "dn:synset-$1")
-      (str/replace #" \((.+)\)$" " $1.")
-      (str/replace #"\{[^}]+\}" clean-synset-label)))
+;; TODO: use RDF* instead? How will this work with Aristotle? What about export?
+;; https://jena.apache.org/documentation/rdf-star/
+(defn- explode-inheritance
+  [subj-id rel comment]
+  (when-let [[_ id l] (re-matches #"^Inherited from synset with id (\d+) \((.+)\)$"
+                                  comment)]
+    (let [from    (synset-uri id)
+          subject (synset-uri subj-id)
+          inherit (keyword "dn" (str "inherit-" subj-id "-" (name rel)))]
+      #{[subject :dns/inherited inherit]
+        [inherit :rdf/type :dns/Inheritance]
+        [inherit :rdfs/label (prefix/kw->qname rel)]
+        [inherit :dns/inheritedFrom from]
+        [inherit :dns/inheritedRelation rel]})))
 
 (defn ->relation-triples
   "Convert a `row` from 'relations.csv' to triples.
@@ -235,8 +240,7 @@
                     :dns/orthogonalHypernym
                     (gwa-rel rel))]
       (cond-> #{[subj rel* obj]}
-        comment (conj [subj :rdfs/comment (-> (adjust-comment rel* comment)
-                                              (->LangStr "en"))])))))
+        comment (set/union (explode-inheritance subj-id rel* comment))))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
