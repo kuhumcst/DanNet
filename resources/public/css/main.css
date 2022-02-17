@@ -105,6 +105,7 @@ nav {
         inset 24px 0 24px rgba(255,255,255,0.15);
     border: 1px solid transparent;
     border-right: 1px solid rgba(0,0,0,0.5);
+    z-index: 999;
 }
 
 a.github {
@@ -117,6 +118,7 @@ a.github {
     height: 24px;
     opacity: 0.8;
     padding: 4px;
+    margin-top: auto;
 }
 
 a.github:hover {
@@ -124,10 +126,11 @@ a.github:hover {
 }
 
 form[role=search] {
+    position: fixed;
     opacity: 0.8; /* Same as text in h1 prefix badge. */
     background: url(/images/search.svg);
     background-repeat: no-repeat;
-    background-position: center;
+    background-position: 4px 4px;
 }
 
 form[role=search]:focus-within {
@@ -144,19 +147,23 @@ form[role=search] input[type=search]:not(:focus)::placeholder {
 }
 
 form[role=search] input[type=search] {
-    transition: all 0.2s;
-    font-size: 16px;
+    transition: all 0.1s;
+    user-select: none;
+    font-size: 12px;
     color: white;
     border: 1px solid rgba(0,0,0,0.5);
     border-radius: 2px;
     width: 32px;
+    min-height: 32px;
     opacity: 0;
 }
 
 form[role=search] input[type=search]:focus {
-    width: 24ch;
+    width: calc(100vw - 8px);
+    -webkit-user-select: none;
+    font-size: 32px;
     color: #333;
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 form[role=search] * + * {

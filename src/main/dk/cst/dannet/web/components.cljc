@@ -417,6 +417,12 @@
              (js/document.activeElement.blur)
              (navigate-to url))))
 
+(defn select-text
+  "Select text in the target that triggers `e` with a small delay to bypass
+  browser's other text selection logic."
+  [e]
+  #?(:cljs (js/setTimeout #(.select (.-target e)) 50)))
+
 ;; TODO: language localisation
 (rum/defc search-form
   [{:keys [lemma] :as opts}]
@@ -428,8 +434,8 @@
             :name          "lemma"
             :title         "Search for synsets"
             :placeholder   "search term"
-            :on-focus      (fn [e] (.select (.-target e)))
-            :auto-complete  "off"
+            :on-focus      select-text
+            :auto-complete "off"
             :default-value (or lemma "")}]])
 
 (rum/defc search-page
