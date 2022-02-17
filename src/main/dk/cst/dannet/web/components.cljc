@@ -358,10 +358,16 @@
       [:a {:href rdf-uri} (break-up-uri rdf-uri)]
       " in your browser?"]]))
 
+(defn entity->label
+  "Return the :rdfs/label or another appropriate label value for `entity`."
+  [{:keys [rdfs/label]
+    :as   entity}]
+  label)
+
 (rum/defc entity-page
   [{:keys [languages subject entity] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
-        label (i18n/select-label languages (:rdfs/label entity))]
+        label (i18n/select-label languages (entity->label entity))]
     [:article
      [:header
       [:h1
