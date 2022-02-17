@@ -132,12 +132,20 @@
   [rdf-resource]
   (str prefix/external-path "?subject=" rdf-resource))
 
+(defn break-up-uri
+  "Place word break opportunities into a potentially long `uri`."
+  [uri]
+  (into [:<>] (for [part (re-seq #"[^\./]+|[\./]+" uri)]
+                (if (re-matches #"[^\./]+" part)
+                  [:<> part [:wbr]]
+                  part))))
+
 (rum/defc rdf-uri-hyperlink
   [uri]
   [:a.rdf-uri {:href (if (str/starts-with? uri prefix/dannet-root)
                        (prefix/uri->path uri)
                        (rdf-resource-path (prefix/uri->rdf-resource uri)))}
-   uri])
+   (break-up-uri uri)])
 
 ;; For instance, synset-2128 {ambulance} has 6 inherited relations.
 (defn str-transformation
@@ -338,7 +346,7 @@
       "-ressource i DanNet."]
      [:p {:lang "da"}
       "Kunne du i stedet for tænke dig at besøge webstedet "
-      [:a {:href rdf-uri} rdf-uri]
+      [:a {:href rdf-uri} (break-up-uri rdf-uri)]
       " i din browser?"]]
     [:section.text
      [:p {:lang "en"}
@@ -348,7 +356,7 @@
       " resource in DanNet."]
      [:p {:lang "en"}
       "Would you instead like to visit the website "
-      [:a {:href rdf-uri} rdf-uri]
+      [:a {:href rdf-uri} (break-up-uri rdf-uri)]
       " in your browser?"]]))
 
 (rum/defc entity-page
@@ -362,13 +370,17 @@
        [:span {:title (or local-name subject)
                :key   subject
                :lang  (i18n/lang label)}
-        (str (or label local-name))]]
+        (if label
+          (str label)
+          (if (= local-name rdf-uri)
+            (break-up-uri rdf-uri)
+            local-name))]]
       (if rdf-uri
-        [:div.rdf-uri {:key rdf-uri} rdf-uri]
+        [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
         (when-let [uri-prefix (prefix/prefix->uri prefix)]
           [:div.rdf-uri
-           [:span.rdf-uri__prefix {:key uri-prefix} uri-prefix]
-           [:span.rdf-uri__name {:key local-name} local-name]]))]
+           [:span.rdf-uri__prefix {:key uri-prefix} (break-up-uri uri-prefix)]
+           [:span.rdf-uri__name {:key local-name} (break-up-uri local-name)]]))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
@@ -417,7 +429,7 @@
             :title         "Search for synsets"
             :placeholder   "search term"
             :on-focus      (fn [e] (.select (.-target e)))
-            :autocomplete  "off"
+            :auto-complete  "off"
             :default-value (or lemma "")}]])
 
 (rum/defc search-page

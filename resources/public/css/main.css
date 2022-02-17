@@ -75,6 +75,8 @@ html, body {
     flex-grow: 1;
     overflow-y: auto;
 
+    padding: 24px;
+
     /* Center content & footer horizontally. */
     display: flex;
     flex-direction: column;
@@ -162,7 +164,6 @@ form[role=search] * + * {
 }
 
 article {
-    padding: 24px;
     max-width: 100ch;
 }
 
@@ -170,9 +171,8 @@ header, footer {
     text-align: center;
 }
 
-/* TODO: fix weird positioning on small pages */
 footer {
-    padding-bottom: 24px;
+    padding-top: 24px;
 }
 
 hr {
@@ -201,7 +201,11 @@ a:hover {
 
 }
 
-col:last-of-type {
+table.attr-val col:nth-child(2) {
+     min-width: 12ch;
+}
+
+table.attr-val col:nth-child(3) {
     width: 70ch;
 }
 
@@ -316,10 +320,6 @@ h2::after {
     opacity: 0.33;
 }
 
-header {
-    word-break: break-all; /* fixes long labels/URIs breaking the layout */
-}
-
 header > .rdf-uri {
     font-size: 14px;
     font-style: italic;
@@ -351,7 +351,7 @@ main > article {
     width: 100%;
 }
 
-table {
+table.attr-val {
     font-size: 16px;
     border-collapse: collapse;
     border: 1px solid rgba(0,0,0,0.5);
@@ -409,15 +409,8 @@ td.attr-name {
     padding-left: 0;
 }
 
-td:last-child {
+td:not(.attr-name,.attr-prefix) {
     padding-left: 8px;
-
-    /* TODO: remove once URIs a properly <wbr>'ified */
-    word-break: break-all;
-}
-
-td:last-child table {
-    word-break: normal;
 }
 
 /* Hide prefixes in objects by default */
