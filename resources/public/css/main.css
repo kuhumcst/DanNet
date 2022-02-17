@@ -369,9 +369,22 @@ table.attr-val {
     width: 100%;
 }
 
-table table {
+table table,
+table section.text {
     border: 1px solid #CCC;
     box-shadow: 0 0 4px rgba(0,0,0,0.2);
+}
+
+table section.text::before {
+    content: "“";
+    margin-right: 2px;
+    opacity: 0.5;
+}
+
+table section.text::after {
+    content: "”";
+    margin-left: 2px;
+    opacity: 0.5;
 }
 
 td.prefix {
@@ -431,11 +444,15 @@ td:last-child ol > li > span > .prefix {
     display: none;
 }
 
-tr:nth-child(odd), tr tr:nth-child(even) {
+tr:nth-child(odd),
+tr:nth-child(even) section.text,
+tr tr:nth-child(even) {
     background-color: white;
 }
 
-tr:nth-child(even), tr tr:nth-child(odd) {
+tr:nth-child(even),
+tr:nth-child(odd) section.text,
+tr tr:nth-child(odd) {
     background-color: #F2F2F2;
 }
 
