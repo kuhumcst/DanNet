@@ -32,8 +32,10 @@
   "Used during initial graph creation to attach labels to senses."
   (q/build
     '[:bgp
-      [?word :rdfs/label ?label]
-      [?word :ontolex/sense ?sense]]))
+      [?word :ontolex/sense ?sense]
+      [?word :rdfs/label ?word-label]
+      [?synset :ontolex/lexicalizedSense ?sense]
+      [?synset :rdfs/label ?synset-label]]))
 
 (def example-targets
   "Used during initial graph creation to attach examples to senses."

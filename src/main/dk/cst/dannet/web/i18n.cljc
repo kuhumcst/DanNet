@@ -14,6 +14,7 @@
   (when (instance? LangStr s)
     (lstr/lang s)))
 
+;; TODO: compare with https://www.rfc-editor.org/info/bcp47
 (defn select-label-slow
   "Select a single label from set of labels `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is."

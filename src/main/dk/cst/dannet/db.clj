@@ -11,7 +11,8 @@
             [dk.cst.dannet.bootstrap :as bootstrap]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
-            [dk.cst.dannet.transaction :as txn])
+            [dk.cst.dannet.transaction :as txn]
+            [ont-app.vocabulary.lstr :refer [->LangStr]])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
@@ -51,8 +52,14 @@
 (defn ->sense-label-triples
   "Create label triples for the - otherwise unlabeled - senses of a DanNet `g`."
   [g]
-  (->> (for [{:syms [?sense ?label]} (q/run g op/sense-label-targets)]
-         [?sense :rdfs/label ?label])
+  (->> (for [{:syms [?sense
+                     ?word-label
+                     ?synset-label]} (q/run g op/sense-label-targets)
+             :let [word (-> (str ?word-label)
+                            (subs 1 (dec (count (str ?word-label)))))]]
+         (if (re-find #";" (str ?synset-label))
+           [?sense :rdfs/label (->LangStr (str word " ∈ " ?synset-label) "da")]
+           [?sense :rdfs/label word]))
        (into #{})))
 
 (defn ->example-triples

@@ -269,6 +269,10 @@
    :dn/word-12005626-1 "Verb"
    :dn/word-11018863   "Noun"})
 
+(defn qt
+  [s & after]
+  (apply str "\"" s "\"" after))
+
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
@@ -287,10 +291,10 @@
           wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
-          [lexical-form :rdfs/label (->LangStr written-rep "da")]
+          [lexical-form :rdfs/label (->LangStr (qt written-rep "-form") "da")]
 
           [word :rdf/type rdf-type]
-          [word :rdfs/label (->LangStr written-rep "da")]
+          [word :rdfs/label (->LangStr (qt written-rep) "da")]
           [word :ontolex/canonicalForm lexical-form]
 
           ;; GWA and Ontolex have competing part-of-speech relations.

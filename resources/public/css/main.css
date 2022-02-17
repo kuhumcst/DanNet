@@ -210,7 +210,7 @@ a:hover {
 }
 
 table.attr-val col:nth-child(2) {
-     min-width: 12ch;
+     min-width: 8ch;
 }
 
 table.attr-val col:nth-child(3) {
