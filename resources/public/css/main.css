@@ -52,7 +52,8 @@ html, body {
     padding: 0;
     margin: 0;
     height: 100%;
-    background: #DDD;
+    background-color: #DDD;
+    background: #EFEFEF url(/images/exclusive-paper.png);
 }
 
 #app {
@@ -100,9 +101,9 @@ nav {
     justify-content: space-between;
     padding: 4px;
     background-color: #333;
+    background: #333 url(/images/exclusive-paper.png);
     box-shadow:
-        0 0 12px rgba(0,0,0,0.8),
-        inset 24px 0 24px rgba(255,255,255,0.15);
+        0 0 12px rgba(0,0,0,0.8);
     border: 1px solid transparent;
     border-right: 1px solid rgba(0,0,0,0.5);
     z-index: 999;
@@ -217,7 +218,8 @@ table.attr-val col:nth-child(3) {
 }
 
 table span.prefix {
-    background: #333;
+    background-color: #333;
+    background: #333 url(/images/exclusive-paper.png);
     color: rgba(255,255,255,0.8);
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.33);
@@ -299,7 +301,8 @@ h1 span[lang]::after {
 
 h1 span.prefix {
     transition: background 0.66s;
-    background: #333;
+    background-color: #333;
+    background: #333 url(/images/exclusive-paper.png);
     margin-right: 8px;
     padding: 1px 9px 5px 9px;
     border-radius: 3px;
@@ -392,7 +395,7 @@ td {
 
 section.text {
     padding: 16px;
-    background: white;
+    background-color: white;
     font-size: 16px;
     border: 1px solid #AAA;
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
@@ -429,11 +432,11 @@ td:last-child ol > li > span > .prefix {
 }
 
 tr:nth-child(odd), tr tr:nth-child(even) {
-    background: white;
+    background-color: white;
 }
 
 tr:nth-child(even), tr tr:nth-child(odd) {
-    background: #F2F2F2;
+    background-color: #F2F2F2;
 }
 
 details summary {
