@@ -96,13 +96,15 @@
 
 (rum/defc anchor-elem
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  ([resource s]
+  ([resource {:keys [languages k->label] :as opts}]
    (if (keyword? resource)
-     [:a {:href  (prefix/resolve-href resource)
-          :title (name resource)
-          :lang  (i18n/lang s)
-          :class (prefix->css-class (symbol (namespace resource)))}
-      (str (or s (name resource)))]
+     (let [labels (get k->label resource)
+           label  (i18n/select-label languages labels)]
+       [:a {:href  (prefix/resolve-href resource)
+            :title (name resource)
+            :lang  (i18n/lang label)
+            :class (prefix->css-class (symbol (namespace resource)))}
+        (str (or label (name resource)))])
      (let [qname      (subs resource 1 (dec (count resource)))
            local-name (guess-local-name qname)]
        [:span.unknown {:title local-name}
@@ -173,7 +175,7 @@
        (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri))]
       [:td
        (prefix-elem (symbol (namespace v)))
-       (anchor-elem v (i18n/select-label languages (get k->label v)))])
+       (anchor-elem v opts)])
 
     ;; Display blank resources as inlined tables.
     (map? v)
@@ -200,11 +202,10 @@
   [{:keys [languages k->label] :as opts} item]
   (cond
     (keyword? item)
-    (let [prefix (symbol (namespace item))
-          label  (i18n/select-label languages (get k->label item))]
+    (let [prefix (symbol (namespace item))]
       [:li
        (prefix-elem prefix)
-       (anchor-elem item label)])
+       (anchor-elem item opts)])
 
     ;; TODO: handle blank resources better?
     ;; Currently not including these as they seem to
@@ -259,7 +260,7 @@
 
 (rum/defc attr-val-table
   "A table which lists attributes and corresponding values of an RDF resource."
-  [{:keys [languages k->label] :as opts} subentity]
+  [opts subentity]
   [:table {:class "attr-val"}
    [:colgroup
     [:col]                                                  ; attr prefix
@@ -272,9 +273,7 @@
                          k)]]
       [:tr {:key k}
        [:td.attr-prefix (prefix-elem prefix)]
-       [:td.attr-name (->> (get k->label k)
-                           (i18n/select-label languages)
-                           (anchor-elem k))]
+       [:td.attr-name (anchor-elem k opts)]
        (cond
          (set? v)
          (cond
