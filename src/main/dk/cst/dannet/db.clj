@@ -20,6 +20,8 @@
            [org.apache.jena.query Dataset]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
+;; TODO: why doubling in http://localhost:8080/dannet/data/synset-12346 ?
+
 (def schema-uris
   "URIs where relevant schemas can be fetched."
   (->> (for [{:keys [alt uri schema?]} (vals prefix/schemas)]

@@ -11,6 +11,8 @@
             #?(:cljs [ont-app.vocabulary.lstr :refer [LangStr]]))
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
+;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
+
 (defn invert-map
   [m]
   (into {} (for [[group prefixes] m
