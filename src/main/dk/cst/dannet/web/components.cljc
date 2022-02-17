@@ -159,6 +159,9 @@
       rdf-resource
       (rdf-uri-hyperlink uri)
 
+      (re-matches #"https?://[^\s]+" s)
+      (break-up-uri s)
+
       :else s)))
 
 (declare attr-val-table)
