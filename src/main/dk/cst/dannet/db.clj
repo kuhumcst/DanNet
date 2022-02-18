@@ -7,12 +7,13 @@
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [flatland.ordered.map :as fop]
+            [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.bootstrap :as bootstrap]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
-            [dk.cst.dannet.transaction :as txn]
-            [ont-app.vocabulary.lstr :refer [->LangStr]])
+            [dk.cst.dannet.transaction :as txn])
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
@@ -21,6 +22,8 @@
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
 ;; TODO: why doubling in http://localhost:8080/dannet/data/synset-12346 ?
+;; TODO: duplicates? http://localhost:8080/dannet/data/synset-29293
+;;       and http://localhost:8080/dannet/data/synset-29294
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
@@ -57,11 +60,15 @@
   (->> (for [{:syms [?sense
                      ?word-label
                      ?synset-label]} (q/run g op/sense-label-targets)
-             :let [word (-> (str ?word-label)
-                            (subs 1 (dec (count (str ?word-label)))))]]
-         (if (re-find #";" (str ?synset-label))
-           [?sense :rdfs/label (->LangStr (str word " ∈ " ?synset-label) "da")]
-           [?sense :rdfs/label word]))
+             :let [word  (-> (str ?word-label)
+                             (subs 1 (dec (count (str ?word-label)))))
+                   label (->> (str ?synset-label)
+                              (com/sense-labels com/synset-sep)
+                              (filter #(= word (str/replace % #"_[^ ]+" "")))
+                              (first))]]
+         (when (not-empty label)
+           [?sense :rdfs/label (->LangStr label "da")]))
+       (remove nil?)
        (into #{})))
 
 (defn ->example-triples

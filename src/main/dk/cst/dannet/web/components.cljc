@@ -5,13 +5,19 @@
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            #?(:clj [better-cond.core :refer [cond]])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [ont-app.vocabulary.lstr :refer [LangStr]]))
+  #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
+  (:refer-clojure :exclude [cond])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
+;; TODO: url encode hashtags http://localhost:8080/dannet/external?subject=%3Chttp://purl.org/dc/aboutdcmi#DCMI%3E
 ;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
+;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
+;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
 
 (defn invert-map
   [m]
@@ -22,9 +28,9 @@
 (def prefix->css-class
   (invert-map
     {"dannet"  #{'dn 'dnc 'dns}
-     "w3c"     #{'rdf 'rdfs 'owl}
+     "w3c"     #{'rdf 'rdfs 'owl 'skos}
      "meta"    #{'dct 'vann 'dcat}
-     "ontolex" #{'ontolex 'skos 'lexinfo}
+     "ontolex" #{'ontolex 'lexinfo}
      "wordnet" #{'wn}}))
 
 (defn with-prefix
@@ -38,23 +44,23 @@
 ;; TODO: use sets of langStrings for titles
 (def defined-sections
   [[nil [:rdf/type
-         :rdfs/label
+         :skos/definition
          :rdfs/comment
+         :lexinfo/partOfSpeech
+         :lexinfo/senseExample
+         :dns/ontologicalType
          :dct/title
          :dct/description
          :dct/rights
          :dcat/downloadURL]]
    ["Lexical information" [:ontolex/writtenRep
-                           :skos/definition
-                           :lexinfo/partOfSpeech
                            :ontolex/canonicalForm
                            :ontolex/evokes
                            :ontolex/isEvokedBy
                            :ontolex/sense
                            :ontolex/isSenseOf
                            :ontolex/lexicalizedSense
-                           :ontolex/isLexicalizedSenseOf
-                           :lexinfo/senseExample]]
+                           :ontolex/isLexicalizedSenseOf]]
    ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
                                  (comp #{:dns/usedFor
                                          :dns/usedForObject
@@ -96,38 +102,19 @@
   [qname]
   (str/join (butlast (guess-parts qname))))
 
-(rum/defc anchor-elem
-  "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  ([resource {:keys [languages k->label] :as opts}]
-   (if (keyword? resource)
-     (let [labels (get k->label resource)
-           label  (i18n/select-label languages labels)]
-       [:a {:href  (prefix/resolve-href resource)
-            :title (name resource)
-            :lang  (i18n/lang label)
-            :class (prefix->css-class (symbol (namespace resource)))}
-        (str (or label (name resource)))])
-     (let [qname      (subs resource 1 (dec (count resource)))
-           local-name (guess-local-name qname)]
-       [:span.unknown {:title local-name}
-        local-name])))
-  ([resource] (anchor-elem resource nil)))
+(def sense-label
+  #"([^_]+)_((?:§|\d)[^_ ]+)( .+)?")
 
-(rum/defc prefix-elem
-  "Visual representation of a `prefix` based on its associated symbol."
-  [prefix & {:keys [no-local-name?]}]
-  (cond
-    (symbol? prefix)
-    [:span.prefix {:title (prefix/prefix->uri prefix)
-                   :class (prefix->css-class prefix)}
-     (if no-local-name?
-       (str prefix)
-       (str prefix ":"))]
+(def synset-sep
+  #"\{|,|\}")
 
-    (string? prefix)
-    [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
-                   :class "unknown"}
-     "???:"]))
+(defn sense-labels
+  "Split a `synset` label into sense labels. Work for both old and new formats."
+  [sep label]
+  (->> (str/split label sep)
+       (into [] (comp
+                  (remove empty?)
+                  (map str/trim)))))
 
 (def rdf-resource-re
   #"^<(.+)>$")
@@ -151,13 +138,29 @@
                        (rdf-resource-path (prefix/uri->rdf-resource uri)))}
    (break-up-uri uri)])
 
-;; For instance, synset-2128 {ambulance} has 6 inherited relations.
 (defn str-transformation
   "Performs convenient transformations of `s`."
   [s]
-  (let [s (str s)
-        [rdf-resource uri] (re-find rdf-resource-re s)]
+  (when-let [s (not-empty (str s))]
     (cond
+      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
+      (re-matches #"\{.+\}" s)
+      [:div.set
+       [:div.set__left-bracket]
+       (into [:div.set__content]
+             (interpose
+               [:span.subtle " • "]                         ; comma -> bullet
+               (for [label (sense-labels synset-sep s)]
+                 (if-let [[_ word sub mwe] (re-matches sense-label label)]
+                   [:<> word [:sub sub] mwe]
+                   label))))
+       [:div.set__right-bracket]]
+
+      :let [[_ word sub mwe] (re-matches sense-label s)]
+
+      word
+      [:<> word [:sub sub] mwe]
+
       rdf-resource
       (rdf-uri-hyperlink uri)
 
@@ -165,6 +168,41 @@
       (break-up-uri s)
 
       :else s)))
+
+;; TODO: figure out how to prevent line break for lang tag similar to h1
+(rum/defc anchor-elem
+  "Entity hyperlink from a `resource` and (optionally) a string label `s`."
+  ([resource {:keys [languages k->label] :as opts}]
+   (if (keyword? resource)
+     (let [labels (get k->label resource)
+           label  (i18n/select-label languages labels)]
+       [:a {:href  (prefix/resolve-href resource)
+            :title (name resource)
+            :lang  (i18n/lang label)
+            :class (prefix->css-class (symbol (namespace resource)))}
+        (or (str-transformation label)
+            (name resource))])
+     (let [qname      (subs resource 1 (dec (count resource)))
+           local-name (guess-local-name qname)]
+       [:span.unknown {:title local-name}
+        local-name])))
+  ([resource] (anchor-elem resource nil)))
+
+(rum/defc prefix-elem
+  "Visual representation of a `prefix` based on its associated symbol."
+  [prefix & {:keys [no-local-name?]}]
+  (cond
+    (symbol? prefix)
+    [:span.prefix {:title (prefix/prefix->uri prefix)
+                   :class (prefix->css-class prefix)}
+     (if no-local-name?
+       (str prefix)
+       (str prefix ":"))]
+
+    (string? prefix)
+    [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
+                   :class "unknown"}
+     "???:"]))
 
 (declare attr-val-table)
 
@@ -375,19 +413,22 @@
 (rum/defc entity-page
   [{:keys [languages subject entity] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
-        label (i18n/select-label languages (entity->label entity))]
+        label      (i18n/select-label languages (entity->label entity))
+        label-lang (i18n/lang label)]
     [:article
      [:header
       [:h1
        (prefix-elem prefix :no-local-name? (empty? local-name))
        [:span {:title (or local-name subject)
                :key   subject
-               :lang  (i18n/lang label)}
+               :lang  label-lang}
         (if label
-          (str label)
+          (str-transformation label)
           (if (= local-name rdf-uri)
             (break-up-uri rdf-uri)
-            local-name))]]
+            local-name))]
+       (when label-lang
+         [:sup label-lang])]
       (if rdf-uri
         [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
         (when-let [uri-prefix (prefix/prefix->uri prefix)]
@@ -397,7 +438,9 @@
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
-         (when-let [subentity (ordered-subentity opts ks entity)]
+         (when-let [subentity (-> (ordered-subentity opts ks entity)
+                                  (dissoc :rdfs/label)
+                                  (not-empty))]
            [:section {:key (or title :no-title)}
             (when title [:h2 title])
             (attr-val-table opts subentity)])))]))

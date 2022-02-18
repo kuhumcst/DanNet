@@ -203,6 +203,49 @@ a:hover {
     text-decoration: underline;
 }
 
+sub {
+    font-size: 70%;
+    opacity: 0.6;
+    display: inline-block; /* nullifies text-decoration: underline */
+}
+
+div.set {
+    display: inline-flex;
+}
+
+div.set__left-bracket,
+div.set__right-bracket {
+    padding-left: 1ch;
+    opacity: 0.4;
+    transition: all 0.1s;
+}
+
+a:hover div.set__left-bracket,
+a:hover div.set__right-bracket {
+    opacity: 0.6;
+    transform: scale(115%);
+}
+
+div.set__left-bracket {
+    background: url(/images/set-left.svg) no-repeat;
+    margin-right: 0.5ch;
+    background-size: auto 100%;
+}
+
+div.set__right-bracket {
+    background: url(/images/set-right.svg) no-repeat;
+    margin-left: 0.5ch;
+    background-size: auto 100%;
+}
+
+span.subtle {
+    opacity: 0.33;
+}
+
+h1 sub {
+    font-size: 50%;
+}
+
 .omitted {
     color: #AAA;
     font-style: italic;
@@ -250,31 +293,46 @@ span.unknown {
 .prefix.wordnet {
     background-color: #387111;
 }
-.dannet {
+.dannet,
+.dannet * {
     color: #901a1e;
 }
-.w3c {
+.w3c,
+.w3c * {
     color: #55f;
 }
-.meta {
+.meta,
+.meta * {
     color: #019fa1;
 }
-.ontolex {
+.ontolex,
+.ontolex * {
     color: #df7300;
 }
-.wordnet {
+.wordnet,
+.wordnet * {
     color: #387111;
 }
 
-[lang]:not(footer)::after {
+[lang]:not(footer, h1 span)::after {
     content: attr(lang);
-    margin-left: 0.2ch;
-    vertical-align: super;
+    margin-left: 0.4ch;
+    vertical-align: top;
     font-size: 60%;
-    opacity: 0.4;
+    opacity: 0.6;
     text-decoration: none;
     font-variant: small-caps;
     display: inline-block; /* nullifies text-decoration: underline */
+}
+
+h1 sup {
+    user-select: none;
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: 0.6;
+    text-decoration: none;
+    font-variant: small-caps;
 }
 
 td,
@@ -286,20 +344,19 @@ header .rdf-uri__name {
 }
 
 h1 {
-    font-size: 36px;
+    display: flex;
+    justify-content: center;
+    font-size: 32px;
     font-weight: normal;
     padding: 0;
-    margin: 0 0 32px 0;
+    margin: 0 auto 32px auto;
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;
 }
 
-h1 span[lang]::after {
-    margin-right: -4px;
-}
-
 h1 span.prefix {
+    align-self: center;
     transition: background 0.66s;
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
@@ -372,7 +429,7 @@ table.attr-val {
 table table,
 table section.text {
     border: 1px solid #CCC;
-    box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
 }
 
 table section.text::before {
@@ -482,7 +539,7 @@ details[open] ol {
     border: 1px solid #AAA;
     border-radius: 2px;
     list-style-type: decimal;
-    background: #DDD;
+    background-color: #DDD;
     box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
 }
 

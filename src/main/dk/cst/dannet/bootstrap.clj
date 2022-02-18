@@ -17,6 +17,8 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [better-cond.core :as better]
+            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix :refer [<dn>]])
   (:import [java.util Date]))
 
@@ -186,15 +188,69 @@
   (for [concept (str/split ontological-type #"-")]
     [synset :dns/ontologicalType (keyword "dnc" concept)]))
 
-;; TODO: a better alternative is to derive labels from ontolex:writtenRep data
-(defn clean-synset-label
-  "Remove legacy internal implementation details from the synset `label`."
+(defn n->letter
+  "Convert a number `n` to a letter in the English alphabet."
+  [n]
+  (char (+ n 96)))
+
+(def old-multi-word
+  #"([^,_]+)(,\d+)?((?:_\d+)+)?: (.+)")
+
+(def old-single-word
+  #"([^,_]+)(,\d+)?((?:_\d+)+)?")
+
+;; Read ./doc/label-rewrite.md for more.
+(defn sense-label
+  "Create a sense label from `word`, optional `entry-id`, and `definition-id`."
+  [word entry-id definition-id]
+  (if (or (not definition-id)
+          (= definition-id "_0"))
+    (if entry-id
+      (str word "_" (subs entry-id 1))
+      word)
+    (let [[_ def-id sub-id] (str/split definition-id #"_")]
+      (str word "_"
+           (when entry-id
+             (subs entry-id 1))
+           "§" def-id
+           (when sub-id
+             (str (n->letter (parse-long sub-id))))))))
+
+(defn remove-prefix-apostrophes
+  "Remove prefixed apostrophes from `s` (used to denote particles/stress)."
+  [s]
+  (str/replace s #"(^|\s)'+" "$1"))
+
+(defn rewrite-sense-label
+  "Rewrite an old sense `label` to fit the new standard."
   [label]
-  (-> (get special-cases label label)
-      (str/replace #" '" " ")                               ; in multi-word ex.
-      (str/replace #"(;|\{)[^;]+: " "$1 ")                  ; MWO DDO listings
-      (str/replace #"\{ " "{")                              ; fix odd spaces
-      (str/replace #"_[^;}]+|,[^;}]+" "")))                 ; other DDO listings
+  (better/cond
+    :let [[_ w e d] (re-matches old-single-word label)]
+    w
+    (sense-label w e d)
+
+    :let [[_ w e d mwe] (re-matches old-multi-word label)]
+    mwe
+    (let [w*    (remove-prefix-apostrophes mwe)
+          mwe*  (remove-prefix-apostrophes mwe)
+          begin (str/index-of mwe* w*)
+          end   (or (str/index-of mwe* " " begin) (count mwe*))
+          w**   (subs mwe* begin end)]
+      (str/replace mwe* w** (sense-label w** e d)))))
+
+(def old-synset-sep
+  #"\{|;|\}")
+
+;; TODO: derive from ontolex:writtenRep? removes ordnet.dk connection, though...
+(defn rewrite-synset-label
+  "Rewrite an old synset `label` to fit the new standard."
+  [label]
+  (str "{"
+       (->> (get special-cases label label)
+            (com/sense-labels old-synset-sep)
+            (map rewrite-sense-label)
+            (str/join ", "))
+       "}"))
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
@@ -203,8 +259,9 @@
     (let [synset     (synset-uri synset-id)
           definition (str/replace gloss brug "")]
       (set/union
-        #{[synset :rdfs/label (->LangStr (clean-synset-label label) "da")]
-          [synset :rdf/type :ontolex/LexicalConcept]}
+        #{[synset :rdf/type :ontolex/LexicalConcept]}
+        (when (not-empty label)
+          #{[synset :rdfs/label (->LangStr (rewrite-synset-label label) "da")]})
         (when (not= definition "(ingen definition)")
           #{[synset :skos/definition (->LangStr definition "da")]})
         (->> (clean-ontological-type ontological-type)
@@ -400,9 +457,21 @@
          (into #{})))
 
   ;; Edge cases while cleaning synset labels
-  (clean-synset-label "{45-knallert; EU-knallert}")
-  (clean-synset-label "{3. g'er_1}")
-  (clean-synset-label "{tænke_13: tænke 'højt}")
-  (clean-synset-label "{indtale_1; tale,2_26: tale 'ind}")
-  (clean-synset-label "{brud,2_2: hvid brud}")
+  (rewrite-synset-label "{45-knallert; EU-knallert}")
+  (rewrite-synset-label "{3. g'er_1}")
+  (rewrite-synset-label "{tænke_13: tænke 'højt}")
+  (rewrite-synset-label "{indtale_1; tale,2_26: tale 'ind}")
+  (rewrite-synset-label "{brud,2_2: hvid brud}")
+
+  ;; Test rewriting sense labels
+  (remove-prefix-apostrophes "glen's lade ''er 'fin")
+  (rewrite-sense-label "word,1_8_2: word 'particle")
+  (rewrite-sense-label "word_8_2: word 'particle")
+  (rewrite-sense-label "tale_8_2: talens 'gaver")
+  (rewrite-sense-label "tale_8_2: gavens 'taler")           ; test reverse MWE
+  (rewrite-sense-label "word,1_8_2")
+  (rewrite-sense-label "word_8_2")
+  (rewrite-sense-label "DN:TOP,2_1_5")
+  (rewrite-sense-label "friturestegning_0")
+  (rewrite-sense-label "friturestegning,2_0")
   #_.)
