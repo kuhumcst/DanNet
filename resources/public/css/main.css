@@ -203,6 +203,42 @@ a:hover {
     text-decoration: underline;
 }
 
+sub {
+    font-size: 60%;
+    opacity: 0.4;
+    display: inline-block; /* nullifies text-decoration: underline */
+}
+
+span.subtle {
+    opacity: 0.4;
+}
+
+div.set {
+    display: inline-flex;
+}
+
+div.set__left-bracket,
+div.set__right-bracket {
+    padding-left: 1ch;
+    opacity: 0.4;
+}
+
+div.set__left-bracket {
+    background: url(/images/set-left.svg) no-repeat;
+    margin-right: 0.5ch;
+    background-size: auto 100%;
+}
+
+div.set__right-bracket {
+    background: url(/images/set-right.svg) no-repeat;
+    margin-left: 0.5ch;
+    background-size: auto 100%;
+}
+
+h1 sub {
+    font-size: 40%;
+}
+
 .omitted {
     color: #AAA;
     font-style: italic;
@@ -250,31 +286,46 @@ span.unknown {
 .prefix.wordnet {
     background-color: #387111;
 }
-.dannet {
+.dannet,
+.dannet * {
     color: #901a1e;
 }
-.w3c {
+.w3c,
+.w3c * {
     color: #55f;
 }
-.meta {
+.meta,
+.meta * {
     color: #019fa1;
 }
-.ontolex {
+.ontolex,
+.ontolex * {
     color: #df7300;
 }
-.wordnet {
+.wordnet,
+.wordnet * {
     color: #387111;
 }
 
-[lang]:not(footer)::after {
+[lang]:not(footer, h1 span)::after {
     content: attr(lang);
-    margin-left: 0.2ch;
-    vertical-align: super;
+    margin-left: 0.4ch;
+    vertical-align: top;
     font-size: 60%;
     opacity: 0.4;
     text-decoration: none;
     font-variant: small-caps;
     display: inline-block; /* nullifies text-decoration: underline */
+}
+
+h1 sup {
+    user-select: none;
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: 0.4;
+    text-decoration: none;
+    font-variant: small-caps;
 }
 
 td,
@@ -286,6 +337,8 @@ header .rdf-uri__name {
 }
 
 h1 {
+    display: flex;
+    justify-content: center;
     font-size: 36px;
     font-weight: normal;
     padding: 0;
@@ -295,11 +348,8 @@ h1 {
     word-break: normal;
 }
 
-h1 span[lang]::after {
-    margin-right: -4px;
-}
-
 h1 span.prefix {
+    align-self: center;
     transition: background 0.66s;
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);

@@ -5,6 +5,7 @@
            ont-app/igraph-jena              {:mvn/version "0.1.1"}
            ont-app/vocabulary               {:mvn/version "0.1.5"}
            org.flatland/ordered             {:mvn/version "1.15.10"}
+           bb-utils/better-cond             {:mvn/version "2.1.0-SNAPSHOT"}
 
            ;; Keep aristotle jena deps in line with igraph-jena (3.4.0 -> 3.17.0)
            org.apache.jena/apache-jena-libs {:mvn/version "3.17.0"
