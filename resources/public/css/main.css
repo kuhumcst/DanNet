@@ -175,6 +175,10 @@ article {
     max-width: 100ch;
 }
 
+article section:last-child {
+    margin-bottom: 32px;
+}
+
 header, footer {
     text-align: center;
 }
@@ -184,7 +188,11 @@ footer {
 }
 
 hr {
-    display: none;
+    border-top: 1px solid rgba(0,0,0,0.2);
+    border-bottom: none;
+    width: 100%;
+    margin: auto 0 0 0;
+    align-self: flex-end;
 }
 
 footer p {
@@ -218,6 +226,27 @@ div.set__right-bracket {
     padding-left: 1ch;
     opacity: 0.4;
     transition: all 0.1s;
+}
+
+tr.inherited > td.attr-prefix:before {
+    content: "†";
+    margin-right: 4px;
+    vertical-align: text-top;
+    color: black;
+}
+
+p.note {
+    text-align: center;
+    font-style: italic;
+    margin: 24px 0 24px 0;
+    padding: 0;
+    color: #666;
+}
+
+p.note strong {
+    font-size: 24px;
+    color: #333;
+    vertical-align: middle;
 }
 
 a:hover div.set__left-bracket,

@@ -306,7 +306,7 @@
 
 (rum/defc attr-val-table
   "A table which lists attributes and corresponding values of an RDF resource."
-  [opts subentity]
+  [{:keys [inherited languages] :as opts} subentity]
   [:table {:class "attr-val"}
    [:colgroup
     [:col]                                                  ; attr prefix
@@ -314,10 +314,16 @@
     [:col]]
    [:tbody
     (for [[k v] subentity
-          :let [prefix (if (keyword? k)
-                         (symbol (namespace k))
-                         k)]]
-      [:tr {:key k}
+          :let [prefix     (if (keyword? k)
+                             (symbol (namespace k))
+                             k)
+                inherited? (inherited k)]]
+      [:tr {:key   k
+            :class (when inherited? "inherited")
+            :title (when inherited
+                     (if (= "da" (first languages))
+                       "Nedarvet egenskab"
+                       "Inherited attribute"))}
        [:td.attr-prefix (prefix-elem prefix)]
        [:td.attr-name (anchor-elem k opts)]
        (cond
@@ -411,10 +417,13 @@
   label)
 
 (rum/defc entity-page
-  [{:keys [languages subject entity] :as opts}]
+  [{:keys [languages subject entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label      (i18n/select-label languages (entity->label entity))
-        label-lang (i18n/lang label)]
+        label-lang (i18n/lang label)
+        inherited  (->> (:dns/inherited entity)
+                        (map (comp prefix/qname->kw k->label))
+                        (set))]
     [:article
      [:header
       [:h1
@@ -443,7 +452,13 @@
                                   (not-empty))]
            [:section {:key (or title :no-title)}
             (when title [:h2 title])
-            (attr-val-table opts subentity)])))]))
+            (attr-val-table (assoc opts :inherited inherited) subentity)])))
+     (when (not-empty inherited)
+       [:p.note
+        [:strong "†"]
+        (if (= "da" (first languages))
+          ": egenskab helt eller delvist nedarvet fra hypernym."
+          ": attribute fully or partially inherited from hypernym.")])]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."

@@ -67,6 +67,11 @@
   [kw]
   (str/replace (subs (str kw) 1) #"/" ":"))
 
+(defn qname->kw
+  [kw]
+  (let [[prefix local-name] (str/split kw #":")]
+    (keyword prefix local-name)))
+
 (defn prefix->uri
   "Return the URI registered for a `prefix`."
   [prefix]
