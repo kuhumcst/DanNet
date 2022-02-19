@@ -317,7 +317,7 @@
           :let [prefix     (if (keyword? k)
                              (symbol (namespace k))
                              k)
-                inherited? (inherited k)]]
+                inherited? (get inherited k)]]
       [:tr {:key   k
             :class (when inherited? "inherited")
             :title (when inherited
