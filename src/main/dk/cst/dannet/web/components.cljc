@@ -184,7 +184,9 @@
             (name resource))])
      (let [qname      (subs resource 1 (dec (count resource)))
            local-name (guess-local-name qname)]
-       [:span.unknown {:title local-name}
+       [:a {:href  (rdf-resource-path resource)
+            :title local-name
+            :class "unknown"}
         local-name])))
   ([resource] (anchor-elem resource nil)))
 
