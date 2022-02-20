@@ -15,6 +15,8 @@
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
 ;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
+;;       Because of https://github.com/ont-app/vocabulary/pull/14
+;;       (remove PR has been merged, deps.edn updated)
 ;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:8080/dannet/data/synset-42955
