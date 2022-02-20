@@ -257,11 +257,11 @@ div.set__right-bracket {
     transition: all 0.1s;
 }
 
-tr.inherited > td.attr-prefix:before {
-    content: "†";
+span.marker {
     margin-right: 4px;
-    vertical-align: text-top;
+    font-weight: bold;
     color: black;
+    cursor: help;
 }
 
 p.note {

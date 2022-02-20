@@ -317,12 +317,15 @@
                              k)
                 inherited? (get inherited k)]]
       [:tr {:key   k
-            :class (when inherited? "inherited")
-            :title (when inherited
-                     (if (= "da" (first languages))
-                       "Nedarvet egenskab"
-                       "Inherited attribute"))}
-       [:td.attr-prefix (prefix-elem prefix)]
+            :class (when inherited? "inherited")}
+       [:td.attr-prefix
+        ;; TODO: link to definition below?
+        (when inherited?
+          [:span.marker {:title (if (= "da" (first languages))
+                                  "Nedarvet egenskab"
+                                  "Inherited attribute")}
+           "†"])
+        (prefix-elem prefix)]
        [:td.attr-name (anchor-elem k opts)]
        (cond
          (set? v)
