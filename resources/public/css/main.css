@@ -407,11 +407,10 @@ h1 {
 }
 
 h1 span.prefix {
-    align-self: center;
     transition: background 0.66s;
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
-    margin-right: 8px;
+    margin: -2px 8px 0 0;
     padding: 1px 9px 5px 9px;
     border-radius: 3px;
     border: 1px solid rgba(0,0,0,0.33);
