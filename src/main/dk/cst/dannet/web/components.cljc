@@ -555,6 +555,9 @@
     [:<>
      [:nav {:class ["prefix" (prefix->css-class prefix)]}
       (search-form data)
+      [:a.title {:title "Frontpage"
+                 :href  "/"}
+       "DanNet"]
       [:a.github {:title "The source code for DanNet is available on Github"
                   :href  "https://github.com/kuhumcst/DanNet"}]]
      [:div#content

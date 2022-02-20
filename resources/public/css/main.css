@@ -109,7 +109,28 @@ nav {
     z-index: 999;
 }
 
-a.github {
+nav a.title {
+    transition: all 0.2s;
+    color: white;
+    opacity: 0.8;
+    user-select: none;
+    writing-mode: vertical-rl;
+    text-orientation: sideways;
+    font-size: 21px;
+    margin: auto 0 -21px 0; /* account for fixed search element */
+    padding: 0;
+    font-variant: small-caps;
+    justify-self: center;
+}
+
+nav a.title:hover {
+    text-decoration: none;
+    opacity: 1;
+    transform: scale(110%);
+}
+
+nav a.github {
+    transition: all 0.2s;
     transition: opacity 0.2s;
     background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
     background-size: 24px;
@@ -124,6 +145,7 @@ a.github {
 
 a.github:hover {
     opacity: 1;
+    transform: scale(110%);
 }
 
 form[role=search] {
