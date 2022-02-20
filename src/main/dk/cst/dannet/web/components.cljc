@@ -14,7 +14,6 @@
   (:refer-clojure :exclude [cond])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
-;; TODO: url encode hashtags http://localhost:8080/dannet/external?subject=%3Chttp://purl.org/dc/aboutdcmi#DCMI%3E
 ;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
 ;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
@@ -119,10 +118,6 @@
 (def rdf-resource-re
   #"^<(.+)>$")
 
-(defn rdf-resource-path
-  [rdf-resource]
-  (str prefix/external-path "?subject=" rdf-resource))
-
 (defn break-up-uri
   "Place word break opportunities into a potentially long `uri`."
   [uri]
@@ -135,7 +130,7 @@
   [uri]
   [:a.rdf-uri {:href (if (str/starts-with? uri prefix/dannet-root)
                        (prefix/uri->path uri)
-                       (rdf-resource-path (prefix/uri->rdf-resource uri)))}
+                       (prefix/resource-path (prefix/uri->rdf-resource uri)))}
    (break-up-uri uri)])
 
 (defn str-transformation
@@ -184,7 +179,7 @@
             (name resource))])
      (let [qname      (subs resource 1 (dec (count resource)))
            local-name (guess-local-name qname)]
-       [:a {:href  (rdf-resource-path resource)
+       [:a {:href  (prefix/resource-path resource)
             :title local-name
             :class "unknown"}
         local-name])))

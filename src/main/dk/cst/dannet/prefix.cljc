@@ -2,6 +2,7 @@
   "Prefix registration for the various schemas used by DanNet."
   (:require #?(:clj [arachne.aristotle.registry :as reg])
             [ont-app.vocabulary.core :as voc]
+            [reitit.impl :refer [url-encode]]               ; CLJC url-encode
             [clojure.string :as str]))
 
 ;; NOTE: you must also edit the DanNet schema files if changing this!
@@ -105,7 +106,8 @@
   (let [prefix (symbol (namespace kw))]
     (if (get internal-prefixes prefix)
       (str (-> prefix schemas :uri uri->path) (name kw))
-      (-> (str dannet-root "external/" (namespace kw) "/" (name kw))
+      (-> (str dannet-root "external/"
+               (url-encode (namespace kw)) "/" (url-encode (name kw)))
           (uri->path)))))
 
 ;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
@@ -126,3 +128,7 @@
 
 (def search-path
   (str (uri->path dannet-root) "search"))
+
+(defn resource-path
+  [rdf-resource]
+  (str external-path "?subject=" (url-encode rdf-resource)))
