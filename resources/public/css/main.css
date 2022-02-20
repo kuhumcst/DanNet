@@ -196,7 +196,7 @@ article {
     max-width: 100ch;
 }
 
-article section:last-child {
+article > section:last-child {
     margin-bottom: 32px;
 }
 
