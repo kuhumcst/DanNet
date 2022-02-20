@@ -17,9 +17,13 @@
 ;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
 ;;       Because of https://github.com/ont-app/vocabulary/pull/14
 ;;       (remove PR has been merged, deps.edn updated)
+;; TODO: lots of unknown TaggedValues, possible related to error above http://localhost:8080/dannet/external?subject=%3Chttp%3A%2F%2Fwww.ontologydesignpatterns.org%2Fcp%2Fowl%2Fsemiotics.owl%3E
 ;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:8080/dannet/data/synset-42955
+
+;; No-op in CLJ
+(defonce state (atom {}))
 
 (defn invert-map
   [m]
@@ -170,23 +174,22 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc anchor-elem
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  ([resource {:keys [languages k->label] :as opts}]
-   (if (keyword? resource)
-     (let [labels (get k->label resource)
-           label  (i18n/select-label languages labels)]
-       [:a {:href  (prefix/resolve-href resource)
-            :title (name resource)
-            :lang  (i18n/lang label)
-            :class (prefix->css-class (symbol (namespace resource)))}
-        (or (str-transformation label)
-            (name resource))])
-     (let [qname      (subs resource 1 (dec (count resource)))
-           local-name (guess-local-name qname)]
-       [:a {:href  (prefix/resource-path resource)
-            :title local-name
-            :class "unknown"}
-        local-name])))
-  ([resource] (anchor-elem resource nil)))
+  [resource {:keys [languages k->label] :as opts}]
+  (if (keyword? resource)
+    (let [labels (get k->label resource)
+          label  (i18n/select-label languages labels)]
+      [:a {:href  (prefix/resolve-href resource)
+           :title (name resource)
+           :lang  (i18n/lang label)
+           :class (prefix->css-class (symbol (namespace resource)))}
+       (or (str-transformation label)
+           (name resource))])
+    (let [qname      (subs resource 1 (dec (count resource)))
+          local-name (guess-local-name qname)]
+      [:a {:href  (prefix/resource-path resource)
+           :title local-name
+           :class "unknown"}
+       local-name])))
 
 (rum/defc prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
@@ -549,9 +552,31 @@
     ", " [:abbr {:title "University of Copenhagen"}
           "KU"] "."]])
 
-(rum/defc page-shell
-  [page data]
+;; TODO: store in cookie?
+(rum/defc language-select < rum/reactive
+  "Language select widget. Defaults to `server-languages`, but prefers dynamic
+  state when client-side."
+  [server-languages]
+  (let [default (first (or (:languages (rum/react state))
+                           server-languages))]
+    [:select.language {:title         "Language preference"
+                       :default-value default
+                       :on-change     (fn [e]
+                                        (let [v (.-value (.-target e))]
+                                          (swap! state assoc :languages
+                                                 (i18n/lang-prefs v))))}
+     (when (not (#{"en" "da"} default))
+       [:option {:value default} (str default " (browser default)")])
+     [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
+     [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
+
+(rum/defc page-shell < rum/reactive
+  [page {:keys [languages] :as data}]
+  #?(:cljs (when-not (:languages @state)
+             (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
+        data* #?(:clj  {} :cljs (rum/react state))
+        data           (merge data data*)
         [prefix local-name rdf-uri] (if (:subject data)
                                       (resolve-names data)
                                       [nil nil nil])]
@@ -561,6 +586,7 @@
       [:a.title {:title "Frontpage"
                  :href  "/"}
        "DanNet"]
+      (language-select languages)
       [:a.github {:title "The source code for DanNet is available on Github"
                   :href  "https://github.com/kuhumcst/DanNet"}]]
      [:div#content

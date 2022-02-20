@@ -11,6 +11,7 @@
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
+            [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
@@ -50,9 +51,6 @@
 
 (def one-day-cache
   "private, max-age=86400")
-
-(def supported-languages
-  ["da" "en"])
 
 (defn uri->path
   "Remove every part of the `uri` aside from the path."
@@ -152,7 +150,7 @@
                   entity       (if (use-lang? content-type)
                                  (q/expanded-entity (:graph @db) subject*)
                                  (q/entity (:graph @db) subject*))
-                  languages    (if lang [lang "en"] ["en"])
+                  languages    (i18n/lang-prefs lang)
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
                                 :subject   subject*
@@ -226,7 +224,7 @@
                 ctx))}))
 
 (def language-negotiation-ic
-  (->language-negotiation-ic supported-languages))
+  (->language-negotiation-ic i18n/supported-languages))
 
 (def content-negotiation-ic
   (conneg/negotiate-content (keys content-type->body-fn)))

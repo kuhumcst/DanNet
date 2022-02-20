@@ -117,7 +117,7 @@ nav a.title {
     writing-mode: vertical-rl;
     text-orientation: sideways;
     font-size: 21px;
-    margin: auto 0 -21px 0; /* account for fixed search element */
+    margin: auto 0 -32px 0; /* account for fixed search element */
     padding: 0;
     font-variant: small-caps;
     justify-self: center;
@@ -129,9 +129,33 @@ nav a.title:hover {
     transform: scale(110%);
 }
 
+nav select.language {
+    /* Remove default styling */
+    color: transparent;
+    border: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    transition: all 0.2s;
+    opacity: 0.8;
+    cursor: pointer;
+    margin: auto 0 4px 0;
+    width: 32px;
+    height: 32px;
+    background: transparent url(/images/globe.svg);
+    background-size: 28px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+nav select.language:hover {
+    opacity: 1;
+    transform: scale(110%);
+}
+
 nav a.github {
     transition: all 0.2s;
-    transition: opacity 0.2s;
     background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
     background-size: 24px;
     background-repeat: no-repeat;
@@ -140,7 +164,6 @@ nav a.github {
     height: 24px;
     opacity: 0.8;
     padding: 4px;
-    margin-top: auto;
 }
 
 a.github:hover {
