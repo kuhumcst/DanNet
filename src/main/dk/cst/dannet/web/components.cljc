@@ -17,6 +17,7 @@
 ;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
 ;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
+;; TODO: empty definition http://0.0.0.0:8080/dannet/data/synset-42955
 
 (defn invert-map
   [m]
