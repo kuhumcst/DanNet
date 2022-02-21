@@ -13,6 +13,7 @@
 
   See: https://www.w3.org/2016/05/ontolex"
   (:require [clojure.set :as set]
+            [clojure.math :as math]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
@@ -396,12 +397,38 @@
           [word :ontolex/sense sense]
           [synset :ontolex/lexicalizedSense sense]}))))
 
+(def polarity-ratio
+  "Convert the -3 to 3 score to a standard marl:polarityValue from 0.0 to 1.0."
+  {-3 0.0
+   -2 0.17
+   -1 0.33
+   0  0.5
+   1  0.67
+   2  0.85
+   3  1.0})
+
+;; TODO: transfer to senses or synsets?
+(defn ->sentiment-triples
+  "Convert a `row` from '2_headword_headword_polarity.csv' to triples."
+  [[word variant pos word-id score forms :as row]]
+  (let [subject (word-uri word-id)
+        v       (parse-long score)]
+    #{[subject :marl/polarityValue (polarity-ratio v)]
+      [subject :marl/hasPolarity (cond
+                                   (> v 0) :marl/Positive
+                                   (< v 0) :marl/Negative
+                                   :else :marl/Neutral)]}))
+
 (def imports
   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
    :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
    :metadata  [nil metadata-triples]
+   :sentiment [->sentiment-triples
+               (io/resource "2_headword_headword_polarity.csv")
+               :encoding "UTF-8"
+               :separator \tab]
 
    ;; Examples are a special case - these are not actual RDF triples!
    ;; Need to query the resulting graph to generate the real example triples.
@@ -409,15 +436,19 @@
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
-  [[row->triples file]]
+  [[row->triples file & {:keys [encoding separator] :as opts}]]
   (if (set? file)                                           ; metadata triples?
     file
-    (with-open [reader (io/reader file :encoding "ISO-8859-1")]
-      (->> (csv/read-csv reader :separator \@)
+    (with-open [reader (io/reader file :encoding (or encoding "ISO-8859-1"))]
+      (->> (csv/read-csv reader :separator (or separator \@))
            (map row->triples)
            (doall)))))
 
 (comment
+  ;; Example sentiment triples
+  (->> (read-triples (:sentiment imports))
+       (filter (comp not-empty second))
+       (take 10))
 
   ;; Example Synsets
   (->> (read-triples (:synsets imports))

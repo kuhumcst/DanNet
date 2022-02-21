@@ -47,12 +47,15 @@
       (and (not (except k))
            (= (namespace k) (name prefix))))))
 
+;; TODO: dynamic sections based on :rdf/typo?
 (def defined-sections
   [[nil [:rdf/type
          :skos/definition
          :rdfs/comment
          :lexinfo/partOfSpeech
          :lexinfo/senseExample
+         :marl/hasPolarity
+         :marl/polarityValue
          :dns/ontologicalType
          :dct/title
          :dct/description
