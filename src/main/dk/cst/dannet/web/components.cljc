@@ -234,8 +234,11 @@
     ;; Display blank resources as inlined tables.
     (map? v)
     [:td (if (= v (select-keys v [:rdf/value v]))
-           [:section.text {:lang (i18n/lang v)}
-            (str-transformation (i18n/select-str languages (:rdf/value v)))]
+           (let [x (i18n/select-str languages (:rdf/value v))]
+             (if (coll? x)
+               (into [:<>] (for [s x]
+                             [:section.text {:lang (i18n/lang s)} (str s)]))
+               [:section.text {:lang (i18n/lang x)} (str x)]))
            (attr-val-table opts v))]
 
     ;; Doubly inlined tables are omitted entirely.
