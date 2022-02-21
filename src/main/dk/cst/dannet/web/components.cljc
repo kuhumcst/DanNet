@@ -175,6 +175,9 @@
       (re-matches #"https?://[^\s]+" s)
       (break-up-uri s)
 
+      (re-find #"\n" s)
+      (into [:<> (interpose [:br] (str/split s #"\n"))])
+
       :else s)))
 
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
