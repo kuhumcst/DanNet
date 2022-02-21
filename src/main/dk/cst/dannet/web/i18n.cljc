@@ -34,7 +34,7 @@
     (lstr/lang s)))
 
 ;; TODO: compare with https://www.rfc-editor.org/info/bcp47
-(defn select-label-slow
+(defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is."
   [languages x]
@@ -48,7 +48,7 @@
             (lang->s nil)))))
     x))
 
-(defn select-str-slow
+(defn select-str
   "Select strings in a set of strings `x` based on preferred `languages`.
   If `x` is a not a set, e.g. a string, it is just returned as-is.
   This function differs from 'select-label' by allowing for multiple strings
@@ -67,5 +67,9 @@
     x))
 
 ;; TODO: use e.g. core.memoize rather than naïve memoisation
-(def select-label (memoize select-label-slow))
-(def select-str (memoize select-str-slow))
+#?(:clj (do
+          (alter-var-root #'select-label memoize)
+          (alter-var-root #'select-str memoize))
+   :cljs (do
+           (def select-label (memoize select-label))
+           (def select-str (memoize select-str))))

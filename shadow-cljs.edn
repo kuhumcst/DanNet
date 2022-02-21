@@ -2,6 +2,8 @@
  :dev-http {7777 {:root    "resources/public"
                   :handler dk.cst.dannet.web.resources/shadow-handler}}
  :builds   {:app  {:target            :browser
+                   ;; redefs needed in dk.cst.dannet.web.i18n, warning disabled
+                   :compiler-options  {:warnings {:redef-in-file false}}
                    :output-dir        "resources/public/js/compiled"
                    :asset-path        "/js/compiled"
                    :module-hash-names true
