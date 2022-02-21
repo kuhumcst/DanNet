@@ -17,6 +17,12 @@
     nil ["en" nil "da"]
     [lang "en" nil "da"]))
 
+(defn da-en
+  [languages da en]
+  (if (= "da" (first languages))
+    da
+    en))
+
 (def rdf-string?
   "Tests whether the input is an RDF string value."
   (some-fn string? #(instance? LangStr %)))

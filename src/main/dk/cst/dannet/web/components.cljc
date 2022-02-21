@@ -326,7 +326,7 @@
        [:td.attr-prefix
         ;; TODO: link to definition below?
         (when inherited?
-          [:span.marker {:title (if (= "da" (first languages))
+          [:span.marker {:title (i18n/da-en languages
                                   "Nedarvet egenskab"
                                   "Inherited attribute")}
            "†"])
@@ -462,7 +462,7 @@
      (when (not-empty inherited)
        [:p.note
         [:strong "†"]
-        (if (= "da" (first languages))
+        (i18n/da-en languages
           ": egenskab helt eller delvist nedarvet fra hypernym."
           ": attribute fully or partially inherited from hypernym.")])]))
 
@@ -542,20 +542,23 @@
 (def data->title
   (comp :title meta))
 
-;; TODO: language localisation
 (rum/defc page-footer
-  [{}]
-  [:footer {:lang "en"}
-   [:p
-    "© 2022 " [:a {:href "https://cst.ku.dk/english/"}
-               "Centre for Language Technology"]
-    ", " [:abbr {:title "University of Copenhagen"}
-          "KU"] "."]])
+  [{:keys [languages] :as data}]
+  [:footer
+   (i18n/da-en languages
+     [:p {:lang "da"}
+      "© 2022 " [:a {:href "https://cst.ku.dk"}
+                 "Center for Sprogteknologi"]
+      ", " [:abbr {:title "Københavns Universitet"}
+            "KU"] "."]
+     [:p {:lang "en"}
+      "© 2022 " [:a {:href "https://cst.ku.dk/english"}
+                 "Centre for Language Technology"]
+      ", " [:abbr {:title "University of Copenhagen"}
+            "KU"] "."])])
 
 ;; TODO: store in cookie?
 (rum/defc language-select < rum/reactive
-  "Language select widget. Defaults to `server-languages`, but prefers dynamic
-  state when client-side."
   [server-languages]
   (let [default (first (or (:languages (rum/react state))
                            server-languages))]
@@ -594,4 +597,4 @@
       [:main
        (page-component data)]
       [:hr]
-      (page-footer {})]]))
+      (page-footer data)]]))
