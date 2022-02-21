@@ -25,6 +25,8 @@
              :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
    'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"
              :alt "schemas/lexinfo-3.0.owl"}
+   'marl    {:uri "http://purl.org/marl/ns#"
+             :alt "schemas/marl-0.2.xml"}
 
    ;; Metadata-related namespaces.
    'dcat    {:uri "http://www.w3.org/ns/dcat#"

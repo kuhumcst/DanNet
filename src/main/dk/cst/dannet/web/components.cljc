@@ -36,7 +36,7 @@
     {"dannet"  #{'dn 'dnc 'dns}
      "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
      "meta"    #{'dct 'vann}
-     "ontolex" #{'ontolex 'lexinfo}
+     "ontolex" #{'ontolex 'lexinfo 'marl}
      "wordnet" #{'wn}}))
 
 (defn with-prefix

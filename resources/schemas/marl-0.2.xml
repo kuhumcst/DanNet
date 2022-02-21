@@ -1,0 +1,182 @@
+<?xml version="1.0"?>
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:protege="http://protege.stanford.edu/plugins/owl/protege#"
+    xmlns:xsp="http://www.owl-ontologies.com/2005/08/07/xsp.owl#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+    xmlns:swrl="http://www.w3.org/2003/11/swrl#"
+    xmlns:swrlb="http://www.w3.org/2003/11/swrlb#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:marl="http://purl.org/marl/ns#"
+  xml:base="http://purl.org/marl/ns">
+  <owl:Ontology rdf:about="">
+    <rdfs:seeAlso rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:seeAlso>
+    <rdfs:comment xml:lang="en">Marl is an ontology designed to use for publishing the results of the opinion mining process in a form of structured data on the Web. The goal is to unify the access the numerical approximation of the opinion concept and allow extensive reasoning and search over multiple resources from different content providers.</rdfs:comment>
+    <owl:versionInfo rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >0.2</owl:versionInfo>
+    <rdfs:label xml:lang="en">Marl Opinion Ontology</rdfs:label>
+  </owl:Ontology>
+  <owl:Class rdf:ID="AggregatedOpinion">
+    <rdfs:comment xml:lang="en">The same as Opinion class but indicates that the properties of this class aggregate all the opinions specified in the "extractedFrom" source. Optionally, if the aggregatesOpinion property is used this class could be created to aggregate only certain opinions (e.g. in a text about political scene it there could be many AggregatedOpinion classes each with opinions per different politician).</rdfs:comment>
+    <rdfs:label xml:lang="en">AggregatedOpinion</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:subClassOf>
+      <owl:Class rdf:ID="Opinion"/>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:about="#Opinion">
+    <rdfs:label xml:lang="en">Opinion</rdfs:label>
+    <rdfs:comment xml:lang="en">Describes the concept of opinion expressed in a certain text.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </owl:Class>
+  <owl:Class rdf:ID="Polarity">
+    <rdfs:comment xml:lang="en">Class that represents the opinion polarity. Use instances to express if the polarity is positive, neutral or negative.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:label xml:lang="en">Polarity</rdfs:label>
+  </owl:Class>
+  <owl:ObjectProperty rdf:ID="describesObjectPart">
+    <rdfs:label xml:lang="en">describesObjectPart</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:domain rdf:resource="#Opinion"/>
+    <rdfs:comment xml:lang="en">Indicates a particular element or part of the object that the opinion refers to (eg. laptop screen or camera battery).</rdfs:comment>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:ID="aggregatesOpinion">
+    <rdfs:range rdf:resource="#Opinion"/>
+    <rdfs:label xml:lang="en">aggregatesOpinion</rdfs:label>
+    <rdfs:comment xml:lang="en">Indicates that the polarity described with the class is a calculation (eg. sum) of other opinions polarity (eg. aggregated opinion about the movie derived from many sentiments expressed in one text).</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:domain rdf:resource="#AggregatedOpinion"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:ID="hasOpinion">
+    <rdfs:label xml:lang="en">hasOpinion</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Indicates that a certain text has a subjective opinion expressed in it.</rdfs:comment>
+    <rdfs:range rdf:resource="#Opinion"/>
+    <owl:inverseOf>
+      <owl:ObjectProperty rdf:ID="extractedFrom"/>
+    </owl:inverseOf>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#extractedFrom">
+    <owl:inverseOf rdf:resource="#hasOpinion"/>
+    <rdfs:label xml:lang="en">extractedFrom</rdfs:label>
+    <rdfs:domain rdf:resource="#Opinion"/>
+    <rdfs:comment xml:lang="en">Indicates the text from which the opinion has been extracted.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:ID="hasPolarity">
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Indicates if the opinion is positive/negative or neutral. Use instances of class marl:Polarity.</rdfs:comment>
+    <rdfs:label xml:lang="en">hasPolarity</rdfs:label>
+    <rdfs:range rdf:resource="#Polarity"/>
+    <rdfs:domain rdf:resource="#Opinion"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:ID="describesFeature">
+    <rdfs:label xml:lang="en">describesFeature</rdfs:label>
+    <rdfs:comment xml:lang="en">Indicates a feature of an object or object part that the opinion refers to (eg. laptop battery life or laptop battery size etc.).</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:domain rdf:resource="#Opinion"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:ID="describesObject">
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:domain rdf:resource="#Opinion"/>
+    <rdfs:label xml:lang="en">describesObject</rdfs:label>
+    <rdfs:comment xml:lang="en">Indicates the object that the opinion refers to.</rdfs:comment>
+  </owl:ObjectProperty>
+  <owl:DatatypeProperty rdf:ID="polarityValue">
+    <rdfs:comment xml:lang="en">A numerical representation of the polarity value. The recommended use is by specifying % by using a real number from 0..1. In case this is not feasible in a given solution use minOpinionValue and maxOpinionValue to provide additional information.</rdfs:comment>
+    <rdfs:label xml:lang="en">polarityValue</rdfs:label>
+    <rdfs:domain rdf:resource="#Opinion"/>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="opinionCount">
+    <rdfs:label xml:lang="en">opinionCount</rdfs:label>
+    <rdfs:domain rdf:resource="#AggregatedOpinion"/>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Amount of all aggregated opinions.</rdfs:comment>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="positiveOpinionsCount">
+    <rdfs:comment xml:lang="en">Amount of positive opinions aggregated.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:label xml:lang="en">positiveOpinionCount</rdfs:label>
+    <rdfs:domain rdf:resource="#AggregatedOpinion"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="negativeOpinionCount">
+    <rdfs:label xml:lang="en">negativeOpinionCount</rdfs:label>
+    <rdfs:domain rdf:resource="#AggregatedOpinion"/>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Amount of negative opinions aggregated.</rdfs:comment>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="minPolarityValue">
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Lowest possible numerical value of the opinion.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Opinion"/>
+    <rdfs:label xml:lang="en">minPolarityValue</rdfs:label>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="neutralOpinionCount">
+    <rdfs:domain rdf:resource="#AggregatedOpinion"/>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">Amount of neutral opinions aggregated.</rdfs:comment>
+    <rdfs:label xml:lang="en">neutralOpinionCount</rdfs:label>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="opinionText">
+    <rdfs:label xml:lang="en">opinionText</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">The exact text extract that expresses the opinion. This can be used when entity/text pointed by extractedFrom contains many opinions. 
+
+For example extractedFrom can point to a comment that contains many opinions about a movie, each opinion should have a separate marl:Opinion and optionally an opinionText  property to indicate the specific text fragment of the comment.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Opinion"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="algorithmConfidence">
+    <rdfs:label xml:lang="en">algorithmConfidence</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:comment xml:lang="en">A numerical value that describe how much the algorithm was confident of the assessment of the opinion (eg. how much the opinion matches a gives object/product).</rdfs:comment>
+    <rdfs:domain rdf:resource="#Opinion"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:ID="maxPolarityValue">
+    <rdfs:comment xml:lang="en">Maximal possible numerical value for the opinion.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+    <rdfs:label xml:lang="en">algorithmConfidence</rdfs:label>
+    <rdfs:domain rdf:resource="#Opinion"/>
+  </owl:DatatypeProperty>
+  <marl:Polarity rdf:ID="Positive">
+    <rdfs:comment xml:lang="en">Positive polarity</rdfs:comment>
+    <rdfs:label xml:lang="en">Positive</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </marl:Polarity>
+  <marl:Polarity rdf:ID="Negative">
+    <rdfs:label xml:lang="en">Negative</rdfs:label>
+    <rdfs:comment xml:lang="en">Negative polarity.</rdfs:comment>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </marl:Polarity>
+  <marl:Polarity rdf:ID="Neutral">
+    <rdfs:comment xml:lang="en">Neutral polarity</rdfs:comment>
+    <rdfs:label xml:lang="en">Neutral</rdfs:label>
+    <rdfs:isDefinedBy rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >http://purl.org/marl/ns</rdfs:isDefinedBy>
+  </marl:Polarity>
+</rdf:RDF>
+
+<!-- Created with Protege (with OWL Plugin 3.4.2, Build 562)  http://protege.stanford.edu -->
