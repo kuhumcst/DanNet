@@ -581,6 +581,7 @@
                                       (resolve-names data)
                                       [nil nil nil])]
     [:<>
+     ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix" (prefix->css-class prefix)]}
       (search-form data)
       [:a.title {:title "Frontpage"
