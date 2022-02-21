@@ -429,7 +429,8 @@
         label-lang (i18n/lang label)
         inherited  (->> (:dns/inherited entity)
                         (map (comp prefix/qname->kw k->label))
-                        (set))]
+                        (set))
+        uri-only?  (= local-name rdf-uri)]
     [:article
      [:header
       [:h1
@@ -439,17 +440,20 @@
                :lang  label-lang}
         (if label
           (str-transformation label)
-          (if (= local-name rdf-uri)
-            (break-up-uri rdf-uri)
+          (if uri-only?
+            [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
             local-name))]
        (when label-lang
          [:sup label-lang])]
-      (if rdf-uri
-        [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
-        (when-let [uri-prefix (prefix/prefix->uri prefix)]
-          [:div.rdf-uri
-           [:span.rdf-uri__prefix {:key uri-prefix} (break-up-uri uri-prefix)]
-           [:span.rdf-uri__name {:key local-name} (break-up-uri local-name)]]))]
+      (when-not uri-only?
+        (if rdf-uri
+          [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
+          (when-let [uri-prefix (prefix/prefix->uri prefix)]
+            [:div.rdf-uri
+             [:span.rdf-uri__prefix {:key uri-prefix}
+              (break-up-uri uri-prefix)]
+             [:span.rdf-uri__name {:key local-name}
+              (break-up-uri local-name)]])))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
