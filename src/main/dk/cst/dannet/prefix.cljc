@@ -35,8 +35,12 @@
              :alt "schemas/vann.ttl"}
    'foaf    {:uri "http://xmlns.com/foaf/0.1/"
              :alt "schemas/foaf.rdf"}
-   'dct     {:uri "http://purl.org/dc/terms/"
+   'dc      {:uri "http://purl.org/dc/terms/"
              :alt "schemas/dublin_core_terms.ttl"}
+   'dc11    {:uri "http://purl.org/dc/elements/1.1/"
+             :alt "schemas/dublin_core_elements.ttl"}
+   'cc      {:uri "http://creativecommons.org/ns#"
+             :alt "schemas/cc.rdf"}
 
    ;; The three internal DanNet namespaces.
    'dn      {:uri     (str dannet-root "data/")

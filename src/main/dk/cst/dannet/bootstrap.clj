@@ -13,7 +13,6 @@
 
   See: https://www.w3.org/2016/05/ontolex"
   (:require [clojure.set :as set]
-            [clojure.math :as math]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
@@ -34,17 +33,17 @@
   the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
   #{[<dn> :vann/preferredNamespacePrefix "dn"]
     [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
-    [<dn> :dct/title "DanNet"]
-    [<dn> :dct/description #lstr "The Danish WordNet.@en"]
-    [<dn> :dct/description #lstr "Det danske WordNet.@da"]
-    [<dn> :dct/issued #inst "2022-07-01"]                   ;TODO
-    [<dn> :dct/modified (new Date)]
-    [<dn> :dct/contributor <simongray>]
-    [<dn> :dct/publisher "<http://cst.ku.dk>"]
+    [<dn> :dc/title "DanNet"]
+    [<dn> :dc/description #lstr "The Danish WordNet.@en"]
+    [<dn> :dc/description #lstr "Det danske WordNet.@da"]
+    [<dn> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dn> :dc/modified (new Date)]
+    [<dn> :dc/contributor <simongray>]
+    [<dn> :dc/publisher "<http://cst.ku.dk>"]
     ;; TODO: should be dct:RightsStatement
-    [<dn> :dct/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
+    [<dn> :dc/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
     ;; TODO: should be dct:LicenseDocument
-    [<dn> :dct/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
+    [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
     [<simongray> :rdf/type :foaf/Person]
     [<simongray> :foaf/name "Simon Gray"]
     [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]

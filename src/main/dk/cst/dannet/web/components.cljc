@@ -5,6 +5,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -33,7 +34,7 @@
   (invert-map
     {"dannet"  #{'dn 'dnc 'dns}
      "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
-     "meta"    #{'dct 'vann}
+     "meta"    #{'dc 'dc11 'vann 'cc}
      "ontolex" #{'ontolex 'lexinfo 'marl}
      "wordnet" #{'wn}}))
 
@@ -55,9 +56,9 @@
          :marl/hasPolarity
          :marl/polarityValue
          :dns/ontologicalType
-         :dct/title
-         :dct/description
-         :dct/rights
+         :dc/description
+         :vann/preferredNamespacePrefix
+         :vann/preferredNamespaceUri
          :dcat/downloadURL]]
    [#{(->LangStr "Lexical information" "en")
       (->LangStr "Leksikalsk information" "da")}
@@ -202,14 +203,12 @@
 
 (rum/defc prefix-elem
   "Visual representation of a `prefix` based on its associated symbol."
-  [prefix & {:keys [no-local-name?]}]
+  [prefix]
   (cond
     (symbol? prefix)
     [:span.prefix {:title (prefix/prefix->uri prefix)
                    :class (prefix->css-class prefix)}
-     (if no-local-name?
-       (str prefix)
-       (str prefix ":"))]
+     (str prefix ":")]
 
     (string? prefix)
     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
@@ -385,19 +384,11 @@
                      (filter ks entity))))))
 
 (defn- resolve-names
-  [{:keys [subject entity] :as opts}]
-  (cond
-    (keyword? subject)
+  [{:keys [subject] :as opts}]
+  (if (keyword? subject)
     [(symbol (namespace subject))
      (name subject)
-     nil]
-
-    (:vann/preferredNamespacePrefix entity)
-    [(symbol (:vann/preferredNamespacePrefix entity))
-     (:dct/title entity)
-     (str/replace subject #"<|>" "")]
-
-    :else
+     (voc/uri-for subject)]
     (let [local-name (str/replace subject #"<|>" "")]
       [nil
        local-name
@@ -428,25 +419,38 @@
       [:a {:href rdf-uri} (break-up-uri rdf-uri)]
       " in your browser?"]]))
 
-(defn entity->label
-  "Return the :rdfs/label or another appropriate label value for `entity`."
-  [{:keys [rdfs/label]
-    :as   entity}]
-  label)
+(def label-keys
+  [:rdfs/label
+   :dc/title
+   :dc11/title
+   :foaf/name])
+
+(def label-keyset
+  (set label-keys))
+
+(defn entity->label-key
+  "Return :rdfs/label or another appropriate key for labeling `entity`."
+  [entity]
+  (loop [[candidate & candidates] label-keys]
+    (if (get entity candidate)
+      candidate
+      (when candidates
+        (recur candidates)))))
 
 (rum/defc entity-page
   [{:keys [languages subject entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
-        label      (i18n/select-label languages (entity->label entity))
+        label-key  (entity->label-key entity)
+        label      (i18n/select-label languages (get entity label-key))
         label-lang (i18n/lang label)
         inherited  (->> (:dns/inherited entity)
                         (map (comp prefix/qname->kw k->label))
                         (set))
-        uri-only?  (= local-name rdf-uri)]
+        uri-only?  (and (not label) (= local-name rdf-uri))]
     [:article
      [:header
       [:h1
-       (prefix-elem prefix :no-local-name? (empty? local-name))
+       (prefix-elem prefix)
        [:span {:title (or local-name subject)
                :key   subject
                :lang  label-lang}
@@ -470,7 +474,7 @@
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
          (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                  (dissoc :rdfs/label)
+                                  (dissoc label-key)
                                   (not-empty))]
            [:section {:key (or title :no-title)}
             (when title [:h2 (str (i18n/select-label languages title))])
