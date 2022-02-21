@@ -5,11 +5,11 @@
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
-            #?(:cljs [reitit.frontend.easy :as rfe])
-            #?(:cljs [ont-app.vocabulary.lstr :refer [LangStr]]))
+            #?(:cljs [reitit.frontend.easy :as rfe]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
@@ -47,7 +47,6 @@
       (and (not (except k))
            (= (namespace k) (name prefix))))))
 
-;; TODO: use sets of langStrings for titles
 (def defined-sections
   [[nil [:rdf/type
          :skos/definition
@@ -59,20 +58,24 @@
          :dct/description
          :dct/rights
          :dcat/downloadURL]]
-   ["Lexical information" [:ontolex/writtenRep
-                           :ontolex/canonicalForm
-                           :ontolex/evokes
-                           :ontolex/isEvokedBy
-                           :ontolex/sense
-                           :ontolex/isSenseOf
-                           :ontolex/lexicalizedSense
-                           :ontolex/isLexicalizedSenseOf]]
-   ["WordNet relations" (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
-                                 (comp #{:dns/usedFor
-                                         :dns/usedForObject
-                                         :dns/nearAntonym
-                                         :dns/orthogonalHyponym
-                                         :dns/orthogonalHypernym} first))]])
+   [#{(->LangStr "Lexical information" "en")
+      (->LangStr "Leksikalsk information" "da")}
+    [:ontolex/writtenRep
+     :ontolex/canonicalForm
+     :ontolex/evokes
+     :ontolex/isEvokedBy
+     :ontolex/sense
+     :ontolex/isSenseOf
+     :ontolex/lexicalizedSense
+     :ontolex/isLexicalizedSenseOf]]
+   [#{(->LangStr "WordNet relations" "en")
+      (->LangStr "WordNet-relationer" "da")}
+    (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
+             (comp #{:dns/usedFor
+                     :dns/usedForObject
+                     :dns/nearAntonym
+                     :dns/orthogonalHyponym
+                     :dns/orthogonalHypernym} first))]])
 
 (def sections
   (let [ks-defs     (map second defined-sections)
@@ -80,7 +83,9 @@
                       (get (set (apply concat (filter coll? ks-defs)))
                            k))
         in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
-    (conj defined-sections ["Other attributes" (complement in-section?)])))
+    (conj defined-sections [#{(->LangStr "Other attributes" "en")
+                              (->LangStr "Andre egenskaber" "da")}
+                            (complement in-section?)])))
 
 (defn- partition-str
   "Partition a string `s` by the character `ch`.
@@ -461,7 +466,7 @@
                                   (dissoc :rdfs/label)
                                   (not-empty))]
            [:section {:key (or title :no-title)}
-            (when title [:h2 title])
+            (when title [:h2 (str (i18n/select-label languages title))])
             (attr-val-table (assoc opts :inherited inherited) subentity)])))
      (when (not-empty inherited)
        [:p.note
