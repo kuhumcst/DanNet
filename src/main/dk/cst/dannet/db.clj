@@ -234,6 +234,7 @@
    '?definition :skos/definition
    '?ontotype   :dns/ontologicalType})
 
+;; TODO: does this memoization even accomplish anything?
 (def label-lookup
   (memoize
     (fn [g]

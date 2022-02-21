@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.i18n
   "Functions for working with RDF LangStrings."
-  #?(:clj  (:require [ont-app.vocabulary.lstr :as lstr])
+  #?(:clj  (:require [ont-app.vocabulary.lstr :as lstr]
+                     [clojure.core.memoize :as memo])
      :cljs (:require [ont-app.vocabulary.lstr :as lstr :refer [LangStr]]))
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
@@ -66,10 +67,10 @@
         strs))
     x))
 
-;; TODO: use e.g. core.memoize rather than naïve memoisation
+;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
 #?(:clj (do
-          (alter-var-root #'select-label memoize)
-          (alter-var-root #'select-str memoize))
+          (alter-var-root #'select-label #(memo/lu % :lu/threshold 1000))
+          (alter-var-root #'select-str #(memo/lu % :lu/threshold 200)))
    :cljs (do
            (def select-label (memoize select-label))
            (def select-str (memoize select-str))))
