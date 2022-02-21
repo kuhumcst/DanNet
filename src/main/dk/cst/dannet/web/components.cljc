@@ -14,10 +14,8 @@
   (:refer-clojure :exclude [cond])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
-;; TODO: why error? http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
-;;       Because of https://github.com/ont-app/vocabulary/pull/14
-;;       (remove PR has been merged, deps.edn updated)
-;; TODO: lots of unknown TaggedValues, possible related to error above http://localhost:8080/dannet/external?subject=%3Chttp%3A%2F%2Fwww.ontologydesignpatterns.org%2Fcp%2Fowl%2Fsemiotics.owl%3E
+;; TODO: owl:	versionInfo	[TaggedValue: f, 1.1] http://localhost:8080/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
+;; TODO: lots of unknown TaggedValues http://localhost:8080/dannet/external?subject=%3Chttp%3A%2F%2Fwww.ontologydesignpatterns.org%2Fcp%2Fowl%2Fsemiotics.owl%3E
 ;; TODO: empty synset http://localhost:8080/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:8080/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:8080/dannet/data/synset-42955
