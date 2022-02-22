@@ -176,9 +176,10 @@
            value-str (float-str v)]
        ;; Kinda abusing Ruby text here, but whatever...
        [:ruby.polarity
-        [:meter {:min   min-str
-                 :max   max-str
-                 :value value-str}
+        [:meter {:min     min-str
+                 :max     max-str
+                 :optimum "3"
+                 :value   value-str}
          value-str]
         [:rt value-str]])
 
@@ -187,9 +188,9 @@
 
      (= attr-key :dns/inherited)
      (let [[_ prefix-str local-name] (re-matches prefix/qname-re s)
-           resource (keyword prefix-str local-name)
-           labels   (get k->label resource)
-           label    (i18n/select-label languages labels)
+           resource  (keyword prefix-str local-name)
+           labels    (get k->label resource)
+           label     (i18n/select-label languages labels)
            css-class (prefix->css-class (symbol prefix-str))]
        [:span.emblem {:class css-class}
         (prefix-elem (symbol prefix-str))
