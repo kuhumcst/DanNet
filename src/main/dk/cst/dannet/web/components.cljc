@@ -385,14 +385,15 @@
 
 (defn- resolve-names
   [{:keys [subject] :as opts}]
-  (if (keyword? subject)
-    [(symbol (namespace subject))
-     (name subject)
-     (voc/uri-for subject)]
-    (let [local-name (str/replace subject #"<|>" "")]
-      [nil
-       local-name
-       local-name])))
+  (when subject
+    (if (keyword? subject)
+      [(symbol (namespace subject))
+       (name subject)
+       (voc/uri-for subject)]
+      (let [local-name (str/replace subject #"<|>" "")]
+        [nil
+         local-name
+         local-name]))))
 
 (rum/defc no-entity-data
   [languages rdf-uri]
@@ -594,18 +595,19 @@
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [languages] :as data}]
+  [page {:keys [languages entity] :as data}]
   #?(:cljs (when-not (:languages @state)
              (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
         data* #?(:clj  {} :cljs (rum/react state))
         data           (merge data data*)
-        [prefix local-name rdf-uri] (if (:subject data)
-                                      (resolve-names data)
-                                      [nil nil nil])]
+        [prefix _ _] (resolve-names data)
+        prefix*        (or prefix (some-> entity
+                                          :vann/preferredNamespacePrefix
+                                          symbol))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix" (prefix->css-class prefix)]}
+     [:nav {:class ["prefix" (prefix->css-class prefix*)]}
       (search-form data)
       [:a.title {:title "Frontpage"
                  :href  "/"}
