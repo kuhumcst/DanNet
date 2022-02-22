@@ -84,8 +84,8 @@
                       (get (set (apply concat (filter coll? ks-defs)))
                            k))
         in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
-    (conj defined-sections [#{(->LangStr "Other attributes" "en")
-                              (->LangStr "Andre egenskaber" "da")}
+    (conj defined-sections [#{(->LangStr "Other" "en")
+                              (->LangStr "Andet" "da")}
                             (complement in-section?)])))
 
 (defn- partition-str
@@ -162,7 +162,7 @@
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key entity] :as opts}]
+  ([v {:keys [attr-key languages k->label entity] :as opts}]
    (cond
      ;; Transformations of non-strings
      ;; TODO: properly implement date parsing
@@ -184,6 +184,16 @@
 
      ;; Transformations of strings ONLY from here on
      :when-let [s (not-empty (str v))]
+
+     (= attr-key :dns/inherited)
+     (let [[_ prefix-str local-name] (re-matches prefix/qname-re s)
+           resource (keyword prefix-str local-name)
+           labels   (get k->label resource)
+           label    (i18n/select-label languages labels)
+           css-class (prefix->css-class (symbol prefix-str))]
+       [:span.emblem {:class css-class}
+        (prefix-elem (symbol prefix-str))
+        (str label)])
 
      (= attr-key :vann/preferredNamespacePrefix)
      (prefix-elem (symbol s))
@@ -397,7 +407,7 @@
 
            ;; TODO: use sublist for identical labels
            :else
-           (list-cell opts v))
+           (list-cell opts+attr-key v))
 
          (keyword? v)
          (rum/with-key (val-cell opts+attr-key v) v)

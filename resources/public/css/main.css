@@ -581,12 +581,14 @@ td:not(.attr-prefix) .prefix:not(:last-child) {
 
 tr:nth-child(odd),
 tr:nth-child(even) section.text,
+tr:nth-child(even) span.emblem,
 tr tr:nth-child(even) {
     background-color: white;
 }
 
 tr:nth-child(even),
 tr:nth-child(odd) section.text,
+tr:nth-child(odd) span.emblem,
 tr tr:nth-child(odd) {
     background-color: #F2F2F2;
 }
@@ -650,4 +652,19 @@ ruby.polarity > rt {
 
 ruby.polarity > meter {
     margin-top: 12px; /* account for ruby text */
+}
+
+/* Used to embed clickable badges inside hyperlinks. */
+span.emblem {
+    transition: all 0.1s;
+    border: 1px solid rgba(0,0,0,0.4);
+    border-radius: 2px;
+    padding: 4px;
+    display: inline-block; /* nullifies text-decoration: underline */
+}
+
+span.emblem:hover {
+    border-color: rgba(0,0,0,0.6);
+    transform: scale(102.5%);
+    filter: drop-shadow(0 4px 2px rgba(0,0,0,0.4));
 }

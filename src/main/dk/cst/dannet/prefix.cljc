@@ -57,6 +57,12 @@
 (def internal-prefixes
   #{'dn 'dnc 'dns})
 
+(def prefixes
+  (set (keys schemas)))
+
+(def qname-re
+  (re-pattern (str "(" (str/join "|" prefixes) "):(.+)")))
+
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
