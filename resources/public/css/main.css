@@ -574,11 +574,8 @@ td:not(.attr-name,.attr-prefix) {
     padding-left: 8px;
 }
 
-/* Hide prefixes in objects by default */
-td:last-child > .prefix,
-td:last-child > span > .prefix,
-td:last-child ol > li > .prefix,
-td:last-child ol > li > span > .prefix {
+/* Hide prefixes in value column by default */
+td:not(.attr-prefix) .prefix:not(:last-child) {
     display: none;
 }
 

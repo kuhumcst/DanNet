@@ -56,9 +56,8 @@
          :marl/hasPolarity
          :marl/polarityValue
          :dns/ontologicalType
-         :dc/description
          :vann/preferredNamespacePrefix
-         :vann/preferredNamespaceUri
+         :dc/description
          :dcat/downloadURL]]
    [#{(->LangStr "Lexical information" "en")
       (->LangStr "Leksikalsk information" "da")}
@@ -147,39 +146,54 @@
                        (prefix/resource-path (prefix/uri->rdf-resource uri)))}
    (break-up-uri uri)])
 
-(defn str-transformation
-  "Performs convenient transformations of `s`."
-  [s]
-  (when-let [s (not-empty (str s))]
-    (cond
-      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
-      (re-matches #"\{.+\}" s)
-      [:div.set
-       [:div.set__left-bracket]
-       (into [:div.set__content]
-             (interpose
-               [:span.subtle " • "]                         ; comma -> bullet
-               (for [label (sense-labels synset-sep s)]
-                 (if-let [[_ word sub mwe] (re-matches sense-label label)]
-                   [:<> word [:sub sub] mwe]
-                   label))))
-       [:div.set__right-bracket]]
+(declare prefix-elem)
 
-      :let [[_ word sub mwe] (re-matches sense-label s)]
+(defn transform-val
+  "Performs convenient transformations of `v`, optionally informed by `opts`."
+  ([v {:keys [attr-key entity] :as opts}]
+   (cond
+     ;; Transformations of objects
+     ;; TODO: properly implement date parsing
+     (inst? v)
+     (let [s (str v)]
+       [:time {:date-time s} s])
 
-      word
-      [:<> word [:sub sub] mwe]
+     ;; Transformations of strings ONLY from here on
+     :when-let [s (not-empty (str v))]
 
-      rdf-resource
-      (rdf-uri-hyperlink uri)
+     (= attr-key :vann/preferredNamespacePrefix)
+     (prefix-elem (symbol s))
 
-      (re-matches #"https?://[^\s]+" s)
-      (break-up-uri s)
+     :let [[rdf-resource uri] (re-find rdf-resource-re s)]
+     (re-matches #"\{.+\}" s)
+     [:div.set
+      [:div.set__left-bracket]
+      (into [:div.set__content]
+            (interpose
+              [:span.subtle " • "]                          ; comma -> bullet
+              (for [label (sense-labels synset-sep s)]
+                (if-let [[_ word sub mwe] (re-matches sense-label label)]
+                  [:<> word [:sub sub] mwe]
+                  label))))
+      [:div.set__right-bracket]]
 
-      (re-find #"\n" s)
-      (into [:<> (interpose [:br] (str/split s #"\n"))])
+     :let [[_ word sub mwe] (re-matches sense-label s)]
 
-      :else s)))
+     word
+     [:<> word [:sub sub] mwe]
+
+     rdf-resource
+     (rdf-uri-hyperlink uri)
+
+     (re-matches #"https?://[^\s]+" s)
+     (break-up-uri s)
+
+     (re-find #"\n" s)
+     (into [:<> (interpose [:br] (str/split s #"\n"))])
+
+     :else s))
+  ([s]
+   (transform-val s nil)))
 
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc anchor-elem
@@ -191,8 +205,8 @@
       [:a {:href  (prefix/resolve-href resource)
            :title (name resource)
            :lang  (i18n/lang label)
-           :class (prefix->css-class (symbol (namespace resource)))}
-       (or (str-transformation label)
+           :class (or (prefix->css-class (symbol (namespace resource))) "")}
+       (or (transform-val label opts)
            (name resource))])
     (let [qname      (subs resource 1 (dec (count resource)))
           local-name (guess-local-name qname)]
@@ -220,7 +234,7 @@
 (rum/defc val-cell
   "A table cell of an 'attr-val-table' containing a single `v`. The single value
   can either be a literal or an inlined table (i.e. a blank RDF node)."
-  [{:keys [languages k->label] :as opts} v]
+  [{:keys [languages] :as opts} v]
   (cond
     (keyword? v)
     (if (empty? (name v))
@@ -247,7 +261,7 @@
 
     :else
     (let [s (i18n/select-str languages v)]
-      [:td {:lang (i18n/lang s)} (str-transformation s)])))
+      [:td {:lang (i18n/lang s)} (transform-val s opts)])))
 
 (defn sort-keyfn
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
@@ -259,7 +273,7 @@
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."
-  [{:keys [languages k->label] :as opts} item]
+  [opts item]
   (cond
     (keyword? item)
     (let [prefix (symbol (namespace item))]
@@ -276,7 +290,7 @@
 
     :else
     [:li {:lang (i18n/lang item)}
-     (str-transformation item)]))
+     (transform-val item opts)]))
 
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
@@ -315,8 +329,8 @@
         (for [s* (sort-by str s)]
           [:li {:key  s*
                 :lang (i18n/lang s*)}
-           (str-transformation s*)])]]
-      [:td {:lang (i18n/lang s) :key coll} (str-transformation s)])))
+           (transform-val s* opts)])]]
+      [:td {:lang (i18n/lang s) :key coll} (transform-val s opts)])))
 
 (rum/defc attr-val-table
   "A table which lists attributes and corresponding values of an RDF resource."
@@ -328,12 +342,13 @@
     [:col]]
    [:tbody
     (for [[k v] subentity
-          :let [prefix     (if (keyword? k)
-                             (symbol (namespace k))
-                             k)
-                inherited? (get inherited k)]]
+          :let [prefix        (if (keyword? k)
+                                (symbol (namespace k))
+                                k)
+                inherited?    (get inherited k)
+                opts+attr-key (assoc opts :attr-key k)]]
       [:tr {:key   k
-            :class (when inherited? "inherited")}
+            :class (if inherited? "inherited" "")}
        [:td.attr-prefix
         ;; TODO: link to definition below?
         (when inherited?
@@ -348,26 +363,27 @@
          (cond
            (= 1 (count v))
            (let [v* (first v)]
-             (rum/with-key (val-cell opts (if (symbol? v*)
-                                            (meta v*)
-                                            v*))
+             (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
+                                                     (meta v*)
+                                                     v*))
                            v))
 
            (every? i18n/rdf-string? v)
-           (str-list-cell opts v)
+           (str-list-cell opts+attr-key v)
 
            ;; TODO: use sublist for identical labels
            :else
            (list-cell opts v))
 
          (keyword? v)
-         (rum/with-key (val-cell opts v) v)
+         (rum/with-key (val-cell opts+attr-key v) v)
 
          (symbol? v)
-         (rum/with-key (val-cell opts (meta v)) v)
+         (rum/with-key (val-cell opts+attr-key (meta v)) v)
 
          :else
-         [:td {:lang (i18n/lang v) :key v} (str-transformation v)])])]])
+         [:td {:lang (i18n/lang v) :key v}
+          (transform-val v opts+attr-key)])])]])
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
@@ -458,7 +474,7 @@
                :key   subject
                :lang  label-lang}
         (if label
-          (str-transformation label)
+          (transform-val label)
           (if uri-only?
             [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
             local-name))]
