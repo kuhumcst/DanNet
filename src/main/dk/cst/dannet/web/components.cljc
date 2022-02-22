@@ -452,7 +452,9 @@
      [:header
       [:h1
        (prefix-elem prefix)
-       [:span {:title (or local-name subject)
+       [:span {:title (if label
+                        (prefix/kw->qname label-key)
+                        subject)
                :key   subject
                :lang  label-lang}
         (if label
@@ -463,14 +465,13 @@
        (when label-lang
          [:sup label-lang])]
       (when-not uri-only?
-        (if rdf-uri
-          [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
-          (when-let [uri-prefix (prefix/prefix->uri prefix)]
-            [:div.rdf-uri
-             [:span.rdf-uri__prefix {:key uri-prefix}
-              (break-up-uri uri-prefix)]
-             [:span.rdf-uri__name {:key local-name}
-              (break-up-uri local-name)]])))]
+        (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
+          [:div.rdf-uri
+           [:span.rdf-uri__prefix {:key uri-prefix}
+            (break-up-uri uri-prefix)]
+           [:span.rdf-uri__name {:key local-name}
+            (break-up-uri local-name)]]
+          [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
        (for [[title ks] sections]
