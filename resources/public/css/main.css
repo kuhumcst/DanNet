@@ -351,6 +351,10 @@ table span.prefix {
     margin-right: 8px;
 }
 
+span.prefix__sep {
+    display: none;
+}
+
 span.unknown {
     color: #999;
 }

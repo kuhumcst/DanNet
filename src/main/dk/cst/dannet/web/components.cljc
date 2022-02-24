@@ -257,12 +257,12 @@
     (symbol? prefix)
     [:span.prefix {:title (prefix/prefix->uri prefix)
                    :class (prefix->css-class prefix)}
-     (str prefix ":")]
+     (str prefix) [:span.prefix__sep ":"]]
 
     (string? prefix)
     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
                    :class "unknown"}
-     "???:"]))
+     "???"]))
 
 (declare attr-val-table)
 
