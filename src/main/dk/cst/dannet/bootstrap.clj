@@ -381,6 +381,9 @@
         (re-find #"slang" register)
         (conj [sense :lexinfo/register :lexinfo/slangRegister])))))
 
+;; TODO: handle word-id 0-0 differently (build new word IDs from synset label?)
+;;       see http://localhost:8080/dannet/data/word-0-0
+;;       and e.g. http://localhost:8080/dannet/data/synset-47019 for more
 (defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[sense-id word-id synset-id register :as row]]
