@@ -184,7 +184,7 @@
         [:rt value-str]])
 
      ;; Transformations of strings ONLY from here on
-     :when-let [s (not-empty (str v))]
+     :when-let [s (not-empty (str/trim (str v)))]
 
      (= attr-key :dns/inherited)
      (let [[_ prefix-str local-name] (re-matches prefix/qname-re s)
