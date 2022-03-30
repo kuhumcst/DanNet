@@ -22,6 +22,10 @@
             [dk.cst.dannet.prefix :as prefix :refer [<dn>]])
   (:import [java.util Date]))
 
+(defn da
+  [s]
+  (->LangStr s "da"))
+
 ;; TODO: add the others as contributors too
 (def <simongray>
   (prefix/uri->rdf-resource "http://simongray.dk"))
@@ -36,7 +40,7 @@
     [<dn> :dc/title "DanNet"]
     [<dn> :dc/description #lstr "The Danish WordNet.@en"]
     [<dn> :dc/description #lstr "Det danske WordNet.@da"]
-    [<dn> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dn> :dc/issued #inst "2022-07-01"]                    ;TODO
     [<dn> :dc/modified (new Date)]
     [<dn> :dc/contributor <simongray>]
     [<dn> :dc/publisher "<http://cst.ku.dk>"]
@@ -164,7 +168,7 @@
   (when-let [[_ example-str] (re-find brug gloss)]
     (into {} (for [example (str/split example-str #" \|\| |\"; \"")]
                (when-let [token (determine-example-token label example)]
-                 [[(synset-uri synset-id) token] (->LangStr example "da")])))))
+                 [[(synset-uri synset-id) token] (da example)])))))
 
 (defn clean-ontological-type
   "Clean up the `ontological-type` string before conversion to resource names.
@@ -261,9 +265,9 @@
       (set/union
         #{[synset :rdf/type :ontolex/LexicalConcept]}
         (when (not-empty label)
-          #{[synset :rdfs/label (->LangStr (rewrite-synset-label label) "da")]})
+          #{[synset :rdfs/label (da (rewrite-synset-label label))]})
         (when (not= definition "(ingen definition)")
-          #{[synset :skos/definition (->LangStr definition "da")]})
+          #{[synset :skos/definition (da definition)]})
         (->> (clean-ontological-type ontological-type)
              (explode-ontological-type synset))))))
 
@@ -348,10 +352,10 @@
           wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
-          [lexical-form :rdfs/label (->LangStr (qt written-rep "-form") "da")]
+          [lexical-form :rdfs/label (da (qt written-rep "-form"))]
 
           [word :rdf/type rdf-type]
-          [word :rdfs/label (->LangStr (qt written-rep) "da")]
+          [word :rdfs/label (da (qt written-rep))]
           [word :ontolex/canonicalForm lexical-form]
 
           ;; GWA and Ontolex have competing part-of-speech relations.
@@ -421,6 +425,47 @@
                                    (< v 0) :marl/Negative
                                    :else :marl/Neutral)]}))
 
+(defn- preprocess-cor-k
+  "Add metadata to each row in `rows` to associate a canonical form with an ID."
+  [rows]
+  (let [m {:lemma->id (update-vals (group-by second rows) ffirst)}]
+    (map #(with-meta % m) rows)))
+
+(def cor-id
+  "For splitting a COR-K id into: [id lemma-id form-id _ rep-id]."
+  #"COR\.([^\.]+)\.([^\.]+)(\.([^\.]+))?")
+
+;; http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#
+(defn ->cor-k-triples
+  "Convert a `row` from the COR-K ID file to triples; assumes that the
+  rows have been preprocessed by 'preprocess-cor-k' beforehand.
+
+  Since the format is exploded, this function produces superfluous triples.
+  However, duplicate triples are automatically subsumed upon importing."
+  [[id lemma definition grammar form :as row]]
+  (let [lemma->id (:lemma->id (meta row))
+        form-rel  (if (= (lemma->id lemma) id)
+                    :ontolex/canonicalForm
+                    :ontolex/otherForm)
+        [id lemma-id form-id _ rep-id] (re-matches cor-id id)
+        word-id   (keyword "cor" lemma-id)
+        form-id   (keyword "cor" (str lemma-id "." form-id))]
+    (cond-> #{[word-id :rdf/type (form->lexical-entry lemma)]
+              [word-id :rdfs/label (da (qt lemma))]
+              [word-id form-rel form-id]
+
+              [form-id :rdf/type :ontolex/Form]
+              [form-id :rdfs/label grammar]
+              [form-id :ontolex/writtenRep (da form)]}
+
+      (not-empty definition)
+      (conj [word-id :skos/definition (da definition)])
+
+      ;; Since COR distinguishes written representations with additional IDs,
+      ;; this comment exists to avoid losing these distinctions in the dataset.
+      rep-id
+      (conj [form-id :rdfs/comment (da (str id " → " form))]))))
+
 (def imports
   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
@@ -431,6 +476,10 @@
                (io/resource "2_headword_headword_polarity.csv")
                :encoding "UTF-8"
                :separator \tab]
+   :cor-k     [->cor-k-triples (io/resource "cor/ro2021-0.1.cor")
+               :encoding "UTF-8"
+               :separator \tab
+               :preprocess preprocess-cor-k]
 
    ;; Examples are a special case - these are not actual RDF triples!
    ;; Need to query the resulting graph to generate the real example triples.
@@ -438,11 +487,14 @@
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
-  [[row->triples file & {:keys [encoding separator] :as opts}]]
+  [[row->triples file & {:keys [encoding separator preprocess]
+                         :or   {preprocess identity}
+                         :as   opts}]]
   (if (set? file)                                           ; metadata triples?
     file
     (with-open [reader (io/reader file :encoding (or encoding "ISO-8859-1"))]
       (->> (csv/read-csv reader :separator (or separator \@))
+           (preprocess)
            (map row->triples)
            (doall)))))
 
@@ -454,6 +506,10 @@
 
   ;; Example Synsets
   (->> (read-triples (:synsets imports))
+       (take 10))
+
+  ;; Example COR-K triples
+  (->> (read-triples (:cor-k imports))
        (take 10))
 
   ;; Find facets, i.e. ontologicalType

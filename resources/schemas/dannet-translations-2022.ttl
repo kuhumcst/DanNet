@@ -88,6 +88,7 @@ ontolex:lexicalizedSense rdfs:comment "Den leksikaliserede betydning relaterer e
 ontolex:isLexicalizedSenseOf rdfs:label "er leksikaliseret betydning af"@da .
 ontolex:isLexicalizedSenseOf rdfs:comment "Modparten til 'leksikaliseret betydning'-relationen.'"@da .
 ontolex:canonicalForm rdfs:label "opslagsform"@da .
+ontolex:otherForm rdfs:label "anden form"@da .
 ontolex:representation rdfs:label "repræsentation"@da .
 ontolex:representation rdfs:comment "'Repræsentation' angiver en tekststreng som ordformen repræsenteres med i henhold til en bestemt ortografi."@da .
 ontolex:writtenRep rdfs:label "skriftlig repræsentation"@da .

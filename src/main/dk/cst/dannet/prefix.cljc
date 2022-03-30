@@ -50,6 +50,10 @@
    'dns     {:uri (str dannet-root "schema/")
              :alt "schemas/dannet-schema-2022.ttl"}
 
+   ;; The COR namespace (unofficial)
+   'cor     {:uri     "http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#"
+             :schema? false}
+
    ;; Various en->da translations included as additional data.
    'en->da  {:uri (str dannet-root "translations/")
              :alt "schemas/dannet-translations-2022.ttl"}})
