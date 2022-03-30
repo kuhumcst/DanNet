@@ -16,7 +16,8 @@
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.bootstrap :as bootstrap]
-            [dk.cst.dannet.web.components :as com])
+            [dk.cst.dannet.web.components :as com]
+            [dk.cst.dannet.query.operation :as op])
   (:import [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
@@ -344,6 +345,17 @@
   (q/run (:graph @db) [:bgp
                        ['?word :ontolex/canonicalForm '?form]
                        ['?form :ontolex/writtenRep "fandens karl"]])
+
+  ;; TODO: eventually merge these 720 duplicate words
+  ;; Returns all DanNet words that have identical PoS and writtenRep
+  (->> (q/run (:graph @db) op/word-clones)
+       (filter (fn [{:syms [?w1 ?w2]}]
+                 (and (= "dn" (namespace ?w1))
+                      (= "dn" (namespace ?w2)))))
+       (group-by (juxt '?writtenRep '?pos))
+       (count))
+
+  (namespace :cor/glen)
 
   ;; Testing autocompletion
   (autocomplete "sar")
