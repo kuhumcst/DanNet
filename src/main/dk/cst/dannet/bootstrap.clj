@@ -319,16 +319,16 @@
 (def pos-fixes
   "Ten words had 'None' as their POS tag. Looking at the other words in their
   synsets clearly inform the correct POS tags to use."
-  {:dn/word-12005324-2 "Adjective"
-   :dn/word-12002785   "Noun"
-   :dn/word-11006697   "Noun"
-   :dn/word-11022554   "Noun"
-   :dn/word-11043739   "Noun"
-   :dn/word-12007550   "Noun"
-   :dn/word-11038834   "Noun"
-   :dn/word-11047932   "Noun"
-   :dn/word-12005626-1 "Verb"
-   :dn/word-11018863   "Noun"})
+  {:dn/word-12005324-2 "adjective"
+   :dn/word-12002785   "noun"
+   :dn/word-11006697   "noun"
+   :dn/word-11022554   "noun"
+   :dn/word-11043739   "noun"
+   :dn/word-12007550   "noun"
+   :dn/word-11038834   "noun"
+   :dn/word-11047932   "noun"
+   :dn/word-12005626-1 "verb"
+   :dn/word-11018863   "noun"})
 
 (defn qt
   [s & after]
@@ -347,9 +347,7 @@
                          (str/replace form #"'" "")
                          form)
           lexical-form (lexical-form-uri word-id written-rep)
-          fixed-pos    (get pos-fixes word pos)
-          lexinfo-pos  (keyword "lexinfo" fixed-pos)
-          wn-pos       (keyword "wn" (str/lower-case fixed-pos))]
+          fixed-pos    (get pos-fixes word (str/lower-case pos))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
           [lexical-form :rdfs/label (da (qt written-rep "-form"))]
@@ -360,8 +358,8 @@
 
           ;; GWA and Ontolex have competing part-of-speech relations.
           ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
-          [word :lexinfo/partOfSpeech lexinfo-pos]
-          [word :wn/partOfSpeech wn-pos]}
+          [word :lexinfo/partOfSpeech (keyword "lexinfo" fixed-pos)]
+          [word :wn/partOfSpeech (keyword "wn" fixed-pos)]}
         (explode-written-reps lexical-form written-rep)))))
 
 (defn- ->register-triples
@@ -435,6 +433,27 @@
   "For splitting a COR-K id into: [id lemma-id form-id _ rep-id]."
   #"COR\.([^\.]+)\.([^\.]+)(\.([^\.]+))?")
 
+(def cor-k-pos
+  {"sb"           :lexinfo/noun
+   "vb"           :lexinfo/verb
+   "adj"          :lexinfo/adjective
+   "adv"          :lexinfo/adverb
+   "konj"         :lexinfo/conjunction
+   "præp"         :lexinfo/preposition
+   "prop"         :lexinfo/properNoun
+   "udråbsord"    :lexinfo/interjection
+   "pron"         :lexinfo/pronoun
+
+   ;; Currently not supported, TODO: find lexinfo/wordnet equivalents
+   "infinitivens" nil
+   "fsubj"        nil
+   "præfiks"      nil
+   "talord"       nil
+   "lydord"       nil
+   "fork"         nil
+   "flerord"      nil
+   "kolon"        nil})
+
 ;; http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#
 (defn ->cor-k-triples
   "Convert a `row` from the COR-K ID file to triples; assumes that the
@@ -449,7 +468,9 @@
                     :ontolex/otherForm)
         [id lemma-id form-id _ rep-id] (re-matches cor-id id)
         word-id   (keyword "cor" lemma-id)
-        form-id   (keyword "cor" (str lemma-id "." form-id))]
+        form-id   (keyword "cor" (str lemma-id "." form-id))
+        pos-abbr  (first (str/split grammar #"\."))
+        pos       (get cor-k-pos pos-abbr)]
     (cond-> #{[word-id :rdf/type (form->lexical-entry lemma)]
               [word-id :rdfs/label (da (qt lemma))]
               [word-id form-rel form-id]
@@ -460,6 +481,9 @@
 
       (not-empty definition)
       (conj [word-id :skos/definition (da definition)])
+
+      pos
+      (conj [word-id :lexinfo/partOfSpeech pos])
 
       ;; Since COR distinguishes written representations with additional IDs,
       ;; this comment exists to avoid losing these distinctions in the dataset.

@@ -60,10 +60,14 @@ semowl:Meaning rdfs:label "betydning"@da .
 lexinfo:senseExample rdfs:label "betydningseksempel"@da .
 lexinfo:morphosyntacticProperty rdfs:label "morfosyntaktisk egenskab"@da .
 lexinfo:partOfSpeech rdfs:label "ordklasse"@da .
-lexinfo:Noun rdfs:label "substantiv"@da .
-lexinfo:Verb rdfs:label "verbum"@da .
-lexinfo:Adjective rdfs:label "adjektiv"@da .
-lexinfo:Adverb rdfs:label "adverbium"@da .
+lexinfo:noun rdfs:label "substantiv"@da .
+lexinfo:verb rdfs:label "verbum"@da .
+lexinfo:adjective rdfs:label "adjektiv"@da .
+lexinfo:adverb rdfs:label "adverbium"@da .
+lexinfo:conjunction rdfs:label "konjunktion"@da .
+lexinfo:properNoun rdfs:label "egennavn"@da .
+lexinfo:interjection rdfs:label "udråbsord"@da .
+lexinfo:pronoun rdfs:label "pronomen"@da .
 
 skos:note rdfs:label "bemærkning"@da .
 skos:note skos:definition "En generel bemærkning til alle slags formål."@da .
