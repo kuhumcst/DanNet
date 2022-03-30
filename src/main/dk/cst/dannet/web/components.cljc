@@ -67,6 +67,7 @@
       (->LangStr "Leksikalsk information" "da")}
     [:ontolex/writtenRep
      :ontolex/canonicalForm
+     :ontolex/otherForm
      :ontolex/evokes
      :ontolex/isEvokedBy
      :ontolex/sense

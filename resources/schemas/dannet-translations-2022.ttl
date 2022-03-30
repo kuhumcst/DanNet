@@ -43,6 +43,7 @@ owl:Thing rdfs:comment "Klassen af OWL-individer."@da .
 owl:equivalentClass rdfs:label "ækvivalent klasse"@da .
 owl:equivalentClass rdfs:comment "Relation der fastsætter at to angivne klasser er ækvivalente; brugt til at specificere datatype-definitioner."@da .
 owl:inverseOf rdfs:label "modsat"@da .
+owl:sameAs rdfs:label "samme som"@da .
 owl:priorVersion rdfs:label "tidligere version"@da .
 owl:Ontology rdfs:label "ontologi"@da .
 owl:OntologyProperty rdfs:label "ontologisk egenskab"@da .
