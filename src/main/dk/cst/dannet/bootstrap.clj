@@ -313,8 +313,8 @@
   (if-let [block (re-find #"[^\s]+/[^\s]+" written-rep)]
     (let [replace-block (partial str/replace written-rep block)]
       (for [exploded-rep (map replace-block (str/split block #"/"))]
-        [lexical-form :ontolex/writtenRep exploded-rep]))
-    #{[lexical-form :ontolex/writtenRep written-rep]}))
+        [lexical-form :ontolex/writtenRep (da exploded-rep)]))
+    #{[lexical-form :ontolex/writtenRep (da written-rep)]}))
 
 (def pos-fixes
   "Ten words had 'None' as their POS tag. Looking at the other words in their

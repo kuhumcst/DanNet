@@ -259,7 +259,10 @@
 (defn look-up
   "Look up synsets in Graph `g` based on the given `lemma`."
   [g lemma]
-  (let [k->label (label-lookup g)]
+  (let [k->label (label-lookup g)
+        lemma    (if (string? lemma)
+                   (->LangStr lemma "da")
+                   lemma)]
     (->> (q/run g op/synset-search {'?lemma lemma})
          (group-by '?synset)
          (map (fn [[k ms]]
