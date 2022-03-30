@@ -52,6 +52,7 @@
 ;; TODO: dynamic sections based on :rdf/typo?
 (def defined-sections
   [[nil [:rdf/type
+         :owl/sameAs
          :skos/definition
          :rdfs/comment
          :lexinfo/partOfSpeech

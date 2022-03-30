@@ -102,3 +102,14 @@
   (q/build
     [:bgp
      '[?form :ontolex/writtenRep ?writtenRep]]))
+
+(def word-clones
+  (q/build
+    '[:filter (not= ?w1 ?w2)
+      [:bgp
+       [?w1 :ontolex/canonicalForm ?f1]
+       [?f1 :ontolex/writtenRep ?writtenRep]
+       [?f2 :ontolex/writtenRep ?writtenRep]
+       [?w2 :ontolex/canonicalForm ?f2]
+       [?w1 :lexinfo/partOfSpeech ?pos]
+       [?w2 :lexinfo/partOfSpeech ?pos]]]))

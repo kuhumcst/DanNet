@@ -110,6 +110,19 @@
       (txn/transact-exec g
         (aristotle/add g sense-label-triples)))
 
+    ;; Equivalence relations between DanNet and COR-K words are established.
+    (let [sameas-triples (->> (q/run g op/word-clones)
+                              (filter (fn [{:syms [?w1 ?w2]}]
+                                        (and (= "dn" (namespace ?w1))
+                                             (= "cor" (namespace ?w2)))))
+                              ;; TODO: infer instead of having two triples?
+                              (mapcat (fn [{:syms [?w1 ?w2]}]
+                                        [[?w1 :owl/sameAs ?w2]
+                                         [?w2 :owl/sameAs ?w1]]))
+                              (doall))]
+      (txn/transact-exec g
+        (aristotle/add g sameas-triples)))
+
     g))
 
 (defn ->dannet
