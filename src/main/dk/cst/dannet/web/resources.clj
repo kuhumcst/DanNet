@@ -107,6 +107,7 @@
   [lstr]
   (str (.s lstr) "@" (.lang lstr)))
 
+;; TODO: order matters when creating conneg interceptor, should be kvs
 (def content-type->body-fn
   {"text/plain"
    ;; TODO: make generic
