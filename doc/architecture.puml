@@ -1,0 +1,108 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+skinparam titleFontsize 20
+title Architecture of DanNet\n<i>2022-04-22</i>
+
+folder "Bootstrap files" {
+    node "Primary data" #DDD {
+        [DanNet CSV (2009)] #fff
+        [COR-K] #fff
+        [sentiment polarity] #fff
+    }
+    node "Schemas" #AAffAA {
+        [DanNet OWL] #fff
+        [translations] #fff
+        [other schemas] #fff
+    }
+}
+
+[Rum components] #FFFF99
+
+note bottom of [Rum components]
+  This same code is used
+  in both server & client.
+end note
+
+cloud "ClojureScript\nClient" {
+    [HTML page] #FFFF99
+
+}
+
+node "Clojure\nserver" {
+    [RDF triples] #AAffAA
+
+    [RDF triples] <.. [DanNet OWL] :consult
+    [RDF triples] <.. [other schemas] :consult
+
+    [COR-K] ---> [RDF triples] :convert
+    [DanNet CSV (2009)] ---> [RDF triples] :convert
+    [sentiment polarity] ---> [RDF triples] :convert
+
+    database "Apache Jena\ndatabase" #BBBBff {
+        [data graph] #AAffAA
+        [schema graph] #AAffAA
+        [inference graph] #AAffAA
+        [inference rules] #fff
+
+        note bottom of [inference rules]
+          RDFS/OWL reasoning
+        end note
+
+        [RDF triples] ---> [data graph] :import
+        [DanNet OWL] ---> [schema graph] :import
+        [translations] ---> [schema graph] :import
+        [other schemas] ---> [schema graph] :import
+        [inference rules] ..> [inference graph] :apply
+        [inference graph] ..> [inference graph] :infer triples
+        [data graph] ..> [inference graph] :import
+        [schema graph]..> [inference graph] :import
+    }
+
+    node "Pedestal\nweb service" #pink {
+        [RDF entity] #AAffAA
+        [HTML template] #FFFF99
+        [RDF datasets] #AAffAA
+
+        note right of [RDF entity]
+          Accessed twice on
+          initial page load!
+        end note
+
+        note bottom of [RDF datasets]
+         in .TTL format
+        end note
+
+        [data graph] --> [RDF datasets] :export
+        [inference graph] --> [RDF datasets] :export
+
+        [inference graph] ---> [RDF entity] :query
+        [HTML template] <.. [Rum components] :use
+        [RDF entity] --> [HTML template] :populate
+        [HTML template] ---> [HTML page] :generate
+    }
+}
+
+cloud "ClojureScript\nClient" #CCEEFF {
+    [web app] #fff
+    interface "virtual DOM" as VDOM
+
+    [HTML page] ---> [web app] :load
+    [HTML page] ...> [web app] :interact
+    [RDF entity] ----> [web app] :request
+    [web app] <. [Rum components] :use
+    [web app] .> VDOM :update
+    VDOM ...> [HTML page] :patch
+
+    note left of VDOM
+     This is just the
+     React.js data flow.
+    end note
+
+}
+
+"user" as user
+user <..> [HTML page] :browse
+user <-- [RDF datasets] :download
+
+@enduml
