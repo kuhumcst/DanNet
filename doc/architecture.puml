@@ -2,9 +2,9 @@
 'https://plantuml.com/component-diagram
 
 skinparam titleFontsize 20
-title Architecture of DanNet\n<i>2022-04-22</i>
+title Architecture of DanNet\n<i>2022-04-26</i>
 
-folder "Bootstrap files" {
+folder "Bootstrap\nfiles" {
     node "Primary data" #DDD {
         [DanNet CSV (2009)] #fff
         [COR-K] #fff
@@ -17,9 +17,11 @@ folder "Bootstrap files" {
     }
 }
 
-[Rum components] #FFFF99
+folder ".cljc " {
+    [Rum components] #FFFF99
+}
 
-note bottom of [Rum components]
+note right of [Rum components]
   This same code is used
   in both server & client.
 end note
@@ -29,7 +31,7 @@ cloud "ClojureScript\nClient" {
 
 }
 
-node "Clojure\nserver" {
+folder "Clojure\nserver" {
     [RDF triples] #AAffAA
 
     [RDF triples] <.. [DanNet OWL] :consult
@@ -44,6 +46,7 @@ node "Clojure\nserver" {
         [schema graph] #AAffAA
         [inference graph] #AAffAA
         [inference rules] #fff
+        [RDF datasets] #AAffAA
 
         note bottom of [inference rules]
           RDFS/OWL reasoning
@@ -61,25 +64,24 @@ node "Clojure\nserver" {
 
     node "Pedestal\nweb service" #pink {
         [RDF entity] #AAffAA
-        [HTML template] #FFFF99
-        [RDF datasets] #AAffAA
+        interface "HTML generation" as htmlgen
+        interface "content negotiation" as conneg
+        interface "query building" as q
 
-        note right of [RDF entity]
-          Accessed twice on
-          initial page load!
-        end note
-
-        note bottom of [RDF datasets]
-         in .TTL format
+        note bottom of [RDF entity]
+          Accessed twice on initial load:
+          HTML page + web app hydration.
         end note
 
         [data graph] --> [RDF datasets] :export
         [inference graph] --> [RDF datasets] :export
 
-        [inference graph] ---> [RDF entity] :query
-        [HTML template] <.. [Rum components] :use
-        [RDF entity] --> [HTML template] :populate
-        [HTML template] ---> [HTML page] :generate
+        conneg --> q
+        q --> [inference graph] :execute
+        [inference graph] ---> [RDF entity] :result
+        htmlgen <.. [Rum components]
+        [RDF entity] --> htmlgen
+        htmlgen ---> [HTML page] :response
     }
 }
 
@@ -88,9 +90,10 @@ cloud "ClojureScript\nClient" #CCEEFF {
     interface "virtual DOM" as VDOM
 
     [HTML page] ---> [web app] :load
-    [HTML page] ...> [web app] :interact
-    [RDF entity] ----> [web app] :request
-    [web app] <. [Rum components] :use
+    [HTML page] ...> [web app] :control
+    [web app] ----> conneg :request
+    [RDF entity] ----> [web app] :response
+    [Rum components] .> [web app]
     [web app] .> VDOM :update
     VDOM ...> [HTML page] :patch
 
@@ -104,5 +107,6 @@ cloud "ClojureScript\nClient" #CCEEFF {
 "user" as user
 user <..> [HTML page] :browse
 user <-- [RDF datasets] :download
+user ---> conneg :request
 
 @enduml

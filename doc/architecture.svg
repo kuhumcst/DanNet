@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" height="1769px" preserveAspectRatio="none" style="width:1217px;height:1769px;background:#FFFFFF;" version="1.1" viewBox="0 0 1217 1769" width="1217px" zoomAndPan="magnify"><defs/><g><rect height="57.1094" style="stroke:#00000000;stroke-width:1.0;fill:none;" width="249" x="477" y="5"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="239" x="482" y="29.3359">Architecture of DanNet</text><text fill="#000000" font-family="sans-serif" font-size="20" font-style="italic" font-weight="bold" lengthAdjust="spacing" textLength="130" x="536.5" y="52.8906">2022-04-26</text><!--MD5=[601221a0a687cdf25ac845eebb57ed25]
+cluster Bootstrap\nfiles--><g id="cluster_Bootstrap\nfiles"><path d="M127.5,74.8281 L228.5,74.8281 A3.75,3.75 0 0 1 231,77.3281 L238,127.9375 L1207.5,127.9375 A2.5,2.5 0 0 1 1210,130.4375 L1210,279.3281 A2.5,2.5 0 0 1 1207.5,281.8281 L127.5,281.8281 A2.5,2.5 0 0 1 125,279.3281 L125,77.3281 A2.5,2.5 0 0 1 127.5,74.8281 " style="stroke:#000000;stroke-width:1.5;fill:none;"/><line style="stroke:#000000;stroke-width:1.5;fill:none;" x1="125" x2="238" y1="127.9375" y2="127.9375"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="100" x="129" y="96.1641">Bootstrap</text><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="45" x="156.5" y="119.7188">files</text></g><!--MD5=[b23ea91453b0600f8dcf73cc04b6ac79]
+cluster Primary data--><g id="cluster_Primary data"><polygon fill="#DDDDDD" points="149,158.8281,159,148.8281,674,148.8281,674,247.8281,664,257.8281,149,257.8281,149,158.8281" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="664" x2="674" y1="158.8281" y2="148.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="149" x2="664" y1="158.8281" y2="158.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="664" x2="664" y1="158.8281" y2="257.8281"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="132" x="341.5" y="181.1641">Primary data</text></g><!--MD5=[2f6ca41fa2895b812fb6c919c5455437]
+cluster Schemas--><g id="cluster_Schemas"><polygon fill="#AAFFAA" points="698,158.8281,708,148.8281,1186,148.8281,1186,247.8281,1176,257.8281,698,257.8281,698,158.8281" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="1176" x2="1186" y1="158.8281" y2="148.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="698" x2="1176" y1="158.8281" y2="158.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="1176" x2="1176" y1="158.8281" y2="257.8281"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="89" x="893.5" y="181.1641">Schemas</text></g><!--MD5=[9f8850d446747bc917d72700b0e8adcc]
+cluster .cljc --><g id="cluster_.cljc "><path d="M518.5,1442.8281 L567.5,1442.8281 A3.75,3.75 0 0 1 570,1445.3281 L577,1472.3828 L705.5,1472.3828 A2.5,2.5 0 0 1 708,1474.8828 L708,1544.3281 A2.5,2.5 0 0 1 705.5,1546.8281 L518.5,1546.8281 A2.5,2.5 0 0 1 516,1544.3281 L516,1445.3281 A2.5,2.5 0 0 1 518.5,1442.8281 " style="stroke:#000000;stroke-width:1.5;fill:none;"/><line style="stroke:#000000;stroke-width:1.5;fill:none;" x1="516" x2="577" y1="1472.3828" y2="1472.3828"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="41" x="520" y="1464.1641">.cljc</text></g><!--MD5=[c55fc4c4c50dee7f67e4ad50a88e7166]
+cluster ClojureScript\nClient--><g id="cluster_ClojureScript\nClient"><path d="M62.8204,1428.1665 C68.7667,1417.6958 79.958,1416.3227 85.4315,1428.6357 C92.1752,1411.5916 105.0184,1409.9764 115.3071,1425.3707 C122.3595,1416.4198 130.2934,1414.5639 137.1667,1425.567 C145.8821,1408.9735 156.1936,1409.0355 167.848,1422.5743 C173.9966,1411.3872 184.3531,1413.8957 190.1248,1422.9884 C195.8988,1408.0769 207.0569,1404.7144 218.3095,1417.3915 C225.5367,1404.5387 236.2981,1403.2294 243.9047,1417.0271 C252.1729,1403.7582 262.115,1404.7591 269.1116,1418.226 C277.3932,1407.776 290.7557,1406.8985 296.7266,1420.842 C307.235,1406.6744 316.6015,1409.0244 324.6104,1423.2931 C331.4419,1411.8859 344.1514,1410.8988 350.117,1424.1874 C359.7935,1413.466 370.7291,1412.1136 377.7112,1427.0816 C384.9401,1416.9256 396.8954,1414.9382 403.4891,1427.7933 C415.5731,1416.756 427.7118,1415.5627 434,1433.8281 C436.9901,1433.2227 438.1481,1434.6573 437.1806,1437.4897 C450.1316,1443.6106 448.5953,1452.1617 440.0139,1460.8898 C452.41,1469.607 450.9019,1481.1147 437.7802,1487.7063 C449.4495,1492.2138 449.5188,1502.0756 440.7673,1509.3956 C453.9718,1517.8707 452.5377,1532.0024 439.2019,1539.0779 C449.7661,1544.0844 451.5862,1553.8262 442.2672,1561.5455 C452.7792,1568.2777 454.0879,1577.3281 443.9739,1585.5281 C456.4573,1594.4045 454.727,1602.4872 443.1185,1610.5396 C453.3963,1617.6107 455.6111,1628.1224 443.5239,1635.5559 C455.2915,1643.7305 451.6751,1655.8451 439.869,1660.5761 C451.4798,1668.4977 450.1578,1678.2304 439.5178,1685.8427 C451.258,1694.2042 450.6335,1704.2021 437.2089,1710.1757 C446.8521,1725.0456 445.5561,1736.0534 427,1741.8281 C427.7059,1740.8146 428.8617,1740.8472 429.5231,1741.8829 C422.0253,1755.6443 412.6035,1754.9039 403.5595,1743.4767 C394.8796,1760.3898 385.862,1758.8988 374.4773,1746.1266 C365.1939,1759.5117 356.9473,1759.1358 348.5021,1745.3261 C342.7097,1758.1287 332.1823,1759.952 324.1674,1747.4646 C316.6789,1761.2737 304.3891,1758.0536 297.9419,1746.3924 C290.9866,1759.6818 277.0148,1761.5456 269.3766,1747.0956 C261.5996,1758.866 251.6134,1760.5588 243.4522,1747.4968 C234.192,1759.0852 224.634,1759.6479 217.2459,1745.5842 C210.9778,1758.7549 202.911,1759.9242 193.1305,1749.1167 C182.9842,1762.4494 173.7573,1762.6229 165.8248,1747.027 C157.8114,1760.4339 146.7096,1758.7354 138.0655,1747.7446 C131.4048,1756.9387 119.6257,1756.3185 114.4881,1745.9125 C105.4565,1757.4126 93.3391,1758.9363 85.4167,1744.6614 C71.8073,1758.2764 54.9587,1754.9907 51,1734.8281 C52.5385,1734.0307 53.684,1734.2083 53.9636,1736.1769 C39.8043,1730.2809 39.3368,1722.7839 50.0154,1712.7092 C36.3431,1706.6471 36.0783,1694.4458 49.5231,1687.8468 C36.6764,1679.7631 36.1583,1669.1459 48.0896,1659.7959 C37.9905,1654.4482 37.2771,1647.2574 45.2057,1639.365 C31.2391,1631.9224 31.1508,1618.1188 45.4034,1610.8719 C33.4424,1604.3827 33.2749,1593.2788 43.2141,1584.9406 C34.495,1576.3321 36.7657,1567.9285 47.3167,1562.9081 C34.2462,1553.0198 35.4318,1543.317 48.4027,1534.4214 C37.2344,1527.3328 37.6124,1518.8778 48.3923,1511.7791 C37.811,1505.2369 38.4976,1493.5791 48.8769,1487.4546 C35.3441,1475.5003 39.8974,1466.6964 53.4602,1459.1261 C40.9726,1448.6654 41.9724,1433.2807 58,1426.8281 C60.2302,1425.0764 61.7631,1425.694 62.8204,1428.1665 " fill="#CCEEFF" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="134" x="175.5" y="1451.1641">ClojureScript</text><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="61" x="212" y="1474.7188">Client</text></g><!--MD5=[8cb4d9ceb1b7aa5ec31f1cbfabba92a7]
+cluster Clojure\nserver--><g id="cluster_Clojure\nserver"><path d="M429.5,392.8281 L505.5,392.8281 A3.75,3.75 0 0 1 508,395.3281 L515,445.9375 L1059.5,445.9375 A2.5,2.5 0 0 1 1062,448.4375 L1062,1383.3281 A2.5,2.5 0 0 1 1059.5,1385.8281 L429.5,1385.8281 A2.5,2.5 0 0 1 427,1383.3281 L427,395.3281 A2.5,2.5 0 0 1 429.5,392.8281 " style="stroke:#000000;stroke-width:1.5;fill:none;"/><line style="stroke:#000000;stroke-width:1.5;fill:none;" x1="427" x2="515" y1="445.9375" y2="445.9375"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="75" x="431" y="414.1641">Clojure</text><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="65" x="436" y="437.7188">server</text></g><!--MD5=[788604c8bd92e46872a8f76d3cde107f]
+cluster Apache Jena\ndatabase--><g id="cluster_Apache Jena\ndatabase"><path d="M451,639.8281 C451,629.8281 744.5,629.8281 744.5,629.8281 C744.5,629.8281 1038,629.8281 1038,639.8281 L1038,1038.8281 C1038,1048.8281 744.5,1048.8281 744.5,1048.8281 C744.5,1048.8281 451,1048.8281 451,1038.8281 L451,639.8281 " fill="#BBBBFF" style="stroke:#181818;stroke-width:1.0;"/><path d="M451,639.8281 C451,649.8281 744.5,649.8281 744.5,649.8281 C744.5,649.8281 1038,649.8281 1038,639.8281 " fill="none" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="128" x="680.5" y="671.1641">Apache Jena</text><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="93" x="698" y="694.7188">database</text></g><!--MD5=[d30f751f36d12244e1d0fc65d20ecfe9]
+cluster Pedestal\nweb service--><g id="cluster_Pedestal\nweb service"><polygon fill="#FFC0CB" points="455,1107.8281,465,1097.8281,1035,1097.8281,1035,1351.8281,1025,1361.8281,455,1361.8281,455,1107.8281" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="1025" x2="1035" y1="1107.8281" y2="1097.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="455" x2="1025" y1="1107.8281" y2="1107.8281"/><line style="stroke:#181818;stroke-width:1.0;" x1="1025" x2="1025" y1="1107.8281" y2="1361.8281"/><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="87" x="697.5" y="1130.1641">Pedestal</text><text fill="#000000" font-family="sans-serif" font-size="20" font-weight="bold" lengthAdjust="spacing" textLength="123" x="679.5" y="1153.7188">web service</text></g><!--MD5=[05653703ac1470c3fc3b09b5fc421f81]
+entity DanNet CSV (2009)--><g id="elem_DanNet CSV (2009)"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="171" x="165.5" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="316.5" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="314.5" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="314.5" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="131" x="180.5" y="229.3633">DanNet CSV (2009)</text></g><!--MD5=[bb1d3e795788895a9208148f42f792f4]
+entity COR-K--><g id="elem_COR-K"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="87" x="371.5" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="438.5" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="436.5" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="436.5" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="47" x="386.5" y="229.3633">COR-K</text></g><!--MD5=[c387951a287217831e24dcd28a001ef7]
+entity sentiment polarity--><g id="elem_sentiment polarity"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="164" x="494" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="638" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="636" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="636" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="124" x="509" y="229.3633">sentiment polarity</text></g><!--MD5=[7f5acda1d0e406f0824511cc1398d8e9]
+entity DanNet OWL--><g id="elem_DanNet OWL"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="124" x="714" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="818" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="816" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="816" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="84" x="729" y="229.3633">DanNet OWL</text></g><!--MD5=[7db9829d5a9baadc696e67ebb2da8ccf]
+entity translations--><g id="elem_translations"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="121" x="1048.5" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="1149.5" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="1147.5" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="1147.5" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="81" x="1063.5" y="229.3633">translations</text></g><!--MD5=[68539644789ad46bf7cc6840ff534d08]
+entity other schemas--><g id="elem_other schemas"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="140" x="873" y="195.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="993" y="200.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="991" y="202.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="991" y="206.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="100" x="888" y="229.3633">other schemas</text></g><!--MD5=[e545400b258b256a81754af28cdabe9f]
+entity Rum components--><g id="elem_Rum components"><rect fill="#FFFF99" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="160" x="532" y="1484.8281"/><rect fill="#FFFF99" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="672" y="1489.8281"/><rect fill="#FFFF99" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="670" y="1491.8281"/><rect fill="#FFFF99" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="670" y="1495.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="120" x="547" y="1518.3633">Rum components</text></g><!--MD5=[ba6ca9cde384764c4f27ab19a322fe7e]
+entity HTML page--><g id="elem_HTML page"><rect fill="#FFFF99" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="116" x="222" y="1687.8281"/><rect fill="#FFFF99" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="318" y="1692.8281"/><rect fill="#FFFF99" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="316" y="1694.8281"/><rect fill="#FFFF99" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="316" y="1698.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="76" x="237" y="1721.3633">HTML page</text></g><!--MD5=[ffa0011c5306282c96418134252efcfc]
+entity web app--><g id="elem_web app"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="98" x="328" y="1484.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="406" y="1489.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="404" y="1491.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="404" y="1495.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="58" x="343" y="1518.3633">web app</text></g><!--MD5=[086065219f1cdcfee2d0e3a84121194b]
+entity VDOM--><g id="elem_VDOM"><ellipse cx="239" cy="1507.8281" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="80" x="199" y="1538.3633">virtual DOM</text></g><g id="elem_GMN83334"><path d="M59,1487.3281 L59,1527.9492 A0,0 0 0 0 59,1527.9492 L195,1527.9492 A0,0 0 0 0 195,1527.9492 L195,1511.8281 L229.77,1507.8281 L195,1503.8281 L195,1497.3281 L185,1487.3281 L59,1487.3281 A0,0 0 0 0 59,1487.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M185,1487.3281 L185,1497.3281 L195,1497.3281 L185,1487.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="94" x="65" y="1504.8965">This is just the</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="115" x="65" y="1520.207">React.js data flow.</text></g><!--MD5=[d0a8d2b7dc2fdbafc5bb380fb73a8602]
+entity RDF triples--><g id="elem_RDF triples"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="114" x="588" y="458.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="682" y="463.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="680" y="465.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="680" y="469.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="74" x="603" y="492.3633">RDF triples</text></g><!--MD5=[28e2f01e39b2a5cb0d7a89db3d1922b5]
+entity data graph--><g id="elem_data graph"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="115" x="650.5" y="710.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="745.5" y="715.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="743.5" y="717.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="743.5" y="721.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="75" x="665.5" y="744.3633">data graph</text></g><!--MD5=[387c423c05015466c1ac53901bc80a90]
+entity schema graph--><g id="elem_schema graph"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="137" x="880.5" y="710.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="997.5" y="715.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="995.5" y="717.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="995.5" y="721.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="97" x="895.5" y="744.3633">schema graph</text></g><!--MD5=[80f806dea6d81943c72130e881ec239d]
+entity inference graph--><g id="elem_inference graph"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="149" x="769.5" y="848.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="898.5" y="853.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="896.5" y="855.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="896.5" y="859.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="109" x="784.5" y="882.3633">inference graph</text></g><!--MD5=[79a88ee486ba06317aac7749ffa28b0f]
+entity inference rules--><g id="elem_inference rules"><rect fill="#FFFFFF" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="142" x="473" y="710.8281"/><rect fill="#FFFFFF" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="595" y="715.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="593" y="717.8281"/><rect fill="#FFFFFF" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="593" y="721.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="102" x="488" y="744.3633">inference rules</text></g><!--MD5=[5f5ecb53615e5198e1462997f0f65ea8]
+entity RDF datasets--><g id="elem_RDF datasets"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="128" x="627" y="986.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="735" y="991.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="733" y="993.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="733" y="997.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="88" x="642" y="1020.3633">RDF datasets</text></g><g id="elem_GMN83298"><path d="M467,859.3281 L467,884.6387 A0,0 0 0 0 467,884.6387 L621,884.6387 A0,0 0 0 0 621,884.6387 L621,869.3281 L611,859.3281 L548,859.3281 L544,756.9781 L540,859.3281 L467,859.3281 A0,0 0 0 0 467,859.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M611,859.3281 L611,869.3281 L621,869.3281 L611,859.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="133" x="473" y="876.8965">RDFS/OWL reasoning</text></g><!--MD5=[e0c00562b49c1587435c83cd06e1731a]
+entity RDF entity--><g id="elem_RDF entity"><rect fill="#AAFFAA" height="46.4883" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="109" x="667.5" y="1174.8281"/><rect fill="#AAFFAA" height="10" style="stroke:#181818;stroke-width:0.5;" width="15" x="756.5" y="1179.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="754.5" y="1181.8281"/><rect fill="#AAFFAA" height="2" style="stroke:#181818;stroke-width:0.5;" width="4" x="754.5" y="1185.8281"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="69" x="682.5" y="1208.3633">RDF entity</text></g><!--MD5=[6e9d7302c3847c348a3f5c7ed1ece843]
+entity htmlgen--><g id="elem_htmlgen"><ellipse cx="537" cy="1316.8281" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="117" x="478.5" y="1347.3633">HTML generation</text></g><!--MD5=[e7e3d543887626cc1f6feb0495e3617d]
+entity conneg--><g id="elem_conneg"><ellipse cx="546" cy="1197.8281" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="135" x="478.5" y="1228.3633">content negotiation</text></g><!--MD5=[babf8612a7925a7c2efe5847b21298b4]
+entity q--><g id="elem_q"><ellipse cx="961" cy="1316.8281" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="100" x="911" y="1347.3633">query building</text></g><g id="elem_GMN83314"><path d="M638.5,1296.3281 L638.5,1336.9492 A0,0 0 0 0 638.5,1336.9492 L867.5,1336.9492 A0,0 0 0 0 867.5,1336.9492 L867.5,1306.3281 L857.5,1296.3281 L751.81,1296.3281 L727.83,1220.8381 L743.81,1296.3281 L638.5,1296.3281 A0,0 0 0 0 638.5,1296.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M857.5,1296.3281 L857.5,1306.3281 L867.5,1306.3281 L857.5,1296.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="191" x="644.5" y="1313.8965">Accessed twice on initial load:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="208" x="644.5" y="1329.207">HTML page + web app hydration.</text></g><g id="elem_GMN83280"><path d="M727,1487.3281 L727,1503.8281 L692.07,1507.8281 L727,1511.8281 L727,1527.9492 A0,0 0 0 0 727,1527.9492 L895,1527.9492 A0,0 0 0 0 895,1527.9492 L895,1497.3281 L885,1487.3281 L727,1487.3281 A0,0 0 0 0 727,1487.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M885,1487.3281 L885,1497.3281 L895,1497.3281 L885,1487.3281 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="147" x="733" y="1504.8965">This same code is used</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="143" x="733" y="1520.207">in both server &amp; client.</text></g><!--MD5=[8fc3522a43f8c7199df5e09e5bb0188e]
+entity user--><g id="elem_user"><ellipse cx="386" cy="842.3281" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M386,850.3281 L386,877.3281 M373,858.3281 L399,858.3281 M386,877.3281 L373,892.3281 M386,877.3281 L399,892.3281 " fill="none" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="30" x="371" y="907.3633">user</text></g><!--MD5=[a54b5f51c3f0349a54ca2d6e5db47798]
+reverse link RDF triples to DanNet OWL--><g id="link_RDF triples_DanNet OWL"><path d="M654.62,453.8981 C666,423.0481 686.16,371.2581 708,328.8281 C724.03,297.6881 745.97,263.7481 760.55,242.1581 " fill="none" id="RDF triples-backto-DanNet OWL" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="652.87,458.6681,659.7118,451.5836,654.5833,453.9708,652.1961,448.8423,652.87,458.6681" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="709" y="342.3965">consult</text></g><!--MD5=[380551e6c4a5460ecb23b9d798962397]
+reverse link RDF triples to other schemas--><g id="link_RDF triples_other schemas"><path d="M674.49,454.9981 C733.04,403.7181 863.04,289.8581 917.85,241.8581 " fill="none" id="RDF triples-backto-other schemas" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="670.4,458.5781,679.8135,455.6821,674.17,455.2937,674.5584,449.6502,670.4,458.5781" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="818" y="342.3965">consult</text></g><!--MD5=[f9c60fbcd68e63a6d58ec2dd17a8988d]
+link COR-K to RDF triples--><g id="link_COR-K_RDF triples"><path d="M434.61,242.0781 C476.96,290.1381 576.79,403.4281 622.02,454.7481 " fill="none" id="COR-K-to-RDF triples" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="625.44,458.6281,622.5061,449.2264,622.1404,454.8714,616.4954,454.5058,625.44,458.6281" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="526" y="342.3965">convert</text></g><!--MD5=[20aa4728476ccb00daab8c2a3e407418]
+link DanNet CSV (2009) to RDF triples--><g id="link_DanNet CSV (2009)_RDF triples"><path d="M283.38,242.0281 C303.62,255.8581 330.27,273.9781 354,289.8281 C444.12,350.0181 550.77,419.6081 606.58,455.8881 " fill="none" id="DanNet CSV (2009)-to-RDF triples" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="610.83,458.6581,605.4749,450.3924,606.6414,455.9277,601.1061,457.0942,610.83,458.6581" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="439" y="342.3965">convert</text></g><!--MD5=[d47aa5e07ad38d715331f18c7b627788]
+link sentiment polarity to RDF triples--><g id="link_sentiment polarity_RDF triples"><path d="M576.35,242.0181 C577.2,267.4581 579.98,310.2281 589,345.8281 C598.85,384.7281 617.9,427.0881 631.03,453.7881 " fill="none" id="sentiment polarity-to-RDF triples" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="633.41,458.5881,632.9754,448.7489,631.1797,454.1131,625.8154,452.3174,633.41,458.5881" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="590" y="342.3965">convert</text></g><!--MD5=[8b98d5891881c54bf7c56b27c0ac7e8e]
+link RDF triples to data graph--><g id="link_RDF triples_data graph"><path d="M650.59,505.0181 C662.15,550.8781 688.64,656.0081 701.18,705.7681 " fill="none" id="RDF triples-to-data graph" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="702.42,710.6881,704.1177,700.9867,701.2073,705.8374,696.3566,702.927,702.42,710.6881" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="670" y="579.3965">import</text></g><!--MD5=[ef34d311ebad763981aceda9a1feca32]
+link DanNet OWL to schema graph--><g id="link_DanNet OWL_schema graph"><path d="M780.18,241.9081 C785.18,267.2381 794.24,309.9181 805,345.8281 C846.32,483.6981 911.4,643.3481 937.55,705.8081 " fill="none" id="DanNet OWL-to-schema graph" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="939.52,710.4981,939.74,700.6517,937.5919,705.8849,932.3587,703.7368,939.52,710.4981" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="859" y="486.8965">import</text></g><!--MD5=[1f11e0c51cc2fb63c70d6aaef253cb77]
+link translations to schema graph--><g id="link_translations_schema graph"><path d="M1106.56,242.1281 C1104.2,265.5581 1101,303.4881 1101,336.3281 C1101,336.3281 1101,336.3281 1101,575.3281 C1101,635.7681 1042.34,681.8981 997.9,708.1681 " fill="none" id="translations-to-schema graph" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="993.37,710.8081,1003.1599,709.7324,997.6899,708.2905,999.1318,702.8205,993.37,710.8081" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="1102" y="486.8965">import</text></g><!--MD5=[85df77ef9190b6a405512393d1a08bb0]
+link other schemas to schema graph--><g id="link_other schemas_schema graph"><path d="M952.33,242.1581 C961.13,265.2881 973,302.6981 973,336.3281 C973,336.3281 973,336.3281 973,575.3281 C973,621.4781 962.81,674.3781 955.7,705.6181 " fill="none" id="other schemas-to-schema graph" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="954.51,710.8181,960.4161,702.9366,955.6249,705.944,952.6175,701.1528,954.51,710.8181" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="974" y="486.8965">import</text></g><!--MD5=[0c5f0be46edb5b1d29e1eb28decb8990]
+link inference rules to inference graph--><g id="link_inference rules_inference graph"><path d="M592.53,756.8281 C646.73,781.3981 734.19,821.0481 790.38,846.5181 " fill="none" id="inference rules-to-inference graph" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="795.04,848.6281,788.5106,841.2547,790.4906,846.5537,785.1916,848.5337,795.04,848.6281" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="34" x="695" y="800.3965">apply</text></g><!--MD5=[77ec84d46f27f3072c5f9188adde8ce6]
+link inference graph to inference graph--><g id="link_inference graph_inference graph"><path d="M918.72,857.7081 C938.51,858.5081 953.5,863.2181 953.5,871.8281 C953.5,879.6281 941.19,884.2281 924.15,885.6181 " fill="none" id="inference graph-to-inference graph" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="918.72,885.9481,927.9434,889.4019,923.711,885.6487,927.4643,881.4163,918.72,885.9481" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="73" x="959.5" y="876.8965">infer triples</text></g><!--MD5=[7b79bf25f54fbef7cacfb9a67211f631]
+link data graph to inference graph--><g id="link_data graph_inference graph"><path d="M751.19,756.8681 C764.88,765.1081 779.44,775.3081 791,786.8281 C807.63,803.4081 821.57,826.1181 830.97,843.7481 " fill="none" id="data graph-to-inference graph" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="833.5,848.5781,832.8767,838.749,831.1842,844.1467,825.7865,842.4542,833.5,848.5781" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="806" y="800.3965">import</text></g><!--MD5=[d2f9eaccb0433abbc34c8eb6c6240d97]
+link schema graph to inference graph--><g id="link_schema graph_inference graph"><path d="M931.9,756.9781 C913.36,780.9881 883.81,819.2581 864.16,844.7181 " fill="none" id="schema graph-to-inference graph" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="861.1,848.6881,869.7677,844.0115,864.1568,844.7314,863.4369,839.1205,861.1,848.6881" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42" x="906" y="800.3965">import</text></g><!--MD5=[b1c82a790b3dcd2f03c8afd0013f3c47]
+link data graph to RDF datasets--><g id="link_data graph_RDF datasets"><path d="M701.85,756.9181 C699.57,766.0981 697.24,776.8981 696,786.8281 C687.27,856.5281 688.43,939.4681 689.83,981.4981 " fill="none" id="data graph-to-RDF datasets" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="690.01,986.6581,693.6984,977.526,689.8382,981.6611,685.7031,977.8009,690.01,986.6581" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="41" x="692" y="876.8965">export</text></g><!--MD5=[8680d3c2c68b34e70a004927e5e09ad9]
+link inference graph to RDF datasets--><g id="link_inference graph_RDF datasets"><path d="M819.08,894.9781 C791.85,919.1881 748.3,957.8881 719.67,983.3381 " fill="none" id="inference graph-to-RDF datasets" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="715.91,986.6881,725.2941,983.6985,719.647,983.3663,719.9792,977.7192,715.91,986.6881" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="41" x="768" y="953.3965">export</text></g><!--MD5=[444edbd518513f7a06b3364d7e93e3a3]
+link conneg to q--><g id="link_conneg_q"><path d="M555.17,1201.3281 C573.29,1206.2581 614.93,1217.5581 650,1226.8281 C754.32,1254.4081 782.03,1255.5781 885,1287.8281 C906.94,1294.6981 931.86,1304.2181 947,1310.1981 " fill="none" id="conneg-to-q" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="951.74,1312.0781,944.8506,1305.04,947.0927,1310.2335,941.8992,1312.4756,951.74,1312.0781" style="stroke:#181818;stroke-width:1.0;"/></g><!--MD5=[25f51f4cd16212a76c258f1b71cefb6c]
+link q to inference graph--><g id="link_q_inference graph"><path d="M958.82,1307.5781 C945.44,1256.9181 874.24,987.3381 851.2,900.0981 " fill="none" id="q-to-inference graph" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="849.88,895.0981,848.3036,904.82,851.1532,899.9333,856.0399,902.7829,849.88,895.0981" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="49" x="900" y="1078.3965">execute</text></g><!--MD5=[21198f268c2edfb6aa3ea5f7b917131a]
+link inference graph to RDF entity--><g id="link_inference graph_RDF entity"><path d="M837.64,895.0981 C832.65,912.1181 825.34,936.1081 818,956.8281 C790.25,1035.1981 752.39,1125.8181 733.59,1169.9281 " fill="none" id="inference graph-to-RDF entity" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="731.61,1174.5581,738.8319,1167.8615,733.5796,1169.9624,731.4787,1164.7101,731.61,1174.5581" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="36" x="806" y="1014.8965">result</text></g><!--MD5=[a7b7e0d9b2f74ff1fbf6817e42054ef9]
+reverse link htmlgen to Rum components--><g id="link_htmlgen_Rum components"><path d="M542.22,1330.9781 C554.9,1362.9281 587.44,1444.9381 603.19,1484.6381 " fill="none" id="htmlgen-backto-Rum components" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="540.22,1325.9481,539.8225,1335.789,542.0646,1330.5954,547.2582,1332.8376,540.22,1325.9481" style="stroke:#181818;stroke-width:1.0;"/></g><!--MD5=[5975acda16307c077f6e6cea9c0363f0]
+link RDF entity to htmlgen--><g id="link_RDF entity_htmlgen"><path d="M687.2,1220.8381 C645.87,1246.9781 578.95,1289.2981 550.5,1307.2881 " fill="none" id="RDF entity-to-htmlgen" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="546.27,1309.9681,556.013,1308.528,550.493,1307.2912,551.7299,1301.7712,546.27,1309.9681" style="stroke:#181818;stroke-width:1.0;"/></g><!--MD5=[cd6cfe1932e16c5fc269b6e37b07f8ee]
+link htmlgen to HTML page--><g id="link_htmlgen_HTML page"><path d="M535.54,1325.8281 C528.21,1364.0681 492.06,1530.2981 402,1626.8281 C380.28,1650.1081 350.9,1670.3381 326.42,1685.0081 " fill="none" id="htmlgen-to-HTML page" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="321.91,1687.6781,331.6945,1686.5542,326.2175,1685.1393,327.6324,1679.6622,321.91,1687.6781" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="57" x="450" y="1576.3965">response</text></g><!--MD5=[78a93404188696f9573db92a9c162af0]
+link HTML page to web app--><g id="link_HTML page_web app"><path d="M283.73,1687.6181 C287.74,1666.8381 295.18,1635.2681 307,1609.8281 C319.62,1582.6681 339.45,1554.9181 354.78,1535.3981 " fill="none" id="HTML page-to-web app" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="358.18,1531.1181,349.4545,1535.686,355.0739,1535.0363,355.7236,1540.6558,358.18,1531.1181" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="27" x="308" y="1623.3965">load</text></g><!--MD5=[78a93404188696f9573db92a9c162af0]
+link HTML page to web app--><g id="link_HTML page_web app"><path d="M299.2,1687.5081 C312.18,1671.4881 328.92,1648.9181 340,1626.8281 C354.83,1597.2681 365.21,1560.5581 371.12,1535.9981 " fill="none" id="HTML page-to-web app-1" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="372.32,1530.9581,366.3483,1538.7901,371.1645,1535.8228,374.1318,1540.6389,372.32,1530.9581" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="45" x="348" y="1623.3965">control</text></g><!--MD5=[79b2cef68aa55cd04144b23e111d5cf1]
+link web app to conneg--><g id="link_web app_conneg"><path d="M351.04,1484.7881 C328.69,1463.9681 298.05,1430.5381 285,1393.8281 C269.22,1349.4381 259.74,1327.5981 285,1287.8281 C340,1201.2281 485.8,1197.2481 531.85,1198.2481 " fill="none" id="web app-to-conneg" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="536.96,1198.3881,528.0779,1194.1327,531.962,1198.2453,527.8494,1202.1295,536.96,1198.3881" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="286" y="1321.8965">request</text></g><!--MD5=[ca0f210da801a4f68dd40707c4ca3859]
+link RDF entity to web app--><g id="link_RDF entity_web app"><path d="M667.28,1217.9781 C657.89,1221.0681 648.19,1224.1281 639,1226.8281 C531.73,1258.2781 467.35,1202.6181 395,1287.8281 C348.76,1342.2881 360.54,1434.2781 370.2,1479.7381 " fill="none" id="RDF entity-to-web app" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="371.3,1484.7781,373.2793,1475.1302,370.229,1479.8942,365.465,1476.8439,371.3,1484.7781" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="57" x="396" y="1321.8965">response</text></g><!--MD5=[5ca85f0359805906b5623cef412660da]
+link Rum components to web app--><g id="link_Rum components_web app"><path d="M531.76,1507.8281 C498.33,1507.8281 464.91,1507.8281 431.48,1507.8281 " fill="none" id="Rum components-to-web app" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="426.11,1507.8281,435.11,1511.8281,431.11,1507.8281,435.11,1503.8281,426.11,1507.8281" style="stroke:#181818;stroke-width:1.0;"/></g><!--MD5=[1f62f9f2d97730f56d361a316980f43e]
+link web app to VDOM--><g id="link_web app_VDOM"><path d="M327.68,1507.8281 C301.41,1507.8281 270.99,1507.8281 253.48,1507.8281 " fill="none" id="web app-to-VDOM" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="248.05,1507.8281,257.05,1511.8281,253.05,1507.8281,257.05,1503.8281,248.05,1507.8281" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="266.5" y="1501.3965">update</text></g><!--MD5=[58525d76e25bb3cf328955762fb199fe]
+link VDOM to HTML page--><g id="link_VDOM_HTML page"><path d="M234.85,1516.8581 C223.2,1539.8781 191.52,1605.8181 200,1626.8281 C209.19,1649.6081 227.95,1669.6181 245,1684.2781 " fill="none" id="VDOM-to-HTML page" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="248.83,1687.5181,244.5448,1678.6504,245.0136,1684.2878,239.3762,1684.7566,248.83,1687.5181" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="35" x="201" y="1623.3965">patch</text></g><!--MD5=[aefbccc0785a8254778598a2931d5bbc]
+link user to HTML page--><g id="link_user_HTML page"><path d="M365.27,875.6081 C285.94,886.8181 6,931.8481 6,1008.8281 C6,1008.8281 6,1008.8281 6,1619.3281 C6,1663.4481 135.7,1689.6981 216.63,1701.7781 " fill="none" id="user-HTML page" style="stroke:#181818;stroke-width:1.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="221.89,1702.5581,213.5695,1697.2885,216.9434,1701.829,212.4029,1705.203,221.89,1702.5581" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="370.63,874.8581,361.1668,872.1291,365.6772,875.5432,362.263,880.0536,370.63,874.8581" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="45" x="7" y="1321.8965">browse</text></g><!--MD5=[55aaa94c455cd86802c59ee3a1e78111]
+reverse link user to RDF datasets--><g id="link_user_RDF datasets"><path d="M405.68,884.8981 C418.39,892.4681 435.41,902.2181 451,909.8281 C511.14,939.2081 582.27,967.8081 631.4,986.6581 " fill="none" id="user-backto-RDF datasets" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="401.2,882.2081,406.8595,890.2686,405.4875,884.7806,410.9754,883.4086,401.2,882.2081" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="61" x="556" y="953.3965">download</text></g><!--MD5=[0071b63d40a0e66a4c19b4ebfa62fd2e]
+link user to conneg--><g id="link_user_conneg"><path d="M381.88,910.0481 C379.24,948.6781 379.73,1009.8981 402,1056.8281 C431.8,1119.6181 502.5,1169.5081 532.34,1188.5181 " fill="none" id="user-to-conneg" style="stroke:#181818;stroke-width:1.0;"/><polygon fill="#181818" points="536.76,1191.2981,531.2678,1183.1228,532.5264,1188.6379,527.0114,1189.8965,536.76,1191.2981" style="stroke:#181818;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="403" y="1014.8965">request</text></g><!--MD5=[a0ebb595e29f0cea17151906e27b9dfe]
+@startuml
+'https://plantuml.com/component-diagram
+
+skinparam titleFontsize 20
+title Architecture of DanNet\n<i>2022-04-26</i>
+
+folder "Bootstrap\nfiles" {
+    node "Primary data" #DDD {
+        [DanNet CSV (2009)] #fff
+        [COR-K] #fff
+        [sentiment polarity] #fff
+    }
+    node "Schemas" #AAffAA {
+        [DanNet OWL] #fff
+        [translations] #fff
+        [other schemas] #fff
+    }
+}
+
+folder ".cljc " {
+    [Rum components] #FFFF99
+}
+
+note right of [Rum components]
+  This same code is used
+  in both server & client.
+end note
+
+cloud "ClojureScript\nClient" {
+    [HTML page] #FFFF99
+
+}
+
+folder "Clojure\nserver" {
+    [RDF triples] #AAffAA
+
+    [RDF triples] <.. [DanNet OWL] :consult
+    [RDF triples] <.. [other schemas] :consult
+
+    [COR-K] - - -> [RDF triples] :convert
+    [DanNet CSV (2009)] - - -> [RDF triples] :convert
+    [sentiment polarity] - - -> [RDF triples] :convert
+
+    database "Apache Jena\ndatabase" #BBBBff {
+        [data graph] #AAffAA
+        [schema graph] #AAffAA
+        [inference graph] #AAffAA
+        [inference rules] #fff
+        [RDF datasets] #AAffAA
+
+        note bottom of [inference rules]
+          RDFS/OWL reasoning
+        end note
+
+        [RDF triples] - - -> [data graph] :import
+        [DanNet OWL] - - -> [schema graph] :import
+        [translations] - - -> [schema graph] :import
+        [other schemas] - - -> [schema graph] :import
+        [inference rules] ..> [inference graph] :apply
+        [inference graph] ..> [inference graph] :infer triples
+        [data graph] ..> [inference graph] :import
+        [schema graph]..> [inference graph] :import
+    }
+
+    node "Pedestal\nweb service" #pink {
+        [RDF entity] #AAffAA
+        interface "HTML generation" as htmlgen
+        interface "content negotiation" as conneg
+        interface "query building" as q
+
+        note bottom of [RDF entity]
+          Accessed twice on initial load:
+          HTML page + web app hydration.
+        end note
+
+        [data graph] - -> [RDF datasets] :export
+        [inference graph] - -> [RDF datasets] :export
+
+        conneg - -> q
+        q - -> [inference graph] :execute
+        [inference graph] - - -> [RDF entity] :result
+        htmlgen <.. [Rum components]
+        [RDF entity] - -> htmlgen
+        htmlgen - - -> [HTML page] :response
+    }
+}
+
+cloud "ClojureScript\nClient" #CCEEFF {
+    [web app] #fff
+    interface "virtual DOM" as VDOM
+
+    [HTML page] - - -> [web app] :load
+    [HTML page] ...> [web app] :control
+    [web app] - - - -> conneg :request
+    [RDF entity] - - - -> [web app] :response
+    [Rum components] .> [web app]
+    [web app] .> VDOM :update
+    VDOM ...> [HTML page] :patch
+
+    note left of VDOM
+     This is just the
+     React.js data flow.
+    end note
+
+}
+
+"user" as user
+user <..> [HTML page] :browse
+user <- - [RDF datasets] :download
+user - - -> conneg :request
+
+@enduml
+
+@startuml
+
+skinparam titleFontsize 20
+title Architecture of DanNet\n<i>2022-04-26</i>
+
+folder "Bootstrap\nfiles" {
+    node "Primary data" #DDD {
+        [DanNet CSV (2009)] #fff
+        [COR-K] #fff
+        [sentiment polarity] #fff
+    }
+    node "Schemas" #AAffAA {
+        [DanNet OWL] #fff
+        [translations] #fff
+        [other schemas] #fff
+    }
+}
+
+folder ".cljc " {
+    [Rum components] #FFFF99
+}
+
+note right of [Rum components]
+  This same code is used
+  in both server & client.
+end note
+
+cloud "ClojureScript\nClient" {
+    [HTML page] #FFFF99
+
+}
+
+folder "Clojure\nserver" {
+    [RDF triples] #AAffAA
+
+    [RDF triples] <.. [DanNet OWL] :consult
+    [RDF triples] <.. [other schemas] :consult
+
+    [COR-K] - - -> [RDF triples] :convert
+    [DanNet CSV (2009)] - - -> [RDF triples] :convert
+    [sentiment polarity] - - -> [RDF triples] :convert
+
+    database "Apache Jena\ndatabase" #BBBBff {
+        [data graph] #AAffAA
+        [schema graph] #AAffAA
+        [inference graph] #AAffAA
+        [inference rules] #fff
+        [RDF datasets] #AAffAA
+
+        note bottom of [inference rules]
+          RDFS/OWL reasoning
+        end note
+
+        [RDF triples] - - -> [data graph] :import
+        [DanNet OWL] - - -> [schema graph] :import
+        [translations] - - -> [schema graph] :import
+        [other schemas] - - -> [schema graph] :import
+        [inference rules] ..> [inference graph] :apply
+        [inference graph] ..> [inference graph] :infer triples
+        [data graph] ..> [inference graph] :import
+        [schema graph]..> [inference graph] :import
+    }
+
+    node "Pedestal\nweb service" #pink {
+        [RDF entity] #AAffAA
+        interface "HTML generation" as htmlgen
+        interface "content negotiation" as conneg
+        interface "query building" as q
+
+        note bottom of [RDF entity]
+          Accessed twice on initial load:
+          HTML page + web app hydration.
+        end note
+
+        [data graph] - -> [RDF datasets] :export
+        [inference graph] - -> [RDF datasets] :export
+
+        conneg - -> q
+        q - -> [inference graph] :execute
+        [inference graph] - - -> [RDF entity] :result
+        htmlgen <.. [Rum components]
+        [RDF entity] - -> htmlgen
+        htmlgen - - -> [HTML page] :response
+    }
+}
+
+cloud "ClojureScript\nClient" #CCEEFF {
+    [web app] #fff
+    interface "virtual DOM" as VDOM
+
+    [HTML page] - - -> [web app] :load
+    [HTML page] ...> [web app] :control
+    [web app] - - - -> conneg :request
+    [RDF entity] - - - -> [web app] :response
+    [Rum components] .> [web app]
+    [web app] .> VDOM :update
+    VDOM ...> [HTML page] :patch
+
+    note left of VDOM
+     This is just the
+     React.js data flow.
+    end note
+
+}
+
+"user" as user
+user <..> [HTML page] :browse
+user <- - [RDF datasets] :download
+user - - -> conneg :request
+
+@enduml
+
+PlantUML version 1.2022.4(Sat Apr 09 15:29:17 CEST 2022)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: da
+Country: DK
+--></g></svg>
