@@ -4,6 +4,9 @@
 
 > *To anyone who is _not_ my future self: these are my notes on the architecture of a web application used to browse the next version of the Danish WordNet: an RDF graph and its associated ontologies.*
 
+- [Overall architecture (component diagram)](architecture.svg)
+- [Website flow (sequence diagram)](website-flow.svg)
+
 At this point, I have several years of experience working with [reagent](https://github.com/reagent-project/reagent) which—I believe—is still the simplest way to create a "reactive" [single-page app](https://en.wikipedia.org/wiki/Single-page_application) (or "SPA" for short) in ClojureScript. However, I had still not created a properly ["hydrated"](https://reactjs.org/docs/react-dom.html#hydrate) SPA, which is the nomenclature used to describe single-page apps that are prerendered server-side and subsequently made to come alive in glorious, reactive dynamism on the client.
 
 ## Reagent's strengths
