@@ -63,12 +63,12 @@ folder "Clojure\nserver" {
     }
 
     node "Pedestal\nweb service" #pink {
-        [RDF entity] #AAffAA
+        [RDF resource] #AAffAA
         interface "HTML generation" as htmlgen
         interface "content negotiation" as conneg
         interface "query building" as q
 
-        note bottom of [RDF entity]
+        note bottom of [RDF resource]
           Accessed twice on initial load:
           HTML page + web app hydration.
         end note
@@ -78,9 +78,9 @@ folder "Clojure\nserver" {
 
         conneg --> q
         q --> [inference graph] :execute
-        [inference graph] ---> [RDF entity] :result
+        [inference graph] ---> [RDF resource] :result
         htmlgen <.. [Rum components]
-        [RDF entity] --> htmlgen
+        [RDF resource] --> htmlgen
         htmlgen ---> [HTML page] :response
     }
 }
@@ -92,7 +92,7 @@ cloud "ClojureScript\nClient" #CCEEFF {
     [HTML page] ---> [web app] :load
     [HTML page] ...> [web app] :control
     [web app] ----> conneg :request
-    [RDF entity] ----> [web app] :response
+    [RDF resource] ----> [web app] :response
     [Rum components] .> [web app]
     [web app] .> VDOM :update
     VDOM ...> [HTML page] :patch
