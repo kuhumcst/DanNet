@@ -1,0 +1,65 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+skinparam titleFontsize 20
+title DanNet website flow\n<i>2022-04-26</i>
+
+actor user
+participant browser
+participant "DanNet\napp" as app
+boundary "DanNet\nserver" as service
+control "content\nnegotiation" as conneg
+database "Apache Jena\ngraph" as graph
+
+== Initial page load ==
+user -> browser :visit DanNet
+browser -> service :request
+note left : "text/html"
+service -> graph :query
+graph --> conneg :RDF resource
+conneg -> conneg :encode
+conneg --> service :HTML
+service --> browser :HTML
+browser -> browser :decode
+browser --> user :page
+note left : visible to user
+browser -> app :initialize
+
+== Client app hydration ==
+app -> service :request
+note left : "application/transit+json"
+service -> graph :query
+graph --> conneg :RDF resource
+conneg -> conneg :encode
+conneg --> service :transit+json
+service --> app :transit+json
+app -> app :decode
+app --> browser :update
+browser --> user :page
+note left : no visible changes
+
+== Subsequent navigation ==
+user -> browser :change page
+browser -> app :delegate
+app -> service :request
+note left : "application/transit+json"
+
+service -> graph :query
+graph --> conneg :RDF resource
+conneg -> conneg :encode
+conneg --> service :transit+json
+service --> app :transit+json
+app -> app :decode
+app --> browser :update
+browser --> user :page
+note left : page changed
+
+== Client-side change ==
+user -> browser :change\nlanguage
+browser -> app :delegate
+app -> app :update
+app --> browser :update
+browser --> user :page
+note left : language changed
+
+@enduml
