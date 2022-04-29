@@ -143,6 +143,7 @@ nav select.language {
     margin: auto 0 4px 0;
     width: 32px;
     height: 32px;
+    font-size: 20px;
     background: transparent url(/images/globe.svg);
     background-size: 28px;
     background-repeat: no-repeat;
