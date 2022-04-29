@@ -41,7 +41,7 @@
     (cond-> {::http/routes         #((deref #'routes))
              ::http/type           :jetty
              ::http/host           "0.0.0.0"
-             ::http/port           8080
+             ::http/port           3456
              ::http/resource-path  "/public"
              ::http/secure-headers {:content-security-policy-settings csp}}
 

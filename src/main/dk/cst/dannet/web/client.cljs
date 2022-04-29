@@ -30,7 +30,7 @@
 (defn normalize-url
   [path]
   (if development?
-    (str "http://localhost:8080" path)
+    (str "http://localhost:3456" path)
     path))
 
 ;; TODO: handle datetime more satisfyingly typewise and in the web UI

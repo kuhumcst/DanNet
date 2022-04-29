@@ -21,9 +21,9 @@
            [org.apache.jena.query Dataset]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
-;; TODO: why doubling in http://localhost:8080/dannet/data/synset-12346 ?
-;; TODO: duplicates? http://localhost:8080/dannet/data/synset-29293
-;;       and http://localhost:8080/dannet/data/synset-29294
+;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
+;; TODO: duplicates? http://localhost:3456/dannet/data/synset-29293
+;;       and http://localhost:3456/dannet/data/synset-29294
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
