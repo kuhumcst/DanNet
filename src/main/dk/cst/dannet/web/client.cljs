@@ -117,7 +117,8 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (p/then (fetch path {:query-params query-params})
-          #(let [data           (:body %)
+          #(let [data           (assoc (:body %)
+                                  :viz (= "#viz" js/window.location.hash))
                  page-component (com/page-shell (com/data->page data) data)
                  page-title     (com/data->title data)]
              (set! js/document.title page-title)

@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
@@ -8,6 +9,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
+            #?(:cljs ["react-graph-vis" :as react-graph-vis])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe]))
@@ -537,6 +539,59 @@
       (when candidates
         (recur candidates)))))
 
+(defn explode-entity
+  [entity]
+  (->> (for [[k v] entity]
+         (if (set? v)
+           (set (for [vv v]
+                  [k vv]))
+           #{[k v]}))
+       (apply set/union)))
+
+
+;; TODO: make this work better
+#?(:cljs (rum/defc Graph [{:keys [languages subject entity k->label] :as opts}]
+           (let [xe            (explode-entity entity)
+                 label-key     (entity->label-key entity)
+                 node-ids      (->> (map second xe)
+                                    (filter keyword?)
+                                    (set))
+                 select-label  (partial i18n/select-label languages)
+                 ->label       (fn [k]
+                                 (str (select-label (get k->label k))))
+                 subject-label (str (select-label (get entity label-key)))
+                 nodes         (clj->js (cond->
+                                          (for [id node-ids]
+                                            {:id    id
+                                             :label (->label id)})
+
+                                          (not (node-ids subject))
+                                          (conj {:id    subject
+                                                 :label subject-label})))
+                 edges         (clj->js (->> (for [[rel v] xe]
+                                               (when (keyword? v)
+                                                 {:from  subject
+                                                  :label (str
+                                                           (namespace rel) ":"
+                                                           (->label rel))
+                                                  :to    v}))
+                                             (remove nil?)))]
+             (rum/adapt-class
+               (.-default react-graph-vis)
+               {:graph   {:nodes nodes
+                          :edges edges}
+                :options {:physics {:enabled   true
+                                    :solver    "repulsion"
+                                    :repulsion {:nodeDistance 200}}
+                          :layout  {:hierarchical false}
+                          :nodes   {:shape "box"}
+                          :edges   {:color  "#000000"
+                                    :arrows {:to {:enabled     true
+                                                  :scaleFactor 1.5}}
+                                    :width  2
+                                    :smooth true}
+                          :height  "100vh"}}))))
+
 (rum/defc entity-page
   [{:keys [languages subject entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
@@ -695,7 +750,7 @@
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [languages entity] :as data}]
+  [page {:keys [languages entity viz] :as data}]
   #?(:cljs (when-not (:languages @state)
              (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
@@ -715,8 +770,13 @@
       (language-select languages)
       [:a.github {:title "The source code for DanNet is available on Github"
                   :href  "https://github.com/kuhumcst/DanNet"}]]
-     [:div#content
-      [:main
-       (page-component data)]
-      [:hr]
-      (page-footer data)]]))
+
+
+     ;; TODO: is there a better way?
+     (if viz
+       #?(:cljs (Graph data) :clj nil)
+       [:div#content
+        [:main
+         (page-component data)]
+        [:hr]
+        (page-footer data)])]))
