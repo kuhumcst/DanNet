@@ -13,7 +13,8 @@
             #?(:cljs [reitit.frontend.easy :as rfe]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond])
-  #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
+  #?(:clj (:import [ont_app.vocabulary.lstr LangStr]
+                   [clojure.lang Named])))
 
 ;; TODO: adjust - lots of weird synsets/senses relating to http://localhost:3456/dannet/data/word-0-0
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
@@ -255,10 +256,34 @@
            :class "unknown"}
        local-name])))
 
+(defn- named?
+  [x]
+  #?(:cljs (implements? INamed x)
+     :clj  (instance? Named x)))
+
+(defn transform-val-coll
+  "Performs convenient transformations of `coll` informed by `opts`."
+  [coll {:keys [attr-key] :as opts}]
+  (cond
+    (and (= :dns/ontologicalType attr-key)
+         (every? #(and (named? %)
+                       (= "dnc" (namespace %))) coll))
+    (let [vs     (sort-by name coll)
+          fv     (first vs)
+          prefix (symbol (namespace fv))]
+      (for [v vs]
+        [:<> {:key v}
+         (when-not (= fv v)
+           " + ")
+         (prefix-elem prefix opts)
+         (anchor-elem v opts)]))))
+
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
   [prefix {:keys [attr-key entity] :as opts}]
   (or (= :rdf/value attr-key)
+      ;; TODO: don't hardcode ontologicalType (get from input config instead)
+      (= :dns/ontologicalType attr-key)
       (and (symbol? prefix)
            (or (and (keyword? attr-key)
                     (= prefix (-> attr-key namespace symbol)))
@@ -352,11 +377,15 @@
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
   [opts coll]
-  (let [amount     (count coll)
-        list-items (for [item (sort-by (sort-keyfn opts) coll)]
-                     (list-item opts item))]
+  (let [amount           (count coll)
+        list-items       (for [item (sort-by (sort-keyfn opts) coll)]
+                           (list-item opts item))
+        transformed-coll (transform-val-coll coll opts)]
     [:td
      (cond
+       transformed-coll
+       transformed-coll
+
        (<= amount 5)
        [:ol list-items]
 
