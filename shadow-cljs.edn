@@ -1,14 +1,22 @@
-{:deps     {:aliases [:frontend :backend :test :devtools]}
- :dev-http {7777 {:root    "resources/public"
-                  :handler dk.cst.dannet.web.resources/shadow-handler}}
- :builds   {:app  {:target            :browser
-                   ;; redefs needed in dk.cst.dannet.web.i18n, warning disabled
-                   :compiler-options  {:warnings {:redef-in-file false}}
-                   :output-dir        "resources/public/js/compiled"
-                   :asset-path        "/js/compiled"
-                   :module-hash-names true
-                   :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
-            :test {:target   :browser-test
-                   :test-dir "resources/public/js/test"
-                   :devtools {:http-port 7776
-                              :http-root "resources/public/js/test"}}}}
+{:source-paths ["src/main" "src/dev"]
+ :dependencies [[binaryage/devtools "1.0.4"]
+                [metosin/reitit "0.5.16"]
+                [lambdaisland/fetch "1.0.41"]
+                [kitchen-async/kitchen-async "0.1.0-SNAPSHOT"]
+                [org.flatland/ordered "1.15.10"]
+                [bb-utils/better-cond "2.1.0-SNAPSHOT"]
+                [rum/rum "0.12.8"]
+                [ont-app/vocabulary "0.1.7"]]
+ :dev-http     {7777 {:root    "resources/public"
+                      :handler user/shadow-handler}}
+ :builds       {:app  {:target            :browser
+                       ;; redefs needed in dk.cst.dannet.web.i18n, warning disabled
+                       :compiler-options  {:warnings {:redef-in-file false}}
+                       :output-dir        "resources/public/js/compiled"
+                       :asset-path        "/js/compiled"
+                       :module-hash-names true
+                       :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
+                :test {:target   :browser-test
+                       :test-dir "resources/public/js/test"
+                       :devtools {:http-port 7776
+                                  :http-root "resources/public/js/test"}}}}
