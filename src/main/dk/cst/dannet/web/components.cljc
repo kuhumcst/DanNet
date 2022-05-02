@@ -255,19 +255,36 @@
            :class "unknown"}
        local-name])))
 
-(rum/defc prefix-elem
-  "Visual representation of a `prefix` based on its associated symbol."
-  [prefix]
-  (cond
-    (symbol? prefix)
-    [:span.prefix {:title (prefix/prefix->uri prefix)
-                   :class (prefix->css-class prefix)}
-     (str prefix) [:span.prefix__sep ":"]]
+(defn- hide-prefix?
+  "Whether to hide the value column `prefix` according to its context `opts`."
+  [prefix {:keys [attr-key entity] :as opts}]
+  (or (= :rdf/value attr-key)
+      (and (symbol? prefix)
+           (or (and (keyword? attr-key)
+                    (= prefix (-> attr-key namespace symbol)))
+               (and (keyword? (:subject (meta entity)))
+                    (= prefix (-> entity meta :subject namespace symbol)))))))
 
-    (string? prefix)
-    [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
-                   :class "unknown"}
-     "???"]))
+(rum/defc prefix-elem
+  "Visual representation of a `prefix` based on its associated symbol.
+
+  If context `opts` are provided, the `prefix` is assumed to be in the value
+  column and will potentially be hidden according to the provided context."
+  ([prefix]
+   (cond
+     (symbol? prefix)
+     [:span.prefix {:title (prefix/prefix->uri prefix)
+                    :class (prefix->css-class prefix)}
+      (str prefix) [:span.prefix__sep ":"]]
+
+     (string? prefix)
+     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
+                    :class "unknown"}
+      "???"]))
+  ([prefix opts]
+   (if (hide-prefix? prefix opts)
+     [:span.hidden (prefix-elem prefix)]
+     (prefix-elem prefix))))
 
 (declare attr-val-table)
 
@@ -281,8 +298,8 @@
       ;; Handle cases such as :rdfs/ which have been keywordised by Aristotle.
       [:td
        (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri))]
-      [:td
-       (prefix-elem (symbol (namespace v)))
+      [:td.attr-combo                                       ; fixes alignment
+       (prefix-elem (symbol (namespace v)) opts)
        (anchor-elem v opts)])
 
     ;; Display blank resources as inlined tables.
@@ -318,7 +335,7 @@
     (keyword? item)
     (let [prefix (symbol (namespace item))]
       [:li
-       (prefix-elem prefix)
+       (prefix-elem prefix opts)
        (anchor-elem item opts)])
 
     ;; TODO: handle blank resources better?

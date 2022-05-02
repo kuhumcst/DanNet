@@ -349,7 +349,7 @@ table span.prefix {
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.33);
     padding: 3px 7px;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 span.prefix__sep {
@@ -579,9 +579,14 @@ td:not(.attr-name,.attr-prefix) {
     padding-left: 8px;
 }
 
-/* Hide prefixes in value column by default */
-td:not(.attr-prefix) .prefix:not(:last-child) {
+/* Used to hide prefixes. */
+.hidden > * {
     display: none;
+}
+
+/* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
+.attr-combo > span {
+    vertical-align: top;
 }
 
 tr:nth-child(odd),
