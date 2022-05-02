@@ -55,6 +55,8 @@ These new prefixes/URIs take over from the ones used for DanNet 2.2:
 
 Eventually, all of these new URIs should resolve to schema files, which is to say that accessing a resource with a GET request (e.g. through a web browser) should always return data for the resource (or schema) in question.
 
+The new DanNet schema is written in accordance with the [RDF conventions](http://www-sop.inria.fr/acacia/personnel/phmartin/RDF/conventions.html#reversingRelations) listed by Philippe Martin.
+
 Implementation
 --------------
 The main database that the new tooling has been developed for is [Apache Jena](https://jena.apache.org/), which is a mature RDF triplestore that also supports [OWL](https://www.w3.org/OWL/). When represented inside Jena, the many relations of DanNet are turned into a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). The new DanNet is developed in the Clojure programming language (an alternative to Java on the JVM) which has multiple libraries for interacting with the Java-based Apache Jena, e.g. [Aristotle](https://github.com/arachne-framework/aristotle) and [igraph-jena](https://github.com/ont-app/igraph-jena).
