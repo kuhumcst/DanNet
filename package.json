@@ -1,0 +1,36 @@
+{
+  "name": "dannet",
+  "version": "1.0.0",
+  "description": "DanNet ====== [DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. The goal of this project is to represent DanNet in full using [RDF](https://www.w3.org/RDF/) as its native representation at both the database level, in the application space, and as its primary serialisation format.",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuhumcst/DanNet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kuhumcst/DanNet/issues"
+  },
+  "homepage": "https://github.com/kuhumcst/DanNet#readme",
+  "dependencies": {
+    "@js-joda/core": "5.2.0",
+    "@js-joda/locale_en-us": "4.7.0",
+    "@js-joda/timezone": "2.12.0",
+    "create-react-class": "^15.7.0",
+    "cytoscape": "^3.21.1",
+    "cytoscape-avsdf": "^1.0.0",
+    "install": "^0.13.0",
+    "npm": "^8.9.0",
+    "react": "^18.1.0",
+    "react-cytoscapejs": "^1.2.1",
+    "react-dom": "^18.1.0"
+  }
+}

@@ -9,7 +9,9 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
-            #?(:cljs ["react-graph-vis" :as react-graph-vis])
+            #?(:cljs ["cytoscape" :as Cytoscape])           ;TODO: remove?
+            #?(:cljs ["cytoscape-avsdf" :as avsdf])         ;TODO: remove?
+            #?(:cljs ["react-cytoscapejs" :as CytoscapeComponent])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe]))
@@ -550,47 +552,56 @@
 
 
 ;; TODO: make this work better
-#?(:cljs (rum/defc Graph [{:keys [languages subject entity k->label] :as opts}]
-           (let [xe            (explode-entity entity)
-                 label-key     (entity->label-key entity)
-                 node-ids      (->> (map second xe)
-                                    (filter keyword?)
-                                    (set))
-                 select-label  (partial i18n/select-label languages)
-                 ->label       (fn [k]
-                                 (str (select-label (get k->label k))))
-                 subject-label (str (select-label (get entity label-key)))
-                 nodes         (clj->js (cond->
-                                          (for [id node-ids]
-                                            {:id    id
-                                             :label (->label id)})
+(rum/defc network-graph
+  [{:keys [languages subject entity k->label] :as opts}]
+  (let [xe            (explode-entity entity)
+        _             (prn xe)
+        label-key     (entity->label-key entity)
+        node-ids      (->> (map second xe)
+                           (filter keyword?)
+                           (set))
+        select-label  (partial i18n/select-label languages)
+        ->label       (fn [k]
+                        (str (select-label (get k->label k))))
+        subject-label (str (select-label (get entity label-key)))
+        nodes         (cond->
+                        (for [id node-ids]
+                          {:data {:id    (str id)
+                                  :label (->label id)}})
 
-                                          (not (node-ids subject))
-                                          (conj {:id    subject
-                                                 :label subject-label})))
-                 edges         (clj->js (->> (for [[rel v] xe]
-                                               (when (keyword? v)
-                                                 {:from  subject
-                                                  :label (str
-                                                           (namespace rel) ":"
-                                                           (->label rel))
-                                                  :to    v}))
-                                             (remove nil?)))]
-             (rum/adapt-class
-               (.-default react-graph-vis)
-               {:graph   {:nodes nodes
-                          :edges edges}
-                :options {:physics {:enabled   true
-                                    :solver    "repulsion"
-                                    :repulsion {:nodeDistance 200}}
-                          :layout  {:hierarchical false}
-                          :nodes   {:shape "box"}
-                          :edges   {:color  "#000000"
-                                    :arrows {:to {:enabled     true
-                                                  :scaleFactor 1.5}}
-                                    :width  2
-                                    :smooth true}
-                          :height  "100vh"}}))))
+                        (not (node-ids subject))
+                        (conj {:data {:id    (str subject)
+                                      :label subject-label}}))
+        edges         (->> (for [[rel v] xe]
+                             (when (keyword? v)
+                               (prn [rel v])
+                               {:data    {:source (str subject)
+                                          :label  (str
+                                                    (namespace rel) ":"
+                                                    (->label rel))
+                                          :target (str v)}
+                                :classes "autorotate"}))
+                           (remove nil?))]
+    #?(:clj  [:pre (with-out-string (clojure.pprint/pprint {:nodes nodes :edges edges}))]
+       :cljs (do
+               (Cytoscape/use avsdf)                        ;TODO:remove?
+               (rum/adapt-class
+                 CytoscapeComponent
+                 {:elements   (CytoscapeComponent/normalizeElements
+                                (clj->js {:nodes nodes
+                                          :edges edges}))
+                  :layout     {:name "concentric"}
+                  :style      {:width  "100vw"
+                               :height "100vh"}
+                  :stylesheet [{:selector "node"
+                                :style    {:color       "black"
+                                           :label       "data(label)"
+                                           :text-halign "center"
+                                           :text-valign "center"}}
+                               {:selector "edge"
+                                :style    {:color              "black"
+                                           :label              "data(label)"
+                                           :edge-text-rotation "autorotate"}}]})))))
 
 (rum/defc entity-page
   [{:keys [languages subject entity k->label] :as opts}]
@@ -774,7 +785,7 @@
 
      ;; TODO: is there a better way?
      (if viz
-       #?(:cljs (Graph data) :clj nil)
+       #?(:cljs (network-graph data) :clj nil)
        [:div#content
         [:main
          (page-component data)]

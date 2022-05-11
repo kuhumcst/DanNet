@@ -16,8 +16,6 @@ docker/neo4j/*.jar
 
 .shadow-cljs
 node_modules
-package-lock.json
-package.json
 resources/public/js/compiled
 
 # https://github.com/dsldk/danish-sentiment-lexicon
