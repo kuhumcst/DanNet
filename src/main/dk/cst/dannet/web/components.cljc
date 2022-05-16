@@ -541,47 +541,79 @@
       (when candidates
         (recur candidates)))))
 
-(defn explode-entity
-  [entity]
-  (->> (for [[k v] entity]
-         (if (set? v)
-           (set (for [vv v]
-                  [k vv]))
-           #{[k v]}))
-       (apply set/union)))
+(defn- graph-node
+  [kw->label [k v]]
+  (cond
+    (keyword? v)
+    [{:data {:id    (str v)
+             :label (kw->label v)}}]
 
+    (and (set? v) (= (count v) 1))
+    (let [item (first v)]
+      [{:data {:id    (str item)
+               :label (kw->label item)}}])
+
+    (set? v)
+    (let [parent (str k)]
+      (into [{:data {:id parent}}]
+            (for [dest v]
+              {:data {:id     (str dest)
+                      :label  (kw->label dest)
+                      :parent parent}})))))
+
+(defn graph-nodes
+  [{:keys [languages subject entity k->label] :as opts}]
+  (let [select-label  (partial i18n/select-label languages)
+        label-key     (entity->label-key entity)
+        subject-label (str (select-label (get entity label-key)))
+        kw->label     (fn [k]
+                        (str (select-label (get k->label k))))]
+    (into [{:data {:id    subject
+                   :label subject-label}}]
+          (comp
+            (filter (comp (some-fn keyword? set?) second))  ;TODO: handle str
+            (map (partial graph-node kw->label))
+            cat)
+          entity)))
+
+(defn graph-edges
+  [{:keys [languages subject entity k->label] :as opts}]
+  (let [select-label (partial i18n/select-label languages)
+        kw->label    (fn [k]
+                       (str (select-label (get k->label k))))]
+    (->> (for [[rel v] entity]
+           (cond
+             (keyword? v)
+             {:data    {:source (str subject)
+                        :label  (str
+                                  (namespace rel) ":"
+                                  (kw->label rel))
+                        :target (str v)}
+              :classes "autorotate"}
+
+             (and (set? v) (= (count v) 1))
+             (let [item (first v)]
+               {:data    {:source (str subject)
+                          :label  (str
+                                    (namespace rel) ":"
+                                    (kw->label rel))
+                          :target (str item)}
+                :classes "autorotate"})
+
+             (set? v)
+             {:data    {:source (str subject)
+                        :label  (str
+                                  (namespace rel) ":"
+                                  (kw->label rel))
+                        :target (str rel)}
+              :classes "autorotate"}))
+         (remove nil?))))
 
 ;; TODO: make this work better
 (rum/defc network-graph
-  [{:keys [languages subject entity k->label] :as opts}]
-  (let [xe            (explode-entity entity)
-        _             (prn xe)
-        label-key     (entity->label-key entity)
-        node-ids      (->> (map second xe)
-                           (filter keyword?)
-                           (set))
-        select-label  (partial i18n/select-label languages)
-        ->label       (fn [k]
-                        (str (select-label (get k->label k))))
-        subject-label (str (select-label (get entity label-key)))
-        nodes         (cond->
-                        (for [id node-ids]
-                          {:data {:id    (str id)
-                                  :label (->label id)}})
-
-                        (not (node-ids subject))
-                        (conj {:data {:id    (str subject)
-                                      :label subject-label}}))
-        edges         (->> (for [[rel v] xe]
-                             (when (keyword? v)
-                               (prn [rel v])
-                               {:data    {:source (str subject)
-                                          :label  (str
-                                                    (namespace rel) ":"
-                                                    (->label rel))
-                                          :target (str v)}
-                                :classes "autorotate"}))
-                           (remove nil?))]
+  [opts]
+  (let [nodes (graph-nodes opts)
+        edges (graph-edges opts)]
     #?(:clj  [:pre (with-out-str (clojure.pprint/pprint {:nodes nodes :edges edges}))]
        :cljs (do
                (cytoscape/use avsdf)                        ;TODO:remove?
@@ -595,7 +627,9 @@
                   :style      {:height "100vh"
                                ;; Account for total sidebar width (37px)
                                :width  "calc(100vw - 37px)"}
-                  :stylesheet [{:selector "node"
+
+                  ;; Should be node[label] to avoid selecting compound nodes.
+                  :stylesheet [{:selector "node[label]"
                                 :style    {:color       "black"
                                            :label       "data(label)"
                                            :text-halign "center"
