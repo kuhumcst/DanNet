@@ -632,6 +632,9 @@
    "ontolex" "#df7300"
    "wordnet" " #387111"})
 
+
+;;TODO: tough to viz http://localhost:3456/dannet/data/synset-7918#viz
+
 ;; TODO: make this work better
 (rum/defc network-graph
   [opts]
@@ -663,7 +666,8 @@
                                    {:selector ":parent"
                                     :style    {:background-opacity 0.1
                                                :border-width       4
-                                               :border-opacity     0.66}}
+                                               :border-opacity     0.66
+                                               :shape              "roundrectangle"}}
                                    {:selector "edge"
                                     :style    {:color              "#333"
                                                :label              "data(label)"
