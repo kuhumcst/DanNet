@@ -9,7 +9,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
-            #?(:cljs ["cytoscape" :as Cytoscape])           ;TODO: remove?
+            #?(:cljs ["cytoscape" :as cytoscape])           ;TODO: remove?
             #?(:cljs ["cytoscape-avsdf" :as avsdf])         ;TODO: remove?
             #?(:cljs ["react-cytoscapejs" :as CytoscapeComponent])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -582,17 +582,19 @@
                                           :target (str v)}
                                 :classes "autorotate"}))
                            (remove nil?))]
-    #?(:clj  [:pre (with-out-string (clojure.pprint/pprint {:nodes nodes :edges edges}))]
+    #?(:clj  [:pre (with-out-str (clojure.pprint/pprint {:nodes nodes :edges edges}))]
        :cljs (do
-               (Cytoscape/use avsdf)                        ;TODO:remove?
+               (cytoscape/use avsdf)                        ;TODO:remove?
                (rum/adapt-class
                  CytoscapeComponent
                  {:elements   (CytoscapeComponent/normalizeElements
                                 (clj->js {:nodes nodes
                                           :edges edges}))
+                  ;; TODO: figure out starting pan, should be x=37
                   :layout     {:name "concentric"}
-                  :style      {:width  "100vw"
-                               :height "100vh"}
+                  :style      {:height "100vh"
+                               ;; Account for total sidebar width (37px)
+                               :width  "calc(100vw - 37px)"}
                   :stylesheet [{:selector "node"
                                 :style    {:color       "black"
                                            :label       "data(label)"
