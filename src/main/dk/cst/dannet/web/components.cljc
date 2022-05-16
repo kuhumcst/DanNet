@@ -541,12 +541,19 @@
       (when candidates
         (recur candidates)))))
 
+(defn kw->css-class
+  [k]
+  (or (and (keyword? k)
+           (-> k namespace symbol prefix->css-class))
+      "unknown"))
+
 (defn- graph-node
   [kw->label [k v]]
   (cond
     (keyword? v)
-    [{:data {:id    (str v)
-             :label (kw->label v)}}]
+    [{:data    {:id    (str v)
+                :label (kw->label v)}
+      :classes (kw->css-class v)}]
 
     (and (set? v) (= (count v) 1))
     (let [item (first v)]
@@ -555,11 +562,19 @@
 
     (set? v)
     (let [parent (str k)]
-      (into [{:data {:id parent}}]
+      (into [{:data    {:id parent}
+              :classes (kw->css-class k)}]
             (for [dest v]
-              {:data {:id     (str dest)
-                      :label  (kw->label dest)
-                      :parent parent}})))))
+              {:data    {:id     (str dest)
+                         :label  (kw->label dest)
+                         :parent parent}
+               :classes (kw->css-class dest)})))))
+
+(defn resource-rel?
+  [[_ v]]
+  (or (keyword? v)
+      (and (set? v)
+           (every? keyword? v))))
 
 (defn graph-nodes
   [{:keys [languages subject entity k->label] :as opts}]
@@ -568,12 +583,11 @@
         subject-label (str (select-label (get entity label-key)))
         kw->label     (fn [k]
                         (str (select-label (get k->label k))))]
-    (into [{:data {:id    subject
-                   :label subject-label}}]
-          (comp
-            (filter (comp (some-fn keyword? set?) second))  ;TODO: handle str
-            (map (partial graph-node kw->label))
-            cat)
+    (into [{:data    {:id    (str subject)
+                      :label subject-label}
+            :classes (kw->css-class subject)}]
+          (comp (map (partial graph-node kw->label))
+                cat)
           entity)))
 
 (defn graph-edges
@@ -581,7 +595,7 @@
   (let [select-label (partial i18n/select-label languages)
         kw->label    (fn [k]
                        (str (select-label (get k->label k))))]
-    (->> (for [[rel v] entity]
+    (->> (for [[rel v] (filter resource-rel? entity)]
            (cond
              (keyword? v)
              {:data    {:source (str subject)
@@ -589,7 +603,7 @@
                                   (namespace rel) ":"
                                   (kw->label rel))
                         :target (str v)}
-              :classes "autorotate"}
+              :classes (kw->css-class rel)}
 
              (and (set? v) (= (count v) 1))
              (let [item (first v)]
@@ -598,7 +612,7 @@
                                     (namespace rel) ":"
                                     (kw->label rel))
                           :target (str item)}
-                :classes "autorotate"})
+                :classes (kw->css-class rel)})
 
              (set? v)
              {:data    {:source (str subject)
@@ -606,8 +620,17 @@
                                   (namespace rel) ":"
                                   (kw->label rel))
                         :target (str rel)}
-              :classes "autorotate"}))
+              :classes (kw->css-class rel)}))
          (remove nil?))))
+
+;; TODO: directly derive from CSS?
+(def css-class->color
+  {"unknown" "#999"
+   "dannet"  "#901a1e"
+   "w3c"     "#55f"
+   "meta"    "#019fa1"
+   "ontolex" "#df7300"
+   "wordnet" " #387111"})
 
 ;; TODO: make this work better
 (rum/defc network-graph
@@ -629,15 +652,28 @@
                                :width  "calc(100vw - 37px)"}
 
                   ;; Should be node[label] to avoid selecting compound nodes.
-                  :stylesheet [{:selector "node[label]"
-                                :style    {:color       "black"
-                                           :label       "data(label)"
-                                           :text-halign "center"
-                                           :text-valign "center"}}
-                               {:selector "edge"
-                                :style    {:color              "black"
-                                           :label              "data(label)"
-                                           :edge-text-rotation "autorotate"}}]})))))
+                  :stylesheet (clj->js
+                                (concat
+                                  [{:selector "node[label]"
+                                    :style    {:color              "#333"
+                                               :background-opacity 0.66
+                                               :label              "data(label)"
+                                               :text-halign        "center"
+                                               :text-valign        "center"}}
+                                   {:selector ":parent"
+                                    :style    {:background-opacity 0.1
+                                               :border-width       4
+                                               :border-opacity     0.66}}
+                                   {:selector "edge"
+                                    :style    {:color              "#333"
+                                               :label              "data(label)"
+                                               :line-opacity       0.66
+                                               :edge-text-rotation "autorotate"}}]
+                                  (for [[k v] css-class->color]
+                                    {:selector (str "." k)
+                                     :style    {:background-color v
+                                                :line-color       v
+                                                :border-color     v}})))})))))
 
 (rum/defc entity-page
   [{:keys [languages subject entity k->label] :as opts}]
@@ -796,13 +832,20 @@
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
+(defn clean-subclass
+  [{:keys [subject entity] :as data}]
+  (let [subclass (:rdfs/subClassOf entity)]
+    (if (set? subclass)
+      (update-in data [:entity :rdfs/subClassOf] disj subject)
+      data)))
+
 (rum/defc page-shell < rum/reactive
-  [page {:keys [languages entity viz] :as data}]
+  [page {:keys [languages subject entity viz] :as data}]
   #?(:cljs (when-not (:languages @state)
              (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
         data* #?(:clj  {} :cljs (rum/react state))
-        data           (merge data data*)
+        data           (merge (clean-subclass data) data*)
         [prefix _ _] (resolve-names data)
         prefix*        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
