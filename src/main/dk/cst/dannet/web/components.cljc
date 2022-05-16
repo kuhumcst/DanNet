@@ -582,13 +582,15 @@
         label-key     (entity->label-key entity)
         subject-label (str (select-label (get entity label-key)))
         kw->label     (fn [k]
-                        (str (select-label (get k->label k))))]
+                        (str (or (select-label (get k->label k))
+                                 (when (keyword? k)
+                                   k))))]
     (into [{:data    {:id    (str subject)
                       :label subject-label}
             :classes (kw->css-class subject)}]
           (comp (map (partial graph-node kw->label))
                 cat)
-          entity)))
+          (filter resource-rel? entity))))
 
 (defn graph-edges
   [{:keys [languages subject entity k->label] :as opts}]
@@ -671,6 +673,7 @@
                                    {:selector "edge"
                                     :style    {:color              "#333"
                                                :label              "data(label)"
+                                               :background-color   "black"
                                                :line-opacity       0.66
                                                :edge-text-rotation "autorotate"}}]
                                   (for [[k v] css-class->color]
