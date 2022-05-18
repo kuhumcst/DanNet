@@ -9,9 +9,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
-            #?(:cljs ["cytoscape" :as cytoscape])           ;TODO: remove?
-            #?(:cljs ["cytoscape-avsdf" :as avsdf])         ;TODO: remove?
-            #?(:cljs ["react-cytoscapejs" :as CytoscapeComponent])
+            #?(:cljs ["react-vega" :as react-vega])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe]))
@@ -643,44 +641,110 @@
   (let [nodes (graph-nodes opts)
         edges (graph-edges opts)]
     #?(:clj  [:pre (with-out-str (clojure.pprint/pprint {:nodes nodes :edges edges}))]
-       :cljs (do
-               (cytoscape/use avsdf)                        ;TODO:remove?
-               (rum/adapt-class
-                 CytoscapeComponent
-                 {:elements   (CytoscapeComponent/normalizeElements
-                                (clj->js {:nodes nodes
-                                          :edges edges}))
-                  ;; TODO: figure out starting pan, should be x=37
-                  :layout     {:name "concentric"}
-                  :style      {:height "100vh"
-                               ;; Account for total sidebar width (37px)
-                               :width  "calc(100vw - 37px)"}
+       :cljs (rum/adapt-class
+               react-vega/Vega
+               {:spec {:$schema  "https://vega.github.io/schema/vega/v5.json"
+                       :description
+                       "An example of a radial layout for a node-link diagram of hierarchical data."
+                       :autosize "none"
+                       :width    720
+                       :scales
+                       [{:name   "color"
+                         :type   "linear"
+                         :range  {:scheme "magma"}
+                         :domain {:data "tree", :field "depth"}
+                         :zero   true}]
+                       :padding  5
+                       :marks
+                       [{:type "path"
+                         :from {:data "links"}
+                         :encode
+                         {:update
+                          {:x      {:signal "originX"}
+                           :y      {:signal "originY"}
+                           :path   {:field "path"}
+                           :stroke {:value "#ccc"}}}}
+                        {:type "symbol"
+                         :from {:data "tree"}
+                         :encode
+                         {:enter {:size {:value 100}, :stroke {:value "#fff"}}
+                          :update
+                          {:x    {:field "x"}
+                           :y    {:field "y"}
+                           :fill {:scale "color", :field "depth"}}}}
+                        {:type "text"
+                         :from {:data "tree"}
+                         :encode
+                         {:enter
+                          {:text     {:field "name"}
+                           :fontSize {:value 9}
+                           :baseline {:value "middle"}}
+                          :update
+                          {:x       {:field "x"}
+                           :y       {:field "y"}
+                           :dx      {:signal "(datum.leftside ? -1 : 1) * 6"}
+                           :angle
+                           {:signal "datum.leftside ? datum.angle - 180 : datum.angle"}
+                           :align   {:signal "datum.leftside ? 'right' : 'left'"}
+                           :opacity {:signal "labels ? 1 : 0"}}}}]
+                       :signals
+                       [{:name "labels", :value true, :bind {:input "checkbox"}}
+                        {:name  "radius"
+                         :value 280
+                         :bind  {:input "range", :min 20, :max 600}}
+                        {:name  "extent"
+                         :value 360
+                         :bind  {:input "range", :min 0, :max 360, :step 1}}
+                        {:name  "rotate"
+                         :value 0
+                         :bind  {:input "range", :min 0, :max 360, :step 1}}
+                        {:name  "layout"
+                         :value "tidy"
+                         :bind  {:input "radio", :options ["tidy" "cluster"]}}
+                        {:name  "links"
+                         :value "line"
+                         :bind
+                         {:input   "select"
+                          :options ["line" "curve" "diagonal" "orthogonal"]}}
+                        {:name "originX", :update "width / 2"}
+                        {:name "originY", :update "height / 2"}]
+                       :height   720
+                       :data
+                       [{:name "tree"
+                         :url  "data/flare.json"
+                         :transform
+                         [{:type "stratify", :key "id", :parentKey "parent"}
+                          {:type   "tree"
+                           :method {:signal "layout"}
+                           :size   [1 {:signal "radius"}]
+                           :as     ["alpha" "radius" "depth" "children"]}
+                          {:type "formula"
+                           :expr "(rotate + extent * datum.alpha + 270) % 360"
+                           :as   "angle"}
+                          {:type "formula", :expr "PI * datum.angle / 180", :as "radians"}
+                          {:type "formula"
+                           :expr "inrange(datum.angle, [90, 270])"
+                           :as   "leftside"}
+                          {:type "formula"
+                           :expr "originX + datum.radius * cos(datum.radians)"
+                           :as   "x"}
+                          {:type "formula"
+                           :expr "originY + datum.radius * sin(datum.radians)"
+                           :as   "y"}]}
+                        {:name   "links"
+                         :source "tree"
+                         :transform
+                         [{:type "treelinks"}
+                          {:type    "linkpath"
+                           :shape   {:signal "links"}
+                           :orient  "radial"
+                           :sourceX "source.radians"
+                           :sourceY "source.radius"
+                           :targetX "target.radians"
+                           :targetY "target.radius"}]}]}}))))
 
-                  ;; Should be node[label] to avoid selecting compound nodes.
-                  :stylesheet (clj->js
-                                (concat
-                                  [{:selector "node[label]"
-                                    :style    {:color              "#333"
-                                               :background-opacity 0.66
-                                               :label              "data(label)"
-                                               :text-halign        "center"
-                                               :text-valign        "center"}}
-                                   {:selector ":parent"
-                                    :style    {:background-opacity 0.1
-                                               :border-width       4
-                                               :border-opacity     0.66
-                                               :shape              "roundrectangle"}}
-                                   {:selector "edge"
-                                    :style    {:color              "#333"
-                                               :label              "data(label)"
-                                               :background-color   "black"
-                                               :line-opacity       0.66
-                                               :edge-text-rotation "autorotate"}}]
-                                  (for [[k v] css-class->color]
-                                    {:selector (str "." k)
-                                     :style    {:background-color v
-                                                :line-color       v
-                                                :border-color     v}})))})))))
+
+
 
 (rum/defc entity-page
   [{:keys [languages subject entity k->label] :as opts}]
