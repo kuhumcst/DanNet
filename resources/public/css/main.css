@@ -678,3 +678,16 @@ span.emblem:hover {
     transform: scale(102.5%);
     filter: drop-shadow(0 4px 2px rgba(0,0,0,0.4));
 }
+
+/* Place the Vega form widgets at the top-right. */
+form.vega-bindings {
+    position: fixed;
+    top: 8;
+    right: 8;
+    margin: 0;
+    padding: 12;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.1);
+    backdrop-filter: blur(4px);
+    font-size: 14px;
+}
