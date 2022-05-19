@@ -539,89 +539,64 @@
       (when candidates
         (recur candidates)))))
 
-(defn kw->css-class
-  [k]
-  (or (and (keyword? k)
-           (-> k namespace symbol prefix->css-class))
-      "unknown"))
-
-(defn- graph-node
-  [kw->label [k v]]
-  (cond
-    (keyword? v)
-    [{:data    {:id    (str v)
-                :label (kw->label v)}
-      :classes (kw->css-class v)}]
-
-    (and (set? v) (= (count v) 1))
-    (let [item (first v)]
-      [{:data {:id    (str item)
-               :label (kw->label item)}}])
-
-    (set? v)
-    (let [parent (str k)]
-      (into [{:data    {:id parent}
-              :classes (kw->css-class k)}]
-            (for [dest v]
-              {:data    {:id     (str dest)
-                         :label  (kw->label dest)
-                         :parent parent}
-               :classes (kw->css-class dest)})))))
-
 (defn resource-rel?
   [[_ v]]
   (or (keyword? v)
       (and (set? v)
            (every? keyword? v))))
 
-(defn graph-nodes
+(defn- vega-value
+  [subject kw->label [k v :as kv]]
+  (cond
+    (keyword? v)
+    [{:id     (str k)
+      :name   (kw->label k)
+      :parent (str subject)}
+     {:id     (str kv)
+      :name   (kw->label v)
+      :parent (str k)}]
+
+    (and (set? v) (= (count v) 1))
+    (let [item (first v)]
+      [{:id     (str k)
+        :name   (kw->label k)
+        :parent (str subject)}
+       {:id     (str kv)
+        :name   (kw->label item)
+        :parent (str k)}])
+
+    (and (set? v) (<= (count v) 6))
+    (into [{:id     (str k)
+            :name   (kw->label k)
+            :parent (str subject)}]
+          (for [v' v]
+            {:id     (str [k v'])
+             :name   (kw->label v')
+             :parent (str k)}))
+
+    (set? v)
+    [{:id     (str k)
+      :name   (kw->label k)
+      :parent (str subject)}
+     {:id     (str kv)
+      :name   (str "1..." (count v))
+      :parent (str k)}]))
+
+(defn vega-data
   [{:keys [languages subject entity k->label] :as opts}]
   (let [select-label  (partial i18n/select-label languages)
         label-key     (entity->label-key entity)
         subject-label (str (select-label (get entity label-key)))
         kw->label     (fn [k]
                         (str (or (select-label (get k->label k))
-                                 (when (keyword? k)
-                                   k))))]
-    (into [{:data    {:id    (str subject)
-                      :label subject-label}
-            :classes (kw->css-class subject)}]
-          (comp (map (partial graph-node kw->label))
-                cat)
+                                 (if (string? k)
+                                   (str "\"" k "\"")
+                                   k))))
+        vega-value'   (partial vega-value (str "subject-" subject) kw->label)]
+    (into [{:id   (str "subject-" subject)
+            :name subject-label}]
+          (comp (map vega-value') cat)
           (filter resource-rel? entity))))
-
-(defn graph-edges
-  [{:keys [languages subject entity k->label] :as opts}]
-  (let [select-label (partial i18n/select-label languages)
-        kw->label    (fn [k]
-                       (str (select-label (get k->label k))))]
-    (->> (for [[rel v] (filter resource-rel? entity)]
-           (cond
-             (keyword? v)
-             {:data    {:source (str subject)
-                        :label  (str
-                                  (namespace rel) ":"
-                                  (kw->label rel))
-                        :target (str v)}
-              :classes (kw->css-class rel)}
-
-             (and (set? v) (= (count v) 1))
-             (let [item (first v)]
-               {:data    {:source (str subject)
-                          :label  (str
-                                    (namespace rel) ":"
-                                    (kw->label rel))
-                          :target (str item)}
-                :classes (kw->css-class rel)})
-
-             (set? v)
-             {:data    {:source (str subject)
-                        :label  (str
-                                  (namespace rel) ":"
-                                  (kw->label rel))
-                        :target (str rel)}
-              :classes (kw->css-class rel)}))
-         (remove nil?))))
 
 ;; TODO: directly derive from CSS?
 (def css-class->color
@@ -630,10 +605,10 @@
    "w3c"     "#55f"
    "meta"    "#019fa1"
    "ontolex" "#df7300"
-   "wordnet" " #387111"})
+   "wordnet" "#387111"})
 
 (defn radial-tree-spec
-  [{:keys [width height radius]}]
+  [{:keys [width height radius values]}]
   {:$schema  "https://vega.github.io/schema/vega/v5.json"
    :description
    "An example of a radial layout for a node-link diagram of hierarchical data."
@@ -646,7 +621,6 @@
      :range  {:scheme "magma"}
      :domain {:data "tree", :field "depth"}
      :zero   true}]
-   :padding  5
    :marks
    [{:type "path"
      :from {:data "links"}
@@ -669,7 +643,8 @@
      :encode
      {:enter
       {:text     {:field "name"}
-       :fontSize {:value 9}
+       :fontSize {:value 10}
+       :font     {:value "Helvetica, sans-serif"}
        :baseline {:value "middle"}}
       :update
       {:x       {:field "x"}
@@ -686,7 +661,7 @@
      :bind  {:input "range", :min 20, :max (* 2 radius)}}
     {:name  "extent"
      :value 360
-     :bind  {:input "range", :min 0, :max 360, :step 1}}
+     #_#_:bind {:input "range", :min 0, :max 360, :step 1}}
     {:name  "rotate"
      :value 0
      :bind  {:input "range", :min 0, :max 360, :step 1}}
@@ -701,8 +676,8 @@
     {:name "originX", :update "width / 2"}
     {:name "originY", :update "height / 2"}]
    :data
-   [{:name "tree"
-     :url  "/data/flare.json"
+   [{:name   "tree"
+     :values values
      :transform
      [{:type "stratify", :key "id", :parentKey "parent"}
       {:type   "tree"
@@ -935,11 +910,10 @@
          #?(:cljs (let [width  (- js/document.body.clientWidth 37)
                         height js/document.body.clientHeight]
                     {:spec (clj->js (radial-tree-spec
-                                      {:width  width
-                                       :height height
-                                       :radius (-> (min width height)
-                                                   (/ 2)
-                                                   (- 40))}))})
+                                      {:width  (int width)
+                                       :height (int height)
+                                       :radius (int (/ (min width height) 3))
+                                       :values (vega-data data)}))})
             :clj  nil))
        [:div#content
         [:main

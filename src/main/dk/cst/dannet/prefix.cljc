@@ -89,6 +89,15 @@
   (let [[prefix local-name] (str/split kw #":")]
     (keyword prefix local-name)))
 
+;; TODO: derive from CSS somehow?
+(def prefix->color
+  {'unknown "#999"
+   'dannet  "#901a1e"
+   'w3c     "#55f"
+   'meta    "#019fa1"
+   'ontolex "#df7300"
+   'wordnet "#387111"})
+
 (defn prefix->uri
   "Return the URI registered for a `prefix`."
   [prefix]
