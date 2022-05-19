@@ -637,7 +637,7 @@
   {:$schema  "https://vega.github.io/schema/vega/v5.json"
    :description
    "An example of a radial layout for a node-link diagram of hierarchical data."
-   :autosize "none"
+   :autosize "pad"
    :width    width
    :height   height
    :scales
@@ -683,7 +683,7 @@
    [{:name "labels", :value true, :bind {:input "checkbox"}}
     {:name  "radius"
      :value radius
-     :bind  {:input "range", :min 20, :max 600}}
+     :bind  {:input "range", :min 20, :max (* 2 radius)}}
     {:name  "extent"
      :value 360
      :bind  {:input "range", :min 0, :max 360, :step 1}}
