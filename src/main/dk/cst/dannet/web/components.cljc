@@ -711,7 +711,7 @@
                        :height   720
                        :data
                        [{:name "tree"
-                         :url  "data/flare.json"
+                         :url  "/data/flare.json"
                          :transform
                          [{:type "stratify", :key "id", :parentKey "parent"}
                           {:type   "tree"
