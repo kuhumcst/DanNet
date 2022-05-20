@@ -37,12 +37,19 @@
              uri)))
        (filter some?)))
 
+;; https://jena.apache.org/documentation/io/index.html
 (defn ->schema-model
   "Create a Model containing the schemas found at the given `uris`."
   [uris]
   (reduce (fn [model ^String schema-uri]
-            (if (str/ends-with? schema-uri ".ttl")
+            (cond
+              (str/ends-with? schema-uri ".ttl")
               (.read model schema-uri "TURTLE")
+
+              (str/ends-with? schema-uri ".n3")
+              (.read model schema-uri "N3")
+
+              :else
               (.read model schema-uri "RDF/XML")))
           (ModelFactory/createDefaultModel)
           uris))

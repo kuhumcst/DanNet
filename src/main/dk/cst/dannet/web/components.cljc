@@ -58,8 +58,7 @@
          :rdfs/comment
          :lexinfo/partOfSpeech
          :lexinfo/senseExample
-         :marl/hasPolarity
-         :marl/polarityValue
+         :dns/sentiment
          :dns/ontologicalType
          :vann/preferredNamespacePrefix
          :dc/description

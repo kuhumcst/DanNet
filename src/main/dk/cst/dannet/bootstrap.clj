@@ -411,17 +411,23 @@
    2  0.85
    3  1.0})
 
-;; TODO: transfer to senses or synsets?
+;; TODO: map to senses (get data from Sussi, Sanni)
 (defn ->sentiment-triples
   "Convert a `row` from '2_headword_headword_polarity.csv' to triples."
   [[word variant pos word-id score forms :as row]]
-  (let [subject (word-uri word-id)
-        v       (parse-long score)]
-    #{[subject :marl/polarityValue (polarity-ratio v)]
-      [subject :marl/hasPolarity (cond
-                                   (> v 0) :marl/Positive
-                                   (< v 0) :marl/Negative
-                                   :else :marl/Neutral)]}))
+  (let [word     (word-uri word-id)
+        _opinion (symbol (str "_" word "-_opinion"))
+        v        (parse-long score)
+        polarity (cond
+                   (> v 0) :marl/Positive
+                   (< v 0) :marl/Negative
+                   :else :marl/Neutral)]
+    (set/union
+      #{[word :dns/sentiment _opinion]
+        #_[_opinion :rdf/type :marl/Opinion]
+        #_[_opinion :marl/describesObject word]
+        [_opinion :marl/polarityValue (polarity-ratio v)]
+        [_opinion :marl/hasPolarity polarity]})))
 
 (defn- preprocess-cor-k
   "Add metadata to each row in `rows` to associate a canonical form with an ID."
