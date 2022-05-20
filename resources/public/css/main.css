@@ -281,7 +281,7 @@ div.set__right-bracket {
     transition: all 0.1s;
 }
 
-span.marker {
+span.inheritance-marker {
     margin-right: 4px;
     font-weight: bold;
     color: black;

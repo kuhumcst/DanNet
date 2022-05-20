@@ -556,16 +556,7 @@
       :name   (kw->label v)
       :parent (str k)}]
 
-    (and (set? v) (= (count v) 1))
-    (let [item (first v)]
-      [{:id     (str k)
-        :name   (kw->label k)
-        :parent (str subject)}
-       {:id     (str kv)
-        :name   (kw->label item)
-        :parent (str k)}])
-
-    (and (set? v) (<= (count v) 6))
+    (and (set? v) (<= (count v) 12))
     (into [{:id     (str k)
             :name   (kw->label k)
             :parent (str subject)}]
@@ -643,7 +634,7 @@
      :encode
      {:enter
       {:text     {:field "name"}
-       :fontSize {:value 10}
+       :fontSize {:value 12}
        :font     {:value "Helvetica, sans-serif"}
        :baseline {:value "middle"}}
       :update
@@ -663,7 +654,7 @@
      :value 360
      #_#_:bind {:input "range", :min 0, :max 360, :step 1}}
     {:name  "rotate"
-     :value 0
+     :value 90
      :bind  {:input "range", :min 0, :max 360, :step 1}}
     {:name  "layout"
      :value "tidy"
