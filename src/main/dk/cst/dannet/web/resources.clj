@@ -337,8 +337,7 @@
                        ['?word :ontolex/canonicalForm '?form]
                        ['?form :ontolex/writtenRep "fandens karl"]])
 
-  ;; TODO: eventually merge these 720 duplicate words
-  ;; Returns all DanNet words that have identical PoS and writtenRep
+  ;; Return all DanNet words that have identical PoS and writtenRep (issue #35)
   (->> (q/run (:graph @db) op/word-clones)
        (filter (fn [{:syms [?w1 ?w2]}]
                  (and (= "dn" (namespace ?w1))
