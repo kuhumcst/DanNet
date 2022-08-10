@@ -1,9 +1,13 @@
 (ns dk.cst.dannet.query.operation
   "Pre-built Apache Jena query operation objects (Op)."
   (:require [arachne.aristotle.query :as q]
+            [ont-app.vocabulary.core :as voc]
 
             ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix]))
+
+(def ^:private sparql
+  (comp q/parse voc/prepend-prefix-declarations))
 
 (def synonyms
   (q/build
@@ -113,3 +117,14 @@
        [?w2 :ontolex/canonicalForm ?f2]
        [?w1 :lexinfo/partOfSpeech ?pos]
        [?w2 :lexinfo/partOfSpeech ?pos]]]))
+
+(def unlabeled-senses
+  (sparql
+    "SELECT ?synset ?sense ?label
+     WHERE {
+       ?synset rdfs:label ?label .
+       ?synset ontolex:lexicalizedSense ?sense .
+       NOT EXISTS {
+         ?sense rdfs:label ?missing .
+       }
+     }"))

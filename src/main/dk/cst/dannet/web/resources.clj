@@ -345,6 +345,9 @@
        (group-by (juxt '?writtenRep '?pos))
        (count))
 
+  ;; Find unlabeled senses (original count: 4307)
+  (count (q/run g op/unlabeled-senses))
+
   (namespace :cor/glen)
 
   ;; Testing autocompletion
