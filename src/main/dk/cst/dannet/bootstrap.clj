@@ -339,7 +339,7 @@
   "Convert a `row` from 'words.csv' to triples."
   [[word-id form pos :as row]]
   (when (and (= (count row) 4)
-             (not= word-id "None-None"))                    ; a special case
+             (not (get #{"None-None" "0-0"} word-id)))      ; see issue #40
     (let [word         (word-uri word-id)
           form         (get special-cases form form)
           rdf-type     (form->lexical-entry form)
@@ -383,9 +383,6 @@
         (re-find #"slang" register)
         (conj [sense :lexinfo/register :lexinfo/slangRegister])))))
 
-;; TODO: handle word-id 0-0 differently (build new word IDs from synset label?)
-;;       see http://localhost:3456/dannet/data/word-0-0
-;;       and e.g. http://localhost:3456/dannet/data/synset-47019 for more
 (defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[sense-id word-id synset-id register :as row]]
@@ -397,9 +394,14 @@
       (set/union
         (->register-triples sense register)
         #{[sense :rdf/type :ontolex/LexicalSense]
-          [word :ontolex/evokes synset]
-          [word :ontolex/sense sense]
-          [synset :ontolex/lexicalizedSense sense]}))))
+          [synset :ontolex/lexicalizedSense sense]}
+
+        ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
+        ;; These relations make no sense to include. Instead, the necessary
+        ;; words must be synthesized at a later point.
+        (when (not= word :dn/word-0-0)
+          #{[word :ontolex/evokes synset]
+            [word :ontolex/sense sense]})))))
 
 (def polarity-ratio
   "Convert the -3 to 3 score to a standard marl:polarityValue from 0.0 to 1.0."

@@ -16,7 +16,6 @@
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr]
                    [clojure.lang Named])))
 
-;; TODO: adjust - lots of weird synsets/senses relating to http://localhost:3456/dannet/data/word-0-0
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
 ;; TODO: empty synset? http://localhost:3456/dannet/data/synset-3290
 ;; TODO: owl:	versionInfo	[TaggedValue: f, 1.1] http://localhost:3456/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
