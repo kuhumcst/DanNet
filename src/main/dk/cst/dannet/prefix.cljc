@@ -12,12 +12,16 @@
 (def schemas
   {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
              :alt "schemas/rdf.ttl"}
-   'rdfs    {:uri "http://www.w3.org/2000/01/rdf-schema#"}
-   'owl     {:uri "http://www.w3.org/2002/07/owl#"}
+   'rdfs    {:uri "http://www.w3.org/2000/01/rdf-schema#"
+             :alt "schemas/rdfs.ttl"}
+   'owl     {:uri "http://www.w3.org/2002/07/owl#"
+             :alt "schemas/owl.ttl"}
    'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
              :alt "schemas/wn-lemon-1.2.ttl"}
-   'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"}
-   'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"}
+   'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"
+             :alt "schemas/svs.xml"}
+   'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"
+             :alt "schemas/ontolex.xml"}
    'lemon   {:uri "http://lemon-model.net/lemon#"
              :alt "schemas/lemon-model.ttl"}
    'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
