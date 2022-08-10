@@ -22,7 +22,7 @@
    'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
              :alt "schemas/semiotics.owl"}
    'skos    {:uri "http://www.w3.org/2004/02/skos/core#"
-             :alt "http://www.w3.org/TR/skos-reference/skos.rdf"}
+             :alt "schemas/skos.rdf"}
    'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"
              :alt "schemas/lexinfo-3.0.owl"}
    'marl    {:uri "http://www.gsi.upm.es/ontologies/marl/ns#"
