@@ -64,19 +64,36 @@
 (defn ->sense-label-triples
   "Create label triples for the - otherwise unlabeled - senses of a DanNet `g`."
   [g]
-  (->> (for [{:syms [?sense
-                     ?word-label
-                     ?synset-label]} (q/run g op/sense-label-targets)
-             :let [word  (-> (str ?word-label)
-                             (subs 1 (dec (count (str ?word-label)))))
-                   label (->> (str ?synset-label)
-                              (com/sense-labels com/synset-sep)
-                              (filter #(= word (str/replace % #"_[^ ]+" "")))
-                              (first))]]
-         (when (not-empty label)
-           [?sense :rdfs/label (->LangStr label "da")]))
-       (remove nil?)
-       (into #{})))
+  (let [label-cache (atom {})]
+    (->> (for [{:syms [?sense
+                       ?word-label
+                       ?synset-label]} (->> (q/run g op/sense-label-targets)
+                                            (sort-by '?sense))
+               :let [word        (-> (str ?word-label)
+                                     (subs 1 (dec (count (str ?word-label)))))
+                     compatible? (fn [sense]
+                                   (= word (str/replace sense #"_[^ ]+" "")))
+                     labels      (->> (str ?synset-label)
+                                      (com/sense-labels com/synset-sep)
+                                      (filter compatible?))]]
+           (case (count labels)
+             0 nil
+             1 [?sense :rdfs/label (->LangStr (first labels) "da")]
+
+             ;; If more than one compatible label exists, the sense labels are
+             ;; picked up one-by-one, storing the remaining labels temporarily
+             ;; in a 'label-cache'. This assumes correct ordering of both sense
+             ;; triples and each original synset labels!
+             ;; Relevant example: http://localhost:3456/dannet/data/synset-12346
+             (if-let [label (first (get @label-cache word))]
+               (do
+                 (swap! label-cache update word rest)
+                 [?sense :rdfs/label (->LangStr label "da")])
+               (do
+                 (swap! label-cache assoc word (rest labels))
+                 [?sense :rdfs/label (->LangStr (first labels) "da")]))))
+         (remove nil?)
+         (into #{}))))
 
 (defn ->example-triples
   "Create example triples from a DanNet `g` and the `examples` from 'imports'."
