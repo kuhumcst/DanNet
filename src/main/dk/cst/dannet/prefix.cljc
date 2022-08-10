@@ -10,7 +10,8 @@
   "http://www.wordnet.dk/dannet/")
 
 (def schemas
-  {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+  {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             :alt "schemas/rdf.ttl"}
    'rdfs    {:uri "http://www.w3.org/2000/01/rdf-schema#"}
    'owl     {:uri "http://www.w3.org/2002/07/owl#"}
    'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
