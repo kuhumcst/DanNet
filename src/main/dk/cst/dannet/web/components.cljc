@@ -119,10 +119,10 @@
   (str/join (butlast (guess-parts qname))))
 
 (def sense-label
-  #"([^_]+)_((?:§|\d)[^_ ]+)( .+)?")
+  #"([^_]+)_(DN|(?:§|\d)[^_ ]+)( .+)?")
 
 (def synset-sep
-  #"\{|,|\}")
+  #"\{|;|\}")
 
 (defn sense-labels
   "Split a `synset` label into sense labels. Work for both old and new formats."
@@ -209,10 +209,17 @@
       [:div.set__left-bracket]
       (into [:div.set__content]
             (interpose
-              [:span.subtle " • "]                          ; comma -> bullet
+              [:span.subtle " • "]                          ; semicolon->bullet
               (for [label (sense-labels synset-sep s)]
                 (if-let [[_ word sub mwe] (re-matches sense-label label)]
-                  [:<> word [:sub sub] mwe]
+                  [:<>
+                   word
+                   ;; Correct for the rare case of comma an affixed comma.
+                   ;; e.g. http://localhost:3456/dannet/data/synset-7290
+                   (if (str/ends-with? sub ",")
+                     [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
+                     [:sub sub])
+                   mwe]
                   label))))
       [:div.set__right-bracket]]
 

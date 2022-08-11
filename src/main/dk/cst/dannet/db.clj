@@ -62,7 +62,10 @@
       (.setTransitiveClosureCaching true))))
 
 (defn ->sense-label-triples
-  "Create label triples for the - otherwise unlabeled - senses of a DanNet `g`."
+  "Create label triples for the—otherwise unlabeled—senses of a DanNet `g`.
+
+  These labels are borrowed from the existing synset labels, as those typically
+  include all of the labeled senses contained in the synset."
   [g]
   (let [label-cache (atom {})]
     (->> (for [{:syms [?sense
@@ -72,7 +75,7 @@
                :let [word        (-> (str ?word-label)
                                      (subs 1 (dec (count (str ?word-label)))))
                      compatible? (fn [sense]
-                                   (= word (str/replace sense #"_[^ ]+" "")))
+                                   (= word (str/replace sense #"_[^ ,]+" "")))
                      labels      (->> (str ?synset-label)
                                       (com/sense-labels com/synset-sep)
                                       (filter compatible?))]]
@@ -110,6 +113,56 @@
                            #{[?sense :lexinfo/senseExample blank-example]
                              [blank-example :rdf/value example-str]}))))))
 
+(defn inserted-by-DanNet-senses
+  "Query the graph `g` for unlabeled, 'Inserted by DanNet' senses."
+  [g]
+  (update-vals (group-by '?synset (doall (q/run g op/unlabeled-senses)))
+               (fn [results]
+                 (let [from-dsl? #(re-find #"_" %)
+                       labels    (-> (first results)
+                                     (get '?label)
+                                     (str)
+                                     (str/replace #"\{|\}" "")
+                                     (#(com/sense-labels #";" %)))]
+                   [(remove from-dsl? labels)
+                    (sort (map '?sense results))]))))
+
+;; TODO: do not duplicate existing words, e.g. "kniv"
+;;       http://localhost:3456/dannet/data/word-s24000051
+;;       http://localhost:3456/dannet/data/word-11026643
+(defn ->DN-triples
+  "Synthesize triples for 'Inserted by DanNet' senses found in the graph `g`.
+  This function *only* performs this function for this particular set of senses.
+
+  For now, cases where both a sense prefixed with 'DN:' and another unlabeled
+  sense exist within the same synset count as edge cases, i.e. they will not be
+  synthesized. For this reason, the '->sense-label-triples' function should
+  execute both and after synthesizing DN triples, as this ensures that senses
+  that are not prefixed with 'DN:' are properly prelabeled. Running the
+  '->sense-label-triples' function once more after synthesizing DN triples will
+  label the newly synthesized DN triples separately.
+
+  The word IDS synthesized from the sense IDs and are marked with an 's' for
+  sense/synthetic."
+  [g]
+  (let [edge-case? (fn [[_ [labels senses]]]
+                     (not= (count labels) (count senses)))
+        ->triples  (fn [[synset [labels senses]]]
+                     (map (fn [label sense]
+                            (let [synset-id (re-find #"\d+" (str synset))
+                                  sense-id  (re-find #"\d+" (str sense))
+                                  word-id   (str "s" sense-id)]
+                              (set/union (bootstrap/->sense-triples
+                                           [sense-id word-id synset-id nil nil])
+                                         (bootstrap/->word-triples
+                                           [word-id label nil nil]))))
+                          labels
+                          senses))]
+    (->> (inserted-by-DanNet-senses g)
+         (remove edge-case?)
+         (mapcat ->triples)
+         (apply set/union))))
+
 (defn add-imports!
   "Add `imports` from the old DanNet CSV files to a Jena Graph `g`."
   [g imports]
@@ -130,6 +183,19 @@
 
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
+    (let [sense-label-triples (doall (->sense-label-triples g))]
+      (txn/transact-exec g
+        (aristotle/add g sense-label-triples)))
+
+    ;; Senses that have been 'Inserted by DanNet' have corresponding words and
+    ;; other relevant triples synthesized. This must run *after* the initial
+    ;; execution of '->sense-label-triples'.
+    (let [DN-triples (doall (->DN-triples g))]
+      (txn/transact-exec g
+        (aristotle/add g DN-triples)))
+
+    ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
+    ;; labels the remaining triples, i.e. the ones created in the previous step.
     (let [sense-label-triples (doall (->sense-label-triples g))]
       (txn/transact-exec g
         (aristotle/add g sense-label-triples)))

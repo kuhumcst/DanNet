@@ -89,8 +89,13 @@
   (keyword "dn" (str "form-" word-id "-" (str/replace form #" |/" "-"))))
 
 (def special-cases
-  {"Torshavn|Thorshavn"     "Thorshavn"
-   "{Torshavn|Thorshavn_1}" "{Thorshavn_1}"})
+  {"{DN:abstract_entity}"   "{DN:Abstract Entity}"
+   "Torshavn|Thorshavn"     "Thorshavn"
+   "{Torshavn|Thorshavn_1}" "{Thorshavn_1}"
+   "Z, z"                   "Z"
+   "Q, q"                   "Q"
+   "Y, y"                   "Y"
+   "Æ, æ"                   "Æ"})
 
 ;; TODO: remove relevant relations during bootstrap (hyper- and hypo-)
 (def self-referential-hyponyms
@@ -203,6 +208,13 @@
 (def old-single-word
   #"([^,_]+)(,\d+)?((?:_\d+)+)?")
 
+;; Match weird alphabet entries like {Q, q_1}.
+(def old-alphabet-combo
+  #"([A-ZÆØÅ]), [a-zæøå](_.+)?")
+
+(def old-inserted-by-DanNet-word
+  #"DN:(.+)")
+
 ;; Read ./doc/label-rewrite.md for more.
 (defn sense-label
   "Create a sense label from `word`, optional `entry-id`, and `definition-id`."
@@ -221,7 +233,8 @@
              (str (n->letter (parse-long sub-id))))))))
 
 (defn remove-prefix-apostrophes
-  "Remove prefixed apostrophes from `s` (used to denote particles/stress)."
+  "Remove special apostrophes from `s` used to denote particles/stress.
+  This doesn't remove *actual* grammatical apostrophes, e.g. in be'r."
   [s]
   (str/replace s #"(^|\s)'+" "$1"))
 
@@ -229,18 +242,35 @@
   "Rewrite an old sense `label` to fit the new standard."
   [label]
   (better/cond
+    :let [[_ w] (re-matches old-inserted-by-DanNet-word label)]
+    w
+    w
+
     :let [[_ w e d] (re-matches old-single-word label)]
     w
     (sense-label w e d)
 
     :let [[_ w e d mwe] (re-matches old-multi-word label)]
     mwe
-    (let [w*    (remove-prefix-apostrophes mwe)
+    (let [w*    (remove-prefix-apostrophes w)
           mwe*  (remove-prefix-apostrophes mwe)
-          begin (str/index-of mwe* w*)
-          end   (or (str/index-of mwe* " " begin) (count mwe*))
-          w**   (subs mwe* begin end)]
-      (str/replace mwe* w** (sense-label w** e d)))))
+          begin (str/index-of (str/lower-case mwe*) (str/lower-case w*))
+          size  (count mwe*)
+          end   (when begin
+                  (min (or (str/index-of mwe* "," begin) size) ; ...synset-7290
+                       (or (str/index-of mwe* " " begin) size)))
+          w**   (when end
+                  (subs mwe* begin end))]
+      ;; In cases where the word cannot be located inside the MWE, the entry and
+      ;; definition IDs at the end of the MWE string. Otherwise, the IDs are
+      ;; placed immediately after the referenced word.
+      (if w**
+        (str/replace mwe* w** (sense-label w** e d))
+        (sense-label mwe* e d)))
+
+    :let [[_ w d] (re-matches old-alphabet-combo label)]
+    w
+    (sense-label w nil d)))
 
 (def old-synset-sep
   #"\{|;|\}")
@@ -253,23 +283,38 @@
        (->> (get special-cases label label)
             (com/sense-labels old-synset-sep)
             (map rewrite-sense-label)
-            (str/join ", "))
+            (str/join "; "))
        "}"))
+
+;; TODO: ...also include the missing example triples, somehow?
+(def at-symbol-triples
+  "Special case triples for the @ symbol (@ is used to delimit input columns)."
+  (let [synset     (synset-uri "8715")
+        label      (rewrite-synset-label "{snabel-a_1}")
+        definition "skrifttegnet @"]
+    (set/union
+      #{[synset :rdf/type :ontolex/LexicalConcept]
+        [synset :rdfs/label (da label)]
+        [synset :skos/definition (da definition)]}
+      (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
+           (explode-ontological-type synset)))))
 
 (defn ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
   [[synset-id label gloss ontological-type :as row]]
-  (when (= (count row) 5)
-    (let [synset     (synset-uri synset-id)
-          definition (str/replace gloss brug "")]
-      (set/union
-        #{[synset :rdf/type :ontolex/LexicalConcept]}
-        (when (not-empty label)
-          #{[synset :rdfs/label (da (rewrite-synset-label label))]})
-        (when (not= definition "(ingen definition)")
-          #{[synset :skos/definition (da definition)]})
-        (->> (clean-ontological-type ontological-type)
-             (explode-ontological-type synset))))))
+  (if (= synset-id "8715")
+    at-symbol-triples                                       ; special case
+    (when (= (count row) 5)
+      (let [synset     (synset-uri synset-id)
+            definition (str/replace gloss brug "")]
+        (set/union
+          #{[synset :rdf/type :ontolex/LexicalConcept]}
+          (when (not-empty label)
+            #{[synset :rdfs/label (da (rewrite-synset-label label))]})
+          (when (not= definition "(ingen definition)")
+            #{[synset :skos/definition (da definition)]})
+          (->> (clean-ontological-type ontological-type)
+               (explode-ontological-type synset)))))))
 
 ;; TODO: use RDF* instead? How will this work with Aristotle? What about export?
 ;; https://jena.apache.org/documentation/rdf-star/
@@ -337,29 +382,30 @@
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
 (defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
-  [[word-id form pos :as row]]
+  [[word-id form pos _ :as row]]
   (when (and (= (count row) 4)
              (not (get #{"None-None" "0-0"} word-id)))      ; see issue #40
     (let [word         (word-uri word-id)
           form         (get special-cases form form)
           rdf-type     (form->lexical-entry form)
           written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
-                         (str/replace form #"'" "")
+                         (remove-prefix-apostrophes form)
                          form)
           lexical-form (lexical-form-uri word-id written-rep)
-          fixed-pos    (get pos-fixes word (str/lower-case pos))]
+          fixed-pos    (when pos
+                         (get pos-fixes word (str/lower-case pos)))]
       (set/union
         #{[lexical-form :rdf/type :ontolex/Form]
           [lexical-form :rdfs/label (da (qt written-rep "-form"))]
 
           [word :rdf/type rdf-type]
           [word :rdfs/label (da (qt written-rep))]
-          [word :ontolex/canonicalForm lexical-form]
-
+          [word :ontolex/canonicalForm lexical-form]}
+        (when fixed-pos
           ;; GWA and Ontolex have competing part-of-speech relations.
           ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
-          [word :lexinfo/partOfSpeech (keyword "lexinfo" fixed-pos)]
-          [word :wn/partOfSpeech (keyword "wn" fixed-pos)]}
+          #{[word :lexinfo/partOfSpeech (keyword "lexinfo" fixed-pos)]
+            [word :wn/partOfSpeech (keyword "wn" fixed-pos)]})
         (explode-written-reps lexical-form written-rep)))))
 
 (defn- ->register-triples
@@ -385,7 +431,7 @@
 
 (defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
-  [[sense-id word-id synset-id register :as row]]
+  [[sense-id word-id synset-id register _ :as row]]
   (when (and (= (count row) 5)
              (not (princeton-synset? synset-id)))
     (let [sense  (sense-uri sense-id)
@@ -582,7 +628,12 @@
   (rewrite-synset-label "{3. g'er_1}")
   (rewrite-synset-label "{tænke_13: tænke 'højt}")
   (rewrite-synset-label "{indtale_1; tale,2_26: tale 'ind}")
+  (rewrite-synset-label "{pose,1_3: en pose penge}")
+  (rewrite-synset-label "{folketing_2: Folketinget}")
+  (rewrite-synset-label "{aften_12: i (går) aftes}")
   (rewrite-synset-label "{brud,2_2: hvid brud}")
+  (rewrite-synset-label "{Q, q_1}")
+  (rewrite-synset-label "{R,1_1}")
 
   ;; Test rewriting sense labels
   (remove-prefix-apostrophes "glen's lade ''er 'fin")

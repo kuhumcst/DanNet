@@ -27,6 +27,9 @@
 ;; TODO: involved instrument confusion http://0.0.0.0:3456/dannet/2022/instances/synset-65998
 ;; TODO: add missing labels, e.g. http://0.0.0.0:3456/dannet/2022/instances/synset-49069
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
+;; TODO: weird label edge cases:
+;;       http://localhost:3456/dannet/data/synset-74520
+;;       http://localhost:3456/dannet/data/synset-57570
 
 (defonce db
   (future
@@ -148,7 +151,7 @@
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   subject*     (cond->> (decode-query-part subject)
-                                        prefix (keyword (name prefix)))
+                                 prefix (keyword (name prefix)))
                   entity       (if (use-lang? content-type)
                                  (q/expanded-entity (:graph @db) subject*)
                                  (q/entity (:graph @db) subject*))
@@ -345,10 +348,8 @@
        (group-by (juxt '?writtenRep '?pos))
        (count))
 
-  ;; Find unlabeled senses (original count: 4307)
-  (count (q/run g op/unlabeled-senses))
-
-  (namespace :cor/glen)
+  ;; Find unlabeled senses (count: 5)
+  (count (q/run (:graph @db) op/unlabeled-senses))
 
   ;; Testing autocompletion
   (autocomplete "sar")
