@@ -72,6 +72,9 @@
 (def brug
   #"\s*\(Brug: \"(.+)\"\)")
 
+(def inserted-by-DanNet
+  #"Inserted by DanNet: ?")
+
 (defn- princeton-synset?
   [id]
   (re-find #"(::|:\d\d|:_b)$" id))
@@ -306,12 +309,15 @@
     at-symbol-triples                                       ; special case
     (when (= (count row) 5)
       (let [synset     (synset-uri synset-id)
-            definition (str/replace gloss brug "")]
+            definition (-> gloss
+                           (str/replace brug "")
+                           (str/replace inserted-by-DanNet ""))]
         (set/union
           #{[synset :rdf/type :ontolex/LexicalConcept]}
           (when (not-empty label)
             #{[synset :rdfs/label (da (rewrite-synset-label label))]})
-          (when (not= definition "(ingen definition)")
+          (when (and (not= definition "(ingen definition)")
+                     (not (str/blank? definition)))
             #{[synset :skos/definition (da definition)]})
           (->> (clean-ontological-type ontological-type)
                (explode-ontological-type synset)))))))
