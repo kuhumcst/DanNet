@@ -4,6 +4,10 @@
     hyphens: auto;
 }
 
+button {
+    cursor: pointer;
+}
+
 /* The clear X button in the input is annoying and not needed. */
 input[type="search"]::-webkit-search-decoration,
 input[type="search"]::-webkit-search-cancel-button,
@@ -168,6 +172,28 @@ nav a.github {
 }
 
 a.github:hover {
+    opacity: 1;
+    transform: scale(110%);
+}
+nav button.synset-details {
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    background-image: url("/images/minus.svg");
+    background-size: 28px;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 32px;
+    height: 32px;
+    opacity: 0.8;
+    padding: 4px;
+}
+
+nav button.synset-details.toggled {
+    background-image: url("/images/plus.svg");
+}
+
+button.synset-details:hover {
     opacity: 1;
     transform: scale(110%);
 }

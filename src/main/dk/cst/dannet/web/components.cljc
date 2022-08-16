@@ -8,6 +8,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
+            #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe]))
@@ -119,10 +120,50 @@
   (str/join (butlast (guess-parts qname))))
 
 (def sense-label
-  #"([^_]+)_(DN|(?:§|\d)[^_ ]+)( .+)?")
+  "On matches returns the vector: [s word rest-of-s sub mwe]."
+  #"([^_]+)(_((?:§|\d)[^_ ]+)( .+)?)?")
 
 (def synset-sep
   #"\{|;|\}")
+
+(def omitted
+  "…")
+
+(defn- sort-by-entry
+  "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
+  [sense-labels]
+  (->> (map (partial re-matches sense-label) sense-labels)
+       (map (fn [[s _ _ sub _]]
+              (cond
+                (nil? sub)                                  ; uncertain = keep
+                [s "0§1"]
+
+                (and sub (str/starts-with? sub "§"))        ; normalisation
+                [s (str "0" sub)]
+
+                :else
+                [s sub])))
+       (sort-by second)
+       (partition-by second)))
+
+(defn canonical
+  "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
+
+  Input labels are sorted into partitions with the top partition returned.
+  In cases where only a single label would be returned, the second-highest
+  partition is concatenated, provided it contains at most 2 additional labels."
+  [sense-labels]
+  (if (= 1 (count sense-labels))
+    sense-labels
+    (let [[first-partition second-partition] (sort-by-entry sense-labels)]
+      (mapv first (if (and (= (count first-partition) 1)
+                           (<= (count second-partition) 2))
+                    (concat first-partition second-partition)
+                    first-partition)))))
+
+;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
+#?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
+   :cljs (def only-canonical (memoize only-canonical)))
 
 (defn sense-labels
   "Split a `synset` label into sense labels. Work for both old and new formats."
@@ -162,11 +203,23 @@
       (subs s 0 (- (count s) 2))
       s)))
 
+(defn- choose-sense-labels
+  "Choose which sense labels to show from a `synset-label` based on `opts`."
+  [synset-label {:keys [details?] :as opts}]
+  (if details?
+    (sense-labels synset-sep synset-label)
+    (let [sense-labels     (sense-labels synset-sep synset-label)
+          canonical-labels (canonical sense-labels)]
+      (if (= (count sense-labels)
+             (count canonical-labels))
+        sense-labels
+        (conj canonical-labels omitted)))))
+
 (declare prefix-elem)
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key languages k->label entity] :as opts}]
+  ([v {:keys [attr-key languages k->label entity details?] :as opts}]
    (cond
      ;; Transformations of non-strings
      ;; TODO: properly implement date parsing
@@ -209,21 +262,24 @@
       [:div.set__left-bracket]
       (into [:div.set__content]
             (interpose
-              [:span.subtle " • "]                          ; semicolon->bullet
-              (for [label (sense-labels synset-sep s)]
-                (if-let [[_ word sub mwe] (re-matches sense-label label)]
+              [:span.subtle " • "]                        ; semicolon->bullet
+              (for [label (choose-sense-labels s opts)]
+                (if-let [[_ word _ sub mwe] (re-matches sense-label label)]
                   [:<>
-                   word
+                   (if (= word omitted)
+                     [:span.subtle word]
+                     word)
                    ;; Correct for the rare case of comma an affixed comma.
                    ;; e.g. http://localhost:3456/dannet/data/synset-7290
-                   (if (str/ends-with? sub ",")
-                     [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
-                     [:sub sub])
+                   (when sub
+                     (if (str/ends-with? sub ",")
+                       [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
+                       [:sub sub]))
                    mwe]
                   label))))
       [:div.set__right-bracket]]
 
-     :let [[_ word sub mwe] (re-matches sense-label s)]
+     :let [[_ word _ sub mwe] (re-matches sense-label s)]
 
      word
      [:<> word [:sub sub] mwe]
@@ -235,7 +291,7 @@
      (break-up-uri s)
 
      (re-find #"\n" s)
-     (into [:<> (interpose [:br] (str/split s #"\n"))])
+     (into [:<>] (interpose [:br] (str/split s #"\n")))
 
      :else s))
   ([s]
@@ -562,7 +618,7 @@
                :key   subject
                :lang  label-lang}
         (if label
-          (transform-val label)
+          (transform-val label opts)
           (if uri-only?
             [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
             local-name))]
@@ -700,28 +756,43 @@
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [languages entity] :as data}]
+  [page {:keys [languages entity] :as opts}]
   #?(:cljs (when-not (:languages @state)
              (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
-        data* #?(:clj  {} :cljs (rum/react state))
-        data           (merge data data*)
-        [prefix _ _] (resolve-names data)
-        prefix*        (or prefix (some-> entity
+        state' #?(:clj {} :cljs (rum/react state))
+        opts'          (merge opts state')
+        [prefix _ _] (resolve-names opts')
+        prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
-                                          symbol))]
+                                          symbol))
+        details? (:details? opts')]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix" (prefix->css-class prefix*)]}
-      (search-form data)
+     [:nav {:class ["prefix" (prefix->css-class prefix')]}
+      (search-form opts')
       [:a.title {:title "Frontpage"
                  :href  "/"}
        "DanNet"]
       (language-select languages)
+      [:button.synset-details {:class    (when details?
+                                           "toggled")
+                               :title    (if details?
+                                           "Show fewer details"
+                                           "Show more details")
+                               :on-click (fn [e]
+                                           (.preventDefault e)
+                                           (swap! state update :details? not))}]
       [:a.github {:title "The source code for DanNet is available on Github"
                   :href  "https://github.com/kuhumcst/DanNet"}]]
      [:div#content
       [:main
-       (page-component data)]
+       (page-component opts')]
       [:hr]
-      (page-footer data)]]))
+      (page-footer opts')]]))
+
+(comment
+  (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
+  (canonical ["flab_§1" "flab_§1a" "gab_2§1" "gab_2§1a"
+              "kværn_§3" "mule_1§1a" "mund_§1"])            ; ["flab_§1" "mund_§1"]
+  #_.)
