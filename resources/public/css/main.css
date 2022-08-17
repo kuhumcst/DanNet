@@ -599,10 +599,12 @@ td.attr-prefix {
 
 td.attr-name {
     padding-left: 0;
+    border-right: 1px solid rgba(0,0,0,0.1);
 }
 
-td:not(.attr-name,.attr-prefix) {
-    padding-left: 8px;
+td.attr-prefix,
+td.attr-name {
+    background: rgba(0,0,0,0.05);
 }
 
 /* Used to hide prefixes. */

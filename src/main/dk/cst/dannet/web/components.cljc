@@ -5,8 +5,8 @@
             [rum.core :as rum]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.section :as section]
             [ont-app.vocabulary.core :as voc]
-            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -14,8 +14,7 @@
             #?(:cljs [reitit.frontend.easy :as rfe]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond])
-  #?(:clj (:import [ont_app.vocabulary.lstr LangStr]
-                   [clojure.lang Named])))
+  #?(:clj (:import [clojure.lang Named])))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
 ;; TODO: empty synset? http://localhost:3456/dannet/data/synset-3290
@@ -29,49 +28,6 @@
 (defonce state
   (atom {:languages nil
          :details?  nil}))
-
-;; TODO: dynamic sections based on :rdf/typo?
-(def defined-sections
-  [[nil [:rdf/type
-         :owl/sameAs
-         :skos/definition
-         :rdfs/comment
-         :lexinfo/partOfSpeech
-         :lexinfo/senseExample
-         :dns/sentiment
-         :dns/ontologicalType
-         :vann/preferredNamespacePrefix
-         :dc/description
-         :dcat/downloadURL]]
-   [#{(->LangStr "Lexical information" "en")
-      (->LangStr "Leksikalsk information" "da")}
-    [:ontolex/writtenRep
-     :ontolex/canonicalForm
-     :ontolex/otherForm
-     :ontolex/evokes
-     :ontolex/isEvokedBy
-     :ontolex/sense
-     :ontolex/isSenseOf
-     :ontolex/lexicalizedSense
-     :ontolex/isLexicalizedSenseOf]]
-   [#{(->LangStr "WordNet relations" "en")
-      (->LangStr "WordNet-relationer" "da")}
-    (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech})
-             (comp #{:dns/usedFor
-                     :dns/usedForObject
-                     :dns/nearAntonym
-                     :dns/orthogonalHyponym
-                     :dns/orthogonalHypernym} first))]])
-
-(def sections
-  (let [ks-defs     (map second defined-sections)
-        in-ks?      (fn [[k v]]
-                      (get (set (apply concat (filter coll? ks-defs)))
-                           k))
-        in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
-    (conj defined-sections [#{(->LangStr "Other" "en")
-                              (->LangStr "Andet" "da")}
-                            (complement in-section?)])))
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
@@ -587,7 +543,7 @@
           [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
-       (for [[title ks] sections]
+       (for [[title ks] (section/page-sections entity)]
          (when-let [subentity (-> (ordered-subentity opts ks entity)
                                   (dissoc label-key)
                                   (not-empty))]
