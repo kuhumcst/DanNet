@@ -94,10 +94,63 @@
   (let [[prefix local-name] (str/split kw #":")]
     (keyword prefix local-name)))
 
+(defn qname->uri
+  [qname]
+  (subs qname 1 (dec (count qname))))
+
+(defn- partition-str
+  "Partition a string `s` by the character `c`. Works similar to str/split,
+  except the splitting patterns are kept in the returned partitions."
+  [c s]
+  (map (partial apply str) (partition-by (partial = c) s)))
+
+(defn- guess-parts
+  [uri]
+  (cond
+    (re-find #"#" uri)
+    (partition-str \# uri)
+
+    (re-find #"/" uri)
+    (partition-str \/ uri)))
+
+(defn guess-local-name
+  "Given a `qname` with an unknown namespace, attempt to guess the local name."
+  [qname]
+  (last (guess-parts (qname->uri qname))))
+
+(defn guess-ns
+  "Given a `qname` with an unknown namespace, attempt to guess the namespace."
+  [qname]
+  (str/join (butlast (guess-parts (qname->uri qname)))))
+
 (defn prefix->uri
   "Return the URI registered for a `prefix`."
   [prefix]
   (-> schemas prefix :uri))
+
+(defn- invert-map
+  [m]
+  (into {} (for [[group prefixes] m
+                 prefix prefixes]
+             [prefix group])))
+
+(def prefix->class
+  "Convert a `prefix` to a CSS class."
+  (invert-map
+    {"dannet"  #{'dn 'dnc 'dns}
+     "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
+     "meta"    #{'dc 'dc11 'vann 'cc}
+     "ontolex" #{'ontolex 'lexinfo 'marl}
+     "wordnet" #{'wn}}))
+
+(defn with-prefix
+  "Return predicate accepting keywords with `prefix` (`except` set of keywords).
+  The returned predicate function is used to filter keywords based on prefixes."
+  [prefix & {:keys [except]}]
+  (fn [[k v]]
+    (when (keyword? k)
+      (and (not (except k))
+           (= (namespace k) (name prefix))))))
 
 (defn uri->rdf-resource
   "Surround `uri` with < and > to indicate that it is an RDF resource."

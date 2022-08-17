@@ -25,30 +25,10 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 
-;; No-op in CLJ
-(defonce state (atom {}))
-
-(defn invert-map
-  [m]
-  (into {} (for [[group prefixes] m
-                 prefix prefixes]
-             [prefix group])))
-
-(def prefix->css-class
-  (invert-map
-    {"dannet"  #{'dn 'dnc 'dns}
-     "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
-     "meta"    #{'dc 'dc11 'vann 'cc}
-     "ontolex" #{'ontolex 'lexinfo 'marl}
-     "wordnet" #{'wn}}))
-
-(defn with-prefix
-  "Return predicate accepting keywords with `prefix`, optionally `except` set."
-  [prefix & {:keys [except]}]
-  (fn [[k v]]
-    (when (keyword? k)
-      (and (not (except k))
-           (= (namespace k) (name prefix))))))
+;; Page state used in the single-page app; completely unused server-side.
+(defonce state
+  (atom {:languages nil
+         :details?  nil}))
 
 ;; TODO: dynamic sections based on :rdf/typo?
 (def defined-sections
@@ -76,7 +56,7 @@
      :ontolex/isLexicalizedSenseOf]]
    [#{(->LangStr "WordNet relations" "en")
       (->LangStr "WordNet-relationer" "da")}
-    (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech})
+    (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech})
              (comp #{:dns/usedFor
                      :dns/usedForObject
                      :dns/nearAntonym
@@ -92,32 +72,6 @@
     (conj defined-sections [#{(->LangStr "Other" "en")
                               (->LangStr "Andet" "da")}
                             (complement in-section?)])))
-
-(defn- partition-str
-  "Partition a string `s` by the character `ch`.
-
-  Works similarly to str/split, except the splits are also kept as parts."
-  [ch s]
-  (map (partial apply str) (partition-by (partial = ch) s)))
-
-(defn- guess-parts
-  [qname]
-  (cond
-    (re-find #"#" qname)
-    (partition-str \# qname)
-
-    (re-find #"/" qname)
-    (partition-str \/ qname)))
-
-(defn guess-local-name
-  "Given a `qname` with an unknown namespace, attempt to guess the local name."
-  [qname]
-  (last (guess-parts qname)))
-
-(defn guess-namespace
-  "Given a `qname` with an unknown namespace, attempt to guess the namespace."
-  [qname]
-  (str/join (butlast (guess-parts qname))))
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
@@ -248,7 +202,7 @@
            resource  (keyword prefix-str local-name)
            labels    (get k->label resource)
            label     (i18n/select-label languages labels)
-           css-class (prefix->css-class (symbol prefix-str))]
+           css-class (prefix/prefix->class (symbol prefix-str))]
        [:span.emblem {:class css-class}
         (prefix-elem (symbol prefix-str))
         (str label)])
@@ -262,7 +216,7 @@
       [:div.set__left-bracket]
       (into [:div.set__content]
             (interpose
-              [:span.subtle " • "]                        ; semicolon->bullet
+              [:span.subtle " • "]                          ; semicolon->bullet
               (for [label (choose-sense-labels s opts)]
                 (if-let [[_ word _ sub mwe] (re-matches sense-label label)]
                   [:<>
@@ -307,11 +261,10 @@
       [:a {:href  (prefix/resolve-href resource)
            :title (name resource)
            :lang  (i18n/lang label)
-           :class (or (prefix->css-class (symbol (namespace resource))) "")}
+           :class (or (prefix/prefix->class (symbol (namespace resource))) "")}
        (or (transform-val label opts)
            (name resource))])
-    (let [qname      (subs resource 1 (dec (count resource)))
-          local-name (guess-local-name qname)]
+    (let [local-name (prefix/guess-local-name resource)]
       [:a {:href  (prefix/resource-path resource)
            :title local-name
            :class "unknown"}
@@ -360,11 +313,11 @@
    (cond
      (symbol? prefix)
      [:span.prefix {:title (prefix/prefix->uri prefix)
-                    :class (prefix->css-class prefix)}
+                    :class (prefix/prefix->class prefix)}
       (str prefix) [:span.prefix__sep ":"]]
 
      (string? prefix)
-     [:span.prefix {:title (guess-namespace (subs prefix 1 (dec (count prefix))))
+     [:span.prefix {:title (prefix/guess-ns prefix)
                     :class "unknown"}
       "???"]))
   ([prefix opts]
@@ -766,10 +719,10 @@
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
                                           symbol))
-        details? (:details? opts')]
+        details?       (:details? opts')]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix" (prefix->css-class prefix')]}
+     [:nav {:class ["prefix" (prefix/prefix->class prefix')]}
       (search-form opts')
       [:a.title {:title "Frontpage"
                  :href  "/"}
