@@ -1,4 +1,4 @@
-{:paths   ["src/main" "resources"]
+{:paths   ["src/main" "src/dev" "resources"]
  :deps    {org.clojure/clojure              {:mvn/version "1.11.1"}
            org.clojure/data.csv             {:mvn/version "1.0.1"}
            arachne-framework/aristotle      {:git/url "https://github.com/kuhumcst/aristotle.git"
