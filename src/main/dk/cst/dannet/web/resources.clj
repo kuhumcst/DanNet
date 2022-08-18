@@ -158,6 +158,7 @@
                   languages    (i18n/lang-prefs lang)
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
+                                :inferred  (-> entity meta :inferred)
                                 :subject   subject*
                                 :entity    entity}
                   qname        (if (keyword? subject*)

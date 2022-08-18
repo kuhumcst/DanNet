@@ -96,6 +96,7 @@ main {
 
 article.search table.attr-val + table.attr-val {
     margin-top: 48px;
+    margin-bottom: 24px;
 }
 
 nav {
@@ -317,9 +318,17 @@ span.marker {
 p.note {
     text-align: center;
     font-style: italic;
-    margin: 24px 0 24px 0;
+    margin: 24px 0 0 0;
     padding: 0;
     color: #666;
+}
+
+p.note + p.note {
+    margin-top: 0;
+}
+
+p.note:last-child {
+    margin-bottom: 24px;
 }
 
 p.note strong {

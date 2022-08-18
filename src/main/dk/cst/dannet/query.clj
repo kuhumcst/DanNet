@@ -4,7 +4,9 @@
             [clojure.walk :as walk]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
-            [dk.cst.dannet.transaction :as txn]))
+            [dk.cst.dannet.transaction :as txn]
+            [dk.cst.dannet.query.operation :as op])
+  (:import [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
 (defn anonymous?
   [resource]
@@ -74,15 +76,41 @@
       (with-meta (conj v1 v2) (meta v1))
       (vary-meta (hash-set v1 v2) merge (nav-meta g)))))
 
+(defn- basic-entity
+  "Get entity from `entity-query-result`."
+  [entity-query-result]
+  (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) entity-query-result)
+       (apply merge)))
+
+(defn- navigable-entity
+  "Get entity from `entity-query-result` implementing the Navigable protocol."
+  [g entity-query-result]
+  (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) entity-query-result)
+       (apply merge-with (set-nav-merge g))))
+
+(defn find-raw
+  "Return the raw entity query result for `subject` in `g` (no inference)."
+  [^FBRuleInfGraph g subject]
+  (->> [(.getSchemaGraph g) (.getRawGraph g)]
+       (pmap #(q/run % op/entity {'?s subject}))
+       (apply concat)))
+
+(defn inferred-entity
+  "Determine inferred parts of entity described by `result` given `raw-result`."
+  [result raw-result]
+  (let [raw-result (set raw-result)]
+    (->> result
+         (filter #(not (get raw-result (select-keys % '[?s ?p ?o]))))
+         (basic-entity))))
+
 (defn entity
   "Return the entity description of `subject` in Graph `g`."
   [g subject]
-  (when-let [e (->> (run g [:bgp [subject '?p '?o]])
-                    #_(only-uris)
-                    (map (comp (partial apply hash-map) (juxt '?p '?o)))
-                    (apply merge-with (set-nav-merge g)))]
-    (with-meta e (assoc (nav-meta g)
-                   :subject subject))))
+  (when-let [result (q/run g op/entity {'?s subject})]
+    (with-meta (navigable-entity g result)
+               (assoc (nav-meta g)
+                 :inferred (inferred-entity result (find-raw g subject))
+                 :subject subject))))
 
 ;; TODO: what about blank-expanded-entity?
 (defn blank-entity
@@ -142,21 +170,15 @@
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
-  (let [xe (-> (run g [:conditional
-                       [:conditional
-                        [:bgp [subject '?p '?o]]
-                        [:bgp ['?p :rdfs/label '?pl]]]
-                       [:bgp ['?o :rdfs/label '?ol]]])
-               #_(only-uris))
-        e (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) xe)
-               (apply merge-with (set-nav-merge g))
-               (attach-blank-entities g subject))]
-      (if e
-        (with-meta e (assoc (nav-meta g)
-                       :k->label (entity-label-mapping xe)
-                       ;; TODO: is it necessary to attach subject?
-                       :subject subject))
-        (with-meta {} {:subject subject}))))
+  (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
+    (with-meta (->> (navigable-entity g result)
+                    (attach-blank-entities g subject))
+               (assoc (nav-meta g)
+                 :k->label (entity-label-mapping result)
+                 :inferred (inferred-entity result (find-raw g subject))
+                 ;; TODO: is it necessary to attach subject?
+                 :subject subject))
+    (with-meta {} {:subject subject})))
 
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.

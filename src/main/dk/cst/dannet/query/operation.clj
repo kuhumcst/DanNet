@@ -9,6 +9,18 @@
 (def ^:private sparql
   (comp q/parse voc/prepend-prefix-declarations))
 
+(def entity
+  (q/build
+    '[:bgp [?s ?p ?o]]))
+
+(def expanded-entity
+  (q/build
+    '[:conditional
+      [:conditional
+       [:bgp [?s ?p ?o]]
+       [:bgp [?p :rdfs/label ?pl]]]
+      [:bgp [?o :rdfs/label ?ol]]]))
+
 (def synonyms
   (q/build
     '[:bgp

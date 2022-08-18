@@ -388,9 +388,18 @@
            (transform-val s* opts)])]]
       [:td {:lang (i18n/lang s) :key coll} (transform-val s opts)])))
 
+(defn translate-comments
+  [languages]
+  {:inference   (i18n/da-en languages
+                  "helt eller delvist logisk udledt"
+                  "fully or partially logically inferred")
+   :inheritance (i18n/da-en languages
+                  "helt eller delvist  nedarvet fra hypernym"
+                  "fully or partially inherited from hypernym")})
+
 (rum/defc attr-val-table
   "A table which lists attributes and corresponding values of an RDF resource."
-  [{:keys [inherited languages] :as opts} subentity]
+  [{:keys [inherited inferred comments] :as opts} subentity]
   [:table {:class "attr-val"}
    [:colgroup
     [:col]                                                  ; attr prefix
@@ -402,16 +411,17 @@
                                 (symbol (namespace k))
                                 k)
                 inherited?    (get inherited k)
+                inferred?     (get inferred k)
                 opts+attr-key (assoc opts :attr-key k)]]
       [:tr {:key   k
-            :class (if inherited? "inherited" "")}
+            :class [(when inferred? "inferred")
+                    (when inherited? "inherited")]}
        [:td.attr-prefix
         ;; TODO: link to definition below?
+        (when inferred?
+          [:span.marker {:title (:inference comments)} "∴"])
         (when inherited?
-          [:span.marker {:title (i18n/da-en languages
-                                  "Nedarvet egenskab"
-                                  "Inherited attribute")}
-           "†"])
+          [:span.marker {:title (:inheritance comments)} "†"])
         (prefix-elem prefix)]
        [:td.attr-name (anchor-elem k opts)]
        (cond
@@ -507,13 +517,18 @@
       (when candidates
         (recur candidates)))))
 
+(defn- setify
+  [x]
+  (when x
+    (if (set? x) x #{x})))
+
 (rum/defc entity-page
-  [{:keys [languages subject entity k->label] :as opts}]
+  [{:keys [languages comments subject inferred entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
         label-lang (i18n/lang label)
-        inherited  (->> (:dns/inherited entity)
+        inherited  (->> (setify (:dns/inherited entity))
                         (map (comp prefix/qname->kw k->label))
                         (set))
         uri-only?  (and (not label) (= local-name rdf-uri))]
@@ -550,12 +565,10 @@
            [:section {:key (or title :no-title)}
             (when title [:h2 (str (i18n/select-label languages title))])
             (attr-val-table (assoc opts :inherited inherited) subentity)])))
+     (when (not-empty inferred)
+       [:p.note [:strong "∴ "] (:inference comments)])
      (when (not-empty inherited)
-       [:p.note
-        [:strong "†"]
-        (i18n/da-en languages
-          ": egenskab helt eller delvist nedarvet fra hypernym."
-          ": attribute fully or partially inherited from hypernym.")])]))
+       [:p.note [:strong "† "] (:inheritance comments)])]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
@@ -634,7 +647,7 @@
   (comp :title meta))
 
 (rum/defc page-footer
-  [{:keys [languages] :as data}]
+  [{:keys [languages] :as opts}]
   [:footer
    (i18n/da-en languages
      [:p {:lang "da"}
@@ -670,7 +683,8 @@
              (swap! state assoc :languages languages)))
   (let [page-component (get pages page)
         state' #?(:clj {} :cljs (rum/react state))
-        opts'          (merge opts state')
+        comments       {:comments (translate-comments languages)}
+        opts'          (merge opts state' comments)
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
