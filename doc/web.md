@@ -54,14 +54,14 @@ What happens in practice is that the Clojure data representation is fetched in t
 
 Once hydrated, frontend routing (by way of [reitit](https://github.com/metosin/reitit)) takes over. Reitit intercepts every single click on an inbound hyperlink. These clicks are turned into background fetches of the Clojure data representation of the requested pages at each path—this is where content negotiation comes into play. The Clojure data that is returned is the exact same data used to render the pages server-side, it just happens on the client instead. The same set of Rum components from `dk.cst.dannet.web.components` are thus used in both the Clojure code (server) and the ClojureScript code (client).
 
-The way the reitit frontend routing is set up is very basic. There is in fact just a single route which conveniently matches every path:
+The way the reitit frontend routing is set up is very basic. There is in fact just a single route which conveniently matches every path prefixed with `/dannet/`:
 
 ```clojure
 (def routes
-  [["{*path}" :delegate]])
+  [["/dannet/{*path}" :delegate]])
 ```
 
-This catch-all route will delegate _all_ requests to the Pedestal backend web service using [fetch](https://github.com/lambdaisland/fetch), sending matching background requests asking for the _Clojure data_ used to render the page (`application/transit+json`) rather than the rendered _HTML page_ itself (`text/html`).
+This catch-all route will delegate nearly _all_ requests to the Pedestal backend web service using [fetch](https://github.com/lambdaisland/fetch), sending matching background requests asking for the _Clojure data_ used to render the page (`application/transit+json`) rather than the rendered _HTML page_ itself (`text/html`). The only paths that bypass the frontend routing are download URLs prefixed with `/download/` (rather than `/dannet/`).
 
 Form submissions are handled in the same way by keying a generic `on-submit` function to every form's `:on-submit` attribute. This function cancels the regular form behaviour and turns form submission events into background requests also returning `application/transit+json`. It doesn't do so directly, but rather uses the indirect route through the frontend router, first collecting the form's data into a URL and then "navigating" to that location:
 

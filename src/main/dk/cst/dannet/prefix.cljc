@@ -9,6 +9,9 @@
 (def dannet-root
   "http://www.wordnet.dk/dannet/")
 
+(def download-root
+  "http://www.wordnet.dk/download/dannet/")
+
 (def schemas
   {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
              :alt "schemas/external/rdf.ttl"}
@@ -152,6 +155,30 @@
       (and (not (except k))
            (= (namespace k) (name prefix))))))
 
+;; TODO: make it work for # too
+;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
+(defn remove-trailing-slash
+  [uri]
+  (if (= \/ (last uri))
+    (subs uri 0 (dec (count uri)))
+    uri))
+
+(def uri-parts
+  "Splits a URI into [uri before-path protocol domain path]."
+  #"((https?)://([^/]+))(.*)")
+
+(defn uri->path
+  "Remove every part of the `uri` aside from the path."
+  [uri]
+  (when-let [[_ _ _ _ path] (re-matches uri-parts uri)]
+    path))
+
+(defn download-uri
+  "Convert a Resource `uri` into a dataset download URI."
+  [uri]
+  (when-let [[_ before-path _ _ path] (re-matches uri-parts uri)]
+    (str before-path "/download" (remove-trailing-slash path))))
+
 (defn uri->rdf-resource
   "Surround `uri` with < and > to indicate that it is an RDF resource."
   [uri]
@@ -169,11 +196,6 @@
        (str/starts-with? s "<")
        (str/ends-with? s ">")))
 
-(defn uri->path
-  "Remove every part of the `uri` aside from the path."
-  [uri]
-  (second (str/split uri #"http://[^/]+")))
-
 (defn resolve-href
   "Given a namespaced `kw`, resolve the href for the resource."
   [kw]
@@ -184,17 +206,16 @@
                (url-encode (namespace kw)) "/" (url-encode (name kw)))
           (uri->path)))))
 
-;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
-(defn remove-trailing-slash
-  [uri]
-  (if (= \/ (last uri))
-    (subs uri 0 (dec (count uri)))
-    uri))
-
-(def <dn>
-  "The RDF resource URI for the DanNet dataset."
-  (-> (prefix->uri 'dn)
+(defn prefix->rdf-resource
+  [prefix]
+  (-> (prefix->uri prefix)
       (remove-trailing-slash)
+      (uri->rdf-resource)))
+
+(defn prefix->rdf-download
+  [prefix]
+  (-> (prefix->uri prefix)
+      (download-uri)
       (uri->rdf-resource)))
 
 (def external-path
@@ -206,3 +227,13 @@
 (defn resource-path
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))
+
+(comment
+  (re-matches uri-parts "http://glen.dk/path/to/file")
+  (download-uri "http://wordnet.dk/dannet/data")
+
+  ;; Download links as RDF resources
+  (prefix->rdf-download 'dn)
+  (prefix->rdf-download 'dns)
+  (prefix->rdf-download 'dnc)
+  #_.)

@@ -19,7 +19,7 @@
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.prefix :as prefix :refer [<dn>]])
+            [dk.cst.dannet.prefix :as prefix])
   (:import [java.util Date]))
 
 (defn da
@@ -30,12 +30,55 @@
 (def <simongray>
   (prefix/uri->rdf-resource "http://simongray.dk"))
 
-;; TODO: add more, perhaps from dcat? rdf type indicating dataset?
+(def <cst>
+  (prefix/uri->rdf-resource "http://cst.ku.dk"))
+
+(def <dn>
+  "The RDF resource URI for the DanNet dataset."
+  (prefix/prefix->rdf-resource 'dn))
+
+(def <dns>
+  "The RDF resource URI for the DanNet schema."
+  (prefix/prefix->rdf-resource 'dns))
+
+(def <dnc>
+  "The RDF resource URI for the DanNet/EuroWordNet concepts."
+  (prefix/prefix->rdf-resource 'dnc))
+
 (def metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
   the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
-  #{[<dn> :vann/preferredNamespacePrefix "dn"]
+  #{[<dns> :rdf/type :owl/Ontology]
+    [<dns> :vann/preferredNamespacePrefix "dns"]
+    [<dns> :vann/preferredNamespaceUri (prefix/prefix->uri 'dns)]
+    [<dns> :dc/title #lstr "DanNet schema@en"]
+    [<dns> :dc/title #lstr "DanNet-skema@da"]
+    [<dns> :dc/description #lstr "Schema for DanNet-specific relations.@en"]
+    [<dns> :dc/description #lstr "Skema for DanNet-specifikke relationer.@da"]
+    [<dns> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dns> :dc/modified (new Date)]
+    [<dns> :dc/contributor <simongray>]
+    [<dns> :dc/publisher <cst>]
+    [<dns> :foaf/homepage <dns>]
+    [<dns> :dcat/downloadURL (prefix/prefix->rdf-download 'dns)]
+
+    [<dnc> :rdf/type :owl/Ontology]
+    [<dnc> :vann/preferredNamespacePrefix "dnc"]
+    [<dnc> :vann/preferredNamespaceUri (prefix/prefix->uri 'dnc)]
+    [<dnc> :dc/title #lstr "DanNet concepts@en"]
+    [<dnc> :dc/title #lstr "DanNet-koncepter@da"]
+    [<dnc> :dc/description #lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
+    [<dnc> :dc/description #lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
+    [<dnc> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dnc> :dc/modified (new Date)]
+    [<dnc> :dc/contributor <simongray>]
+    [<dnc> :dc/publisher <cst>]
+    [<dnc> :foaf/homepage <dns>]
+    [<dnc> :dcat/downloadURL (prefix/prefix->rdf-download 'dnc)]
+
+    [<dn> :rdf/type :dcat/Dataset]
+    [<dn> :vann/preferredNamespacePrefix "dn"]
     [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
     [<dn> :dc/title "DanNet"]
     [<dn> :dc/description #lstr "The Danish WordNet.@en"]
@@ -43,19 +86,19 @@
     [<dn> :dc/issued #inst "2022-07-01"]                    ;TODO
     [<dn> :dc/modified (new Date)]
     [<dn> :dc/contributor <simongray>]
-    [<dn> :dc/publisher "<http://cst.ku.dk>"]
+    [<dn> :dc/publisher <cst>]
+    [<dn> :foaf/homepage <dn>]
+    [<dn> :dcat/downloadURL (prefix/prefix->rdf-download 'dn)] ;; TODO: implement
+
+    ;; TODO: also make dc:rights for dns and dnc
     ;; TODO: should be dct:RightsStatement
     [<dn> :dc/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
     ;; TODO: should be dct:LicenseDocument
     [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
+
     [<simongray> :rdf/type :foaf/Person]
     [<simongray> :foaf/name "Simon Gray"]
-    [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]
-    [<dn> :foaf/homepage <dn>]
-    [<dn> :dcat/downloadURL (-> (prefix/prefix->uri 'dn)
-                                (prefix/remove-trailing-slash)
-                                (str ".ttl")
-                                (prefix/uri->rdf-resource))]})
+    [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]})
 
 (defn synset-uri
   [id]

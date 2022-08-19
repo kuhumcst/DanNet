@@ -56,16 +56,11 @@
 (def one-day-cache
   "private, max-age=86400")
 
-(defn uri->path
-  "Remove every part of the `uri` aside from the path."
-  [uri]
-  (second (str/split uri #"http://[^/]+")))
-
-(defn prefix->schema-route
+(defn prefix->download-route
   "Create a table-style Pedestal route to serve the schema file for `prefix`. "
   [prefix]
   (let [{:keys [uri alt]} (get prefix/schemas prefix)
-        path       (uri->path uri)
+        path       (prefix/uri->path (prefix/download-uri uri))
         filename   (last (str/split alt #"/"))
         disp       (str "attachment; filename=\"" filename "\"")
         handler    (fn [request]
@@ -74,7 +69,7 @@
                          (assoc-in [:headers "Cache-Control"] one-month-cache)
                          (assoc-in [:headers "Content-Disposition"] disp)))
         route-name (keyword (str *ns*) (str prefix "-schema"))]
-    [(prefix/remove-trailing-slash path) :get handler :route-name route-name]))
+    [path :get handler :route-name route-name]))
 
 ;; TODO: needs some work
 (defn ascii-table
@@ -239,7 +234,7 @@
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
   a map of URIs and creates a local, relative path based on this URI."
   [prefix]
-  [(str (-> prefix prefix/schemas :uri uri->path) ":subject")
+  [(str (-> prefix prefix/schemas :uri prefix/uri->path) ":subject")
    :get [content-negotiation-ic
          language-negotiation-ic
          (->entity-ic :prefix prefix)]
@@ -289,7 +284,7 @@
   ["/dannet" :get dannet-metadata-redirect :route-name ::dannet])
 
 #_(def autocomplete-path
-    (str (uri->path prefix/dannet-root) "autocomplete"))
+    (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
 
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
 #_(defonce search-trie

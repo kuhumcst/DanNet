@@ -18,14 +18,16 @@
       res/unknown-external-entity-route
 
       (res/prefix->dataset-entity-route 'dn)
+      (res/prefix->dataset-entity-route 'dns)
+      (res/prefix->dataset-entity-route 'dnc)
+
+      (res/prefix->download-route 'en->da)
+      (res/prefix->download-route 'dnc)
+      (res/prefix->download-route 'dns)
 
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
-      (res/prefix->entity-route 'dns)
-
-      (res/prefix->schema-route 'en->da)
-      (res/prefix->schema-route 'dnc)
-      (res/prefix->schema-route 'dns)}))
+      (res/prefix->entity-route 'dns)}))
 
 (defn ->service-map
   [conf]

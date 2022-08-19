@@ -497,7 +497,7 @@
   (q/run graph op/examples '{?sense :dn/sense-21011111})
 
   ;; Retrieval of dataset metadata
-  (q/run graph [:bgp [prefix/<dn> '?p '?o]])
+  (q/run graph [:bgp [bootstrap/<dn> '?p '?o]])
   (q/run graph [:bgp [bootstrap/<simongray> '?p '?o]])
 
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.

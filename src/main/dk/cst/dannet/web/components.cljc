@@ -96,7 +96,8 @@
 
 (rum/defc rdf-uri-hyperlink
   [uri]
-  [:a.rdf-uri {:href (if (str/starts-with? uri prefix/dannet-root)
+  [:a.rdf-uri {:href (cond (or (str/starts-with? uri prefix/dannet-root)
+                               (str/starts-with? uri prefix/download-root))
                        (prefix/uri->path uri)
                        (prefix/resource-path (prefix/uri->rdf-resource uri)))}
    (break-up-uri uri)])
