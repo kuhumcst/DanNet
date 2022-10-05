@@ -21,7 +21,7 @@
       (res/prefix->dataset-entity-route 'dns)
       (res/prefix->dataset-entity-route 'dnc)
 
-      (res/prefix->download-route 'en->da)
+      (res/prefix->download-route 'tr)
       (res/prefix->download-route 'dnc)
       (res/prefix->download-route 'dns)
 

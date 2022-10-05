@@ -128,11 +128,11 @@
     "eq_has_hyperonym"
     "used_for_qualby"})
 
+;; TODO: is this OK?
+;; Note that this assumes a 1:1 relationship between word:form!
 (defn lexical-form-uri
-  [word-id form]
-  ;; Originally, spaces were replaced with "_" but this caused issues with Jena
-  ;; - specifically, some encoding issue related to TDB - so now "-" is used.
-  (keyword "dn" (str "form-" word-id "-" (str/replace form #" |/" "-"))))
+  [word-id]
+  (keyword "dn" (str "form-" word-id)))
 
 (def special-cases
   {"{DN:abstract_entity}"   "{DN:Abstract Entity}"
@@ -440,7 +440,7 @@
           written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
                          (remove-prefix-apostrophes form)
                          form)
-          lexical-form (lexical-form-uri word-id written-rep)
+          lexical-form (lexical-form-uri word-id)
           fixed-pos    (when pos
                          (get pos-fixes word (str/lower-case pos)))]
       (set/union
@@ -593,24 +593,31 @@
       rep-id
       (conj [form-id :rdfs/comment (da (str id " → " form))]))))
 
+;; TODO: encoding broken in dannet 2.5
+;;       e.g. http://localhost:3456/dannet/data/word-11021693
 (def imports
-  {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
-   :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
-   :words     [->word-triples (io/resource "dannet/csv/words.csv")]
-   :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
-   :metadata  [nil metadata-triples]
-   :sentiment [->sentiment-triples
-               (io/resource "2_headword_headword_polarity.csv")
-               :encoding "UTF-8"
-               :separator \tab]
-   :cor-k     [->cor-k-triples (io/resource "cor/ro2021-0.1.cor")
-               :encoding "UTF-8"
-               :separator \tab
-               :preprocess preprocess-cor-k]
+  {prefix/dn-uri
+   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
+    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
+    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
+    :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
+    :metadata  [nil metadata-triples]
 
-   ;; Examples are a special case - these are not actual RDF triples!
-   ;; Need to query the resulting graph to generate the real example triples.
-   :examples  [examples (io/resource "dannet/csv/synsets.csv")]})
+    ;; Examples are a special case - these are not actual RDF triples!
+    ;; Need to query the resulting graph to generate the real example triples.
+    :examples  [examples (io/resource "dannet/csv/synsets.csv")]}
+
+   prefix/senti-uri
+   {:sentiment [->sentiment-triples
+                (io/resource "2_headword_headword_polarity.csv")
+                :encoding "UTF-8"
+                :separator \tab]}
+
+   prefix/cor-uri
+   {:cor-k [->cor-k-triples (io/resource "cor/ro2021-0.1.cor")
+            :encoding "UTF-8"
+            :separator \tab
+            :preprocess preprocess-cor-k]}})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
@@ -627,20 +634,20 @@
 
 (comment
   ;; Example sentiment triples
-  (->> (read-triples (:sentiment imports))
+  (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))
        (filter (comp not-empty second))
        (take 10))
 
   ;; Example Synsets
-  (->> (read-triples (:synsets imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :synsets]))
        (take 10))
 
   ;; Example COR-K triples
-  (->> (read-triples (:cor-k imports))
+  (->> (read-triples (get-in imports [prefix/cor-uri :cor-k]))
        (take 10))
 
   ;; Find facets, i.e. ontologicalType
-  (->> (read-triples (:synsets imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :synsets]))
        (reduce into #{})
        (filter (comp #{:dns/ontologicalType} second))
        (map #(nth % 2))
@@ -649,26 +656,26 @@
        (sort))
 
   ;; Example Words
-  (->> (read-triples (:words imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :words]))
        (take 10))
 
   ;; Example Wordsenses
-  (->> (read-triples (:senses imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :senses]))
        (take 10))
 
   ;; Example relations
-  (->> (read-triples (:relations imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
        (take 10))
 
   ;; unconverted relations
-  (->> (read-triples (:relations imports))
+  (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
        (map (comp second first))
        (filter string?)
        (into #{}))
 
   ;; Find instances of a specific relation
   (let [rel "used_for_qualby"]
-    (->> (read-triples (:relations imports))
+    (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
          (filter (comp (partial = rel) second first))
          (into #{})))
 
@@ -695,4 +702,23 @@
   (rewrite-sense-label "DN:TOP,2_1_5")
   (rewrite-sense-label "friturestegning_0")
   (rewrite-sense-label "friturestegning,2_0")
+
+  ;; Error output for Nicolai.
+  ;; The words.csv content differs somewhat between the new export and 2.2.
+  (let [line->word-id (fn [[word-id]] word-id)
+        words-25-res  (io/resource "dannet/csv/words.csv")
+        words-22-res  (io/resource "dannet/csv22/words.csv")
+        words-25      (set (read-triples [line->word-id words-25-res]))
+        words-22      (set (read-triples [line->word-id words-22-res]))
+        missing-in-25 (set/difference words-22 words-25)
+        new-in-25     (set/difference words-25 words-22)
+        split         (fn [line] (str/split line #"@"))
+        check-file    (fn [f pred out]
+                        (with-open [reader (io/reader f :encoding "ISO-8859-1")]
+                          (->> (line-seq reader)
+                               (filter (comp pred first split))
+                               (str/join "\n")
+                               (spit out))))]
+    (check-file words-22-res missing-in-25 "missing-in-dannet-25.txt")
+    (check-file words-25-res new-in-25 "new-in-dannet-25.txt"))
   #_.)

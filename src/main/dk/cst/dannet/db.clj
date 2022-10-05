@@ -4,6 +4,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
+            [arachne.aristotle.registry :as registry]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [flatland.ordered.map :as fop]
@@ -18,7 +19,7 @@
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
            [org.apache.jena.rdf.model ModelFactory Model]
-           [org.apache.jena.query Dataset]
+           [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
 ;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
@@ -27,8 +28,8 @@
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
-  (->> (for [{:keys [alt uri schema?]} (vals prefix/schemas)]
-         (when-not (false? schema?)
+  (->> (for [{:keys [alt uri export]} (vals prefix/schemas)]
+         (when-not export
            (if alt
              (if (or (str/starts-with? alt "http://")
                      (str/starts-with? alt "https://"))
@@ -163,45 +164,75 @@
          (mapcat ->triples)
          (apply set/union))))
 
-(defn add-imports!
-  "Add `imports` from the old DanNet CSV files to a Jena Graph `g`."
-  [g imports]
-  (let [input    (vals (dissoc imports :examples))
-        examples (when-let [raw-examples (:examples imports)]
-                   (apply merge (bootstrap/read-triples raw-examples)))]
-    (txn/transact-exec g
-      (->> (mapcat bootstrap/read-triples input)
-           (remove nil?)
-           (reduce aristotle/add g)))
+(defn get-model
+  "Idempotently get the model in the `dataset` for the given `model-uri`."
+  [^Dataset dataset ^String model-uri]
+  (if (.containsNamedModel dataset model-uri)
+    (.getNamedModel dataset model-uri)
+    (-> (.addNamedModel dataset model-uri (ModelFactory/createDefaultModel))
+        (.getNamedModel model-uri))))
+
+(defn get-graph
+  "Idempotently get the graph in the `dataset` for the given `model-uri`."
+  [^Dataset dataset ^String model-uri]
+  (.getGraph (get-model dataset model-uri)))
+
+(defn add-bootstrap-import!
+  "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
+  [dataset bootstrap-imports]
+  (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
+        dn-graph    (get-graph dataset prefix/dn-uri)
+        cor-graph   (get-graph dataset prefix/cor-uri)
+        union-graph (.getGraph (.getUnionModel dataset))]
+
+    (println "Beginning DanNet bootstrap import process")
+    (println "----")
+
+    ;; The individual graphs are populated with the bootstrap data,
+    ;; except for the example sentence data which needs to be added separately.
+    (doseq [[uri m] (update bootstrap-imports prefix/dn-uri dissoc :examples)]
+      (println "Importing triples into the" uri "graph...")
+      (doseq [[k row] m
+              :let [g (get-graph dataset uri)]]
+        (println "  ... adding" k "triples.")
+        (txn/transact-exec g
+          (->> (bootstrap/read-triples row)
+               (remove nil?)
+               (reduce aristotle/add g)))))
 
     ;; As ->example-triples needs to read the graph to create
     ;; triples, it must be done after the write transaction.
     ;; Clojure's laziness also has to be accounted for.
-    (let [example-triples (doall (->example-triples g examples))]
-      (txn/transact-exec g
-        (aristotle/add g example-triples)))
+    (let [examples'       (apply merge (bootstrap/read-triples examples))
+          example-triples (doall (->example-triples dn-graph examples'))]
+      (println "Importing :examples triples...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph example-triples)))
 
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
-    (let [sense-label-triples (doall (->sense-label-triples g))]
-      (txn/transact-exec g
-        (aristotle/add g sense-label-triples)))
+    (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
+      (println "Stealing sense labels...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph sense-label-triples)))
 
     ;; Senses that have been 'Inserted by DanNet' have corresponding words and
     ;; other relevant triples synthesized. This must run *after* the initial
     ;; execution of '->sense-label-triples'.
-    (let [DN-triples (doall (->DN-triples g))]
-      (txn/transact-exec g
-        (aristotle/add g DN-triples)))
+    (let [DN-triples (doall (->DN-triples dn-graph))]
+      (println "Synthesizing words...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph DN-triples)))
 
     ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
     ;; labels the remaining triples, i.e. the ones created in the previous step.
-    (let [sense-label-triples (doall (->sense-label-triples g))]
-      (txn/transact-exec g
-        (aristotle/add g sense-label-triples)))
+    (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
+      (println "Label remaining triples...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph sense-label-triples)))
 
     ;; Equivalence relations between DanNet and COR-K words are established.
-    (let [sameas-triples (->> (q/run g op/word-clones)
+    (let [sameas-triples (->> (q/run union-graph op/word-clones)
                               (filter (fn [{:syms [?w1 ?w2]}]
                                         (and (= "dn" (namespace ?w1))
                                              (= "cor" (namespace ?w2)))))
@@ -210,89 +241,124 @@
                                         [[?w1 :owl/sameAs ?w2]
                                          [?w2 :owl/sameAs ?w1]]))
                               (doall))]
-      (txn/transact-exec g
-        (aristotle/add g sameas-triples)))
+      (println "Add owl:sameAs relations to COR dataset...")
+      (txn/transact-exec cor-graph
+        (aristotle/add cor-graph sameas-triples)))
 
-    g))
+    (println "----")
+    (println "DanNet bootstrap done!")
+
+    dataset))
+
+(defn ->dataset
+  "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`."
+  [db-type & [db-path]]
+  (case db-type
+    :tdb1 (TDBFactory/createDataset ^String db-path)
+    :tdb2 (TDB2Factory/connectDataset ^String db-path)
+    :in-mem (DatasetFactory/create)
+    :in-mem-txn (DatasetFactory/createTxnMem)))
 
 (defn ->dannet
   "Create a Jena Graph from DanNet 2.2 imports based on the options:
 
-    :imports     - DanNet CSV imports (kvs of ->triple fns and table data).
-    :db-type     - Both :tdb1 and :tdb2 are supported.
-    :db-path     - If supplied, the data is persisted inside TDB.
-    :schema-uris - A collection of URIs containing schemas.
+    :bootstrap-imports - DanNet CSV imports (kvs of ->triple fns + table data).
+    :db-type           - :tdb1, :tdb2, :in-mem, and :in-mem-txn are supported
+    :db-path           - Where to persist the TDB1/TDB2 data.
+    :schema-uris       - A collection of URIs containing schemas.
 
    TDB 1 does not require transactions until after the first transaction has
    taken place, while TDB 2 *always* requires transactions when reading from or
    writing to the database.
 
   The returned graph uses the GWA relations within the framework of Ontolex."
-  [& {:keys [imports db-path db-type schema-uris] :as opts}]
-  (if db-path
-    (let [dataset (case db-type
-                    :tdb1 (TDBFactory/createDataset ^String db-path)
-                    :tdb2 (TDB2Factory/connectDataset ^String db-path))
-          model   (.getDefaultModel ^Dataset dataset)
-          graph   (if imports
-                    (add-imports! (.getGraph model) imports)
-                    (.getGraph model))]
-      {:dataset dataset
-       :model   model
-       :graph   graph})
+  [& {:keys [bootstrap-imports db-path db-type schema-uris]
+      :or   {db-type :in-mem} :as opts}]
+  (let [dataset (->dataset db-type db-path)]
+
+    ;; Mutating the graph will of course also mutate the model & dataset.
+    (if bootstrap-imports
+      (add-bootstrap-import! dataset bootstrap-imports)
+      (println "WARNING: no imports!"))
+
+    ;; If schemas are provided, the returned model & graph contain inferences.
     (if schema-uris
-      (let [{:keys [model]} (->dannet (dissoc opts :schema-uris))
-            schema    (->schema-model schema-uris)
-            inf-model (ModelFactory/createInfModel reasoner schema model)]
-        {:base-model   model
-         :schema-model schema
-         :model        inf-model
-         :graph        (.getGraph inf-model)})
-      (let [graph (add-imports! (aristotle/graph :simple) imports)]
-        {:model (ModelFactory/createModelForGraph graph)
-         :graph graph}))))
+      (let [schema    (->schema-model schema-uris)
+            model     (.getUnionModel dataset)
+            inf-model (ModelFactory/createInfModel reasoner schema model)
+            inf-graph (.getGraph inf-model)]
+        {:dataset dataset
+         :model   inf-model
+         :graph   inf-graph})
+      (let [model (.getUnionModel dataset)
+            graph (.getGraph model)]
+        {:dataset dataset
+         :model   model
+         :graph   graph}))))
 
 (defn add-registry-prefixes!
-  "Adds the prefixes from the Aristotle registry to the `model`."
-  [model]
-  (doseq [[prefix m] (:prefixes arachne.aristotle.registry/*registry*)]
-    (.setNsPrefix ^Model model prefix (:arachne.aristotle.registry/= m))))
-
-(defn expanded-model
-  "Remove the schemas from the model in the `db` map.
-
-  There is no clear way in Apache Jena (AFAIK) to not mix schemas and data, but
-  thankfully basic set operations can be applied, e.g. difference."
-  [{:keys [model schema-model] :as db}]
-  (.difference model schema-model))
-
-(defn inferred-model
-  "Return only the inferred data from the model in the `db` map."
-  [{:keys [base-model] :as db}]
-  (.difference (expanded-model db) base-model))
+  "Adds prefixes in use from the Aristotle registry to the `model`."
+  [^Model model & {:keys [prefixes]}]
+  (doseq [[prefix m] (cond->> (:prefixes registry/*registry*)
+                       prefixes (filter (comp prefixes symbol first)))]
+    (.setNsPrefix model prefix (::registry/= m))))
 
 (defn export-model!
-  "Export the `model` to the file with the given `filename`. Defaults to Turtle.
-  The current prefixes in the Aristotle registry are used for the output.
+  "Export the `model` to the file at the given `path`. Defaults to Turtle.
+
+  The current prefixes in the Aristotle registry are used for the output,
+  although a desired subset of :prefixes may also be specified.
 
   See: https://jena.apache.org/documentation/io/rdf-output.html"
-  [filename model & {:keys [fmt]
-                     :or   {fmt RDFFormat/TURTLE_PRETTY}}]
+  [path ^Model model & {:keys [fmt prefixes]
+                        :or   {fmt RDFFormat/TURTLE_PRETTY}}]
+  (println "Exporting" path (str "(" (.size model) ")")
+           "with prefixes:" (or prefixes "ALL"))
   (txn/transact-exec model
-    (add-registry-prefixes! model)
-    (RDFDataMgr/write (io/output-stream filename) ^Model model ^RDFFormat fmt)
-    (.clearNsPrefixMap ^Model model))
+    (add-registry-prefixes! model :prefixes prefixes)
+    (io/make-parents path)
+    (RDFDataMgr/write (io/output-stream path) model ^RDFFormat fmt)
+    (.clearNsPrefixMap model))
   nil)
 
-;; TODO: currently expects schema-model, base-model keys in db - fix
+(defn- export-prefixes
+  [prefix]
+  (get-in prefix/schemas [prefix :export]))
+
 (defn export!
-  "Exports multiple RDF datasets based on the data in the `db` into `dir`."
-  ([{:keys [base-model] :as db} dir]
-   (export-model! (str dir "dannet-base.ttl") base-model)
-   (export-model! (str dir "dannet-expanded.ttl") (expanded-model db))
-   (export-model! (str dir "dannet-inferred.ttl") (inferred-model db)))
-  ([db]
-   (export! db "resources/export/")))
+  "Export the models of the RDF `dataset` into `dir`.
+
+  By default, the complete model is not exported. In the case of a typical
+  inference-heavy DanNet instance, this would simply be too slow. To include the
+  complete model as an export target, set :complete to true."
+  ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
+                                              :or   {complete false}}]
+   (let [ttl-in-dir   (fn [dir filename] (str dir filename ".ttl"))
+         merged-ttl   (ttl-in-dir dir "merged")
+         complete-ttl (ttl-in-dir dir "complete")]
+     (println "Beginning export of DanNet into" dir)
+     (println "----")
+
+     ;; The individual models contained in the dataset.
+     (doseq [model-uri (iterator-seq (.listNames ^Dataset dataset))
+             :let [^Model model (get-model dataset model-uri)
+                   prefix       (prefix/uri->prefix model-uri)
+                   filename     (ttl-in-dir dir (or prefix model-uri))]]
+       (export-model! filename model :prefixes (export-prefixes prefix)))
+
+     ;; The union of the input datasets.
+     (export-model! merged-ttl (.getUnionModel dataset))
+
+     ;; The union of the input datasets and schemas + inferred triples.
+     ;; This constitutes all data available in the DanNet web presence.
+     (if complete
+       (export-model! complete-ttl model)
+       (println "(skipping export of complete.ttl)"))
+
+     (println "----")
+     (println "Export of DanNet complete!")))
+  ([^Dataset dataset]
+   (export! dataset "resources/export/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!
@@ -307,16 +373,20 @@
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."
   [g lemma]
-  (->> (q/run g '[?synonym] op/synonyms {'?lemma lemma})
-       (apply concat)
-       (remove #{lemma})))
+  (let [lemma (->LangStr lemma "da")]
+    (->> {'?lemma lemma}
+         (q/run g '[?synonym] op/synonyms)
+         (apply concat)
+         (remove #{lemma}))))
 
 (defn alt-representations
   "Return alternatives in Graph `g` for the word with the given `written-rep`."
   [g written-rep]
-  (->> (q/run g '[?alt-rep] op/alt-representations {'?written-rep written-rep})
-       (apply concat)
-       (remove #{written-rep})))
+  (let [written-rep (->LangStr written-rep "da")]
+    (->> {'?written-rep written-rep}
+         (q/run g '[?alt-rep] op/alt-representations)
+         (apply concat)
+         (remove #{written-rep}))))
 
 (defn registers
   "Return all register values found in Graph `g`."
@@ -390,11 +460,11 @@
   ;; Create a new in-memory DanNet from the CSV imports with inference.
   (def dannet
     (->dannet
-      :imports bootstrap/imports
+      :bootstrap-imports bootstrap/imports
       :schema-uris schema-uris))
 
   ;; Create a new in-memory DanNet from the CSV imports (no inference)
-  (def dannet (->dannet :imports bootstrap/imports))
+  (def dannet (->dannet :bootstrap-imports bootstrap/imports))
 
   ;; Load an existing TDB DanNet from disk.
   (def dannet (->dannet :db-path "resources/db/tdb1" :db-type :tdb1))
@@ -403,12 +473,12 @@
   ;; Create a new TDB DanNet from the CSV imports.
   (def dannet
     (->dannet
-      :imports bootstrap/imports
+      :bootstrap-imports bootstrap/imports
       :db-path "resources/db/tdb1"
       :db-type :tdb1))
   (def dannet
     (->dannet
-      :imports bootstrap/imports
+      :bootstrap-imports bootstrap/imports
       :db-path "resources/db/tdb2"
       :db-type :tdb2))
 
@@ -422,7 +492,15 @@
     (def ig
       (igraph-jena/make-jena-graph model)))
 
-  ;; Export the contents of the db
+  ;; Export individual models
+  (export-model! "dn.ttl" (get-model dataset prefix/dn-uri)
+                 :prefixes (export-prefixes 'dn))
+  (export-model! "senti.ttl" (get-model dataset prefix/senti-uri)
+                 :prefixes (export-prefixes 'senti))
+  (export-model! "cor.ttl" (get-model dataset prefix/cor-uri)
+                 :prefixes (export-prefixes 'cor))
+
+  ;; Export the entire dataset
   (export! dannet)
 
   ;; Querying DanNet for various synonyms
@@ -432,6 +510,8 @@
   (synonyms graph "bil")
   (synonyms graph "ord")
 
+  ;; TODO: missing in DanNet 2.5, but available in 2.2 -- why?
+  ;;       The later DanNet export has more synsets, but fewer words. Why?
   ;; Querying DanNet for alternative written representations.
   (alt-representations graph "mørkets fyrste")
   (alt-representations graph "offentlig transport")
@@ -448,7 +528,7 @@
     (take 10 (igraph/subjects ig)))
   (txn/transact model
     (take 10 (igraph/subjects ig)))
-  (txn/transact dataset
+  (txn/transact dataset                                     ; TODO: fix, broken
     (take 10 (igraph/subjects ig)))
 
   ;; Look up "citrusfrugt" synset using igraph
@@ -465,6 +545,7 @@
          (map :rdfs/label)
          (map first)))
 
+  ;; TODO: not working, fix
   ;; Test inference of :ontolex/isEvokedBy.
   (q/run graph
          '[:bgp
@@ -477,6 +558,7 @@
            '[:bgp
              [:dn/word-11007846 ?p ?o]]))
 
+  ;; TODO: broken, fix?
   ;; Combining graph queries and regular Clojure data manipulation:
   ;;   1. Fetch all multi-word expressions in the graph.
   ;;   2. Fetch synonyms where applicable.
@@ -494,7 +576,7 @@
 
   ;; Test retrieval of examples
   (q/run graph op/examples '{?sense :dn/sense-21011843})
-  (q/run graph op/examples '{?sense :dn/sense-21011111})
+  (q/run graph op/examples '{?sense :dn/sense-21011111})    ;TODO: missing
 
   ;; Retrieval of dataset metadata
   (q/run graph [:bgp [bootstrap/<dn> '?p '?o]])
@@ -509,6 +591,7 @@
   ;; List all register values in db; helpful when extending ->register-triples.
   (registers graph)
 
+  ;; TODO: broken, fix?
   ;; Mark the relevant lemma in all ~38539 example sentences.
   ;; I tried the same query (as SPARQL) in Python's rdflib and it was painfully
   ;; slow, to the point where I wonder how people even use that library...

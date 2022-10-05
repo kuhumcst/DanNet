@@ -34,7 +34,7 @@
 (defonce db
   (future
     (db/->dannet
-      :imports bootstrap/imports
+      :bootstrap-imports bootstrap/imports
       :schema-uris db/schema-uris)))
 
 (def main-js

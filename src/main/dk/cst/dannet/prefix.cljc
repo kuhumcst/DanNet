@@ -50,20 +50,30 @@
    'cc      {:uri "http://creativecommons.org/ns#"
              :alt "schemas/external/cc.rdf"}
 
-   ;; The COR namespace (unofficial)
-   'cor     {:uri     "http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#"
-             :schema? false}
+   ;; The COR namespace (unofficial) TODO
+   'cor     {:uri    "http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#"
+             :export #{'dn 'cor
+                       'rdf 'rdfs 'owl
+                       'ontolex 'skos 'lexinfo}}
+
+   ;; Sentiment data (unofficial) TODO
+   'senti   {:uri    "http://example.com"
+             :export #{'dn 'dns 'marl}}
 
    ;; The three internal DanNet namespaces.
-   'dn      {:uri     (str dannet-root "data/")
-             :schema? false}
+   'dn      {:uri    (str dannet-root "data/")
+             :export #{'dn 'dnc 'dns
+                       'rdf 'rdfs 'owl
+                       'wn 'ontolex 'skos 'lexinfo
+                       'dcat 'vann 'foaf 'dc}}
+
    'dnc     {:uri (str dannet-root "concepts/")
              :alt "schemas/internal/dannet-concepts-2022.ttl"}
    'dns     {:uri (str dannet-root "schema/")
              :alt "schemas/internal/dannet-schema-2022.ttl"}
 
    ;; Various en->da translations included as additional data.
-   'en->da  {:uri (str dannet-root "translations/")
+   'tr      {:uri (str dannet-root "translations/")
              :alt "schemas/internal/dannet-translations-2022.ttl"}})
 
 (def internal-prefixes
@@ -130,6 +140,24 @@
   "Return the URI registered for a `prefix`."
   [prefix]
   (-> schemas prefix :uri))
+
+(defn uri->prefix
+  "Return the URI registered for a `prefix`."
+  [uri]
+  (loop [[[k m] & schemas'] schemas]
+    (if (= uri (:uri m))
+      k
+      (when (not-empty schemas')
+        (recur schemas')))))
+
+(def dn-uri
+  (prefix->uri 'dn))
+
+(def senti-uri
+  (prefix->uri 'senti))
+
+(def cor-uri
+  (prefix->uri 'cor))
 
 (defn- invert-map
   [m]
