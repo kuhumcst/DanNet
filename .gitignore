@@ -22,3 +22,4 @@ resources/public/js/compiled
 
 # https://github.com/dsldk/danish-sentiment-lexicon
 2_headword_headword_polarity.csv
+out/
