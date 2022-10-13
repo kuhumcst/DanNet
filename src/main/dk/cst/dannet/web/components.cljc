@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
@@ -518,18 +519,13 @@
       (when candidates
         (recur candidates)))))
 
-(defn- setify
-  [x]
-  (when x
-    (if (set? x) x #{x})))
-
 (rum/defc entity-page
   [{:keys [languages comments subject inferred entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
         label-lang (i18n/lang label)
-        inherited  (->> (setify (:dns/inherited entity))
+        inherited  (->> (shared/setify (:dns/inherited entity))
                         (map (comp prefix/qname->kw k->label))
                         (set))
         uri-only?  (and (not label) (= local-name rdf-uri))]

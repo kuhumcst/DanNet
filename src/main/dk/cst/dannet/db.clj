@@ -3,12 +3,15 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.data.csv :as csv]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.registry :as registry]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
+            [ont-app.vocabulary.core :as voc]
             [flatland.ordered.map :as fop]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.bootstrap :as bootstrap]
@@ -18,7 +21,7 @@
   (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.rdf.model ModelFactory Model]
+           [org.apache.jena.rdf.model ModelFactory Model Statement]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
 
@@ -103,16 +106,12 @@
   "Create example triples from a DanNet `g` and the `examples` from 'imports'."
   [g examples]
   (for [[synset lemma] (keys examples)]
-    (let [results       (q/run g op/example-targets {'?synset synset
-                                                     '?lemma  lemma})
-          example-str   (get examples [synset lemma])
-          blank-example (symbol (str "_" (name lemma)
-                                     "-" (name synset)
-                                     "-example"))]
+    (let [results (q/run g op/example-targets {'?synset synset
+                                               '?lemma  lemma})
+          example (get examples [synset lemma])]
       (apply set/union (for [{:syms [?sense]} results]
-                         (when example-str
-                           #{[?sense :lexinfo/senseExample blank-example]
-                             [blank-example :rdf/value example-str]}))))))
+                         (when example
+                           #{[?sense :lexinfo/senseExample example]}))))))
 
 (defn inserted-by-DanNet-senses
   "Query the graph `g` for unlabeled, 'Inserted by DanNet' senses."
@@ -336,7 +335,7 @@
    (let [ttl-in-dir   (fn [dir filename] (str dir filename ".ttl"))
          merged-ttl   (ttl-in-dir dir "merged")
          complete-ttl (ttl-in-dir dir "complete")]
-     (println "Beginning export of DanNet into" dir)
+     (println "Beginning RDF export of DanNet into" dir)
      (println "----")
 
      ;; The individual models contained in the dataset.
@@ -356,9 +355,105 @@
        (println "(skipping export of complete.ttl)"))
 
      (println "----")
-     (println "Export of DanNet complete!")))
+     (println "RDF Export of DanNet complete!")))
   ([^Dataset dataset]
-   (export-rdf! dataset "resources/export/")))
+   (export-rdf! dataset "resources/export/rdf/")))
+
+(defn- csv-table-cell
+  ([separator x]
+   (->> (shared/setify x)
+        (map (fn [x]
+               (cond
+                 (keyword? x) (name x)
+                 :else (str x))))
+        (sort)
+        (str/join separator)))
+  ([x]
+   (csv-table-cell "; " x)))
+
+(defn- csv-row
+  "Convert `row` values into CSVW-compatible strings."
+  [row]
+  (mapv csv-table-cell row))
+
+;; TODO: inheritance currently not included... include somehow?
+;; TODO: if possible, find some way of shortening relation length in CSVW
+(defn synset-rel-table
+  "A performant way to fetch synset->synset relations for `synset` in `model`.
+
+  This function basically exists because I wasn't able to perform this query in
+  a performant way, e.g. such a query would take ~45 minutes to execute."
+  [^Model model synset]
+  (let [uri (ont-app.vocabulary.core/uri-for synset)]
+    (keep (fn [^Statement statement]
+            (let [synset-prefix "http://www.wordnet.dk/dannet/data/synset-"
+                  obj           (str (.getObject statement))]
+              (when (str/starts-with? obj synset-prefix)
+                [synset
+                 (str (.getPredicate statement))
+                 (voc/keyword-for obj)])))
+          (iterator-seq (.listProperties (.getResource model uri))))))
+
+(defn export-csv-rows!
+  "Write CSV `rows` to file `f`."
+  [f rows]
+  (println "Exporting" f)
+  (io/make-parents f)
+  (with-open [writer (io/writer f)]
+    (csv/write-csv writer rows)))
+
+(defn export-csv!
+  "Write CSV `rows` to file `f`."
+  ([{:keys [dataset] :as dannet} dir]
+   (println "Beginning CSV export of DanNet into" dir)
+   (println "----")
+   (let [g          (get-graph dataset prefix/dn-uri)
+         synsets-ks '[?synset ?definition ?ontotype]
+         words-ks   '[?word ?written-rep ?pos ?rdf-type]
+         senses-ks  '[?sense ?synset ?word ?note]]
+     (println "Fetching table rows:" synsets-ks)
+     (export-csv-rows!
+       (str dir "synsets.csv")
+       (map csv-row (q/table-query g synsets-ks op/csv-synsets)))
+
+     (println "Fetching table rows:" words-ks)
+     (export-csv-rows!
+       (str dir "words.csv")
+       (map csv-row (q/table-query g words-ks op/csv-words)))
+
+     (println "Fetching table rows:" senses-ks)
+     (export-csv-rows!
+       (str dir "senses.csv")
+       (map csv-row (q/table-query g senses-ks op/csv-senses)))
+
+     (println "Fetching inheritance data...")
+     (export-csv-rows!
+       (str dir "inheritance.csv")
+       (map (fn [{:syms [?synset ?rel ?from]}]
+              [(name ?synset)
+               (voc/uri-for ?rel)
+               (name ?from)])
+            (q/run g op/csv-inheritance)))
+
+     (println "Fetching example data...")
+     (export-csv-rows!
+       (str dir "examples.csv")
+       (map csv-row (q/run g '[?sense ?example] op/csv-examples)))
+
+     (println "Fetching synset relations...")
+     (let [model           (get-model dataset prefix/dn-uri)
+           synset->triples (partial synset-rel-table model)
+           synsets         (->> (q/run g op/synsets)
+                                (map '?synset)
+                                (set))]
+       (export-csv-rows!
+         (str dir "relations.csv")
+         (->> (mapcat synset->triples synsets)
+              (map csv-row)))))
+   (println "----")
+   (println "CSV Export of DanNet complete!"))
+  ([dannet]
+   (export-csv! dannet "resources/export/csv/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!
@@ -500,8 +595,17 @@
   (export-rdf-model! "cor.ttl" (get-model dataset prefix/cor-uri)
                      :prefixes (export-prefixes 'cor))
 
-  ;; Export the entire dataset
+  ;; Export the entire dataset as RDF
   (export-rdf! dannet)
+
+  ;; Test CSV table data
+  (let [g (get-graph dataset prefix/dn-uri)]
+    (->> (q/table-query g '[?synset ?definition ?ontotype ?sense] op/csv-synsets)
+         (map csv-row)
+         (take 10)))
+
+  ;; Export DanNet as CSV
+  (export-csv! dannet)
 
   ;; Querying DanNet for various synonyms
   (synonyms graph "vand")

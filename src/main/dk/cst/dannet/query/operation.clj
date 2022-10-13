@@ -72,6 +72,11 @@
       [?sense :lexinfo/senseExample ?example]
       [?example :rdf/value ?example-str]]))
 
+(def synsets
+  (q/build
+    '[:bgp
+      [?synset :rdf/type :ontolex/LexicalConcept]]))
+
 (def synset-relations
   (q/build
     '[:bgp
@@ -140,3 +145,44 @@
          ?sense rdfs:label ?missing .
        }
      }"))
+
+(def csv-synsets
+  "Columns to export for synsets.csv."
+  (q/build
+    '[:bgp
+      [?synset :rdf/type :ontolex/LexicalConcept]
+      [?synset :skos/definition ?definition]
+      [?synset :dns/ontologicalType ?ontotype]]))
+
+(def csv-words
+  "Columns to export for words.csv."
+  (q/build
+    '[:bgp
+      [?form :rdf/type :ontolex/Form]
+      [?form :ontolex/writtenRep ?written-rep]
+      [?word :ontolex/canonicalForm ?form]
+      [?word :lexinfo/partOfSpeech ?pos]
+      [?word :rdf/type ?rdf-type]]))
+
+(def csv-senses
+  (sparql
+    "SELECT ?sense ?synset ?word ?note
+     WHERE {
+       ?sense rdf:type ontolex:LexicalSense .
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?word ontolex:sense ?sense .
+       OPTIONAL
+         { ?sense lexinfo:usageNote ?note . }
+     }"))
+
+(def csv-inheritance
+  (q/build
+    '[:bgp
+      [?synset :dns/inherited ?inherit]
+      [?inherit :dns/inheritedFrom ?from]
+      [?inherit :dns/inheritedRelation ?rel]]))
+
+(def csv-examples
+  (q/build
+    '[:bgp
+      [?sense :lexinfo/senseExample ?example]]))

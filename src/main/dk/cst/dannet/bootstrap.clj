@@ -22,6 +22,8 @@
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.util Date]))
 
+;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
+
 (defn da
   [s]
   (->LangStr s "da"))
@@ -462,21 +464,19 @@
   [sense register]
   (if (empty? register)
     #{}
-    (let [blank-node (symbol (str "_" (name sense) "-register"))]
-      (cond-> #{[sense :lexinfo/usageNote blank-node]
-                [blank-node :rdf/value register]}
+    (cond-> #{[sense :lexinfo/usageNote (da register)]}
 
-        (re-find #"gl." register)
-        (conj [sense :lexinfo/dating :lexinfo/old])
+      (re-find #"gl." register)
+      (conj [sense :lexinfo/dating :lexinfo/old])
 
-        (re-find #"sj." register)
-        (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
+      (re-find #"sj." register)
+      (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
 
-        (re-find #"jargon" register)
-        (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
+      (re-find #"jargon" register)
+      (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
 
-        (re-find #"slang" register)
-        (conj [sense :lexinfo/register :lexinfo/slangRegister])))))
+      (re-find #"slang" register)
+      (conj [sense :lexinfo/register :lexinfo/slangRegister]))))
 
 (defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."

@@ -134,7 +134,7 @@
     (conj v1 v2)
 
     :else
-    (hash-set v1 v2)))
+    #{v1 v2}))
 
 (defn- entity-label-mapping
   "Create a mapping from keyword -> rdfs:label based on the `xe` that is the
@@ -187,3 +187,15 @@
   (->> (txn/transact g
          (apply q/run g remaining-args))
        (map #(vary-meta % merge (nav-meta g)))))
+
+(defn table-query
+  "Run query `q` in `g`, transposing the results as rows of `ks`.
+
+  Any one-to-many relationships in the result values are represented as set
+  values contained in the resulting table rows. This is the main difference
+  from the built-in vector transposition in 'arachne.aristotle.query/run'."
+  [g ks q]
+  (map (fn [m] (mapv m ks))
+       (-> (group-by #(get % (first ks)) (run g q))
+           (update-vals #(apply merge-with set-merge %))
+           (vals))))
