@@ -303,7 +303,7 @@
                        prefixes (filter (comp prefixes symbol first)))]
     (.setNsPrefix model prefix (::registry/= m))))
 
-(defn export-model!
+(defn export-rdf-model!
   "Export the `model` to the file at the given `path`. Defaults to Turtle.
 
   The current prefixes in the Aristotle registry are used for the output,
@@ -325,7 +325,7 @@
   [prefix]
   (get-in prefix/schemas [prefix :export]))
 
-(defn export!
+(defn export-rdf!
   "Export the models of the RDF `dataset` into `dir`.
 
   By default, the complete model is not exported. In the case of a typical
@@ -344,21 +344,21 @@
              :let [^Model model (get-model dataset model-uri)
                    prefix       (prefix/uri->prefix model-uri)
                    filename     (ttl-in-dir dir (or prefix model-uri))]]
-       (export-model! filename model :prefixes (export-prefixes prefix)))
+       (export-rdf-model! filename model :prefixes (export-prefixes prefix)))
 
      ;; The union of the input datasets.
-     (export-model! merged-ttl (.getUnionModel dataset))
+     (export-rdf-model! merged-ttl (.getUnionModel dataset))
 
      ;; The union of the input datasets and schemas + inferred triples.
      ;; This constitutes all data available in the DanNet web presence.
      (if complete
-       (export-model! complete-ttl model)
+       (export-rdf-model! complete-ttl model)
        (println "(skipping export of complete.ttl)"))
 
      (println "----")
      (println "Export of DanNet complete!")))
   ([^Dataset dataset]
-   (export! dataset "resources/export/")))
+   (export-rdf! dataset "resources/export/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!
@@ -493,15 +493,15 @@
       (igraph-jena/make-jena-graph model)))
 
   ;; Export individual models
-  (export-model! "dn.ttl" (get-model dataset prefix/dn-uri)
-                 :prefixes (export-prefixes 'dn))
-  (export-model! "senti.ttl" (get-model dataset prefix/senti-uri)
-                 :prefixes (export-prefixes 'senti))
-  (export-model! "cor.ttl" (get-model dataset prefix/cor-uri)
-                 :prefixes (export-prefixes 'cor))
+  (export-rdf-model! "dn.ttl" (get-model dataset prefix/dn-uri)
+                     :prefixes (export-prefixes 'dn))
+  (export-rdf-model! "senti.ttl" (get-model dataset prefix/senti-uri)
+                     :prefixes (export-prefixes 'senti))
+  (export-rdf-model! "cor.ttl" (get-model dataset prefix/cor-uri)
+                     :prefixes (export-prefixes 'cor))
 
   ;; Export the entire dataset
-  (export! dannet)
+  (export-rdf! dannet)
 
   ;; Querying DanNet for various synonyms
   (synonyms graph "vand")
@@ -528,7 +528,8 @@
     (take 10 (igraph/subjects ig)))
   (txn/transact model
     (take 10 (igraph/subjects ig)))
-  (txn/transact dataset                                     ; TODO: fix, broken
+  ;; NOTE: only works with non-inference graph (the dataset is independent).
+  (txn/transact dataset
     (take 10 (igraph/subjects ig)))
 
   ;; Look up "citrusfrugt" synset using igraph
