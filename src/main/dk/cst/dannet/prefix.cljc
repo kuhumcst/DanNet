@@ -102,6 +102,9 @@
   [kw]
   (str/replace (subs (str kw) 1) #"/" ":"))
 
+(def kw->uri
+  voc/uri-for)
+
 (defn qname->kw
   [kw]
   (let [[prefix local-name] (str/split kw #":")]

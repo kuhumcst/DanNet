@@ -12,6 +12,7 @@
             [flatland.ordered.map :as fop]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.shared :as shared]
+            [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.bootstrap :as bootstrap]
@@ -376,23 +377,21 @@
   [row]
   (mapv csv-table-cell row))
 
-;; TODO: inheritance currently not included... include somehow?
-;; TODO: if possible, find some way of shortening relation length in CSVW
 (defn synset-rel-table
   "A performant way to fetch synset->synset relations for `synset` in `model`.
 
-  This function basically exists because I wasn't able to perform this query in
-  a performant way, e.g. such a query would take ~45 minutes to execute."
+  The function basically exists because I wasn't able to perform a similar query
+  in a performant way, e.g. doing this for all synsets would take ~45 minutes."
   [^Model model synset]
-  (let [uri (ont-app.vocabulary.core/uri-for synset)]
-    (keep (fn [^Statement statement]
-            (let [synset-prefix "http://www.wordnet.dk/dannet/data/synset-"
-                  obj           (str (.getObject statement))]
-              (when (str/starts-with? obj synset-prefix)
-                [synset
-                 (str (.getPredicate statement))
-                 (voc/keyword-for obj)])))
-          (iterator-seq (.listProperties (.getResource model uri))))))
+  (->> (.listProperties (.getResource model (voc/uri-for synset)))
+       (iterator-seq)
+       (keep (fn [^Statement statement]
+               (let [prefix "http://www.wordnet.dk/dannet/data/synset-"
+                     obj    (str (.getObject statement))]
+                 (when (str/starts-with? obj prefix)
+                   [synset
+                    (str (.getPredicate statement))
+                    (voc/keyword-for obj)]))))))
 
 (defn export-csv-rows!
   "Write CSV `rows` to file `f`."
@@ -415,16 +414,25 @@
      (export-csv-rows!
        (str dir "synsets.csv")
        (map csv-row (q/table-query g synsets-ks op/csv-synsets)))
+     (db.csv/export-metadata!
+       (str dir "synsets-metadata.json")
+       db.csv/synsets-metadata)
 
      (println "Fetching table rows:" words-ks)
      (export-csv-rows!
        (str dir "words.csv")
        (map csv-row (q/table-query g words-ks op/csv-words)))
+     (db.csv/export-metadata!
+       (str dir "words-metadata.json")
+       db.csv/words-metadata)
 
      (println "Fetching table rows:" senses-ks)
      (export-csv-rows!
        (str dir "senses.csv")
        (map csv-row (q/table-query g senses-ks op/csv-senses)))
+     (db.csv/export-metadata!
+       (str dir "senses-metadata.json")
+       db.csv/senses-metadata)
 
      (println "Fetching inheritance data...")
      (export-csv-rows!
@@ -434,11 +442,17 @@
                (voc/uri-for ?rel)
                (name ?from)])
             (q/run g op/csv-inheritance)))
+     (db.csv/export-metadata!
+       (str dir "inheritance-metadata.json")
+       db.csv/inheritance-metadata)
 
      (println "Fetching example data...")
      (export-csv-rows!
        (str dir "examples.csv")
        (map csv-row (q/run g '[?sense ?example] op/csv-examples)))
+     (db.csv/export-metadata!
+       (str dir "examples-metadata.json")
+       db.csv/examples-metadata)
 
      (println "Fetching synset relations...")
      (let [model           (get-model dataset prefix/dn-uri)
@@ -449,7 +463,11 @@
        (export-csv-rows!
          (str dir "relations.csv")
          (->> (mapcat synset->triples synsets)
-              (map csv-row)))))
+              (map csv-row))))
+     (db.csv/export-metadata!
+       (str dir "relations-metadata.json")
+       db.csv/relations-metadata))
+
    (println "----")
    (println "CSV Export of DanNet complete!"))
   ([dannet]
