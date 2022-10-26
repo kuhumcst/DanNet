@@ -41,8 +41,7 @@
 (def registers
   (q/build
     '[:bgp
-      [?sense :lexinfo/usageNote ?blank-node]
-      [?blank-node :rdf/value ?register]]))
+      [?sense :lexinfo/usageNote ?register]]))
 
 (def sense-label-targets
   "Used during initial graph creation to attach labels to senses."
