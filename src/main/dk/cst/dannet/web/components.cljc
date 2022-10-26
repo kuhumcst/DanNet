@@ -25,11 +25,6 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 
-;; Page state used in the single-page app; completely unused server-side.
-(defonce state
-  (atom {:languages nil
-         :details?  nil}))
-
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
   #"([^_<>]+)(_((?:§|\d)[^_ ]+)( .+)?)?")
@@ -601,20 +596,47 @@
   [e]
   #?(:cljs (js/setTimeout #(.select (.-target e)) 50)))
 
+;; TODO: abort any on-going fetches as a first step
+;;       https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+(defn search-completion
+  "An :on-change handler for search autocompletion."
+  [e]
+  #?(:clj  nil
+     :cljs (let [s                (.-value (.-target e))
+                 path             [:search :completion s]
+                 autocomplete-url "/dannet/autocomplete"]
+             (when-not (get-in @shared/state path)
+               (.then (shared/fetch autocomplete-url {:query-params {:s s}})
+                      #(do
+                         (shared/clear-fetch autocomplete-url)
+                         (when-let [v (not-empty (:body %))]
+                           (swap! shared/state assoc-in path v)
+                           (swap! shared/state assoc-in [:search :s] s))))))))
+
+(rum/defc option
+  [v]
+  [:option {:value v}])
+
 ;; TODO: language localisation
 (rum/defc search-form
-  [{:keys [lemma] :as opts}]
+  [{:keys [lemma search] :as opts}]
   [:form {:role      "search"
           :action    prefix/search-path
           :on-submit on-submit
           :method    "get"}
    [:input {:type          "search"
+            :list          "completion"
             :name          "lemma"
             :title         "Search for synsets"
             :placeholder   "search term"
             :on-focus      select-text
+            :on-change     search-completion
             :auto-complete "off"
-            :default-value (or lemma "")}]])
+            :default-value (or lemma "")}]
+   (let [{:keys [completion s]} search]
+     [:datalist {:id "completion"}
+      (for [v (get completion s)]
+        (rum/with-key (option v) v))])])
 
 (rum/defc search-page
   [{:keys [languages lemma search-results] :as opts}]
@@ -661,13 +683,13 @@
 ;; TODO: store in cookie?
 (rum/defc language-select < rum/reactive
   [server-languages]
-  (let [default (first (or (:languages (rum/react state))
+  (let [default (first (or (:languages (rum/react shared/state))
                            server-languages))]
     [:select.language {:title         "Language preference"
                        :default-value default
                        :on-change     (fn [e]
                                         (let [v (.-value (.-target e))]
-                                          (swap! state assoc :languages
+                                          (swap! shared/state assoc :languages
                                                  (i18n/lang-prefs v))))}
      (when (not (#{"en" "da"} default))
        [:option {:value default} (str default " (browser default)")])
@@ -676,10 +698,10 @@
 
 (rum/defc page-shell < rum/reactive
   [page {:keys [languages entity] :as opts}]
-  #?(:cljs (when-not (:languages @state)
-             (swap! state assoc :languages languages)))
+  #?(:cljs (when-not (:languages @shared/state)
+             (swap! shared/state assoc :languages languages)))
   (let [page-component (get pages page)
-        state' #?(:clj {} :cljs (rum/react state))
+        state' #?(:clj {} :cljs (rum/react shared/state))
         comments       {:comments (translate-comments languages)}
         opts'          (merge opts state' comments)
         [prefix _ _] (resolve-names opts')
@@ -702,7 +724,7 @@
                                            "Show more details")
                                :on-click (fn [e]
                                            (.preventDefault e)
-                                           (swap! state update :details? not))}]
+                                           (swap! shared/state update :details? not))}]
       [:a.github {:title "The source code for DanNet is available on Github"
                   :href  "https://github.com/kuhumcst/DanNet"}]]
      [:div#content

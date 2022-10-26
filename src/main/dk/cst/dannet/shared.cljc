@@ -9,6 +9,13 @@
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])
             #?(:cljs [applied-science.js-interop :as j])))
 
+;; Page state used in the single-page app; completely unused server-side.
+(defonce state
+  (atom {:languages nil
+         :search    {:completion {}
+                     :s          ""}
+         :details?  nil}))
+
 #?(:clj
    (def main-js
      "When making a release, the filename will be appended with a hash;
@@ -38,6 +45,17 @@
        (t/reader :json {:handlers {"lstr"     lstr/read-LangStr
                                    "datetime" identity}}))
 
+     (defn clear-fetch
+       "Clear a `url` from the ongoing fetch table (done after fetches)."
+       [url]
+       (swap! state update :fetch dissoc url))
+
+     (defn abort-fetch
+       "Abort an ongoing fetch for `url`."
+       [url]
+       (when-let [controller (get-in @state [:fetch url])]
+         (.abort controller)))
+
      ;; Currently lambdaisland/fetch silently loses query strings, so the
      ;; `from-query-string` is needed to keep the query string intact.
      ;; The reason that `:transit true` is assoc'd is to circumvent the browser
@@ -47,17 +65,23 @@
      (defn fetch
        "Do a GET request for the resource at `url`, returning the response body."
        [url & [{:keys [query-params] :as opts}]]
+       (abort-fetch url)                                    ; cancel existing
        (let [from-query-string (uri/query-string->map (:query (uri/uri url)))
              query-params'     (assoc (merge from-query-string query-params)
                                  :transit true)
-             opts*             (merge {:transit-json-reader reader}
-                                      (assoc opts :query-params query-params'))]
-         (p/let [response (fetch/get (normalize-url url) opts*)]
-                response)))
+             controller        (new js/AbortController)
+             signal            (.-signal controller)
+             opts*             (merge {:transit-json-reader reader
+                                       :signal              signal}
+                                      (assoc opts
+                                        :query-params query-params'))
+             request           (fetch/get (normalize-url url) opts*)]
+         (swap! state assoc-in [:fetch url] controller)
+         request))
 
      (defn response->url
        [response]
-       (-> response meta ::lambdaisland.fetch/request (j/get :url)))))
+       (-> response meta :lambdaisland.fetch/request (j/get :url)))))
 
 (defn setify
   [x]

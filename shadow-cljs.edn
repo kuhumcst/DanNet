@@ -1,12 +1,5 @@
 {:source-paths ["src/main" "src/dev"]
- :dependencies [[binaryage/devtools "1.0.4"]
-                [metosin/reitit "0.5.18"]
-                [lambdaisland/fetch "1.1.60"]
-                [kitchen-async/kitchen-async "0.1.0-SNAPSHOT"]
-                [org.flatland/ordered "1.15.10"]
-                [better-cond/better-cond "2.1.5"]
-                [rum/rum "0.12.9"]
-                [ont-app/vocabulary "0.1.7"]]
+ :deps         {:aliases [:frontend]}
  :dev-http     {7777 {:root    "resources/public"
                       :handler user/shadow-handler}}
  :builds       {:app  {:target            :browser

@@ -83,6 +83,7 @@
           #(let [data           (:body %)
                  page-component (com/page-shell (com/data->page data) data)
                  page-title     (com/data->title data)]
+             (shared/clear-fetch path)
              (set! js/document.title page-title)
              (reset! location {:path path
                                :data data})
@@ -110,5 +111,6 @@
     (p/then (shared/fetch entry-url)
             #(let [data           (:body %)
                    page-component (com/page-shell (com/data->page data) data)]
+               (shared/clear-fetch entry-url)
                (rum/hydrate page-component app)
                (set-up-navigation!)))))

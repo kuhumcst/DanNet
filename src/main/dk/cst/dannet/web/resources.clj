@@ -274,11 +274,16 @@
 (def autocomplete-path
   (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
 
+;; TODO: ... include COR writtenRep too? Other labels?
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
 (defonce search-trie
   (future
-    (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
-      (apply trie/make-trie (map str (mapcat concat words words))))))
+    (let [g     (db/get-graph (:dataset @db) prefix/dn-uri)
+          words (q/run g '[?writtenRep] op/written-representations)]
+      (println "Building trie for search autocompletion...")
+      (let [trie (apply trie/make-trie (map str (mapcat concat words words)))]
+        (println "Search trie finished!")
+        trie))))
 
 (defn autocomplete*
   "Return autocompletions for `s` found in the graph."
