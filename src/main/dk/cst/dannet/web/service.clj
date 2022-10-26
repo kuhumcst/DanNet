@@ -13,7 +13,7 @@
     #{res/root-route
       res/dannet-route
       res/search-route
-      #_res/autocomplete-route
+      res/autocomplete-route
       res/external-entity-route
       res/unknown-external-entity-route
 

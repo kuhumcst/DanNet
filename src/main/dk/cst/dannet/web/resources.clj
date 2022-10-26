@@ -11,6 +11,7 @@
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
+            [com.owoga.trie :as trie]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
@@ -283,49 +284,48 @@
 (def dannet-route
   ["/dannet" :get dannet-metadata-redirect :route-name ::dannet])
 
-#_(def autocomplete-path
-    (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
+(def autocomplete-path
+  (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
 
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
-#_(defonce search-trie
-    (future
-      (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
-        (apply trie/make-trie (mapcat concat words words)))))
+(defonce search-trie
+  (future
+    (let [words (q/run (:graph @db) '[?writtenRep] op/written-representations)]
+      (apply trie/make-trie (map str (mapcat concat words words))))))
 
-#_(defn autocomplete
-    "Return autocompletions for `s` found in the graph."
-    [s]
-    (->> (trie/lookup @search-trie s)
-         (remove (comp nil? second))                        ; remove partial
-         (map second)                                       ; grab full words
-         (sort)))
+(defn autocomplete*
+  "Return autocompletions for `s` found in the graph."
+  [s]
+  (->> (trie/lookup @search-trie s)
+       (remove (comp nil? second))                          ; remove partial
+       (map second)                                         ; grab full words
+       (sort)))
 
-#_(def autocomplete* (memoize autocomplete))
+(def autocomplete (memoize autocomplete*))
 
-#_(def autocomplete-ic
-    {:name  ::autocomplete
-     :leave (fn [{:keys [request] :as ctx}]
-              (let [;; TODO: why is decoding necessary?
-                    ;; You would think that the path-params-decoder handled this.
-                    s (-> request
-                          (get-in [:query-params :s])
-                          (decode-query-part))]
-                (if (> (count s) 2)
+(def autocomplete-ic
+  {:name  ::autocomplete
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  s (get-in request [:query-params :s])]
+              (when-let [s' (and s (decode-query-part s))]
+                (if (> (count s') 2)
                   (-> ctx
                       (update :response assoc
                               :status 200
-                              :body (str/join "\n" (autocomplete* s)))
+                              :body (str/join "\n" (autocomplete s')))
                       (update-in [:response :headers] assoc
                                  "Content-Type" "text/plain"
                                  "Cache-Control" one-day-cache))
                   (update ctx :response assoc
-                          :status 404
-                          :headers {}))))})
+                          :status 204
+                          :headers {})))))})
 
-#_(def autocomplete-route
-    [autocomplete-path
-     :get [autocomplete-ic]
-     :route-name ::autocomplete])
+(def autocomplete-route
+  [autocomplete-path
+   :get [autocomplete-ic]
+   :route-name ::autocomplete])
 
 (comment
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
@@ -348,9 +348,9 @@
   (count (q/run (:graph @db) op/unlabeled-senses))
 
   ;; Testing autocompletion
-  (autocomplete "sar")
-  (autocomplete "spo")
-  (autocomplete "tran")
+  (autocomplete* "sar")
+  (autocomplete* "spo")
+  (autocomplete* "tran")
 
   ;; Look up synsets based on the lemma "have"
   (db/look-up (:graph @db) "have")
