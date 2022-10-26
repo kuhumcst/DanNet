@@ -2,7 +2,8 @@
   "Web service handling entity look-ups and schema downloads."
   (:require [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
-            [dk.cst.dannet.web.resources :as res]))
+            [dk.cst.dannet.web.resources :as res]
+            [dk.cst.dannet.shared :as shared]))
 
 (defonce server (atom nil))
 (defonce conf (atom {}))                                    ;TODO: use?
@@ -31,7 +32,7 @@
 
 (defn ->service-map
   [conf]
-  (let [csp (if res/development?
+  (let [csp (if shared/development?
               {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:*"}
               {:default-src "'none'"
                :script-src  "'self' 'unsafe-inline'"        ; unsafe-eval possibly only needed for dev main.js
@@ -48,7 +49,7 @@
              ::http/secure-headers {:content-security-policy-settings csp}}
 
       ;; Make sure we can communicate with the Shadow CLJS app during dev.
-      res/development? (assoc ::http/allowed-origins (constantly true)))))
+      shared/development? (assoc ::http/allowed-origins (constantly true)))))
 
 (defn start []
   (let [service-map (->service-map @conf)]

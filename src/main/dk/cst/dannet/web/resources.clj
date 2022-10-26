@@ -2,7 +2,6 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.edn :as edn]
             [clojure.pprint :refer [pprint print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
@@ -12,6 +11,7 @@
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
             [com.owoga.trie :as trie]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
@@ -37,19 +37,6 @@
     (db/->dannet
       :bootstrap-imports bootstrap/imports
       :schema-uris db/schema-uris)))
-
-(def main-js
-  "When making a release, the filename will be appended with a hash;
-  that is not the case when running the regular shadow-cljs watch process.
-
-  Relies on the :module-hash-names being set to true in shadow-cljs.edn."
-  (if-let [url (io/resource "public/js/compiled/manifest.edn")]
-    (-> url slurp edn/read-string first :output-name)
-    "main.js"))
-
-(def development?
-  "Source of truth for whether this is a development build or not. "
-  (= main-js "main.js"))
 
 (def one-month-cache
   "private, max-age=2592000")
@@ -99,8 +86,8 @@
       [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]]
      [:body
       [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
-      [:script (str "var inDevelopmentEnvironment = " development? ";")]
-      [:script {:src (str "/js/compiled/" main-js)}]]]))
+      [:script (str "var inDevelopmentEnvironment = " shared/development? ";")]
+      [:script {:src (str "/js/compiled/" shared/main-js)}]]]))
 
 (defn- lstr->s
   [lstr]
@@ -314,9 +301,9 @@
                   (-> ctx
                       (update :response assoc
                               :status 200
-                              :body (str/join "\n" (autocomplete s')))
+                              :body (to/write-str (autocomplete s')))
                       (update-in [:response :headers] assoc
-                                 "Content-Type" "text/plain"
+                                 "Content-Type" "application/transit+json"
                                  "Cache-Control" one-day-cache))
                   (update ctx :response assoc
                           :status 204
