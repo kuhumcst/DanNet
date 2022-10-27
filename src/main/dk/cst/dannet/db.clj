@@ -762,4 +762,15 @@
          (let [marked-lemma (str "{" (str/upper-case ?lemma) "}")]
            (str/replace example-str ?lemma marked-lemma)))
        (q/run graph '[?lemma ?example-str] op/examples))
+
+  ;; TODO: explore these ~30 synsets, figure out what's wrong
+  ;; Find synsets with ambiguous implied sentiment in the senses.
+  (->> op/missing-synset-sentiment
+       (q/run (:graph @dk.cst.dannet.web.resources/db))
+       (group-by '?synset)
+       (filter #(apply not= (map '?pclass (second %))))
+       (map first)
+       (sort)
+       (doall)
+       (count))
   #_.)
