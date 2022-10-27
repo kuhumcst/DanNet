@@ -145,6 +145,29 @@
        }
      }"))
 
+(def missing-sense-sentiment
+  (sparql
+    "SELECT ?sense ?word ?opinion
+     WHERE {
+       ?sense rdf:type ontolex:LexicalSense .
+       NOT EXISTS {
+         ?sense dns:sentiment ?missing .
+       }
+       ?word ontolex:sense ?sense .
+       ?word dns:sentiment ?opinion .
+     }"))
+
+(def missing-synset-sentiment
+  (sparql
+    "SELECT ?sense ?opinion ?pval ?pclass ?synset
+     WHERE {
+       ?sense rdf:type ontolex:LexicalSense .
+       ?sense dns:sentiment ?opinion .
+       ?opinion marl:hasPolarity ?pclass .
+       ?opinion marl:polarityValue ?pval .
+       ?synset ontolex:lexicalizedSense ?sense .
+     }"))
+
 (def csv-synsets
   "Columns to export for synsets.csv."
   (q/build

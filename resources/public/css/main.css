@@ -693,14 +693,6 @@ li::marker {
     font-size: 12px;
 }
 
-ruby.polarity > rt {
-    font-size: 12px;
-}
-
-ruby.polarity > meter {
-    margin-top: 12px; /* account for ruby text */
-}
-
 /* Used to embed clickable badges inside hyperlinks. */
 span.emblem {
     transition: all 0.1s;

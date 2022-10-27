@@ -498,33 +498,43 @@
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
 
-(def polarity-ratio
-  "Convert the -3 to 3 score to a standard marl:polarityValue from 0.0 to 1.0."
-  {-3 0.0
-   -2 0.17
-   -1 0.33
-   0  0.5
-   1  0.67
-   2  0.85
-   3  1.0})
+(def pol-val
+  {"nxx" -3
+   "nx"  -2
+   "n"   -1
+   "0"   0
+   "p"   1
+   "px"  2
+   "pxx" 3})
 
-;; TODO: map to senses (get data from Sussi, Sanni)
+(defn pol-class
+  [pol]
+  (cond
+    (get #{"p" "px" "pxx"} pol) :marl/Positive
+    (get #{"n" "nx" "nxx"} pol) :marl/Negative
+    :else :marl/Neutral))
+
 (defn ->sentiment-triples
-  "Convert a `row` from '2_headword_headword_polarity.csv' to triples."
-  [[word variant pos word-id score forms :as row]]
-  (let [word     (word-uri word-id)
-        _opinion (symbol (str "_" word "-_opinion"))
-        v        (parse-long score)
-        polarity (cond
-                   (> v 0) :marl/Positive
-                   (< v 0) :marl/Negative
-                   :else :marl/Neutral)]
+  "Convert a `row` from 'sense_polarities.tsv' to Opinion triples.
+
+  In ~2000 cases a sense-id will be missing (it has the same ID as the word-id).
+  Since there is no sense-id provided for these rows, we do not create sense
+  triples. However, these missing senses may later be synthesized."
+  [[_ sense-id _ _ _ sense-pol word-pol word-id :as row]]
+  (let [word           (word-uri word-id)
+        sense          (sense-uri sense-id)
+        _word-opinion  (symbol (str "_opinion-word-" word-id))
+        _sense-opinion (symbol (str "_opinion-sense-" sense-id))]
     (set/union
-      #{[word :dns/sentiment _opinion]
-        #_[_opinion :rdf/type :marl/Opinion]
-        #_[_opinion :marl/describesObject word]
-        [_opinion :marl/polarityValue (polarity-ratio v)]
-        [_opinion :marl/hasPolarity polarity]})))
+      #{#_[_word-opinion :rdf/type :marl/Opinion]
+        #_[_word-opinion :marl/describesObject word]
+        [word :dns/sentiment _word-opinion]
+        [_word-opinion :marl/polarityValue (get pol-val word-pol 0)]
+        [_word-opinion :marl/hasPolarity (pol-class word-pol)]}
+      (when (not= sense-id word-id)
+        #{[sense :dns/sentiment _sense-opinion]
+          [_sense-opinion :marl/polarityValue (get pol-val sense-pol 0)]
+          [_sense-opinion :marl/hasPolarity (pol-class sense-pol)]}))))
 
 (defn- preprocess-cor-k
   "Add metadata to each row in `rows` to associate a canonical form with an ID."
@@ -607,9 +617,10 @@
     ;; Need to query the resulting graph to generate the real example triples.
     :examples  [examples (io/resource "dannet/csv/synsets.csv")]}
 
+   ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/senti-uri
    {:sentiment [->sentiment-triples
-                (io/resource "2_headword_headword_polarity.csv")
+                (io/resource "sense_polarities.tsv")
                 :encoding "UTF-8"
                 :separator \tab]}
 
@@ -635,7 +646,6 @@
 (comment
   ;; Example sentiment triples
   (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))
-       (filter (comp not-empty second))
        (take 10))
 
   ;; Example Synsets

@@ -182,6 +182,7 @@
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
+        senti-graph (get-graph dataset prefix/senti-uri)
         cor-graph   (get-graph dataset prefix/cor-uri)
         union-graph (.getGraph (.getUnionModel dataset))]
 
@@ -230,6 +231,46 @@
       (println "Label remaining triples...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
+
+    ;; In the sentiment data, several thousand senses do not have sense-level
+    ;; sentiment data. In those case we can try to synthesize from the words
+    ;; that *do* have.
+    (let [senti-triples (->> (q/run union-graph op/missing-sense-sentiment)
+                             (group-by '?word)
+                             (filter #(= 1 (count (second %))))
+                             (mapcat second)
+                             (map (fn [{:syms [?sense ?opinion]}]
+                                    [?sense :dns/sentiment ?opinion]))
+                             (doall))
+          n             (count senti-triples)]
+      (println (str "Synthesizing " n " sense sentiment triples..."))
+      (txn/transact-exec senti-graph
+        (aristotle/add senti-graph senti-triples)))
+
+    ;; Likewise, all synsets whose senses are collectively unambiguously will
+    ;; have sentiment triples synthesized. If the senses have differing polarity
+    ;; values, a basic 1 or -1 is chosen as the synset sentiment polarity.
+    ;; In my testing, ~30 of the queried synsets had some ambiguity.
+    (let [->triples (fn [[_ coll]]
+                      (let [{:syms [?synset ?pval ?pclass]} (first coll)
+                            polarity (cond
+                                       (apply = (map '?pval coll)) ?pval
+                                       (= ?pclass :marl/Negative) -1
+                                       (= ?pclass :marl/positive) 1
+                                       :else 0)
+                            opinion  (symbol (str "_opinion-" (name ?synset)))]
+                        #{[?synset :dns/sentiment opinion]
+                          [opinion :marl/hasPolarity ?pclass]
+                          [opinion :marl/polarityValue polarity]}))
+          triples   (->> (q/run union-graph op/missing-synset-sentiment)
+                         (group-by '?synset)
+                         (filter #(apply = (map '?pclass (second %))))
+                         (mapcat ->triples)
+                         (doall))
+          n         (count triples)]
+      (println (str "Synthesizing " n " synset sentiment triples..."))
+      (txn/transact-exec senti-graph
+        (aristotle/add senti-graph triples)))
 
     ;; Equivalence relations between DanNet and COR-K words are established.
     (let [sameas-triples (->> (q/run union-graph op/word-clones)
@@ -668,11 +709,10 @@
          (map :rdfs/label)
          (map first)))
 
-  ;; TODO: not working, fix
   ;; Test inference of :ontolex/isEvokedBy.
   (q/run graph
          '[:bgp
-           [?form :ontolex/writtenRep "vand"]
+           [?form :ontolex/writtenRep #lstr"vand@da"]
            [?word :ontolex/canonicalForm ?form]
            [?synset :ontolex/isEvokedBy ?word]])
 

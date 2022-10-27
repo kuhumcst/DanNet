@@ -134,19 +134,6 @@
      (let [s (str v)]
        [:time {:date-time s} s])
 
-     (and (= :marl/polarityValue attr-key) (number? v))
-     (let [min-str   (float-str (get entity :marl/minPolarityValue 0.0))
-           max-str   (float-str (get entity :marl/maxPolarityValue 1.0))
-           value-str (float-str v)]
-       ;; Kinda abusing Ruby text here, but whatever...
-       [:ruby.polarity
-        [:meter {:min     min-str
-                 :max     max-str
-                 :optimum "3"
-                 :value   value-str}
-         value-str]
-        [:rt value-str]])
-
      ;; Transformations of strings ONLY from here on
      :when-let [s (not-empty (str/trim (str v)))]
 
