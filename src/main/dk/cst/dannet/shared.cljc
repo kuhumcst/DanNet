@@ -53,7 +53,8 @@
        "Abort an ongoing fetch for `url`."
        [url]
        (when-let [controller (get-in @state [:fetch url])]
-         (.abort controller)))
+         (.abort controller)
+         (clear-fetch url)))
 
      ;; Currently lambdaisland/fetch silently loses query strings, so the
      ;; `from-query-string` is needed to keep the query string intact.
