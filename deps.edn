@@ -33,8 +33,6 @@
 
            ;; For static code analysis in IntelliJ/Cursive.
            ;; Should be synced periodically with shadow-cljs.edn.
-           :frontend   {:extra-deps {thheller/shadow-cljs        {:mvn/version "2.20.6"}
-                                     binaryage/devtools          {:mvn/version "1.0.4"}
-                                     lambdaisland/fetch          {:git/url "https://github.com/kuhumcst/fetch.git"
-                                                                  :sha     "7130b9542c261001a6f40408c5d7e9f8641895aa"}
-                                     kitchen-async/kitchen-async {:mvn/version "0.1.0-SNAPSHOT"}}}}}
+           :frontend   {:extra-deps {thheller/shadow-cljs {:mvn/version "2.20.6"}
+                                     lambdaisland/fetch   {:git/url "https://github.com/kuhumcst/fetch.git"
+                                                           :sha     "7130b9542c261001a6f40408c5d7e9f8641895aa"}}}}}

@@ -3,7 +3,6 @@
   (:require #?(:clj [clojure.java.io :as io])
             #?(:clj [clojure.edn :as edn])
             #?(:cljs [cognitect.transit :as t])
-            #?(:cljs [kitchen-async.promise :as p])
             #?(:cljs [lambdaisland.fetch :as fetch])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])
@@ -66,18 +65,17 @@
        "Do a GET request for the resource at `url`, returning the response body."
        [url & [{:keys [query-params] :as opts}]]
        (abort-fetch url)                                    ; cancel existing
-       (let [from-query-string (uri/query-string->map (:query (uri/uri url)))
-             query-params'     (assoc (merge from-query-string query-params)
-                                 :transit true)
-             controller        (new js/AbortController)
-             signal            (.-signal controller)
-             opts*             (merge {:transit-json-reader reader
-                                       :signal              signal}
-                                      (assoc opts
-                                        :query-params query-params'))
-             request           (fetch/get (normalize-url url) opts*)]
+       (let [string-params (uri/query-string->map (:query (uri/uri url)))
+             query-params' (assoc (merge string-params query-params)
+                             :transit true)
+             controller    (new js/AbortController)
+             signal        (.-signal controller)
+             opts*         (merge {:transit-json-reader reader
+                                   :signal              signal}
+                                  (assoc opts
+                                    :query-params query-params'))]
          (swap! state assoc-in [:fetch url] controller)
-         request))
+         (fetch/get (normalize-url url) opts*)))
 
      (defn response->url
        [response]

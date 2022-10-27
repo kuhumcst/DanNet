@@ -4,7 +4,6 @@
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
             [reitit.frontend.history :as rfh]
-            [kitchen-async.promise :as p]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.shared :as shared])
   (:import [goog Uri]))
@@ -79,16 +78,16 @@
 
 (defn on-navigate
   [{:keys [path query-params] :as m}]
-  (p/then (shared/fetch path {:query-params query-params})
-          #(let [data           (:body %)
-                 page-component (com/page-shell (com/data->page data) data)
-                 page-title     (com/data->title data)]
-             (shared/clear-fetch path)
-             (set! js/document.title page-title)
-             (reset! location {:path path
-                               :data data})
-             (update-scroll-state! (shared/response->url %))
-             (rum/mount page-component app))))
+  (.then (shared/fetch path {:query-params query-params})
+         #(let [data           (:body %)
+                page-component (com/page-shell (com/data->page data) data)
+                page-title     (com/data->title data)]
+            (shared/clear-fetch path)
+            (set! js/document.title page-title)
+            (reset! location {:path path
+                              :data data})
+            (update-scroll-state! (shared/response->url %))
+            (rum/mount page-component app))))
 
 (defn set-up-navigation!
   []
@@ -108,9 +107,9 @@
   "The entry point of the frontend app."
   []
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
-    (p/then (shared/fetch entry-url)
-            #(let [data           (:body %)
-                   page-component (com/page-shell (com/data->page data) data)]
-               (shared/clear-fetch entry-url)
-               (rum/hydrate page-component app)
-               (set-up-navigation!)))))
+    (.then (shared/fetch entry-url)
+           #(let [data           (:body %)
+                  page-component (com/page-shell (com/data->page data) data)]
+              (shared/clear-fetch entry-url)
+              (rum/hydrate page-component app)
+              (set-up-navigation!)))))
