@@ -588,13 +588,15 @@
         lexical-form (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
         full         (keyword "cor" full-id)
         pos-abbr     (first (str/split grammar #"\."))
-        pos          (get cor-k-pos pos-abbr)]
+        pos          (get cor-k-pos pos-abbr)
+        grammar-desc (da (str "Grammatisk beskrivelse: " grammar))]
     (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
               [word :rdfs/label (da (qt lemma))]
               [word form-rel lexical-form]
 
               [lexical-form :rdf/type :ontolex/Form]
-              [lexical-form :rdfs/label grammar]
+              [lexical-form :rdfs/label (da (qt form "-form"))]
+              [lexical-form :rdfs/comment grammar-desc]
               [lexical-form :ontolex/writtenRep (da form)]}
 
       pos
