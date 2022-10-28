@@ -731,6 +731,12 @@
   (q/run graph [:bgp [bootstrap/<dn> '?p '?o]])
   (q/run graph [:bgp [bootstrap/<simongray> '?p '?o]])
 
+  ;; Find the part-of-speech classes used in Lexinfo.
+  (->> (q/run (:graph @dk.cst.dannet.web.resources/db)
+              [:bgp '[?s :rdf/type :lexinfo/PartOfSpeech]])
+       (map '?s)
+       (sort))
+
   ;; Memory measurements using clj-memory-meter, available using the :mm alias.
   ;; The JVM must be run with the JVM option '-Djdk.attach.allowAttachSelf'.
   ;; See: https://github.com/clojure-goes-fast/clj-memory-meter#usage

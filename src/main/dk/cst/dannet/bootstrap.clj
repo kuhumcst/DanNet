@@ -560,13 +560,15 @@
    "prop"         :lexinfo/properNoun
    "udråbsord"    :lexinfo/interjection
    "pron"         :lexinfo/pronoun
+   "talord"       :lexinfo/numeral
+
+   ;; Using Olia as a backup ontology instead of Lexinfo.
+   "præfiks"      :olia/Prefix
+   "lydord"       :olia/OnomatopoeticWord
 
    ;; Currently not supported, TODO: find lexinfo/wordnet equivalents
    "infinitivens" nil
    "fsubj"        nil
-   "præfiks"      nil
-   "talord"       nil
-   "lydord"       nil
    "fork"         nil
    "flerord"      nil
    "kolon"        nil})

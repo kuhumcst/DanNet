@@ -35,6 +35,8 @@
              :alt "schemas/external/lexinfo-3.0.owl"}
    'marl    {:uri "http://www.gsi.upm.es/ontologies/marl/ns#"
              :alt "schemas/external/marl.n3"}
+   'olia    {:uri "http://purl.org/olia/olia.owl#"
+             :alt "schemas/external/olia.owl"}
 
    ;; Metadata-related namespaces.
    'dcat    {:uri "http://www.w3.org/ns/dcat#"
@@ -174,7 +176,7 @@
     {"dannet"  #{'dn 'dnc 'dns}
      "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
      "meta"    #{'dc 'dc11 'vann 'cc}
-     "ontolex" #{'ontolex 'lexinfo 'marl}
+     "ontolex" #{'ontolex 'lexinfo 'marl 'olia}
      "wordnet" #{'wn}}))
 
 (defn with-prefix
