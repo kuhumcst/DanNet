@@ -7,7 +7,9 @@ resources/wordnet
 resources/db/
 resources/export/
 dannet.ttl
-ro2021-0.1.cor
+cor1.00.tsv
+# File sent by Sanni in email on 2022-05-23 (renamed).
+sense_polarities.tsv
 
 docker/neo4j/*.jar
 
@@ -20,6 +22,4 @@ package-lock.json
 package.json
 resources/public/js/compiled
 
-# File sent by Sanni in email on 2022-05-23 (renamed).
-sense_polarities.tsv
 out/

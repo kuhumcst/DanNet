@@ -539,8 +539,10 @@
 (defn- preprocess-cor-k
   "Add metadata to each row in `rows` to associate a canonical form with an ID."
   [rows]
-  (let [m {:lemma->id (update-vals (group-by second rows) ffirst)}]
-    (map #(with-meta % m) rows)))
+  (let [canonical (->> (partition-by (fn [[_ lemma]] lemma) rows)
+                       (map ffirst)
+                       (set))]
+    (map #(with-meta % {:canonical canonical}) rows)))
 
 (def cor-id
   "For splitting a COR-K id into: [id lemma-id form-id _ rep-id]."
@@ -574,16 +576,16 @@
 
   Since the format is exploded, this function produces superfluous triples.
   However, duplicate triples are automatically subsumed upon importing."
-  [[id lemma definition grammar form :as row]]
-  (let [lemma->id (:lemma->id (meta row))
-        form-rel  (if (= (lemma->id lemma) id)
-                    :ontolex/canonicalForm
-                    :ontolex/otherForm)
+  [[id lemma _ grammar form _ :as row]]
+  (let [{:keys [canonical]} (meta row)                      ; via preprocessing
+        form-rel (if (canonical id)
+                   :ontolex/canonicalForm
+                   :ontolex/otherForm)
         [id lemma-id form-id _ rep-id] (re-matches cor-id id)
-        word-id   (keyword "cor" lemma-id)
-        form-id   (keyword "cor" (str lemma-id "." form-id))
-        pos-abbr  (first (str/split grammar #"\."))
-        pos       (get cor-k-pos pos-abbr)]
+        word-id  (keyword "cor" (str "COR." lemma-id))
+        form-id  (keyword "cor" (str "COR." lemma-id "." form-id))
+        pos-abbr (first (str/split grammar #"\."))
+        pos      (get cor-k-pos pos-abbr)]
     (cond-> #{[word-id :rdf/type (form->lexical-entry lemma)]
               [word-id :rdfs/label (da (qt lemma))]
               [word-id form-rel form-id]
@@ -592,14 +594,12 @@
               [form-id :rdfs/label grammar]
               [form-id :ontolex/writtenRep (da form)]}
 
-      (not-empty definition)
-      (conj [word-id :skos/definition (da definition)])
-
       pos
       (conj [word-id :lexinfo/partOfSpeech pos])
 
-      ;; Since COR distinguishes written representations with additional IDs,
+      ;; Since COR distinguishes alternative written representations with IDs,
       ;; this comment exists to avoid losing these distinctions in the dataset.
+      ;; Alternative representations are represented with strings in Ontolex!
       rep-id
       (conj [form-id :rdfs/comment (da (str id " → " form))]))))
 
@@ -625,7 +625,7 @@
                 :separator \tab]}
 
    prefix/cor-uri
-   {:cor-k [->cor-k-triples (io/resource "cor/ro2021-0.1.cor")
+   {:cor-k [->cor-k-triples (io/resource "cor/cor1.00.tsv")
             :encoding "UTF-8"
             :separator \tab
             :preprocess preprocess-cor-k]}})

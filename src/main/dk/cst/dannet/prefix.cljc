@@ -19,7 +19,7 @@
              :alt "schemas/external/rdfs.ttl"}
    'owl     {:uri "http://www.w3.org/2002/07/owl#"
              :alt "schemas/external/owl.ttl"}
-   'wn      {:uri "https://globalwordnet.github.io/schemas/wn#"
+   'wn      {:uri "https://globalwordnet.github.io/schemas/wn#" ; https official
              :alt "schemas/external/wn-lemon-1.2.ttl"}
    'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"
              :alt "schemas/external/svs.xml"}
@@ -50,8 +50,8 @@
    'cc      {:uri "http://creativecommons.org/ns#"
              :alt "schemas/external/cc.rdf"}
 
-   ;; The COR namespace (unofficial) TODO
-   'cor     {:uri    "http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#"
+   ;; The COR namespace
+   'cor     {:uri    "http://ordregister.dk/id/"
              :export #{'dn 'cor
                        'rdf 'rdfs 'owl
                        'ontolex 'skos 'lexinfo}}
