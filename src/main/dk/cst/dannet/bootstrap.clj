@@ -115,6 +115,10 @@
   [id]
   (keyword "dn" (str "sense-" id)))
 
+(defn cor-uri
+  [& parts]
+  (keyword "cor" (str/join "." (remove nil? parts))))
+
 (def brug
   #"\s*\(Brug: \"(.+)\"\)")
 
@@ -548,7 +552,7 @@
 
 (def cor-id
   "For splitting a COR-compatible id into: [id lemma-id form-id rep-id]."
-  #"([^\d]+)\.([^\.]+)(?:\.([^\.]+))?(?:\.([^\.]+))?")
+  #"COR\.(?:([^\d]+)\.)?([^\.]+)(?:\.([^\.]+))?(?:\.([^\.]+))?")
 
 (def cor-k-pos
   {"sb"           :lexinfo/noun
@@ -585,10 +589,10 @@
         form-rel     (if (canonical id)
                        :ontolex/canonicalForm
                        :ontolex/otherForm)
-        [full-id cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
-        word         (keyword "cor" (str/join "." [cor-ns lemma-id]))
-        lexical-form (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
-        full         (keyword "cor" full-id)
+        [_ cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
+        full         (cor-uri cor-ns lemma-id form-id rep-id)
+        lexical-form (cor-uri cor-ns lemma-id form-id)
+        word         (cor-uri cor-ns lemma-id)
         pos-abbr     (first (str/split grammar #"\."))
         pos          (get cor-k-pos pos-abbr)
         grammar-desc (da (str "Grammatisk beskrivelse: " grammar))]
@@ -621,7 +625,7 @@
 (defn ->cor-link-triples
   [[id word-id sense-id :as row]]
   (let [[_ cor-ns lemma-id _ _] (re-matches cor-id id)
-        cor-word (keyword "cor" (str/join "." [cor-ns lemma-id]))
+        cor-word (cor-uri cor-ns lemma-id)
         dn-word  (word-uri word-id)
         dn-sense (sense-uri sense-id)]
     #{[cor-word :owl/sameAs dn-word]

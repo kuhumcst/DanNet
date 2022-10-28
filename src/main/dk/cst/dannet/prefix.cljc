@@ -53,7 +53,7 @@
              :alt "schemas/external/cc.rdf"}
 
    ;; The COR namespace
-   'cor     {:uri    "http://ordregister.dk/id/"
+   'cor     {:uri    "http://ordregister.dk/id/COR."
              :export #{'dn 'cor
                        'rdf 'rdfs 'owl
                        'ontolex 'skos 'lexinfo}}
