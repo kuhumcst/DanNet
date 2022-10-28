@@ -22,6 +22,7 @@
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.util Date]))
 
+;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
 (defn da
@@ -577,7 +578,7 @@
 
   Since the format is exploded, this function produces superfluous triples.
   However, duplicate triples are automatically subsumed upon importing."
-  [[id lemma _ grammar form _ :as row]]
+  [[id lemma comment grammar form _ :as row]]
   (let [{:keys [canonical]} (meta row)                      ; via preprocessing
         form-rel     (if (canonical id)
                        :ontolex/canonicalForm
@@ -585,6 +586,7 @@
         [full-id cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
         word         (keyword "cor" (str/join "." [cor-ns lemma-id]))
         lexical-form (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
+        full         (keyword "cor" full-id)
         pos-abbr     (first (str/split grammar #"\."))
         pos          (get cor-k-pos pos-abbr)]
     (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
@@ -598,15 +600,19 @@
       pos
       (conj [word :lexinfo/partOfSpeech pos])
 
+      (not-empty comment)
+      (conj [word :rdfs/comment (da comment)])
+
+      ;; TODO: find a more suitable relation than rdfs:seeAlso...?
       ;; Since COR distinguishes alternative written representations with IDs,
-      ;; this comment exists to avoid losing these distinctions in the dataset.
+      ;; this relation exists to avoid losing these distinctions in the dataset.
       ;; Alternative representations are represented with strings in Ontolex!
       rep-id
-      (conj [lexical-form :rdfs/comment (da (str full-id " → " form))]))))
+      (conj [lexical-form :rdfs/seeAlso full]))))
 
 (defn ->cor-ext-triples
-  [[id lemma _ _ _ _ grammar form :as row]]
-  (->cor-k-triples (with-meta [id lemma nil grammar form] (meta row))))
+  [[id lemma comment _ _ _ grammar form :as row]]
+  (->cor-k-triples (with-meta [id lemma comment grammar form] (meta row))))
 
 (defn ->cor-link-triples
   [[id word-id sense-id :as row]]
