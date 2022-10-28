@@ -536,8 +536,9 @@
           [_sense-opinion :marl/polarityValue (get pol-val sense-pol 0)]
           [_sense-opinion :marl/hasPolarity (pol-class sense-pol)]}))))
 
-(defn- preprocess-cor-k
-  "Add metadata to each row in `rows` to associate a canonical form with an ID."
+(defn- preprocess-cor
+  "Add metadata to each row in `rows` to associate a canonical form with an ID.
+  Relies on the lemma in the second column and the first form being canonical."
   [rows]
   (let [canonical (->> (partition-by (fn [[_ lemma]] lemma) rows)
                        (map ffirst)
@@ -545,8 +546,8 @@
     (map #(with-meta % {:canonical canonical}) rows)))
 
 (def cor-id
-  "For splitting a COR-K id into: [id lemma-id form-id _ rep-id]."
-  #"COR\.([^\.]+)\.([^\.]+)(\.([^\.]+))?")
+  "For splitting a COR-compatible id into: [id lemma-id form-id rep-id]."
+  #"([^\d]+)\.([^\.]+)(?:\.([^\.]+))?(?:\.([^\.]+))?")
 
 (def cor-k-pos
   {"sb"           :lexinfo/noun
@@ -581,9 +582,9 @@
         form-rel (if (canonical id)
                    :ontolex/canonicalForm
                    :ontolex/otherForm)
-        [id lemma-id form-id _ rep-id] (re-matches cor-id id)
-        word-id  (keyword "cor" (str "COR." lemma-id))
-        form-id  (keyword "cor" (str "COR." lemma-id "." form-id))
+        [full-id cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
+        word-id  (keyword "cor" (str/join "." [cor-ns lemma-id]))
+        form-id  (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
         pos-abbr (first (str/split grammar #"\."))
         pos      (get cor-k-pos pos-abbr)]
     (cond-> #{[word-id :rdf/type (form->lexical-entry lemma)]
@@ -601,7 +602,11 @@
       ;; this comment exists to avoid losing these distinctions in the dataset.
       ;; Alternative representations are represented with strings in Ontolex!
       rep-id
-      (conj [form-id :rdfs/comment (da (str id " → " form))]))))
+      (conj [form-id :rdfs/comment (da (str full-id " → " form))]))))
+
+(defn ->cor-ext-triples
+  [[id lemma _ _ _ _ grammar form :as row]]
+  (->cor-k-triples (with-meta [id lemma nil grammar form] (meta row))))
 
 ;; TODO: encoding broken in dannet 2.5
 ;;       e.g. http://localhost:3456/dannet/data/word-11021693
@@ -625,10 +630,14 @@
                 :separator \tab]}
 
    prefix/cor-uri
-   {:cor-k [->cor-k-triples (io/resource "cor/cor1.00.tsv")
-            :encoding "UTF-8"
-            :separator \tab
-            :preprocess preprocess-cor-k]}})
+   {:cor-k   [->cor-k-triples (io/resource "cor/cor1.00.tsv")
+              :encoding "UTF-8"
+              :separator \tab
+              :preprocess preprocess-cor]
+    :cor-ext [->cor-ext-triples (io/resource "cor/corext1.0.tsv")
+              :encoding "UTF-8"
+              :separator \tab
+              :preprocess preprocess-cor]}})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
@@ -654,6 +663,10 @@
 
   ;; Example COR-K triples
   (->> (read-triples (get-in imports [prefix/cor-uri :cor-k]))
+       (take 10))
+
+  ;; Example COR.EXT triples
+  (->> (read-triples (get-in imports [prefix/cor-uri :cor-ext]))
        (take 10))
 
   ;; Find facets, i.e. ontologicalType
@@ -688,6 +701,12 @@
     (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
          (filter (comp (partial = rel) second first))
          (into #{})))
+
+  ;; Test COR regex
+  (re-matches cor-id "COR.00010")
+  (re-matches cor-id "COR.00010.800")
+  (re-matches cor-id "COR.00010.880.01")
+  (re-matches cor-id "COR.EXT.100099.123.01")
 
   ;; Edge cases while cleaning synset labels
   (rewrite-synset-label "{45-knallert; EU-knallert}")

@@ -8,6 +8,7 @@ resources/db/
 resources/export/
 dannet.ttl
 cor1.00.tsv
+corext1.0.tsv
 # File sent by Sanni in email on 2022-05-23 (renamed).
 sense_polarities.tsv
 
