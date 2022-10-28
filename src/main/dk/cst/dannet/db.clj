@@ -272,20 +272,6 @@
       (txn/transact-exec senti-graph
         (aristotle/add senti-graph triples)))
 
-    ;; Equivalence relations between DanNet and COR-K words are established.
-    (let [sameas-triples (->> (q/run union-graph op/word-clones)
-                              (filter (fn [{:syms [?w1 ?w2]}]
-                                        (and (= "dn" (namespace ?w1))
-                                             (= "cor" (namespace ?w2)))))
-                              ;; TODO: infer instead of having two triples?
-                              (mapcat (fn [{:syms [?w1 ?w2]}]
-                                        [[?w1 :owl/sameAs ?w2]
-                                         [?w2 :owl/sameAs ?w1]]))
-                              (doall))]
-      (println "Add owl:sameAs relations to COR dataset...")
-      (txn/transact-exec cor-graph
-        (aristotle/add cor-graph sameas-triples)))
-
     (println "----")
     (println "DanNet bootstrap done!")
 

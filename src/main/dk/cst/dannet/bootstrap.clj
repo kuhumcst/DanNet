@@ -579,34 +579,44 @@
   However, duplicate triples are automatically subsumed upon importing."
   [[id lemma _ grammar form _ :as row]]
   (let [{:keys [canonical]} (meta row)                      ; via preprocessing
-        form-rel (if (canonical id)
-                   :ontolex/canonicalForm
-                   :ontolex/otherForm)
+        form-rel     (if (canonical id)
+                       :ontolex/canonicalForm
+                       :ontolex/otherForm)
         [full-id cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
-        word-id  (keyword "cor" (str/join "." [cor-ns lemma-id]))
-        form-id  (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
-        pos-abbr (first (str/split grammar #"\."))
-        pos      (get cor-k-pos pos-abbr)]
-    (cond-> #{[word-id :rdf/type (form->lexical-entry lemma)]
-              [word-id :rdfs/label (da (qt lemma))]
-              [word-id form-rel form-id]
+        word         (keyword "cor" (str/join "." [cor-ns lemma-id]))
+        lexical-form (keyword "cor" (str/join "." [cor-ns lemma-id form-id]))
+        pos-abbr     (first (str/split grammar #"\."))
+        pos          (get cor-k-pos pos-abbr)]
+    (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
+              [word :rdfs/label (da (qt lemma))]
+              [word form-rel lexical-form]
 
-              [form-id :rdf/type :ontolex/Form]
-              [form-id :rdfs/label grammar]
-              [form-id :ontolex/writtenRep (da form)]}
+              [lexical-form :rdf/type :ontolex/Form]
+              [lexical-form :rdfs/label grammar]
+              [lexical-form :ontolex/writtenRep (da form)]}
 
       pos
-      (conj [word-id :lexinfo/partOfSpeech pos])
+      (conj [word :lexinfo/partOfSpeech pos])
 
       ;; Since COR distinguishes alternative written representations with IDs,
       ;; this comment exists to avoid losing these distinctions in the dataset.
       ;; Alternative representations are represented with strings in Ontolex!
       rep-id
-      (conj [form-id :rdfs/comment (da (str full-id " → " form))]))))
+      (conj [lexical-form :rdfs/comment (da (str full-id " → " form))]))))
 
 (defn ->cor-ext-triples
   [[id lemma _ _ _ _ grammar form :as row]]
   (->cor-k-triples (with-meta [id lemma nil grammar form] (meta row))))
+
+(defn ->cor-link-triples
+  [[id word-id sense-id :as row]]
+  (let [[_ cor-ns lemma-id _ _] (re-matches cor-id id)
+        cor-word (keyword "cor" (str/join "." [cor-ns lemma-id]))
+        dn-word  (word-uri word-id)
+        dn-sense (sense-uri sense-id)]
+    #{[cor-word :owl/sameAs dn-word]
+      [dn-word :owl/sameAs cor-word]
+      [cor-word :ontolex/sense dn-sense]}))
 
 ;; TODO: encoding broken in dannet 2.5
 ;;       e.g. http://localhost:3456/dannet/data/word-11021693
@@ -630,14 +640,22 @@
                 :separator \tab]}
 
    prefix/cor-uri
-   {:cor-k   [->cor-k-triples (io/resource "cor/cor1.00.tsv")
-              :encoding "UTF-8"
-              :separator \tab
-              :preprocess preprocess-cor]
-    :cor-ext [->cor-ext-triples (io/resource "cor/corext1.0.tsv")
-              :encoding "UTF-8"
-              :separator \tab
-              :preprocess preprocess-cor]}})
+   {:cor-k        [->cor-k-triples (io/resource "cor/cor1.00.tsv")
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess preprocess-cor]
+    :cor-ext      [->cor-ext-triples (io/resource "cor/corext1.0.tsv")
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess preprocess-cor]
+    :cor-k-link   [->cor-link-triples (io/resource "cor/ddo_bet_corlink.csv")
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess rest]
+    :cor-ext-link [->cor-link-triples (io/resource "cor/ddo_bet_corextlink.csv")
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess rest]}})
 
 (defn read-triples
   "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
@@ -667,6 +685,10 @@
 
   ;; Example COR.EXT triples
   (->> (read-triples (get-in imports [prefix/cor-uri :cor-ext]))
+       (take 10))
+
+  ;; Example COR link triples
+  (->> (read-triples (get-in imports [prefix/cor-uri :cor-k-link]))
        (take 10))
 
   ;; Find facets, i.e. ontologicalType
