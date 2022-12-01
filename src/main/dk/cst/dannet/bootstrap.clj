@@ -55,10 +55,10 @@
   #{[<dns> :rdf/type :owl/Ontology]
     [<dns> :vann/preferredNamespacePrefix "dns"]
     [<dns> :vann/preferredNamespaceUri (prefix/prefix->uri 'dns)]
-    [<dns> :dc/title #lstr "DanNet schema@en"]
-    [<dns> :dc/title #lstr "DanNet-skema@da"]
-    [<dns> :dc/description #lstr "Schema for DanNet-specific relations.@en"]
-    [<dns> :dc/description #lstr "Skema for DanNet-specifikke relationer.@da"]
+    [<dns> :dc/title #voc/lstr "DanNet schema@en"]
+    [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
+    [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
+    [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
     [<dns> :dc/issued #inst "2022-07-01"]                   ;TODO
     [<dns> :dc/modified (new Date)]
     [<dns> :dc/contributor <simongray>]
@@ -69,10 +69,10 @@
     [<dnc> :rdf/type :owl/Ontology]
     [<dnc> :vann/preferredNamespacePrefix "dnc"]
     [<dnc> :vann/preferredNamespaceUri (prefix/prefix->uri 'dnc)]
-    [<dnc> :dc/title #lstr "DanNet concepts@en"]
-    [<dnc> :dc/title #lstr "DanNet-koncepter@da"]
-    [<dnc> :dc/description #lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
-    [<dnc> :dc/description #lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
+    [<dnc> :dc/title #voc/lstr "DanNet concepts@en"]
+    [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
+    [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
+    [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
     [<dnc> :dc/issued #inst "2022-07-01"]                   ;TODO
     [<dnc> :dc/modified (new Date)]
     [<dnc> :dc/contributor <simongray>]
@@ -84,8 +84,8 @@
     [<dn> :vann/preferredNamespacePrefix "dn"]
     [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
     [<dn> :dc/title "DanNet"]
-    [<dn> :dc/description #lstr "The Danish WordNet.@en"]
-    [<dn> :dc/description #lstr "Det danske WordNet.@da"]
+    [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
+    [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
     [<dn> :dc/issued #inst "2022-07-01"]                    ;TODO
     [<dn> :dc/modified (new Date)]
     [<dn> :dc/contributor <simongray>]
@@ -95,7 +95,7 @@
 
     ;; TODO: also make dc:rights for dns and dnc
     ;; TODO: should be dct:RightsStatement
-    [<dn> :dc/rights #lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
+    [<dn> :dc/rights #voc/lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
     ;; TODO: should be dct:LicenseDocument
     [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
 

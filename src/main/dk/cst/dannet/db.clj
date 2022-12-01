@@ -698,7 +698,7 @@
   ;; Test inference of :ontolex/isEvokedBy.
   (q/run graph
          '[:bgp
-           [?form :ontolex/writtenRep #lstr"vand@da"]
+           [?form :ontolex/writtenRep #voc/lstr"vand@da"]
            [?word :ontolex/canonicalForm ?form]
            [?synset :ontolex/isEvokedBy ?word]])
 
