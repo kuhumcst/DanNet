@@ -3,7 +3,8 @@
   (:require [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [dk.cst.dannet.web.resources :as res]
-            [dk.cst.dannet.shared :as shared]))
+            [dk.cst.dannet.shared :as shared])
+  (:gen-class))
 
 (defonce server (atom nil))
 (defonce conf (atom {}))                                    ;TODO: use?

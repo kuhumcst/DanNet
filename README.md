@@ -91,17 +91,41 @@ This new version of DanNet is bootstrapped from the so-called CSV export of the 
 * [dk.cst.dannet.bootstrap](/src/main/dk/cst/dannet/bootstrap.clj): the raw data from the previous version of DanNet is loaded into memory, cleaned up, and converted into triple data structures using the new RDF schema structure.
 * [dk.cst.dannet.db](/src/main/dk/cst/dannet/db.clj): these triples are imported into an Apache Jena graph. Additional triples are either inferred through OWL schemas or added programmatically via queries.
 
-Finally, on the final run of this bootstrap process, the graph is exported into an RDF dataset. This dataset constitutes the new official version of DanNet
+Finally, on the final run of this bootstrap process, the graph is exported into an RDF dataset. This dataset constitutes the new official version of DanNet.
+
+> NOTE: the data used for bootstrapping should be located inside the `./boostrap` subdirectory (relative to the execution directory).
 
 Setup
 -----
 The code is all written in Clojure and it must be compiled to Java Bytecode and run inside a Java Virtual Machine (JVM). The primary means to do this is Clojure's [official CLI tools](https://clojure.org/guides/deps_and_cli) which can both fetch dependencies and build/run Clojure code. The project dependencies are specified in the [deps.edn file](deps.edn).
 
+### Testing a release build
+While developing, ideally you should be running code in a Clojure REPL.
+
+However, when testing release you can either run the docker compose setup from inside the `./docker` directory using the following command:
+
+```shell
+docker compose up --build
+```
+
+> NOTE: requires that the Docker daemon is installed and running!
+
+Or you may build and run a new release manually from this directory:
+
+```shell
+shadow-cljs --aliases :frontend release app
+clojure -T:build org.corfield.build/uber :lib dk.cst/dannet :main dk.cst.dannet.web.service :uber-file "\"dannet.jar\""
+java -jar -Xmx4g dannet.jar
+```
+
+> NOTE: requires that Java, Clojure, and shadow-cljs are all installed.
+
+By default, the web service is accessed on `localhost:3456`. The data is loaded into a TDB2 database located in the `./db/tdb2` directory.
+
 ### Resource dependencies
 This project assumes that the [ZIP-files containing DanNet 2.2](https://cst.ku.dk/english/projects/dannet/) have been downloaded in advance and extracted into a subdirectory called "resources":
 
-- `resources/dannet/csv`: contains the old DanNet CSV file export. These are used to bootstrap the initial dataset. Eventually, this bootstrap code will be made obsolete by the release of new the DanNet dataset.
-- `resources/dannet/rdf`: contains the old DanNet RDF/RDFS/OWL file export. These are only used for the initial prototypes.
+- `bootstrap/dannet/csv`: contains the old DanNet CSV file export. These are used to bootstrap the initial dataset. Eventually, this bootstrap code will be made obsolete by the release of new the DanNet dataset.
 
 In addition, for some of the prototype code, [version 2.0 of the Princeton WordNet](https://wordnet.princeton.edu/download/old-versions) is also needed:
 

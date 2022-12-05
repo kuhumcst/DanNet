@@ -33,8 +33,10 @@
 ;;       http://localhost:3456/dannet/data/synset-57570
 
 (defonce db
-  (future
+  (delay
     (db/->dannet
+      :db-type :tdb2
+      :db-path "db/tdb2"
       :bootstrap-imports bootstrap/imports
       :schema-uris db/schema-uris)))
 
@@ -277,7 +279,7 @@
 ;; TODO: ... include COR writtenRep too? Other labels?
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
 (defonce search-trie
-  (future
+  (delay
     (let [g     (db/get-graph (:dataset @db) prefix/dn-uri)
           words (q/run g '[?writtenRep] op/written-representations)]
       (println "Building trie for search autocompletion...")

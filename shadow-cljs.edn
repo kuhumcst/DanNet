@@ -1,5 +1,4 @@
-{:source-paths ["src/main" "src/dev"]
- :deps         {:aliases [:frontend]}
+{:deps         {:aliases [:frontend]}
  :dev-http     {7777 {:root    "resources/public"
                       :handler user/shadow-handler}}
  :builds       {:app  {:target            :browser

@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+
+  dannet:
+    build:
+      # need to include files from parent dir (see Dockerfile)
+      context: ../
+      dockerfile: docker/dannet/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${DANNET_DB}:/etc/dannet/db
+      - ${DANNET_CSV_INPUT}:/etc/dannet/bootstrap/dannet/csv
+      - ${DANNET_OTHER_INPUT}:/etc/dannet/bootstrap/other
+    ports:
+      - 3456:3456

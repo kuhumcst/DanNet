@@ -15,6 +15,7 @@
   (:require [clojure.set :as set]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [clojure.data.csv :as csv]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
@@ -24,6 +25,59 @@
 
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
+
+;; Via jpmonettas: https://clojurians.slack.com/archives/C03S1KBA2/p1670838328124429
+;; Copy-pasted from: https://github.com/jpmonettas/hansel/blob/master/src/hansel/instrument/forms.clj#L829-L865
+(defn normalize-gensyms
+  "When the reader reads things like #(+ % %) it uses a global id to generate symbols,
+  so everytime will read something different, like :
+  (fn* [p1__37935#] (+ p1__37935# p1__37935#))
+  (fn* [p1__37939#] (+ p1__37939# p1__37939#))
+  Normalize symbol can be applied to generate things like :
+  (fn* [p__0] (+ p__0 p__0)).
+  Useful for generating stable form hashes."
+  [form]
+  (let [psym->id (atom {})
+        gensym?  (fn [x]
+                   (and (symbol? x)
+                        (re-matches #"^p([\d])__([\d]+)#$" (name x))))
+        normal   (fn [psym]
+                   (let [ids    @psym->id
+                         nsymid (if-let [id (get ids psym)]
+                                  id
+
+                                  (if (empty? ids)
+                                    0
+                                    (inc (apply max (vals ids)))))]
+
+                     (swap! psym->id assoc psym nsymid)
+
+                     (symbol (str "p__" nsymid))))]
+    (walk/postwalk
+      (fn [x]
+        (if (gensym? x)
+          (normal x)
+          x))
+      form)))
+
+(defn hash-form
+  "Ensure that the sequential `form` coll hashes the same across restarts."
+  [form]
+  (hash (mapv str (normalize-gensyms form))))
+
+(defmacro def-hashed
+  "A regular def macro that hashes its own body and attaches this to :hash."
+  [& [name :as args]]
+  `(do
+     (def ~@args)
+     (alter-meta! #'~name assoc :hash (hash-form (quote ~args)))))
+
+(defmacro defn-hashed
+  "A regular defn macro that hashes its own body and attaches this to :hash."
+  [& [name :as args]]
+  `(do
+     (defn ~@args)
+     (alter-meta! #'~name assoc :hash (hash-form (quote ~args)))))
 
 (defn da
   [s]
@@ -48,7 +102,7 @@
   "The RDF resource URI for the DanNet/EuroWordNet concepts."
   (prefix/prefix->rdf-resource 'dnc))
 
-(def metadata-triples
+(def-hashed metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
   the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
@@ -59,7 +113,7 @@
     [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
     [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
     [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
-    [<dns> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dns> :dc/issued #inst "2022-12-23"]
     [<dns> :dc/modified (new Date)]
     [<dns> :dc/contributor <simongray>]
     [<dns> :dc/publisher <cst>]
@@ -220,7 +274,7 @@
           token
           (recur tokens))))))
 
-(defn examples
+(defn-hashed examples
   "Convert a `row` from 'synsets.csv' to example key-value pairs."
   [[synset-id label gloss _ :as row]]
   (when-let [[_ example-str] (re-find brug gloss)]
@@ -352,7 +406,7 @@
       (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
            (explode-ontological-type synset)))))
 
-(defn ->synset-triples
+(defn-hashed ->synset-triples
   "Convert a `row` from 'synsets.csv' to triples."
   [[synset-id label gloss ontological-type :as row]]
   (if (= synset-id "8715")
@@ -387,7 +441,7 @@
         [inherit :dns/inheritedFrom from]
         [inherit :dns/inheritedRelation rel]})))
 
-(defn ->relation-triples
+(defn-hashed ->relation-triples
   "Convert a `row` from 'relations.csv' to triples.
 
   Note: certain rows are unmapped, so the relation will remain a string!"
@@ -436,7 +490,7 @@
   (apply str "\"" s "\"" after))
 
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
-(defn ->word-triples
+(defn-hashed ->word-triples
   "Convert a `row` from 'words.csv' to triples."
   [[word-id form pos _ :as row]]
   (when (and (= (count row) 4)
@@ -483,7 +537,7 @@
       (re-find #"slang" register)
       (conj [sense :lexinfo/register :lexinfo/slangRegister]))))
 
-(defn ->sense-triples
+(defn-hashed ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[sense-id word-id synset-id register _ :as row]]
   (when (and (= (count row) 5)
@@ -519,7 +573,7 @@
     (get #{"n" "nx" "nxx"} pol) :marl/Negative
     :else :marl/Neutral))
 
-(defn ->sentiment-triples
+(defn-hashed ->sentiment-triples
   "Convert a `row` from 'sense_polarities.tsv' to Opinion triples.
 
   In ~2000 cases a sense-id will be missing (it has the same ID as the word-id).
@@ -578,7 +632,7 @@
    "kolon"        nil})
 
 ;; http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#
-(defn ->cor-k-triples
+(defn-hashed ->cor-k-triples
   "Convert a `row` from the COR-K ID file to triples; assumes that the
   rows have been preprocessed by 'preprocess-cor-k' beforehand.
 
@@ -618,11 +672,11 @@
       rep-id
       (conj [lexical-form :rdfs/seeAlso full]))))
 
-(defn ->cor-ext-triples
+(defn-hashed ->cor-ext-triples
   [[id lemma comment _ _ _ grammar form :as row]]
   (->cor-k-triples (with-meta [id lemma comment grammar form] (meta row))))
 
-(defn ->cor-link-triples
+(defn-hashed ->cor-link-triples
   [[id word-id sense-id :as row]]
   (let [[_ cor-ns lemma-id _ _] (re-matches cor-id id)
         cor-word (cor-uri cor-ns lemma-id)
@@ -636,37 +690,37 @@
 ;;       e.g. http://localhost:3456/dannet/data/word-11021693
 (def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples (io/resource "dannet/csv/synsets.csv")]
-    :relations [->relation-triples (io/resource "dannet/csv/relations.csv")]
-    :words     [->word-triples (io/resource "dannet/csv/words.csv")]
-    :senses    [->sense-triples (io/resource "dannet/csv/wordsenses.csv")]
+   {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"]
+    :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"]
+    :words     [->word-triples "bootstrap/dannet/csv/words.csv"]
+    :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"]
     :metadata  [nil metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
-    :examples  [examples (io/resource "dannet/csv/synsets.csv")]}
+    :examples  [examples "bootstrap/dannet/csv/synsets.csv"]}
 
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/senti-uri
    {:sentiment [->sentiment-triples
-                (io/resource "sense_polarities.tsv")
+                "bootstrap/other/sentiment/sense_polarities.tsv"
                 :encoding "UTF-8"
                 :separator \tab]}
 
    prefix/cor-uri
-   {:cor-k        [->cor-k-triples (io/resource "cor/cor1.02.tsv")
+   {:cor-k        [->cor-k-triples "bootstrap/other/cor/cor1.02.tsv"
                    :encoding "UTF-8"
                    :separator \tab
                    :preprocess preprocess-cor]
-    :cor-ext      [->cor-ext-triples (io/resource "cor/corext1.0.tsv")
+    :cor-ext      [->cor-ext-triples "bootstrap/other/cor/corext1.0.tsv"
                    :encoding "UTF-8"
                    :separator \tab
                    :preprocess preprocess-cor]
-    :cor-k-link   [->cor-link-triples (io/resource "cor/ddo_bet_corlink.csv")
+    :cor-k-link   [->cor-link-triples "bootstrap/other/cor/ddo_bet_corlink.csv"
                    :encoding "UTF-8"
                    :separator \tab
                    :preprocess rest]
-    :cor-ext-link [->cor-link-triples (io/resource "cor/ddo_bet_corextlink.csv")
+    :cor-ext-link [->cor-link-triples "bootstrap/other/cor/ddo_bet_corextlink.csv"
                    :encoding "UTF-8"
                    :separator \tab
                    :preprocess rest]}})
@@ -683,6 +737,21 @@
            (preprocess)
            (map row->triples)
            (doall)))))
+
+(def hashes
+  "A set of the hashes of the relevant bootstrap functions."
+  (->> [#'->synset-triples
+        #'->relation-triples
+        #'->word-triples
+        #'->sense-triples
+        #'metadata-triples
+        #'examples
+        #'->sentiment-triples
+        #'->cor-k-triples
+        #'->cor-ext-triples
+        #'->cor-link-triples]
+       (map (comp :hash meta))
+       (set)))
 
 (comment
   ;; Example sentiment triples
@@ -771,8 +840,8 @@
   ;; Error output for Nicolai.
   ;; The words.csv content differs somewhat between the new export and 2.2.
   (let [line->word-id (fn [[word-id]] word-id)
-        words-25-res  (io/resource "dannet/csv/words.csv")
-        words-22-res  (io/resource "dannet/csv22/words.csv")
+        words-25-res  "bootstrap/dannet/csv/words.csv"
+        words-22-res  "bootstrap/dannet/csv22/words.csv"
         words-25      (set (read-triples [line->word-id words-25-res]))
         words-22      (set (read-triples [line->word-id words-22-res]))
         missing-in-25 (set/difference words-22 words-25)

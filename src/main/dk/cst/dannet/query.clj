@@ -92,7 +92,7 @@
   "Return the raw entity query result for `subject` in `g` (no inference)."
   [^FBRuleInfGraph g subject]
   (->> [(.getSchemaGraph g) (.getRawGraph g)]
-       (pmap #(q/run % op/entity {'?s subject}))
+       (pmap #(run % op/entity {'?s subject}))
        (apply concat)))
 
 (defn inferred-entity
@@ -106,7 +106,7 @@
 (defn entity
   "Return the entity description of `subject` in Graph `g`."
   [g subject]
-  (when-let [result (q/run g op/entity {'?s subject})]
+  (when-let [result (run g op/entity {'?s subject})]
     (with-meta (navigable-entity g result)
                (assoc (nav-meta g)
                  :inferred (inferred-entity result (find-raw g subject))
@@ -117,9 +117,9 @@
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
   [g subject predicate]
   (when (and subject predicate)
-    (->> (q/run g ['?p '?o] [:bgp
-                             [subject predicate '?blank]
-                             '[?blank ?p ?o]])
+    (->> (run g ['?p '?o] [:bgp
+                           [subject predicate '?blank]
+                           '[?blank ?p ?o]])
          (map (fn [[p o]] {p #{o}}))
          (apply merge-with into))))
 

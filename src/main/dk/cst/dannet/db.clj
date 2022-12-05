@@ -15,7 +15,7 @@
             [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.bootstrap :as bootstrap :refer [defn-hashed]]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.transaction :as txn])
@@ -24,7 +24,10 @@
            [org.apache.jena.tdb2 TDB2Factory]
            [org.apache.jena.rdf.model ModelFactory Model Statement]
            [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]))
+           [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
+           [java.time LocalDateTime]
+           [java.time.format DateTimeFormatter]
+           [java.io File]))
 
 ;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
 ;; TODO: duplicates? http://localhost:3456/dannet/data/synset-29293
@@ -38,7 +41,7 @@
              (if (or (str/starts-with? alt "http://")
                      (str/starts-with? alt "https://"))
                alt
-               (str (io/resource alt)))
+               (io/resource alt))
              uri)))
        (filter some?)))
 
@@ -46,16 +49,21 @@
 (defn ->schema-model
   "Create a Model containing the schemas found at the given `uris`."
   [uris]
-  (reduce (fn [model ^String schema-uri]
-            (cond
-              (str/ends-with? schema-uri ".ttl")
-              (.read model schema-uri "TURTLE")
+  (reduce (fn [^Model model schema-uri]
+            ;; Using an InputStream will ensure that the URI can be an internal
+            ;; resource of a JAR file. If the input is instead a string, Jena
+            ;; attempts to load it as a File which JAR file resources cannot be.
+            (let [s  (str schema-uri)
+                  in (io/input-stream schema-uri)]
+              (cond
+                (str/ends-with? s ".ttl")
+                (.read model in nil "TURTLE")
 
-              (str/ends-with? schema-uri ".n3")
-              (.read model schema-uri "N3")
+                (str/ends-with? s ".n3")
+                (.read model in nil "N3")
 
-              :else
-              (.read model schema-uri "RDF/XML")))
+                :else
+                (.read model in nil "RDF/XML"))))
           (ModelFactory/createDefaultModel)
           uris))
 
@@ -167,17 +175,18 @@
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
-  (if (.containsNamedModel dataset model-uri)
-    (.getNamedModel dataset model-uri)
-    (-> (.addNamedModel dataset model-uri (ModelFactory/createDefaultModel))
-        (.getNamedModel model-uri))))
+  (txn/transact dataset
+    (if (.containsNamedModel dataset model-uri)
+      (.getNamedModel dataset model-uri)
+      (-> (.addNamedModel dataset model-uri (ModelFactory/createDefaultModel))
+          (.getNamedModel model-uri)))))
 
 (defn get-graph
   "Idempotently get the graph in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
   (.getGraph (get-model dataset model-uri)))
 
-(defn add-bootstrap-import!
+(defn-hashed add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
@@ -286,8 +295,34 @@
     :in-mem (DatasetFactory/create)
     :in-mem-txn (DatasetFactory/createTxnMem)))
 
+(defn- bootstrap-files
+  "Collect all bootstrap files found in `bootstrap-imports`."
+  [bootstrap-imports]
+  (let [files     (atom #{})
+        add-file! (fn [x]
+                    (when (and (string? x)
+                               (str/starts-with? x "bootstrap/"))
+                      (swap! files conj (io/file x))))]
+    (clojure.walk/postwalk add-file! bootstrap-imports)
+    @files))
+
+(defn- log-entry
+  [full-db-path files]
+  (let [now       (LocalDateTime/now)
+        formatter (DateTimeFormatter/ofPattern "yyyy/MM/dd HH:mm:ss")
+        filenames (sort (map #(.getName ^File %) files))]
+    (str
+      "Location: " full-db-path "\n"
+      "Created: " (.format now formatter) "\n"
+      "Input data: " (str/join ", " filenames))))
+
+(defn- pos-hash
+  "Undo potentially negative number by bit-shifting when hashing `x`."
+  [x]
+  (unsigned-bit-shift-right (hash x) 1))
+
 (defn ->dannet
-  "Create a Jena Graph from DanNet 2.2 imports based on the options:
+  "Create a Jena Dataset from DanNet 2.2 imports based on the options:
 
     :bootstrap-imports - DanNet CSV imports (kvs of ->triple fns + table data).
     :db-type           - :tdb1, :tdb2, :in-mem, and :in-mem-txn are supported
@@ -296,16 +331,31 @@
 
    TDB 1 does not require transactions until after the first transaction has
    taken place, while TDB 2 *always* requires transactions when reading from or
-   writing to the database.
-
-  The returned graph uses the GWA relations within the framework of Ontolex."
+   writing to the database."
   [& {:keys [bootstrap-imports db-path db-type schema-uris]
       :or   {db-type :in-mem} :as opts}]
-  (let [dataset (->dataset db-type db-path)]
+  (let [files          (bootstrap-files bootstrap-imports)
+        fn-hashes      (conj bootstrap/hashes
+                             (:hash (meta #'add-bootstrap-import!)))
+        ;; Undo potentially negative number by bit-shifting.
+        files-hash     (pos-hash files)
+        bootstrap-hash (pos-hash fn-hashes)
+        db-name        (str files-hash "-" bootstrap-hash)
+        full-db-path   (str db-path "/" db-name)
+        log-path       (str db-path "/log.txt")
+        db-exists?     (.exists (io/file full-db-path))
+        new-entry      (log-entry full-db-path files)
+        dataset        (->dataset db-type full-db-path)]
 
     ;; Mutating the graph will of course also mutate the model & dataset.
     (if bootstrap-imports
-      (add-bootstrap-import! dataset bootstrap-imports)
+      (if db-exists?
+        (println "Skipping build -- database already exists:" full-db-path)
+        (do
+          (println "Data input has changed -- rebuilding database...")
+          (add-bootstrap-import! dataset bootstrap-imports)
+          (println new-entry)
+          (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))
 
     ;; If schemas are provided, the returned model & graph contain inferences.
@@ -314,6 +364,7 @@
             model     (.getUnionModel dataset)
             inf-model (ModelFactory/createInfModel reasoner schema model)
             inf-graph (.getGraph inf-model)]
+        (println "Schema URIs found -- constructing inference model.")
         {:dataset dataset
          :model   inf-model
          :graph   inf-graph})
