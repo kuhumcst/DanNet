@@ -7,7 +7,7 @@ resources/wordnet
 resources/db/
 resources/export/
 dannet.ttl
-cor1.00.tsv
+cor1.02.tsv
 corext1.0.tsv
 ddo_bet_corlink.csv
 ddo_bet_corextlink.csv

@@ -654,7 +654,7 @@
                 :separator \tab]}
 
    prefix/cor-uri
-   {:cor-k        [->cor-k-triples (io/resource "cor/cor1.00.tsv")
+   {:cor-k        [->cor-k-triples (io/resource "cor/cor1.02.tsv")
                    :encoding "UTF-8"
                    :separator \tab
                    :preprocess preprocess-cor]
