@@ -1,0 +1,13 @@
+{
+    order rate_limit before basicauth
+}
+
+www.wordnet.dk {
+    redir https://wordnet.dk{uri}
+}
+
+wordnet.dk, localhost {
+    rate_limit {remote.ip} 120r/m
+    encode gzip
+    reverse_proxy dannet:3456
+}

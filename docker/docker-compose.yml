@@ -2,6 +2,16 @@ version: '3'
 
 services:
 
+  caddy:
+    build:
+      # need to include files from parent dir (see Dockerfile)
+      context: ../
+      dockerfile: docker/caddy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+
   dannet:
     build:
       # need to include files from parent dir (see Dockerfile)
@@ -13,4 +23,4 @@ services:
       - ${DANNET_CSV_INPUT}:/etc/dannet/bootstrap/dannet/csv
       - ${DANNET_OTHER_INPUT}:/etc/dannet/bootstrap/other
     ports:
-      - 3456:3456
+      - "3456:3456"

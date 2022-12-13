@@ -127,7 +127,7 @@
     [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
     [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
     [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
-    [<dnc> :dc/issued #inst "2022-07-01"]                   ;TODO
+    [<dnc> :dc/issued #inst "2022-12-23"]
     [<dnc> :dc/modified (new Date)]
     [<dnc> :dc/contributor <simongray>]
     [<dnc> :dc/publisher <cst>]
@@ -140,7 +140,7 @@
     [<dn> :dc/title "DanNet"]
     [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
     [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
-    [<dn> :dc/issued #inst "2022-07-01"]                    ;TODO
+    [<dn> :dc/issued #inst "2022-12-23"]
     [<dn> :dc/modified (new Date)]
     [<dn> :dc/contributor <simongray>]
     [<dn> :dc/publisher <cst>]
