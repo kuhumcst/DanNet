@@ -18,8 +18,6 @@ bootstrap/other/cor/ddo_bet_corextlink.csv
 # File sent by Sanni in email on 2022-05-23 (renamed).
 bootstrap/other/sentiment/sense_polarities.tsv
 
-docker/neo4j/*.jar
-
 .cpcache
 .DS_Store
 

@@ -56,7 +56,7 @@ Graph traversal
 ---------------
 Since RDF triples constitute a directed graph, this graph can be queried programmatically using graph traversal algorithms.
 
-One way to do this is by invoking the [igraph](https://github.com/kuhumcst/DanNet/tree/feature/igraph) Clojure library which has [Apache Jena integration](https://github.com/ont-app/igraph-jena). An example traversal of the transitive closure of hyponyms can be found in the `dk.cst.dannet.prototypes.igraph` namespace.
+One way to do this is by invoking the [igraph](https://github.com/kuhumcst/DanNet/tree/feature/igraph) Clojure library which has [Apache Jena integration](https://github.com/ont-app/igraph-jena).
 
 > Note that currently some functions available in igraph don't work well with models that perform triple inferencing, e.g. OWL-enabled graphs. They are too slow (in the realm of several minutes) for any production application to use them.
 

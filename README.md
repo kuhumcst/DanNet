@@ -63,16 +63,6 @@ The main database that the new tooling has been developed for is [Apache Jena](h
 
 However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](doc/rationale.md) for more.
 
-### Earlier prototypes
-For this project we have created a couple of prototypes demonstrating DanNet's viability as a queryable RDF graph. These proof-of-concept knowledge graphs demonstrate alternative ways to query the data while using the old RDF/XML export as the source:
-
-* **A Neo4j implementation**
-  - Modelling DanNet as [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) inside [Neo4j](https://neo4j.com/), while allowing for query results to be represented as [Ubergraph](https://github.com/Engelberg/ubergraph) data structures.
-* **Two Apache Jena implementations**
-  - Example code exists for loading DanNet and Princeton WordNet into an in-memory [Apache Jena](https://jena.apache.org/) triplestore.
-    * ... using [aristotle](https://github.com/arachne-framework/aristotle)
-    * ... using [igraph-jena](https://github.com/ont-app/igraph-jena)
-
 Web app
 -------
 > Note: A more detailed explanation is available at [doc/web.md](doc/web.md).
@@ -122,38 +112,13 @@ java -jar -Xmx4g dannet.jar
 
 By default, the web service is accessed on `localhost:3456`. The data is loaded into a TDB2 database located in the `./db/tdb2` directory.
 
-### Resource dependencies
+### Input data
 This project assumes that the [ZIP-files containing DanNet 2.2](https://cst.ku.dk/english/projects/dannet/) have been downloaded in advance and extracted into a subdirectory called "resources":
 
 - `bootstrap/dannet/csv`: contains the old DanNet CSV file export. These are used to bootstrap the initial dataset. Eventually, this bootstrap code will be made obsolete by the release of new the DanNet dataset.
 
-In addition, for some of the prototype code, [version 2.0 of the Princeton WordNet](https://wordnet.princeton.edu/download/old-versions) is also needed:
-
-- `resources/wordnet/rdf`: contains the Princeton WordNet files.
-
-### JAXP00010001 error
-When running both the Neo4j code or the updated Jena code in a more recent JVM, you will probably encounter this XML-related error message:
-
-```
-JAXP00010001: The parser has encountered more than "64000" entity expansions in this document; this is the limit imposed by the JDK.
-```
-
-To avoid this error, the JVM process should be run with the following JVM arg:
-
-```
--Djdk.xml.entityExpansionLimit=0
-```
-
 ### Memory usage
-The total memory usage of the resulting graph can be estimated using [clj-memory-meter](https://github.com/clojure-goes-fast/clj-memory-meter) which is available using the `:mm` Clojure CLI alias (defined in the `deps.edn` file).
-
-> Currently, the default OWL-enabled in-memory graph _without_ any forward-chaining inference in cache takes up **~500 MB**. After querying the graph for the triple `[:dn/word-11007846 ?p ?o]` to force more  triples to materialize, the total memory usage jumps to **~520 MB**.
-
-To be able to evaluate `(mm/measure graph)`, the JVM must be started with the following JVM option:
-
-```
--Djdk.attach.allowAttachSelf
-```
+Currently, the entire system, including the web service, uses ~1.4 GB when idle and ~3GB when rebuilding the Apache Jena database. A server should therefore have perhaps 4GB of available RAM to run the full version of DanNet.
 
 ### Frontend dependencies
 ```shell
