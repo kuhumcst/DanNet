@@ -504,6 +504,13 @@
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
 
+;; TODO
+(defn-hashed ->2022-triples
+  "Convert a `row` from 'adjectives.csv' to triples."
+  [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
+    :as row]]
+  row)
+
 (def pol-val
   {"nxx" -3
    "nx"  -2
@@ -643,6 +650,12 @@
     :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"]
     :metadata  [nil metadata-triples]
 
+    ;; The 2022-additions of mainly adjectives.
+    :2022      [->2022-triples "bootstrap/other/dannet-new/adjectives.tsv"
+                :encoding "UTF-8"
+                :separator \tab
+                :preprocess rest]
+
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
     :examples  [examples "bootstrap/dannet/csv/synsets.csv"]}
@@ -701,6 +714,46 @@
        (set)))
 
 (comment
+  ;; 4804 rows, 3596 definitions, w/ 87 potential multi-word synsets.
+  (let [sent (->> (read-triples [(fn sentiment-diffs
+                                   [[_ sense-id _ _ _ sense-pol word-pol word-id :as row]]
+                                   (when (not= sense-id word-id)
+                                     [sense-id (get pol-val sense-pol)]))
+                                 "bootstrap/other/sentiment/sense_polarities.tsv"
+                                 :encoding "UTF-8"
+                                 :separator \tab])
+                  (into {}))]
+    (->> (read-triples [(fn ->2022-triples
+                          [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
+                            :as row]]
+                          row)
+                        "bootstrap/other/dannet-new/adjectives.tsv"
+                        :encoding "UTF-8"
+                        :separator \tab
+                        :preprocess rest])
+         (group-by (fn [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet]]
+                     [dannetsemid sek_denbet]))
+         (filter (fn [[[dannetsemid sek_denbet] rows]]
+                   (let [sentiment-scores (map (fn [row]
+                                                 (get sent (nth row 7)))
+                                               rows)
+                         lemmas (map (fn [row]
+                                       (nth row 6))
+                                     rows)]
+                     (and (> (count rows) 1)
+                          (not-empty dannetsemid)
+                          (not-empty sek_denbet)
+                          (apply not= lemmas)
+                          (or (and
+                                (every? some? sentiment-scores)
+                                (apply = sentiment-scores))
+                              (every? nil? sentiment-scores))))))
+         (map (fn [[[dannetsemid sek_denbet] row]]
+                (str "{" (str/join "; " (map #(nth % 6) row)) "} -> " sek_denbet)))
+         (sort)
+         #_(str/join "\n")
+         #_(count)))
+
   ;; Example sentiment triples
   (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))
        (take 10))

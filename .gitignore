@@ -9,6 +9,9 @@ dannet.ttl
 
 bootstrap/dannet
 
+# The new 2022 data for DanNet, downloaded from Google Sheets.
+bootstrap/other/dannet-new/adjectives.tsv
+
 # Files downloaded from https://ordregister.dk/
 bootstrap/other/cor/cor1.02.tsv
 bootstrap/other/cor/corext1.0.tsv
