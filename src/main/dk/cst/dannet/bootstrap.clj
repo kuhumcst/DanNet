@@ -16,19 +16,29 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
+            [clojure.tools.reader.edn :as edn]
+            [arachne.aristotle.graph :refer [rdf-bag]]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.prefix :as prefix])
-  (:import [java.util Date]))
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.query :as q]
+            [dk.cst.dannet.query.operation :as op])
+  (:import [java.time LocalDate]
+           [java.time.format DateTimeFormatter]))
 
+;; TODO: missing label http://localhost:3456/dannet/data/synset-48454 http://localhost:3456/dannet/data/synset-3085
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
 (defn da
   [s]
   (->LangStr s "da"))
+
+(defn fix-ellipsis
+  [definition]
+  (str/replace definition " ..." "…"))
 
 ;; TODO: add the others as contributors too
 (def <simongray>
@@ -49,6 +59,18 @@
   "The RDF resource URI for the DanNet/EuroWordNet concepts."
   (prefix/prefix->rdf-resource 'dnc))
 
+(def dc-issued-new
+  "2023-01-01")
+
+(def dc-issued-old
+  "2013-01-03")
+
+(def dc-modified
+  (let [formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd")
+        today     (LocalDate/now)]
+    (.format formatter today)))
+
+;; TODO: extend AsNode protocol to handle date properly (not datetime)
 (h/def metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
@@ -60,8 +82,7 @@
     [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
     [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
     [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
-    [<dns> :dc/issued #inst "2022-12-23"]
-    [<dns> :dc/modified (new Date)]
+    [<dns> :dc/issued dc-issued-new]
     [<dns> :dc/contributor <simongray>]
     [<dns> :dc/publisher <cst>]
     [<dns> :foaf/homepage <dns>]
@@ -74,8 +95,7 @@
     [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
     [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
     [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
-    [<dnc> :dc/issued #inst "2022-12-23"]
-    [<dnc> :dc/modified (new Date)]
+    [<dnc> :dc/issued dc-issued-new]
     [<dnc> :dc/contributor <simongray>]
     [<dnc> :dc/publisher <cst>]
     [<dnc> :foaf/homepage <dns>]
@@ -87,8 +107,7 @@
     [<dn> :dc/title "DanNet"]
     [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
     [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
-    [<dn> :dc/issued #inst "2022-12-23"]
-    [<dn> :dc/modified (new Date)]
+    [<dn> :dc/issued dc-issued-new]
     [<dn> :dc/contributor <simongray>]
     [<dn> :dc/publisher <cst>]
     [<dn> :foaf/homepage <dn>]
@@ -227,7 +246,7 @@
   (when-let [[_ example-str] (re-find brug gloss)]
     (into {} (for [example (str/split example-str #" \|\| |\"; \"")]
                (when-let [token (determine-example-token label example)]
-                 [[(synset-uri synset-id) token] (da example)])))))
+                 [[(synset-uri synset-id) (da token)] (da example)])))))
 
 (defn clean-ontological-type
   "Clean up the `ontological-type` string before conversion to resource names.
@@ -246,10 +265,17 @@
 
 (defn explode-ontological-type
   "Create ontologicalType triple(s) based on a `synset` and the legacy DanNet
-  `ontological-type` string."
+  `ontological-type` string.
+
+  The triples are placed into an RDF Bag (= a set)."
   [synset ontological-type]
-  (for [concept (str/split ontological-type #"-")]
-    [synset :dns/ontologicalType (keyword "dnc" concept)]))
+  (let [bag (symbol (str "_" ontological-type))]
+    (set/union
+      #{[synset :dns/ontologicalType bag]}
+      (set (->> (str/split ontological-type #"-")
+                (map (partial keyword "dnc"))
+                (rdf-bag)
+                (map (partial into [bag])))))))
 
 (defn n->letter
   "Convert a number `n` to a letter in the English alphabet."
@@ -261,6 +287,10 @@
 
 (def old-single-word
   #"([^,_]+)(,\d+)?((?:_\d+)+)?")
+
+;; e.g. "gas-, vand- og sanitetsmester_1"
+(def old-long-word
+  #"([^_]+)(,\d+)?((?:_\d+)+)?")
 
 ;; Match weird alphabet entries like {Q, q_1}.
 (def old-alphabet-combo
@@ -324,12 +354,15 @@
 
     :let [[_ w d] (re-matches old-alphabet-combo label)]
     w
-    (sense-label w nil d)))
+    (sense-label w nil d)
+
+    :let [[_ w e d] (re-matches old-long-word label)]
+    w
+    (sense-label w e d)))
 
 (def old-synset-sep
   #"\{|;|\}")
 
-;; TODO: derive from ontolex:writtenRep? removes ordnet.dk connection, though...
 (defn rewrite-synset-label
   "Rewrite an old synset `label` to fit the new standard."
   [label]
@@ -348,8 +381,9 @@
         definition "skrifttegnet @"]
     (set/union
       #{[synset :rdf/type :ontolex/LexicalConcept]
+        [synset :dc/issued dc-issued-old]
         [synset :rdfs/label (da label)]
-        [synset :skos/definition (da definition)]}
+        [synset :skos/definition (da (fix-ellipsis definition))]}
       (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
            (explode-ontological-type synset)))))
 
@@ -364,12 +398,13 @@
                            (str/replace brug "")
                            (str/replace inserted-by-DanNet ""))]
         (set/union
-          #{[synset :rdf/type :ontolex/LexicalConcept]}
+          #{[synset :rdf/type :ontolex/LexicalConcept]
+            [synset :dc/issued dc-issued-old]}
           (when (not-empty label)
             #{[synset :rdfs/label (da (rewrite-synset-label label))]})
           (when (and (not= definition "(ingen definition)")
                      (not (str/blank? definition)))
-            #{[synset :skos/definition (da definition)]})
+            #{[synset :skos/definition (da (fix-ellipsis definition))]})
           (->> (clean-ontological-type ontological-type)
                (explode-ontological-type synset)))))))
 
@@ -436,6 +471,91 @@
   [s & after]
   (apply str "\"" s "\"" after))
 
+(declare read-triples)
+(declare cor-k-pos)
+
+(def sense-properties
+  (let [row->kv (fn [[dannetsemid lemma hom pos dn_lemma id gloss]]
+                  (let [[_ pos'] (re-matches #"([^\.]+)\.?" pos)
+                        pos-class (cor-k-pos pos')]
+                    [dannetsemid (cond-> {:synset-id   id
+                                          :written-rep lemma
+                                          :sense-label dn_lemma}
+                                   (not-empty gloss) (assoc :definition gloss)
+                                   pos-class (assoc :pos pos-class))]))]
+    (delay
+      (->> (read-triples [row->kv
+                          "bootstrap/other/dannet-new/dannetsemid_synsetid.csv"
+                          :encoding "UTF-8"
+                          :separator \tab
+                          :preprocess rest])
+           (into {})))))
+
+(def sense-definitions
+  (delay
+    (->> (read-triples [identity
+                        "bootstrap/other/dannet-new/adj_suppl_brutto_221222.csv"
+                        :encoding "UTF-8"
+                        :separator \tab
+                        :preprocess rest])
+         (into {}))))
+
+(def sense-siblings
+  (delay
+    (->> (read-triples [(fn [[_ _ _ _ _ dannetsemid _ sek_id _ :as row]]
+                          (when-not (str/blank? sek_id)
+                            {dannetsemid #{sek_id}}))
+                        "bootstrap/other/dannet-new/adjectives.tsv"
+                        :encoding "UTF-8"
+                        :separator \tab
+                        :preprocess rest])
+         (partition-by ffirst)
+         (reduce (fn [m coll]
+                   (apply merge-with set/union m coll)) {})
+         (mapcat (fn [[_ sense-ids]]
+                   (for [sense-id sense-ids]
+                     [sense-id (disj sense-ids sense-id)])))
+         (into {}))))
+
+(def sense-examples
+  "Examples for the new sense in the 2023 adjective data."
+  (delay
+    (->> (with-open [reader (io/reader "bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv")]
+           (mapv #(str/split % #"\t") (line-seq reader)))
+         (filter #(= 2 (count %)))
+         (into {}))))
+
+(def sense-id->multi-word-synset
+  "Information needed to construct labels for multi-word synsets in 2022 data.
+  An important thing to note is these are actually sense IDs used for synthesis!
+
+  When available, the annotated sense label from 'sense-properties' is preferred
+  to the raw written representation."
+  (delay
+    (let [id->label (comp :sense-label @sense-properties)
+          raw       (-> "bootstrap/other/dannet-new/multi-word-synsets.edn"
+                        (slurp)
+                        (edn/read-string))
+          rows->kvs (fn [rows]
+                      (let [sense-ids    (map #(nth % 7) rows)
+                            wlabels      (map #(nth % 6) rows)
+                            slabels      (map id->label sense-ids)
+                            labels       (map #(or %1 %2) slabels wlabels)
+                            synset-id    (first (sort sense-ids))
+                            synset-label (as-> labels $
+                                               (map rewrite-sense-label $)
+                                               (sort $)
+                                               (str/join "; " $)
+                                               (str "{" $ "}")
+                                               (da $))
+                            m            {:mws-id    synset-id
+                                          :mws-label synset-label}]
+                        (map (fn [rows]
+                               [(nth rows 7) m])
+                             rows)))]
+      (into {} (mapcat rows->kvs raw)))
+    #_.))
+
 ;; TODO: investigate semantics of ' in input forms of multiword expressions
 (h/defn ->word-triples
   "Convert a `row` from 'words.csv' to triples."
@@ -489,13 +609,19 @@
   [[sense-id word-id synset-id register _ :as row]]
   (when (and (= (count row) 5)
              (not (princeton-synset? synset-id)))
-    (let [sense  (sense-uri sense-id)
-          word   (word-uri word-id)
-          synset (synset-uri synset-id)]
+    (let [id->label (comp :sense-label @sense-properties)
+          sense     (sense-uri sense-id)
+          word      (word-uri word-id)
+          synset    (synset-uri synset-id)]
       (set/union
         (->register-triples sense register)
         #{[sense :rdf/type :ontolex/LexicalSense]
           [synset :ontolex/lexicalizedSense sense]}
+
+        ;; These are not part of the original CSV export, but from an extra file
+        ;; sent to me by Thomas Troelsgård from DSL.
+        (when-let [label (some-> sense-id id->label rewrite-sense-label)]
+          #{[sense :rdfs/label label]})
 
         ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
         ;; These relations make no sense to include. Instead, the necessary
@@ -503,6 +629,124 @@
         (when (not= word :dn/word-0-0)
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
+
+;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
+;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
+;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
+;; TODO: near synonym for sibling synsets
+(h/defn ->2023-triples
+  "Convert a `row` from 'adjectives.tsv' to triples."
+  [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
+    :as row]]
+  (when-not (str/blank? sek_id)
+    (let [sense-id->mws         @sense-id->multi-word-synset
+          sense-id->siblings    @sense-siblings
+          sense-id->synset-id   (comp :synset-id @sense-properties)
+          sense-id->sense-label (comp :sense-label @sense-properties)
+          sense-id->definition  (comp :definition @sense-properties)
+          sense-id->definition' (fn [id]
+                                  (when-not (str/blank? id)
+                                    (get @sense-definitions id)))
+          sense                 (sense-uri sek_id)
+          sense-label           (-> (or (sense-id->sense-label sek_id)
+                                        sek_holem)
+                                    (rewrite-sense-label))
+          pick-id               (fn [sense-id]
+                                  (or (:mws-id (sense-id->mws sense-id))
+                                      sense-id))
+          pick-synset-id        (comp sense-id->synset-id pick-id)
+          synthesize-synset-id  (fn [sense-id]
+                                  (or (pick-synset-id sense-id)
+                                      (str "s" (pick-id sense-id))))
+          synset-id             (synthesize-synset-id sek_id)
+          synset                (synset-uri synset-id)]
+      (set/union
+        #{[sense :rdf/type :ontolex/LexicalSense]
+          [synset :rdf/type :ontolex/LexicalConcept]
+
+          ;; Labels
+          [sense :rdfs/label sense-label]
+          [synset :rdfs/label (or (:mws-label (sense-id->mws sek_id))
+                                  (da (str "{" sense-label "}")))]
+          [synset :dc/issued dc-issued-new]
+
+          ;; Lexical connections
+          [synset :ontolex/lexicalizedSense sense]}
+
+        ;; Mark any sibling synsets as :wn/similar (= near synonym)
+        (when-let [siblings (sense-id->siblings (pick-id sek_id))]
+          (->> (map synthesize-synset-id siblings)
+               (remove nil?)
+               (map synset-uri)
+               (remove #{synset})
+               (map (fn [sibling-synset]
+                      [synset :wn/similar sibling-synset]))
+               (into #{})))
+
+        ;; TODO: doesn't seem to work in some cases, e.g. http://localhost:3456/dannet/data/synset-21592
+        ;;       this appears to be related to the fact that we're using the old
+        ;;       CSV export, which doesn't include entities created after 2013.
+        ;; Inheritance (effectuated in the ->dannet function)
+        (when-let [from-id (sense-id->synset-id dannetsemid)]
+          (let [hypernym (keyword "dn" (str "inherit-" synset-id "-hypernym"))
+                ontotype (keyword "dn" (str "inherit-" synset-id "-ontologicalType"))
+                from     (synset-uri from-id)]
+            #{[synset :wn/similar from]
+              [synset :dns/inherited hypernym]
+              [synset :dns/inherited ontotype]
+
+              [hypernym :rdf/type :dns/Inheritance]
+              [hypernym :rdfs/label (prefix/kw->qname :wn/hypernym)]
+              [hypernym :dns/inheritedFrom from]
+              [hypernym :dns/inheritedRelation :wn/hypernym]
+
+              [ontotype :rdf/type :dns/Inheritance]
+              [ontotype :rdfs/label (prefix/kw->qname :dns/ontologicalType)]
+              [ontotype :dns/inheritedFrom from]
+              [ontotype :dns/inheritedRelation :dns/ontologicalType]}))
+
+        (when-let [example (get @sense-examples sek_id)]
+          (when-not (str/blank? example)
+            #{[sense :lexinfo/senseExample (da example)]}))
+
+        (when-let [definition (not-empty (or (sense-id->definition' sek_id)
+                                             (sense-id->definition sek_id)
+                                             sek_denbet))]
+          #{[synset :skos/definition (da (fix-ellipsis definition))]})))))
+
+(defn synthesize-missing-words
+  "Create word-related triples for missing words in `g`.
+  This an extra step needed to properly integrate the 2023 data."
+  [g]
+  (->> (q/run g op/missing-words)
+       (map (fn [{:syms [?sense ?synset ?label]}]
+              (let [sense-id->pos (comp :pos @sense-properties)
+                    sense-id      (subs (name ?sense) 6)
+                    word-id       (str "s" sense-id)
+                    word          (word-uri word-id)
+                    [_ written-rep] (re-matches #"([^_]+)(.*)?" ?label)
+                    lexical-form  (lexical-form-uri word-id)]
+                #{[word :rdf/type :ontolex/LexicalEntry]
+                  [word :rdfs/label (da (qt written-rep))]
+                  [lexical-form :rdfs/label (da (qt written-rep "-form"))]
+                  [lexical-form :rdf/type (form->lexical-entry written-rep)]
+
+                  [word :ontolex/evokes ?synset]
+                  [word :ontolex/sense ?sense]
+                  [word :ontolex/canonicalForm lexical-form]
+                  [lexical-form :ontolex/writtenRep (da written-rep)]
+
+                  [word :wn/partOfSpeech (or (sense-id->pos sense-id)
+                                             :wn/adjective)]})))))
+
+(defn synthesize-inherited-relations
+  "Create inheritance-related triples for missing words in `g`.
+  This an extra step needed to properly integrate the 2023 data."
+  [g]
+  (->> (q/run g op/missing-inheritance)
+       (map (fn [{:syms [?synset ?hypernym ?ontotype]}]
+              #{[?synset :dns/ontologicalType ?ontotype]
+                [?synset :wn/hypernym ?hypernym]}))))
 
 (def pol-val
   {"nxx" -3
@@ -633,52 +877,104 @@
       [dn-word :owl/sameAs cor-word]
       [cor-word :ontolex/sense dn-sense]}))
 
-;; TODO: encoding broken in dannet 2.5
-;;       e.g. http://localhost:3456/dannet/data/word-11021693
-(def imports
+(h/def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"]
-    :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"]
-    :words     [->word-triples "bootstrap/dannet/csv/words.csv"]
-    :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"]
+   {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
+    :relations [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
+    :words     [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
+    :senses    [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
     :metadata  [nil metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
-    :examples  [examples "bootstrap/dannet/csv/synsets.csv"]}
+    :examples  [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
 
-   ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
-   prefix/senti-uri
-   {:sentiment [->sentiment-triples
-                "bootstrap/other/sentiment/sense_polarities.tsv"
+    ;; The 2023 additions of mainly adjectives.
+    :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
                 :encoding "UTF-8"
-                :separator \tab]}
+                :separator \tab
+                :preprocess rest]}
 
-   prefix/cor-uri
-   {:cor-k        [->cor-k-triples "bootstrap/other/cor/cor1.02.tsv"
-                   :encoding "UTF-8"
-                   :separator \tab
-                   :preprocess preprocess-cor]
-    :cor-ext      [->cor-ext-triples "bootstrap/other/cor/corext1.0.tsv"
-                   :encoding "UTF-8"
-                   :separator \tab
-                   :preprocess preprocess-cor]
-    :cor-k-link   [->cor-link-triples "bootstrap/other/cor/ddo_bet_corlink.csv"
-                   :encoding "UTF-8"
-                   :separator \tab
-                   :preprocess rest]
-    :cor-ext-link [->cor-link-triples "bootstrap/other/cor/ddo_bet_corextlink.csv"
-                   :encoding "UTF-8"
-                   :separator \tab
-                   :preprocess rest]}})
+   ;; TODO: re-enable
+   ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
+   #_prefix/senti-uri
+   #_{:sentiment [->sentiment-triples
+                  "bootstrap/other/sentiment/sense_polarities.tsv"
+                  :encoding "UTF-8"
+                  :separator \tab]}
 
-(defn read-triples
-  "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
-  [[row->triples file & {:keys [encoding separator preprocess]
+   #_prefix/cor-uri
+   #_{:cor-k        [->cor-k-triples "bootstrap/other/cor/cor1.02.tsv"
+                     :encoding "UTF-8"
+                     :separator \tab
+                     :preprocess preprocess-cor]
+      :cor-ext      [->cor-ext-triples "bootstrap/other/cor/corext1.0.tsv"
+                     :encoding "UTF-8"
+                     :separator \tab
+                     :preprocess preprocess-cor]
+      :cor-k-link   [->cor-link-triples "bootstrap/other/cor/ddo_bet_corlink.csv"
+                     :encoding "UTF-8"
+                     :separator \tab
+                     :preprocess rest]
+      :cor-ext-link [->cor-link-triples "bootstrap/other/cor/ddo_bet_corextlink.csv"
+                     :encoding "UTF-8"
+                     :separator \tab
+                     :preprocess rest]}})
+
+(defn- merge-args
+  [[_ file & {:as opts}]]
+  (into [first file] (apply concat (dissoc opts :merge))))
+
+(defn- preprocess-fn-update
+  [[row->triples file & {:keys [preprocess]
+                         :as   opts}]
+   preprocess-fn]
+  (into [row->triples file]
+        (apply concat (-> (if preprocess
+                            opts
+                            (assoc opts :preprocess identity))
+                          (dissoc :merge)
+                          (update :preprocess #(comp % preprocess-fn))))))
+
+(h/defn read-triples
+  "Return triples using `row->triples` from the rows of a DanNet CSV `file`.
+
+  For the `opts`...
+
+    - :encoding is assumed to be ISO-8859-1
+    - :separator is assumed to be @
+    - :preprocess fn is assumed to be 'identity' (no-op)
+    - :merge is unused by default, but when provided it contain the args to this
+      function for the CSV file to merge with. Additionally, each CSV file is
+      assumed to have a comparable ID value in the first column."
+  [[row->triples file & {:keys [encoding separator preprocess merge]
                          :or   {preprocess identity}
-                         :as   opts}]]
-  (if (set? file)                                           ; metadata triples?
+                         :as   opts}
+    :as args]]
+  (cond
+    ;; Metadata triples are consumed directly
+    (set? file)
     file
+
+    ;; TODO: unused, remove again?
+    ;; Once :merge args are provided, the two inputs will be merged.
+    ;; If the same ID appears, the rows of the newer file are always preferred.
+    merge
+    (let [old-ids  (set (read-triples (merge-args args)))
+          new-ids  (set (read-triples (merge-args merge)))
+          in-old   (set/difference old-ids new-ids)
+          in-new   (set/difference new-ids old-ids)
+          new-file (second merge)
+          retain   (partial filter (comp in-old first))]
+      (do
+        (println "\tMerging" file "and" new-file)
+        (println "\tAdding" (count in-new) "new rows from" new-file)
+        (println "\tRetaining" (count in-old) "rows in" file))
+      (concat
+        (read-triples (preprocess-fn-update args retain))
+        (read-triples merge)))
+
+    :else
     (with-open [reader (io/reader file :encoding (or encoding "ISO-8859-1"))]
       (->> (csv/read-csv reader :separator (or separator \@))
            (preprocess)
@@ -687,12 +983,15 @@
 
 (def hashes
   "A set of the hashes of the relevant bootstrap functions."
-  (->> [#'->synset-triples
+  (->> [#'imports
+        #'read-triples
+        #'->synset-triples
         #'->relation-triples
         #'->word-triples
         #'->sense-triples
         #'metadata-triples
         #'examples
+        #'->2023-triples
         #'->sentiment-triples
         #'->cor-k-triples
         #'->cor-ext-triples
@@ -701,6 +1000,10 @@
        (set)))
 
 (comment
+  ;; Example 2023 adjective triples
+  (->> (read-triples (get-in imports [prefix/dn-uri :2023]))
+       (take 10))
+
   ;; Example sentiment triples
   (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))
        (take 10))
@@ -771,6 +1074,7 @@
   (rewrite-synset-label "{brud,2_2: hvid brud}")
   (rewrite-synset-label "{Q, q_1}")
   (rewrite-synset-label "{R,1_1}")
+  (rewrite-synset-label "{gas-, vand- og sanitetsmester_1}")
 
   ;; Test rewriting sense labels
   (remove-prefix-apostrophes "glen's lade ''er 'fin")
@@ -784,11 +1088,13 @@
   (rewrite-sense-label "friturestegning_0")
   (rewrite-sense-label "friturestegning,2_0")
 
+  (fix-ellipsis "som vidner om el. er udtryk for en evne til at fre ...")
+
   ;; Error output for Nicolai.
   ;; The words.csv content differs somewhat between the new export and 2.2.
   (let [line->word-id (fn [[word-id]] word-id)
-        words-25-res  "bootstrap/dannet/csv/words.csv"
-        words-22-res  "bootstrap/dannet/csv22/words.csv"
+        words-25-res  "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"
+        words-22-res  "bootstrap/dannet/DanNet-2.2_csv/words.csv"
         words-25      (set (read-triples [line->word-id words-25-res]))
         words-22      (set (read-triples [line->word-id words-22-res]))
         missing-in-25 (set/difference words-22 words-25)

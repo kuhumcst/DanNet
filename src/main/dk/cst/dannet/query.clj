@@ -150,7 +150,7 @@
 
 ;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
 ;; resort to this hack.
-(defn- attach-blank-entities
+(defn attach-blank-entities
   "Replace blank resources in `entity` of `subject` in `g` with entity maps."
   [g subject entity]
   (let [predicate (atom nil)]

@@ -18,9 +18,6 @@
   #?(:clj (:import [clojure.lang Named])))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
-;; TODO: empty synset? http://localhost:3456/dannet/data/synset-3290
-;; TODO: owl:	versionInfo	[TaggedValue: f, 1.1] http://localhost:3456/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
-;; TODO: lots of unknown TaggedValues http://localhost:3456/dannet/external?subject=%3Chttp%3A%2F%2Fwww.ontologydesignpatterns.org%2Fcp%2Fowl%2Fsemiotics.owl%3E
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
@@ -242,9 +239,10 @@
          (prefix-elem prefix opts)
          (anchor-elem v opts)]))))
 
+;; TODO: don't hide when `details?` is true?
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key entity] :as opts}]
+  [prefix {:keys [attr-key entity details?] :as opts}]
   (or (= :rdf/value attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
@@ -275,6 +273,12 @@
      [:span.hidden (prefix-elem prefix)]
      (prefix-elem prefix))))
 
+(defn numbered?
+  [x]
+  (and (keyword? x)
+       (= "rdf" (namespace x))
+       (str/starts-with? (name x) "_")))
+
 (declare attr-val-table)
 
 (rum/defc val-cell
@@ -293,15 +297,45 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    (if (rdf-datatype? v)
-      [:td (transform-val v)]
-      [:td (if (= v (select-keys v [:rdf/value v]))
-             (let [x (i18n/select-str languages (:rdf/value v))]
-               (if (coll? x)
-                 (into [:<>] (for [s x]
-                               [:section.text {:lang (i18n/lang s)} (str s)]))
-                 [:section.text {:lang (i18n/lang x)} (str x)]))
-             (attr-val-table opts v))])
+    [:td
+     (cond
+       (rdf-datatype? v)
+       (transform-val v)
+
+       (= v (select-keys v [:rdf/value v]))
+       (let [x (i18n/select-str languages (:rdf/value v))]
+         (if (coll? x)
+           (into [:<>] (for [s x]
+                         [:section.text {:lang (i18n/lang s)} (str s)]))
+           [:section.text {:lang (i18n/lang x)} (str x)]))
+
+       (contains? (:rdf/type v) :rdf/Bag)
+       (let [ns->resources (-> (->> (dissoc v :rdf/type)
+                                    (filter (comp numbered? first))
+                                    (mapcat second)
+                                    (group-by namespace))
+                               (update-vals sort)
+                               (update-keys symbol))
+             resources     (->> (sort ns->resources)
+                                (vals)
+                                (apply concat))]
+         ;; TODO: hover effect like synsets?
+         [:div.set
+          (when (and (every? keyword? resources)
+                     (apply = (map namespace resources)))
+            (let [prefix (symbol (namespace (first resources)))]
+              (prefix-elem prefix opts)))
+          [:div.set__left-bracket]
+          (into [:div.set__content]
+                (->> (sort ns->resources)
+                     (vals)
+                     (apply concat)
+                     (map #(anchor-elem % opts))
+                     (interpose [:span.subtle " • "])))
+          [:div.set__right-bracket]])
+
+       :else
+       (attr-val-table opts v))]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -686,12 +720,12 @@
   [:footer
    (i18n/da-en languages
      [:p {:lang "da"}
-      "© 2022 " [:a {:href "https://cst.ku.dk"}
+      "© 2023 " [:a {:href "https://cst.ku.dk"}
                  "Center for Sprogteknologi"]
       ", " [:abbr {:title "Københavns Universitet"}
             "KU"] "."]
      [:p {:lang "en"}
-      "© 2022 " [:a {:href "https://cst.ku.dk/english"}
+      "© 2023 " [:a {:href "https://cst.ku.dk/english"}
                  "Centre for Language Technology"]
       ", " [:abbr {:title "University of Copenhagen"}
             "KU"] "."])])

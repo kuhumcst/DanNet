@@ -15,21 +15,23 @@
             [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.bootstrap :as bootstrap :refer [da]]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.transaction :as txn])
-  (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
+  (:import [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.rdf.model ModelFactory Model Statement]
+           [org.apache.jena.rdf.model ModelFactory Model ResourceFactory Statement]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
            [java.io File]))
 
+;; TODO: some synset labels are not synced with current senses, e.g. http://localhost:3456/dannet/data/synset-46049
 ;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
 ;; TODO: duplicates? http://localhost:3456/dannet/data/synset-29293
 ;;       and http://localhost:3456/dannet/data/synset-29294
@@ -89,14 +91,14 @@
   [g]
   (let [label-cache (atom {})]
     (->> (for [{:syms [?sense
-                       ?word-label
-                       ?synset-label]} (->> (q/run g op/sense-label-targets)
-                                            (sort-by '?sense))
-               :let [word        (-> (str ?word-label)
-                                     (subs 1 (dec (count (str ?word-label)))))
+                       ?wlabel
+                       ?slabel]} (->> (q/run g op/sense-label-targets)
+                                      (sort-by '?sense))
+               :let [word        (-> (str ?wlabel)
+                                     (subs 1 (dec (count (str ?wlabel)))))
                      compatible? (fn [sense]
                                    (= word (str/replace sense #"_[^ ,]+" "")))
-                     labels      (->> (str ?synset-label)
+                     labels      (->> (str ?slabel)
                                       (com/sense-labels com/synset-sep)
                                       (filter compatible?))]]
            (case (count labels)
@@ -179,6 +181,56 @@
          (mapcat ->triples)
          (apply set/union))))
 
+(defn ->superfluous-definition-triples
+  "Return duplicate/superfluous :skos/definition triples found in Graph `g`.
+
+  Basically, the merge of various data sources that occurred as part of the 2023
+  data import results in duplicate definitions. In cases where a duplicate can
+  be shown to be either identical to or contained within another definition,
+  we can safely delete the duplicate triple."
+  [g]
+  (->> (q/run g op/superfluous-definitions)
+       (map (fn [{:syms [?synset ?definition ?otherDefinition]}]
+              (let [->ds (fn [d]
+                           (when-let [d' (not-empty (str d))]
+                             (subs d' 0 (dec (count d')))))
+                    d1   (->ds ?definition)
+                    d2   (->ds ?otherDefinition)]
+                (when-let [d (cond
+                               (nil? d1) ?definition
+                               (nil? d2) ?otherDefinition
+                               (str/starts-with? d2 d1) ?definition
+                               (str/starts-with? d1 d2) ?otherDefinition)]
+                  [?synset :skos/definition d]))))
+       (remove nil?)))
+
+(defn relabel-synsets
+  "Return [triples-to-remove triples-to-add] for relabeled synsets in `g`."
+  [g]
+  (let [kv->triple        (fn [[synset label]]
+                            [synset :rdfs/label label])
+        synset->results   (->> (q/run g op/synset-relabeling)
+                               (group-by '?synset)
+                               (into {}))
+        synset->label     (update-vals synset->results
+                                       (fn [ms]
+                                         (get (first ms) '?synsetLabel)))
+        synset->new-label (-> synset->results
+                              (update-vals (fn [ms]
+                                             (let [inner (->> (map '?label ms)
+                                                              (set)
+                                                              (sort-by str)
+                                                              (str/join "; "))]
+                                               (da (str "{" inner "}")))))
+                              (set)
+                              (set/difference (set synset->label))
+                              (->> (into {})))]
+    [(->> (keys synset->new-label)
+          (select-keys synset->label)
+          (map kv->triple)
+          (set))
+     (set (map kv->triple synset->new-label))]))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -193,13 +245,29 @@
   [^Dataset dataset ^String model-uri]
   (.getGraph (get-model dataset model-uri)))
 
+(defn remove!
+  "Remove a `triple` from the Apache Jena `model`."
+  [^Model model [s p o :as triple]]
+  (.removeAll
+    model
+    (ResourceFactory/createResource (voc/uri-for s))
+    (ResourceFactory/createProperty (voc/uri-for p))
+    (cond
+      (keyword? o)
+      (ResourceFactory/createResource (voc/uri-for o))
+
+      (instance? LangStr o)
+      (ResourceFactory/createLangLiteral (str o) (.lang o))
+
+      :else
+      (ResourceFactory/createTypedLiteral o))))
+
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
-        cor-graph   (get-graph dataset prefix/cor-uri)
         union-graph (.getGraph (.getUnionModel dataset))]
 
     (println "Beginning DanNet bootstrap import process")
@@ -217,6 +285,13 @@
                (remove nil?)
                (reduce aristotle/add g)))))
 
+    (let [triples  (doall (->superfluous-definition-triples dn-graph))
+          dn-model (get-model dataset prefix/dn-uri)]
+      (println "Removing" (count triples) "superfluous definitions...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples]
+          (remove! dn-model triple))))
+
     ;; As ->example-triples needs to read the graph to create
     ;; triples, it must be done after the write transaction.
     ;; Clojure's laziness also has to be accounted for.
@@ -226,27 +301,56 @@
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph example-triples)))
 
+    ;; Missing words for the 2023 adjectives data are synthesized from senses.
+    ;; This step cannot be performed as part of the basic bootstrap since we
+    ;; must avoid synthesizing new words for existing senses in the data!
+    (let [missing (doall (bootstrap/synthesize-missing-words dn-graph))]
+      (println "Synthesizing" (count missing) "missing words for 2023 data...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph missing)))
+
+    ;; Missing words for the 2023 adjectives data are synthesized from senses.
+    ;; This step cannot be performed as part of the basic bootstrap since we
+    ;; must avoid synthesizing new words for existing senses in the data!
+    (let [inherited (doall (bootstrap/synthesize-inherited-relations dn-graph))]
+      (println "Synthesizing" (count inherited) "inherited relations for 2023 data...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph inherited)))
+
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
-      (println "Stealing sense labels...")
+      (println "Stealing" (count sense-label-triples) "sense labels...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
 
+    ;; TODO: it seems that this part is made redundant by using the newer export
     ;; Senses that have been 'Inserted by DanNet' have corresponding words and
     ;; other relevant triples synthesized. This must run *after* the initial
     ;; execution of '->sense-label-triples'.
     (let [DN-triples (doall (->DN-triples dn-graph))]
-      (println "Synthesizing words...")
+      (println "Synthesizing" (count DN-triples) "words...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph DN-triples)))
 
     ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
     ;; labels the remaining triples, i.e. the ones created in the previous step.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
-      (println "Label remaining triples...")
+      (println "Label" (count sense-label-triples) "remaining sense triples...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
+
+    ;; Since sense labels come from a variety of sources and since the synset
+    ;; labels have not been synced with sense labels in DSL's CSV export,
+    ;; it is necessary to relabel each synset whose senses have changed label.
+    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)
+          dn-model (get-model dataset prefix/dn-uri)]
+      (println "Relabeling" (count triples-to-add) "synsets...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph triples-to-add)))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
@@ -257,9 +361,8 @@
                              (mapcat second)
                              (map (fn [{:syms [?sense ?opinion]}]
                                     [?sense :dns/sentiment ?opinion]))
-                             (doall))
-          n             (count senti-triples)]
-      (println (str "Synthesizing " n " sense sentiment triples..."))
+                             (doall))]
+      (println (str "Synthesizing " (count senti-triples) " sense sentiment triples..."))
       (txn/transact-exec senti-graph
         (aristotle/add senti-graph senti-triples)))
 
@@ -282,9 +385,8 @@
                          (group-by '?synset)
                          (filter #(apply = (map '?pclass (second %))))
                          (mapcat ->triples)
-                         (doall))
-          n         (count triples)]
-      (println (str "Synthesizing " n " synset sentiment triples..."))
+                         (doall))]
+      (println (str "Synthesizing " (count triples) " synset sentiment triples..."))
       (txn/transact-exec senti-graph
         (aristotle/add senti-graph triples)))
 
@@ -299,7 +401,7 @@
   (println "Importing Open English Wordnet...")
   (txn/transact-exec dataset
     (aristotle/read (get-graph dataset "https://en-word.net/")
-                    "bootstrap/other/english/english-wordnet-2021.ttl"))
+                    "bootstrap/other/english/english-wordnet-2022.ttl"))
   (println "Open English Wordnet imported!"))
 
 (defn ->dataset
@@ -372,7 +474,7 @@
         (do
           (println "Data input has changed -- rebuilding database...")
           (add-bootstrap-import! dataset bootstrap-imports)
-          (add-open-english-wordnet! dataset)
+          #_(add-open-english-wordnet! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))
@@ -455,7 +557,7 @@
      (println "----")
      (println "RDF Export of DanNet complete!")))
   ([^Dataset dataset]
-   (export-rdf! dataset "resources/export/rdf/")))
+   (export-rdf! dataset "export/rdf/")))
 
 (defn- csv-table-cell
   ([separator x]
@@ -568,7 +670,7 @@
    (println "----")
    (println "CSV Export of DanNet complete!"))
   ([dannet]
-   (export-csv! dannet "resources/export/csv/")))
+   (export-csv! dannet "export/csv/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!
@@ -651,15 +753,17 @@
          (map (fn [[k ms]]
                 (let [{:syms [?label ?synset]
                        :as   base} (apply merge-with q/set-merge ms)
-                      v (with-meta (-> base
-                                       (dissoc '?lemma
-                                               '?form
-                                               '?word
-                                               '?label
-                                               '?sense)
-                                       (set/rename-keys sym->kw))
-                                   {:k->label (assoc k->label
-                                                ?synset ?label)})]
+                      subentity (-> base
+                                    (dissoc '?lemma
+                                            '?form
+                                            '?word
+                                            '?label
+                                            '?sense)
+                                    (set/rename-keys sym->kw)
+                                    (->> (q/attach-blank-entities g k)))
+                      v         (with-meta subentity
+                                           {:k->label (assoc k->label
+                                                        ?synset ?label)})]
                   [k v])))
          (sort-by search-keyfn)
          (into (fop/ordered-map)))))

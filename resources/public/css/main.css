@@ -301,11 +301,19 @@ div.set {
     display: inline-flex;
 }
 
+div.set .prefix {
+    align-self: center;
+}
+
 div.set__left-bracket,
 div.set__right-bracket {
     padding-left: 1ch;
     opacity: 0.4;
     transition: all 0.1s;
+}
+
+div.set__content {
+    align-self: center;
 }
 
 span.marker {

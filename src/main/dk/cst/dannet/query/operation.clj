@@ -6,7 +6,7 @@
             ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix]))
 
-(def ^:private sparql
+(def sparql
   (comp q/parse voc/prepend-prefix-declarations))
 
 (def entity
@@ -45,12 +45,15 @@
 
 (def sense-label-targets
   "Used during initial graph creation to attach labels to senses."
-  (q/build
-    '[:bgp
-      [?word :ontolex/sense ?sense]
-      [?word :rdfs/label ?word-label]
-      [?synset :ontolex/lexicalizedSense ?sense]
-      [?synset :rdfs/label ?synset-label]]))
+  (sparql
+    "SELECT ?sense ?wlabel ?slabel
+     WHERE {
+       ?word ontolex:sense ?sense .
+       FILTER NOT EXISTS { ?sense rdfs:label ?label }
+       ?word rdfs:label ?wlabel .
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?synset rdfs:label ?slabel .
+     }"))
 
 (def example-targets
   "Used during initial graph creation to attach examples to senses."
@@ -134,6 +137,18 @@
        [?w1 :lexinfo/partOfSpeech ?pos]
        [?w2 :lexinfo/partOfSpeech ?pos]]]))
 
+(def synset-intersection
+  (q/build
+    '[:filter (not= ?synset ?otherSynset)
+      [:bgp
+       [?synset :ontolex/lexicalizedSense ?sense]
+       [?synset :rdfs/label ?synsetLabel]
+       [?synset :skos/definition ?synsetDefinition]
+       [?sense :ontolex/isLexicalizedSenseOf ?otherSynset]
+       [?sense :rdfs/label ?label]
+       [?otherSynset :rdfs/label ?otherSynsetLabel]
+       [?otherSynset :skos/definition ?otherSynsetDefinition]]]))
+
 (def unlabeled-senses
   (sparql
     "SELECT ?synset ?sense ?label
@@ -144,6 +159,13 @@
          ?sense rdfs:label ?missing .
        }
      }"))
+
+(def synset-relabeling
+  '[:bgp
+    [?synset :rdf/type :ontolex/LexicalConcept]
+    [?synset :rdfs/label ?synsetLabel]
+    [?synset :ontolex/lexicalizedSense ?sense]
+    [?sense :rdfs/label ?label]])
 
 (def missing-sense-sentiment
   (sparql
@@ -166,6 +188,38 @@
        ?opinion marl:hasPolarity ?pclass .
        ?opinion marl:polarityValue ?pval .
        ?synset ontolex:lexicalizedSense ?sense .
+     }"))
+
+(def missing-words
+  (sparql
+    "SELECT ?sense ?synset ?label
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       FILTER NOT EXISTS { ?word ontolex:sense ?sense }
+       ?sense rdfs:label ?label
+     }"))
+
+(def missing-inheritance
+  (sparql
+    "SELECT ?synset ?ontotype ?hypernym
+     WHERE {
+       ?synset dns:inherited ?inherit .
+       ?inherit dns:inheritedRelation wn:hypernym .
+       ?inherit dns:inheritedFrom ?parent .
+       ?parent dns:ontologicalType ?ontotype .
+       ?parent wn:hypernym ?hypernym .
+     }"))
+
+(def superfluous-definitions
+  "Synset definitions that are fully contained within other definitions;
+  this situation occurs due to the merge of the old data with the 2023 data."
+  (sparql
+    "SELECT ?synset ?definition ?otherDefinition
+     WHERE {
+       ?synset skos:definition ?definition .
+       FILTER(CONTAINS(?definition, \"…\"))
+       ?synset skos:definition ?otherDefinition .
+       FILTER(?definition != ?otherDefinition)
      }"))
 
 (def csv-synsets

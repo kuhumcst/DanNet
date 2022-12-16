@@ -4,10 +4,17 @@
 
 resources/wordnet
 resources/db/
-resources/export/
+export/
 dannet.ttl
 
 bootstrap/dannet
+
+# The new 2023 data for DanNet, downloaded from Google Sheets.
+bootstrap/other/dannet-new/adjectives.tsv
+bootstrap/other/dannet-new/multi-word-synsets.edn
+bootstrap/other/dannet-new/dannetsemid_synsetid.csv
+bootstrap/other/dannet-new/adj_suppl_brutto_221222.csv
+bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv
 
 # Files downloaded from https://ordregister.dk/
 bootstrap/other/cor/cor1.02.tsv
@@ -19,7 +26,7 @@ bootstrap/other/cor/ddo_bet_corextlink.csv
 bootstrap/other/sentiment/sense_polarities.tsv
 
 # The open English WordNet
-bootstrap/other/english/english-wordnet-2021.ttl
+bootstrap/other/english/english-wordnet-2022.ttl
 
 .cpcache
 .DS_Store
