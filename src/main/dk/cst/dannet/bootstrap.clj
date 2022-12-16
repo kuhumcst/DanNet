@@ -505,7 +505,7 @@
             [word :ontolex/sense sense]})))))
 
 ;; TODO
-(defn-hashed ->2022-triples
+(h/defn ->2022-triples
   "Convert a `row` from 'adjectives.csv' to triples."
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
@@ -749,9 +749,11 @@
                                 (apply = sentiment-scores))
                               (every? nil? sentiment-scores))))))
          (map (fn [[[dannetsemid sek_denbet] row]]
-                (str "{" (str/join "; " (map #(nth % 6) row)) "} -> " sek_denbet)))
+                (str "{" (str/join "; " (map #(nth % 6) row)) "} -> " sek_denbet "\n"
+                     "  ⤷ overbegreb (dannetsemid): " dannetsemid "\n"
+                     "  ⤷ sek_id: " (str/join ", " (map #(nth % 7) row)))))
          (sort)
-         #_(str/join "\n")
+         (str/join "\n")
          #_(count)))
 
   ;; Example sentiment triples
