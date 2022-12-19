@@ -305,7 +305,8 @@
   [{:keys [languages k->label] :as opts}]
   (fn [item]
     (let [k (if (map-entry? item) (first item) item)]
-      [(str (i18n/select-label languages (get k->label k))) item])))
+      [(str (i18n/select-label languages (get k->label k)))
+       (str item)])))
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."

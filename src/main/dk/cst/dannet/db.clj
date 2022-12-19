@@ -15,7 +15,8 @@
             [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.bootstrap :as bootstrap :refer [defn-hashed]]
+            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.transaction :as txn])
@@ -38,9 +39,15 @@
   (->> (for [{:keys [alt uri export]} (vals prefix/schemas)]
          (when-not export
            (if alt
-             (if (or (str/starts-with? alt "http://")
-                     (str/starts-with? alt "https://"))
+             (cond
+               (= alt :no-schema)
+               nil
+
+               (or (str/starts-with? alt "http://")
+                   (str/starts-with? alt "https://"))
                alt
+
+               :else
                (io/resource alt))
              uri)))
        (filter some?)))
@@ -186,7 +193,7 @@
   [^Dataset dataset ^String model-uri]
   (.getGraph (get-model dataset model-uri)))
 
-(defn-hashed add-bootstrap-import!
+(h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
@@ -286,6 +293,15 @@
 
     dataset))
 
+(h/defn add-open-english-wordnet!
+  "Add the Open English WordNet to a Jena `dataset`."
+  [dataset]
+  (println "Importing Open English Wordnet...")
+  (txn/transact-exec dataset
+    (aristotle/read (get-graph dataset "https://en-word.net/")
+                    "bootstrap/other/english/english-wordnet-2021.ttl"))
+  (println "Open English Wordnet imported!"))
+
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`."
   [db-type & [db-path]]
@@ -336,7 +352,9 @@
       :or   {db-type :in-mem} :as opts}]
   (let [files          (bootstrap-files bootstrap-imports)
         fn-hashes      (conj bootstrap/hashes
-                             (:hash (meta #'add-bootstrap-import!)))
+                             (:hash (meta #'add-bootstrap-import!))
+                             (:hash (meta #'add-open-english-wordnet!))
+                             (hash prefix/schemas))
         ;; Undo potentially negative number by bit-shifting.
         files-hash     (pos-hash files)
         bootstrap-hash (pos-hash fn-hashes)
@@ -354,6 +372,7 @@
         (do
           (println "Data input has changed -- rebuilding database...")
           (add-bootstrap-import! dataset bootstrap-imports)
+          (add-open-english-wordnet! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))
