@@ -299,7 +299,7 @@
   (println "Importing Open English Wordnet...")
   (txn/transact-exec dataset
     (aristotle/read (get-graph dataset "https://en-word.net/")
-                    "bootstrap/other/english/english-wordnet-2021.ttl"))
+                    "bootstrap/other/english/english-wordnet-2022.ttl"))
   (println "Open English Wordnet imported!"))
 
 (defn ->dataset

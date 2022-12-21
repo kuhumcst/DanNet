@@ -16,6 +16,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
+            [clojure.tools.reader.edn :as edn]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
             [dk.cst.dannet.hash :as h]
@@ -504,12 +505,61 @@
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
 
-;; TODO
+(def sense-id->multi-word-synset
+  "Information needed to construct labels for multi-word synsets in 2022 data."
+  (delay
+    (let [raw (-> (slurp "bootstrap/other/dannet-new/multi-word-synsets.edn")
+                  (edn/read-string))]
+      (->> (mapcat (fn [rows]
+                     (let [sense-ids (map #(nth % 7) rows)
+                           synset-id (first (sort sense-ids))
+                           label     (da (str "{" (->> rows
+                                                       (map #(nth % 6))
+                                                       (sort)
+                                                       (str/join "; ")) "}"))
+                           m         {:mws-id    synset-id
+                                      :mws-label label}]
+                       (map (fn [rows]
+                              [(nth rows 7) m])
+                            rows)))
+                   raw)
+           (into {})))
+    #_.))
+
+;; TODO: near synonym for sibling synsets
+;; TODO: inherit information from dannetsemid entity
 (h/defn ->2022-triples
-  "Convert a `row` from 'adjectives.csv' to triples."
+  "Convert a `row` from 'adjectives.csv' to triples.
+
+  Since this data only contains sense IDs, each word ID and synset ID is
+  synthesized from the sense ID."
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
-  row)
+  (let [{:keys [mws-id mws-label]} (@sense-id->multi-word-synset sek_id)
+        sense        (sense-uri sek_id)
+        word-id      (str "s" sek_id)
+        synset-id    (str "s" (or mws-id sek_id))
+        word         (word-uri word-id)
+        synset       (synset-uri synset-id)
+        lexical-form (lexical-form-uri word-id)]
+    #{[sense :rdf/type :ontolex/LexicalSense]
+      [synset :rdf/type :ontolex/LexicalConcept]
+      [word :rdf/type :ontolex/LexicalEntry]
+      [lexical-form :rdf/type (form->lexical-entry sek_holem)]
+
+      ;; Labels
+      [synset :rdfs/label (or mws-label (da (str "{" sek_holem "}")))]
+      [word :rdfs/label (da (qt sek_holem))]
+      [lexical-form :rdfs/label (da (qt sek_holem "-form"))]
+
+      ;; Lexical connections
+      [synset :ontolex/lexicalizedSense sense]
+      #_[synset :skos/definition sek_denbet]
+      [word :ontolex/evokes synset]
+      [word :ontolex/sense sense]
+      [word :lexinfo/partOfSpeech :lexinfo/adjective]
+      [word :wn/partOfSpeech :wn/adjective]
+      [word :ontolex/canonicalForm lexical-form]}))
 
 (def pol-val
   {"nxx" -3
@@ -737,9 +787,9 @@
                    (let [sentiment-scores (map (fn [row]
                                                  (get sent (nth row 7)))
                                                rows)
-                         lemmas (map (fn [row]
-                                       (nth row 6))
-                                     rows)]
+                         lemmas           (map (fn [row]
+                                                 (nth row 6))
+                                               rows)]
                      (and (> (count rows) 1)
                           (not-empty dannetsemid)
                           (not-empty sek_denbet)
@@ -748,13 +798,16 @@
                                 (every? some? sentiment-scores)
                                 (apply = sentiment-scores))
                               (every? nil? sentiment-scores))))))
-         (map (fn [[[dannetsemid sek_denbet] row]]
-                (str "{" (str/join "; " (map #(nth % 6) row)) "} -> " sek_denbet "\n"
-                     "  ⤷ overbegreb (dannetsemid): " dannetsemid "\n"
-                     "  ⤷ sek_id: " (str/join ", " (map #(nth % 7) row)))))
-         (sort)
-         (str/join "\n")
+         (mapv (fn [[[dannetsemid sek_denbet] row]]
+                 row
+                 #_(str "{" (str/join "; " (map #(nth % 6) row)) "} -> " sek_denbet "\n"
+                        "  ⤷ overbegreb (dannetsemid): " dannetsemid "\n"
+                        "  ⤷ sek_id: " (str/join ", " (map #(nth % 7) row)))))
          #_(count)))
+
+  ;; Example 2022 adjective triples
+  (->> (read-triples (get-in imports [prefix/dn-uri :2022]))
+       (take 10))
 
   ;; Example sentiment triples
   (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))

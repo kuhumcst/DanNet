@@ -11,6 +11,7 @@ bootstrap/dannet
 
 # The new 2022 data for DanNet, downloaded from Google Sheets.
 bootstrap/other/dannet-new/adjectives.tsv
+bootstrap/other/dannet-new/multi-word-synsets.edn
 
 # Files downloaded from https://ordregister.dk/
 bootstrap/other/cor/cor1.02.tsv
@@ -22,7 +23,7 @@ bootstrap/other/cor/ddo_bet_corextlink.csv
 bootstrap/other/sentiment/sense_polarities.tsv
 
 # The open English WordNet
-bootstrap/other/english/english-wordnet-2021.ttl
+bootstrap/other/english/english-wordnet-2022.ttl
 
 .cpcache
 .DS_Store
