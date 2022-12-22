@@ -22,8 +22,10 @@
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix])
-  (:import [java.util Date]))
+  (:import [java.time LocalDate]
+           [java.time.format DateTimeFormatter]))
 
+;; TODO: missing label http://localhost:3456/dannet/data/synset-48454
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
@@ -50,6 +52,17 @@
   "The RDF resource URI for the DanNet/EuroWordNet concepts."
   (prefix/prefix->rdf-resource 'dnc))
 
+(def dc-issued-new
+  "2023-01-01")
+
+(def dc-issued-old
+  "2023-01-01")
+
+(def dc-modified
+  (let [formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd")
+        today     (LocalDate/now)]
+    (.format formatter today)))
+
 (h/def metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
@@ -61,8 +74,7 @@
     [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
     [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
     [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
-    [<dns> :dc/issued #inst "2022-12-23"]
-    [<dns> :dc/modified (new Date)]
+    [<dns> :dc/issued dc-issued-new]
     [<dns> :dc/contributor <simongray>]
     [<dns> :dc/publisher <cst>]
     [<dns> :foaf/homepage <dns>]
@@ -75,8 +87,7 @@
     [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
     [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
     [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
-    [<dnc> :dc/issued #inst "2022-12-23"]
-    [<dnc> :dc/modified (new Date)]
+    [<dnc> :dc/issued dc-issued-new]
     [<dnc> :dc/contributor <simongray>]
     [<dnc> :dc/publisher <cst>]
     [<dnc> :foaf/homepage <dns>]
@@ -88,8 +99,7 @@
     [<dn> :dc/title "DanNet"]
     [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
     [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
-    [<dn> :dc/issued #inst "2022-12-23"]
-    [<dn> :dc/modified (new Date)]
+    [<dn> :dc/issued dc-issued-new]
     [<dn> :dc/contributor <simongray>]
     [<dn> :dc/publisher <cst>]
     [<dn> :foaf/homepage <dn>]
@@ -349,6 +359,7 @@
         definition "skrifttegnet @"]
     (set/union
       #{[synset :rdf/type :ontolex/LexicalConcept]
+        [synset :dc/issued dc-issued-old]
         [synset :rdfs/label (da label)]
         [synset :skos/definition (da definition)]}
       (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
@@ -365,7 +376,8 @@
                            (str/replace brug "")
                            (str/replace inserted-by-DanNet ""))]
         (set/union
-          #{[synset :rdf/type :ontolex/LexicalConcept]}
+          #{[synset :rdf/type :ontolex/LexicalConcept]
+            [synset :dc/issued dc-issued-old]}
           (when (not-empty label)
             #{[synset :rdfs/label (da (rewrite-synset-label label))]})
           (when (and (not= definition "(ingen definition)")
@@ -528,7 +540,7 @@
 
 ;; TODO: near synonym for sibling synsets
 ;; TODO: inherit information from dannetsemid entity
-(h/defn ->2022-triples
+(h/defn ->2023-triples
   "Convert a `row` from 'adjectives.csv' to triples.
 
   Since this data only contains sense IDs, each word ID and synset ID is
@@ -549,6 +561,7 @@
 
       ;; Labels
       [synset :rdfs/label (or mws-label (da (str "{" sek_holem "}")))]
+      [synset :dc/issued dc-issued-new]
       [word :rdfs/label (da (qt sek_holem))]
       [lexical-form :rdfs/label (da (qt sek_holem "-form"))]
 
@@ -559,7 +572,8 @@
       [word :ontolex/sense sense]
       [word :lexinfo/partOfSpeech :lexinfo/adjective]
       [word :wn/partOfSpeech :wn/adjective]
-      [word :ontolex/canonicalForm lexical-form]}))
+      [word :ontolex/canonicalForm lexical-form]
+      [lexical-form :ontolex/writtenRep (da sek_holem)]}))
 
 (def pol-val
   {"nxx" -3
@@ -701,7 +715,7 @@
     :metadata  [nil metadata-triples]
 
     ;; The 2022-additions of mainly adjectives.
-    :2022      [->2022-triples "bootstrap/other/dannet-new/adjectives.tsv"
+    :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
                 :encoding "UTF-8"
                 :separator \tab
                 :preprocess rest]
@@ -756,6 +770,7 @@
         #'->sense-triples
         #'metadata-triples
         #'examples
+        #'->2023-triples
         #'->sentiment-triples
         #'->cor-k-triples
         #'->cor-ext-triples
@@ -806,7 +821,7 @@
          #_(count)))
 
   ;; Example 2022 adjective triples
-  (->> (read-triples (get-in imports [prefix/dn-uri :2022]))
+  (->> (read-triples (get-in imports [prefix/dn-uri :2023]))
        (take 10))
 
   ;; Example sentiment triples
