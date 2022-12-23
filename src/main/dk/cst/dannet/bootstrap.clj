@@ -539,6 +539,15 @@
                           :preprocess rest])
            (into {})))))
 
+(def sense-definitions
+  (delay
+    (->> (read-triples [identity
+                        "bootstrap/other/dannet-new/adj_suppl_brutto_221222.csv"
+                        :encoding "UTF-8"
+                        :separator \tab
+                        :preprocess rest])
+         (into {}))))
+
 (def sense-id->multi-word-synset
   "Information needed to construct labels for multi-word synsets in 2022 data.
 
@@ -579,12 +588,15 @@
   "Convert a `row` from 'adjectives.csv' to triples."       ;TODO: rephrase
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
-  (when (str/blank? sek_id)
+  (when-not (str/blank? sek_id)
     (let [{:keys [mws-id
                   mws-label]} (@sense-id->multi-word-synset sek_id)
           sense-id->synset-id   (comp :synset-id @sense-properties)
           sense-id->sense-label (comp :sense-label @sense-properties)
           sense-id->definition  (comp :definition @sense-properties)
+          sense-id->definition' (fn [id]
+                                  (when-not (str/blank? id)
+                                    (get @sense-definitions id)))
           sense                 (sense-uri sek_id)
           sense-label           (-> (or (sense-id->sense-label sek_id)
                                         sek_holem)
@@ -617,7 +629,9 @@
               [inherit :dns/inheritedFrom (synset-uri from-id)]
               [inherit :dns/inheritedRelation :wn/similar]}))
 
-        (when-let [definition (sense-id->definition sek_id)]
+        (when-let [definition (or (sense-id->definition' sek_id)
+                                  (sense-id->definition sek_id)
+                                  (not-empty sek_denbet))]
           #{[synset :skos/definition (da definition)]})))))
 
 (defn synthesize-missing-words
