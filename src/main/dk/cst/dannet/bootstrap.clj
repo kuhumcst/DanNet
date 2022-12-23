@@ -21,7 +21,9 @@
             [better-cond.core :as better]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.prefix :as prefix])
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.query :as q]
+            [dk.cst.dannet.query.operation :as op])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
 
@@ -567,57 +569,42 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
+;; TODO: missing definitions e.g. http://localhost:3456/dannet/data/synset-s21070975
+;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
+;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
 ;; TODO: too many synsets? http://localhost:3456/dannet/search?lemma=sej
-;; TODO: generates too many words http://localhost:3456/dannet/data/synset-69698 http://localhost:3456/dannet/data/synset-71887
 ;; TODO: near synonym for sibling synsets
 ;; TODO: inherit information from dannetsemid entity
 (h/defn ->2023-triples
   "Convert a `row` from 'adjectives.csv' to triples."       ;TODO: rephrase
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
-  (when (not-empty sek_id)
-    (let [{:keys [mws-id mws-label]} (@sense-id->multi-word-synset sek_id)
+  (when (str/blank? sek_id)
+    (let [{:keys [mws-id
+                  mws-label]} (@sense-id->multi-word-synset sek_id)
           sense-id->synset-id   (comp :synset-id @sense-properties)
-          sense-id->written-rep (comp :written-rep @sense-properties)
           sense-id->sense-label (comp :sense-label @sense-properties)
-          sense-id->pos         (comp :pos @sense-properties)
           sense-id->definition  (comp :definition @sense-properties)
           sense                 (sense-uri sek_id)
           sense-label           (-> (or (sense-id->sense-label sek_id)
                                         sek_holem)
                                     (rewrite-sense-label))
-          written-rep           (or (sense-id->written-rep sek_id)
-                                    sek_holem)
           synset-id             (or (sense-id->synset-id mws-id)
                                     (sense-id->synset-id sek_id)
                                     (str "s" (or mws-id sek_id)))
-          word-id               (str "s" (or (sense-id->synset-id sek_id)
-                                             mws-id
-                                             sek_id))
-          word                  (word-uri word-id)
-          synset                (synset-uri synset-id)
-          lexical-form          (lexical-form-uri word-id)]
+          synset                (synset-uri synset-id)]
       (set/union
         #{[sense :rdf/type :ontolex/LexicalSense]
           [synset :rdf/type :ontolex/LexicalConcept]
-          [word :rdf/type :ontolex/LexicalEntry]
-          [lexical-form :rdf/type (form->lexical-entry sek_holem)]
 
           ;; Labels
           [sense :rdfs/label sense-label]
           [synset :rdfs/label (or mws-label
                                   (da (str "{" sense-label "}")))]
           [synset :dc/issued dc-issued-new]
-          [word :rdfs/label (da (qt written-rep))]
-          [lexical-form :rdfs/label (da (qt written-rep "-form"))]
 
           ;; Lexical connections
-          [synset :ontolex/lexicalizedSense sense]
-          [word :ontolex/evokes synset]
-          [word :ontolex/sense sense]
-          [word :lexinfo/partOfSpeech :lexinfo/adjective]
-          [word :ontolex/canonicalForm lexical-form]
-          [lexical-form :ontolex/writtenRep (da written-rep)]}
+          [synset :ontolex/lexicalizedSense sense]}
 
         ;; Inheritance, effectuated in the ->dannet function.
         ;; The dns:inheritedFromTemp relation is used to find synsets and will
@@ -630,11 +617,33 @@
               [inherit :dns/inheritedFrom (synset-uri from-id)]
               [inherit :dns/inheritedRelation :wn/similar]}))
 
-        (when-let [pos (sense-id->pos sek_id)]
-          #{[word :wn/partOfSpeech pos]})
-
         (when-let [definition (sense-id->definition sek_id)]
           #{[synset :skos/definition (da definition)]})))))
+
+(defn synthesize-missing-words
+  "Create word-related triples for missing words in `g`.
+  This an extra step needed to properly integrate the 2023 data."
+  [g]
+  (->> (q/run g op/missing-words)
+       (map (fn [{:syms [?sense ?synset ?label]}]
+              (let [sense-id->pos (comp :pos @sense-properties)
+                    sense-id      (subs (name ?sense) 6)
+                    word-id       (str "s" sense-id)
+                    word          (word-uri word-id)
+                    [_ written-rep] (re-matches #"([^_]+)(.*)?" ?label)
+                    lexical-form  (lexical-form-uri word-id)]
+                #{[word :rdf/type :ontolex/LexicalEntry]
+                  [word :rdfs/label (da (qt written-rep))]
+                  [lexical-form :rdfs/label (da (qt written-rep "-form"))]
+                  [lexical-form :rdf/type (form->lexical-entry written-rep)]
+
+                  [word :ontolex/evokes ?synset]
+                  [word :ontolex/sense ?sense]
+                  [word :ontolex/canonicalForm lexical-form]
+                  [lexical-form :ontolex/writtenRep (da written-rep)]
+
+                  [word :wn/partOfSpeech (or (sense-id->pos sense-id)
+                                             :wn/adjective)]})))))
 
 (def pol-val
   {"nxx" -3

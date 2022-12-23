@@ -171,6 +171,15 @@
        ?synset ontolex:lexicalizedSense ?sense .
      }"))
 
+(def missing-words
+  (sparql
+    "SELECT ?sense ?synset ?label
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       FILTER NOT EXISTS { ?word ontolex:sense ?sense }
+       ?sense rdfs:label ?label
+     }"))
+
 ;; TODO: rewrite
 (def new-adjective-siblings
   "Siblings for the 2023 adjective data."
