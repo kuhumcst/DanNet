@@ -45,12 +45,15 @@
 
 (def sense-label-targets
   "Used during initial graph creation to attach labels to senses."
-  (q/build
-    '[:bgp
-      [?word :ontolex/sense ?sense]
-      [?word :rdfs/label ?word-label]
-      [?synset :ontolex/lexicalizedSense ?sense]
-      [?synset :rdfs/label ?synset-label]]))
+  (sparql
+    "SELECT ?sense ?wlabel ?slabel
+     WHERE {
+       ?word ontolex:sense ?sense .
+       FILTER NOT EXISTS { ?sense rdfs:label ?label }
+       ?word rdfs:label ?wlabel .
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?synset rdfs:label ?slabel .
+     }"))
 
 (def example-targets
   "Used during initial graph creation to attach examples to senses."
@@ -167,6 +170,15 @@
        ?opinion marl:polarityValue ?pval .
        ?synset ontolex:lexicalizedSense ?sense .
      }"))
+
+;; TODO: rewrite
+(def new-adjective-siblings
+  "Siblings for the 2023 adjective data."
+  (q/build
+    '[:bgp
+      [?synset :rdf/type :ontolex/LexicalConcept]
+      [?synset :dc/issued "2023-01-01"]
+      [?synset :ontolex/lexicalizedSense ?sense]]))
 
 (def csv-synsets
   "Columns to export for synsets.csv."

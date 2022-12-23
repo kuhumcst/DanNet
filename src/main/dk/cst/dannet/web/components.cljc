@@ -686,12 +686,12 @@
   [:footer
    (i18n/da-en languages
      [:p {:lang "da"}
-      "© 2022 " [:a {:href "https://cst.ku.dk"}
+      "© 2023 " [:a {:href "https://cst.ku.dk"}
                  "Center for Sprogteknologi"]
       ", " [:abbr {:title "Københavns Universitet"}
             "KU"] "."]
      [:p {:lang "en"}
-      "© 2022 " [:a {:href "https://cst.ku.dk/english"}
+      "© 2023 " [:a {:href "https://cst.ku.dk/english"}
                  "Centre for Language Technology"]
       ", " [:abbr {:title "University of Copenhagen"}
             "KU"] "."])])

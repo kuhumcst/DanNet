@@ -89,14 +89,14 @@
   [g]
   (let [label-cache (atom {})]
     (->> (for [{:syms [?sense
-                       ?word-label
-                       ?synset-label]} (->> (q/run g op/sense-label-targets)
-                                            (sort-by '?sense))
-               :let [word        (-> (str ?word-label)
-                                     (subs 1 (dec (count (str ?word-label)))))
+                       ?wlabel
+                       ?slabel]} (->> (q/run g op/sense-label-targets)
+                                      (sort-by '?sense))
+               :let [word        (-> (str ?wlabel)
+                                     (subs 1 (dec (count (str ?wlabel)))))
                      compatible? (fn [sense]
                                    (= word (str/replace sense #"_[^ ,]+" "")))
-                     labels      (->> (str ?synset-label)
+                     labels      (->> (str ?slabel)
                                       (com/sense-labels com/synset-sep)
                                       (filter compatible?))]]
            (case (count labels)
@@ -179,6 +179,24 @@
          (mapcat ->triples)
          (apply set/union))))
 
+;; TODO: rewrite
+(defn ->2023-sibling-triples
+  "Mark near synonyms as wn:similar in the siblings of the "
+  [g]
+  (->> (q/run g op/new-adjective-siblings)
+       (group-by '?synset)
+       (map second)
+       (filter #(> (count %) 1))
+       (map (partial map '?sense))
+       (mapcat (fn [senses]
+                 (->> (for [sense senses]
+                        (for [other-sense senses]
+                          (when (not= sense other-sense)
+                            [sense :wn/similar other-sense]))))))
+       (apply concat)
+       (remove nil?)
+       (set)))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -199,7 +217,6 @@
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
-        cor-graph   (get-graph dataset prefix/cor-uri)
         union-graph (.getGraph (.getUnionModel dataset))]
 
     (println "Beginning DanNet bootstrap import process")
@@ -226,6 +243,12 @@
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph example-triples)))
 
+    ;; The adjectives added in 2023
+    #_(let [sibling-triples (doall (->2023-sibling-triples dn-graph))]
+        (println "Marking sibling-triples in 2023 adjective data...")
+        (txn/transact-exec dn-graph
+          (aristotle/add dn-graph sibling-triples)))
+
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
@@ -251,42 +274,42 @@
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
     ;; that *do* have.
-    (let [senti-triples (->> (q/run union-graph op/missing-sense-sentiment)
-                             (group-by '?word)
-                             (filter #(= 1 (count (second %))))
-                             (mapcat second)
-                             (map (fn [{:syms [?sense ?opinion]}]
-                                    [?sense :dns/sentiment ?opinion]))
-                             (doall))
-          n             (count senti-triples)]
-      (println (str "Synthesizing " n " sense sentiment triples..."))
-      (txn/transact-exec senti-graph
-        (aristotle/add senti-graph senti-triples)))
+    #_(let [senti-triples (->> (q/run union-graph op/missing-sense-sentiment)
+                               (group-by '?word)
+                               (filter #(= 1 (count (second %))))
+                               (mapcat second)
+                               (map (fn [{:syms [?sense ?opinion]}]
+                                      [?sense :dns/sentiment ?opinion]))
+                               (doall))
+            n             (count senti-triples)]
+        (println (str "Synthesizing " n " sense sentiment triples..."))
+        (txn/transact-exec senti-graph
+          (aristotle/add senti-graph senti-triples)))
 
     ;; Likewise, all synsets whose senses are collectively unambiguously will
     ;; have sentiment triples synthesized. If the senses have differing polarity
     ;; values, a basic 1 or -1 is chosen as the synset sentiment polarity.
     ;; In my testing, ~30 of the queried synsets had some ambiguity.
-    (let [->triples (fn [[_ coll]]
-                      (let [{:syms [?synset ?pval ?pclass]} (first coll)
-                            polarity (cond
-                                       (apply = (map '?pval coll)) ?pval
-                                       (= ?pclass :marl/Negative) -1
-                                       (= ?pclass :marl/positive) 1
-                                       :else 0)
-                            opinion  (symbol (str "_opinion-" (name ?synset)))]
-                        #{[?synset :dns/sentiment opinion]
-                          [opinion :marl/hasPolarity ?pclass]
-                          [opinion :marl/polarityValue polarity]}))
-          triples   (->> (q/run union-graph op/missing-synset-sentiment)
-                         (group-by '?synset)
-                         (filter #(apply = (map '?pclass (second %))))
-                         (mapcat ->triples)
-                         (doall))
-          n         (count triples)]
-      (println (str "Synthesizing " n " synset sentiment triples..."))
-      (txn/transact-exec senti-graph
-        (aristotle/add senti-graph triples)))
+    #_(let [->triples (fn [[_ coll]]
+                        (let [{:syms [?synset ?pval ?pclass]} (first coll)
+                              polarity (cond
+                                         (apply = (map '?pval coll)) ?pval
+                                         (= ?pclass :marl/Negative) -1
+                                         (= ?pclass :marl/positive) 1
+                                         :else 0)
+                              opinion  (symbol (str "_opinion-" (name ?synset)))]
+                          #{[?synset :dns/sentiment opinion]
+                            [opinion :marl/hasPolarity ?pclass]
+                            [opinion :marl/polarityValue polarity]}))
+            triples   (->> (q/run union-graph op/missing-synset-sentiment)
+                           (group-by '?synset)
+                           (filter #(apply = (map '?pclass (second %))))
+                           (mapcat ->triples)
+                           (doall))
+            n         (count triples)]
+        (println (str "Synthesizing " n " synset sentiment triples..."))
+        (txn/transact-exec senti-graph
+          (aristotle/add senti-graph triples)))
 
     (println "----")
     (println "DanNet bootstrap done!")
@@ -372,7 +395,7 @@
         (do
           (println "Data input has changed -- rebuilding database...")
           (add-bootstrap-import! dataset bootstrap-imports)
-          (add-open-english-wordnet! dataset)
+          #_(add-open-english-wordnet! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))
