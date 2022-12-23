@@ -241,7 +241,7 @@
   (when-let [[_ example-str] (re-find brug gloss)]
     (into {} (for [example (str/split example-str #" \|\| |\"; \"")]
                (when-let [token (determine-example-token label example)]
-                 [[(synset-uri synset-id) token] (da example)])))))
+                 [[(synset-uri synset-id) (da token)] (da example)])))))
 
 (defn clean-ontological-type
   "Clean up the `ontological-type` string before conversion to resource names.
