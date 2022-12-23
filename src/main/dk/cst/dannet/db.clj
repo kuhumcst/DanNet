@@ -251,6 +251,14 @@
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph missing-words)))
 
+    ;; Missing words for the 2023 adjectives data are synthesized from senses.
+    ;; This step cannot be performed as part of the basic bootstrap since we
+    ;; must avoid synthesizing new words for existing senses in the data!
+    (let [inheritance (doall (bootstrap/synthesize-inherited-relations dn-graph))]
+      (println "Synthesizing inherited relations for 2023 adjectives...")
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph inheritance)))
+
     ;; The adjectives added in 2023
     #_(let [sibling-triples (doall (->2023-sibling-triples dn-graph))]
         (println "Marking sibling-triples in 2023 adjective data...")

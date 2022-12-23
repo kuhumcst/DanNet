@@ -180,6 +180,17 @@
        ?sense rdfs:label ?label
      }"))
 
+(def missing-inheritance
+  (sparql
+    "SELECT ?synset ?ontotype ?hypernym
+     WHERE {
+       ?synset dns:inherited ?inherit .
+       ?inherit dns:inheritedRelation wn:hypernym .
+       ?inherit dns:inheritedFrom ?parent .
+       ?parent dns:ontologicalType ?ontotype .
+       ?parent wn:hypernym ?hypernym .
+     }"))
+
 ;; TODO: rewrite
 (def new-adjective-siblings
   "Siblings for the 2023 adjective data."

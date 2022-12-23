@@ -586,10 +586,8 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
-;; TODO: missing definitions e.g. http://localhost:3456/dannet/data/synset-s21070975
 ;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
-;; TODO: too many synsets? http://localhost:3456/dannet/search?lemma=sej
 ;; TODO: near synonym for sibling synsets
 ;; TODO: inherit information from dannetsemid entity
 (h/defn ->2023-triples
@@ -626,16 +624,24 @@
           ;; Lexical connections
           [synset :ontolex/lexicalizedSense sense]}
 
-        ;; Inheritance, effectuated in the ->dannet function.
-        ;; The dns:inheritedFromTemp relation is used to find synsets and will
-        ;; subsequently be deleted.
+        ;; TODO: doesn't seem to work in some cases, e.g. http://localhost:3456/dannet/data/synset-21592
+        ;; Inheritance (effectuated in the ->dannet function)
         (when-let [from-id (sense-id->synset-id dannetsemid)]
-          (let [inherit (keyword "dn" (str "inherit-" synset-id "-similar"))]
-            #{[synset :dns/inherited inherit]
-              [inherit :rdf/type :dns/Inheritance]
-              [inherit :rdfs/label (prefix/kw->qname :wn/similar)]
-              [inherit :dns/inheritedFrom (synset-uri from-id)]
-              [inherit :dns/inheritedRelation :wn/similar]}))
+          (let [hypernym (keyword "dn" (str "inherit-" synset-id "-hypernym"))
+                ontotype (keyword "dn" (str "inherit-" synset-id "-ontologicalType"))
+                from     (synset-uri from-id)]
+            #{[synset :dns/inherited hypernym]
+              [synset :dns/inherited ontotype]
+
+              [hypernym :rdf/type :dns/Inheritance]
+              [hypernym :rdfs/label (prefix/kw->qname :wn/hypernym)]
+              [hypernym :dns/inheritedFrom from]
+              [hypernym :dns/inheritedRelation :wn/hypernym]
+
+              [ontotype :rdf/type :dns/Inheritance]
+              [ontotype :rdfs/label (prefix/kw->qname :dns/ontologicalType)]
+              [ontotype :dns/inheritedFrom from]
+              [ontotype :dns/inheritedRelation :dns/ontologicalType]}))
 
         (when-let [example (get @sense-examples sek_id)]
           (when-not (str/blank? example)
@@ -670,6 +676,15 @@
 
                   [word :wn/partOfSpeech (or (sense-id->pos sense-id)
                                              :wn/adjective)]})))))
+
+(defn synthesize-inherited-relations
+  "Create inheritance-related triples for missing words in `g`.
+  This an extra step needed to properly integrate the 2023 data."
+  [g]
+  (->> (q/run g op/missing-inheritance)
+       (map (fn [{:syms [?synset ?hypernym ?ontotype]}]
+              #{[?synset :dns/ontologicalType ?ontotype]
+                [?synset :wn/hypernym ?hypernym]}))))
 
 (def pol-val
   {"nxx" -3
