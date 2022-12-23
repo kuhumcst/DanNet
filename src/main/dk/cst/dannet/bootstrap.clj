@@ -586,8 +586,10 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
-;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
+;; TODO: should only keep longest definition http://localhost:3456/dannet/data/synset-69698
+;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
+;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
 ;; TODO: near synonym for sibling synsets
 ;; TODO: inherit information from dannetsemid entity
 (h/defn ->2023-triples
