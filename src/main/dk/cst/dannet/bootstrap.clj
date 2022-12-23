@@ -548,6 +548,14 @@
                         :preprocess rest])
          (into {}))))
 
+(def sense-examples
+  "Examples for the new sense in the 2023 adjective data."
+  (delay
+    (->> (with-open [reader (io/reader "bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv")]
+           (mapv #(str/split % #"\t") (line-seq reader)))
+         (filter #(= 2 (count %)))
+         (into {}))))
+
 (def sense-id->multi-word-synset
   "Information needed to construct labels for multi-word synsets in 2022 data.
 
@@ -628,6 +636,10 @@
               [inherit :rdfs/label (prefix/kw->qname :wn/similar)]
               [inherit :dns/inheritedFrom (synset-uri from-id)]
               [inherit :dns/inheritedRelation :wn/similar]}))
+
+        (when-let [example (get @sense-examples sek_id)]
+          (when-not (str/blank? example)
+            #{[sense :lexinfo/senseExample (da example)]}))
 
         (when-let [definition (or (sense-id->definition' sek_id)
                                   (sense-id->definition sek_id)
