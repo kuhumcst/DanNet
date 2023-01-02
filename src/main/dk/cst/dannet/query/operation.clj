@@ -6,7 +6,7 @@
             ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix]))
 
-(def ^:private sparql
+(def sparql
   (comp q/parse voc/prepend-prefix-declarations))
 
 (def entity
