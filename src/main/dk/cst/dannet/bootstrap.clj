@@ -27,7 +27,7 @@
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
 
-;; TODO: missing label http://localhost:3456/dannet/data/synset-48454
+;; TODO: missing label http://localhost:3456/dannet/data/synset-48454 http://localhost:3456/dannet/data/synset-3085
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
@@ -594,9 +594,8 @@
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
 ;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
 ;; TODO: near synonym for sibling synsets
-;; TODO: inherit information from dannetsemid entity
 (h/defn ->2023-triples
-  "Convert a `row` from 'adjectives.csv' to triples."       ;TODO: rephrase
+  "Convert a `row` from 'adjectives.tsv' to triples."
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
   (when-not (str/blank? sek_id)
@@ -635,7 +634,8 @@
           (let [hypernym (keyword "dn" (str "inherit-" synset-id "-hypernym"))
                 ontotype (keyword "dn" (str "inherit-" synset-id "-ontologicalType"))
                 from     (synset-uri from-id)]
-            #{[synset :dns/inherited hypernym]
+            #{[synset :wn/similar from]
+              [synset :dns/inherited hypernym]
               [synset :dns/inherited ontotype]
 
               [hypernym :rdf/type :dns/Inheritance]

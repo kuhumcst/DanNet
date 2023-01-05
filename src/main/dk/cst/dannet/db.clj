@@ -275,9 +275,9 @@
                (remove nil?)
                (reduce aristotle/add g)))))
 
-    (println "Removing superfluous definitions...")
     (let [triples  (doall (->superfluous-definition-triples dn-graph))
           dn-model (get-model dataset prefix/dn-uri)]
+      (println "Removing" (count triples) "superfluous definitions...")
       (txn/transact-exec dn-model
         (doseq [triple triples]
           (remove! dn-model triple))))
