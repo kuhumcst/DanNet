@@ -20,10 +20,11 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.transaction :as txn])
-  (:import [org.apache.jena.riot RDFDataMgr RDFFormat]
+  (:import [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.rdf.model ModelFactory Model Statement]
+           [org.apache.jena.rdf.model ModelFactory Model ResourceFactory Statement]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [java.time LocalDateTime]
@@ -197,6 +198,29 @@
        (remove nil?)
        (set)))
 
+(defn ->superfluous-definition-triples
+  "Return duplicate/superfluous :skos/definition triples found in Graph `g`.
+
+  Basically, the merge of various data sources that occurred as part of the 2023
+  data import results in duplicate definitions. In cases where a duplicate can
+  be shown to be either identical to or contained within another definition,
+  we can safely delete the duplicate triple."
+  [g]
+  (->> (q/run g op/superfluous-definitions)
+       (map (fn [{:syms [?synset ?definition ?otherDefinition]}]
+              (let [->ds (fn [d]
+                           (when-let [d' (not-empty (str d))]
+                             (subs d' 0 (dec (count d')))))
+                    d1   (->ds ?definition)
+                    d2   (->ds ?otherDefinition)]
+                (when-let [d (cond
+                               (nil? d1) ?definition
+                               (nil? d2) ?otherDefinition
+                               (str/starts-with? d2 d1) ?definition
+                               (str/starts-with? d1 d2) ?otherDefinition)]
+                  [?synset :skos/definition d]))))
+       (remove nil?)))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -210,6 +234,23 @@
   "Idempotently get the graph in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
   (.getGraph (get-model dataset model-uri)))
+
+(defn remove!
+  "Remove a `triple` from the Apache Jena `model`."
+  [^Model model [s p o :as triple]]
+  (.removeAll
+    model
+    (ResourceFactory/createResource (voc/uri-for s))
+    (ResourceFactory/createProperty (voc/uri-for p))
+    (cond
+      (keyword? o)
+      (ResourceFactory/createResource (voc/uri-for o))
+
+      (instance? LangStr o)
+      (ResourceFactory/createLangLiteral (str o) (.lang o))
+
+      :else
+      (ResourceFactory/createTypedLiteral o))))
 
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
@@ -233,6 +274,13 @@
           (->> (bootstrap/read-triples row)
                (remove nil?)
                (reduce aristotle/add g)))))
+
+    (println "Removing superfluous definitions...")
+    (let [triples  (doall (->superfluous-definition-triples dn-graph))
+          dn-model (get-model dataset prefix/dn-uri)]
+      (txn/transact-exec dn-model
+        (doseq [triple triples]
+          (remove! dn-model triple))))
 
     ;; As ->example-triples needs to read the graph to create
     ;; triples, it must be done after the write transaction.
@@ -290,42 +338,42 @@
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
     ;; that *do* have.
-    #_(let [senti-triples (->> (q/run union-graph op/missing-sense-sentiment)
-                               (group-by '?word)
-                               (filter #(= 1 (count (second %))))
-                               (mapcat second)
-                               (map (fn [{:syms [?sense ?opinion]}]
-                                      [?sense :dns/sentiment ?opinion]))
-                               (doall))
-            n             (count senti-triples)]
-        (println (str "Synthesizing " n " sense sentiment triples..."))
-        (txn/transact-exec senti-graph
-          (aristotle/add senti-graph senti-triples)))
+    (let [senti-triples (->> (q/run union-graph op/missing-sense-sentiment)
+                             (group-by '?word)
+                             (filter #(= 1 (count (second %))))
+                             (mapcat second)
+                             (map (fn [{:syms [?sense ?opinion]}]
+                                    [?sense :dns/sentiment ?opinion]))
+                             (doall))
+          n             (count senti-triples)]
+      (println (str "Synthesizing " n " sense sentiment triples..."))
+      (txn/transact-exec senti-graph
+        (aristotle/add senti-graph senti-triples)))
 
     ;; Likewise, all synsets whose senses are collectively unambiguously will
     ;; have sentiment triples synthesized. If the senses have differing polarity
     ;; values, a basic 1 or -1 is chosen as the synset sentiment polarity.
     ;; In my testing, ~30 of the queried synsets had some ambiguity.
-    #_(let [->triples (fn [[_ coll]]
-                        (let [{:syms [?synset ?pval ?pclass]} (first coll)
-                              polarity (cond
-                                         (apply = (map '?pval coll)) ?pval
-                                         (= ?pclass :marl/Negative) -1
-                                         (= ?pclass :marl/positive) 1
-                                         :else 0)
-                              opinion  (symbol (str "_opinion-" (name ?synset)))]
-                          #{[?synset :dns/sentiment opinion]
-                            [opinion :marl/hasPolarity ?pclass]
-                            [opinion :marl/polarityValue polarity]}))
-            triples   (->> (q/run union-graph op/missing-synset-sentiment)
-                           (group-by '?synset)
-                           (filter #(apply = (map '?pclass (second %))))
-                           (mapcat ->triples)
-                           (doall))
-            n         (count triples)]
-        (println (str "Synthesizing " n " synset sentiment triples..."))
-        (txn/transact-exec senti-graph
-          (aristotle/add senti-graph triples)))
+    (let [->triples (fn [[_ coll]]
+                      (let [{:syms [?synset ?pval ?pclass]} (first coll)
+                            polarity (cond
+                                       (apply = (map '?pval coll)) ?pval
+                                       (= ?pclass :marl/Negative) -1
+                                       (= ?pclass :marl/positive) 1
+                                       :else 0)
+                            opinion  (symbol (str "_opinion-" (name ?synset)))]
+                        #{[?synset :dns/sentiment opinion]
+                          [opinion :marl/hasPolarity ?pclass]
+                          [opinion :marl/polarityValue polarity]}))
+          triples   (->> (q/run union-graph op/missing-synset-sentiment)
+                         (group-by '?synset)
+                         (filter #(apply = (map '?pclass (second %))))
+                         (mapcat ->triples)
+                         (doall))
+          n         (count triples)]
+      (println (str "Synthesizing " n " synset sentiment triples..."))
+      (txn/transact-exec senti-graph
+        (aristotle/add senti-graph triples)))
 
     (println "----")
     (println "DanNet bootstrap done!")

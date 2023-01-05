@@ -191,6 +191,18 @@
        ?parent wn:hypernym ?hypernym .
      }"))
 
+(def superfluous-definitions
+  "Synset definitions that are fully contained within other definitions;
+  this situation occurs due to the merge of the old data with the 2023 data."
+  (sparql
+    "SELECT ?synset ?definition ?otherDefinition
+     WHERE {
+       ?synset skos:definition ?definition .
+       FILTER(CONTAINS(?definition, \"…\"))
+       ?synset skos:definition ?otherDefinition .
+       FILTER(?definition != ?otherDefinition)
+     }"))
+
 ;; TODO: rewrite
 (def new-adjective-siblings
   "Siblings for the 2023 adjective data."

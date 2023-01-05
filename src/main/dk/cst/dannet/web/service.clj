@@ -4,6 +4,7 @@
             [io.pedestal.http.route :as route]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.shared :as shared])
+  (:import [org.apache.jena.sparql.expr NodeValue])
   (:gen-class))
 
 (defonce server (atom nil))
@@ -57,6 +58,7 @@
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
+  (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 

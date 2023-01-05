@@ -35,6 +35,10 @@
   [s]
   (->LangStr s "da"))
 
+(defn fix-ellipsis
+  [definition]
+  (str/replace definition " ..." "…"))
+
 ;; TODO: add the others as contributors too
 (def <simongray>
   (prefix/uri->rdf-resource "http://simongray.dk"))
@@ -363,7 +367,7 @@
       #{[synset :rdf/type :ontolex/LexicalConcept]
         [synset :dc/issued dc-issued-old]
         [synset :rdfs/label (da label)]
-        [synset :skos/definition (da definition)]}
+        [synset :skos/definition (da (fix-ellipsis definition))]}
       (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
            (explode-ontological-type synset)))))
 
@@ -384,7 +388,7 @@
             #{[synset :rdfs/label (da (rewrite-synset-label label))]})
           (when (and (not= definition "(ingen definition)")
                      (not (str/blank? definition)))
-            #{[synset :skos/definition (da definition)]})
+            #{[synset :skos/definition (da (fix-ellipsis definition))]})
           (->> (clean-ontological-type ontological-type)
                (explode-ontological-type synset)))))))
 
@@ -586,7 +590,6 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
-;; TODO: should only keep longest definition http://localhost:3456/dannet/data/synset-69698
 ;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
 ;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
@@ -652,7 +655,7 @@
         (when-let [definition (or (sense-id->definition' sek_id)
                                   (sense-id->definition sek_id)
                                   (not-empty sek_denbet))]
-          #{[synset :skos/definition (da definition)]})))))
+          #{[synset :skos/definition (da (fix-ellipsis definition))]})))))
 
 (defn synthesize-missing-words
   "Create word-related triples for missing words in `g`.
@@ -837,6 +840,7 @@
     ;; Need to query the resulting graph to generate the real example triples.
     :examples  [examples "bootstrap/dannet/csv/synsets.csv"]}
 
+   ;; TODO: re-enable
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    #_prefix/senti-uri
    #_{:sentiment [->sentiment-triples
@@ -979,6 +983,8 @@
   (rewrite-sense-label "DN:TOP,2_1_5")
   (rewrite-sense-label "friturestegning_0")
   (rewrite-sense-label "friturestegning,2_0")
+
+  (fix-ellipsis "som vidner om el. er udtryk for en evne til at fre ...")
 
   ;; Error output for Nicolai.
   ;; The words.csv content differs somewhat between the new export and 2.2.
