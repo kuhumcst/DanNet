@@ -655,8 +655,10 @@
         (when-let [siblings (sense-id->siblings (pick-id sek_id))]
           (->> (map synthesize-synset-id siblings)
                (remove nil?)
-               (map (fn [sibling-id]
-                      [synset :wn/similar (synset-uri sibling-id)]))
+               (map synset-uri)
+               (remove #{synset})
+               (map (fn [sibling-synset]
+                      [synset :wn/similar sibling-synset]))
                (into #{})))
 
         ;; TODO: doesn't seem to work in some cases, e.g. http://localhost:3456/dannet/data/synset-21592
