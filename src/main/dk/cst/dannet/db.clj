@@ -180,24 +180,6 @@
          (mapcat ->triples)
          (apply set/union))))
 
-;; TODO: rewrite
-(defn ->2023-sibling-triples
-  "Mark near synonyms as wn:similar in the siblings of the "
-  [g]
-  (->> (q/run g op/new-adjective-siblings)
-       (group-by '?synset)
-       (map second)
-       (filter #(> (count %) 1))
-       (map (partial map '?sense))
-       (mapcat (fn [senses]
-                 (->> (for [sense senses]
-                        (for [other-sense senses]
-                          (when (not= sense other-sense)
-                            [sense :wn/similar other-sense]))))))
-       (apply concat)
-       (remove nil?)
-       (set)))
-
 (defn ->superfluous-definition-triples
   "Return duplicate/superfluous :skos/definition triples found in Graph `g`.
 
@@ -306,12 +288,6 @@
       (println "Synthesizing inherited relations for 2023 adjectives...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph inheritance)))
-
-    ;; The adjectives added in 2023
-    #_(let [sibling-triples (doall (->2023-sibling-triples dn-graph))]
-        (println "Marking sibling-triples in 2023 adjective data...")
-        (txn/transact-exec dn-graph
-          (aristotle/add dn-graph sibling-triples)))
 
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.

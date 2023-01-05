@@ -203,15 +203,6 @@
        FILTER(?definition != ?otherDefinition)
      }"))
 
-;; TODO: rewrite
-(def new-adjective-siblings
-  "Siblings for the 2023 adjective data."
-  (q/build
-    '[:bgp
-      [?synset :rdf/type :ontolex/LexicalConcept]
-      [?synset :dc/issued "2023-01-01"]
-      [?synset :ontolex/lexicalizedSense ?sense]]))
-
 (def csv-synsets
   "Columns to export for synsets.csv."
   (q/build

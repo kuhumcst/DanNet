@@ -552,6 +552,23 @@
                         :preprocess rest])
          (into {}))))
 
+(def sense-siblings
+  (delay
+    (->> (read-triples [(fn [[_ _ _ _ _ dannetsemid _ sek_id _ :as row]]
+                          (when-not (str/blank? sek_id)
+                            {dannetsemid #{sek_id}}))
+                        "bootstrap/other/dannet-new/adjectives.tsv"
+                        :encoding "UTF-8"
+                        :separator \tab
+                        :preprocess rest])
+         (partition-by ffirst)
+         (reduce (fn [m coll]
+                   (apply merge-with set/union m coll)) {})
+         (mapcat (fn [[_ sense-ids]]
+                   (for [sense-id sense-ids]
+                     [sense-id (disj sense-ids sense-id)])))
+         (into {}))))
+
 (def sense-examples
   "Examples for the new sense in the 2023 adjective data."
   (delay
@@ -562,6 +579,7 @@
 
 (def sense-id->multi-word-synset
   "Information needed to construct labels for multi-word synsets in 2022 data.
+  An important thing to note is these are actually sense IDs used for synthesis!
 
   When available, the annotated sense label from 'sense-properties' is preferred
   to the raw written representation."
@@ -599,8 +617,8 @@
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
   (when-not (str/blank? sek_id)
-    (let [{:keys [mws-id
-                  mws-label]} (@sense-id->multi-word-synset sek_id)
+    (let [sense-id->mws         @sense-id->multi-word-synset
+          sense-id->siblings    @sense-siblings
           sense-id->synset-id   (comp :synset-id @sense-properties)
           sense-id->sense-label (comp :sense-label @sense-properties)
           sense-id->definition  (comp :definition @sense-properties)
@@ -611,9 +629,14 @@
           sense-label           (-> (or (sense-id->sense-label sek_id)
                                         sek_holem)
                                     (rewrite-sense-label))
-          synset-id             (or (sense-id->synset-id mws-id)
-                                    (sense-id->synset-id sek_id)
-                                    (str "s" (or mws-id sek_id)))
+          pick-id               (fn [sense-id]
+                                  (or (:mws-id (sense-id->mws sense-id))
+                                      sense-id))
+          pick-synset-id        (comp sense-id->synset-id pick-id)
+          synthesize-synset-id  (fn [sense-id]
+                                  (or (pick-synset-id sense-id)
+                                      (str "s" (pick-id sense-id))))
+          synset-id             (synthesize-synset-id sek_id)
           synset                (synset-uri synset-id)]
       (set/union
         #{[sense :rdf/type :ontolex/LexicalSense]
@@ -621,12 +644,20 @@
 
           ;; Labels
           [sense :rdfs/label sense-label]
-          [synset :rdfs/label (or mws-label
+          [synset :rdfs/label (or (:mws-label (sense-id->mws sek_id))
                                   (da (str "{" sense-label "}")))]
           [synset :dc/issued dc-issued-new]
 
           ;; Lexical connections
           [synset :ontolex/lexicalizedSense sense]}
+
+        ;; Mark any sibling synsets as :wn/similar (= near synonym)
+        (when-let [siblings (sense-id->siblings (pick-id sek_id))]
+          (->> (map synthesize-synset-id siblings)
+               (remove nil?)
+               (map (fn [sibling-id]
+                      [synset :wn/similar (synset-uri sibling-id)]))
+               (into #{})))
 
         ;; TODO: doesn't seem to work in some cases, e.g. http://localhost:3456/dannet/data/synset-21592
         ;;       this appears to be related to the fact that we're using the old
