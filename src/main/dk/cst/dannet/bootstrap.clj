@@ -608,6 +608,7 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
+;; TODO: empty definition http://localhost:3456/dannet/data/synset-s52000195
 ;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
 ;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
