@@ -629,6 +629,8 @@
           [synset :ontolex/lexicalizedSense sense]}
 
         ;; TODO: doesn't seem to work in some cases, e.g. http://localhost:3456/dannet/data/synset-21592
+        ;;       this appears to be related to the fact that we're using the old
+        ;;       CSV export, which doesn't include entities created after 2013.
         ;; Inheritance (effectuated in the ->dannet function)
         (when-let [from-id (sense-id->synset-id dannetsemid)]
           (let [hypernym (keyword "dn" (str "inherit-" synset-id "-hypernym"))
