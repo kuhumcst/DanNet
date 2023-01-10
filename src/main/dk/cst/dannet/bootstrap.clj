@@ -608,7 +608,6 @@
       (into {} (mapcat rows->kvs raw)))
     #_.))
 
-;; TODO: empty definition http://localhost:3456/dannet/data/synset-s52000195
 ;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
 ;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
@@ -688,9 +687,9 @@
           (when-not (str/blank? example)
             #{[sense :lexinfo/senseExample (da example)]}))
 
-        (when-let [definition (or (sense-id->definition' sek_id)
-                                  (sense-id->definition sek_id)
-                                  (not-empty sek_denbet))]
+        (when-let [definition (not-empty (or (sense-id->definition' sek_id)
+                                             (sense-id->definition sek_id)
+                                             sek_denbet))]
           #{[synset :skos/definition (da (fix-ellipsis definition))]})))))
 
 (defn synthesize-missing-words
