@@ -859,10 +859,18 @@
 ;;       e.g. http://localhost:3456/dannet/data/word-11021693
 (h/def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"]
-    :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"]
-    :words     [->word-triples "bootstrap/dannet/csv/words.csv"]
-    :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"]
+   {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"
+                :merge
+                [->synset-triples "bootstrap/dannet/csv-new/synsets.csv"]]
+    :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"
+                :merge
+                [->relation-triples "bootstrap/dannet/csv-new/relations.csv"]]
+    :words     [->word-triples "bootstrap/dannet/csv/words.csv"
+                :merge
+                [->word-triples "bootstrap/dannet/csv-new/words.csv"]]
+    :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"
+                :merge
+                [->sense-triples "bootstrap/dannet/csv-new/wordsenses.csv"]]
     :metadata  [nil metadata-triples]
 
     ;; The 2022-additions of mainly adjectives.
@@ -901,13 +909,59 @@
                      :separator \tab
                      :preprocess rest]}})
 
-(defn read-triples
-  "Return triples using `row->triples` from the rows of a DanNet CSV `file`."
-  [[row->triples file & {:keys [encoding separator preprocess]
+(defn- merge-args
+  [[_ file & {:as opts}]]
+  (into [first file] (apply concat (dissoc opts :merge))))
+
+(defn- preprocess-fn-update
+  [[row->triples file & {:keys [preprocess]
+                         :as   opts}]
+   preprocess-fn]
+  (into [row->triples file]
+        (apply concat (-> (if preprocess
+                            opts
+                            (assoc opts :preprocess identity))
+                          (dissoc :merge)
+                          (update :preprocess #(comp % preprocess-fn))))))
+
+(h/defn read-triples
+  "Return triples using `row->triples` from the rows of a DanNet CSV `file`.
+
+  For the `opts`...
+
+    - :encoding is assumed to be ISO-8859-1
+    - :separator is assumed to be @
+    - :preprocess fn is assumed to be 'identity' (no-op)
+    - :merge is unused by default, but when provided it contain the args to this
+      function for the CSV file to merge with. Additionally, each CSV file is
+      assumed to have a comparable ID value in the first column."
+  [[row->triples file & {:keys [encoding separator preprocess merge]
                          :or   {preprocess identity}
-                         :as   opts}]]
-  (if (set? file)                                           ; metadata triples?
+                         :as   opts}
+    :as args]]
+  (cond
+    ;; Metadata triples are consumed directly
+    (set? file)
     file
+
+    ;; Once :merge args are provided, the two inputs will be merged.
+    ;; If the same ID appears, the rows of the newer file are always preferred.
+    merge
+    (let [old-ids  (set (read-triples (merge-args args)))
+          new-ids  (set (read-triples (merge-args merge)))
+          in-old   (set/difference old-ids new-ids)
+          in-new   (set/difference new-ids old-ids)
+          new-file (second merge)
+          retain   (partial filter (comp in-old first))]
+      (do
+        (println "\tMerging" file "and" new-file)
+        (println "\tAdding" (count in-new) "new rows from" new-file)
+        (println "\tRetaining" (count in-old) "rows in" file))
+      (concat
+        (read-triples (preprocess-fn-update args retain))
+        (read-triples merge)))
+
+    :else
     (with-open [reader (io/reader file :encoding (or encoding "ISO-8859-1"))]
       (->> (csv/read-csv reader :separator (or separator \@))
            (preprocess)
@@ -917,6 +971,7 @@
 (def hashes
   "A set of the hashes of the relevant bootstrap functions."
   (->> [#'imports
+        #'read-triples
         #'->synset-triples
         #'->relation-triples
         #'->word-triples
