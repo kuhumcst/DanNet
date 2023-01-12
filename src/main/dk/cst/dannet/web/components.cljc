@@ -329,36 +329,52 @@
     [:li {:lang (i18n/lang item)}
      (transform-val item opts)]))
 
+(rum/defc list-cell-coll-items
+  [opts coll]
+  (let [sort-key (sort-keyfn opts)]
+    (for [item (sort-by sort-key coll)]
+      (rum/with-key (list-item opts item) (sort-key item)))))
+
+;; A Rum-controlled version of the <details> element which only renders content
+;; if the containing <details> element is open. This circumvents the default
+;; behaviour which is to pre´´render the content in the DOM, but keep it hidden.
+;; Some of the more well-connected synsets take AGES to load without this fix!
+(rum/defcs react-details < (rum/local false ::open)
+  [state summary content]
+  (let [open (::open state)]
+    [:details {:on-toggle #(swap! open not)
+               :open      @open}
+     (when summary summary)
+     (when @open content)]))
+
+(rum/defc list-cell-coll
+  "A list of ordered content; hidden by default when there are too many items."
+  [opts coll]
+  (let [amount     (count coll)
+        list-items (list-cell-coll-items opts coll)]
+    (cond
+      (<= amount 5)
+      [:ol list-items]
+
+      (< amount 100)
+      (react-details [:summary ""] [:ol list-items])
+
+      (< amount 1000)
+      (react-details [:summary ""] [:ol.three-digits list-items])
+
+      (< amount 10000)
+      (react-details [:summary ""] [:ol.four-digits list-items])
+
+      :else
+      (react-details [:summary ""] [:ol.five-digits list-items]))))
+
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
   [opts coll]
-  (let [amount           (count coll)
-        list-items       (for [item (sort-by (sort-keyfn opts) coll)]
-                           (list-item opts item))
-        transformed-coll (transform-val-coll coll opts)]
-    [:td
-     (cond
-       transformed-coll
-       transformed-coll
-
-       (<= amount 5)
-       [:ol list-items]
-
-       (< amount 100)
-       [:details [:summary ""]
-        [:ol list-items]]
-
-       (< amount 1000)
-       [:details [:summary ""]
-        [:ol.three-digits list-items]]
-
-       (< amount 10000)
-       [:details [:summary ""]
-        [:ol.four-digits list-items]]
-
-       :else
-       [:details [:summary ""]
-        [:ol.five-digits list-items]])]))
+  [:td
+   (if-let [transformed-coll (transform-val-coll coll opts)]
+     transformed-coll
+     (list-cell-coll opts coll))])
 
 (rum/defc str-list-cell
   "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
