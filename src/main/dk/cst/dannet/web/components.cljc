@@ -18,9 +18,6 @@
   #?(:clj (:import [clojure.lang Named])))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
-;; TODO: empty synset? http://localhost:3456/dannet/data/synset-3290
-;; TODO: owl:	versionInfo	[TaggedValue: f, 1.1] http://localhost:3456/dannet/external?subject=%3Chttp://www.w3.org/ns/lemon/ontolex%3E
-;; TODO: lots of unknown TaggedValues http://localhost:3456/dannet/external?subject=%3Chttp%3A%2F%2Fwww.ontologydesignpatterns.org%2Fcp%2Fowl%2Fsemiotics.owl%3E
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955

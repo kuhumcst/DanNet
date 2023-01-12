@@ -2,7 +2,7 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.pprint :refer [pprint print-table]]
+            [clojure.pprint :refer [print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [io.pedestal.http.route :refer [decode-query-part]]
@@ -20,13 +20,12 @@
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
   (:import [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.datatypes BaseDatatype BaseDatatype$TypedValue]
+           [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
 ;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
-;; TODO: co-agent instrument confusion http://0.0.0.0:3456/dannet/2022/instances/synset-4249
-;; TODO: involved instrument confusion http://0.0.0.0:3456/dannet/2022/instances/synset-65998
+;; TODO: involved instrument confusion http://0.0.0.0:3456/dannet/data/synset-65998
 ;; TODO: add missing labels, e.g. http://0.0.0.0:3456/dannet/2022/instances/synset-49069
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
