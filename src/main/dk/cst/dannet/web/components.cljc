@@ -124,10 +124,20 @@
 
 (declare prefix-elem)
 
+(defn rdf-datatype?
+  [x]
+  (and (map? x) (:value x) (:uri x)))
+
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
   ([v {:keys [attr-key languages k->label entity details?] :as opts}]
    (cond
+     (rdf-datatype? v)
+     (let [{:keys [uri value]} v]
+       [:span {:title    uri
+               :datatype uri}
+        value])
+
      ;; Transformations of non-strings
      ;; TODO: properly implement date parsing
      (inst? v)
@@ -283,13 +293,15 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    [:td (if (= v (select-keys v [:rdf/value v]))
-           (let [x (i18n/select-str languages (:rdf/value v))]
-             (if (coll? x)
-               (into [:<>] (for [s x]
-                             [:section.text {:lang (i18n/lang s)} (str s)]))
-               [:section.text {:lang (i18n/lang x)} (str x)]))
-           (attr-val-table opts v))]
+    (if (rdf-datatype? v)
+      [:td (transform-val v)]
+      [:td (if (= v (select-keys v [:rdf/value v]))
+             (let [x (i18n/select-str languages (:rdf/value v))]
+               (if (coll? x)
+                 (into [:<>] (for [s x]
+                               [:section.text {:lang (i18n/lang s)} (str s)]))
+                 [:section.text {:lang (i18n/lang x)} (str x)]))
+             (attr-val-table opts v))])
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)

@@ -39,10 +39,15 @@
 
 #?(:cljs
    (do
+     (def transit-read-handlers
+       {"lstr"        lstr/read-LangStr
+        "rdfdatatype" identity
+        "f"           parse-double                          ; BigDecimal
+        "datetime"    identity})
+
      ;; TODO: handle datetime more satisfyingly typewise and in the web UI
      (def reader
-       (t/reader :json {:handlers {"lstr"     lstr/read-LangStr
-                                   "datetime" identity}}))
+       (t/reader :json {:handlers transit-read-handlers}))
 
      (defn clear-fetch
        "Clear a `url` from the ongoing fetch table (done after fetches)."

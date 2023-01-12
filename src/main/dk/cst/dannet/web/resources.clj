@@ -20,6 +20,7 @@
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
   (:import [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.datatypes BaseDatatype BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
 ;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
@@ -95,6 +96,16 @@
   [lstr]
   (str (.s lstr) "@" (.lang lstr)))
 
+(defn- TypedValue->m
+  [o]
+  {:value (.-lexicalValue o)
+   :uri   (.-datatypeURI o)})
+
+(def transit-write-handlers
+  {LangStr                 (t/write-handler "lstr" lstr->s)
+   BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
+   XSDDateTime             (t/write-handler "datetime" str)})
+
 ;; TODO: order matters when creating conneg interceptor, should be kvs
 (def content-type->body-fn
   {"text/plain"
@@ -109,8 +120,7 @@
    "application/transit+json"
    (fn [& {:keys [data page title]}]
      (to/write-str (vary-meta data assoc :page page :title title)
-                   {:handlers {LangStr     (t/write-handler "lstr" lstr->s)
-                               XSDDateTime (t/write-handler "datetime" str)}}))
+                   {:handlers transit-write-handlers}))
 
    "text/html"
    (fn [& {:keys [data page title] :as opts}]
