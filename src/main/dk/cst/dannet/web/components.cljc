@@ -239,9 +239,10 @@
          (prefix-elem prefix opts)
          (anchor-elem v opts)]))))
 
+;; TODO: don't hide when `details?` is true?
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key entity] :as opts}]
+  [prefix {:keys [attr-key entity details?] :as opts}]
   (or (= :rdf/value attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
@@ -322,7 +323,8 @@
          [:div.set
           (when (and (every? keyword? resources)
                      (apply = (map namespace resources)))
-            (prefix-elem (symbol (namespace (first resources)))))
+            (let [prefix (symbol (namespace (first resources)))]
+              (prefix-elem prefix opts)))
           [:div.set__left-bracket]
           (into [:div.set__content]
                 (->> (sort ns->resources)

@@ -301,9 +301,7 @@ div.set {
     display: inline-flex;
 }
 
-/* TODO: show this? */
 div.set .prefix {
-    display: none;
     align-self: center;
 }
 

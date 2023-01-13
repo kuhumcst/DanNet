@@ -334,6 +334,12 @@
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
   (q/expanded-entity (:graph @db) :dn/synset-4849)
 
+  ;; Find (illegal) synset intersections.
+  (->> (q/run (:graph @db) op/synset-intersection)
+       (group-by (fn [{:syms [?synset ?otherSynset]}]
+                   #{?synset ?otherSynset}))
+       #_(filter (comp (partial = 2) count second)))
+
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
   (q/run (:graph @db) [:bgp
                        ['?word :ontolex/canonicalForm '?form]
