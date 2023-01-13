@@ -272,6 +272,12 @@
      [:span.hidden (prefix-elem prefix)]
      (prefix-elem prefix))))
 
+(defn numbered?
+  [x]
+  (and (keyword? x)
+       (= "rdf" (namespace x))
+       (str/starts-with? (name x) "_")))
+
 (declare attr-val-table)
 
 (rum/defc val-cell
@@ -290,15 +296,44 @@
 
     ;; Display blank resources as inlined tables.
     (map? v)
-    (if (rdf-datatype? v)
-      [:td (transform-val v)]
-      [:td (if (= v (select-keys v [:rdf/value v]))
-             (let [x (i18n/select-str languages (:rdf/value v))]
-               (if (coll? x)
-                 (into [:<>] (for [s x]
-                               [:section.text {:lang (i18n/lang s)} (str s)]))
-                 [:section.text {:lang (i18n/lang x)} (str x)]))
-             (attr-val-table opts v))])
+    [:td
+     (cond
+       (rdf-datatype? v)
+       (transform-val v)
+
+       (= v (select-keys v [:rdf/value v]))
+       (let [x (i18n/select-str languages (:rdf/value v))]
+         (if (coll? x)
+           (into [:<>] (for [s x]
+                         [:section.text {:lang (i18n/lang s)} (str s)]))
+           [:section.text {:lang (i18n/lang x)} (str x)]))
+
+       (contains? (:rdf/type v) :rdf/Bag)
+       (let [ns->resources (-> (->> (dissoc v :rdf/type)
+                                    (filter (comp numbered? first))
+                                    (mapcat second)
+                                    (group-by namespace))
+                               (update-vals sort)
+                               (update-keys symbol))
+             resources     (->> (sort ns->resources)
+                                (vals)
+                                (apply concat))]
+         ;; TODO: hover effect like synsets?
+         [:div.set
+          (when (and (every? keyword? resources)
+                     (apply = (map namespace resources)))
+            (prefix-elem (symbol (namespace (first resources)))))
+          [:div.set__left-bracket]
+          (into [:div.set__content]
+                (->> (sort ns->resources)
+                     (vals)
+                     (apply concat)
+                     (map #(anchor-elem % opts))
+                     (interpose [:span.subtle " • "])))
+          [:div.set__right-bracket]])
+
+       :else
+       (attr-val-table opts v))]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)

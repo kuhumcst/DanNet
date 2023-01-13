@@ -17,6 +17,7 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]
             [clojure.tools.reader.edn :as edn]
+            [arachne.aristotle.graph :refer [rdf-bag]]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
             [dk.cst.dannet.hash :as h]
@@ -264,10 +265,17 @@
 
 (defn explode-ontological-type
   "Create ontologicalType triple(s) based on a `synset` and the legacy DanNet
-  `ontological-type` string."
+  `ontological-type` string.
+
+  The triples are placed into an RDF Bag (= a set)."
   [synset ontological-type]
-  (for [concept (str/split ontological-type #"-")]
-    [synset :dns/ontologicalType (keyword "dnc" concept)]))
+  (let [bag (symbol (str "_" ontological-type))]
+    (set/union
+      #{[synset :dns/ontologicalType bag]}
+      (set (->> (str/split ontological-type #"-")
+                (map (partial keyword "dnc"))
+                (rdf-bag)
+                (map (partial into [bag])))))))
 
 (defn n->letter
   "Convert a number `n` to a letter in the English alphabet."
