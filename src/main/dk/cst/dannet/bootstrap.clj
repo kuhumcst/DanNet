@@ -455,74 +455,6 @@
   [s & after]
   (apply str "\"" s "\"" after))
 
-;; TODO: investigate semantics of ' in input forms of multiword expressions
-(h/defn ->word-triples
-  "Convert a `row` from 'words.csv' to triples."
-  [[word-id form pos _ :as row]]
-  (when (and (= (count row) 4)
-             (not (get #{"None-None" "0-0"} word-id)))      ; see issue #40
-    (let [word         (word-uri word-id)
-          form         (get special-cases form form)
-          rdf-type     (form->lexical-entry form)
-          written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
-                         (remove-prefix-apostrophes form)
-                         form)
-          lexical-form (lexical-form-uri word-id)
-          fixed-pos    (when pos
-                         (get pos-fixes word (str/lower-case pos)))]
-      (set/union
-        #{[lexical-form :rdf/type :ontolex/Form]
-          [lexical-form :rdfs/label (da (qt written-rep "-form"))]
-
-          [word :rdf/type rdf-type]
-          [word :rdfs/label (da (qt written-rep))]
-          [word :ontolex/canonicalForm lexical-form]}
-        (when fixed-pos
-          ;; GWA and Ontolex have competing part-of-speech relations.
-          ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
-          #{[word :lexinfo/partOfSpeech (keyword "lexinfo" fixed-pos)]
-            [word :wn/partOfSpeech (keyword "wn" fixed-pos)]})
-        (explode-written-reps lexical-form written-rep)))))
-
-(defn- ->register-triples
-  "Convert the `register` of a `sense` to appropriate triples."
-  [sense register]
-  (if (empty? register)
-    #{}
-    (cond-> #{[sense :lexinfo/usageNote (da register)]}
-
-      (re-find #"gl." register)
-      (conj [sense :lexinfo/dating :lexinfo/old])
-
-      (re-find #"sj." register)
-      (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
-
-      (re-find #"jargon" register)
-      (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
-
-      (re-find #"slang" register)
-      (conj [sense :lexinfo/register :lexinfo/slangRegister]))))
-
-(h/defn ->sense-triples
-  "Convert a `row` from 'wordsenses.csv' to triples."
-  [[sense-id word-id synset-id register _ :as row]]
-  (when (and (= (count row) 5)
-             (not (princeton-synset? synset-id)))
-    (let [sense  (sense-uri sense-id)
-          word   (word-uri word-id)
-          synset (synset-uri synset-id)]
-      (set/union
-        (->register-triples sense register)
-        #{[sense :rdf/type :ontolex/LexicalSense]
-          [synset :ontolex/lexicalizedSense sense]}
-
-        ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
-        ;; These relations make no sense to include. Instead, the necessary
-        ;; words must be synthesized at a later point.
-        (when (not= word :dn/word-0-0)
-          #{[word :ontolex/evokes synset]
-            [word :ontolex/sense sense]})))))
-
 (declare read-triples)
 (declare cor-k-pos)
 
@@ -607,6 +539,80 @@
                              rows)))]
       (into {} (mapcat rows->kvs raw)))
     #_.))
+
+;; TODO: investigate semantics of ' in input forms of multiword expressions
+(h/defn ->word-triples
+  "Convert a `row` from 'words.csv' to triples."
+  [[word-id form pos _ :as row]]
+  (when (and (= (count row) 4)
+             (not (get #{"None-None" "0-0"} word-id)))      ; see issue #40
+    (let [word         (word-uri word-id)
+          form         (get special-cases form form)
+          rdf-type     (form->lexical-entry form)
+          written-rep  (if (= rdf-type :ontolex/MultiwordExpression)
+                         (remove-prefix-apostrophes form)
+                         form)
+          lexical-form (lexical-form-uri word-id)
+          fixed-pos    (when pos
+                         (get pos-fixes word (str/lower-case pos)))]
+      (set/union
+        #{[lexical-form :rdf/type :ontolex/Form]
+          [lexical-form :rdfs/label (da (qt written-rep "-form"))]
+
+          [word :rdf/type rdf-type]
+          [word :rdfs/label (da (qt written-rep))]
+          [word :ontolex/canonicalForm lexical-form]}
+        (when fixed-pos
+          ;; GWA and Ontolex have competing part-of-speech relations.
+          ;; Ontolex prefers Lexinfo's relation, while GWA defines its own.
+          #{[word :lexinfo/partOfSpeech (keyword "lexinfo" fixed-pos)]
+            [word :wn/partOfSpeech (keyword "wn" fixed-pos)]})
+        (explode-written-reps lexical-form written-rep)))))
+
+(defn- ->register-triples
+  "Convert the `register` of a `sense` to appropriate triples."
+  [sense register]
+  (if (empty? register)
+    #{}
+    (cond-> #{[sense :lexinfo/usageNote (da register)]}
+
+      (re-find #"gl." register)
+      (conj [sense :lexinfo/dating :lexinfo/old])
+
+      (re-find #"sj." register)
+      (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
+
+      (re-find #"jargon" register)
+      (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
+
+      (re-find #"slang" register)
+      (conj [sense :lexinfo/register :lexinfo/slangRegister]))))
+
+(h/defn ->sense-triples
+  "Convert a `row` from 'wordsenses.csv' to triples."
+  [[sense-id word-id synset-id register _ :as row]]
+  (when (and (= (count row) 5)
+             (not (princeton-synset? synset-id)))
+    (let [id->label (comp :sense-label @sense-properties)
+          sense     (sense-uri sense-id)
+          word      (word-uri word-id)
+          synset    (synset-uri synset-id)]
+      (set/union
+        (->register-triples sense register)
+        #{[sense :rdf/type :ontolex/LexicalSense]
+          [synset :ontolex/lexicalizedSense sense]}
+
+        ;; These are not part of the original CSV export, but from an extra file
+        ;; sent to me by Thomas Troelsgård from DSL.
+        (when-let [label (some-> sense-id id->label rewrite-sense-label)]
+          #{[sense :rdfs/label label]})
+
+        ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
+        ;; These relations make no sense to include. Instead, the necessary
+        ;; words must be synthesized at a later point.
+        (when (not= word :dn/word-0-0)
+          #{[word :ontolex/evokes synset]
+            [word :ontolex/sense sense]})))))
 
 ;; TODO: should rewrite old synset label http://localhost:3456/dannet/data/synset-69698
 ;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
