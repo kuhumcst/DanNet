@@ -137,6 +137,18 @@
        [?w1 :lexinfo/partOfSpeech ?pos]
        [?w2 :lexinfo/partOfSpeech ?pos]]]))
 
+(def synset-intersection
+  (q/build
+    '[:filter (not= ?synset ?otherSynset)
+      [:bgp
+       [?synset :ontolex/lexicalizedSense ?sense]
+       [?synset :rdfs/label ?synsetLabel]
+       [?synset :skos/definition ?synsetDefinition]
+       [?sense :ontolex/isLexicalizedSenseOf ?otherSynset]
+       [?sense :rdfs/label ?label]
+       [?otherSynset :rdfs/label ?otherSynsetLabel]
+       [?otherSynset :skos/definition ?otherSynsetDefinition]]]))
+
 (def unlabeled-senses
   (sparql
     "SELECT ?synset ?sense ?label
