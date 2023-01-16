@@ -714,15 +714,17 @@
          (map (fn [[k ms]]
                 (let [{:syms [?label ?synset]
                        :as   base} (apply merge-with q/set-merge ms)
-                      v (with-meta (-> base
-                                       (dissoc '?lemma
-                                               '?form
-                                               '?word
-                                               '?label
-                                               '?sense)
-                                       (set/rename-keys sym->kw))
-                                   {:k->label (assoc k->label
-                                                ?synset ?label)})]
+                      subentity (-> base
+                                    (dissoc '?lemma
+                                            '?form
+                                            '?word
+                                            '?label
+                                            '?sense)
+                                    (set/rename-keys sym->kw)
+                                    (->> (q/attach-blank-entities g k)))
+                      v         (with-meta subentity
+                                           {:k->label (assoc k->label
+                                                        ?synset ?label)})]
                   [k v])))
          (sort-by search-keyfn)
          (into (fop/ordered-map)))))
