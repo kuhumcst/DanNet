@@ -875,16 +875,16 @@
   {prefix/dn-uri
    {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"
                 :merge
-                [->synset-triples "bootstrap/dannet/csv-new/synsets.csv"]]
+                [->synset-triples "bootstrap/dannet/csv-2.5.1/synsets.csv"]]
     :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"
                 :merge
-                [->relation-triples "bootstrap/dannet/csv-new/relations.csv"]]
+                [->relation-triples "bootstrap/dannet/csv-2.5.1/relations.csv"]]
     :words     [->word-triples "bootstrap/dannet/csv/words.csv"
                 :merge
-                [->word-triples "bootstrap/dannet/csv-new/words.csv"]]
+                [->word-triples "bootstrap/dannet/csv-2.5.1/words.csv"]]
     :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"
                 :merge
-                [->sense-triples "bootstrap/dannet/csv-new/wordsenses.csv"]]
+                [->sense-triples "bootstrap/dannet/csv-2.5.1/wordsenses.csv"]]
     :metadata  [nil metadata-triples]
 
     ;; The 2022-additions of mainly adjectives.
