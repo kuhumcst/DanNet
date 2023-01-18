@@ -873,29 +873,31 @@
 ;;       e.g. http://localhost:3456/dannet/data/word-11021693
 (h/def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples "bootstrap/dannet/csv/synsets.csv"
+   {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.2_csv/synsets.csv"
                 :merge
-                [->synset-triples "bootstrap/dannet/csv-2.5.1/synsets.csv"]]
-    :relations [->relation-triples "bootstrap/dannet/csv/relations.csv"
+                [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]]
+    :relations [->relation-triples "bootstrap/dannet/DanNet-2.2_csv/relations.csv"
                 :merge
-                [->relation-triples "bootstrap/dannet/csv-2.5.1/relations.csv"]]
-    :words     [->word-triples "bootstrap/dannet/csv/words.csv"
+                [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]]
+    :words     [->word-triples "bootstrap/dannet/DanNet-2.2_csv/words.csv"
                 :merge
-                [->word-triples "bootstrap/dannet/csv-2.5.1/words.csv"]]
-    :senses    [->sense-triples "bootstrap/dannet/csv/wordsenses.csv"
+                [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]]
+    :senses    [->sense-triples "bootstrap/dannet/DanNet-2.2_csv/wordsenses.csv"
                 :merge
-                [->sense-triples "bootstrap/dannet/csv-2.5.1/wordsenses.csv"]]
+                [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]]
     :metadata  [nil metadata-triples]
-
-    ;; The 2022-additions of mainly adjectives.
-    :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
-                :encoding "UTF-8"
-                :separator \tab
-                :preprocess rest]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
-    :examples  [examples "bootstrap/dannet/csv/synsets.csv"]}
+    :examples  [examples "bootstrap/dannet/DanNet-2.2_csv/synsets.csv"
+                :merge
+                [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]]
+
+    ;; The 2023 additions of mainly adjectives.
+    :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
+                :encoding "UTF-8"
+                :separator \tab
+                :preprocess rest]}
 
    ;; TODO: re-enable
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
@@ -1093,8 +1095,8 @@
   ;; Error output for Nicolai.
   ;; The words.csv content differs somewhat between the new export and 2.2.
   (let [line->word-id (fn [[word-id]] word-id)
-        words-25-res  "bootstrap/dannet/csv/words.csv"
-        words-22-res  "bootstrap/dannet/csv22/words.csv"
+        words-25-res  "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"
+        words-22-res  "bootstrap/dannet/DanNet-2.2_csv/words.csv"
         words-25      (set (read-triples [line->word-id words-25-res]))
         words-22      (set (read-triples [line->word-id words-22-res]))
         missing-in-25 (set/difference words-22 words-25)

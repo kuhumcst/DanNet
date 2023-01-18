@@ -115,7 +115,7 @@ By default, the web service is accessed on `localhost:3456`. The data is loaded 
 ### Input data
 This project assumes that the [ZIP-files containing DanNet 2.2](https://cst.ku.dk/english/projects/dannet/) have been downloaded in advance and extracted into a subdirectory called "resources":
 
-- `bootstrap/dannet/csv`: contains the old DanNet CSV file export. These are used to bootstrap the initial dataset. Eventually, this bootstrap code will be made obsolete by the release of new the DanNet dataset.
+- `bootstrap/dannet/`: contains the old DanNet CSV files. These are used to bootstrap the initial dataset. Eventually, this bootstrap code will be made obsolete by the release of new the DanNet dataset.
 
 ### Memory usage
 Currently, the entire system, including the web service, uses ~1.4 GB when idle and ~3GB when rebuilding the Apache Jena database. A server should therefore have perhaps 4GB of available RAM to run the full version of DanNet.

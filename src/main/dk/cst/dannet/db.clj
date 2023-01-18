@@ -518,7 +518,7 @@
      (println "----")
      (println "RDF Export of DanNet complete!")))
   ([^Dataset dataset]
-   (export-rdf! dataset "resources/export/rdf/")))
+   (export-rdf! dataset "export/rdf/")))
 
 (defn- csv-table-cell
   ([separator x]
@@ -631,7 +631,7 @@
    (println "----")
    (println "CSV Export of DanNet complete!"))
   ([dannet]
-   (export-csv! dannet "resources/export/csv/")))
+   (export-csv! dannet "export/csv/")))
 
 ;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
 (defn add!

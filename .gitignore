@@ -4,7 +4,7 @@
 
 resources/wordnet
 resources/db/
-resources/export/
+export/
 dannet.ttl
 
 bootstrap/dannet
