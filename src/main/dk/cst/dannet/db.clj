@@ -31,6 +31,7 @@
            [java.time.format DateTimeFormatter]
            [java.io File]))
 
+;; TODO: some synset labels are not synced with current senses, e.g. http://localhost:3456/dannet/data/synset-46049
 ;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
 ;; TODO: duplicates? http://localhost:3456/dannet/data/synset-29293
 ;;       and http://localhost:3456/dannet/data/synset-29294
@@ -276,38 +277,39 @@
     ;; Missing words for the 2023 adjectives data are synthesized from senses.
     ;; This step cannot be performed as part of the basic bootstrap since we
     ;; must avoid synthesizing new words for existing senses in the data!
-    (let [missing-words (doall (bootstrap/synthesize-missing-words dn-graph))]
-      (println "Synthesizing missing words for 2023 adjectives...")
+    (let [missing (doall (bootstrap/synthesize-missing-words dn-graph))]
+      (println "Synthesizing" (count missing) "missing words for 2023 data...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph missing-words)))
+        (aristotle/add dn-graph missing)))
 
     ;; Missing words for the 2023 adjectives data are synthesized from senses.
     ;; This step cannot be performed as part of the basic bootstrap since we
     ;; must avoid synthesizing new words for existing senses in the data!
-    (let [inheritance (doall (bootstrap/synthesize-inherited-relations dn-graph))]
-      (println "Synthesizing inherited relations for 2023 adjectives...")
+    (let [inherited (doall (bootstrap/synthesize-inherited-relations dn-graph))]
+      (println "Synthesizing" (count inherited) "inherited relations for 2023 data...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph inheritance)))
+        (aristotle/add dn-graph inherited)))
 
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
-      (println "Stealing sense labels...")
+      (println "Stealing" (count sense-label-triples) "sense labels...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
 
+    ;; TODO: it seems that this part is made redundant by using the newer export
     ;; Senses that have been 'Inserted by DanNet' have corresponding words and
     ;; other relevant triples synthesized. This must run *after* the initial
     ;; execution of '->sense-label-triples'.
     (let [DN-triples (doall (->DN-triples dn-graph))]
-      (println "Synthesizing words...")
+      (println "Synthesizing" (count DN-triples) "words...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph DN-triples)))
 
     ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
     ;; labels the remaining triples, i.e. the ones created in the previous step.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
-      (println "Label remaining triples...")
+      (println "Label" (count sense-label-triples) "remaining sense triples...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
 
@@ -320,9 +322,8 @@
                              (mapcat second)
                              (map (fn [{:syms [?sense ?opinion]}]
                                     [?sense :dns/sentiment ?opinion]))
-                             (doall))
-          n             (count senti-triples)]
-      (println (str "Synthesizing " n " sense sentiment triples..."))
+                             (doall))]
+      (println (str "Synthesizing " (count senti-triples) " sense sentiment triples..."))
       (txn/transact-exec senti-graph
         (aristotle/add senti-graph senti-triples)))
 
@@ -345,9 +346,8 @@
                          (group-by '?synset)
                          (filter #(apply = (map '?pclass (second %))))
                          (mapcat ->triples)
-                         (doall))
-          n         (count triples)]
-      (println (str "Synthesizing " n " synset sentiment triples..."))
+                         (doall))]
+      (println (str "Synthesizing " (count triples) " synset sentiment triples..."))
       (txn/transact-exec senti-graph
         (aristotle/add senti-graph triples)))
 

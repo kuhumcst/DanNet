@@ -869,29 +869,17 @@
       [dn-word :owl/sameAs cor-word]
       [cor-word :ontolex/sense dn-sense]}))
 
-;; TODO: encoding broken in dannet 2.5
-;;       e.g. http://localhost:3456/dannet/data/word-11021693
 (h/def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.2_csv/synsets.csv"
-                :merge
-                [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]]
-    :relations [->relation-triples "bootstrap/dannet/DanNet-2.2_csv/relations.csv"
-                :merge
-                [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]]
-    :words     [->word-triples "bootstrap/dannet/DanNet-2.2_csv/words.csv"
-                :merge
-                [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]]
-    :senses    [->sense-triples "bootstrap/dannet/DanNet-2.2_csv/wordsenses.csv"
-                :merge
-                [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]]
+   {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
+    :relations [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
+    :words     [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
+    :senses    [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
     :metadata  [nil metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
-    :examples  [examples "bootstrap/dannet/DanNet-2.2_csv/synsets.csv"
-                :merge
-                [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]]
+    :examples  [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
 
     ;; The 2023 additions of mainly adjectives.
     :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
@@ -960,6 +948,7 @@
     (set? file)
     file
 
+    ;; TODO: unused, remove again?
     ;; Once :merge args are provided, the two inputs will be merged.
     ;; If the same ID appears, the rows of the newer file are always preferred.
     merge
