@@ -32,6 +32,7 @@
 ;;       http://localhost:3456/dannet/data/synset-48454
 ;;       http://localhost:3456/dannet/data/synset-49086
 ;;       http://localhost:3456/dannet/data/synset-3085
+;;       http://0.0.0.0:3456/dannet/data//synset-49069
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 

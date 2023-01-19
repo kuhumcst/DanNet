@@ -31,11 +31,6 @@
            [java.time.format DateTimeFormatter]
            [java.io File]))
 
-;; TODO: some synset labels are not synced with current senses, e.g. http://localhost:3456/dannet/data/synset-46049
-;; TODO: why doubling in http://localhost:3456/dannet/data/synset-12346 ?
-;; TODO: duplicates? http://localhost:3456/dannet/data/synset-29293
-;;       and http://localhost:3456/dannet/data/synset-29294
-
 (def schema-uris
   "URIs where relevant schemas can be fetched."
   (->> (for [{:keys [alt uri export]} (vals prefix/schemas)]
@@ -145,9 +140,6 @@
                    [(remove from-dsl? labels)
                     (sort (map '?sense results))]))))
 
-;; TODO: do not duplicate existing words, e.g. "kniv"
-;;       http://localhost:3456/dannet/data/word-s24000051
-;;       http://localhost:3456/dannet/data/word-11026643
 (defn ->DN-triples
   "Synthesize triples for 'Inserted by DanNet' senses found in the graph `g`.
   This function *only* performs this function for this particular set of senses.
@@ -839,8 +831,6 @@
   (synonyms graph "bil")
   (synonyms graph "ord")
 
-  ;; TODO: missing in DanNet 2.5, but available in 2.2 -- why?
-  ;;       The later DanNet export has more synsets, but fewer words. Why?
   ;; Querying DanNet for alternative written representations.
   (alt-representations graph "mørkets fyrste")
   (alt-representations graph "offentlig transport")
@@ -905,7 +895,7 @@
 
   ;; Test retrieval of examples
   (q/run graph op/examples '{?sense :dn/sense-21011843})
-  (q/run graph op/examples '{?sense :dn/sense-21011111})    ;TODO: missing
+  (q/run graph op/examples '{?sense :dn/sense-21011111})
 
   ;; Retrieval of dataset metadata
   (q/run graph [:bgp [bootstrap/<dn> '?p '?o]])

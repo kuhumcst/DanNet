@@ -23,10 +23,8 @@
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
-;; TODO: support "systematic polysemy" for  ontological type, linking to blank resources instead
 ;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
 ;; TODO: involved instrument confusion http://0.0.0.0:3456/dannet/data/synset-65998
-;; TODO: add missing labels, e.g. http://0.0.0.0:3456/dannet/2022/instances/synset-49069
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
