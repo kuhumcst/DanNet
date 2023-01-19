@@ -15,7 +15,7 @@
             [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.bootstrap :as bootstrap :refer [da]]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -204,6 +204,33 @@
                   [?synset :skos/definition d]))))
        (remove nil?)))
 
+(defn relabel-synsets
+  "Return [triples-to-remove triples-to-add] for relabeled synsets in `g`."
+  [g]
+  (let [kv->triple        (fn [[synset label]]
+                            [synset :rdfs/label label])
+        synset->results   (->> (q/run g op/synset-relabeling)
+                               (group-by '?synset)
+                               (into {}))
+        synset->label     (update-vals synset->results
+                                       (fn [ms]
+                                         (get (first ms) '?synsetLabel)))
+        synset->new-label (-> synset->results
+                              (update-vals (fn [ms]
+                                             (let [inner (->> (map '?label ms)
+                                                              (set)
+                                                              (sort-by str)
+                                                              (str/join "; "))]
+                                               (da (str "{" inner "}")))))
+                              (set)
+                              (set/difference (set synset->label))
+                              (->> (into {})))]
+    [(->> (keys synset->new-label)
+          (select-keys synset->label)
+          (map kv->triple)
+          (set))
+     (set (map kv->triple synset->new-label))]))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -312,6 +339,18 @@
       (println "Label" (count sense-label-triples) "remaining sense triples...")
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
+
+    ;; Since sense labels come from a variety of sources and since the synset
+    ;; labels have not been synced with sense labels in DSL's CSV export,
+    ;; it is necessary to relabel each synset whose senses have changed label.
+    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)
+          dn-model (get-model dataset prefix/dn-uri)]
+      (println "Relabeling" (count triples-to-add) "synsets...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph triples-to-add)))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words

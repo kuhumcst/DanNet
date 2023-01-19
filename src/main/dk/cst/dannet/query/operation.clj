@@ -160,6 +160,13 @@
        }
      }"))
 
+(def synset-relabeling
+  '[:bgp
+    [?synset :rdf/type :ontolex/LexicalConcept]
+    [?synset :rdfs/label ?synsetLabel]
+    [?synset :ontolex/lexicalizedSense ?sense]
+    [?sense :rdfs/label ?label]])
+
 (def missing-sense-sentiment
   (sparql
     "SELECT ?sense ?word ?opinion
