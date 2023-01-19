@@ -149,6 +149,12 @@
        [?otherSynset :rdfs/label ?otherSynsetLabel]
        [?otherSynset :skos/definition ?otherSynsetDefinition]]]))
 
+(def self-referential-hypernyms
+  (q/build
+    '[:union
+      [:bgp [?synset :wn/hypernym ?synset]]
+      [:bgp [?synset :wn/hyponym ?synset]]]))
+
 (def unlabeled-senses
   (sparql
     "SELECT ?synset ?sense ?label

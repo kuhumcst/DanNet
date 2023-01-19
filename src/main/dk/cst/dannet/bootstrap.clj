@@ -28,7 +28,10 @@
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
 
-;; TODO: missing label http://localhost:3456/dannet/data/synset-48454 http://localhost:3456/dannet/data/synset-3085
+;; TODO: missing labels
+;;       http://localhost:3456/dannet/data/synset-48454
+;;       http://localhost:3456/dannet/data/synset-49086
+;;       http://localhost:3456/dannet/data/synset-3085
 ;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
@@ -169,11 +172,6 @@
    "Q, q"                   "Q"
    "Y, y"                   "Y"
    "Æ, æ"                   "Æ"})
-
-;; TODO: remove relevant relations during bootstrap (hyper- and hypo-)
-(def self-referential-hyponyms
-  "These synsets for some reason list themselves as their hyponym."
-  #{:dn/synset-3010 :dn/synset-48917})
 
 ;; Note: a single "used_for_qualby" rel exists in the dataset - likely an error
 ;; https://github.com/globalwordnet/schemas

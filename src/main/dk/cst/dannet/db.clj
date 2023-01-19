@@ -267,6 +267,7 @@
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
+        dn-model    (get-model dataset prefix/dn-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
         union-graph (.getGraph (.getUnionModel dataset))]
 
@@ -285,8 +286,7 @@
                (remove nil?)
                (reduce aristotle/add g)))))
 
-    (let [triples  (doall (->superfluous-definition-triples dn-graph))
-          dn-model (get-model dataset prefix/dn-uri)]
+    (let [triples  (doall (->superfluous-definition-triples dn-graph))]
       (println "Removing" (count triples) "superfluous definitions...")
       (txn/transact-exec dn-model
         (doseq [triple triples]
@@ -343,14 +343,20 @@
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,
     ;; it is necessary to relabel each synset whose senses have changed label.
-    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)
-          dn-model (get-model dataset prefix/dn-uri)]
+    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)]
       (println "Relabeling" (count triples-to-add) "synsets...")
       (txn/transact-exec dn-model
         (doseq [triple triples-to-remove]
           (remove! dn-model triple)))
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph triples-to-add)))
+
+    ;; Remove self-referential hypernyms; this is just an obvious type of error.
+    (let [ms (set (doall (q/run dn-graph op/self-referential-hypernyms)))]
+      (txn/transact-exec dn-model
+        (doseq [{:syms [?synset]} ms]
+          (remove! dn-model [?synset :wn/hyponym ?synset])
+          (remove! dn-model [?synset :wn/hypernym ?synset]))))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
