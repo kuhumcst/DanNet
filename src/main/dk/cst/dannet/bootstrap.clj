@@ -288,6 +288,10 @@
 (def old-single-word
   #"([^,_]+)(,\d+)?((?:_\d+)+)?")
 
+;; e.g. "gas-, vand- og sanitetsmester_1"
+(def old-long-word
+  #"([^_]+)(,\d+)?((?:_\d+)+)?")
+
 ;; Match weird alphabet entries like {Q, q_1}.
 (def old-alphabet-combo
   #"([A-ZÆØÅ]), [a-zæøå](_.+)?")
@@ -350,7 +354,11 @@
 
     :let [[_ w d] (re-matches old-alphabet-combo label)]
     w
-    (sense-label w nil d)))
+    (sense-label w nil d)
+
+    :let [[_ w e d] (re-matches old-long-word label)]
+    w
+    (sense-label w e d)))
 
 (def old-synset-sep
   #"\{|;|\}")
@@ -1066,6 +1074,7 @@
   (rewrite-synset-label "{brud,2_2: hvid brud}")
   (rewrite-synset-label "{Q, q_1}")
   (rewrite-synset-label "{R,1_1}")
+  (rewrite-synset-label "{gas-, vand- og sanitetsmester_1}")
 
   ;; Test rewriting sense labels
   (remove-prefix-apostrophes "glen's lade ''er 'fin")

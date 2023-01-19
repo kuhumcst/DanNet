@@ -353,7 +353,7 @@
        (group-by (juxt '?writtenRep '?pos))
        (count))
 
-  ;; Find unlabeled senses (count: 5)
+  ;; Find unlabeled senses (count: 0)
   (count (q/run (:graph @db) op/unlabeled-senses))
 
   ;; Testing autocompletion
