@@ -23,8 +23,6 @@
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
-;; TODO: should :wn/instrument be :dns/usedFor instead? Bolette objects to instrument
-;; TODO: involved instrument confusion http://0.0.0.0:3456/dannet/data/synset-65998
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
