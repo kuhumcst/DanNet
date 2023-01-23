@@ -330,6 +330,9 @@
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
   (q/expanded-entity (:graph @db) :dn/synset-4849)
 
+  ;; 51 cases of true duplicates
+  (count (db/find-duplicates (:graph @db)))
+
   ;; Find (illegal) synset intersections.
   (->> (q/run (:graph @db) op/synset-intersection)
        (group-by (fn [{:syms [?synset ?otherSynset]}]

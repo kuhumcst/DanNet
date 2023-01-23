@@ -223,6 +223,25 @@
           (set))
      (set (map kv->triple synset->new-label))]))
 
+(defn find-duplicates
+  "Find duplicate synsets in `g`, i.e. each predicate-object pair is identical."
+  [g]
+  (let [shared-vals (comp
+                      set
+                      vals
+                      #(select-keys % '[?label ?definition ?ontotype]))
+        sets-only   (fn [coll]
+                      (->> coll
+                           (mapcat (comp vals #(select-keys % '[?s1 ?s2])))
+                           (set)))
+        candidates  (-> (q/run g op/duplicate-synsets)
+                        (->> (group-by shared-vals))
+                        (update-vals sets-only)
+                        (vals))]
+    (filter (fn [ids]
+              (apply = (map #(dissoc (q/entity g %) :dns/inherited) ids)))
+            candidates)))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -278,7 +297,7 @@
                (remove nil?)
                (reduce aristotle/add g)))))
 
-    (let [triples  (doall (->superfluous-definition-triples dn-graph))]
+    (let [triples (doall (->superfluous-definition-triples dn-graph))]
       (println "Removing" (count triples) "superfluous definitions...")
       (txn/transact-exec dn-model
         (doseq [triple triples]
