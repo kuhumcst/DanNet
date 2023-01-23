@@ -239,7 +239,7 @@
                         (update-vals sets-only)
                         (vals))]
     (filter (fn [ids]
-              (apply = (map #(dissoc (q/entity g %) :dns/inherited) ids)))
+              (apply = (map #(dissoc (q/entity-map g %) :dns/inherited) ids)))
             candidates)))
 
 (defn get-model
@@ -257,21 +257,26 @@
   (.getGraph (get-model dataset model-uri)))
 
 (defn remove!
-  "Remove a `triple` from the Apache Jena `model`."
+  "Remove a `triple` from the Apache Jena `model`.
+
+  NOTE: as with Aristotle queries, using _ works as a wildcard value."
   [^Model model [s p o :as triple]]
   (.removeAll
     model
-    (ResourceFactory/createResource (voc/uri-for s))
-    (ResourceFactory/createProperty (voc/uri-for p))
-    (cond
-      (keyword? o)
-      (ResourceFactory/createResource (voc/uri-for o))
+    (when (not= s '_)
+      (ResourceFactory/createResource (voc/uri-for s)))
+    (when (not= p '_)
+      (ResourceFactory/createProperty (voc/uri-for p)))
+    (when (not= o '_)
+      (cond
+        (keyword? o)
+        (ResourceFactory/createResource (voc/uri-for o))
 
-      (instance? LangStr o)
-      (ResourceFactory/createLangLiteral (str o) (.lang o))
+        (instance? LangStr o)
+        (ResourceFactory/createLangLiteral (str o) (.lang o))
 
-      :else
-      (ResourceFactory/createTypedLiteral o))))
+        :else
+        (ResourceFactory/createTypedLiteral o)))))
 
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
@@ -368,6 +373,32 @@
         (doseq [{:syms [?synset]} ms]
           (remove! dn-model [?synset :wn/hyponym ?synset])
           (remove! dn-model [?synset :wn/hypernym ?synset]))))
+
+    ;; Remove duplicate synsets (identical predicate-object pairs).
+    ;; The lowest index synset is kept in every case; other synsets are removed.
+    ;; Referencing triples and generated inheritance triples are also removed.
+    (let [duplicates        (find-duplicates dn-graph)
+          synset-ids        (set (mapcat (comp rest sort) duplicates))
+          find-inherited    (fn [synset-id]
+                              (->> [:bgp [synset-id :dns/inherited '?inherited]]
+                                   (q/run-basic dn-graph '[?inherited])))
+          inherit-triples   (->> synset-ids
+                                 (mapcat find-inherited)
+                                 (map (fn [[inherit-id]]
+                                        [inherit-id '_ '_]))
+                                 (doall))
+          synset-triples    (for [synset synset-ids]
+                              [synset '_ '_])
+          reference-triples (for [synset synset-ids]
+                              ['_ '_ synset])]
+      (println "Removing" (count synset-ids) "duplicate synset-ids...")
+      (txn/transact-exec dn-model
+        (doseq [triple synset-triples]
+          (remove! dn-model triple))
+        (doseq [triple inherit-triples]
+          (remove! dn-model triple))
+        (doseq [triple reference-triples]
+          (remove! dn-model triple))))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words

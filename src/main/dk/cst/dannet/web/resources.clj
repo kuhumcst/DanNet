@@ -329,6 +329,7 @@
 (comment
   (q/expanded-entity (:graph @db) :dn/form-11029540-land)
   (q/expanded-entity (:graph @db) :dn/synset-4849)
+  (q/entity-triples (:graph @db) :dn/synset-4849)
 
   ;; 51 cases of true duplicates
   (count (db/find-duplicates (:graph @db)))

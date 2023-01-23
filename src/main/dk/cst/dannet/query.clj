@@ -35,6 +35,7 @@
 
 (declare entity)
 (declare run)
+(declare run-basic)
 
 (defn- nav-subjects
   "Helper function for 'nav-meta'."
@@ -102,6 +103,16 @@
     (->> result
          (filter #(not (get raw-result (select-keys % '[?s ?p ?o]))))
          (basic-entity))))
+
+(defn entity-triples
+  [g subject]
+  (when-let [result (run-basic g op/entity {'?s subject})]
+    (map (juxt '?s '?p '?o) result)))
+
+(defn entity-map
+  [g subject]
+  (when-let [result (run-basic g op/entity {'?s subject})]
+    (basic-entity result)))
 
 (defn entity
   "Return the entity description of `subject` in Graph `g`."
@@ -180,12 +191,17 @@
                  :subject subject))
     (with-meta {} {:subject subject})))
 
+(defn run-basic
+  "Same as 'run' below, but doesn't attach Navigable metadata."
+  [g & remaining-args]
+  (txn/transact g
+    (apply q/run g remaining-args)))
+
 (defn run
   "Wraps the 'run' function from Aristotle, providing transactions when needed.
   The results are also made Navigable using for use with e.g. Reveal or REBL."
   [g & remaining-args]
-  (->> (txn/transact g
-         (apply q/run g remaining-args))
+  (->> (apply run-basic g remaining-args)
        (map #(vary-meta % merge (nav-meta g)))))
 
 (defn table-query
