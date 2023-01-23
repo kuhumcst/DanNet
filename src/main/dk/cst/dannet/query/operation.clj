@@ -174,6 +174,20 @@
       [?synset :ontolex/lexicalizedSense ?sense]
       [?sense :rdfs/label ?label]]))
 
+(def duplicate-synsets
+  "Duplicate synsets based on same label, definition, and ontological type."
+  (q/build
+    '[:filter (not= ?s1 ?s2)
+      [:bgp
+       [?s1 :rdf/type :ontolex/LexicalConcept]
+       [?s2 :rdf/type :ontolex/LexicalConcept]
+       [?s1 :rdfs/label ?label]
+       [?s2 :rdfs/label ?label]
+       [?s1 :skos/definition ?definition]
+       [?s2 :skos/definition ?definition]
+       [?s1 :dns/ontologicalType ?ontotype]
+       [?s2 :dns/ontologicalType ?ontotype]]]))
+
 (def missing-sense-sentiment
   (sparql
     "SELECT ?sense ?word ?opinion
