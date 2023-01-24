@@ -334,11 +334,14 @@
   ;; 51 cases of true duplicates
   (count (db/find-duplicates (:graph @db)))
 
-  ;; Find (illegal) synset intersections.
-  (->> (q/run (:graph @db) op/synset-intersection)
-       (group-by (fn [{:syms [?synset ?otherSynset]}]
-                   #{?synset ?otherSynset}))
-       #_(filter (comp (partial = 2) count second)))
+  ;; Dealing with senses appearing in multiple synsets.
+  (db/discrete-sense-triples (db/find-intersections (:graph @db)))
+  (db/intersecting-sense-triples (db/find-intersections (:graph @db)))
+
+    ;; TODO: systematic polysemy
+  (-> (->> (q/run (:graph @db) op/synset-intersection)
+           (group-by (fn [{:syms [?ontotype ?otherOntotype]}]
+                       (into #{} [?ontotype ?otherOntotype])))))
 
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
   (q/run (:graph @db) [:bgp

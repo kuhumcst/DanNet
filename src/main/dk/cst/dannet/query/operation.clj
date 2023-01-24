@@ -144,10 +144,13 @@
        [?synset :ontolex/lexicalizedSense ?sense]
        [?synset :rdfs/label ?synsetLabel]
        [?synset :skos/definition ?synsetDefinition]
-       [?sense :ontolex/isLexicalizedSenseOf ?otherSynset]
+       [?synset :dns/ontologicalType ?ontotype]
+       [?otherSynset :ontolex/lexicalizedSense ?sense]
        [?sense :rdfs/label ?label]
+       [?word :ontolex/sense ?sense]
        [?otherSynset :rdfs/label ?otherSynsetLabel]
-       [?otherSynset :skos/definition ?otherSynsetDefinition]]]))
+       [?otherSynset :skos/definition ?otherSynsetDefinition]
+       [?otherSynset :dns/ontologicalType ?otherOntotype]]]))
 
 (def self-referential-hypernyms
   (q/build

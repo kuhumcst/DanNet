@@ -46,3 +46,11 @@ The new format will be as follows:
 - Definition id _0 is removed entirely from the label.
 
 This makes the connection to ordnet.dk a bit more apparent.
+
+----
+
+In addition to what has been mentioned above, the new label format also has
+(N) added in cases where senses were previously reused for multiple synsets.
+Senses should be unique to a single synset, so in cases of synsets intersection,
+the sense IDs and corresponding labels have been enumerated with 1, 2, 3, ...
+represented in the sense label as an affixed (N).

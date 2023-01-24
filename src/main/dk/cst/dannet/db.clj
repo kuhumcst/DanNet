@@ -242,6 +242,51 @@
               (apply = (map #(dissoc (q/entity-map g %) :dns/inherited) ids)))
             candidates)))
 
+(defn find-intersections
+  "Find synset intersections in `g`, i.e. illegally shared sense resources.
+  Returns a mapping from [sense word label] to the set of relevant synsets."
+  [g]
+  (-> (group-by (juxt '?sense '?word '?label) (q/run g op/synset-intersection))
+      (update-vals (fn [ms]
+                     (reduce (fn [acc m]
+                               (-> acc
+                                   (conj (get m '?synset))
+                                   (conj (get m '?otherSynset))))
+                             #{} ms)))))
+
+(defn discrete-sense-triples
+  "Generate new triples to add based on `synset-intersection`."
+  [synset-intersection]
+  (->> synset-intersection
+       (mapcat (fn [[[sense word label] synsets]]
+                 (let [sense-id (re-find #"\d+$" (name sense))]
+                   (map (fn [synset n]
+                          (let [nid    (str "-s" n)
+                                sense  (bootstrap/sense-uri (str sense-id nid))
+                                label' (if (str/includes? label "_")
+                                         (str label "(" n ")")
+                                         (str label "_(" nid ")"))
+                                others (disj synsets synset)]
+                            (into
+                              #{[sense :rdf/type :ontolex/LexicalSense]
+                                [sense :rdfs/label label']
+                                [synset :ontolex/lexicalizedSense sense]
+                                [word :ontolex/sense sense]}
+                              (for [other others]
+                                [synset :wn/similar other]))))
+                        (sort synsets)
+                        (range 1 (inc (count synsets)))))))
+       (reduce set/union #{})))
+
+(defn intersecting-sense-triples
+  "Generate triple patterns to remove based on `synset-intersection`."
+  [synset-intersection]
+  (->> (keys synset-intersection)
+       (map (fn [[sense _ _]]
+              #{[sense '_ '_]
+                ['_ '_ sense]}))
+       (reduce set/union #{})))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -356,19 +401,9 @@
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph sense-label-triples)))
 
-    ;; Since sense labels come from a variety of sources and since the synset
-    ;; labels have not been synced with sense labels in DSL's CSV export,
-    ;; it is necessary to relabel each synset whose senses have changed label.
-    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)]
-      (println "Relabeling" (count triples-to-add) "synsets...")
-      (txn/transact-exec dn-model
-        (doseq [triple triples-to-remove]
-          (remove! dn-model triple)))
-      (txn/transact-exec dn-graph
-        (aristotle/add dn-graph triples-to-add)))
-
     ;; Remove self-referential hypernyms; this is just an obvious type of error.
     (let [ms (set (doall (q/run dn-graph op/self-referential-hypernyms)))]
+      (println "Removing" (count ms) "self-referencing hypernyms.")
       (txn/transact-exec dn-model
         (doseq [{:syms [?synset]} ms]
           (remove! dn-model [?synset :wn/hyponym ?synset])
@@ -399,6 +434,29 @@
           (remove! dn-model triple))
         (doseq [triple reference-triples]
           (remove! dn-model triple))))
+
+    ;; Senses must not appear in multiple synsets, so new senses are generated
+    ;; and the existing synset intersection is removed.
+    (let [synset-intersection (doall (find-intersections dn-graph))
+          triples-to-remove   (intersecting-sense-triples synset-intersection)
+          triples-to-add      (discrete-sense-triples synset-intersection)]
+      (println "Removing" (count triples-to-remove) "synset intersections...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph triples-to-add)))
+
+    ;; Since sense labels come from a variety of sources and since the synset
+    ;; labels have not been synced with sense labels in DSL's CSV export,
+    ;; it is necessary to relabel each synset whose senses have changed label.
+    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)]
+      (println "Relabeling" (count triples-to-add) "synsets...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (aristotle/add dn-graph triples-to-add)))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words

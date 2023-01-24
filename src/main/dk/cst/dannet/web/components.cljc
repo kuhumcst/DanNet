@@ -24,7 +24,7 @@
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
-  #"([^_<>]+)(_((?:§|\d)[^_ ]+)( .+)?)?")
+  #"([^_<>]+)(_((?:§|\d|\()[^_ ]+)( .+)?)?")
 
 (def synset-sep
   #"\{|;|\}")
