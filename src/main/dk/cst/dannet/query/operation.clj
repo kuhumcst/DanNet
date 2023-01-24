@@ -152,6 +152,21 @@
        [?otherSynset :skos/definition ?otherSynsetDefinition]
        [?otherSynset :dns/ontologicalType ?otherOntotype]]]))
 
+(def systematic-polysemy
+  (q/build
+    '[:filter (not= ?synset ?otherSynset)
+      [:bgp
+       [?synset :ontolex/lexicalizedSense ?sense]
+       [?synset :rdfs/label ?label]
+       [?synset :skos/definition ?definition]
+       [?synset :dns/ontologicalType ?ontotype]
+       [?otherSynset :ontolex/lexicalizedSense ?sense]
+       [?sense :rdfs/label ?label]
+       [?word :ontolex/sense ?sense]
+       [?otherSynset :rdfs/label ?otherSynsetLabel]
+       [?otherSynset :skos/definition ?otherSynsetDefinition]
+       [?otherSynset :dns/ontologicalType ?otherOntotype]]]))
+
 (def self-referential-hypernyms
   (q/build
     '[:union

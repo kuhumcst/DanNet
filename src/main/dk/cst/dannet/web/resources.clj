@@ -338,10 +338,25 @@
   (db/discrete-sense-triples (db/find-intersections (:graph @db)))
   (db/intersecting-sense-triples (db/find-intersections (:graph @db)))
 
+  (def sys-pol
+    {#{_Human-Object-Group _GeopoliticalPlace-Object-Artifact}})
+
+
     ;; TODO: systematic polysemy
-  (-> (->> (q/run (:graph @db) op/synset-intersection)
+  (-> (->> '[:filter (not= ?synset ?otherSynset)
+             [:bgp
+              [?word :ontolex/evokes ?synset]
+              [?word :ontolex/evokes ?otherSynset]
+              [?word :rdfs/label ?label]
+              [?synset :wn/similar ?otherSynset]
+              [?synset :dns/ontologicalType ?ontotype]
+              [?otherSynset :dns/ontologicalType ?otherOntotype]]]
+           (q/run (:graph @db))
            (group-by (fn [{:syms [?ontotype ?otherOntotype]}]
-                       (into #{} [?ontotype ?otherOntotype])))))
+                       (into #{} [?ontotype ?otherOntotype])))
+           #_(sort-by (comp count second)))
+      (update-vals #(assoc (first %) :n (count %)))
+      (->> (sort-by (comp :n second))))
 
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
   (q/run (:graph @db) [:bgp
