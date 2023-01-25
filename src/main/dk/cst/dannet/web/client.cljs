@@ -79,14 +79,18 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/fetch path {:query-params query-params})
-         #(let [data           (:body %)
-                page-component (com/page-shell (com/data->page data) data)
-                page-title     (com/data->title data)]
+         #(let [headers        (:headers %)
+                page           (com/x-header headers :page)
+                body           (not-empty (:body %))
+                page-component (com/page-shell page body)
+                page-title     (com/x-header headers :title)]
             (shared/clear-fetch path)
             (set! js/document.title page-title)
-            (reset! location {:path path
-                              :data data})
-            (update-scroll-state! (shared/response->url %))
+            (reset! location {:path    path
+                              :headers headers
+                              :data    body})
+            (when-let [url (shared/response->url %)]
+              (update-scroll-state! url))
             (rum/mount page-component app))))
 
 (defn set-up-navigation!
@@ -98,8 +102,8 @@
 
 (defn ^:dev/after-load render
   []
-  (let [data           (:data @location)
-        page-component (com/page-shell (com/data->page data) data)]
+  (let [{:keys [data headers]} @location
+        page-component (com/page-shell (com/x-header headers :page) data)]
     (set-up-navigation!)                                    ; keep up-to-date
     (rum/mount page-component app)))
 
@@ -109,7 +113,8 @@
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
     (.then (shared/fetch entry-url)
            #(let [data           (:body %)
-                  page-component (com/page-shell (com/data->page data) data)]
+                  page           (com/x-header (:headers %) :page)
+                  page-component (com/page-shell page data)]
               (shared/clear-fetch entry-url)
               (rum/hydrate page-component app)
               (set-up-navigation!)))))

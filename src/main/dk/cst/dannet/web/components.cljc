@@ -707,16 +707,13 @@
 
 (def pages
   "Mapping from page data metadata :page key to the relevant Rum component."
-  {:entity entity-page
-   :search search-page})
+  {"entity" entity-page
+   "search" search-page})
 
-(def data->page
-  "Get the page referenced in the page data's metadata."
-  (comp :page meta))
-
-;; TODO: eventually support LangStr for titles too
-(def data->title
-  (comp :title meta))
+(defn x-header
+  "Get the custom `header` in the HTTP `response`."
+  [response header]
+  (get response (str "x-" (name header))))
 
 (rum/defc page-footer
   [{:keys [languages] :as opts}]

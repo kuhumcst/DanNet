@@ -117,11 +117,12 @@
 (defn entity
   "Return the entity description of `subject` in Graph `g`."
   [g subject]
-  (when-let [result (run g op/entity {'?s subject})]
+  (if-let [result (not-empty (run g op/entity {'?s subject}))]
     (with-meta (navigable-entity g result)
                (assoc (nav-meta g)
                  :inferred (inferred-entity result (find-raw g subject))
-                 :subject subject))))
+                 :subject subject))
+    (with-meta {} {:subject subject})))
 
 ;; TODO: what about blank-expanded-entity?
 (defn blank-entity

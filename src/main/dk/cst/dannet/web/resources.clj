@@ -105,26 +105,42 @@
 (def content-type->body-fn
   {"text/plain"
    ;; TODO: make generic
-   (fn [& {:keys [data]}]
+   (fn [data & _]
      (ascii-table data))
 
    "application/edn"
-   (fn [& {:keys [data]}]
+   (fn [data & _]
      (pr-str data))
 
    "application/transit+json"
-   (fn [& {:keys [data page title]}]
-     (to/write-str (vary-meta data assoc :page page :title title)
-                   {:handlers transit-write-handlers}))
+   (fn [data & _]
+     (to/write-str data {:handlers transit-write-handlers}))
 
    "text/html"
-   (fn [& {:keys [data page title] :as opts}]
+   (fn [data & [{:keys [page title] :as opts}]]
      (html-page
        title
        (com/page-shell page data)))})
 
 (def use-lang?
   #{"application/transit+json" "text/html"})
+
+(defn- alt-resource
+  "Return an alternate resource qname for the given `qname`; useful for e.g.
+  resolving <https://example.com/ns#> as <https://example.com/ns>."
+  [qname]
+  (let [uri (prefix/rdf-resource->uri qname)]
+    (when (or (str/ends-with? uri "#")
+              (str/ends-with? uri "/"))
+      (as-> (dec (count uri)) $
+            (subs uri 0 $)
+            (str "<" $ ">")))))
+
+;; TODO: eventually support LangStr for titles too
+(defn x-headers
+  "Encode `page-meta` for a given page as custom HTTP headers."
+  [page-meta]
+  (update-keys page-meta (fn [k] (str "x-" (name k)))))
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -140,11 +156,12 @@
                                                   static-params)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
+                  g            (:graph @db)
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
                   entity       (if (use-lang? content-type)
-                                 (q/expanded-entity (:graph @db) subject*)
-                                 (q/entity (:graph @db) subject*))
+                                 (q/expanded-entity g subject*)
+                                 (q/entity g subject*))
                   languages    (i18n/lang-prefs lang)
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
@@ -153,16 +170,24 @@
                                 :entity    entity}
                   qname        (if (keyword? subject*)
                                  (prefix/kw->qname subject*)
-                                 subject*)]
+                                 subject*)
+                  body         (content-type->body-fn content-type)
+                  page-meta    {:title qname
+                                :page  "entity"}]
               (-> ctx
-                  (update :response assoc
-                          :status (if entity 200 404)
-                          :body ((content-type->body-fn content-type)
-                                 :data data
-                                 :title qname
-                                 :page :entity))
-                  (update-in [:response :headers] assoc
-                             "Content-Type" content-type
+                  (update :response merge
+                          (if (not-empty entity)
+                            {:status 200
+                             :body   (body data page-meta)}
+                            (let [alt (alt-resource qname)]
+                              (if (and alt (not-empty (q/entity g alt)))
+                                {:status  301
+                                 :headers {"Location" (prefix/resource-path alt)}}
+                                {:status 404
+                                 :body   (body (dissoc data :entity) page-meta)}))))
+                  (update-in [:response :headers] merge
+                             (assoc (x-headers page-meta)
+                               "Content-Type" content-type)
                              ;; TODO: use cache in production
                              #_#_"Cache-Control" one-day-cache))))})
 
@@ -176,25 +201,23 @@
                   ;; You would think that the path-params-decoder handled this.
                   lemma        (-> request
                                    (get-in [:query-params :lemma])
-                                   (decode-query-part))]
-              (if-let [search-results (db/look-up (:graph @db) lemma)]
-                (let [data {:languages      languages
-                            :lemma          lemma
-                            :search-results search-results}]
-                  (-> ctx
-                      (update :response assoc
-                              :status 200
-                              :body ((content-type->body-fn content-type)
-                                     :data data
-                                     :title (str "Search: " lemma)
-                                     :page :search))
-                      (update-in [:response :headers] assoc
+                                   (decode-query-part))
+                  body         (content-type->body-fn content-type)
+                  page-meta    {:title (str "Search: " lemma)
+                                :page  "search"}]
+              (let [search-results (db/look-up (:graph @db) lemma)
+                    data           {:languages      languages
+                                    :lemma          lemma
+                                    :search-results search-results}]
+                (-> ctx
+                    (update :response assoc
+                            :status 200
+                            :body (body data page-meta))
+                    (update-in [:response :headers] merge
+                               (assoc (x-headers page-meta)
                                  "Content-Type" content-type
                                  ;; TODO: use cache in production
-                                 #_#_"Cache-Control" one-day-cache)))
-                (update ctx :response assoc
-                        :status 404
-                        :headers {}))))})
+                                 #_#_"Cache-Control" one-day-cache))))))})
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
@@ -338,7 +361,7 @@
   (db/discrete-sense-triples (db/find-intersections (:graph @db)))
   (db/intersecting-sense-triples (db/find-intersections (:graph @db)))
 
-    ;; TODO: systematic polysemy
+  ;; TODO: systematic polysemy
   (-> (->> (q/run (:graph @db) op/synset-intersection)
            (group-by (fn [{:syms [?ontotype ?otherOntotype]}]
                        (into #{} [?ontotype ?otherOntotype])))))
