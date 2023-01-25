@@ -464,6 +464,10 @@ h1 sup {
     font-variant: small-caps;
 }
 
+header {
+    margin-bottom: 32px;
+}
+
 td,
 h1 span,
 h2,
@@ -478,7 +482,7 @@ h1 {
     font-size: 32px;
     font-weight: normal;
     padding: 0;
-    margin: 0 auto 32px auto;
+    margin: 0 auto 12px auto;
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;
@@ -519,7 +523,6 @@ h2::after {
 header > .rdf-uri {
     font-size: 14px;
     font-style: italic;
-    margin: -24px 0 24px 0;
 }
 
 header > .rdf-uri .rdf-uri__prefix {

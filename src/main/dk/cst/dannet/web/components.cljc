@@ -586,18 +586,21 @@
         (if label
           (transform-val label opts)
           (if uri-only?
-            [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]
+            [:a.rdf-uri {:href rdf-uri
+                         :key  rdf-uri} (break-up-uri rdf-uri)]
             local-name))]
        (when label-lang
          [:sup label-lang])]
       (when-not uri-only?
         (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
-          [:div.rdf-uri
+          [:a.rdf-uri {:href rdf-uri}
            [:span.rdf-uri__prefix {:key uri-prefix}
             (break-up-uri uri-prefix)]
            [:span.rdf-uri__name {:key local-name}
             (break-up-uri local-name)]]
-          [:div.rdf-uri {:key rdf-uri} (break-up-uri rdf-uri)]))]
+          [:a.rdf-uri {:href rdf-uri
+                       :key  rdf-uri}
+           (break-up-uri rdf-uri)]))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)
        (for [[title ks] (section/page-sections entity)]
