@@ -265,7 +265,7 @@
                                 sense  (bootstrap/sense-uri (str sense-id nid))
                                 label' (if (str/includes? label "_")
                                          (str label "(" n ")")
-                                         (str label "_(" nid ")"))
+                                         (str label "_(" n ")"))
                                 others (disj synsets synset)]
                             (into
                               #{[sense :rdf/type :ontolex/LexicalSense]
