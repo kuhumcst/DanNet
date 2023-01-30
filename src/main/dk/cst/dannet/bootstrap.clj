@@ -158,11 +158,11 @@
     "eq_has_hyperonym"
     "used_for_qualby"})
 
-;; TODO: is this OK?
-;; Note that this assumes a 1:1 relationship between word:form!
+;; Forms are represented using blank nodes as we want them to appear inline
+;; + they are assumed to be in a 1:1 relationship with their parent word anyway.
 (defn lexical-form-uri
   [word-id]
-  (keyword "dn" (str "form-" word-id)))
+  (symbol (str "_dn-form-" word-id)))
 
 (def special-cases
   {"{DN:abstract_entity}"   "{DN:Abstract Entity}"
@@ -570,8 +570,8 @@
           fixed-pos    (when pos
                          (get pos-fixes word (str/lower-case pos)))]
       (set/union
-        #{[lexical-form :rdf/type :ontolex/Form]
-          [lexical-form :rdfs/label (da (qt written-rep "-form"))]
+        #{#_[lexical-form :rdf/type :ontolex/Form]
+          #_[lexical-form :rdfs/label (da (qt written-rep "-form"))]
 
           [word :rdf/type rdf-type]
           [word :rdfs/label (da (qt written-rep))]
