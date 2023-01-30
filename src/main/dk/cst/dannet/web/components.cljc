@@ -570,6 +570,8 @@
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
         label-lang (i18n/lang label)
+        a-titles   [#voc/lstr"Visit this location directly@en"
+                    #voc/lstr"Besøg denne lokation direkte@da"]
         inherited  (->> (shared/setify (:dns/inherited entity))
                         (map (comp prefix/qname->kw k->label))
                         (set))
@@ -586,20 +588,25 @@
         (if label
           (transform-val label opts)
           (if uri-only?
-            [:a.rdf-uri {:href rdf-uri
-                         :key  rdf-uri} (break-up-uri rdf-uri)]
+            [:a.rdf-uri {:href  rdf-uri
+                         :title (i18n/select-label languages a-titles)
+                         :key   rdf-uri}
+             (break-up-uri rdf-uri)]
             local-name))]
        (when label-lang
          [:sup label-lang])]
       (when-not uri-only?
         (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
-          [:a.rdf-uri {:href rdf-uri}
+          [:a.rdf-uri {:href  rdf-uri
+                       :title (i18n/select-label languages a-titles)
+                       :label (i18n/select-label languages a-titles)}
            [:span.rdf-uri__prefix {:key uri-prefix}
             (break-up-uri uri-prefix)]
            [:span.rdf-uri__name {:key local-name}
             (break-up-uri local-name)]]
-          [:a.rdf-uri {:href rdf-uri
-                       :key  rdf-uri}
+          [:a.rdf-uri {:href  rdf-uri
+                       :title (i18n/select-label languages a-titles)
+                       :key   rdf-uri}
            (break-up-uri rdf-uri)]))]
      (if (empty? entity)
        (no-entity-data languages rdf-uri)

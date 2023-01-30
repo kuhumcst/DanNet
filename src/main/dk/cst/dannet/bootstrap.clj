@@ -33,7 +33,6 @@
 ;;       http://localhost:3456/dannet/data/synset-49086
 ;;       http://localhost:3456/dannet/data/synset-3085
 ;;       http://0.0.0.0:3456/dannet/data//synset-49069
-;; TODO: sense mapping seems wrong http://localhost:3456/dannet/external/cor/COR.30123
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
 (defn da
@@ -64,7 +63,7 @@
   (prefix/prefix->rdf-resource 'dnc))
 
 (def dc-issued-new
-  "2023-01-01")
+  "2023-02-01")
 
 (def dc-issued-old
   "2013-01-03")
@@ -380,7 +379,7 @@
         definition "skrifttegnet @"]
     (set/union
       #{[synset :rdf/type :ontolex/LexicalConcept]
-        [synset :dc/issued dc-issued-old]
+        #_[synset :dc/issued dc-issued-old]
         [synset :rdfs/label (da label)]
         [synset :skos/definition (da (fix-ellipsis definition))]}
       (->> (clean-ontological-type "LanguageRepresentation+Artifact+Object")
@@ -398,7 +397,7 @@
                            (str/replace inserted-by-DanNet ""))]
         (set/union
           #{[synset :rdf/type :ontolex/LexicalConcept]
-            [synset :dc/issued dc-issued-old]}
+            #_[synset :dc/issued dc-issued-old]}
           (when (not-empty label)
             #{[synset :rdfs/label (da (rewrite-synset-label label))]})
           (when (and (not= definition "(ingen definition)")
@@ -665,7 +664,7 @@
           [sense :rdfs/label sense-label]
           [synset :rdfs/label (or (:mws-label (sense-id->mws sek_id))
                                   (da (str "{" sense-label "}")))]
-          [synset :dc/issued dc-issued-new]
+          #_[synset :dc/issued dc-issued-new]
 
           ;; Lexical connections
           [synset :ontolex/lexicalizedSense sense]}

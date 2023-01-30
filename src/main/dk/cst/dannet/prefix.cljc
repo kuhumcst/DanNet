@@ -5,9 +5,12 @@
             [ont-app.vocabulary.core :as voc]
             [reitit.impl :refer [url-encode]]))             ; CLJC url-encode
 
-;; NOTE: you must also edit the DanNet schema files if changing this!
+;; NOTE: you must also edit the DanNet schema files when changing this!
 (def dannet-root
   "http://www.wordnet.dk/dannet/")
+
+(def sentiment-root
+  "http://www.wordnet.dk/sentiment/")
 
 (def download-root
   "http://www.wordnet.dk/download/dannet/")
@@ -73,7 +76,7 @@
                          'ontolex 'skos 'lexinfo}}
 
    ;; Sentiment data (unofficial) TODO
-   'senti     {:uri    "http://example.com"
+   'senti     {:uri    sentiment-root
                :export #{'dn 'dns 'marl}}
 
    ;; The three internal DanNet namespaces.

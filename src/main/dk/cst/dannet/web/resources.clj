@@ -26,7 +26,6 @@
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
-;;       http://localhost:3456/dannet/data/synset-57570
 
 (defonce db
   (delay
