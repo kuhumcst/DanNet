@@ -691,15 +691,19 @@
   The function basically exists because I wasn't able to perform a similar query
   in a performant way, e.g. doing this for all synsets would take ~45 minutes."
   [^Model model synset]
-  (->> (.listProperties (.getResource model (voc/uri-for synset)))
-       (iterator-seq)
-       (keep (fn [^Statement statement]
-               (let [prefix "http://www.wordnet.dk/dannet/data/synset-"
-                     obj    (str (.getObject statement))]
-                 (when (str/starts-with? obj prefix)
-                   [synset
-                    (str (.getPredicate statement))
-                    (voc/keyword-for obj)]))))))
+  (txn/transact model
+    (->> (voc/uri-for synset)
+         (.getResource model)
+         (.listProperties)
+         (iterator-seq)
+         (keep (fn [^Statement statement]
+                 (let [prefix "http://www.wordnet.dk/dannet/data/synset-"
+                       obj    (str (.getObject statement))]
+                   (when (str/starts-with? obj prefix)
+                     [synset
+                      (str (.getPredicate statement))
+                      (voc/keyword-for obj)]))))
+         (doall))))
 
 (defn export-csv-rows!
   "Write CSV `rows` to file `f`."
@@ -935,6 +939,7 @@
 
   ;; Export DanNet as CSV
   (export-csv! dannet)
+  (export-csv! @dk.cst.dannet.web.resources/db)
 
   ;; Querying DanNet for various synonyms
   (synonyms graph "vand")
