@@ -617,9 +617,9 @@
   See: https://jena.apache.org/documentation/io/rdf-output.html"
   [path ^Model model & {:keys [fmt prefixes]
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (println "Exporting" path (str "(" (.size model) ")")
-           "with prefixes:" (or prefixes "ALL"))
   (txn/transact-exec model
+    (println "Exporting" path (str "(" (.size model) ")")
+             "with prefixes:" (or prefixes "ALL"))
     (add-registry-prefixes! model :prefixes prefixes)
     (io/make-parents path)
     (RDFDataMgr/write (io/output-stream path) model ^RDFFormat fmt)
@@ -640,19 +640,22 @@
                                               :or   {complete false}}]
    (let [ttl-in-dir   (fn [dir filename] (str dir filename ".ttl"))
          merged-ttl   (ttl-in-dir dir "merged")
-         complete-ttl (ttl-in-dir dir "complete")]
+         complete-ttl (ttl-in-dir dir "complete")
+         model-uris   (txn/transact dataset
+                        (doall (iterator-seq (.listNames ^Dataset dataset))))]
      (println "Beginning RDF export of DanNet into" dir)
      (println "----")
 
      ;; The individual models contained in the dataset.
-     (doseq [model-uri (iterator-seq (.listNames ^Dataset dataset))
+     (doseq [model-uri model-uris
              :let [^Model model (get-model dataset model-uri)
                    prefix       (prefix/uri->prefix model-uri)
                    filename     (ttl-in-dir dir (or prefix model-uri))]]
        (export-rdf-model! filename model :prefixes (export-prefixes prefix)))
 
      ;; The union of the input datasets.
-     (export-rdf-model! merged-ttl (.getUnionModel dataset))
+     (let [union-model (.getUnionModel dataset)]
+       (export-rdf-model! merged-ttl union-model))
 
      ;; The union of the input datasets and schemas + inferred triples.
      ;; This constitutes all data available in the DanNet web presence.
@@ -922,6 +925,7 @@
 
   ;; Export the entire dataset as RDF
   (export-rdf! dannet)
+  (export-rdf! @dk.cst.dannet.web.resources/db)
 
   ;; Test CSV table data
   (let [g (get-graph dataset prefix/dn-uri)]
