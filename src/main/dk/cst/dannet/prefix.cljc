@@ -75,7 +75,7 @@
                          'rdf 'rdfs 'owl
                          'ontolex 'skos 'lexinfo}}
 
-   ;; Sentiment data (unofficial) TODO
+   ;; Sentiment data
    'senti     {:uri    sentiment-root
                :export #{'dn 'dns 'marl}}
 

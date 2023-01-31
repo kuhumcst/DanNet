@@ -893,29 +893,29 @@
 
    ;; TODO: re-enable
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
-   #_prefix/senti-uri
-   #_{:sentiment [->sentiment-triples
-                  "bootstrap/other/sentiment/sense_polarities.tsv"
-                  :encoding "UTF-8"
-                  :separator \tab]}
+   prefix/senti-uri
+   {:sentiment [->sentiment-triples
+                "bootstrap/other/sentiment/sense_polarities.tsv"
+                :encoding "UTF-8"
+                :separator \tab]}
 
-   #_prefix/cor-uri
-   #_{:cor-k        [->cor-k-triples "bootstrap/other/cor/cor1.02.tsv"
-                     :encoding "UTF-8"
-                     :separator \tab
-                     :preprocess preprocess-cor]
-      :cor-ext      [->cor-ext-triples "bootstrap/other/cor/corext1.0.tsv"
-                     :encoding "UTF-8"
-                     :separator \tab
-                     :preprocess preprocess-cor]
-      :cor-k-link   [->cor-link-triples "bootstrap/other/cor/ddo_bet_corlink.csv"
-                     :encoding "UTF-8"
-                     :separator \tab
-                     :preprocess rest]
-      :cor-ext-link [->cor-link-triples "bootstrap/other/cor/ddo_bet_corextlink.csv"
-                     :encoding "UTF-8"
-                     :separator \tab
-                     :preprocess rest]}})
+   prefix/cor-uri
+   {:cor-k        [->cor-k-triples "bootstrap/other/cor/cor1.02.tsv"
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess preprocess-cor]
+    :cor-ext      [->cor-ext-triples "bootstrap/other/cor/corext1.0.tsv"
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess preprocess-cor]
+    :cor-k-link   [->cor-link-triples "bootstrap/other/cor/ddo_bet_corlink.csv"
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess rest]
+    :cor-ext-link [->cor-link-triples "bootstrap/other/cor/ddo_bet_corextlink.csv"
+                   :encoding "UTF-8"
+                   :separator \tab
+                   :preprocess rest]}})
 
 (defn- merge-args
   [[_ file & {:as opts}]]
