@@ -388,11 +388,15 @@ table.attr-val col:nth-child(3) {
 span.prefix {
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
+    font-variant: small-caps;
     color: rgba(255,255,255,0.8);
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.33);
     padding: 3px 7px;
     margin-right: 6px;
+
+    letter-spacing: 1px;
+    padding-right: 4px; /* account for letter-spacing */
 }
 
 span.prefix__sep {
@@ -494,10 +498,13 @@ h1 span.prefix {
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
     margin: -2px 8px 0 0;
-    padding: 1px 9px 5px 9px;
+    padding: 1px 12px 5px 12px;
     border-radius: 3px;
     border: 1px solid rgba(0,0,0,0.33);
     color: rgba(255,255,255,0.8);
+
+    letter-spacing: 6px;
+    padding-right: 6px; /* account for letter-spacing */
 }
 
 h2 {
