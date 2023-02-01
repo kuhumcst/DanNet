@@ -19,18 +19,18 @@
       res/autocomplete-route
       res/external-entity-route
       res/unknown-external-entity-route
-
-      (res/prefix->dataset-entity-route 'dn)
-      (res/prefix->dataset-entity-route 'dns)
-      (res/prefix->dataset-entity-route 'dnc)
-
-      (res/prefix->download-route 'tr)
-      (res/prefix->download-route 'dnc)
-      (res/prefix->download-route 'dns)
+      res/export-route
+      res/schema-download-route
 
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
-      (res/prefix->entity-route 'dns)}))
+      (res/prefix->entity-route 'dns)
+
+      ;; These special routes ensure that we also match the individual dataset
+      ;; or schema resources; can't use the 'prefix->entity-route' for this.
+      (res/prefix->dataset-entity-route 'dn)
+      (res/prefix->dataset-entity-route 'dns)
+      (res/prefix->dataset-entity-route 'dnc)}))
 
 (defn ->service-map
   [conf]

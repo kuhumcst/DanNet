@@ -17,6 +17,7 @@
             [clojure.string :as str]
             [clojure.data.csv :as csv]
             [clojure.tools.reader.edn :as edn]
+            [clojure.math.combinatorics :as combo]
             [arachne.aristotle.graph :refer [rdf-bag]]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
@@ -62,6 +63,14 @@
   "The RDF resource URI for the DanNet/EuroWordNet concepts."
   (prefix/prefix->rdf-resource 'dnc))
 
+(def <senti>
+  "The RDF resource URI for the sentiment dataset."
+  (prefix/prefix->rdf-resource 'senti))
+
+(def <cor>
+  "The RDF resource URI for the COR dataset."
+  "<http://ordregister.dk>")
+
 (def dc-issued-new
   "2023-02-01")
 
@@ -73,58 +82,89 @@
         today     (LocalDate/now)]
     (.format formatter today)))
 
+(defn dataset-download
+  [rdf-resource prefix & [variant]]
+  (let [download-resource (-> (prefix/dataset-export "rdf" prefix variant)
+                              (prefix/uri->rdf-resource))]
+    #{[rdf-resource :dcat/downloadURL download-resource]}))
+
+(defn schema-download
+  [rdf-resource prefix]
+  (let [download-resource (-> (prefix/prefix->schema-download-uri prefix)
+                              (prefix/uri->rdf-resource))]
+    #{[rdf-resource :dcat/downloadURL download-resource]}))
+
+(defn see-also
+  "Generate rdfs:seeAlso backlink triples for `rdf-resources`."
+  [& rdf-resources]
+  (set (for [[k v] (combo/combinations rdf-resources 2)]
+         [k :rdfs/seeAlso v])))
+
 ;; TODO: extend AsNode protocol to handle date properly (not datetime)
-(h/def metadata-triples
+(h/def dn-metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
   the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
-  #{[<dns> :rdf/type :owl/Ontology]
-    [<dns> :vann/preferredNamespacePrefix "dns"]
-    [<dns> :vann/preferredNamespaceUri (prefix/prefix->uri 'dns)]
-    [<dns> :dc/title #voc/lstr "DanNet schema@en"]
-    [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
-    [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
-    [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
-    [<dns> :dc/issued dc-issued-new]
-    [<dns> :dc/contributor <simongray>]
-    [<dns> :dc/publisher <cst>]
-    [<dns> :foaf/homepage <dns>]
-    [<dns> :dcat/downloadURL (prefix/prefix->rdf-download 'dns)]
+  (set/union
+    #{[<dns> :rdf/type :owl/Ontology]
+      [<dns> :vann/preferredNamespacePrefix "dns"]
+      [<dns> :vann/preferredNamespaceUri (prefix/prefix->uri 'dns)]
+      [<dns> :dc/title #voc/lstr "DanNet schema@en"]
+      [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
+      [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
+      [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
+      [<dns> :dc/issued dc-issued-new]
+      [<dns> :dc/contributor <simongray>]
+      [<dns> :dc/contributor <cst>]
+      [<dns> :dc/publisher <cst>]
+      [<dns> :foaf/homepage <dns>]
 
-    [<dnc> :rdf/type :owl/Ontology]
-    [<dnc> :vann/preferredNamespacePrefix "dnc"]
-    [<dnc> :vann/preferredNamespaceUri (prefix/prefix->uri 'dnc)]
-    [<dnc> :dc/title #voc/lstr "DanNet concepts@en"]
-    [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
-    [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
-    [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
-    [<dnc> :dc/issued dc-issued-new]
-    [<dnc> :dc/contributor <simongray>]
-    [<dnc> :dc/publisher <cst>]
-    [<dnc> :foaf/homepage <dns>]
-    [<dnc> :dcat/downloadURL (prefix/prefix->rdf-download 'dnc)]
+      [<dnc> :rdf/type :owl/Ontology]
+      [<dnc> :vann/preferredNamespacePrefix "dnc"]
+      [<dnc> :vann/preferredNamespaceUri (prefix/prefix->uri 'dnc)]
+      [<dnc> :dc/title #voc/lstr "DanNet concepts@en"]
+      [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
+      [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
+      [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
+      [<dnc> :dc/issued dc-issued-new]
+      [<dnc> :dc/contributor <simongray>]
+      [<dnc> :dc/publisher <cst>]
+      [<dnc> :foaf/homepage <dns>]
 
-    [<dn> :rdf/type :dcat/Dataset]
-    [<dn> :vann/preferredNamespacePrefix "dn"]
-    [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
-    [<dn> :dc/title "DanNet"]
-    [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
-    [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
-    [<dn> :dc/issued dc-issued-new]
-    [<dn> :dc/contributor <simongray>]
-    [<dn> :dc/publisher <cst>]
-    [<dn> :foaf/homepage <dn>]
-    [<dn> :dcat/downloadURL (prefix/prefix->rdf-download 'dn)] ;; TODO: implement
+      [<dn> :rdf/type :dcat/Dataset]
+      [<dn> :vann/preferredNamespacePrefix "dn"]
+      [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
+      [<dn> :dc/title "DanNet"]
+      [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
+      [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
+      [<dn> :dc/issued dc-issued-new]
+      [<dn> :dc/contributor <simongray>]
+      [<dn> :dc/publisher <cst>]
+      [<dn> :foaf/homepage <dn>]
+      ;; TODO: also make dc:rights for dns and dnc
+      ;; TODO: should be dct:RightsStatement
+      [<dn> :dc/rights #voc/lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
+      ;; TODO: should be dct:LicenseDocument
+      [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
 
-    ;; TODO: also make dc:rights for dns and dnc
-    ;; TODO: should be dct:RightsStatement
-    [<dn> :dc/rights #voc/lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
-    ;; TODO: should be dct:LicenseDocument
-    [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
+      [<simongray> :rdf/type :foaf/Person]
+      [<simongray> :foaf/name "Simon Gray"]
+      [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]}
 
-    [<simongray> :rdf/type :foaf/Person]
-    [<simongray> :foaf/name "Simon Gray"]
-    [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]})
+    (see-also <dn> <dns> <dnc>)
+    (see-also <dn> <senti>)
+    (see-also <dn> <cor>)
+
+    ;; Schema downloads
+    (schema-download <dns> 'dns)
+    (schema-download <dnc> 'dnc)
+
+    ;; Dataset downloads
+    (dataset-download <dn> 'dn)
+    (dataset-download <dn> 'dn "merged")
+    (dataset-download <dn> 'dn "complete")
+    (dataset-download <senti> 'senti)
+    (dataset-download <cor> 'cor)))
 
 (defn synset-uri
   [id]
@@ -879,7 +919,7 @@
     :relations [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
     :words     [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
     :senses    [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
-    :metadata  [nil metadata-triples]
+    :metadata  [nil dn-metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
@@ -891,7 +931,6 @@
                 :separator \tab
                 :preprocess rest]}
 
-   ;; TODO: re-enable
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/senti-uri
    {:sentiment [->sentiment-triples
@@ -985,7 +1024,7 @@
         #'->relation-triples
         #'->word-triples
         #'->sense-triples
-        #'metadata-triples
+        #'dn-metadata-triples
         #'examples
         #'->2023-triples
         #'->sentiment-triples

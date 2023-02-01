@@ -35,26 +35,32 @@
       :bootstrap-imports bootstrap/imports
       :schema-uris db/schema-uris)))
 
-(def one-month-cache
-  "private, max-age=2592000")
-
 (def one-day-cache
   "private, max-age=86400")
 
-(defn prefix->download-route
-  "Create a table-style Pedestal route to serve the schema file for `prefix`. "
-  [prefix]
-  (let [{:keys [uri alt]} (get prefix/schemas prefix)
-        path       (prefix/uri->path (prefix/download-uri uri))
-        filename   (last (str/split alt #"/"))
-        disp       (str "attachment; filename=\"" filename "\"")
-        handler    (fn [request]
-                     (-> (ring/file-response (.getPath (io/resource alt)))
-                         (assoc-in [:headers "Content-Type"] "text/turtle")
-                         (assoc-in [:headers "Cache-Control"] one-month-cache)
-                         (assoc-in [:headers "Content-Disposition"] disp)))
-        route-name (keyword (str *ns*) (str prefix "-schema"))]
-    [path :get handler :route-name route-name]))
+(def schema-download-route
+  (let [handler (fn [{:keys [path-params] :as request}]
+                  (let [{:keys [prefix]} path-params
+                        path     (prefix/prefix->schema-path (symbol prefix))
+                        filename (last (str/split path #"/"))
+                        cd       (str "attachment; filename=\"" filename "\"")]
+                    (-> (ring/resource-response path)
+                        (assoc-in [:headers "Cache-Control"] one-day-cache)
+                        (assoc-in [:headers "Content-Disposition"] cd))))]
+    ["/schema/:prefix" :get handler :route-name ::schema-download]))
+
+(def export-route
+  (let [handler (fn [{:keys [path-params query-params] :as request}]
+                  (let [{:keys [prefix type variant]} (merge path-params
+                                                             query-params)
+                        filename (prefix/export-file "rdf" (symbol prefix) variant)
+                        root     (str "export/" type "/")
+                        cd       (str "attachment; filename=\"" filename "\"")]
+                    (-> (ring/file-response filename {:root root})
+                        (assoc-in [:headers "Content-Type"] "text/turtle")
+                        (assoc-in [:headers "Cache-Control"] one-day-cache)
+                        (assoc-in [:headers "Content-Disposition"] cd))))]
+    ["/export/:type/:prefix" :get handler :route-name ::export]))
 
 ;; TODO: needs some work
 (defn ascii-table

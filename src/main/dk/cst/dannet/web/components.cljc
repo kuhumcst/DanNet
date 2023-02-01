@@ -87,12 +87,23 @@
                   [:<> part [:wbr]]
                   part))))
 
+(defn- internal-path
+  [uri]
+  (when (or (str/starts-with? uri prefix/dannet-root)
+            (str/starts-with? uri prefix/schema-root)
+            (str/starts-with? uri prefix/export-root))
+    (prefix/uri->path uri)))
+
 (rum/defc rdf-uri-hyperlink
   [uri]
-  [:a.rdf-uri {:href (if (or (str/starts-with? uri prefix/dannet-root)
-                             (str/starts-with? uri prefix/download-root))
-                       (prefix/uri->path uri)
-                       (prefix/resource-path (prefix/uri->rdf-resource uri)))}
+  [:a.rdf-uri {:href (or (internal-path uri)
+                         (prefix/resource-path (prefix/uri->rdf-resource uri)))}
+   (break-up-uri uri)])
+
+(rum/defc external-hyperlink
+  [uri]
+  [:a {:href (or (internal-path uri)
+                 uri)}
    (break-up-uri uri)])
 
 (defn- float-str
@@ -527,7 +538,7 @@
 (rum/defc no-entity-data
   [languages rdf-uri]
   ;; TODO: should be more intelligent than a hardcoded value
-  (if (= languages ["da" "en"])
+  (if (= languages ["da" "en" nil])
     [:section.text
      [:p {:lang "da"}
       "Der er desværre intet data som beskriver denne "
@@ -536,7 +547,7 @@
       "-ressource i DanNet."]
      [:p {:lang "da"}
       "Kunne du i stedet for tænke dig at besøge webstedet "
-      [:a {:href rdf-uri} (break-up-uri rdf-uri)]
+      (external-hyperlink rdf-uri)
       " i din browser?"]]
     [:section.text
      [:p {:lang "en"}
@@ -546,7 +557,7 @@
       " resource in DanNet."]
      [:p {:lang "en"}
       "Would you instead like to visit the website "
-      [:a {:href rdf-uri} (break-up-uri rdf-uri)]
+      (external-hyperlink rdf-uri)
       " in your browser?"]]))
 
 (def label-keys

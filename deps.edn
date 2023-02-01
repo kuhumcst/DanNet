@@ -1,26 +1,27 @@
 {:paths   ["src/main" "src/dev" "resources"]
- :deps    {org.clojure/clojure           {:mvn/version "1.11.1"}
-           org.clojure/data.csv          {:mvn/version "1.0.1"}
-           org.clojure/data.json         {:mvn/version "2.4.0"}
+ :deps    {org.clojure/clojure            {:mvn/version "1.11.1"}
+           org.clojure/data.csv           {:mvn/version "1.0.1"}
+           org.clojure/data.json          {:mvn/version "2.4.0"}
+           org.clojure/math.combinatorics {:mvn/version "0.1.6"}
 
-           arachne-framework/aristotle   {:git/url "https://github.com/kuhumcst/aristotle.git"
-                                          :sha     "7c840ee7ee391963717c18c98789fc1677bcb6ef"}
-           ont-app/igraph-jena           {:mvn/version "0.1.3"}
-           ont-app/vocabulary            {:mvn/version "0.2.0"}
+           arachne-framework/aristotle    {:git/url "https://github.com/kuhumcst/aristotle.git"
+                                           :sha     "7c840ee7ee391963717c18c98789fc1677bcb6ef"}
+           ont-app/igraph-jena            {:mvn/version "0.1.3"}
+           ont-app/vocabulary             {:mvn/version "0.2.0"}
 
-           org.flatland/ordered          {:mvn/version "1.15.10"}
-           better-cond/better-cond       {:mvn/version "2.1.5"}
-           org.clojure/core.memoize      {:mvn/version "1.0.257"}
-           metosin/reitit                {:mvn/version "0.5.18"} ; for url-encode
+           org.flatland/ordered           {:mvn/version "1.15.10"}
+           better-cond/better-cond        {:mvn/version "2.1.5"}
+           org.clojure/core.memoize       {:mvn/version "1.0.257"}
+           metosin/reitit                 {:mvn/version "0.5.18"} ; for url-encode
 
-           io.pedestal/pedestal.service  {:mvn/version "0.5.10"}
-           io.pedestal/pedestal.route    {:mvn/version "0.5.10"}
-           io.pedestal/pedestal.jetty    {:mvn/version "0.5.10"}
-           ring/ring-core                {:mvn/version "1.9.5"}
-           com.owoga/tightly-packed-trie {:mvn/version "0.3.0"}
-           org.slf4j/slf4j-simple        {:mvn/version "1.7.36"}
-           com.wsscode/transito          {:mvn/version "2021.07.04"}
-           rum/rum                       {:mvn/version "0.12.9"}}
+           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
+           io.pedestal/pedestal.route     {:mvn/version "0.5.10"}
+           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
+           ring/ring-core                 {:mvn/version "1.9.5"}
+           com.owoga/tightly-packed-trie  {:mvn/version "0.3.0"}
+           org.slf4j/slf4j-simple         {:mvn/version "1.7.36"}
+           com.wsscode/transito           {:mvn/version "2021.07.04"}
+           rum/rum                        {:mvn/version "0.12.9"}}
  :aliases {:reveal   {:extra-deps {vlaaad/reveal {:mvn/version "1.3.265"}}
                       :ns-default vlaaad.reveal
                       :exec-fn    repl}

@@ -630,6 +630,7 @@
   [prefix]
   (get-in prefix/schemas [prefix :export]))
 
+;; TODO: should download zipped files
 (defn export-rdf!
   "Export the models of the RDF `dataset` into `dir`.
 
@@ -638,9 +639,9 @@
   complete model as an export target, set :complete to true."
   ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
                                               :or   {complete false}}]
-   (let [ttl-in-dir   (fn [dir filename] (str dir filename ".ttl"))
-         merged-ttl   (ttl-in-dir dir "merged")
-         complete-ttl (ttl-in-dir dir "complete")
+   (let [in-dir       (partial str dir)
+         merged-ttl   (in-dir (prefix/export-file "rdf" 'dn "merged"))
+         complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (doall (iterator-seq (.listNames ^Dataset dataset))))]
      (println "Beginning RDF export of DanNet into" dir)
@@ -650,7 +651,7 @@
      (doseq [model-uri model-uris
              :let [^Model model (get-model dataset model-uri)
                    prefix       (prefix/uri->prefix model-uri)
-                   filename     (ttl-in-dir dir (or prefix model-uri))]]
+                   filename     (in-dir (prefix/export-file "rdf" prefix))]]
        (export-rdf-model! filename model :prefixes (export-prefixes prefix)))
 
      ;; The union of the input datasets.

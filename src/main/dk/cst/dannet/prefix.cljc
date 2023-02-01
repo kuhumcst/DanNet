@@ -7,13 +7,16 @@
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
 (def dannet-root
-  "http://www.wordnet.dk/dannet/")
+  "http://wordnet.dk/dannet/")
 
 (def sentiment-root
-  "http://www.wordnet.dk/sentiment/")
+  "http://wordnet.dk/sentiment/")
 
-(def download-root
-  "http://www.wordnet.dk/download/dannet/")
+(def schema-root
+  "http://wordnet.dk/schema/")
+
+(def export-root
+  "http://wordnet.dk/export/")
 
 (def schemas
   {'rdf       {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -70,21 +73,26 @@
                :alt :no-schema}
 
    ;; The COR namespace
-   'cor       {:uri    "http://ordregister.dk/id/COR."
-               :export #{'dn 'cor
-                         'rdf 'rdfs 'owl
-                         'ontolex 'skos 'lexinfo}}
+   'cor       {:uri      "http://ordregister.dk/id/COR."
+               :export   #{'dn 'cor
+                           'rdf 'rdfs 'owl
+                           'ontolex 'skos 'lexinfo}
+               :download {"rdf" {:default "cor.ttl"}}}
 
    ;; Sentiment data
-   'senti     {:uri    sentiment-root
-               :export #{'dn 'dns 'marl}}
+   'senti     {:uri      sentiment-root
+               :export   #{'dn 'dns 'marl}
+               :download {"rdf" {:default "senti.ttl"}}}
 
    ;; The three internal DanNet namespaces.
-   'dn        {:uri    (str dannet-root "data/")
-               :export #{'dn 'dnc 'dns
-                         'rdf 'rdfs 'owl
-                         'wn 'ontolex 'skos 'lexinfo
-                         'dcat 'vann 'foaf 'dc}}
+   'dn        {:uri      (str dannet-root "data/")
+               :export   #{'dn 'dnc 'dns
+                           'rdf 'rdfs 'owl
+                           'wn 'ontolex 'skos 'lexinfo
+                           'dcat 'vann 'foaf 'dc}
+               :download {"rdf" {:default   "dn.ttl"
+                                 "merged"   "merged.ttl"
+                                 "complete" "complete.ttl"}}}
 
    'dnc       {:uri (str dannet-root "concepts/")
                :alt "schemas/internal/dannet-concepts-2022.ttl"}
@@ -160,6 +168,18 @@
   [qname]
   (str/join (butlast (guess-parts (qname->uri qname)))))
 
+(defn export-file
+  "Return filename registered for `prefix` and `type`; accepts `variant` too."
+  [type prefix & [variant]]
+  (doto (get-in schemas [prefix :download type (or variant :default)])
+    (assert)))
+
+(defn prefix->schema-path
+  "Return resource path for schema registered at `prefix`."
+  [prefix]
+  (doto (get-in schemas [prefix :alt])
+    (assert)))
+
 (defn prefix->uri
   "Return the URI registered for a `prefix`."
   [prefix]
@@ -225,11 +245,10 @@
   (when-let [[_ _ _ _ path] (re-matches uri-parts uri)]
     path))
 
-(defn download-uri
+(defn prefix->schema-download-uri
   "Convert a Resource `uri` into a dataset download URI."
-  [uri]
-  (when-let [[_ before-path _ _ path] (re-matches uri-parts uri)]
-    (str before-path "/download" (remove-trailing-slash path))))
+  [prefix]
+  (str schema-root prefix))
 
 (defn uri->rdf-resource
   "Surround `uri` with < and > to indicate that it is an RDF resource."
@@ -264,11 +283,13 @@
       (remove-trailing-slash)
       (uri->rdf-resource)))
 
-(defn prefix->rdf-download
-  [prefix]
-  (-> (prefix->uri prefix)
-      (download-uri)
-      (uri->rdf-resource)))
+(defn dataset-export
+  "Prepare a download URL for the dataset defined by `prefix` in specified
+  `type` and of a possible `variant`."
+  [type prefix & [variant]]
+  (assert (get-in schemas [prefix :download type (or variant :default)]))
+  (str export-root type "/" prefix (when variant
+                                     (str "?variant=" variant))))
 
 (def external-path
   (str (uri->path dannet-root) "external"))
@@ -285,7 +306,8 @@
   (download-uri "http://wordnet.dk/dannet/data")
 
   ;; Download links as RDF resources
-  (prefix->rdf-download 'dn)
-  (prefix->rdf-download 'dns)
-  (prefix->rdf-download 'dnc)
+  (dataset-export "rdf" 'dn)
+  (dataset-export "rdf" 'dn "merged")
+  (dataset-export "rdf" 'dn "asdads")                       ; should throw
+  (prefix->schema-download-uri 'dns)
   #_.)
