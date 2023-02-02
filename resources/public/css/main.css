@@ -287,7 +287,9 @@ a {
     cursor: pointer;
 }
 
-a:hover {
+/* TODO: fix this markup difference so 2-item selector isn't necessary. */
+a:hover,
+a:hover div.set > * {
     text-decoration: underline;
 }
 
@@ -343,12 +345,6 @@ p.note strong {
     font-size: 24px;
     color: #333;
     vertical-align: middle;
-}
-
-a:hover div.set__left-bracket,
-a:hover div.set__right-bracket {
-    opacity: 0.6;
-    transform: scale(115%);
 }
 
 div.set__left-bracket {
