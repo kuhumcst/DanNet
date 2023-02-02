@@ -716,7 +716,7 @@
          (.listProperties)
          (iterator-seq)
          (keep (fn [^Statement statement]
-                 (let [prefix (str (get-in prefix/schemas ['dn :uri]) "synset-")
+                 (let [prefix (str prefix/dn-uri "synset-")
                        obj    (str (.getObject statement))]
                    (when (str/starts-with? obj prefix)
                      [synset
