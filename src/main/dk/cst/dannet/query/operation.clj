@@ -258,9 +258,8 @@
   "Columns to export for words.csv."
   (q/build
     '[:bgp
-      [?form :rdf/type :ontolex/Form]
-      [?form :ontolex/writtenRep ?written-rep]
       [?word :ontolex/canonicalForm ?form]
+      [?form :ontolex/writtenRep ?written-rep]
       [?word :lexinfo/partOfSpeech ?pos]
       [?word :rdf/type ?rdf-type]]))
 

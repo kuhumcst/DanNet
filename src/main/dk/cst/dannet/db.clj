@@ -4,6 +4,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.data.csv :as csv]
+            [clj-file-zip.core :refer [zip-files]]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.registry :as registry]
             [ont-app.igraph-jena.core :as igraph-jena]
@@ -608,8 +609,24 @@
                        prefixes (filter (comp prefixes symbol first)))]
     (.setNsPrefix model prefix (::registry/= m))))
 
+(defn- ttl-path
+  [path]
+  (let [parts      (str/split path #"/")
+        filename   (first (str/split (last parts) #"\."))
+        parent-dir (str/join "/" (butlast parts))]
+    (str parent-dir "/" filename ".ttl")))
+
+(defn- non-zip-files
+  [dir-path]
+  (let [dir-file (io/file dir-path)]
+    (->> (file-seq dir-file)
+         (remove (partial = dir-file))
+         (map #(.getPath %))
+         (remove #(str/ends-with? % ".zip")))))
+
+;; TODO: alternative RDF formats will not match filepath given by ttl-path
 (defn export-rdf-model!
-  "Export the `model` to the file at the given `path`. Defaults to Turtle.
+  "Export the `model` to the given zip file `path`. Content defaults to Turtle.
 
   The current prefixes in the Aristotle registry are used for the output,
   although a desired subset of :prefixes may also be specified.
@@ -617,20 +634,21 @@
   See: https://jena.apache.org/documentation/io/rdf-output.html"
   [path ^Model model & {:keys [fmt prefixes]
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (txn/transact-exec model
-    (println "Exporting" path (str "(" (.size model) ")")
-             "with prefixes:" (or prefixes "ALL"))
-    (add-registry-prefixes! model :prefixes prefixes)
-    (io/make-parents path)
-    (RDFDataMgr/write (io/output-stream path) model ^RDFFormat fmt)
-    (.clearNsPrefixMap model))
+  (let [ttl-file (ttl-path path)]
+    (txn/transact-exec model
+      (println "Exporting" path (str "(" (.size model) ")")
+               "with prefixes:" (or prefixes "ALL"))
+      (add-registry-prefixes! model :prefixes prefixes)
+      (io/make-parents path)
+      (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
+      (zip-files [ttl-file] path)
+      (.clearNsPrefixMap model)))
   nil)
 
 (defn- export-prefixes
   [prefix]
   (get-in prefix/schemas [prefix :export]))
 
-;; TODO: should download zipped files
 (defn export-rdf!
   "Export the models of the RDF `dataset` into `dir`.
 
@@ -698,7 +716,7 @@
          (.listProperties)
          (iterator-seq)
          (keep (fn [^Statement statement]
-                 (let [prefix "http://www.wordnet.dk/dannet/data/synset-"
+                 (let [prefix (str (get-in prefix/schemas ['dn :uri]) "synset-")
                        obj    (str (.getObject statement))]
                    (when (str/starts-with? obj prefix)
                      [synset
@@ -722,7 +740,8 @@
    (let [g          (get-graph dataset prefix/dn-uri)
          synsets-ks '[?synset ?definition ?ontotype]
          words-ks   '[?word ?written-rep ?pos ?rdf-type]
-         senses-ks  '[?sense ?synset ?word ?note]]
+         senses-ks  '[?sense ?synset ?word ?note]
+         zip-path   (str dir (prefix/export-file "csv" 'dn))]
      (println "Fetching table rows:" synsets-ks)
      (export-csv-rows!
        (str dir "synsets.csv")
@@ -779,7 +798,10 @@
               (map csv-row))))
      (db.csv/export-metadata!
        (str dir "relations-metadata.json")
-       db.csv/relations-metadata))
+       db.csv/relations-metadata)
+
+     (println "Zipping CSV files and associated metadata into" zip-path "...")
+     (zip-files (non-zip-files dir) zip-path))
 
    (println "----")
    (println "CSV Export of DanNet complete!"))

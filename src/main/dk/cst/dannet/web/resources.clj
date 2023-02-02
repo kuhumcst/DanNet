@@ -53,10 +53,10 @@
   (let [handler (fn [{:keys [path-params query-params] :as request}]
                   (let [{:keys [prefix type variant]} (merge path-params
                                                              query-params)
-                        filename (prefix/export-file "rdf" (symbol prefix) variant)
-                        root     (str "export/" type "/")
-                        cd       (str "attachment; filename=\"" filename "\"")]
-                    (-> (ring/file-response filename {:root root})
+                        file (prefix/export-file type (symbol prefix) variant)
+                        root (str "export/" type "/")
+                        cd   (str "attachment; filename=\"" file "\"")]
+                    (-> (ring/file-response file {:root root})
                         (assoc-in [:headers "Content-Type"] "text/turtle")
                         (assoc-in [:headers "Cache-Control"] one-day-cache)
                         (assoc-in [:headers "Content-Disposition"] cd))))]

@@ -71,6 +71,30 @@
   "The RDF resource URI for the COR dataset."
   "<http://ordregister.dk>")
 
+(def dn-zip-basic-uri
+  (prefix/dataset-uri "rdf" 'dn))
+
+(def dn-zip-merged-uri
+  (prefix/dataset-uri "rdf" 'dn "merged"))
+
+(def dn-zip-complete-uri
+  (prefix/dataset-uri "rdf" 'dn "complete"))
+
+(def dn-zip-csv-uri
+  (prefix/dataset-uri "csv" 'dn))
+
+(def cor-zip-uri
+  (prefix/dataset-uri "rdf" 'cor))
+
+(def senti-zip-uri
+  (prefix/dataset-uri "rdf" 'senti))
+
+(def dns-schema-uri
+  (prefix/schema-uri 'dns))
+
+(def dnc-schema-uri
+  (prefix/schema-uri 'dnc))
+
 (def dc-issued-new
   "2023-02-01")
 
@@ -81,18 +105,6 @@
   (let [formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd")
         today     (LocalDate/now)]
     (.format formatter today)))
-
-(defn dataset-download
-  [rdf-resource prefix & [variant]]
-  (let [download-resource (-> (prefix/dataset-export "rdf" prefix variant)
-                              (prefix/uri->rdf-resource))]
-    #{[rdf-resource :dcat/downloadURL download-resource]}))
-
-(defn schema-download
-  [rdf-resource prefix]
-  (let [download-resource (-> (prefix/prefix->schema-download-uri prefix)
-                              (prefix/uri->rdf-resource))]
-    #{[rdf-resource :dcat/downloadURL download-resource]}))
 
 (defn see-also
   "Generate rdfs:seeAlso backlink triples for `rdf-resources`."
@@ -155,16 +167,15 @@
     (see-also <dn> <senti>)
     (see-also <dn> <cor>)
 
-    ;; Schema downloads
-    (schema-download <dns> 'dns)
-    (schema-download <dnc> 'dnc)
-
-    ;; Dataset downloads
-    (dataset-download <dn> 'dn)
-    (dataset-download <dn> 'dn "merged")
-    (dataset-download <dn> 'dn "complete")
-    (dataset-download <senti> 'senti)
-    (dataset-download <cor> 'cor)))
+    ;; Downloads
+    #{[<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-basic-uri)]
+      [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-merged-uri)]
+      [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-complete-uri)]
+      [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-csv-uri)]
+      [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]
+      [<senti> :dcat/downloadURL (prefix/uri->rdf-resource senti-zip-uri)]
+      [<dns> :dcat/downloadURL (prefix/uri->rdf-resource dns-schema-uri)]
+      [<dnc> :dcat/downloadURL (prefix/uri->rdf-resource dnc-schema-uri)]}))
 
 (defn synset-uri
   [id]

@@ -77,12 +77,12 @@
                :export   #{'dn 'cor
                            'rdf 'rdfs 'owl
                            'ontolex 'skos 'lexinfo}
-               :download {"rdf" {:default "cor.ttl"}}}
+               :download {"rdf" {:default "cor.zip"}}}
 
    ;; Sentiment data
    'senti     {:uri      sentiment-root
                :export   #{'dn 'dns 'marl}
-               :download {"rdf" {:default "senti.ttl"}}}
+               :download {"rdf" {:default "sentiment.zip"}}}
 
    ;; The three internal DanNet namespaces.
    'dn        {:uri      (str dannet-root "data/")
@@ -90,9 +90,10 @@
                            'rdf 'rdfs 'owl
                            'wn 'ontolex 'skos 'lexinfo
                            'dcat 'vann 'foaf 'dc}
-               :download {"rdf" {:default   "dn.ttl"
-                                 "merged"   "merged.ttl"
-                                 "complete" "complete.ttl"}}}
+               :download {"rdf" {:default   "dannet.zip"
+                                 "merged"   "dannet-sentiment-cor.zip"
+                                 "complete" "dannet-complete.zip"}
+                          "csv" {:default "dannet-csv.zip"}}}
 
    'dnc       {:uri (str dannet-root "concepts/")
                :alt "schemas/internal/dannet-concepts-2022.ttl"}
@@ -245,11 +246,6 @@
   (when-let [[_ _ _ _ path] (re-matches uri-parts uri)]
     path))
 
-(defn prefix->schema-download-uri
-  "Convert a Resource `uri` into a dataset download URI."
-  [prefix]
-  (str schema-root prefix))
-
 (defn uri->rdf-resource
   "Surround `uri` with < and > to indicate that it is an RDF resource."
   [uri]
@@ -283,13 +279,19 @@
       (remove-trailing-slash)
       (uri->rdf-resource)))
 
-(defn dataset-export
+(defn dataset-uri
   "Prepare a download URL for the dataset defined by `prefix` in specified
   `type` and of a possible `variant`."
   [type prefix & [variant]]
   (assert (get-in schemas [prefix :download type (or variant :default)]))
   (str export-root type "/" prefix (when variant
                                      (str "?variant=" variant))))
+
+(defn schema-uri
+  "Convert a Resource `uri` into a dataset download URI."
+  [prefix]
+  (assert (get-in schemas [prefix :alt]))
+  (str schema-root prefix))
 
 (def external-path
   (str (uri->path dannet-root) "external"))
@@ -306,8 +308,9 @@
   (download-uri "http://wordnet.dk/dannet/data")
 
   ;; Download links as RDF resources
-  (dataset-export "rdf" 'dn)
-  (dataset-export "rdf" 'dn "merged")
-  (dataset-export "rdf" 'dn "asdads")                       ; should throw
-  (prefix->schema-download-uri 'dns)
+  (dataset-uri "rdf" 'dn)
+  (dataset-uri "rdf" 'dn "merged")
+  (dataset-uri "rdf" 'dn "asdads")                       ; should throw
+  (schema-uri 'dns)
+  (schema-uri 'glen)
   #_.)
