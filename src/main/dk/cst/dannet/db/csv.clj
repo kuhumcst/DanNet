@@ -26,7 +26,7 @@
   {'context "http://www.w3.org/ns/csvw"
    :tables  [{:url "synsets.csv"
               :tableSchema
-              {:aboutUrl   "http://www.wordnet.dk/dannet/data/{synset}"
+              {:aboutUrl   (str prefix/dn-uri "{synset}")
                :primaryKey "synset"
                :columns    [{:name   "synset"
                              :titles "Synset"}
@@ -49,7 +49,7 @@
   {'context "http://www.w3.org/ns/csvw"
    :tables  [{:url "words.csv"
               :tableSchema
-              {:aboutUrl   "http://www.wordnet.dk/dannet/data/{word}"
+              {:aboutUrl   (str prefix/dn-uri "{word}")
                :primaryKey "word"
                :columns    [{:name   "word"
                              :titles "Word"}
@@ -71,7 +71,7 @@
   {'context "http://www.w3.org/ns/csvw"
    :tables  [{:url "senses.csv"
               :tableSchema
-              {:aboutUrl   "http://www.wordnet.dk/dannet/data/{sense}"
+              {:aboutUrl   (str prefix/dn-uri "{sense}")
                :primaryKey "sense"
                :columns    [{:name   "sense"
                              :titles "Sense"}
