@@ -13,6 +13,7 @@
   (q/build
     '[:bgp [?s ?p ?o]]))
 
+;; TODO: should do a logical OR of :rdfs/label, :dc/title, ...
 (def expanded-entity
   (q/build
     '[:conditional

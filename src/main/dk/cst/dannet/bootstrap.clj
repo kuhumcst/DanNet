@@ -159,6 +159,15 @@
       ;; TODO: should be dct:LicenseDocument
       [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
 
+      [<senti> :dc/title "DDS"]
+      [<senti> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
+      [<senti> :dc/description #voc/lstr "Det Danske Sentimentleksikon@da"]
+      [<senti> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
+
+      [<cor> :dc/title "COR"]
+      [<cor> :dc/description #voc/lstr "The Central Word Registry.@en"]
+      [<cor> :dc/description #voc/lstr "Det Centrale Ordregister.@da"]
+
       [<simongray> :rdf/type :foaf/Person]
       [<simongray> :foaf/name "Simon Gray"]
       [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]}
