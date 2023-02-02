@@ -109,7 +109,7 @@
 (defn see-also
   "Generate rdfs:seeAlso backlink triples for `rdf-resources`."
   [& rdf-resources]
-  (set (for [[k v] (combo/combinations rdf-resources 2)]
+  (set (for [[k v] (combo/permuted-combinations rdf-resources 2)]
          [k :rdfs/seeAlso v])))
 
 ;; TODO: extend AsNode protocol to handle date properly (not datetime)
