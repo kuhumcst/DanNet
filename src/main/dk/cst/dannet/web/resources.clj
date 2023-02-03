@@ -74,32 +74,38 @@
 
 (defn html-page
   "A full HTML page ready to be hydrated. Needs a `title` and `content`."
-  [title content]
-  (rum/render-static-markup
-    [:html
-     [:head
-      [:title title]
-      [:meta {:charset "UTF-8"}]
-      [:meta {:name    "viewport"
-              :content "width=device-width, initial-scale=1.0"}]
-      [:link {:rel "stylesheet" :href "/css/main.css"}]
+  [title languages content]
+  (str
+    "<!DOCTYPE html>\n"                                     ;; Avoid Quirks Mode
+    (rum/render-static-markup
+      [:html
+       [:head
+        [:title title]
+        [:meta {:charset "UTF-8"}]
+        [:meta {:name    "viewport"
+                :content "width=device-width, initial-scale=1.0"}]
+        [:link {:rel "stylesheet" :href "/css/main.css"}]
 
-      ;; TODO: make this much more clean
-      ;; Disable animation when JS is unavailable, otherwise much too frequent!
-      [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]
+        ;; TODO: make this much more clean
+        ;; Disable animation when JS is unavailable, otherwise much too frequent!
+        [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]
 
-      ;; Favicon section
-      [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
-      [:link {:rel "icon" :type "image/png" :sizes "32x32" :href "/favicon-32x32.png"}]
-      [:link {:rel "icon" :type "image/png" :sizes "16x16" :href "/favicon-16x16.png"}]
-      [:link {:rel "manifest" :href "/site.webmanifest"}]
-      [:link {:rel "mask-icon" :href "/safari-pinned-tab.svg" :color "#5bbad5"}]
-      [:meta {:name "msapplication-TileColor" :content "#da532c"}]
-      [:meta {:name "theme-color" :content "#ffffff"}]]
-     [:body
-      [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
-      [:script (str "var inDevelopmentEnvironment = " shared/development? ";")]
-      [:script {:src (str "/js/compiled/" shared/main-js)}]]]))
+        ;; Favicon section
+        [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
+        [:link {:rel "icon" :type "image/png" :sizes "32x32" :href "/favicon-32x32.png"}]
+        [:link {:rel "icon" :type "image/png" :sizes "16x16" :href "/favicon-16x16.png"}]
+        [:link {:rel "manifest" :href "/site.webmanifest"}]
+        [:link {:rel "mask-icon" :href "/safari-pinned-tab.svg" :color "#5bbad5"}]
+        [:meta {:name "msapplication-TileColor" :content "#da532c"}]
+        [:meta {:name "theme-color" :content "#ffffff"}]]
+       [:body
+        [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
+        [:script
+         {:dangerouslySetInnerHTML
+          {:__html (str
+                     "var inDevelopmentEnvironment = " shared/development? ";"
+                     "var negotiatedLanguages = '" (pr-str languages) "';")}}]
+        [:script {:src (str "/js/compiled/" shared/main-js)}]]])))
 
 (defn- lstr->s
   [lstr]
@@ -119,12 +125,12 @@
 ;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
   {"text/html"
-   (fn [data & [{:keys [page title] :as opts}]]
-     (str
-       "<!DOCTYPE html>\n"                                  ;; Avoid Quirks Mode
-       (html-page
-         title
-         (com/page-shell page data))))
+   (fn [{:keys [languages] :as data} &
+        [{:keys [page title] :as opts}]]
+     (html-page
+       title
+       languages
+       (com/page-shell page data)))
 
    "text/plain"
    ;; TODO: make generic

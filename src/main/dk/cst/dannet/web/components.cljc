@@ -10,6 +10,7 @@
             [ont-app.vocabulary.core :as voc]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
+            #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [reitit.frontend.easy :as rfe]))
@@ -748,29 +749,37 @@
       ", " [:abbr {:title "University of Copenhagen"}
             "KU"] "."])])
 
-;; TODO: store in cookie?
+(def year-in-seconds
+  (* 60 60 12 365))
+
+(def cookie-opts
+  {:max-age year-in-seconds
+   :path    "/"
+   :secure? true})
+
 (rum/defc language-select < rum/reactive
-  [server-languages]
-  (let [default (first (or (:languages (rum/react shared/state))
-                           server-languages))]
-    [:select.language {:title         "Language preference"
-                       :default-value default
-                       :on-change     (fn [e]
-                                        (let [v (.-value (.-target e))]
-                                          (swap! shared/state assoc :languages
-                                                 (i18n/lang-prefs v))))}
-     (when (not (#{"en" "da"} default))
-       [:option {:value default} (str default " (browser default)")])
-     [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
-     [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
+  [languages]
+  [:select.language
+   {:title     "Language preference"
+    :value     (str (first languages))
+    :on-change (fn [e]
+                 #?(:cljs (let [v (-> (.-target e)
+                                      (.-value)
+                                      (not-empty)
+                                      (i18n/lang-prefs))]
+                            (cookie/set! :languages v cookie-opts)
+                            (swap! shared/state assoc :languages v))))}
+   [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
+   [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
+   [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [languages entity] :as opts}]
-  #?(:cljs (when-not (:languages @shared/state)
-             (swap! shared/state assoc :languages languages)))
+  [page {:keys [entity languages] :as opts}]
   (let [page-component (get pages page)
-        state' #?(:clj {} :cljs (rum/react shared/state))
-        comments       {:comments (translate-comments languages)}
+        state' #?(:clj {:languages languages}
+                  :cljs (rum/react shared/state))
+        languages'     (:languages state')
+        comments       {:comments (translate-comments languages')}
         opts'          (merge opts state' comments)
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
@@ -784,7 +793,7 @@
       [:a.title {:title "Frontpage"
                  :href  "/"}
        "DanNet"]
-      (language-select languages)
+      (language-select languages')
       [:button.synset-details {:class    (when details?
                                            "toggled")
                                :title    (if details?

@@ -2,15 +2,25 @@
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require #?(:clj [clojure.java.io :as io])
             #?(:clj [clojure.edn :as edn])
+            #?(:cljs [clojure.edn :as edn])
             #?(:cljs [cognitect.transit :as t])
+            #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.fetch :as fetch])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])
             #?(:cljs [applied-science.js-interop :as j])))
 
+(def default-languages
+  #?(:clj  nil
+     :cljs (if-let [previously-specified (cookie/get :languages)]
+             previously-specified
+             (if (exists? js/negotiatedLanguages)
+               (edn/read-string js/negotiatedLanguages)
+               ["en" nil "da"]))))
+
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
-  (atom {:languages nil
+  (atom {:languages default-languages
          :search    {:completion {}
                      :s          ""}
          :details?  nil}))

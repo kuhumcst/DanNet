@@ -15,7 +15,7 @@
   (case lang
     "da" ["da" "en" nil]
     "en" ["en" nil "da"]
-    nil ["en" nil "da"]
+    nil [nil "en" "da"]
     [lang "en" nil "da"]))
 
 (defn da-en
