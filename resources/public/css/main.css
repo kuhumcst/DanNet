@@ -1,6 +1,6 @@
 * {
     line-height: 1.5; /* looks better when wrapping to next line */
-    color: #333;
+    color: #000;
     hyphens: auto;
 }
 
@@ -52,12 +52,33 @@ input[type="search"]::-webkit-search-results-decoration { display: none; }
   100% {}
 }
 
+a {
+    color: #0066BB;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* TODO: fix this markup difference so 2-item selector isn't necessary. */
+a:hover,
+a:hover div.set > * {
+    text-decoration: underline;
+}
+
+article.document a {
+    transition: all 0.2s;
+    text-decoration: underline;
+    text-decoration-color: #0066BB55;
+}
+
+article.document a:hover {
+    text-decoration-color: #0066BBFF;
+}
+
 html, body {
     padding: 0;
     margin: 0;
     height: 100%;
-    background-color: #DDD;
-    background: #EFEFEF url(/images/exclusive-paper.png);
+    background: #fff url(/images/exclusive-paper.png);
 }
 
 #app {
@@ -92,11 +113,31 @@ main {
     display: flex;
     flex-direction: row;
     justify-content: center;
+    flex-grow: 1;
 }
 
 article.search table.attr-val + table.attr-val {
     margin-top: 48px;
     margin-bottom: 24px;
+}
+
+article.document {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+article.document > div {
+    padding: 16px;
+}
+
+/* This essentially works like sharpening/emboss effect on non-white text. */
+#content *:not(.prefix) {
+    text-shadow: 0 1px rgba(255,255,255,0.8);
+}
+.prefix {
+    text-shadow: none;
 }
 
 nav {
@@ -126,6 +167,7 @@ nav a.title {
     padding: 0;
     font-variant: small-caps;
     justify-self: center;
+    text-decoration: none;
 }
 
 nav a.title:hover {
@@ -281,18 +323,6 @@ footer p {
     padding: 0;
 }
 
-a {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* TODO: fix this markup difference so 2-item selector isn't necessary. */
-a:hover,
-a:hover div.set > * {
-    text-decoration: underline;
-}
-
 sub {
     font-size: 70%;
     opacity: 0.6;
@@ -443,7 +473,7 @@ span.unknown {
     color: #387111;
 }
 
-[lang]:not(footer, h1 span)::after {
+[lang]:not(footer, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
     vertical-align: top;
@@ -473,7 +503,7 @@ h1 span,
 h2,
 header .rdf-uri__prefix,
 header .rdf-uri__name {
-    animation: clear-up 0.33s;
+    /*animation: clear-up 0.33s;*/
 }
 
 h1 {
@@ -529,11 +559,12 @@ header > .rdf-uri {
 }
 
 header > .rdf-uri .rdf-uri__prefix {
-    color: #999;
+    color: #006699;
+    opacity: 0.6;
 }
-
 header > .rdf-uri .rdf-uri__name {
-    color: #333;
+    color: #006699;
+    font-weight: bold;
 }
 
 .rdf-uri::before {

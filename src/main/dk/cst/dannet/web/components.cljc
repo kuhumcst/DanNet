@@ -8,6 +8,9 @@
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
             [ont-app.vocabulary.core :as voc]
+            [ont-app.vocabulary.lstr :as lstr]
+            [nextjournal.markdown :as md]
+            [shadow.resource :as sr]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [reagent.cookies :as cookie])
@@ -95,10 +98,16 @@
             (str/starts-with? uri prefix/export-root))
     (prefix/uri->path uri)))
 
+(defn capture-uri
+  "Ensure that an internal `uri` will point to a local path, while external URIs
+  are resolved as look-ups of external RDF resources."
+  [uri]
+  (or (internal-path uri)
+      (prefix/resource-path (prefix/uri->rdf-resource uri))))
+
 (rum/defc rdf-uri-hyperlink
   [uri]
-  [:a.rdf-uri {:href (or (internal-path uri)
-                         (prefix/resource-path (prefix/uri->rdf-resource uri)))}
+  [:a.rdf-uri {:href (capture-uri uri)}
    (break-up-uri uri)])
 
 (rum/defc external-hyperlink
@@ -106,18 +115,6 @@
   [:a {:href (or (internal-path uri)
                  uri)}
    (break-up-uri uri)])
-
-(defn- float-str
-  "Coerces `x` into a floating point number value string."
-  [x]
-  (let [s (str (cond
-                 (double? x) x
-                 (number? x) (double x)
-                 (string? x) #?(:clj  (parse-double x)
-                                :cljs (js/parseFloat x))))]
-    (if (str/ends-with? s ".0")
-      (subs s 0 (- (count s) 2))
-      s)))
 
 (defn- choose-sense-labels
   "Choose which sense labels to show from a `synset-label` based on `opts`."
@@ -724,10 +721,38 @@
                                        entity)
                        k))))])
 
+(def md->hiccup
+  (memoize md/->hiccup))
+
+(defn _hiccup->title
+  "Find the title string located in the first :h1 element in `hiccup`."
+  [hiccup]
+  (->> (tree-seq vector? rest hiccup)
+       (reduce (fn [_ x]
+                 (when (= :h1 (first x))
+                   (reduced (last x))))
+               nil)))
+
+(def hiccup->title
+  (memoize _hiccup->title))
+
+(rum/defc markdown-page < rum/reactive
+  [{:keys [languages content] :as opts}]
+  (let [ls     (i18n/select-label languages content)
+        lang   (lstr/lang ls)
+        md     (str ls)
+        hiccup (md->hiccup md)]
+    #?(:cljs (when-let [title (hiccup->title hiccup)]
+               (set! js/document.title title)))
+    [:article.document {:lang lang}
+     (md->hiccup md)]))
+
+;; TODO: find better solution? string keys + indirection reduce discoverability
 (def pages
   "Mapping from page data metadata :page key to the relevant Rum component."
-  {"entity" entity-page
-   "search" search-page})
+  {"entity"   entity-page
+   "search"   search-page
+   "markdown" markdown-page})
 
 (defn x-header
   "Get the custom `header` in the HTTP `response`."
@@ -749,14 +774,6 @@
       ", " [:abbr {:title "University of Copenhagen"}
             "KU"] "."])])
 
-(def year-in-seconds
-  (* 60 60 12 365))
-
-(def cookie-opts
-  {:max-age year-in-seconds
-   :path    "/"
-   :secure? true})
-
 (rum/defc language-select < rum/reactive
   [languages]
   [:select.language
@@ -767,7 +784,7 @@
                                       (.-value)
                                       (not-empty)
                                       (i18n/lang-prefs))]
-                            (cookie/set! :languages v cookie-opts)
+                            (shared/set-cookie! :languages v)
                             (swap! shared/state assoc :languages v))))}
    [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
    [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
@@ -788,10 +805,12 @@
         details?       (:details? opts')]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix" (prefix/prefix->class prefix')]}
+     [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")
+                                                     'dn
+                                                     prefix'))]}
       (search-form opts')
       [:a.title {:title "Frontpage"
-                 :href  "/"}
+                 :href  "/dannet/page/welcome"}
        "DanNet"]
       (language-select languages')
       [:button.synset-details {:class    (when details?
@@ -811,6 +830,9 @@
       (page-footer opts')]]))
 
 (comment
+  (_hiccup->title (md/->hiccup (slurp "pages/welcome-da.md")))
+  (_hiccup->title nil)
+
   (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
   (canonical ["flab_§1" "flab_§1a" "gab_2§1" "gab_2§1a"
               "kværn_§3" "mule_1§1a" "mund_§1"])            ; ["flab_§1" "mund_§1"]

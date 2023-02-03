@@ -10,10 +10,44 @@
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])
             #?(:cljs [applied-science.js-interop :as j])))
 
+(def year-in-seconds
+  (* 60 60 12 365))
+
+(def cookie-opts
+  {:max-age year-in-seconds
+   :path    "/"
+   :raw?    true
+   :secure? true})
+
+;; TODO: should all cookies be set server-side? would simplify things
+(defn set-cookie!
+  #?(:clj
+     ([request k v]
+      (assoc-in request [:response :cookies (name k)] v))
+     :cljs
+     ([k v]
+      (cookie/set! k (js/encodeURIComponent v) cookie-opts))))
+
+;; TODO: add try-catch for EDN fail
+(defn get-cookie
+  "Cross-compatible way to get cookie `k` from `request`."
+  #?(:clj
+     ([request k]
+      (some-> request
+              :cookies
+              (get (name k))
+              :value
+              (edn/read-string)))
+     :cljs
+     ([k]
+      (some-> (cookie/get-raw k)
+              (js/decodeURIComponent)
+              (edn/read-string)))))
+
 (def default-languages
   #?(:clj  nil
-     :cljs (if-let [previously-specified (cookie/get :languages)]
-             previously-specified
+     :cljs (if-let [previously-specified (cookie/get-raw :languages)]
+             (edn/read-string (js/decodeURIComponent previously-specified))
              (if (exists? js/negotiatedLanguages)
                (edn/read-string js/negotiatedLanguages)
                ["en" nil "da"]))))
