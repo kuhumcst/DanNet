@@ -1,11 +1,13 @@
 (ns dk.cst.dannet.web.resources
   "Pedestal interceptors for entity look-ups and schema downloads."
-  (:require [clojure.string :as str]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.pprint :refer [print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
+            [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
@@ -18,7 +20,8 @@
             [dk.cst.dannet.bootstrap :as bootstrap]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
-  (:import [ont_app.vocabulary.lstr LangStr]
+  (:import [java.io File]
+           [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
@@ -173,7 +176,7 @@
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
-                  lang         (get-in request [:accept-language :field])
+                  lang         (get-in request [:accept-language])
                   {:keys [prefix subject]} (merge (:path-params request)
                                                   (:query-params request)
                                                   static-params)
@@ -218,7 +221,7 @@
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
-                  lang         (get-in request [:accept-language :field])
+                  lang         (get-in request [:accept-language])
                   languages    (if lang [lang "en"] ["en"])
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
@@ -247,23 +250,35 @@
 
   The interceptor reuses Pedestal's content-negotiation logic, but unlike the
   included content negotiation interceptor this one does not create a 406
-  response if no match is found."
+  response if no match is found.
+
+  Furthermore, the client can specify preferred languages explicitly through the
+  :languages cookie; this will override any language negotiation."
   [supported-languages]
   (let [match-fn   (conneg/best-match-fn supported-languages)
         lang-paths [[:request :headers "accept-language"]
                     [:request :headers :accept-language]]]
     {:name  ::negotiate-language
-     :enter (fn [ctx]
-              (if-let [accept-param (loop [[path & paths] lang-paths]
-                                      (if-let [param (get-in ctx path)]
-                                        param
-                                        (when (not-empty paths)
-                                          (recur paths))))]
-                (if-let [language (->> (conneg/parse-accept-* accept-param)
-                                       (conneg/best-match match-fn))]
-                  (assoc-in ctx [:request :accept-language] language)
-                  ctx)
-                ctx))}))
+     :enter (fn [{:keys [request] :as ctx}]
+
+              ;; Explicitly set languages
+              (if-let [languages (shared/get-cookie request :languages)]
+                (let [language (first languages)]
+                  (-> ctx
+                      (assoc-in [:request :accept-language] language)
+                      (assoc-in [:request :languages] languages)))
+
+                ;; Language negotation
+                (if-let [accept-param (loop [[path & paths] lang-paths]
+                                        (if-let [param (get-in ctx path)]
+                                          param
+                                          (when (not-empty paths)
+                                            (recur paths))))]
+                  (if-let [language (->> (conneg/parse-accept-* accept-param)
+                                         (conneg/best-match match-fn))]
+                    (assoc-in ctx [:request :accept-language] language)
+                    ctx)
+                  ctx)))}))
 
 (def language-negotiation-ic
   (->language-negotiation-ic i18n/supported-languages))
@@ -312,17 +327,60 @@
          search-ic]
    :route-name ::search])
 
-(def dannet-metadata-redirect
-  [(fn [_] {:status  301
-            :headers {"Location" (-> (prefix/prefix->uri 'dn)
-                                     (prefix/remove-trailing-slash)
-                                     (prefix/uri->path))}})])
+(defn welcome-redirect
+  [_]
+  {:status  301
+   :headers {"Location" "/dannet/page/welcome"}})
 
 (def root-route
-  ["/" :get dannet-metadata-redirect :route-name ::root])
+  ["/" :get [welcome-redirect] :route-name ::root])
 
 (def dannet-route
-  ["/dannet" :get dannet-metadata-redirect :route-name ::dannet])
+  ["/dannet" :get [welcome-redirect] :route-name ::dannet])
+
+(defn page-langstrings
+  "Return Markdown pages as a set of LangStrings for the `document`."
+  [document]
+  (let [md-pattern' (re-pattern (str document "-(.+)\\.md"))
+        xf          (comp
+                      (map (fn [f]
+                             (some->> (.getName ^File f)
+                                      (re-matches md-pattern')
+                                      (second)
+                                      (lstr/->LangStr (slurp f)))))
+                      (remove nil?))]
+    (into #{} xf (file-seq (io/file "pages/")))))
+
+(def markdown-ic
+  "Returns a generic, localised markdown page for the given given page."
+  {:name  ::markdown
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [document     (-> request :path-params :document)
+                  content-type (get-in request [:accept :field] "text/plain")
+                  lang         (get-in request [:accept-language])
+                  languages    (or (:languages request) (i18n/lang-prefs lang))
+                  body         (content-type->body-fn content-type)
+                  page-meta    {:page "markdown"}
+                  data         {:languages languages
+                                :content   (page-langstrings document)}]
+              ;; TODO: implement generic 404 page
+              (when (not-empty (:content data))
+                (-> ctx
+                    (update :response assoc
+                            :status 200
+                            :body (body data page-meta))
+                    (update-in [:response :headers] merge
+                               (assoc (x-headers page-meta)
+                                 "Content-Type" content-type
+                                 ;; TODO: use cache in production
+                                 #_#_"Cache-Control" one-day-cache))))))})
+
+(def markdown-route
+  [prefix/markdown-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         markdown-ic]
+   :route-name ::markdown])
 
 (def autocomplete-path
   (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
@@ -346,6 +404,7 @@
        (map second)                                         ; grab full words
        (sort)))
 
+;; TODO: use core.memoize, limit memoization to some fixed N invocations
 (def autocomplete (memoize autocomplete*))
 
 (def autocomplete-ic

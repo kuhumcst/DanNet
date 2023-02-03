@@ -57,7 +57,7 @@ html, body {
     margin: 0;
     height: 100%;
     background-color: #DDD;
-    background: #EFEFEF url(/images/exclusive-paper.png);
+    background: #FFF url(/images/exclusive-paper.png);
 }
 
 #app {
@@ -92,11 +92,23 @@ main {
     display: flex;
     flex-direction: row;
     justify-content: center;
+    flex-grow: 1;
 }
 
 article.search table.attr-val + table.attr-val {
     margin-top: 48px;
     margin-bottom: 24px;
+}
+
+article.document {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+article.document > div {
+    padding: 16px;
 }
 
 nav {
@@ -443,7 +455,7 @@ span.unknown {
     color: #387111;
 }
 
-[lang]:not(footer, h1 span)::after {
+[lang]:not(footer, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
     vertical-align: top;
@@ -473,7 +485,7 @@ h1 span,
 h2,
 header .rdf-uri__prefix,
 header .rdf-uri__name {
-    animation: clear-up 0.33s;
+    /*animation: clear-up 0.33s;*/
 }
 
 h1 {

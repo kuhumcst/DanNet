@@ -299,6 +299,9 @@
 (def search-path
   (str (uri->path dannet-root) "search"))
 
+(def markdown-path
+  (str (uri->path dannet-root) "page/:document"))
+
 (defn resource-path
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))

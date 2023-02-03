@@ -22,7 +22,8 @@
 ;; Other routes bypass the frontend routing entirely, e.g. /download/...
 ;; Please refer to /doc/web.md to see how routing is meant to work.
 (def routes
-  [["/dannet/{*path}" :delegate]])
+  [["/dannet" :delegate-root]
+   ["/dannet/{*path}" :delegate-path]])
 
 ;; TODO: also do this for back/forward button
 (defn- update-scroll-opts

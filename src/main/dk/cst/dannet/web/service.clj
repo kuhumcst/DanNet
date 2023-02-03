@@ -2,6 +2,7 @@
   "Web service handling entity look-ups and schema downloads."
   (:require [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
+            [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
@@ -21,6 +22,7 @@
       res/unknown-external-entity-route
       res/export-route
       res/schema-download-route
+      res/markdown-route
 
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
@@ -43,15 +45,22 @@
                :font-src    "'self'"
                :style-src   "'self' 'unsafe-inline'"
                :base-uri    "'self'"})]
-    (cond-> {::http/routes         #((deref #'routes))
-             ::http/type           :jetty
-             ::http/host           "0.0.0.0"
-             ::http/port           3456
-             ::http/resource-path  "/public"
-             ::http/secure-headers {:content-security-policy-settings csp}}
+    (-> {::http/routes         #((deref #'routes))
+         ::http/type           :jetty
+         ::http/host           "0.0.0.0"
+         ::http/port           3456
+         ::http/resource-path  "/public"
+         ::http/secure-headers {:content-security-policy-settings csp}}
 
-      ;; Make sure we can communicate with the Shadow CLJS app during dev.
-      shared/development? (assoc ::http/allowed-origins (constantly true)))))
+        ;; Extending default interceptors here.
+        (http/default-interceptors)
+        (update ::http/interceptors conj middleware/cookies)
+
+        (assoc ::http/allowed-origins (constantly true))
+
+        ;; Make sure we can communicate with the Shadow CLJS app during dev.
+        (cond->
+          shared/development? (assoc ::http/allowed-origins (constantly true))))))
 
 (defn start []
   (let [service-map (->service-map @conf)]
@@ -77,4 +86,7 @@
 (comment
   @conf
   (restart)
+  (do
+    (clojure.core.async/thread (deref dk.cst.dannet.web.resources/db))
+    (restart))
   #_.)
