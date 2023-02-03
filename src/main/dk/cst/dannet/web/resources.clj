@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.resources
   "Pedestal interceptors for entity look-ups and schema downloads."
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.pprint :refer [print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
@@ -116,9 +115,18 @@
    BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
    XSDDateTime             (t/write-handler "datetime" str)})
 
-;; TODO: order matters when creating conneg interceptor, should be kvs
+;; TODO: order matters when creating conneg interceptor, should be kvs as
+;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
-  {"text/plain"
+  {"text/html"
+   (fn [data & [{:keys [page title] :as opts}]]
+     (str
+       "<!DOCTYPE html>\n"                                  ;; Avoid Quirks Mode
+       (html-page
+         title
+         (com/page-shell page data))))
+
+   "text/plain"
    ;; TODO: make generic
    (fn [data & _]
      (ascii-table data))
@@ -129,13 +137,7 @@
 
    "application/transit+json"
    (fn [data & _]
-     (to/write-str data {:handlers transit-write-handlers}))
-
-   "text/html"
-   (fn [data & [{:keys [page title] :as opts}]]
-     (html-page
-       title
-       (com/page-shell page data)))})
+     (to/write-str data {:handlers transit-write-handlers}))})
 
 (def use-lang?
   #{"application/transit+json" "text/html"})
