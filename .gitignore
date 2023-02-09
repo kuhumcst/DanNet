@@ -33,8 +33,6 @@ bootstrap/other/english/english-wordnet-2022.ttl
 
 .shadow-cljs
 node_modules
-package-lock.json
-package.json
 resources/public/js/compiled
 
 out/

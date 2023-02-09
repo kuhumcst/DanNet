@@ -8,9 +8,7 @@ You can traverse DanNet directly on wordnet.dk, but you may also download our da
 
 DanNet is also integrated with [COR][COR] and [DDS][DDS]. These alternative RDF datasets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
 
-Du kan også hente [DanNet+COR+DDS][DanNet+COR+DDS] som et samlet datasæt eller hente en [komplet kopi][complete] af alt data der kan tilgås på wordnet.dk/dannet, inklusiv en masse logisk udledt ekstra data.
-
-You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combiend dataset or download a [complete copy][complete] of all of the data that can be found on wordnet.dk/dannet, including much additional, logically inferred data.
+You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined dataset or download a [complete copy][complete] of all of the data that can be found on wordnet.dk/dannet, including much additional, logically inferred data.
 
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/english "Centre for Language Technology (University of Copenhagen)"

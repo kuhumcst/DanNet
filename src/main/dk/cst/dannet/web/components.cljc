@@ -10,7 +10,6 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [nextjournal.markdown :as md]
-            [shadow.resource :as sr]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [reagent.cookies :as cookie])
@@ -35,10 +34,6 @@
 
 (def omitted
   "…")
-
-(def welcome-md
-  #{(lstr/->LangStr (sr/inline "public/doc/welcome-da.md") "da")
-    (lstr/->LangStr (sr/inline "public/doc/welcome-en.md") "en")})
 
 (defn- sort-by-entry
   "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."

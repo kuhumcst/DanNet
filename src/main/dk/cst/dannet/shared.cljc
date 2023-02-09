@@ -1,8 +1,8 @@
 (ns dk.cst.dannet.shared
   "Shared functions for frontend/backend; low-dependency namespace."
-  (:require #?(:clj [clojure.java.io :as io])
-            #?(:clj [clojure.edn :as edn])
-            #?(:cljs [clojure.edn :as edn])
+  (:require [clojure.edn :as edn]
+            #?(:clj [clojure.java.io :as io])
+            #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.fetch :as fetch])
@@ -32,11 +32,13 @@
   "Cross-compatible way to get cookie `k` from `request`."
   #?(:clj
      ([request k]
-      (some-> request
-              :cookies
-              (get (name k))
-              :value
-              (edn/read-string)))
+      (try
+        (some-> request
+                :cookies
+                (get (name k))
+                :value
+                (edn/read-string))
+        (catch Exception e nil)))
      :cljs
      ([k]
       (some-> (cookie/get-raw k)
@@ -74,10 +76,20 @@
      :cljs (when (exists? js/inDevelopmentEnvironment)
              js/inDevelopmentEnvironment)))
 
+(def windows?
+  #?(:cljs (and (exists? js/navigator.appVersion)
+                (str/includes? js/navigator.appVersion "Windows"))))
+
 (defn normalize-url
+  "Normalize a `path` to work in both production and development contexts.
+
+  When accessing using Windows in dev, the OS is assumed to be virtualised and
+  localhost:3456 of the macOS host to be available at mac:3456 instead."
   [path]
   (if development?
-    (str "http://localhost:3456" path)
+    (if windows?
+      (str "http://mac:3456" path)
+      (str "http://localhost:3456" path))
     path))
 
 #?(:cljs

@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.service
   "Web service handling entity look-ups and schema downloads."
-  (:require [io.pedestal.http :as http]
+  (:require [clojure.core.async :as async]
+            [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
@@ -37,7 +38,7 @@
 (defn ->service-map
   [conf]
   (let [csp (if shared/development?
-              {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:*"}
+              {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:* mac:* ws://mac:*"}
               {:default-src "'none'"
                :script-src  "'self' 'unsafe-inline'"        ; unsafe-eval possibly only needed for dev main.js
                :connect-src "'self'"
@@ -68,6 +69,7 @@
 
 (defn start-dev []
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
+  (async/thread @res/db)                                    ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 
@@ -86,7 +88,5 @@
 (comment
   @conf
   (restart)
-  (do
-    (clojure.core.async/thread (deref dk.cst.dannet.web.resources/db))
-    (restart))
+  (stop-dev)
   #_.)

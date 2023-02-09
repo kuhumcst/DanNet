@@ -32,9 +32,6 @@
                       :jvm-opts   ["-Djdk.attach.allowAttachSelf"]}
            :build    {:extra-deps {io.github.seancorfield/build-clj
                                    {:git/tag "v0.8.3" :git/sha "7ac1f8d"}}}
-
-           ;; For static code analysis in IntelliJ/Cursive.
-           ;; Should be synced periodically with shadow-cljs.edn.
            :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "2.20.6"}
                                    lambdaisland/fetch   {:git/url "https://github.com/lambdaisland/fetch.git"
                                                          :sha     "b74d2fb590917a14ae0ab3a1478bf60ff6906f65"}}}}}
