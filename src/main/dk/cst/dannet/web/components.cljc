@@ -10,7 +10,6 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [nextjournal.markdown :as md]
-            [shadow.resource :as sr]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [reagent.cookies :as cookie])

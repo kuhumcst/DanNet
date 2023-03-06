@@ -82,8 +82,6 @@ html, body {
 }
 
 #app {
-    animation: fade-in 0.33s ease-in;
-
     display: flex;
     position: fixed;
     top: 0;
@@ -496,14 +494,6 @@ h1 sup {
 
 header {
     margin-bottom: 32px;
-}
-
-td,
-h1 span,
-h2,
-header .rdf-uri__prefix,
-header .rdf-uri__name {
-    /*animation: clear-up 0.33s;*/
 }
 
 h1 {

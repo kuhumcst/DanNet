@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${DANNET_DB}:/etc/dannet/db
-      - ${DANNET_CSV_INPUT}:/etc/dannet/bootstrap/dannet/csv
-      - ${DANNET_OTHER_INPUT}:/etc/dannet/bootstrap/other
+      - ${DANNET_BOOTSTRAP}:/etc/dannet/bootstrap
+      - ${DANNET_EXPORT}:/etc/dannet/export
     ports:
       - "3456:3456"

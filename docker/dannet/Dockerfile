@@ -28,13 +28,11 @@ RUN ./linux-install-1.11.1.1139.sh
 WORKDIR /etc/dannet
 
 # Install JS dependencies
+COPY ./package.json /etc/dannet/package.json
+COPY ./package-lock.json /etc/dannet/package-lock.json
 RUN npm init -y
 RUN npm install -g shadow-cljs
-RUN npm install \
-    shadow-cljs \
-    react \
-    react-dom \
-    create-react-class
+RUN npm install
 
 # Fetch backend dependencies
 COPY ./deps.edn /etc/dannet/deps.edn
@@ -46,10 +44,8 @@ RUN shadow-cljs --aliases :frontend classpath
 
 # Copy needed source files
 COPY ./src /etc/dannet/src
-COPY ./resources/etc /etc/dannet/resources/etc
-COPY ./resources/public/css /etc/dannet/resources/public/css
-COPY ./resources/public/images /etc/dannet/resources/public/images
-COPY ./resources/schemas /etc/dannet/resources/schemas
+COPY ./resources /etc/dannet/resources
+COPY ./pages /etc/dannet/pages
 
 # Create a release build of the frontend app
 RUN shadow-cljs --aliases :frontend release app

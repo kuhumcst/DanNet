@@ -38,7 +38,7 @@
 (defn ->service-map
   [conf]
   (let [csp (if shared/development?
-              {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:*"}
+              {:default-src "'self' 'unsafe-inline' 'unsafe-eval' localhost:* 0.0.0.0:* ws://localhost:* ws://0.0.0.0:* mac:* ws://mac:*"}
               {:default-src "'none'"
                :script-src  "'self' 'unsafe-inline'"        ; unsafe-eval possibly only needed for dev main.js
                :connect-src "'self'"
@@ -88,4 +88,5 @@
 (comment
   @conf
   (restart)
+  (stop-dev)
   #_.)
