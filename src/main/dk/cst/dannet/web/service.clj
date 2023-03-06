@@ -57,8 +57,6 @@
         (http/default-interceptors)
         (update ::http/interceptors conj middleware/cookies)
 
-        (assoc ::http/allowed-origins (constantly true))
-
         ;; Make sure we can communicate with the Shadow CLJS app during dev.
         (cond->
           shared/development? (assoc ::http/allowed-origins (constantly true))))))
