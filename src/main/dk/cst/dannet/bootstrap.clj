@@ -575,6 +575,15 @@
                      [sense-id (disj sense-ids sense-id)])))
          (into {}))))
 
+(def existing-resources
+  (delay
+    (->> (read-triples [(fn [[sense-id word-id synset-id register _ :as row]]
+                          (when (and (not-empty sense-id)
+                                     (not-empty synset-id))
+                            [sense-id synset-id]))
+                        "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"])
+         (into {}))))
+
 (def sense-examples
   "Examples for the new sense in the 2023 adjective data."
   (delay
@@ -688,14 +697,27 @@
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
 
-;; TODO: issued 2023 -> updated 2023? http://localhost:3456/dannet/data/synset-69698
-;; TODO: not actually issued in 2023 http://localhost:3456/dannet/data/synset-28840 http://localhost:3456/dannet/data/synset-71887
+(h/defn mark-duplicate-senses
+  [rows]
+  (let [dupe-kv     (fn [n [lemma kap afs afsnitsnavn denbet
+                            dannetsemid sek_holem sek_id sek_denbet
+                            :as row]]
+                      [[dannetsemid sek_id] n])
+        get-dupe-id (->> (group-by #(nth % 7) rows)
+                         (mapcat (fn [[_ rows]]
+                                   (when (> (count rows) 1)
+                                     (map-indexed dupe-kv rows))))
+                         (into {}))]
+    (map #(with-meta % {:get-dupe-id get-dupe-id}) rows)))
+
 (h/defn ->2023-triples
   "Convert a `row` from 'adjectives.tsv' to triples."
   [[lemma kap afs afsnitsnavn denbet dannetsemid sek_holem sek_id sek_denbet
     :as row]]
   (when-not (str/blank? sek_id)
-    (let [sense-id->mws         @sense-id->multi-word-synset
+    (let [{:keys [get-dupe-id]} (meta row)
+          existing-synset-id    @existing-resources
+          sense-id->mws         @sense-id->multi-word-synset
           sense-id->siblings    @sense-siblings
           sense-id->synset-id   (comp :synset-id @sense-properties)
           sense-id->sense-label (comp :sense-label @sense-properties)
@@ -711,10 +733,14 @@
                                   (or (:mws-id (sense-id->mws sense-id))
                                       sense-id))
           use-old-synset-id     (comp sense-id->synset-id mws-or-sense-id)
+          dupe-id               #(get-dupe-id [dannetsemid %])
           synthesize-synset-id  (fn [sense-id]
-                                  (str "s" (mws-or-sense-id sense-id)))
+                                  (str "s" (mws-or-sense-id sense-id)
+                                       (when-let [dupe-id (dupe-id sense-id)]
+                                         (str "-" dupe-id))))
           pick-synset-id        (fn [sense-id]
-                                  (or (use-old-synset-id sense-id)
+                                  (or (existing-synset-id sense-id)
+                                      (use-old-synset-id sense-id)
                                       (synthesize-synset-id sense-id)))
           synset-id             (pick-synset-id sek_id)
           synset                (synset-uri synset-id)]
@@ -958,7 +984,7 @@
     :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
                 :encoding "UTF-8"
                 :separator \tab
-                :preprocess rest]}
+                :preprocess (comp mark-duplicate-senses rest)]}
 
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/senti-uri
@@ -1172,4 +1198,14 @@
                                (spit out))))]
     (check-file words-22-res missing-in-25 "missing-in-dannet-25.txt")
     (check-file words-25-res new-in-25 "new-in-dannet-25.txt"))
+
+  ;; At least the hypernyms seem to be distinct from the new adjectives.
+  (let [rows (read-triples [identity
+                            "bootstrap/other/dannet-new/adjectives.tsv"
+                            :encoding "UTF-8"
+                            :separator \tab
+                            :preprocess rest])]
+    ;; No apparent intersection
+    (set/intersection (set (map #(nth % 5) rows))
+                      (set (map #(nth % 7) rows))))
   #_.)
