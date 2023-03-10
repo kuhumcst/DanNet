@@ -707,14 +707,16 @@
           sense-label           (-> (or (sense-id->sense-label sek_id)
                                         sek_holem)
                                     (rewrite-sense-label))
-          pick-id               (fn [sense-id]
+          mws-or-sense-id       (fn [sense-id]
                                   (or (:mws-id (sense-id->mws sense-id))
                                       sense-id))
-          pick-synset-id        (comp sense-id->synset-id pick-id)
+          use-old-synset-id     (comp sense-id->synset-id mws-or-sense-id)
           synthesize-synset-id  (fn [sense-id]
-                                  (or (pick-synset-id sense-id)
-                                      (str "s" (pick-id sense-id))))
-          synset-id             (synthesize-synset-id sek_id)
+                                  (str "s" (mws-or-sense-id sense-id)))
+          pick-synset-id        (fn [sense-id]
+                                  (or (use-old-synset-id sense-id)
+                                      (synthesize-synset-id sense-id)))
+          synset-id             (pick-synset-id sek_id)
           synset                (synset-uri synset-id)]
       (set/union
         #{[sense :rdf/type :ontolex/LexicalSense]
@@ -730,8 +732,8 @@
           [synset :ontolex/lexicalizedSense sense]}
 
         ;; Mark any sibling synsets as :wn/similar (= near synonym)
-        (when-let [siblings (sense-id->siblings (pick-id sek_id))]
-          (->> (map synthesize-synset-id siblings)
+        (when-let [siblings (sense-id->siblings (mws-or-sense-id sek_id))]
+          (->> (map pick-synset-id siblings)
                (remove nil?)
                (map synset-uri)
                (remove #{synset})
@@ -743,23 +745,30 @@
         ;;       this appears to be related to the fact that we're using the old
         ;;       CSV export, which doesn't include entities created after 2013.
         ;; Inheritance (effectuated in the ->dannet function)
-        (when-let [from-id (sense-id->synset-id dannetsemid)]
+        ;; See also: 'synthesize-inherited-relations' defined below.
+        (when-let [from-id (pick-synset-id dannetsemid)]
           (let [hypernym (keyword "dn" (str "inherit-" synset-id "-hypernym"))
                 ontotype (keyword "dn" (str "inherit-" synset-id "-ontologicalType"))
                 from     (synset-uri from-id)]
-            #{[synset :wn/similar from]
-              [synset :dns/inherited hypernym]
-              [synset :dns/inherited ontotype]
+            (set/union
+              #{[synset :wn/similar from]}
 
-              [hypernym :rdf/type :dns/Inheritance]
-              [hypernym :rdfs/label (prefix/kw->qname :wn/hypernym)]
-              [hypernym :dns/inheritedFrom from]
-              [hypernym :dns/inheritedRelation :wn/hypernym]
+              ;; We can only automatically inherit these values when the synset
+              ;; ID is brand new, i.e. it has been synthesized. Otherwise, it
+              ;; must be assumed that the manually assigned values are prefered.
+              (when (str/starts-with? synset-id "s")
+                #{[synset :dns/inherited ontotype]
+                  [synset :dns/inherited hypernym]
 
-              [ontotype :rdf/type :dns/Inheritance]
-              [ontotype :rdfs/label (prefix/kw->qname :dns/ontologicalType)]
-              [ontotype :dns/inheritedFrom from]
-              [ontotype :dns/inheritedRelation :dns/ontologicalType]}))
+                  [hypernym :rdf/type :dns/Inheritance]
+                  [hypernym :rdfs/label (prefix/kw->qname :wn/hypernym)]
+                  [hypernym :dns/inheritedFrom from]
+                  [hypernym :dns/inheritedRelation :wn/hypernym]
+
+                  [ontotype :rdf/type :dns/Inheritance]
+                  [ontotype :rdfs/label (prefix/kw->qname :dns/ontologicalType)]
+                  [ontotype :dns/inheritedFrom from]
+                  [ontotype :dns/inheritedRelation :dns/ontologicalType]}))))
 
         (when-let [example (get @sense-examples sek_id)]
           (when-not (str/blank? example)

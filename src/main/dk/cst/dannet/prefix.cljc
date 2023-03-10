@@ -136,9 +136,10 @@
   voc/uri-for)
 
 (defn qname->kw
-  [kw]
-  (let [[prefix local-name] (str/split kw #":")]
-    (keyword prefix local-name)))
+  [qname]
+  (when qname
+    (let [[prefix local-name] (str/split qname #":")]
+      (keyword prefix local-name))))
 
 (defn qname->uri
   [qname]
