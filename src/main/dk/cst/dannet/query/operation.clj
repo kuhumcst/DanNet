@@ -247,6 +247,33 @@
        FILTER(?definition != ?otherDefinition)
      }"))
 
+(def undefined-synset-triples
+  "Synsets that are objects of other synsets, but do not exist as subjects."
+  (sparql
+    "SELECT ?synset ?p ?otherResource
+     WHERE {
+       ?synset rdf:type ontolex:LexicalConcept .
+       ?synset ?p ?otherResource .
+       FILTER(isIRI(?otherResource)) .
+       FILTER(STRSTARTS(str(?otherResource), str(dn:))) .
+       NOT EXISTS {
+         ?otherResource ?anything ?atAll .
+       }
+     }"))
+
+(def undefined-sense-references
+  "The COR data references many senses from DSL that are undefined in Dannet."
+  (sparql
+    "SELECT ?corWord ?sense
+     WHERE {
+       ?corWord ontolex:sense ?sense .
+       FILTER(isIRI(?sense)) .
+       FILTER(STRSTARTS(str(?sense), str(dn:))) .
+       NOT EXISTS {
+         ?sense ?anything ?atAll .
+       }
+     }"))
+
 (def csv-synsets
   "Columns to export for synsets.csv."
   (q/build

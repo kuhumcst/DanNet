@@ -288,6 +288,18 @@
                 ['_ '_ sense]}))
        (reduce set/union #{})))
 
+(defn find-undefined-synset-triples
+  [g]
+  (->> (q/run g op/undefined-synset-triples)
+       (map (juxt '?synset '?p '?otherResource))
+       (set)))
+
+(defn find-undefined-sense-triples
+  [union-graph]
+  (->> (q/run union-graph op/undefined-sense-references)
+       (map (juxt '?corWord (constantly :ontolex/sense) '?sense))
+       (set)))
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -330,6 +342,7 @@
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
         dn-model    (get-model dataset prefix/dn-uri)
+        cor-model   (get-model dataset prefix/cor-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
         union-graph (.getGraph (.getUnionModel dataset))]
 
@@ -447,6 +460,22 @@
           (remove! dn-model triple)))
       (txn/transact-exec dn-graph
         (aristotle/add dn-graph triples-to-add)))
+
+    ;; Some of the new adjective triples reference synsets that we do not have
+    ;; any data for (usually because the IDs are fully synthesized).
+    (let [triples-to-remove (find-undefined-synset-triples dn-graph)]
+      (println "Removing" (count triples-to-remove) "references to undefined synsets...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple))))
+
+    ;; The COR data has many references to data that doesn't exist in DanNet.
+    ;; We can use the union graph to discover these so that we may remove them.
+    (let [triples-to-remove (find-undefined-sense-triples union-graph)]
+      (println "Removing" (count triples-to-remove) "COR references to undefined senses...")
+      (txn/transact-exec cor-model
+        (doseq [triple triples-to-remove]
+          (remove! cor-model triple))))
 
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,

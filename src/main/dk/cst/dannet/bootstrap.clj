@@ -726,14 +726,20 @@
                                   (when-not (str/blank? id)
                                     (get @sense-definitions id)))
           sense                 (sense-uri sek_id)
-          sense-label           (-> (or (sense-id->sense-label sek_id)
-                                        sek_holem)
-                                    (rewrite-sense-label))
           mws-or-sense-id       (fn [sense-id]
                                   (or (:mws-id (sense-id->mws sense-id))
                                       sense-id))
           use-old-synset-id     (comp sense-id->synset-id mws-or-sense-id)
           dupe-id               #(get-dupe-id [dannetsemid %])
+          sense-label           (-> (or (sense-id->sense-label sek_id)
+                                        sek_holem)
+                                    (rewrite-sense-label))
+          ;; NOTE: dupe labels are also generated in db/discrete-sense-triples!
+          sense-label'          (if-let [n (dupe-id sek_id)]
+                                  (if (str/includes? sense-label "_")
+                                    (str sense-label "(" n ")")
+                                    (str sense-label "_(" n ")"))
+                                  sense-label)
           synthesize-synset-id  (fn [sense-id]
                                   (str "s" (mws-or-sense-id sense-id)
                                        (when-let [dupe-id (dupe-id sense-id)]
@@ -749,9 +755,9 @@
           [synset :rdf/type :ontolex/LexicalConcept]
 
           ;; Labels
-          [sense :rdfs/label sense-label]
+          [sense :rdfs/label sense-label']
           [synset :rdfs/label (or (:mws-label (sense-id->mws sek_id))
-                                  (da (str "{" sense-label "}")))]
+                                  (da (str "{" sense-label' "}")))]
           #_[synset :dc/issued dc-issued-new]
 
           ;; Lexical connections
