@@ -322,13 +322,26 @@
   (.removeAll
     model
     (when (not= s '_)
-      (ResourceFactory/createResource (voc/uri-for s)))
+      (cond
+        (keyword? s)
+        (ResourceFactory/createResource (voc/uri-for s))
+
+        (prefix/rdf-resource? s)
+        (ResourceFactory/createResource (subs s 1 (dec (count s))))))
     (when (not= p '_)
-      (ResourceFactory/createProperty (voc/uri-for p)))
+      (cond
+        (keyword? p)
+        (ResourceFactory/createProperty (voc/uri-for p))
+
+        (prefix/rdf-resource? p)
+        (ResourceFactory/createProperty (subs p 1 (dec (count p))))))
     (when (not= o '_)
       (cond
-        (keyword? o)
-        (ResourceFactory/createResource (voc/uri-for o))
+        (keyword? p)
+        (ResourceFactory/createResource (voc/uri-for p))
+
+        (prefix/rdf-resource? p)
+        (ResourceFactory/createResource (subs p 1 (dec (count p))))
 
         (instance? LangStr o)
         (ResourceFactory/createLangLiteral (str o) (.lang o))
