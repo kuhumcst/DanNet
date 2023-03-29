@@ -825,8 +825,8 @@
                     lexical-form  (lexical-form-uri word-id)]
                 #{[word :rdf/type :ontolex/LexicalEntry]
                   [word :rdfs/label (da (qt written-rep))]
-                  [lexical-form :rdfs/label (da (qt written-rep "-form"))]
-                  [lexical-form :rdf/type (form->lexical-entry written-rep)]
+                  #_[lexical-form :rdfs/label (da (qt written-rep "-form"))]
+                  #_[lexical-form :rdf/type :ontolex/Form]
 
                   [word :ontolex/evokes ?synset]
                   [word :ontolex/sense ?sense]
