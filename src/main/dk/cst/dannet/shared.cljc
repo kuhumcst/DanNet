@@ -95,7 +95,12 @@
 #?(:cljs
    (do
      (def transit-read-handlers
-       {"lstr"        lstr/read-LangStr
+       ;; This keyword handler replaces the regular keyword function as that has
+       ;; difficulties decoding "illegal" keywords that contain extra slashes,
+       ;; e.g. many DanNet IRIs that are encoded as Clojure keywords.
+       ;; TODO: replace this fn with fn from ont-app.vocabulary.format? #72
+       {":"           (fn iri-keyword [s] (apply keyword (str/split s #"/" 2)))
+        "lstr"        lstr/read-LangStr
         "rdfdatatype" identity
         "f"           parse-double                          ; BigDecimal
         "datetime"    identity})

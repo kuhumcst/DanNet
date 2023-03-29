@@ -188,15 +188,15 @@
 
 (defn synset-uri
   [id]
-  (keyword "dn" (str "synset-" id)))
+  (keyword "dn" (str "synset/" id)))
 
 (defn word-uri
   [id]
-  (keyword "dn" (str "word-" id)))
+  (keyword "dn" (str "word/" id)))
 
 (defn sense-uri
   [id]
-  (keyword "dn" (str "sense-" id)))
+  (keyword "dn" (str "sense/" id)))
 
 (defn cor-uri
   [& parts]

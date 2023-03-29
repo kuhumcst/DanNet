@@ -290,7 +290,7 @@
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
   a map of URIs and creates a local, relative path based on this URI."
   [prefix]
-  [(str (-> prefix prefix/schemas :uri prefix/uri->path) ":subject")
+  [(str (-> prefix prefix/schemas :uri prefix/uri->path) "*subject")
    :get [content-negotiation-ic
          language-negotiation-ic
          (->entity-ic :prefix prefix)]
@@ -298,7 +298,7 @@
 
 (def external-entity-route
   "Look-up route for external resources. Doesn't conform to the actual URIs."
-  [(str prefix/external-path "/:prefix/:subject")
+  [(str prefix/external-path "/:prefix/*subject")
    :get [content-negotiation-ic
          language-negotiation-ic
          (->entity-ic)]
