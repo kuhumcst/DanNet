@@ -105,7 +105,7 @@
              ;; picked up one-by-one, storing the remaining labels temporarily
              ;; in a 'label-cache'. This assumes correct ordering of both sense
              ;; triples and each original synset labels!
-             ;; Relevant example: http://localhost:3456/dannet/data/synset-12346
+             ;; Relevant example: http://localhost:3456/dannet/data/synset/12346
              (if-let [label (first (get @label-cache word))]
                (do
                  (swap! label-cache update word rest)
@@ -1035,14 +1035,14 @@
 
   ;; Look up "citrusfrugt" synset using igraph
   (txn/transact model
-    (ig :dn/synset-514))
+    (ig (keyword "dn/synset/514")))
 
   ;; Find all hypernyms of a Synset in the graph ("birkes"; note: two paths).
   ;; Laziness and threading macros doesn't work well Jena transactions, so be
   ;; sure to transact database-accessing code while leaving out post-processing.
   (let [hypernym (igraph/transitive-closure :wn/hypernym)]
     (->> (txn/transact model
-           (igraph/traverse ig hypernym {} [] [:dn/synset-999]))
+           (igraph/traverse ig hypernym {} [] [(keyword "dn/synset/999")]))
          (map #(txn/transact model (ig %)))
          (map :rdfs/label)
          (map first)))
@@ -1057,7 +1057,7 @@
   (q/only-uris
     (q/run graph
            '[:bgp
-             [:dn/word-11007846 ?p ?o]]))
+             [(keyword "dn/word/11007846") ?p ?o]]))
 
   ;; TODO: broken, fix?
   ;; Combining graph queries and regular Clojure data manipulation:
@@ -1076,8 +1076,8 @@
        (into {}))
 
   ;; Test retrieval of examples
-  (q/run graph op/examples '{?sense :dn/sense-21011843})
-  (q/run graph op/examples '{?sense :dn/sense-21011111})
+  (q/run graph op/examples '{?sense (keyword "dn/sense/21011843")})
+  (q/run graph op/examples '{?sense (keyword "dn/sense/21011111")})
 
   ;; Retrieval of dataset metadata
   (q/run graph [:bgp [bootstrap/<dn> '?p '?o]])

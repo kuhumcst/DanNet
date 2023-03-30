@@ -29,12 +29,7 @@
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
 
-;; TODO: missing labels
-;;       http://localhost:3456/dannet/data/synset-48454
-;;       http://localhost:3456/dannet/data/synset-49086
-;;       http://localhost:3456/dannet/data/synset-3085
-;;       http://0.0.0.0:3456/dannet/data//synset-49069
-;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
+;; TODO: weird? http://localhost:3456/dannet/data/synset/47363
 
 (defn da
   [s]
@@ -399,7 +394,7 @@
           begin (str/index-of (str/lower-case mwe*) (str/lower-case w*))
           size  (count mwe*)
           end   (when begin
-                  (min (or (str/index-of mwe* "," begin) size) ; ...synset-7290
+                  (min (or (str/index-of mwe* "," begin) size) ; ...synset/7290
                        (or (str/index-of mwe* " " begin) size)))
           w**   (when end
                   (subs mwe* begin end))]
@@ -514,16 +509,16 @@
 (def pos-fixes
   "Ten words had 'None' as their POS tag. Looking at the other words in their
   synsets clearly inform the correct POS tags to use."
-  {:dn/word-12005324-2 "adjective"
-   :dn/word-12002785   "noun"
-   :dn/word-11006697   "noun"
-   :dn/word-11022554   "noun"
-   :dn/word-11043739   "noun"
-   :dn/word-12007550   "noun"
-   :dn/word-11038834   "noun"
-   :dn/word-11047932   "noun"
-   :dn/word-12005626-1 "verb"
-   :dn/word-11018863   "noun"})
+  {(keyword "dn/word/12005324-2") "adjective"
+   (keyword "dn/word/12002785")   "noun"
+   (keyword "dn/word/11006697")   "noun"
+   (keyword "dn/word/11022554")   "noun"
+   (keyword "dn/word/11043739")   "noun"
+   (keyword "dn/word/12007550")   "noun"
+   (keyword "dn/word/11038834")   "noun"
+   (keyword "dn/word/11047932")   "noun"
+   (keyword "dn/word/12005626-1") "verb"
+   (keyword "dn/word/11018863")   "noun"})
 
 (defn qt
   [s & after]
@@ -693,7 +688,7 @@
         ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
         ;; These relations make no sense to include. Instead, the necessary
         ;; words must be synthesized at a later point.
-        (when (not= word :dn/word-0-0)
+        (when (not= word (keyword "dn/word/0-0"))
           #{[word :ontolex/evokes synset]
             [word :ontolex/sense sense]})))))
 

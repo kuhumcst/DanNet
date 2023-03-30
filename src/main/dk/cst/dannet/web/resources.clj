@@ -26,8 +26,6 @@
            [org.apache.jena.datatypes.xsd XSDDateTime]))
 
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
-;; TODO: weird label edge cases:
-;;       http://localhost:3456/dannet/data/synset-74520
 
 (defonce db
   (delay
@@ -432,11 +430,10 @@
    :route-name ::autocomplete])
 
 (comment
-  (q/expanded-entity (:graph @db) :dn/form-11029540-land)
-  (q/expanded-entity (:graph @db) :dn/synset-4849)
-  (q/entity (:graph @db) :dn/synset-78300)
-  (q/entity (:graph @db) :dn/synset-46015)
-  (q/entity-triples (:graph @db) :dn/synset-4849)
+  (q/expanded-entity (:graph @db) (keyword "dn/synset/4849"))
+  (q/entity (:graph @db) (keyword "dn/synset/78300"))
+  (q/entity (:graph @db) (keyword "dn/synset/46015"))
+  (q/entity-triples (:graph @db) (keyword "dn/synset/4849"))
 
   ;; Test for existence of duplicate ontotypes
   (->> (q/run (:graph @db) '[:bgp

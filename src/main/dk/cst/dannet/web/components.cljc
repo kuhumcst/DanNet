@@ -20,10 +20,10 @@
   (:refer-clojure :exclude [cond])
   #?(:clj (:import [clojure.lang Named])))
 
-;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
-;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
+;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset/48300
+;; TODO: empty synset http://localhost:3456/dannet/data/synset/47272
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
-;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
+;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset/42955
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
@@ -179,7 +179,7 @@
                      [:span.subtle word]
                      word)
                    ;; Correct for the rare case of comma an affixed comma.
-                   ;; e.g. http://localhost:3456/dannet/data/synset-7290
+                   ;; e.g. http://localhost:3456/dannet/data/synset/7290
                    (when sub
                      (if (str/ends-with? sub ",")
                        [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
