@@ -63,6 +63,19 @@ The main database that the new tooling has been developed for is [Apache Jena](h
 
 However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](doc/rationale.md) for more.
 
+### RDF QNames vs. Clojure keywords
+When writing Clojure code and applying its data-centric approach to programming, you really want to be able to use Clojure keywords to represent RDF QNames.
+
+At first glance, they do seem up to the task: keywords have both a namespace and a name. However, keywords have some limitations regarding what characters they are allowed to contain. In order to match every possible RDF IRI, they must contain some characters that will cause trouble with Clojure's reader (or ClojureScript).
+
+In our case, we would like the identifier of the QName to contain slashes for DanNet synsets, words, and senses (e.g. [synset/56128](https://wordnet.dk/dannet/data/synset/56128)) to be able to construct good-looking URLs on our website. For this reason, we unfortunately can't directly represent these as keyword literals (`:dn/synset/56128` is not allowed), so we have to encode them using the `keyword` function. Similarly, we have to decode them using a modified version of this function when they are sent from backend to frontend using [transit](https://github.com/cognitect/transit-cljs):
+
+```clojure
+(fn iri-keyword [s] (apply keyword (str/split s #"/" 2)))
+```
+
+Finally, one line in Aristotle also had to be patched to allow these "grey area" keywords. I have [created an issue in the main repository describing the issue and a one-line "fix"](https://github.com/arachne-framework/aristotle/issues/13), but I won't be surprised if this won't be accepted as it _is_ indeed a bit of a hack. In any case, we will be using our own fork of Aristotle containing the change. [Issue #72](https://github.com/kuhumcst/DanNet/issues/72) contains more information.
+
 Web app
 -------
 > Note: A more detailed explanation is available at [doc/web.md](doc/web.md).
