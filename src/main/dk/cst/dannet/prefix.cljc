@@ -130,7 +130,7 @@
 
 (defn kw->qname
   [kw]
-  (str/replace (subs (str kw) 1) #"/" ":"))
+  (str/replace-first (subs (str kw) 1) #"/" ":"))
 
 (def kw->uri
   voc/uri-for)
