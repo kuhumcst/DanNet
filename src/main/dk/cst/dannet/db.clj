@@ -324,7 +324,7 @@
     (when (not= s '_)
       (cond
         (keyword? s)
-        (ResourceFactory/createResource (voc/uri-for s))
+        (ResourceFactory/createResource (voc/uri-for s))    ;TODO: uri-for breaks with slashes in keywords !!
 
         (prefix/rdf-resource? s)
         (ResourceFactory/createResource (subs s 1 (dec (count s))))))
@@ -349,6 +349,15 @@
         :else
         (ResourceFactory/createTypedLiteral o)))))
 
+(defn safe-add!
+  [graph data]
+  (try
+    (aristotle/add graph data)
+    (catch Exception e
+      (prn data (.getMessage e)))
+    (finally
+      graph)))
+
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
@@ -372,7 +381,7 @@
         (txn/transact-exec g
           (->> (bootstrap/read-triples row)
                (remove nil?)
-               (reduce aristotle/add g)))))
+               (reduce safe-add! g)))))
 
     (let [triples (doall (->superfluous-definition-triples dn-graph))]
       (println "Removing" (count triples) "superfluous definitions...")
@@ -849,16 +858,6 @@
    (println "CSV Export of DanNet complete!"))
   ([dannet]
    (export-csv! dannet "export/csv/")))
-
-;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
-(defn add!
-  "Add `content` to a `db`. The content can be a variety of things, including
-  another DanNet instance."
-  [{:keys [model] :as db} content]
-  (txn/transact-exec model
-    (.add model (if (map? content)
-                  (:model content)
-                  content))))
 
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."

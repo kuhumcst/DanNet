@@ -8,6 +8,7 @@
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
             [ont-app.vocabulary.lstr :as lstr]
+            [ont-app.vocabulary.format :as fmt]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
@@ -181,20 +182,29 @@
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   g            (:graph @db)
-                  subject*     (cond->> (decode-query-part subject)
-                                 prefix (keyword (name prefix)))
+                  subject*     (decode-query-part subject)
+
+
+
+                  ;; TODO: maybe this part should happen in the path instead?
+                  subject'     (if prefix
+                                 (keyword (fmt/encode-kw-ns (name prefix))
+                                          (fmt/encode-kw-name subject*)))
+
+
+
                   entity       (if (use-lang? content-type)
-                                 (q/expanded-entity g subject*)
-                                 (q/entity g subject*))
+                                 (q/expanded-entity g subject')
+                                 (q/entity g subject'))
                   languages    (i18n/lang-prefs lang)
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
                                 :inferred  (-> entity meta :inferred)
-                                :subject   subject*
+                                :subject   subject'
                                 :entity    entity}
-                  qname        (if (keyword? subject*)
-                                 (prefix/kw->qname subject*)
-                                 subject*)
+                  qname        (if (keyword? subject')
+                                 (prefix/kw->qname subject')
+                                 subject')
                   body         (content-type->body-fn content-type)
                   page-meta    {:title qname
                                 :page  "entity"}]
@@ -465,6 +475,20 @@
                       (= "dn" (namespace ?w2)))))
        (group-by (juxt '?writtenRep '?pos))
        (count))
+
+  (let [m (->> (q/run (.getGraph (.getUnionModel (:dataset @db)))
+                      op/undefined-sense-references)
+               (take 1)
+               (first))]
+    (name (get m '?sense)))
+
+  (db/find-undefined-sense-triples (.getGraph (.getUnionModel (:dataset @db))))
+
+  (txn/transact-exec cor-model
+                     (doseq [triple triples-to-remove]
+                       (remove! cor-model triple)))
+
+  (some? (db/get-model (:dataset @db) prefix/cor-uri))
 
   ;; Find unlabeled senses (count: 0)
   (count (q/run (:graph @db) op/unlabeled-senses))

@@ -23,7 +23,7 @@
             [better-cond.core :as better]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.prefix :as prefix :refer [qname-kw]]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op])
   (:import [java.time LocalDate]
@@ -183,19 +183,20 @@
 
 (defn synset-uri
   [id]
-  (keyword "dn" (str "synset/" id)))
+  (qname-kw (str "dn:synset/" id)))
 
 (defn word-uri
   [id]
-  (keyword "dn" (str "word/" id)))
+  (qname-kw (str "dn:word/" id)))
 
 (defn sense-uri
   [id]
-  (keyword "dn" (str "sense/" id)))
+  (qname-kw (str "dn:sense/" id)))
 
 (defn cor-uri
   [& parts]
-  (keyword "cor" (str/join "." (remove nil? parts))))
+  (when-let [parts' (not-empty (remove nil? parts))]
+    (qname-kw (str "cor:" (str/join "." parts')))))
 
 (def brug
   #"\s*\(Brug: \"(.+)\"\)")
@@ -509,16 +510,16 @@
 (def pos-fixes
   "Ten words had 'None' as their POS tag. Looking at the other words in their
   synsets clearly inform the correct POS tags to use."
-  {(keyword "dn/word/12005324-2") "adjective"
-   (keyword "dn/word/12002785")   "noun"
-   (keyword "dn/word/11006697")   "noun"
-   (keyword "dn/word/11022554")   "noun"
-   (keyword "dn/word/11043739")   "noun"
-   (keyword "dn/word/12007550")   "noun"
-   (keyword "dn/word/11038834")   "noun"
-   (keyword "dn/word/11047932")   "noun"
-   (keyword "dn/word/12005626-1") "verb"
-   (keyword "dn/word/11018863")   "noun"})
+  {(qname-kw "dn:word/12005324-2") "adjective"
+   (qname-kw "dn:word/12002785")   "noun"
+   (qname-kw "dn:word/11006697")   "noun"
+   (qname-kw "dn:word/11022554")   "noun"
+   (qname-kw "dn:word/11043739")   "noun"
+   (qname-kw "dn:word/12007550")   "noun"
+   (qname-kw "dn:word/11038834")   "noun"
+   (qname-kw "dn:word/11047932")   "noun"
+   (qname-kw "dn:word/12005626-1") "verb"
+   (qname-kw "dn:word/11018863")   "noun"})
 
 (defn qt
   [s & after]
@@ -933,27 +934,29 @@
         pos-abbr     (first (str/split grammar #"\."))
         pos          (get cor-k-pos pos-abbr)
         grammar-desc (da (str "Grammatisk beskrivelse: " grammar))]
-    (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
-              [word :rdfs/label (da (qt lemma))]
-              [word form-rel lexical-form]
+    (when word
+      (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
+                [word :rdfs/label (da (qt lemma))]}
 
-              [lexical-form :rdf/type :ontolex/Form]
-              [lexical-form :rdfs/label (da (qt form "-form"))]
-              [lexical-form :rdfs/comment grammar-desc]
-              [lexical-form :ontolex/writtenRep (da form)]}
+        lexical-form
+        (set/union #{[word form-rel lexical-form]
+                     [lexical-form :rdf/type :ontolex/Form]
+                     [lexical-form :rdfs/label (da (qt form "-form"))]
+                     [lexical-form :rdfs/comment grammar-desc]
+                     [lexical-form :ontolex/writtenRep (da form)]})
 
-      pos
-      (conj [word :lexinfo/partOfSpeech pos])
+        pos
+        (conj [word :lexinfo/partOfSpeech pos])
 
-      (not-empty comment)
-      (conj [word :rdfs/comment (da comment)])
+        (not-empty comment)
+        (conj [word :rdfs/comment (da comment)])
 
-      ;; TODO: find a more suitable relation than rdfs:seeAlso...?
-      ;; Since COR distinguishes alternative written representations with IDs,
-      ;; this relation exists to avoid losing these distinctions in the dataset.
-      ;; Alternative representations are represented with strings in Ontolex!
-      rep-id
-      (conj [lexical-form :rdfs/seeAlso full]))))
+        ;; TODO: find a more suitable relation than rdfs:seeAlso...?
+        ;; Since COR distinguishes alternative written representations with IDs,
+        ;; this relation exists to avoid losing these distinctions in the dataset.
+        ;; Alternative representations are represented with strings in Ontolex!
+        rep-id
+        (conj [lexical-form :rdfs/seeAlso full])))))
 
 (h/defn ->cor-ext-triples
   [[id lemma comment _ _ _ grammar form :as row]]
@@ -965,9 +968,10 @@
         cor-word (cor-uri cor-ns lemma-id)
         dn-word  (word-uri word-id)
         dn-sense (sense-uri sense-id)]
-    #{[cor-word :owl/sameAs dn-word]
-      [dn-word :owl/sameAs cor-word]
-      [cor-word :ontolex/sense dn-sense]}))
+    (when (and cor-word dn-word dn-sense)
+      #{[cor-word :owl/sameAs dn-word]
+        [dn-word :owl/sameAs cor-word]
+        [cor-word :ontolex/sense dn-sense]})))
 
 (h/def imports
   {prefix/dn-uri
@@ -1186,7 +1190,7 @@
   (let [line->word-id (fn [[word-id]] word-id)
         words-25-res  "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"
         words-22-res  "bootstrap/dannet/DanNet-2.2_csv/words.csv"
-        words-25      (set (read-triples [line->word-id words-25-res]))
+        words-25      (ses (read-triples [line->word-id words-25-res]))
         words-22      (set (read-triples [line->word-id words-22-res]))
         missing-in-25 (set/difference words-22 words-25)
         new-in-25     (set/difference words-25 words-22)

@@ -3,6 +3,7 @@
   (:require #?(:clj [arachne.aristotle.registry :as reg])
             [clojure.string :as str]
             [ont-app.vocabulary.core :as voc]
+            [ont-app.vocabulary.format :as fmt]
             [reitit.impl :refer [url-encode]]))             ; CLJC url-encode
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
@@ -127,6 +128,15 @@
 ;; TODO: is registration necessary in CLJS?
 (doseq [[ns-prefix {:keys [uri]}] schemas]
   (register ns-prefix uri))
+
+(defn qname-kw
+  "Safely convert a QName `s` into a Clojure keyword."
+  [s]
+  (let [[prefix identifier :as parts] (str/split s #":")]
+    (if (= (count parts) 2)
+      (keyword (fmt/encode-kw-ns prefix) (fmt/encode-kw-name identifier))
+      (throw (ex-info (str "bad qname: " s) {:input s
+                                             :parts parts})))))
 
 (defn kw->qname
   [kw]
@@ -314,7 +324,14 @@
   ;; Download links as RDF resources
   (dataset-uri "rdf" 'dn)
   (dataset-uri "rdf" 'dn "merged")
-  (dataset-uri "rdf" 'dn "asdads")                       ; should throw
+  (dataset-uri "rdf" 'dn "asdads")                          ; should throw
   (schema-uri 'dns)
   (schema-uri 'glen)
+
+  ;; Testing safe qname
+  (qname-kw "dn:synset/12345")
+  (qname-kw ":synset/12345")
+  (qname-kw "cor:12345")
+  (qname-kw "dn:")                                          ; should throw
+  (qname-kw ":")                                            ; should throw
   #_.)
