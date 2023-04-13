@@ -349,6 +349,16 @@
         :else
         (ResourceFactory/createTypedLiteral o)))))
 
+(defn safe-add!
+  "Add `data` to `g` in a failsafe way."
+  [g data]
+  (try
+    (aristotle/add g data)
+    (catch Exception e
+      (prn data (.getMessage e)))
+    (finally
+      g)))
+
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
@@ -372,7 +382,7 @@
         (txn/transact-exec g
           (->> (bootstrap/read-triples row)
                (remove nil?)
-               (reduce aristotle/add g)))))
+               (reduce safe-add! g)))))
 
     (let [triples (doall (->superfluous-definition-triples dn-graph))]
       (println "Removing" (count triples) "superfluous definitions...")
@@ -387,7 +397,7 @@
           example-triples (doall (->example-triples dn-graph examples'))]
       (println "Importing :examples triples...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph example-triples)))
+        (safe-add! dn-graph example-triples)))
 
     ;; Missing words for the 2023 adjectives data are synthesized from senses.
     ;; This step cannot be performed as part of the basic bootstrap since we
@@ -395,7 +405,7 @@
     (let [missing (doall (bootstrap/synthesize-missing-words dn-graph))]
       (println "Synthesizing" (count missing) "missing words for 2023 data...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph missing)))
+        (safe-add! dn-graph missing)))
 
     ;; Missing words for the 2023 adjectives data are synthesized from senses.
     ;; This step cannot be performed as part of the basic bootstrap since we
@@ -403,14 +413,14 @@
     (let [inherited (doall (bootstrap/synthesize-inherited-relations dn-graph))]
       (println "Synthesizing" (count inherited) "inherited relations for 2023 data...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph inherited)))
+        (safe-add! dn-graph inherited)))
 
     ;; Senses are unlabeled in the raw dataset and also need to query the graph
     ;; to steal labels from the words they are senses of.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
       (println "Stealing" (count sense-label-triples) "sense labels...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph sense-label-triples)))
+        (safe-add! dn-graph sense-label-triples)))
 
     ;; TODO: it seems that this part is made redundant by using the newer export
     ;; Senses that have been 'Inserted by DanNet' have corresponding words and
@@ -419,14 +429,14 @@
     (let [DN-triples (doall (->DN-triples dn-graph))]
       (println "Synthesizing" (count DN-triples) "words...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph DN-triples)))
+        (safe-add! dn-graph DN-triples)))
 
     ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
     ;; labels the remaining triples, i.e. the ones created in the previous step.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
       (println "Label" (count sense-label-triples) "remaining sense triples...")
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph sense-label-triples)))
+        (safe-add! dn-graph sense-label-triples)))
 
     ;; Remove self-referential hypernyms; this is just an obvious type of error.
     (let [ms (set (doall (q/run dn-graph op/self-referential-hypernyms)))]
@@ -472,7 +482,7 @@
         (doseq [triple triples-to-remove]
           (remove! dn-model triple)))
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph triples-to-add)))
+        (safe-add! dn-graph triples-to-add)))
 
     ;; Some of the new adjective triples reference synsets that we do not have
     ;; any data for (usually because the IDs are fully synthesized).
@@ -499,7 +509,7 @@
         (doseq [triple triples-to-remove]
           (remove! dn-model triple)))
       (txn/transact-exec dn-graph
-        (aristotle/add dn-graph triples-to-add)))
+        (safe-add! dn-graph triples-to-add)))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
@@ -513,7 +523,7 @@
                              (doall))]
       (println (str "Synthesizing " (count senti-triples) " sense sentiment triples..."))
       (txn/transact-exec senti-graph
-        (aristotle/add senti-graph senti-triples)))
+        (safe-add! senti-graph senti-triples)))
 
     ;; Likewise, all synsets whose senses are collectively unambiguously will
     ;; have sentiment triples synthesized. If the senses have differing polarity
@@ -537,7 +547,7 @@
                          (doall))]
       (println (str "Synthesizing " (count triples) " synset sentiment triples..."))
       (txn/transact-exec senti-graph
-        (aristotle/add senti-graph triples)))
+        (safe-add! senti-graph triples)))
 
     (println "----")
     (println "DanNet bootstrap done!")
@@ -849,16 +859,6 @@
    (println "CSV Export of DanNet complete!"))
   ([dannet]
    (export-csv! dannet "export/csv/")))
-
-;; TODO: integrate with/copy some functionality from 'arachne.aristotle/add'
-(defn add!
-  "Add `content` to a `db`. The content can be a variety of things, including
-  another DanNet instance."
-  [{:keys [model] :as db} content]
-  (txn/transact-exec model
-    (.add model (if (map? content)
-                  (:model content)
-                  content))))
 
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."

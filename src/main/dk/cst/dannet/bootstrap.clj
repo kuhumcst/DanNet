@@ -198,9 +198,13 @@
   [id]
   (keyword "dn" (str "sense-" id)))
 
+;; I am not allowed to start the identifier/local name with a dot in QNames.
+;; Similarly, I cannot begin the name part of a keyword with a number.
+;; For this reason, I need to include the "COR." part in the local name too.
+;; NOTE: QName an be validated using http://sparql.org/query-validator.html
 (defn cor-uri
   [& parts]
-  (keyword "cor" (str/join "." (remove nil? parts))))
+  (keyword "cor" (str "COR." (str/join "." (remove nil? parts)))))
 
 (def brug
   #"\s*\(Brug: \"(.+)\"\)")

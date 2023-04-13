@@ -73,7 +73,7 @@
                :alt :no-schema}
 
    ;; The COR namespace
-   'cor       {:uri      "http://ordregister.dk/id/COR."
+   'cor       {:uri      "http://ordregister.dk/id/"
                :export   #{'dn 'cor
                            'rdf 'rdfs 'owl
                            'ontolex 'skos 'lexinfo}
@@ -130,7 +130,7 @@
 
 (defn kw->qname
   [kw]
-  (str/replace (subs (str kw) 1) #"/" ":"))
+  (str/replace-first (subs (str kw) 1) #"/" ":"))
 
 (def kw->uri
   voc/uri-for)
@@ -314,7 +314,7 @@
   ;; Download links as RDF resources
   (dataset-uri "rdf" 'dn)
   (dataset-uri "rdf" 'dn "merged")
-  (dataset-uri "rdf" 'dn "asdads")                       ; should throw
+  (dataset-uri "rdf" 'dn "asdads")                          ; should throw
   (schema-uri 'dns)
   (schema-uri 'glen)
   #_.)
