@@ -127,53 +127,6 @@
                          (when example
                            #{[?sense :lexinfo/senseExample example]}))))))
 
-(defn inserted-by-DanNet-senses
-  "Query the graph `g` for unlabeled, 'Inserted by DanNet' senses."
-  [g]
-  (update-vals (group-by '?synset (doall (q/run g op/unlabeled-senses)))
-               (fn [results]
-                 (let [from-dsl? #(re-find #"_" %)
-                       labels    (-> (first results)
-                                     (get '?label)
-                                     (str)
-                                     (str/replace #"\{|\}" "")
-                                     (#(com/sense-labels #";" %)))]
-                   [(remove from-dsl? labels)
-                    (sort (map '?sense results))]))))
-
-(defn ->DN-triples
-  "Synthesize triples for 'Inserted by DanNet' senses found in the graph `g`.
-  This function *only* performs this function for this particular set of senses.
-
-  For now, cases where both a sense prefixed with 'DN:' and another unlabeled
-  sense exist within the same synset count as edge cases, i.e. they will not be
-  synthesized. For this reason, the '->sense-label-triples' function should
-  execute both and after synthesizing DN triples, as this ensures that senses
-  that are not prefixed with 'DN:' are properly prelabeled. Running the
-  '->sense-label-triples' function once more after synthesizing DN triples will
-  label the newly synthesized DN triples separately.
-
-  The word IDS synthesized from the sense IDs and are marked with an 's' for
-  sense/synthetic."
-  [g]
-  (let [edge-case? (fn [[_ [labels senses]]]
-                     (not= (count labels) (count senses)))
-        ->triples  (fn [[synset [labels senses]]]
-                     (map (fn [label sense]
-                            (let [synset-id (re-find #"\d+" (str synset))
-                                  sense-id  (re-find #"\d+" (str sense))
-                                  word-id   (str "s" sense-id)]
-                              (set/union (bootstrap/->sense-triples
-                                           [sense-id word-id synset-id nil nil])
-                                         (bootstrap/->word-triples
-                                           [word-id label nil nil]))))
-                          labels
-                          senses))]
-    (->> (inserted-by-DanNet-senses g)
-         (remove edge-case?)
-         (mapcat ->triples)
-         (apply set/union))))
-
 (defn ->superfluous-definition-triples
   "Return duplicate/superfluous :skos/definition triples found in Graph `g`.
 
@@ -419,22 +372,6 @@
     ;; to steal labels from the words they are senses of.
     (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
       (println "Stealing" (count sense-label-triples) "sense labels...")
-      (txn/transact-exec dn-graph
-        (safe-add! dn-graph sense-label-triples)))
-
-    ;; TODO: it seems that this part is made redundant by using the newer export
-    ;; Senses that have been 'Inserted by DanNet' have corresponding words and
-    ;; other relevant triples synthesized. This must run *after* the initial
-    ;; execution of '->sense-label-triples'.
-    (let [DN-triples (doall (->DN-triples dn-graph))]
-      (println "Synthesizing" (count DN-triples) "words...")
-      (txn/transact-exec dn-graph
-        (safe-add! dn-graph DN-triples)))
-
-    ;; The second run of ->sense-label-triples; see '->DN-triples' docstring;
-    ;; labels the remaining triples, i.e. the ones created in the previous step.
-    (let [sense-label-triples (doall (->sense-label-triples dn-graph))]
-      (println "Label" (count sense-label-triples) "remaining sense triples...")
       (txn/transact-exec dn-graph
         (safe-add! dn-graph sense-label-triples)))
 
