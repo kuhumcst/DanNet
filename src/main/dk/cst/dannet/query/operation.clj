@@ -261,16 +261,27 @@
        }
      }"))
 
-(def undefined-sense-references
-  "The COR data references many senses from DSL that are undefined in Dannet."
+(def orphan-dn-resources
+  "The COR/DNS data references many resources that are undefined in Dannet."
   (sparql
-    "SELECT ?corWord ?sense
+    "SELECT ?resource
      WHERE {
-       ?corWord ontolex:sense ?sense .
-       FILTER(isIRI(?sense)) .
-       FILTER(STRSTARTS(str(?sense), str(dn:))) .
+       {
+         ?corWord ontolex:sense ?resource .
+         FILTER(isIRI(?resource)) .
+       }
+       UNION
+       {
+         ?corWord owl:sameAs ?resource .
+         FILTER(isIRI(?resource)) .
+       }
+       UNION
+       {
+         ?resource dns:sentiment ?sentiment .
+         FILTER(isIRI(?resource)) .
+       }
        NOT EXISTS {
-         ?sense ?anything ?atAll .
+         ?resource rdf:type ?type .
        }
      }"))
 

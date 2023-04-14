@@ -247,10 +247,10 @@
        (map (juxt '?synset '?p '?otherResource))
        (set)))
 
-(defn find-undefined-sense-triples
+(defn find-orphan-resources
   [union-graph]
-  (->> (q/run union-graph op/undefined-sense-references)
-       (map (juxt '?corWord (constantly :ontolex/sense) '?sense))
+  (->> (q/run union-graph op/orphan-dn-resources)
+       (map '?resource)
        (set)))
 
 (defn get-model
@@ -290,11 +290,11 @@
         (ResourceFactory/createProperty (subs p 1 (dec (count p))))))
     (when (not= o '_)
       (cond
-        (keyword? p)
-        (ResourceFactory/createResource (voc/uri-for p))
+        (keyword? o)
+        (ResourceFactory/createResource (voc/uri-for o))
 
-        (prefix/rdf-resource? p)
-        (ResourceFactory/createResource (subs p 1 (dec (count p))))
+        (prefix/rdf-resource? o)
+        (ResourceFactory/createResource (subs o 1 (dec (count o))))
 
         (instance? LangStr o)
         (ResourceFactory/createLangLiteral (str o) (.lang o))
@@ -320,7 +320,9 @@
         dn-model    (get-model dataset prefix/dn-uri)
         cor-model   (get-model dataset prefix/cor-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
-        union-graph (.getGraph (.getUnionModel dataset))]
+        senti-model (get-model dataset prefix/senti-uri)
+        union-model (.getUnionModel dataset)
+        union-graph (.getGraph union-model)]
 
     (println "Beginning DanNet bootstrap import process")
     (println "----")
@@ -429,13 +431,20 @@
         (doseq [triple triples-to-remove]
           (remove! dn-model triple))))
 
-    ;; The COR data has many references to data that doesn't exist in DanNet.
+    ;; The COR/DNS data has references to resources that don't exist in DanNet.
     ;; We can use the union graph to discover these so that we may remove them.
-    (let [triples-to-remove (find-undefined-sense-triples union-graph)]
-      (println "Removing" (count triples-to-remove) "COR references to undefined senses...")
+    (let [undefined-resources (find-orphan-resources union-graph)
+          triples-to-remove   (mapcat (fn [?resource]
+                                        [[?resource '_ '_]
+                                         ['_ '_ ?resource]])
+                                      undefined-resources)]
+      (println "Removing references to" (count undefined-resources) " undefined resources...")
       (txn/transact-exec cor-model
         (doseq [triple triples-to-remove]
-          (remove! cor-model triple))))
+          (remove! cor-model triple)))
+      (txn/transact-exec senti-model
+        (doseq [triple triples-to-remove]
+          (remove! senti-model triple))))
 
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,
