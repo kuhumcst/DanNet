@@ -285,6 +285,14 @@
        }
      }"))
 
+(def sense-labels
+  (sparql
+    "SELECT ?sense ?label
+     WHERE {
+      ?synset ontolex:lexicalizedSense ?sense .
+      ?sense rdfs:label ?label
+     }"))
+
 (def csv-synsets
   "Columns to export for synsets.csv."
   (q/build

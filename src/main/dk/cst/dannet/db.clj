@@ -208,28 +208,26 @@
                                    (conj (get m '?otherSynset))))
                              #{} ms)))))
 
+;; NOTE: these will also be relabeled as the penultimate step of the bootstrap!
 (defn discrete-sense-triples
   "Generate new triples to add based on `synset-intersection`."
   [synset-intersection]
   (->> synset-intersection
        (mapcat (fn [[[sense word label] synsets]]
                  (let [sense-id (re-find #"\d+$" (name sense))]
-                   (map (fn [synset n]
-                          (let [nid    (str "-s" n)
-                                sense  (bootstrap/sense-uri (str sense-id nid))
-                                label' (if (str/includes? label "_")
-                                         (str label "(" n ")")
-                                         (str label "_(" n ")"))
-                                others (disj synsets synset)]
-                            (into
-                              #{[sense :rdf/type :ontolex/LexicalSense]
-                                [sense :rdfs/label label']
-                                [synset :ontolex/lexicalizedSense sense]
-                                [word :ontolex/sense sense]}
-                              (for [other others]
-                                [synset :wn/similar other]))))
-                        (sort synsets)
-                        (range 1 (inc (count synsets)))))))
+                   (map-indexed
+                     (fn [n synset]
+                       (let [nid    (str "-i" (inc n))
+                             sense  (bootstrap/sense-uri (str sense-id nid))
+                             others (disj synsets synset)]
+                         (into
+                           #{[sense :rdf/type :ontolex/LexicalSense]
+                             [sense :rdfs/label label]
+                             [synset :ontolex/lexicalizedSense sense]
+                             [word :ontolex/sense sense]}
+                           (for [other others]
+                             [synset :wn/similar other]))))
+                     (sort synsets)))))
        (reduce set/union #{})))
 
 (defn intersecting-sense-triples
@@ -252,6 +250,16 @@
   (->> (q/run union-graph op/orphan-dn-resources)
        (map '?resource)
        (set)))
+
+(defn indexed-sense-triple
+  "Create a uniquely labeled `sense` triple from `label` and index `n`."
+  [label n sense]
+  (let [match  #"(_[^ ]+)"
+        n'     (str "(" (inc n) ")")
+        label' (str/replace (str label) match (str "$1" n'))]
+    [sense :rdfs/label (bootstrap/da (if (= label label')
+                                       (str label "_" n')
+                                       label'))]))
 
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
@@ -362,9 +370,7 @@
       (txn/transact-exec dn-graph
         (safe-add! dn-graph missing)))
 
-    ;; Missing words for the 2023 adjectives data are synthesized from senses.
-    ;; This step cannot be performed as part of the basic bootstrap since we
-    ;; must avoid synthesizing new words for existing senses in the data!
+    ;; Missing inherited relations for the 2023 adjectives data are synthesized.
     (let [inherited (doall (bootstrap/synthesize-inherited-relations dn-graph))]
       (println "Synthesizing" (count inherited) "inherited relations for 2023 data...")
       (txn/transact-exec dn-graph
@@ -411,18 +417,6 @@
         (doseq [triple reference-triples]
           (remove! dn-model triple))))
 
-    ;; Senses must not appear in multiple synsets, so new senses are generated
-    ;; and the existing synset intersection is removed.
-    (let [synset-intersection (doall (find-intersections dn-graph))
-          triples-to-remove   (intersecting-sense-triples synset-intersection)
-          triples-to-add      (discrete-sense-triples synset-intersection)]
-      (println "Removing" (count triples-to-remove) "synset intersections...")
-      (txn/transact-exec dn-model
-        (doseq [triple triples-to-remove]
-          (remove! dn-model triple)))
-      (txn/transact-exec dn-graph
-        (safe-add! dn-graph triples-to-add)))
-
     ;; Some of the new adjective triples reference synsets that we do not have
     ;; any data for (usually because the IDs are fully synthesized).
     (let [triples-to-remove (find-undefined-synset-triples dn-graph)]
@@ -438,13 +432,25 @@
                                         [[?resource '_ '_]
                                          ['_ '_ ?resource]])
                                       undefined-resources)]
-      (println "Removing references to" (count undefined-resources) " undefined resources...")
+      (println "Removing references to" (count undefined-resources) "undefined resources...")
       (txn/transact-exec cor-model
         (doseq [triple triples-to-remove]
           (remove! cor-model triple)))
       (txn/transact-exec senti-model
         (doseq [triple triples-to-remove]
           (remove! senti-model triple))))
+
+    ;; Senses must not appear in multiple synsets, so new senses are generated
+    ;; and the existing synset intersection is removed.
+    (let [synset-intersection (doall (find-intersections dn-graph))
+          triples-to-remove   (intersecting-sense-triples synset-intersection)
+          triples-to-add      (discrete-sense-triples synset-intersection)]
+      (println "Removing" (count triples-to-remove) "synset intersections...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (safe-add! dn-graph triples-to-add)))
 
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,
@@ -494,6 +500,25 @@
       (println (str "Synthesizing " (count triples) " synset sentiment triples..."))
       (txn/transact-exec senti-graph
         (safe-add! senti-graph triples)))
+
+    ;; As a penultimate step, all labels are relabeled with duplicates indexed.
+    (let [label->senses     (-> (group-by '?label (q/run dn-graph op/sense-labels))
+                                (update-vals (comp sort set (partial map '?sense)))
+                                (->> (remove (comp (partial > 2) count second))))
+          relabel-senses    (fn [[label senses]]
+                              (map-indexed (partial indexed-sense-triple label)
+                                           senses))
+          triples-to-add    (mapcat relabel-senses label->senses)
+          triples-to-remove (mapcat (fn [[label senses]]
+                                      (for [sense senses]
+                                        [sense :rdfs/label label]))
+                                    label->senses)]
+      (println "Creating" (count triples-to-add) "new, unique sense labels...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (safe-add! dn-graph triples-to-add)))
 
     (println "----")
     (println "DanNet bootstrap done!")
