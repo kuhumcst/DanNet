@@ -138,20 +138,25 @@
        [?w1 :lexinfo/partOfSpeech ?pos]
        [?w2 :lexinfo/partOfSpeech ?pos]]]))
 
+;; TODO: use for systematic polysemy?
 (def synset-intersection
-  (q/build
-    '[:filter (not= ?synset ?otherSynset)
-      [:bgp
-       [?synset :ontolex/lexicalizedSense ?sense]
-       [?synset :rdfs/label ?synsetLabel]
-       [?synset :skos/definition ?synsetDefinition]
-       [?synset :dns/ontologicalType ?ontotype]
-       [?otherSynset :ontolex/lexicalizedSense ?sense]
-       [?sense :rdfs/label ?label]
-       [?word :ontolex/sense ?sense]
-       [?otherSynset :rdfs/label ?otherSynsetLabel]
-       [?otherSynset :skos/definition ?otherSynsetDefinition]
-       [?otherSynset :dns/ontologicalType ?otherOntotype]]]))
+  (sparql
+    "SELECT ?sense ?word ?label ?synset ?otherSynset
+     WHERE {
+        ?synset ontolex:lexicalizedSense ?sense .
+        ?synset rdfs:label ?synsetLabel .
+        ?synset skos:definition ?synsetDefinition .
+        ?synset dns:ontologicalType ?ontotype .
+        ?otherSynset ontolex:lexicalizedSense ?sense .
+        ?sense rdfs:label ?label .
+        ?word ontolex:sense ?sense .
+        ?otherSynset rdfs:label ?otherSynsetLabel .
+        ?otherSynset skos:definition ?otherSynsetDefinition .
+        FILTER (?synset != ?otherSynset) .
+        OPTIONAL {
+          ?otherSynset dns:ontologicalType ?otherOntotype .
+        }
+     }"))
 
 (def self-referential-hypernyms
   (q/build

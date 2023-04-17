@@ -324,6 +324,7 @@
     (finally
       g)))
 
+;; TODO: sentiment data is not corrected for new sense IDs from intersection
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
