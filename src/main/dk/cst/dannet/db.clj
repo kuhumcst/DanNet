@@ -261,6 +261,10 @@
                                        (str label "_" n')
                                        label'))]))
 
+(defn unique-synset-label-triple
+  [[synset labels]]
+  [synset :rdfs/label (bootstrap/da (str "{" (str/join "; " labels) "}"))])
+
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
@@ -455,13 +459,13 @@
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,
     ;; it is necessary to relabel each synset whose senses have changed label.
-    (let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)]
-      (println "Relabeling" (count triples-to-add) "synsets...")
-      (txn/transact-exec dn-model
-        (doseq [triple triples-to-remove]
-          (remove! dn-model triple)))
-      (txn/transact-exec dn-graph
-        (safe-add! dn-graph triples-to-add)))
+    #_(let [[triples-to-remove triples-to-add] (relabel-synsets dn-graph)]
+        (println "Relabeling" (count triples-to-add) "synsets...")
+        (txn/transact-exec dn-model
+          (doseq [triple triples-to-remove]
+            (remove! dn-model triple)))
+        (txn/transact-exec dn-graph
+          (safe-add! dn-graph triples-to-add)))
 
     ;; In the sentiment data, several thousand senses do not have sense-level
     ;; sentiment data. In those case we can try to synthesize from the words
@@ -514,6 +518,20 @@
                                         [sense :rdfs/label label]))
                                     label->senses)]
       (println "Creating" (count triples-to-add) "new, unique sense labels...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec dn-graph
+        (safe-add! dn-graph triples-to-add)))
+
+    ;; Finally, all synsets are relabeled based on their composite senses.
+    (let [sort-labels       (comp sort set (partial map (comp str '?label)))
+          synset->labels    (-> (group-by '?synset (q/run dn-graph op/synset-labels))
+                                (update-vals sort-labels))
+          triples-to-add    (map unique-synset-label-triple synset->labels)
+          triples-to-remove (for [[synset _] synset->labels]
+                              [synset :rdfs/label '_])]
+      (println "Creating" (count triples-to-add) "new, unique synset labels...")
       (txn/transact-exec dn-model
         (doseq [triple triples-to-remove]
           (remove! dn-model triple)))
