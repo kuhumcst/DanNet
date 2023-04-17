@@ -763,15 +763,25 @@
   [:footer
    (i18n/da-en languages
      [:p {:lang "da"}
-      "© 2023 " [:a {:href "https://cst.ku.dk"}
-                 "Center for Sprogteknologi"]
-      ", " [:abbr {:title "Københavns Universitet"}
-            "KU"] "."]
+      "© 2023, "
+      [:a {:href "https://cst.ku.dk"}
+       "Center for Sprogteknologi"]
+      " (" [:abbr {:title "Københavns Universitet"}
+            "KU"] ")"
+      " & "
+      [:a {:href "https://dsl.dk/"}
+       "Det Danske Sprog- og Litteraturselskab"]
+      "."]
      [:p {:lang "en"}
-      "© 2023 " [:a {:href "https://cst.ku.dk/english"}
-                 "Centre for Language Technology"]
-      ", " [:abbr {:title "University of Copenhagen"}
-            "KU"] "."])])
+      "© 2023, "
+      [:a {:href "https://cst.ku.dk/english"}
+       "Centre for Language Technology"]
+      " (" [:abbr {:title "University of Copenhagen"}
+            "KU"] ")"
+      " & "
+      [:a {:lang "da" :href "https://dsl.dk/"}
+       "Det Danske Sprog- og Litteraturselskab"]
+      "."])])
 
 (rum/defc language-select < rum/reactive
   [languages]
