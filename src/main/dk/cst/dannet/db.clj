@@ -218,13 +218,14 @@
                    (map-indexed
                      (fn [n synset]
                        (let [nid    (str "-i" (inc n))
-                             sense  (bootstrap/sense-uri (str sense-id nid))
+                             sense' (bootstrap/sense-uri (str sense-id nid))
                              others (disj synsets synset)]
                          (into
-                           #{[sense :rdf/type :ontolex/LexicalSense]
-                             [sense :rdfs/label label]
-                             [synset :ontolex/lexicalizedSense sense]
-                             [word :ontolex/sense sense]}
+                           #{[sense' :rdf/type :ontolex/LexicalSense]
+                             [sense' :rdfs/label label]
+                             [sense' :dns/dslSense sense-id]
+                             [synset :ontolex/lexicalizedSense sense']
+                             [word :ontolex/sense sense']}
                            (for [other others]
                              [synset :wn/similar other]))))
                      (sort synsets)))))
@@ -456,6 +457,19 @@
           (remove! dn-model triple)))
       (txn/transact-exec dn-graph
         (safe-add! dn-graph triples-to-add)))
+
+    ;; The sentiment data is adjusted for split senses via synset intersection.
+    (let [ms                (q/run union-graph op/sentiment-dsl-senses)
+          triples-to-remove (for [{:syms [?oldSense]} ms]
+                              [?oldSense '_ '_])
+          triples-to-add    (for [{:syms [?sense ?sentiment]} ms]
+                              [?sense :dns/sentiment ?sentiment])]
+      (println "Adjusting" (count ms) "senses in the sentiment data...")
+      (txn/transact-exec senti-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple)))
+      (txn/transact-exec senti-graph
+        (safe-add! senti-graph triples-to-add)))
 
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,

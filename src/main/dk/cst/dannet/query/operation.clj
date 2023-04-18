@@ -4,7 +4,7 @@
             [ont-app.vocabulary.core :as voc]
 
             ;; Prefix registration required for the queries below to build.
-            [dk.cst.dannet.prefix]))
+            [dk.cst.dannet.prefix :as prefix]))
 
 (def sparql
   (comp q/parse voc/prepend-prefix-declarations))
@@ -219,6 +219,17 @@
        ?opinion marl:polarityValue ?pval .
        ?synset ontolex:lexicalizedSense ?sense .
      }"))
+
+(def sentiment-dsl-senses
+  "Bridge sentiment data using old sense IDs and new sense IDs."
+  (sparql
+    (str
+      "SELECT ?sense ?sentiment ?oldSense
+       WHERE {
+         ?sense dns:dslSense ?dslSense .
+         BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
+         ?oldSense dns:sentiment ?sentiment .
+       }")))
 
 (def missing-words
   (sparql

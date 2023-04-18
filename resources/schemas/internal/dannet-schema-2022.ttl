@@ -5,9 +5,18 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix marl: <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
+:dslSense a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:label "DSL sense"@en ;
+  rdfs:label "DSL-betydning"@da ;
+  rdfs:comment "The original ID of this sense; mainly used as an internal reference."@en ;
+  rdfs:comment "Den oprindelige ID for denne betydning; mest brugt som intern reference."@da ;
+  rdfs:isDefinedBy <http://wordnet.dk/dannet/schema> .
+
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;
   rdfs:label "sentiment"@en ;
+  rdfs:label "stemning"@da ;
   rdfs:isDefinedBy <http://wordnet.dk/dannet/schema> .
 
 :Inheritance a owl:Class ;
