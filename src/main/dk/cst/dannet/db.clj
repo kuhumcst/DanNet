@@ -325,13 +325,13 @@
     (finally
       g)))
 
-;; TODO: sentiment data is not corrected for new sense IDs from intersection
 (h/defn add-bootstrap-import!
   "Add the `bootstrap-imports` of the old DanNet CSV files to a Jena `dataset`."
   [dataset bootstrap-imports]
   (let [{:keys [examples]} (get bootstrap-imports prefix/dn-uri)
         dn-graph    (get-graph dataset prefix/dn-uri)
         dn-model    (get-model dataset prefix/dn-uri)
+        cor-graph   (get-graph dataset prefix/cor-uri)
         cor-model   (get-model dataset prefix/cor-uri)
         senti-graph (get-graph dataset prefix/senti-uri)
         senti-model (get-model dataset prefix/senti-uri)
@@ -458,7 +458,7 @@
       (txn/transact-exec dn-graph
         (safe-add! dn-graph triples-to-add)))
 
-    ;; The sentiment data is adjusted for split senses via synset intersection.
+    ;; The sentiment data is adjusted for split senses (synset intersection).
     (let [ms                (q/run union-graph op/sentiment-dsl-senses)
           triples-to-remove (for [{:syms [?oldSense]} ms]
                               [?oldSense '_ '_])
@@ -467,9 +467,22 @@
       (println "Adjusting" (count ms) "senses in the sentiment data...")
       (txn/transact-exec senti-model
         (doseq [triple triples-to-remove]
-          (remove! dn-model triple)))
+          (remove! senti-model triple)))
       (txn/transact-exec senti-graph
         (safe-add! senti-graph triples-to-add)))
+
+    ;; The COR data is adjusted for split senses (synset intersection).
+    (let [ms                (q/run union-graph op/cor-dsl-senses)
+          triples-to-remove (for [{:syms [?oldSense]} ms]
+                              ['_' '_ ?oldSense])
+          triples-to-add    (for [{:syms [?corWord ?sense]} ms]
+                              [?corWord :ontolex/sense ?sense])]
+      (println "Adjusting" (count ms) "senses in the COR data...")
+      (txn/transact-exec cor-model
+        (doseq [triple triples-to-remove]
+          (remove! cor-model triple)))
+      (txn/transact-exec cor-graph
+        (safe-add! cor-graph triples-to-add)))
 
     ;; Since sense labels come from a variety of sources and since the synset
     ;; labels have not been synced with sense labels in DSL's CSV export,

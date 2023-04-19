@@ -7,7 +7,7 @@
             [dk.cst.dannet.prefix :as prefix]))
 
 (def sparql
-  (comp q/parse voc/prepend-prefix-declarations))
+  (comp q/parse voc/prepend-prefix-declarations str))
 
 (def entity
   (q/build
@@ -223,13 +223,22 @@
 (def sentiment-dsl-senses
   "Bridge sentiment data using old sense IDs and new sense IDs."
   (sparql
-    (str
-      "SELECT ?sense ?sentiment ?oldSense
-       WHERE {
-         ?sense dns:dslSense ?dslSense .
-         BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
-         ?oldSense dns:sentiment ?sentiment .
-       }")))
+    "SELECT ?sense ?sentiment ?oldSense
+     WHERE {
+       ?sense dns:dslSense ?dslSense .
+       BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
+       ?oldSense dns:sentiment ?sentiment .
+     }"))
+
+(def cor-dsl-senses
+  "Bridge COR data using old sense IDs and new sense IDs."
+  (sparql
+    "SELECT ?sense ?oldSense ?corWord
+     WHERE {
+       ?sense dns:dslSense ?dslSense .
+       BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
+       ?corWord ontolex:sense ?oldSense .
+     }"))
 
 (def missing-words
   (sparql
