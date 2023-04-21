@@ -644,19 +644,26 @@
              (.pushState js/window.history nil "" (rfh/-href history url))
              (rfh/-on-navigate history url))))
 
+(defn submit-form
+  "Submit a form `target` element (optionally with a custom `query-string`)."
+  [target & [query-str]]
+  #?(:cljs (let [action    (.-action target)
+                 query-str (or query-str
+                               (-> (.-elements target)
+                                   (form-elements->query-params)
+                                   (uri/map->query-string)))
+                 url       (str action (when query-str
+                                         (str "?" query-str)))]
+             (js/document.activeElement.blur)
+             (navigate-to url))))
+
 ;; TODO: handle other methods (only handles GET for now)
 (defn on-submit
   "Generic function handling form submit events in Rum components."
   [e]
-  #?(:cljs (let [action    (.. e -target -action)
-                 query-str (-> (.. e -target -elements)
-                               (form-elements->query-params)
-                               (uri/map->query-string))
-                 url       (str action (when query-str
-                                         (str "?" query-str)))]
+  #?(:cljs (let [target (.-target e)]
              (.preventDefault e)
-             (js/document.activeElement.blur)
-             (navigate-to url))))
+             (submit-form target))))
 
 (defn select-text
   "Select text in the target that triggers `e` with a small delay to bypass
@@ -664,22 +671,39 @@
   [e]
   #?(:cljs (js/setTimeout #(.select (.-target e)) 50)))
 
-;; TODO: abort any on-going fetches as a first step
-;;       https://developer.mozilla.org/en-US/docs/Web/API/AbortController
-(defn search-completion
-  "An :on-change handler for search autocompletion."
-  [e]
+;; TODO: investigate possible weird state condition...?
+;;       sometimes, clicking an incomplete option does not initiate a submit,
+;;       but the behaviour isn't consistent at all.
+(def search-completion
+  "An :on-change handler for search autocompletion.
+
+  Distinguishing between keyboard input and option clicks is hard as the
+  datalist itself does not emit any events. However, since key down events occur
+  prior to change events, we can approximate when it is a mouse click or
+  keyboard input by checking for prior keyboard input. There is one caveat: it
+  is not possible to detect an option select when the selected option is fully
+  written out in the input field, as this then does not emit a change event."
   #?(:clj  nil
-     :cljs (let [s                (.-value (.-target e))
-                 path             [:search :completion s]
-                 autocomplete-url "/dannet/autocomplete"]
-             (when-not (get-in @shared/state path)
-               (.then (shared/fetch autocomplete-url {:query-params {:s s}})
-                      #(do
-                         (shared/clear-fetch autocomplete-url)
-                         (when-let [v (not-empty (:body %))]
-                           (swap! shared/state assoc-in path v)
-                           (swap! shared/state assoc-in [:search :s] s))))))))
+     :cljs (fn [e]
+             (let [search-form      (js/document.getElementById "search-form")
+                   search-input     (js/document.getElementById "search-input")
+                   s                (.-value (.-target e))
+                   keyboard-input?  (get-in @shared/state [:search :key])
+                   path             [:search :completion s]
+                   autocomplete-url "/dannet/autocomplete"]
+               (swap! shared/state assoc-in [:search :key] false)
+               (swap! shared/state assoc-in [:search :s] s)
+               (when-not (get-in @shared/state path)
+                 (.then (shared/fetch autocomplete-url {:query-params {:s s}})
+                        #(do
+                           (shared/clear-fetch autocomplete-url)
+                           (when-let [v (not-empty (:body %))]
+                             (swap! shared/state assoc-in path v)
+                             (when (not keyboard-input?)
+                               (submit-form search-form)
+                               ;; Chrome does not blur the input properly if
+                               ;; we do not clear the input field completely.
+                               (set! (.-value search-input) ""))))))))))
 
 (rum/defc option
   [v]
@@ -688,23 +712,35 @@
 ;; TODO: language localisation
 (rum/defc search-form
   [{:keys [lemma search] :as opts}]
-  [:form {:role      "search"
-          :action    prefix/search-path
-          :on-submit on-submit
-          :method    "get"}
-   [:input {:type          "search"
-            :list          "completion"
-            :name          "lemma"
-            :title         "Search for synsets"
-            :placeholder   "search term"
-            :on-focus      select-text
-            :on-change     search-completion
-            :auto-complete "off"
-            :default-value (or lemma "")}]
-   (let [{:keys [completion s]} search]
+  (let [{:keys [completion s]} search
+        completion-items (get completion s)]
+    [:form {:role      "search"
+            :id        "search-form"
+            :action    prefix/search-path
+            :on-submit on-submit
+            :method    "get"}
+     [:input {:type          "search"
+              :id            "search-input"
+              :list          "completion"
+              :name          "lemma"
+              :title         "Search for synsets"
+              :placeholder   "search term"
+              ;; Distinguishing between keyboard input and option clicks.
+              :on-key-down   (fn [e]
+                               (when (and (.-key e)
+                                          ;; This part is only needed for Chrome.
+                                          (not= (.-key e) "Unidentified"))
+                                 (swap! shared/state assoc-in [:search :key] true)))
+              :on-focus      select-text
+              :on-change     search-completion
+              :auto-complete "off"
+              :default-value (or lemma "")}]
+     (when (and (not-empty completion-items)
+                (get (set completion-items) s))
+       [:p "Press enter/submit to initiate search"])
      [:datalist {:id "completion"}
-      (for [v (get completion s)]
-        (rum/with-key (option v) v))])])
+      (for [v completion-items]
+        (rum/with-key (option v) v))]]))
 
 (rum/defc search-page
   [{:keys [languages lemma search-results] :as opts}]

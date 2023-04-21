@@ -287,6 +287,31 @@ form[role=search] input[type=search]:focus {
     opacity: 0.9;
 }
 
+form[role=search] p {
+    display: none;
+}
+
+@keyframes fade-in {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+     }
+}
+
+form[role=search]:focus-within p {
+    display: block;
+    color: white;
+    font-weight: normal;
+    font-size: 20px;
+    text-shadow: 1px 1px black;
+    width: calc(100vw - 16px);
+    margin: 8px 0 0 0;
+    text-align: center;
+    animation: fade-in 2s;
+}
+
 form[role=search] * + * {
     margin-left: 4px;
 }
