@@ -81,10 +81,13 @@
 
 (defn -main
   [& args]
+  ;; When uploading a db build from the dev machine the server, we want to skip
+  ;; the bootstrap phase entirely.
+  (when (not-empty (filter #{"--no-bootstrap"} args))
+    (swap! res/dannet-opts dissoc :bootstrap-imports))
   (start))
 
 (comment
-  (swap! dk.cst.dannet.web.resources/dannet-opts dissoc :bootstrap-imports)
   @conf
   (restart)
   (stop-dev)
