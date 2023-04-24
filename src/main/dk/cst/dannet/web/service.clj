@@ -84,6 +84,7 @@
   (start))
 
 (comment
+  (swap! dk.cst.dannet.web.resources/dannet-opts dissoc :bootstrap-imports)
   @conf
   (restart)
   (stop-dev)

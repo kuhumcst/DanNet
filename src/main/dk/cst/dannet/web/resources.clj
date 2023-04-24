@@ -2,7 +2,7 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.pprint :refer [print-table]]
+            [clojure.pprint :refer [pprint print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [io.pedestal.http.route :refer [decode-query-part]]
@@ -29,13 +29,17 @@
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
 
+(def dannet-opts
+  (atom {:db-type           :tdb2
+         :db-path           "db/tdb2"
+         :bootstrap-imports bootstrap/imports
+         :schema-uris       db/schema-uris}))
+
 (defonce db
   (delay
-    (db/->dannet
-      :db-type :tdb2
-      :db-path "db/tdb2"
-      :bootstrap-imports bootstrap/imports
-      :schema-uris db/schema-uris)))
+    (println "DanNet opts:")
+    (pprint @dannet-opts)
+    (db/->dannet @dannet-opts)))
 
 (def one-day-cache
   "private, max-age=86400")

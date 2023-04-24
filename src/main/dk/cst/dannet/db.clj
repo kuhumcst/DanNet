@@ -601,12 +601,13 @@
     @files))
 
 (defn- log-entry
-  [full-db-path files]
+  [db-name db-type files]
   (let [now       (LocalDateTime/now)
         formatter (DateTimeFormatter/ofPattern "yyyy/MM/dd HH:mm:ss")
         filenames (sort (map #(.getName ^File %) files))]
     (str
-      "Location: " full-db-path "\n"
+      "Location: " db-name "\n"
+      "Type: " db-type "\n"
       "Created: " (.format now formatter) "\n"
       "Input data: " (str/join ", " filenames))))
 
@@ -636,12 +637,18 @@
         ;; Undo potentially negative number by bit-shifting.
         files-hash     (pos-hash files)
         bootstrap-hash (pos-hash fn-hashes)
-        db-name        (str files-hash "-" bootstrap-hash)
-        full-db-path   (str db-path "/" db-name)
         log-path       (str db-path "/log.txt")
+        loc-re         #"Location: (.+)\n"
+        db-name        (if bootstrap-imports
+                         (str files-hash "-" bootstrap-hash)
+                         (do
+                           (println "No bootstrap -- using latest instead...")
+                           (second (last (re-seq loc-re (slurp log-path))))))
+        full-db-path   (str db-path "/" db-name)
         db-exists?     (.exists (io/file full-db-path))
-        new-entry      (log-entry full-db-path files)
+        new-entry      (log-entry db-name db-type files)
         dataset        (->dataset db-type full-db-path)]
+    (println "Database name:" db-name)
 
     ;; Mutating the graph will of course also mutate the model & dataset.
     (if bootstrap-imports
