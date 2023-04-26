@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
@@ -12,6 +13,7 @@
             [nextjournal.markdown :as md]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
+            #?(:cljs [dk.cst.aria.combobox :as combobox])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [reitit.frontend.history :as rfh])
@@ -669,78 +671,92 @@
   "Select text in the target that triggers `e` with a small delay to bypass
   browser's other text selection logic."
   [e]
-  #?(:cljs (js/setTimeout #(.select (.-target e)) 50)))
+  #?(:cljs (js/setTimeout #(.select (.-target e)) 100)))
 
-;; TODO: investigate possible weird state condition...?
-;;       sometimes, clicking an incomplete option does not initiate a submit,
-;;       but the behaviour isn't consistent at all.
 (def search-completion
-  "An :on-change handler for search autocompletion.
-
-  Distinguishing between keyboard input and option clicks is hard as the
-  datalist itself does not emit any events. However, since key down events occur
-  prior to change events, we can approximate when it is a mouse click or
-  keyboard input by checking for prior keyboard input. There is one caveat: it
-  is not possible to detect an option select when the selected option is fully
-  written out in the input field, as this then does not emit a change event."
+  "An :on-change handler for search autocompletion."
   #?(:clj  nil
      :cljs (fn [e]
-             (let [search-form      (js/document.getElementById "search-form")
-                   search-input     (js/document.getElementById "search-input")
-                   s                (.-value (.-target e))
-                   keyboard-input?  (get-in @shared/state [:search :key])
+             (let [s                (.-value (.-target e))
                    path             [:search :completion s]
                    autocomplete-url "/dannet/autocomplete"]
-               (swap! shared/state assoc-in [:search :key] false)
                (swap! shared/state assoc-in [:search :s] s)
                (when-not (get-in @shared/state path)
                  (.then (shared/fetch autocomplete-url {:query-params {:s s}})
                         #(do
                            (shared/clear-fetch autocomplete-url)
                            (when-let [v (not-empty (:body %))]
-                             (swap! shared/state assoc-in path v)
-                             (when (not keyboard-input?)
-                               (submit-form search-form)
-                               ;; Chrome does not blur the input properly if
-                               ;; we do not clear the input field completely.
-                               (set! (.-value search-input) ""))))))))))
+                             (swap! shared/state assoc-in path v)))))))))
+
+(defn search-completion-item-id
+  [v]
+  (str "search-completion-item-" v))
 
 (rum/defc option
-  [v]
-  [:option {:value v}])
+  [v on-key-down]
+  [:li {:role        "option"
+        :tab-index   "-1"
+        :on-key-down on-key-down
+        :id          (search-completion-item-id v)
+        :on-click    #?(:cljs #(submit-form
+                                 (js/document.getElementById "search-form")
+                                 (str "lemma=" v))
+                        :clj  nil)}
+   v])
 
 ;; TODO: language localisation
 (rum/defc search-form
-  [{:keys [lemma search] :as opts}]
+  [{:keys [lemma search languages] :as opts}]
   (let [{:keys [completion s]} search
-        completion-items (get completion s)]
+        completion-items    (get completion s)
+        completion?         (boolean (and (not-empty completion-items)
+                                          (get (set completion-items) s)))
+        submit-label        (i18n/select-label languages
+                                               [(lstr/->LangStr "Søg" "da")
+                                                (lstr/->LangStr "Search" "en")])
+        on-key-down #?(:clj nil :cljs
+                       (combobox/keydown-handler
+                         #(let [form (js/document.getElementById "search-form")]
+                            (submit-form form)
+                            (js/document.activeElement.blur))
+                         (js/document.getElementById "search-input")
+                         (js/document.getElementById "search-completion")
+                         {"Escape" (fn [e]
+                                     (.preventDefault e)
+                                     (js/document.activeElement.blur))}))]
     [:form {:role      "search"
             :id        "search-form"
             :action    prefix/search-path
             :on-submit on-submit
             :method    "get"}
-     [:input {:type          "search"
-              :id            "search-input"
-              :list          "completion"
-              :name          "lemma"
-              :title         "Search for synsets"
-              :placeholder   "search term"
-              ;; Distinguishing between keyboard input and option clicks.
-              :on-key-down   (fn [e]
-                               (when (and (.-key e)
-                                          ;; This part is only needed for Chrome.
-                                          (not= (.-key e) "Unidentified"))
-                                 (swap! shared/state assoc-in [:search :key] true)))
-              :on-focus      select-text
-              :on-change     search-completion
-              :auto-complete "off"
-              :default-value (or lemma "")}]
-     (when (and (not-empty completion-items)
-                (get (set completion-items) s))
-       [:p "Press enter/submit to initiate search"])
-     [:datalist {:id "completion"}
-      (for [v completion-items]
-        (rum/with-key (option v) v))]]))
+     [:div.search-form__top
+      [:input {:role                  "combobox"
+               :aria-expanded         completion?
+               :aria-controls         (when completion?
+                                        "search-completion")
+               :aria-activedescendant (when completion?
+                                        "search-completion-selected")
+               :id                    "search-input"
+               :name                  "lemma"
+               :title                 "Search for synsets"
+               :placeholder           "search term"
+               :on-key-down           on-key-down
+               :on-focus              (fn [e]
+                                        (select-text e))
+               :on-click              (fn [e] (.stopPropagation e))
+               :on-change             search-completion
+               :auto-complete         "off"
+               :default-value         (or lemma "")}]
+      [:input {:type      "submit"
+               :tab-index "-1"
+               :title     (str submit-label)
+               :value     (str submit-label)
+               :on-click  (fn [e] (.stopPropagation e))}]]
+     [:ul {:role "listbox"
+           :id   "search-completion"}
+      (when completion?
+        (for [v completion-items]
+          (rum/with-key (option v on-key-down) v)))]]))
 
 (rum/defc search-page
   [{:keys [languages lemma search-results] :as opts}]

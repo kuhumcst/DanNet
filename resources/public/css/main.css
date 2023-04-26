@@ -240,6 +240,8 @@ button.synset-details:hover {
 }
 
 form[role=search] {
+    display: flex;
+    flex-direction: column;
     transition: all 0s;
     position: fixed;
     margin: -4px 0 0 -5px;
@@ -261,30 +263,65 @@ form[role=search]:focus-within {
     width: 100%;
 }
 
-form[role=search]:hover input[type=search] {
+.search-form__top {
+    display: flex;
+}
+
+form[role=search]:hover input[role=combobox] {
     opacity: 0.5;
 }
 
-form[role=search] input[type=search]:not(:focus)::placeholder {
+form[role=search] input[role=combobox]:not(:focus) {
     color: transparent;
 }
 
-form[role=search] input[type=search] {
+form[role=search] input[role=combobox]:not(:focus)::placeholder {
+    color: transparent;
+}
+
+form[role=search] input[role=combobox] {
     user-select: none;
     font-size: 12px;
     color: white;
-    border: 1px solid rgba(0,0,0,0.5);
+    border: none;
     border-radius: 2px;
     width: 32px;
     min-height: 32px;
     opacity: 0;
 }
 
-form[role=search] input[type=search]:focus {
-    width: calc(100vw - 8px);
+form[role=search]:focus-within input[role=combobox] {
+    flex-grow: 1;
     font-size: 32px;
     color: #333;
     opacity: 0.9;
+}
+
+form[role=search] input[type=submit] {
+    opacity: 0;
+    transition: transform 0.2s;
+    font-variant: small-caps;
+}
+
+form[role=search]:focus-within input[type=submit] {
+    opacity: 1;
+    width: 52px;
+    height: 52px;
+    margin: 0;
+    padding-top: 36px;
+    font-size: 10px;
+    border: none;
+    color:  white;
+    cursor: pointer;
+    background-color: transparent;
+    background: url(/images/search.svg);
+    background-repeat: no-repeat;
+    background-position: 10px 4px;
+    background-size: 32px 32px;
+}
+
+form[role=search]:focus-within input[type=submit]:hover {
+    transform: scale(1.11);
 }
 
 form[role=search] p {
@@ -300,20 +337,31 @@ form[role=search] p {
      }
 }
 
-form[role=search]:focus-within p {
-    display: block;
-    color: white;
-    font-weight: normal;
-    font-size: 20px;
-    text-shadow: 1px 1px black;
-    width: calc(100vw - 16px);
-    margin: 8px 0 0 0;
-    text-align: center;
-    animation: fade-in 2s;
+form[role=search] ul {
+    visibility: hidden;
 }
 
-form[role=search] * + * {
-    margin-left: 4px;
+form[role=search]:focus-within ul {
+    /* https://stackoverflow.com/questions/17630945/is-there-an-opposite-to-displaynone */
+    visibility: visible;
+    animation: fade-in 0.33s;
+    margin: 4px 0 0 0;
+    padding: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+form[role=search]:focus-within ul li {
+    color: white;
+    cursor: pointer;
+    list-style-type: none;
+    margin: 0;
+    padding: 4px;
+}
+
+form[role=search]:focus-within ul li:hover,
+form[role=search]:focus-within ul li:focus {
+    background: rgba(255,255,255,0.4);
 }
 
 article {
