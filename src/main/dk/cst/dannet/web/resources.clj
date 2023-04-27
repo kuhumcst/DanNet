@@ -393,10 +393,11 @@
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
 (defonce search-trie
   (delay
-    (let [g     (db/get-graph (:dataset @db) prefix/dn-uri)
-          words (q/run g '[?writtenRep] op/written-representations)]
+    (let [g      (db/get-graph (:dataset @db) prefix/dn-uri)
+          words  (q/run g '[?writtenRep] op/written-representations)
+          lwords (map (partial map shared/search-string) words)]
       (println "Building trie for search autocompletion...")
-      (let [trie (apply trie/make-trie (map str (mapcat concat words words)))]
+      (let [trie (apply trie/make-trie (map str (mapcat concat lwords words)))]
         (println "Search trie finished!")
         trie))))
 
@@ -417,7 +418,7 @@
             (let [;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   s (get-in request [:query-params :s])]
-              (when-let [s' (and s (decode-query-part s))]
+              (when-let [s' (shared/search-string s)]
                 (if (> (count s') 2)
                   (-> ctx
                       (update :response assoc

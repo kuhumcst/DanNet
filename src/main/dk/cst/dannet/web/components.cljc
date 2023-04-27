@@ -673,20 +673,21 @@
   [e]
   #?(:cljs (js/setTimeout #(.select (.-target e)) 100)))
 
-(def search-completion
-  "An :on-change handler for search autocompletion."
-  #?(:clj  nil
-     :cljs (fn [e]
-             (let [s                (.-value (.-target e))
-                   path             [:search :completion s]
-                   autocomplete-url "/dannet/autocomplete"]
-               (swap! shared/state assoc-in [:search :s] s)
-               (when-not (get-in @shared/state path)
-                 (.then (shared/fetch autocomplete-url {:query-params {:s s}})
-                        #(do
-                           (shared/clear-fetch autocomplete-url)
-                           (when-let [v (not-empty (:body %))]
-                             (swap! shared/state assoc-in path v)))))))))
+(defn update-search-suggestions
+  "An :on-change handler for search suggestions. Each unknown string initiates
+  a backend fetch for autocomplete results."
+  [e]
+  #?(:cljs (let [s                (.-value (.-target e))
+                 s'               (shared/search-string s)
+                 path             [:search :completion s']
+                 autocomplete-url "/dannet/autocomplete"]
+             (swap! shared/state assoc-in [:search :s] s')
+             (when-not (get-in @shared/state path)
+               (.then (shared/fetch autocomplete-url {:query-params {:s s'}})
+                      #(do
+                         (shared/clear-fetch autocomplete-url)
+                         (when-let [v (not-empty (:body %))]
+                           (swap! shared/state assoc-in path v))))))))
 
 (defn search-completion-item-id
   [v]
@@ -708,9 +709,9 @@
 (rum/defc search-form
   [{:keys [lemma search languages] :as opts}]
   (let [{:keys [completion s]} search
-        completion-items    (get completion s)
-        completion?         (boolean (and (not-empty completion-items)
-                                          (get (set completion-items) s)))
+        s'                  (shared/search-string s)
+        completion-items    (get completion s')
+        suggestions?        (boolean (not-empty completion-items))
         submit-label        (i18n/select-label languages
                                                [(lstr/->LangStr "Søg" "da")
                                                 (lstr/->LangStr "Search" "en")])
@@ -731,10 +732,10 @@
             :method    "get"}
      [:div.search-form__top
       [:input {:role                  "combobox"
-               :aria-expanded         completion?
-               :aria-controls         (when completion?
+               :aria-expanded         suggestions?
+               :aria-controls         (when suggestions?
                                         "search-completion")
-               :aria-activedescendant (when completion?
+               :aria-activedescendant (when suggestions?
                                         "search-completion-selected")
                :id                    "search-input"
                :name                  "lemma"
@@ -744,7 +745,7 @@
                :on-focus              (fn [e] (select-text e))
                :on-click              (fn [e] (.stopPropagation e)) ; don't close overlay
                :on-touch-start        (fn [e] (.focus (.-target e))) ; consistent focus on mobile
-               :on-change             search-completion
+               :on-change             update-search-suggestions
                :auto-complete         "off"
                :default-value         (or lemma "")}]
       [:input {:type           "submit"
@@ -756,7 +757,7 @@
      [:ul {:role      "listbox"
            :tab-index "-1"
            :id        "search-completion"}
-      (when completion?
+      (when suggestions?
         (for [v completion-items]
           (rum/with-key (option v on-key-down) v)))]]))
 

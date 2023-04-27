@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.shared
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require [clojure.edn :as edn]
+            [clojure.string :as str]
             #?(:clj [clojure.java.io :as io])
             #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
@@ -91,6 +92,11 @@
       (str "http://mac:3456" path)
       (str "http://localhost:3456" path))
     path))
+
+(defn search-string
+  "Normalize search string `s`."
+  [s]
+  (some-> s str str/trim str/lower-case))
 
 #?(:cljs
    (do
