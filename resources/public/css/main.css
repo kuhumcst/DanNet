@@ -254,13 +254,17 @@ form[role=search] {
 }
 
 form[role=search]:focus-within {
-    transition: all 0.3s;
+    transition: background-color 0.3s;
     opacity: 1;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.66) url(/images/back.svg);
+    background-position: 0 8px;
+    background-repeat: no-repeat;
+    background-size: 42px;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     height: 100%;
-    width: 100%;
+    width: calc(100% - 48px);
+    padding-left: 48px;
 }
 
 .search-form__top {
