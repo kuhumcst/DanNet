@@ -741,17 +741,18 @@
                :title                 "Search for synsets"
                :placeholder           "search term"
                :on-key-down           on-key-down
-               :on-focus              (fn [e]
-                                        (select-text e))
-               :on-click              (fn [e] (.stopPropagation e))
+               :on-focus              (fn [e] (select-text e))
+               :on-click              (fn [e]
+                                        (.stopPropagation e) ; don't close overlay
+                                        (.focus (.-target e))) ; consistent focus on mobile
                :on-change             search-completion
                :auto-complete         "off"
                :default-value         (or lemma "")}]
       [:input {:type      "submit"
                :tab-index "-1"
+               :on-click  (fn [e] (.stopPropagation e))     ; don't close overlay
                :title     (str submit-label)
-               :value     (str submit-label)
-               :on-click  (fn [e] (.stopPropagation e))}]]
+               :value     (str submit-label)}]]
      [:ul {:role "listbox"
            :id   "search-completion"}
       (when completion?
