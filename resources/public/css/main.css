@@ -99,7 +99,7 @@ html, body {
     flex-grow: 1;
     overflow-y: auto;
 
-    padding: 24px;
+    padding: 12px;
 
     /* Center content & footer horizontally. */
     display: flex;
@@ -388,12 +388,12 @@ header, footer {
 }
 
 footer {
-    padding-top: 24px;
+    padding-top: 12px;
 }
 
 hr {
+    border: none;
     border-top: 1px solid rgba(0,0,0,0.2);
-    border-bottom: none;
     width: 100%;
     margin: auto 0 0 0;
     align-self: flex-end;
@@ -586,7 +586,7 @@ h1 {
     font-size: 32px;
     font-weight: normal;
     padding: 0;
-    margin: 0 auto 12px auto;
+    margin: 12px auto;
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;
@@ -611,7 +611,7 @@ h2 {
    font-size: 24px;
    font-weight: normal;
    text-align: center;
-   margin: 48px 0 18px 0;
+   margin: 36px 0 12px 0;
    padding: 0;
    font-variant: small-caps;
    letter-spacing: 0.2ch;
