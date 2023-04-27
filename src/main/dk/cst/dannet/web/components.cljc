@@ -733,10 +733,10 @@
      [:div.search-form__top
       [:input {:role                  "combobox"
                :aria-expanded         suggestions?
-               :aria-controls         (when suggestions?
-                                        "search-completion")
-               :aria-activedescendant (when suggestions?
-                                        "search-completion-selected")
+               :aria-controls         (str (when suggestions?
+                                             "search-completion"))
+               :aria-activedescendant (str (when suggestions?
+                                             "search-completion-selected"))
                :id                    "search-input"
                :name                  "lemma"
                :title                 "Search for synsets"
