@@ -352,7 +352,6 @@ form[role=search]:focus-within ul {
     animation: fade-in 0.33s;
     margin: 0;
     padding: 8px 0 0 46px;
-    flex-grow: 1;
     overflow-y: auto;
 }
 
