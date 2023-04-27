@@ -221,7 +221,14 @@
                              ;; TODO: use cache in production
                              #_#_"Cache-Control" one-day-cache))))})
 
+(def entity-redirect-path
+  (str (-> 'dn prefix/schemas :uri prefix/uri->path)))
+
 (def search-ic
+  "Presents search results as synsets mathcing a given lemma.
+
+  In cases where one-and-only-one search result is returned, the interceptor
+  automatically redirects to that specific synset, skipping the list."
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
@@ -235,19 +242,26 @@
                   body         (content-type->body-fn content-type)
                   page-meta    {:title (str "Search: " lemma)
                                 :page  "search"}]
-              (let [search-results (db/look-up (:graph @db) lemma)
-                    data           {:languages      languages
-                                    :lemma          lemma
-                                    :search-results search-results}]
-                (-> ctx
-                    (update :response assoc
-                            :status 200
-                            :body (body data page-meta))
-                    (update-in [:response :headers] merge
-                               (assoc (x-headers page-meta)
-                                 "Content-Type" content-type
-                                 ;; TODO: use cache in production
-                                 #_#_"Cache-Control" one-day-cache))))))})
+              (let [search-results (db/look-up (:graph @db) lemma)]
+                (if (= (count search-results) 1)
+                  (-> ctx
+                      (update :response assoc
+                              :status 301)
+                      (update-in [:response :headers] assoc
+                                 "Location" (str entity-redirect-path
+                                                 (name (ffirst search-results)))))
+                  (-> ctx
+                      (update :response assoc
+                              :status 200
+                              :body (body {:languages      languages
+                                           :lemma          lemma
+                                           :search-results search-results}
+                                          page-meta))
+                      (update-in [:response :headers] merge
+                                 (assoc (x-headers page-meta)
+                                   "Content-Type" content-type
+                                   ;; TODO: use cache in production
+                                   #_#_"Cache-Control" one-day-cache)))))))})
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
