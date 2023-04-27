@@ -301,28 +301,28 @@ form[role=search]:focus-within input[role=combobox] {
 form[role=search] input[type=submit] {
     opacity: 0;
     transition: transform 0.2s;
-    font-variant: small-caps;
+    letter-spacing: 2px;
 }
 
 form[role=search]:focus-within input[type=submit] {
     opacity: 1;
-    width: 52px;
+    transition: color 0.2s;
+    min-width: 52px;
     height: 52px;
-    margin: 0;
-    padding-top: 36px;
-    font-size: 10px;
+    padding: 36px 8px 2px 8px;
+    font-size: 12px;
     border: none;
-    color:  white;
+    color:  rgba(255,255,255,0.33);
     cursor: pointer;
     background-color: transparent;
     background: url(/images/search.svg);
     background-repeat: no-repeat;
-    background-position: 10px 4px;
+    background-position: center 2px;
     background-size: 32px 32px;
 }
 
 form[role=search]:focus-within input[type=submit]:hover {
-    transform: scale(1.11);
+     color: rgba(255,255,255,1);
 }
 
 form[role=search] p {
@@ -339,12 +339,11 @@ form[role=search] p {
 }
 
 form[role=search] ul {
-    visibility: hidden;
+    display: none;
 }
 
 form[role=search]:focus-within ul {
-    /* https://stackoverflow.com/questions/17630945/is-there-an-opposite-to-displaynone */
-    visibility: visible;
+    display: block;
     animation: fade-in 0.33s;
     margin: 4px 0 0 0;
     padding: 0;
@@ -362,7 +361,7 @@ form[role=search]:focus-within ul li {
 
 form[role=search]:focus-within ul li:hover,
 form[role=search]:focus-within ul li:focus {
-    background: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.25);
 }
 
 article {
