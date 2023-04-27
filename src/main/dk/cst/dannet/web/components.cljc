@@ -742,17 +742,17 @@
                :placeholder           "search term"
                :on-key-down           on-key-down
                :on-focus              (fn [e] (select-text e))
-               :on-click              (fn [e]
-                                        (.stopPropagation e) ; don't close overlay
-                                        (.focus (.-target e))) ; consistent focus on mobile
+               :on-click              (fn [e] (.stopPropagation e)) ; don't close overlay
+               :on-touch-start        (fn [e] (.focus (.-target e))) ; consistent focus on mobile
                :on-change             search-completion
                :auto-complete         "off"
                :default-value         (or lemma "")}]
-      [:input {:type      "submit"
-               :tab-index "-1"
-               :on-click  (fn [e] (.stopPropagation e))     ; don't close overlay
-               :title     (str submit-label)
-               :value     (str submit-label)}]]
+      [:input {:type           "submit"
+               :tab-index      "-1"
+               :on-click       (fn [e] (.stopPropagation e)) ; don't close overlay)
+               :on-touch-start (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form")))) ; needed on mobile
+               :title          (str submit-label)
+               :value          (str submit-label)}]]
      [:ul {:role "listbox"
            :id   "search-completion"}
       (when completion?

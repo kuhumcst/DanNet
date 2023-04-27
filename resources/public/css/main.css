@@ -302,6 +302,7 @@ form[role=search] input[type=submit] {
     opacity: 0;
     transition: transform 0.2s;
     letter-spacing: 2px;
+    color: transparent;
 }
 
 form[role=search]:focus-within input[type=submit] {
