@@ -287,6 +287,7 @@ form[role=search] input[role=combobox] {
     border-radius: 2px;
     width: 32px;
     min-height: 32px;
+    padding: 0;
     opacity: 0;
 }
 
