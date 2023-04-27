@@ -244,7 +244,7 @@ form[role=search] {
     flex-direction: column;
     transition: all 0s;
     position: fixed;
-    margin: -4px 0 0 -5px;
+    margin: -5px 0 0 -5px;
     padding: 4px;
     opacity: 0.8; /* Same as text in h1 prefix badge. */
     background: url(/images/search.svg);
@@ -263,8 +263,7 @@ form[role=search]:focus-within {
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     height: 100%;
-    width: calc(100% - 48px);
-    padding-left: 48px;
+    width: 100%;
 }
 
 .search-form__top {
@@ -298,6 +297,7 @@ form[role=search] input[role=combobox] {
 form[role=search]:focus-within input[role=combobox] {
     flex-grow: 1;
     font-size: 32px;
+    margin-left: 48px;
     color: #333;
     opacity: 0.9;
 }
@@ -350,8 +350,8 @@ form[role=search] ul {
 form[role=search]:focus-within ul {
     display: block;
     animation: fade-in 0.33s;
-    margin: 4px 0 0 0;
-    padding: 0;
+    margin: 0;
+    padding: 8px 0 0 46px;
     flex-grow: 1;
     overflow-y: auto;
 }
@@ -360,8 +360,15 @@ form[role=search]:focus-within ul li {
     color: white;
     cursor: pointer;
     list-style-type: none;
+    font-size: 20px;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
     margin: 0;
     padding: 4px;
+    width: calc(100% - 16px);
 }
 
 form[role=search]:focus-within ul li:hover,
