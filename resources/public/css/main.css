@@ -126,7 +126,7 @@ article.document > div {
 
 /* This essentially works like sharpening/emboss effect on non-white text. */
 #content *:not(.prefix) {
-    text-shadow: 0 1px rgba(255,255,255,0.8);
+    text-shadow: 1px 0px rgba(255,255,255,0.8);
 }
 .prefix {
     text-shadow: none;
@@ -251,9 +251,9 @@ form[role=search]:focus-within {
     transition: background-color 0.3s;
     opacity: 1;
     background: rgba(0,0,0,0.66) url(/images/back.svg);
-    background-position: -2px 8px;
+    background-position: 12px 12px;
     background-repeat: no-repeat;
-    background-size: 56px;
+    background-size: 42px;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     height: 100%;
@@ -293,7 +293,7 @@ form[role=search] input[role=combobox] {
 form[role=search]:focus-within input[role=combobox] {
     flex-grow: 1;
     font-size: 32px;
-    margin-left: 48px;
+    margin-left: 64px;
     color: #333;
     opacity: 0.9;
     padding: 2px 8px;
@@ -310,8 +310,8 @@ form[role=search]:focus-within input[type=submit] {
     opacity: 1;
     transition: color 0.2s;
     min-width: 64px;
-    height: 64px;
-    padding: 40px 12px 2px 12px;
+    height: 52px;
+    padding: 36px 12px 2px 12px;
     font-size: 12px;
     border: none;
     color:  rgba(255,255,255,0.33);
@@ -364,8 +364,8 @@ form[role=search]:focus-within ul li {
     text-overflow: ellipsis;
 
     margin: 0 4px;
-    padding: 4px 4px 4px 50px;
-    width: calc(100% - 68px);
+    padding: 4px 4px 4px 68px;
+    width: calc(100% - 88px);
 }
 
 form[role=search]:focus-within ul li:hover,
@@ -374,7 +374,7 @@ form[role=search]:focus-within ul li:focus {
 }
 
 article {
-    max-width: 100ch;
+    max-width: 110ch;
 }
 
 article > section:last-child {
@@ -430,8 +430,7 @@ div.set__content {
 
 span.marker {
     margin-right: 4px;
-    font-weight: bold;
-    color: black;
+    color: rgba(0,0,0,0.66);
     cursor: help;
 }
 
@@ -484,11 +483,11 @@ h1 sub {
 }
 
 table.attr-val col:nth-child(2) {
-     min-width: 8ch;
+     min-width: 10ch;
 }
 
 table.attr-val col:nth-child(3) {
-    width: 70ch;
+    width: 80ch;
 }
 
 span.prefix {
@@ -666,8 +665,17 @@ table.attr-val {
 
 table.attr-val table.attr-val,
 table.attr-val section.text {
-    border: 1px solid #CCC;
-    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    border: 1px solid rgba(0,0,0,0.2);
+    box-shadow: 0 0 4px rgba(0,0,0,0.1);
+}
+
+/* border resets for inner tables */
+table.attr-val table.attr-val td.attr-prefix,
+table.attr-val table.attr-val td.attr-name {
+     border-top:  none;
+}
+table.attr-val table.attr-val td.attr-name {
+     border-right: none;
 }
 
 table.attr-val section.text::before {
@@ -697,7 +705,7 @@ h1, h2 {
 }
 
 td {
-    padding: 16px;
+    padding: 12px;
     vertical-align: top;
 }
 
@@ -725,12 +733,22 @@ td.attr-prefix {
 
 td.attr-name {
     padding-left: 0;
-    border-right: 1px solid rgba(0,0,0,0.1);
+    border-right: 1px solid rgba(0,0,0,0.33);
+}
+
+span.prefix + a,
+span.hidden + a {
+    display: inline-block;
 }
 
 td.attr-prefix,
 td.attr-name {
-    background: rgba(0,0,0,0.05);
+    background: url(/images/exclusive-paper.png);
+}
+
+tr + tr td.attr-prefix,
+tr + tr td.attr-name {
+    border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 /* Used to hide prefixes. */
