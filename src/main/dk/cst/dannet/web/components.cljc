@@ -699,10 +699,12 @@
         :tab-index   "-1"
         :on-key-down on-key-down
         :id          (search-completion-item-id v)
-        :on-click    #?(:cljs #(submit-form
-                                 (js/document.getElementById "search-form")
-                                 (str "lemma=" v))
-                        :clj  nil)}
+        :on-click    (fn [_]
+                       #?(:cljs (let [form (js/document.getElementById "search-form")
+                                      input (js/document.getElementById "search-input")]
+                                  (set! (.-value input) v)
+                                  (submit-form form (str "lemma=" v)))
+                          :clj  nil))}
    v])
 
 ;; TODO: language localisation

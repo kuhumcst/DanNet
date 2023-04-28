@@ -92,6 +92,8 @@
                               :data    body})
             (when-let [url (shared/response->url %)]
               (update-scroll-state! url))
+            ;; Ensure that the search overlay closes when clicking 'back'.
+            (js/document.activeElement.blur)
             (rum/mount page-component app))))
 
 (defn set-up-navigation!

@@ -31,10 +31,10 @@
   #{"ArrowRight" "Right"})
 
 (def prev-item
-  (set/union up left))
+  up)
 
 (def next-item
-  (set/union down right))
+  down)
 
 (def click-item
   (set/union spacebar enter))
