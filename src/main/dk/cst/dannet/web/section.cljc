@@ -19,8 +19,8 @@
          :vann/preferredNamespacePrefix
          :dc/description
          :dcat/downloadURL]]
-   [#{(->LangStr "Lexical information" "en")
-      (->LangStr "Leksikalsk information" "da")}
+   [#{(->LangStr "Lexical components" "en")
+      (->LangStr "Leksikalske bestanddele" "da")}
     [:ontolex/writtenRep
      :ontolex/canonicalForm
      :ontolex/otherForm
@@ -30,8 +30,8 @@
      :ontolex/isSenseOf
      :ontolex/lexicalizedSense
      :ontolex/isLexicalizedSenseOf]]
-   [#{(->LangStr "WordNet relations" "en")
-      (->LangStr "WordNet-relationer" "da")}
+   [#{(->LangStr "Semantic relations" "en")
+      (->LangStr "Betydningsrelationer" "da")}
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech})
              (comp #{:dns/usedFor
                      :dns/usedForObject

@@ -293,7 +293,7 @@ form[role=search] input[role=combobox] {
 form[role=search]:focus-within input[role=combobox] {
     flex-grow: 1;
     font-size: 32px;
-    margin-left: 64px;
+    margin-left: 56px;
     color: #333;
     opacity: 0.9;
     padding: 2px 8px;
@@ -364,8 +364,8 @@ form[role=search]:focus-within ul li {
     text-overflow: ellipsis;
 
     margin: 0 4px;
-    padding: 4px 4px 4px 68px;
-    width: calc(100% - 88px);
+    padding: 4px 4px 4px 60px;
+    width: calc(100% - 80px);
 }
 
 form[role=search]:focus-within ul li:hover,
@@ -385,21 +385,17 @@ header, footer {
     text-align: center;
 }
 
-footer {
-    padding-top: 12px;
-}
-
 hr {
     border: none;
     border-top: 1px solid rgba(0,0,0,0.2);
     width: 100%;
-    margin: auto 0 0 0;
+    margin: 12px 0;
     align-self: flex-end;
 }
 
 footer p {
     font-size: 14px;
-    margin: 4px;
+    margin: 12px;
     padding: 0;
 }
 
@@ -437,6 +433,7 @@ span.marker {
 p.note {
     text-align: center;
     font-style: italic;
+    font-size: 14px;
     margin: 24px 0 0 0;
     padding: 0;
     color: #666;
@@ -447,7 +444,7 @@ p.note + p.note {
 }
 
 p.note:last-child {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
 }
 
 p.note strong {
@@ -483,7 +480,7 @@ h1 sub {
 }
 
 table.attr-val col:nth-child(2) {
-     min-width: 10ch;
+     min-width: 12ch;
 }
 
 table.attr-val col:nth-child(3) {
@@ -571,6 +568,7 @@ h1 sup {
     opacity: 0.6;
     text-decoration: none;
     font-variant: small-caps;
+    line-height: 1;
 }
 
 header {
@@ -583,7 +581,7 @@ h1 {
     font-size: 32px;
     font-weight: normal;
     padding: 0;
-    margin: 12px auto;
+    margin: 12px auto 8px auto;
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;
@@ -594,14 +592,18 @@ h1 span.prefix {
     transition: background 0.66s;
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
-    margin: -2px 8px 0 0;
-    padding: 1px 12px 5px 12px;
+    margin: -8px 8px 0 0;
+    padding: 6px 12px;
     border-radius: 3px;
     border: 1px solid rgba(0,0,0,0.33);
     color: rgba(255,255,255,0.8);
 
     letter-spacing: 6px;
     padding-right: 6px; /* account for letter-spacing */
+}
+
+h1 span {
+    line-height: 1;
 }
 
 h2 {
@@ -661,6 +663,44 @@ table.attr-val {
     border: 1px solid rgba(0,0,0,0.5);
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
     width: 100%;
+}
+
+/* Mobile view (minimalist) */
+@media only screen and (max-width: 700px) {
+    td.attr-prefix > *,
+    :not(h1) > span.prefix,
+    p.note {
+        display: none;
+    }
+    td.attr-name {
+        text-transform: capitalize;
+
+    }
+    td.attr-name::first-letter {
+        font-weight: bold;
+    }
+    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+        content: "";
+    }
+    td {
+        font-size: 14px;
+    }
+    header > .rdf-uri,
+    table.attr-val table.attr-val td {
+         font-size: 12px;
+    }
+    table.attr-val  table.attr-val col:nth-child(2) {
+         min-width: 10ch;
+    }
+    h1 {
+        font-size: 24px;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    #content {
+        padding: 8px;
+    }
 }
 
 table.attr-val table.attr-val,

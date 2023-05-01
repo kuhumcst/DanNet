@@ -214,11 +214,12 @@
   [resource {:keys [languages k->label] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
-          label  (i18n/select-label languages labels)]
+          label  (i18n/select-label languages labels)
+          prefix (symbol (namespace resource))]
       [:a {:href  (prefix/resolve-href resource)
-           :title (name resource)
+           :title (str prefix ":" (name resource))
            :lang  (i18n/lang label)
-           :class (or (prefix/prefix->class (symbol (namespace resource))) "")}
+           :class (get prefix/prefix->class prefix "")}
        (or (transform-val label opts)
            (name resource))])
     (let [local-name (prefix/guess-local-name resource)]
@@ -700,7 +701,7 @@
         :on-key-down on-key-down
         :id          (search-completion-item-id v)
         :on-click    (fn [_]
-                       #?(:cljs (let [form (js/document.getElementById "search-form")
+                       #?(:cljs (let [form  (js/document.getElementById "search-form")
                                       input (js/document.getElementById "search-input")]
                                   (set! (.-value input) v)
                                   (submit-form form (str "lemma=" v)))
