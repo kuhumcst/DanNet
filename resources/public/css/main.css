@@ -352,7 +352,8 @@ form[role=search]:focus-within ul {
     display: block;
     animation: fade-in 0.33s;
     margin: 0;
-    padding: 8px 0 24px 52px;
+    /* almost 100 full screen of bottom padding (mobile keyboard fix) */
+    padding: 8px 0 calc(100vh - 96px) 52px;
     overflow-y: auto;
 }
 
