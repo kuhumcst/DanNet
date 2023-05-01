@@ -190,10 +190,10 @@
                   label))))
       [:div.set__right-bracket]]
 
-     :let [[_ word _ sub mwe] (re-matches sense-label s)]
-
-     word
-     [:<> word [:sub sub] mwe]
+     (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
+         (= (:rdf/type entity) #{:ontolex/LexicalSense}))
+     (let [[_ word _ sub mwe] (re-matches sense-label s)]
+       [:<> word [:sub sub] mwe])
 
      rdf-resource
      (rdf-uri-hyperlink uri)
