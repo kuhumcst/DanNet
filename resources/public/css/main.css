@@ -1,11 +1,14 @@
 * {
-    line-height: 1.5; /* looks better when wrapping to next line */
     color: #000;
     hyphens: auto;
 }
 
 button {
     cursor: pointer;
+}
+
+p {
+    line-height: 1.5; /* looks better when wrapping to next line */
 }
 
 @keyframes fade-in {
@@ -349,7 +352,7 @@ form[role=search]:focus-within ul {
     display: block;
     animation: fade-in 0.33s;
     margin: 0;
-    padding: 8px 0 8px 52px;
+    padding: 8px 0 24px 52px;
     overflow-y: auto;
 }
 
@@ -364,8 +367,8 @@ form[role=search]:focus-within ul li {
     text-overflow: ellipsis;
 
     margin: 0 4px;
-    padding: 4px;
-    width: calc(100% - 76px);
+    padding: 8px;
+    width: calc(100% - 84px);
 }
 
 form[role=search]:focus-within ul li:hover,
@@ -494,7 +497,7 @@ span.prefix {
     color: rgba(255,255,255,0.8);
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.33);
-    padding: 3px 7px;
+    padding: 2px 6px;
     margin-right: 6px;
 
     letter-spacing: 1px;
@@ -568,7 +571,6 @@ h1 sup {
     opacity: 0.6;
     text-decoration: none;
     font-variant: small-caps;
-    line-height: 1;
 }
 
 header {
@@ -600,10 +602,6 @@ h1 span.prefix {
 
     letter-spacing: 6px;
     padding-right: 6px; /* account for letter-spacing */
-}
-
-h1 span {
-    line-height: 1;
 }
 
 h2 {
