@@ -172,6 +172,12 @@
   [page-meta]
   (update-keys page-meta (fn [k] (str "x-" (name k)))))
 
+(defn request->languages
+  "Resolve a vector of language preferences from a `request`."
+  [request]
+  (or (:languages request)
+      (i18n/lang-prefs (get-in request [:accept-language :type]))))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -180,7 +186,6 @@
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
-                  lang         (get-in request [:accept-language])
                   {:keys [prefix subject]} (merge (:path-params request)
                                                   (:query-params request)
                                                   static-params)
@@ -192,7 +197,7 @@
                   entity       (if (use-lang? content-type)
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
-                  languages    (i18n/lang-prefs lang)
+                  languages    (request->languages request)
                   data         {:languages languages
                                 :k->label  (-> entity meta :k->label)
                                 :inferred  (-> entity meta :inferred)
@@ -232,8 +237,7 @@
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
-                  lang         (get-in request [:accept-language])
-                  languages    (if lang [lang "en"] ["en"])
+                  languages    (request->languages request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   lemma        (-> request
@@ -283,7 +287,8 @@
               (if-let [languages (shared/get-cookie request :languages)]
                 (let [language (first languages)]
                   (-> ctx
-                      (assoc-in [:request :accept-language] language)
+                      (assoc-in [:request :accept-language] {:field language
+                                                             :type  language})
                       (assoc-in [:request :languages] languages)))
 
                 ;; Language negotation
@@ -375,8 +380,7 @@
    :leave (fn [{:keys [request] :as ctx}]
             (let [document     (-> request :path-params :document)
                   content-type (get-in request [:accept :field] "text/plain")
-                  lang         (get-in request [:accept-language])
-                  languages    (or (:languages request) (i18n/lang-prefs lang))
+                  languages    (request->languages request)
                   body         (content-type->body-fn content-type)
                   page-meta    {:page "markdown"}
                   data         {:languages languages
