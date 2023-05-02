@@ -219,7 +219,8 @@
            :class "unknown"}
        local-name])))
 
-(rum/defc resource-link
+;; See also 'rdf-uri-hyperlink'.
+(rum/defc rdf-resource-hyperlink
   "A stylised RDF `resource` hyperlink, stylised according to `opts`."
   [resource {:keys [attr-key k->label] :as opts}]
   (cond
@@ -321,8 +322,7 @@
       [:td
        (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri))]
       [:td.attr-combo                                       ; fixes alignment
-       (prefix-elem (symbol (namespace v)) opts)
-       (anchor-elem v opts)])
+       (rdf-resource-hyperlink v opts)])
 
     ;; Display blank resources as inlined tables.
     (map? v)
@@ -388,7 +388,7 @@
   [opts item]
   (cond
     (keyword? item)
-    [:li (resource-link item opts)]
+    [:li (rdf-resource-hyperlink item opts)]
 
     ;; TODO: handle blank resources better?
     ;; Currently not including these as they seem to
