@@ -130,6 +130,7 @@
         (conj canonical-labels omitted)))))
 
 (declare prefix-elem)
+(declare anchor-elem)
 
 (defn rdf-datatype?
   [x]
@@ -153,16 +154,6 @@
 
      ;; Transformations of strings ONLY from here on
      :when-let [s (not-empty (str/trim (str v)))]
-
-     (= attr-key :dns/inherited)
-     (let [[_ prefix-str local-name] (re-matches prefix/qname-re s)
-           resource  (keyword prefix-str local-name)
-           labels    (get k->label resource)
-           label     (i18n/select-label languages labels)
-           css-class (prefix/prefix->class (symbol prefix-str))]
-       [:span.emblem {:class css-class}
-        (prefix-elem (symbol prefix-str))
-        (str label)])
 
      (= attr-key :vann/preferredNamespacePrefix)
      (prefix-elem (symbol s))
@@ -211,7 +202,7 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc anchor-elem
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label] :as opts}]
+  [resource {:keys [languages k->label class] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
           label  (i18n/select-label languages labels)
@@ -219,7 +210,7 @@
       [:a {:href  (prefix/resolve-href resource)
            :title (str prefix ":" (name resource))
            :lang  (i18n/lang label)
-           :class (get prefix/prefix->class prefix "")}
+           :class (or class (get prefix/prefix->class prefix ""))}
        (or (transform-val label opts)
            (name resource))])
     (let [local-name (prefix/guess-local-name resource)]
@@ -227,6 +218,28 @@
            :title local-name
            :class "unknown"}
        local-name])))
+
+(rum/defc resource-link
+  "A stylised RDF `resource` hyperlink, stylised according to `opts`."
+  [resource {:keys [attr-key k->label] :as opts}]
+  (cond
+    ;; Label and text colour are modified to fit the inherited relation.
+    (= attr-key :dns/inherited)
+    (let [inherited       (some->> (get k->label resource) (prefix/qname->kw))
+          inherited-label (get k->label inherited)
+          prefix          (symbol (namespace inherited))
+          opts'           (-> opts
+                              (assoc-in [:k->label resource] inherited-label)
+                              (assoc :class (get prefix/prefix->class prefix)))]
+      [:<>
+       (prefix-elem (or prefix (symbol (namespace resource))) opts')
+       (anchor-elem resource opts')])
+
+    ;; The generic case just displays the prefix badge + the hyperlink.
+    :else
+    [:<>
+     (prefix-elem (symbol (namespace resource)) opts)
+     (anchor-elem resource opts)]))
 
 (defn- named?
   [x]
@@ -250,18 +263,23 @@
          (prefix-elem prefix opts)
          (anchor-elem v opts)]))))
 
+(defn local-entity-prefix?
+  "Is this `prefix` the same as the local entity in `opts`?"
+  [prefix {:keys [attr-key entity] :as opts}]
+  (or (and (keyword? attr-key)
+           (= prefix (-> attr-key namespace symbol)))
+      (and (keyword? (:subject (meta entity)))
+           (= prefix (-> entity meta :subject namespace symbol)))))
+
 ;; TODO: don't hide when `details?` is true?
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key entity details?] :as opts}]
+  [prefix {:keys [attr-key details?] :as opts}]
   (or (= :rdf/value attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
-      (and (symbol? prefix)
-           (or (and (keyword? attr-key)
-                    (= prefix (-> attr-key namespace symbol)))
-               (and (keyword? (:subject (meta entity)))
-                    (= prefix (-> entity meta :subject namespace symbol)))))))
+      (and (not= :dns/inherited attr-key)                   ; special case
+           (local-entity-prefix? prefix opts))))
 
 (rum/defc prefix-elem
   "Visual representation of a `prefix` based on its associated symbol.
@@ -370,10 +388,7 @@
   [opts item]
   (cond
     (keyword? item)
-    (let [prefix (symbol (namespace item))]
-      [:li
-       (prefix-elem prefix opts)
-       (anchor-elem item opts)])
+    [:li (resource-link item opts)]
 
     ;; TODO: handle blank resources better?
     ;; Currently not including these as they seem to
