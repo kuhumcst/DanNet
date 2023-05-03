@@ -699,7 +699,7 @@
                  autocomplete-url "/dannet/autocomplete"]
              (swap! shared/state assoc-in [:search :s] s')
              (when-not (get-in @shared/state path)
-               (.then (shared/fetch autocomplete-url {:query-params {:s s'}})
+               (.then (shared/api autocomplete-url {:query-params {:s s'}})
                       #(do
                          (shared/clear-fetch autocomplete-url)
                          (when-let [v (not-empty (:body %))]
@@ -866,7 +866,8 @@
                                       (.-value)
                                       (not-empty)
                                       (i18n/lang-prefs))]
-                            (shared/set-cookie! :languages v)
+                            (shared/api "/cookies" {:method :put
+                                                    :body   {:languages v}})
                             (swap! shared/state assoc :languages v))))}
    [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
    [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]

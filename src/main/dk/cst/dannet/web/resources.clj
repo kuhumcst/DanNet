@@ -5,6 +5,7 @@
             [clojure.pprint :refer [pprint print-table]]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
+            [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
             [ont-app.vocabulary.lstr :as lstr]
@@ -283,7 +284,9 @@
     {:name  ::negotiate-language
      :enter (fn [{:keys [request] :as ctx}]
 
-              ;; Explicitly set languages
+              ;; Explicitly set languages based on cookies.
+              ;; This part is required to avoid an instant language shift when
+              ;; first loading the page.
               (if-let [languages (shared/get-cookie request :languages)]
                 (let [language (first languages)]
                   (-> ctx
@@ -291,7 +294,7 @@
                                                              :type  language})
                       (assoc-in [:request :languages] languages)))
 
-                ;; Language negotation
+                ;; Implicitly set languages based on language negotiation.
                 (if-let [accept-param (loop [[path & paths] lang-paths]
                                         (if-let [param (get-in ctx path)]
                                           param
@@ -403,6 +406,24 @@
          language-negotiation-ic
          markdown-ic]
    :route-name ::markdown])
+
+(def cookie-opts
+  {:max-age (* 60 60 12 365)                                ; one year
+   :path    "/"
+   :domain  (if shared/development?
+              false
+              "wordnet.dk")})
+
+(def cookies-route
+  ["/cookies"
+   :put [(body-params)
+         (fn [{:keys [transit-params] :as request}]
+           ;; The ring cookie interceptor takes care of actual cookie storage.
+           {:status  204
+            :cookies (update-vals transit-params (fn [v]
+                                                   (assoc cookie-opts
+                                                     :value (str v))))})]
+   :route-name ::cookies])
 
 (def autocomplete-path
   (str (prefix/uri->path prefix/dannet-root) "autocomplete"))

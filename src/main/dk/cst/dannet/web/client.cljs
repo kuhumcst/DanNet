@@ -79,7 +79,7 @@
 
 (defn on-navigate
   [{:keys [path query-params] :as m}]
-  (.then (shared/fetch path {:query-params query-params})
+  (.then (shared/api path {:query-params query-params})
          #(let [headers        (:headers %)
                 page           (com/x-header headers :page)
                 body           (not-empty (:body %))
@@ -114,7 +114,7 @@
   "The entry point of the frontend app."
   []
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
-    (.then (shared/fetch entry-url)
+    (.then (shared/api entry-url)
            #(let [data           (:body %)
                   page           (com/x-header (:headers %) :page)
                   page-component (com/page-shell page data)]

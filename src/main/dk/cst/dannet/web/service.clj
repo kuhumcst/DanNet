@@ -25,6 +25,9 @@
       res/schema-download-route
       res/markdown-route
 
+      ;; See also: middleware/cookies added below as a default interceptor!
+      res/cookies-route
+
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
       (res/prefix->entity-route 'dns)

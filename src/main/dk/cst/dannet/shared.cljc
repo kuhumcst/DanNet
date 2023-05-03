@@ -2,6 +2,7 @@
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
+            [reitit.impl :refer [form-decode]]
             #?(:clj [clojure.java.io :as io])
             #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
@@ -10,56 +11,6 @@
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])
             #?(:cljs [applied-science.js-interop :as j])))
-
-(def year-in-seconds
-  (* 60 60 12 365))
-
-(def cookie-opts
-  {:max-age year-in-seconds
-   :path    "/"
-   :raw?    true
-   :secure? true})
-
-;; TODO: should all cookies be set server-side? would simplify things
-(defn set-cookie!
-  #?(:clj
-     ([request k v]
-      (assoc-in request [:response :cookies (name k)] v))
-     :cljs
-     ([k v]
-      (cookie/set! k (js/encodeURIComponent v) cookie-opts))))
-
-(defn get-cookie
-  "Cross-compatible way to get cookie `k` from `request`."
-  #?(:clj
-     ([request k]
-      (try
-        (some-> request
-                :cookies
-                (get (name k))
-                :value
-                (edn/read-string))
-        (catch Exception e nil)))
-     :cljs
-     ([k]
-      (some-> (cookie/get-raw k)
-              (js/decodeURIComponent)
-              (edn/read-string)))))
-
-(def default-languages
-  #?(:clj  nil
-     :cljs (if-let [previously-specified (cookie/get-raw :languages)]
-             (edn/read-string (js/decodeURIComponent previously-specified))
-             (if (exists? js/negotiatedLanguages)
-               (edn/read-string js/negotiatedLanguages)
-               ["en" nil "da"]))))
-
-;; Page state used in the single-page app; completely unused server-side.
-(defonce state
-  (atom {:languages default-languages
-         :search    {:completion {}
-                     :s          ""}
-         :details?  nil}))
 
 #?(:clj
    (def main-js
@@ -76,6 +27,42 @@
   #?(:clj  (= main-js "main.js")
      :cljs (when (exists? js/inDevelopmentEnvironment)
              js/inDevelopmentEnvironment)))
+
+;; NOTE: cookies should be set using the /cookies endpoint! This is the only way
+;; to get long-term cookie storage in e.g. Safari using JavaScript.
+(defn get-cookie
+  "Cross-compatible way to get cookie `k` (from the `request` on backend)."
+  #?(:clj
+     ([request k]
+      (try
+        (some-> request
+                :cookies
+                (get (name k))
+                :value
+                (edn/read-string))
+        (catch Exception e nil)))
+     :cljs
+     ([k]
+      ;; Reitit properly decodes the form values from Ring Cookie
+      ;; (the native JS functions leave a few undesired chars around).
+      (some-> (cookie/get-raw k)
+              (form-decode)
+              (edn/read-string)))))
+
+(def default-languages
+  #?(:clj  nil
+     :cljs (or
+             (get-cookie :languages)
+             (if (exists? js/negotiatedLanguages)
+               (edn/read-string js/negotiatedLanguages)
+               ["en" nil "da"]))))
+
+;; Page state used in the single-page app; completely unused server-side.
+(defonce state
+  (atom {:languages default-languages
+         :search    {:completion {}
+                     :s          ""}
+         :details?  nil}))
 
 (def windows?
   #?(:cljs (and (exists? js/navigator.appVersion)
@@ -128,21 +115,22 @@
      ;; caching the transit data instead of an HTML page, which can result in a weird
      ;; situation where clicking the back button and then forward sometimes results
      ;; in transit data being displayed rather than an HTML page.
-     (defn fetch
+     (defn api
        "Do a GET request for the resource at `url`, returning the response body."
-       [url & [{:keys [query-params] :as opts}]]
+       [url & [{:keys [query-params method] :or {method :get} :as opts}]]
        (abort-fetch url)                                    ; cancel existing
        (let [string-params (uri/query-string->map (:query (uri/uri url)))
              query-params' (assoc (merge string-params query-params)
                              :transit true)
              controller    (new js/AbortController)
              signal        (.-signal controller)
-             opts*         (merge {:transit-json-reader reader
+             opts*         (merge {:method              method
+                                   :transit-json-reader reader
                                    :signal              signal}
                                   (assoc opts
                                     :query-params query-params'))]
          (swap! state assoc-in [:fetch url] controller)
-         (fetch/get (normalize-url url) opts*)))
+         (fetch/request (normalize-url url) opts*)))
 
      (defn response->url
        [response]
