@@ -757,8 +757,10 @@
                                              "search-completion-selected"))
                :id                    "search-input"
                :name                  "lemma"
-               :title                 "Search for synsets"
-               :placeholder           "search term"
+               :title                 (i18n/da-en languages
+                                        "Søg efter synsets"
+                                        "Search for synsets")
+               :placeholder           "lemma"
                :on-key-down           on-key-down
                :on-focus              (fn [e] (select-text e))
                :on-click              (fn [e] (.stopPropagation e)) ; don't close overlay
@@ -785,7 +787,9 @@
    [:header
     [:h1 (str "\"" lemma "\"")]]
    (if (empty? search-results)
-     [:p "No search-results."]
+     [:p (i18n/da-en languages
+           "Ingen resultater kunne findes for dette lemma."
+           "No results could be found for this lemma.")]
      (for [[k entity] search-results]
        (let [{:keys [k->label]} (meta entity)]
          (rum/with-key (attr-val-table {:languages languages

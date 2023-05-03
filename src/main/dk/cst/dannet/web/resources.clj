@@ -245,7 +245,9 @@
                                    (get-in [:query-params :lemma])
                                    (decode-query-part))
                   body         (content-type->body-fn content-type)
-                  page-meta    {:title (str "Search: " lemma)
+                  page-meta    {:title (i18n/da-en languages
+                                         (str "Søg: " lemma)
+                                         (str "Search: " lemma))
                                 :page  "search"}]
               (let [search-results (db/look-up (:graph @db) lemma)]
                 (if (= (count search-results) 1)
