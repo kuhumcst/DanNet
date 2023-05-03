@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
-            [clojure.set :as set]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
@@ -831,9 +830,12 @@
    "markdown" markdown-page})
 
 (defn x-header
-  "Get the custom `header` in the HTTP `response`."
+  "Get the custom `header` in the HTTP `response`.
+
+  See also: dk.cst.dannet.web.resources/x-headers"
   [response header]
-  (get response (str "x-" (name header))))
+  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
+  (get response (str "x-" (str/lower-case (name header)))))
 
 (rum/defc page-footer
   [{:keys [languages] :as opts}]

@@ -169,9 +169,11 @@
 
 ;; TODO: eventually support LangStr for titles too
 (defn x-headers
-  "Encode `page-meta` for a given page as custom HTTP headers."
+  "Encode `page-meta` for a given page as custom HTTP headers.
+
+  See also: dk.cst.dannet.web.components/x-header"
   [page-meta]
-  (update-keys page-meta (fn [k] (str "x-" (name k)))))
+  (update-keys page-meta (fn [k] (str "X-" (str/capitalize (name k))))))
 
 (defn request->languages
   "Resolve a vector of language preferences from a `request`."
