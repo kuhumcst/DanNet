@@ -357,6 +357,11 @@ form[role=search]:focus-within ul {
     overflow-y: auto;
 }
 
+/* larger dismiss area when no options are available */
+form[role=search]:focus-within ul:empty {
+    padding-bottom: 0;
+}
+
 form[role=search]:focus-within ul li {
     color: white;
     cursor: pointer;

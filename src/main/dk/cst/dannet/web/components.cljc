@@ -772,12 +772,12 @@
                :on-touch-start (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form")))) ; needed on mobile
                :title          (str submit-label)
                :value          (str submit-label)}]]
-     (when suggestions?
-       [:ul {:role      "listbox"
-             :tab-index "-1"
-             :id        "search-completion"}
+     [:ul {:role      "listbox"
+           :tab-index "-1"
+           :id        "search-completion"}
+      (when suggestions?
         (for [v completion-items]
-          (rum/with-key (option v on-key-down) v))])]))
+          (rum/with-key (option v on-key-down) v)))]]))
 
 (rum/defc search-page
   [{:keys [languages lemma search-results] :as opts}]
