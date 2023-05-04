@@ -8,7 +8,7 @@ www.wordnet.dk {
 
 # TODO: eventually remove entirely
 beta.wordnet.dk {
-    redir https://wordnet.dk/dannet/page/welcome
+    redir https://wordnet.dk/dannet/page/about
 }
 
 wordnet.dk, localhost {
