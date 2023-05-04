@@ -260,6 +260,15 @@
        ?parent wn:hypernym ?hypernym .
      }"))
 
+(def unknown-inheritance
+  (sparql
+    "SELECT ?synset ?inherit
+     WHERE {
+       ?synset dns:inherited ?inherit .
+       ?inherit dns:inheritedFrom ?parent .
+       FILTER NOT EXISTS { ?parent ?anything ?atAll }
+     }"))
+
 (def superfluous-definitions
   "Synset definitions that are fully contained within other definitions;
   this situation occurs due to the merge of the old data with the 2023 data."

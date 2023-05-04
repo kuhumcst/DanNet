@@ -227,7 +227,8 @@
     (= attr-key :dns/inherited)
     (let [inherited       (some->> (get k->label resource) (prefix/qname->kw))
           inherited-label (get k->label inherited)
-          prefix          (symbol (namespace inherited))
+          prefix          (when inherited
+                            (symbol (namespace inherited)))
           opts'           (-> opts
                               (assoc-in [:k->label resource] inherited-label)
                               (assoc :class (get prefix/prefix->class prefix)))]

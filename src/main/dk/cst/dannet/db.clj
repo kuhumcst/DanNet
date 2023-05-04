@@ -283,8 +283,9 @@
 (defn remove!
   "Remove a `triple` from the Apache Jena `model`.
 
-  NOTE: as with Aristotle queries, using _ works as a wildcard value."
+  NOTE: as with Aristotle queries, _ works as a wildcard value."
   [^Model model [s p o :as triple]]
+  {:pre [(some? s) (some? p) (some? o)]}
   (.removeAll
     model
     (when (not= s '_)
@@ -509,7 +510,7 @@
       (txn/transact-exec senti-graph
         (safe-add! senti-graph senti-triples)))
 
-    ;; Likewise, all synsets whose senses are collectively unambiguously will
+    ;; Likewise, all synsets whose senses are collectively unambiguous will
     ;; have sentiment triples synthesized. If the senses have differing polarity
     ;; values, a basic 1 or -1 is chosen as the synset sentiment polarity.
     ;; In my testing, ~30 of the queried synsets had some ambiguity.
@@ -532,6 +533,18 @@
       (println (str "Synthesizing " (count triples) " synset sentiment triples..."))
       (txn/transact-exec senti-graph
         (safe-add! senti-graph triples)))
+
+    ;; Some synsets are inheriting relations from a non-existent synsets.
+    ;; These will have to be removed from the dataset.
+    (let [triples-to-remove (->> (q/run union-graph op/unknown-inheritance)
+                                 (mapcat (fn [{:syms [?synset ?inherit]}]
+                                           [[?synset :dns/inherited ?inherit]
+                                            [?inherit '_ '_]]))
+                                 (doall))]
+      (println "Removing" (/ (count triples-to-remove) 2)  "inheritance markers...")
+      (txn/transact-exec dn-model
+        (doseq [triple triples-to-remove]
+          (remove! dn-model triple))))
 
     ;; As a penultimate step, all labels are relabeled with duplicates indexed.
     (let [label->senses     (-> (group-by '?label (q/run dn-graph op/sense-labels))
