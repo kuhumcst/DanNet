@@ -357,16 +357,16 @@
          search-ic]
    :route-name ::search])
 
-(defn welcome-redirect
+(defn about-redirect
   [_]
   {:status  301
-   :headers {"Location" "/dannet/page/welcome"}})
+   :headers {"Location" "/dannet/page/about"}})
 
 (def root-route
-  ["/" :get [welcome-redirect] :route-name ::root])
+  ["/" :get [about-redirect] :route-name ::root])
 
 (def dannet-route
-  ["/dannet" :get [welcome-redirect] :route-name ::dannet])
+  ["/dannet" :get [about-redirect] :route-name ::dannet])
 
 (defn page-langstrings
   "Return Markdown pages as a set of LangStrings for the `document`."

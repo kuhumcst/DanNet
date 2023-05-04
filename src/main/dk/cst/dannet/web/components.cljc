@@ -900,7 +900,7 @@
                                                      prefix'))]}
       (search-form opts')
       [:a.title {:title "Frontpage"
-                 :href  "/dannet/page/welcome"}
+                 :href  "/dannet/page/about"}
        "DanNet"]
       (language-select languages')
       [:button.synset-details {:class    (when details?
@@ -920,7 +920,7 @@
       (page-footer opts')]]))
 
 (comment
-  (_hiccup->title (md/->hiccup (slurp "pages/welcome-da.md")))
+  (_hiccup->title (md/->hiccup (slurp "pages/about-da.md")))
   (_hiccup->title nil)
 
   (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
