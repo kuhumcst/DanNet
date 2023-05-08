@@ -116,7 +116,6 @@
   (set (for [[k v] (combo/permuted-combinations rdf-resources 2)]
          [k :rdfs/seeAlso v])))
 
-;; TODO: extend AsNode protocol to handle date properly (not datetime)
 (h/def dn-metadata-triples
   "Metadata for the DanNet dataset is defined here since it doesn't have a
   associated .ttl file. The Dublin Core Terms NS is used below which supersedes
@@ -135,6 +134,9 @@
       [<dns> :dc/contributor <dsl>]
       [<dns> :dc/publisher <cst>]
       [<dns> :foaf/homepage <dns>]
+      [<dns> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
+      [<dns> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
+      [<dns> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
       [<dnc> :rdf/type :owl/Ontology]
       [<dnc> :vann/preferredNamespacePrefix "dnc"]
@@ -149,6 +151,9 @@
       [<dnc> :dc/contributor <dsl>]
       [<dnc> :dc/publisher <cst>]
       [<dnc> :foaf/homepage <dnc>]
+      [<dnc> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
+      [<dnc> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
+      [<dnc> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
       [<dn> :rdf/type :dcat/Dataset]
       [<dn> :vann/preferredNamespacePrefix "dn"]
@@ -162,11 +167,9 @@
       [<dn> :dc/contributor <dsl>]
       [<dn> :dc/publisher <cst>]
       [<dn> :foaf/homepage <dn>]
-      ;; TODO: also make dc:rights for dns and dnc
-      ;; TODO: should be dct:RightsStatement
-      [<dn> :dc/rights #voc/lstr "Copyright © University of Copenhagen & Society for Danish Language and Literature.@en"]
-      ;; TODO: should be dct:LicenseDocument
-      [<dn> :dc/license "<https://cst.ku.dk/projekter/dannet/license.txt>"]
+      [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
+      [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
+      [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
       [<senti> :dc/title "DDS"]
       [<senti> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
@@ -191,14 +194,18 @@
       [<cst> :rdf/type :foaf/Group]
       [<cst> :foaf/name (da "Center for Sprogteknologi")]
       [<cst> :foaf/name (en "Centre for Language Technology")]
+      [<cst> :rdfs/comment (da "Centret er en del af Københavns universitet.")]
+      [<cst> :rdfs/comment (en "The centre is part of the University of Copenhagen.")]
       [<cst> :foaf/homepage <cst>]
       [<cst> :foaf/homepage "<https://cst.ku.dk>"]
       [<cst> :foaf/member <simongray>]
       [<dsl> :rdf/type :foaf/Group]
       [<dsl> :foaf/name (da "Det Danske Sprog- og Litteraturselskab")]
+      [<dsl> :foaf/name (en "The Society for Danish Language and Literature")]
       [<dsl> :foaf/homepage <dsl>]
       [<dsn> :rdf/type :foaf/Group]
       [<dsn> :foaf/name (da "Dansk Sprognævn")]
+      [<dsn> :foaf/name (en "The Danish Language Council")]
       [<dsn> :foaf/homepage <dsn>]}
 
     (see-also <dn> <dns> <dnc>)
