@@ -850,7 +850,11 @@
        " · "
        [:a {:href  "https://www.was.digst.dk/wordnet-dk"
             :title "Tilgængelighedserklæring"}
-        "Tilgængelighed"]]
+        "Tilgængelighed"]
+       " · "
+       [:a {:href "https://wordnet.dk/dannet/data"
+            :title "DanNet-metadata (RDF)"}
+        "Metadata"]]
       [:p {:lang "da"}
        "© 2023, "
        [:a {:href "https://cst.ku.dk"}
@@ -869,7 +873,11 @@
        " · "
        [:a {:href  "https://www.was.digst.dk/wordnet-dk"
             :title "Accessibility statement"}
-        "Accessibility"]]
+        "Accessibility"]
+       " · "
+       [:a {:href "https://wordnet.dk/dannet/data"
+            :title "DanNet metadata (RDF)"}
+        "Metadata"]]
       [:p {:lang "en"}
        "© 2023, "
        [:a {:href "https://cst.ku.dk/english"}

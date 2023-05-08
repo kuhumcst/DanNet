@@ -7,16 +7,16 @@
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
 (def dannet-root
-  "http://wordnet.dk/dannet/")
+  "https://wordnet.dk/dannet/")
 
 (def sentiment-root
-  "http://wordnet.dk/sentiment/")
+  "https://wordnet.dk/sentiment/")
 
 (def schema-root
-  "http://wordnet.dk/schema/")
+  "https://wordnet.dk/schema/")
 
 (def export-root
-  "http://wordnet.dk/export/")
+  "https://wordnet.dk/export/")
 
 (def schemas
   {'rdf       {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -73,7 +73,7 @@
                :alt :no-schema}
 
    ;; The COR namespace
-   'cor       {:uri      "http://ordregister.dk/id/"
+   'cor       {:uri      "https://ordregister.dk/id/"
                :export   #{'dn 'cor
                            'rdf 'rdfs 'owl
                            'ontolex 'skos 'lexinfo}
@@ -309,7 +309,7 @@
 
 (comment
   (re-matches uri-parts "http://glen.dk/path/to/file")
-  (download-uri "http://wordnet.dk/dannet/data")
+  (download-uri "https://wordnet.dk/dannet/data")
 
   ;; Download links as RDF resources
   (dataset-uri "rdf" 'dn)

@@ -40,16 +40,25 @@
   [s]
   (->LangStr s "da"))
 
+(defn en
+  [s]
+  (->LangStr s "en"))
+
 (defn fix-ellipsis
   [definition]
   (str/replace definition " ..." "…"))
 
-;; TODO: add the others as contributors too
 (def <simongray>
-  (prefix/uri->rdf-resource "http://simongray.dk"))
+  (prefix/uri->rdf-resource "https://simongray.dk"))
 
 (def <cst>
-  (prefix/uri->rdf-resource "http://cst.ku.dk"))
+  (prefix/uri->rdf-resource "https://cst.dk"))
+
+(def <dsl>
+  (prefix/uri->rdf-resource "https://dsl.dk"))
+
+(def <dsn>
+  "<https://dsn.dk>")
 
 (def <dn>
   "The RDF resource URI for the DanNet dataset."
@@ -69,7 +78,7 @@
 
 (def <cor>
   "The RDF resource URI for the COR dataset."
-  "<http://ordregister.dk>")
+  "<https://ordregister.dk>")
 
 (def dn-zip-basic-uri
   (prefix/dataset-uri "rdf" 'dn))
@@ -101,11 +110,6 @@
 (def dc-issued-old
   "2013-01-03")
 
-(def dc-modified
-  (let [formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd")
-        today     (LocalDate/now)]
-    (.format formatter today)))
-
 (defn see-also
   "Generate rdfs:seeAlso backlink triples for `rdf-resources`."
   [& rdf-resources]
@@ -128,6 +132,7 @@
       [<dns> :dc/issued dc-issued-new]
       [<dns> :dc/contributor <simongray>]
       [<dns> :dc/contributor <cst>]
+      [<dns> :dc/contributor <dsl>]
       [<dns> :dc/publisher <cst>]
       [<dns> :foaf/homepage <dns>]
 
@@ -140,8 +145,10 @@
       [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
       [<dnc> :dc/issued dc-issued-new]
       [<dnc> :dc/contributor <simongray>]
+      [<dnc> :dc/contributor <cst>]
+      [<dnc> :dc/contributor <dsl>]
       [<dnc> :dc/publisher <cst>]
-      [<dnc> :foaf/homepage <dns>]
+      [<dnc> :foaf/homepage <dnc>]
 
       [<dn> :rdf/type :dcat/Dataset]
       [<dn> :vann/preferredNamespacePrefix "dn"]
@@ -151,6 +158,8 @@
       [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
       [<dn> :dc/issued dc-issued-new]
       [<dn> :dc/contributor <simongray>]
+      [<dn> :dc/contributor <cst>]
+      [<dn> :dc/contributor <dsl>]
       [<dn> :dc/publisher <cst>]
       [<dn> :foaf/homepage <dn>]
       ;; TODO: also make dc:rights for dns and dnc
@@ -162,19 +171,40 @@
       [<senti> :dc/title "DDS"]
       [<senti> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
       [<senti> :dc/description #voc/lstr "Det Danske Sentimentleksikon@da"]
+      [<senti> :dc/contributor <cst>]
+      [<senti> :dc/contributor <dsl>]
       [<senti> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
 
       [<cor> :dc/title "COR"]
+      [<cor> :dc/contributor <cst>]
+      [<cor> :dc/contributor <dsl>]
+      [<cor> :dc/contributor <dsn>]
       [<cor> :dc/description #voc/lstr "The Central Word Registry.@en"]
       [<cor> :dc/description #voc/lstr "Det Centrale Ordregister.@da"]
 
+      ;; Contributors/publishers
       [<simongray> :rdf/type :foaf/Person]
       [<simongray> :foaf/name "Simon Gray"]
-      [<simongray> :foaf/mbox "<mailto:simongray@hum.ku.dk>"]}
+      [<simongray> :foaf/workplaceHomepage "<https://nors.ku.dk/ansatte/?id=428973&vis=medarbejder>"]
+      [<simongray> :foaf/homepage <simongray>]
+      [<simongray> :foaf/weblog "<https://simon.grays.blog>"]
+      [<cst> :rdf/type :foaf/Group]
+      [<cst> :foaf/name (da "Center for Sprogteknologi")]
+      [<cst> :foaf/name (en "Centre for Language Technology")]
+      [<cst> :foaf/homepage <cst>]
+      [<cst> :foaf/homepage "<https://cst.ku.dk>"]
+      [<cst> :foaf/member <simongray>]
+      [<dsl> :rdf/type :foaf/Group]
+      [<dsl> :foaf/name (da "Det Danske Sprog- og Litteraturselskab")]
+      [<dsl> :foaf/homepage <dsl>]
+      [<dsn> :rdf/type :foaf/Group]
+      [<dsn> :foaf/name (da "Dansk Sprognævn")]
+      [<dsn> :foaf/homepage <dsn>]}
 
     (see-also <dn> <dns> <dnc>)
     (see-also <dn> <senti>)
     (see-also <dn> <cor>)
+    (see-also <cst> <dsl> <dsn>)
 
     ;; Downloads
     #{[<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-basic-uri)]
