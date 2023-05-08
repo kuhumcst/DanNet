@@ -1,9 +1,9 @@
 # What is DanNet?
 DanNet is a WordNet for the Danish language created as a collaboration between [DSL][DSL] and [CST][CST]. This new edition of the language resource was first published in 2023 and has been supported by funding from the [Carlsberg Foundation][Carlsbergfondet].
 
-A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of a language relate to others through named relations. One can also think of a WordNet as a kind of machine-readable dictionary.
+A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of a language relate to others through named relations. One can also think of a WordNet as a kind of machine-readable dictionary. DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA].
 
-Contrary to a normal dictionary, the definitions of words aren't central, but rather their relations to other words. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
+Contrary to a normal dictionary, the definitions of words aren't central; instead, relations to other words are the important part. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
 
 ## Download datasets
 You can traverse DanNet directly on wordnet.dk, but you may also download our data as an [RDF dataset][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. These datasets can be used for natural language processing.
@@ -16,6 +16,9 @@ You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined dataset or 
 [CST]: https://cst.ku.dk/english "Centre for Language Technology (University of Copenhagen)"
 [Carlsbergfondet]: https://www.carlsbergfondet.dk/en "The Carlsberg Foundation"
 [WordNet]: https://wordnet.princeton.edu/ "What is WordNet?"
+[Ontolex]: https://www.w3.org/2016/05/ontolex/ "Lexicon Model for Ontologies"
+[GWA RDF]: https://globalwordnet.github.io/schemas/#rdf "GWA RDF schema"
+[GWA]: http://globalwordnet.org/ "Global WordNet Association"
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
 [DanNet RDF]: http://wordnet.dk/export/rdf/dn "DanNet (RDF)"

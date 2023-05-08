@@ -1,7 +1,7 @@
 # Hvad er DanNet?
-DanNet er et WordNet for det danske sprog skabt i fælleskab af [DSL][DSL] og [CST][CST]. Denne nye udgave af sprogressourcen blev første gang udgivet i 2023 og er blevet støttet af midler fra [Carlsbergfondet][Carlsbergfondet].
+DanNet er et WordNet for det danske sprog skabt i fælleskab af [DSL][DSL] og [CST][CST]. Denne nye udgave af sprogressourcen blev første gang udgivet i 2023 og er blevet støttet med midler fra [Carlsbergfondet][Carlsbergfondet].
 
-Et [WordNet][WordNet] er en lexico-semantisk netværksgraf, der viser hvordan betydninger i sproget relaterer til andre gennem navngivne forbindelser. Man kan også tænke på et WordNet som en slags maskinlæsbar ordbog.
+Et [WordNet][WordNet] er en lexico-semantisk netværksgraf, der viser hvordan betydninger i sproget relaterer til andre gennem navngivne forbindelser. Man kan også tænke på et WordNet som en slags maskinlæsbar ordbog. DanNet er baseret på [Ontolex][Ontolex]-standarden med [tilføjelser][GWA RDF] fra [Global WordNet Association][GWA].
 
 Til forskel fra en almindelig ordbog er det ikke definitionen af ordet, der står i centrum, men i højere grad ordets relationer til andre ord. I DanNet kan man f.eks. se at en [dværgpil][dværgpil] er en slags [busk][busk], at et [lysthus][lysthus] findes i en [have][have], at [fiberdrys][fiberdrys] bruges til at [spise][spise], og at [kager][kage] typisk fremstilles ved [bagning][bage] og typisk er lavet af [mel][mel] og [sukker][sukker].
 
@@ -16,6 +16,9 @@ Du kan også hente [DanNet+COR+DDS][DanNet+COR+DDS] som et samlet datasæt eller
 [CST]: https://cst.ku.dk/ "Center for Sprogteknologi (Københavns Universitet)"
 [Carlsbergfondet]: https://www.carlsbergfondet.dk/da "Carlsbergfondet"
 [WordNet]: https://wordnet.princeton.edu/ "What is WordNet?"
+[Ontolex]: https://www.w3.org/2016/05/ontolex/ "Lexicon Model for Ontologies"
+[GWA RDF]: https://globalwordnet.github.io/schemas/#rdf "GWA RDF schema"
+[GWA]: http://globalwordnet.org/ "Global WordNet Association"
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
 [DanNet RDF]: http://wordnet.dk/export/rdf/dn "DanNet (RDF)"
