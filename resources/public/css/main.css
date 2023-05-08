@@ -558,7 +558,7 @@ span.unknown {
     color: #387111;
 }
 
-[lang]:not(footer, h1 span, article)::after {
+[lang]:not(footer, footer *, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
     vertical-align: top;

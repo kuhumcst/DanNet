@@ -360,7 +360,7 @@
 (defn about-redirect
   [_]
   {:status  301
-   :headers {"Location" "/dannet/page/about"}})
+   :headers {"Location" (shared/page-href "about")}})
 
 (def root-route
   ["/" :get [about-redirect] :route-name ::root])

@@ -842,26 +842,44 @@
   [{:keys [languages] :as opts}]
   [:footer
    (i18n/da-en languages
-     [:p {:lang "da"}
-      "© 2023, "
-      [:a {:href "https://cst.ku.dk"}
-       "Center for Sprogteknologi"]
-      " (" [:abbr {:title "Københavns Universitet"}
-            "KU"] ")"
-      " & "
-      [:a {:href "https://dsl.dk/"}
-       "Det Danske Sprog- og Litteraturselskab"]
-      "."]
-     [:p {:lang "en"}
-      "© 2023, "
-      [:a {:href "https://cst.ku.dk/english"}
-       "Centre for Language Technology"]
-      " (" [:abbr {:title "University of Copenhagen"}
-            "KU"] ")"
-      " & "
-      [:a {:lang "da" :href "https://dsl.dk/"}
-       "Det Danske Sprog- og Litteraturselskab"]
-      "."])])
+     [:<>
+      [:p {:lang "da"}
+       [:a {:href  (shared/page-href "privacy")
+            :title "Privatlivspolitik"}
+        "Privatliv"]
+       " · "
+       [:a {:href  "https://www.was.digst.dk/wordnet-dk"
+            :title "Tilgængelighedserklæring"}
+        "Tilgængelighed"]]
+      [:p {:lang "da"}
+       "© 2023, "
+       [:a {:href "https://cst.ku.dk"}
+        "Center for Sprogteknologi"]
+       " (" [:abbr {:title "Københavns Universitet"}
+             "KU"] ")"
+       " & "
+       [:a {:href "https://dsl.dk/"}
+        "Det Danske Sprog- og Litteraturselskab"]
+       "."]]
+     [:<>
+      [:p {:lang "en"}
+       [:a {:href  (shared/page-href "privacy")
+            :title "Privacy policy"}
+        "Privacy"]
+       " · "
+       [:a {:href  "https://www.was.digst.dk/wordnet-dk"
+            :title "Accessibility statement"}
+        "Accessibility"]]
+      [:p {:lang "en"}
+       "© 2023, "
+       [:a {:href "https://cst.ku.dk/english"}
+        "Centre for Language Technology"]
+       " (" [:abbr {:title "University of Copenhagen"}
+             "KU"] ")"
+       " & "
+       [:a {:lang "da" :href "https://dsl.dk/"}
+        "Det Danske Sprog- og Litteraturselskab"]
+       "."]])])
 
 (rum/defc language-select < rum/reactive
   [languages]
@@ -900,7 +918,7 @@
                                                      prefix'))]}
       (search-form opts')
       [:a.title {:title "Frontpage"
-                 :href  "/dannet/page/about"}
+                 :href  (shared/page-href "about")}
        "DanNet"]
       (language-select languages')
       [:button.synset-details {:class    (when details?

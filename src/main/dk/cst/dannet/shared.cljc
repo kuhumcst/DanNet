@@ -28,6 +28,10 @@
      :cljs (when (exists? js/inDevelopmentEnvironment)
              js/inDevelopmentEnvironment)))
 
+(defn page-href
+  [s]
+  (str "/dannet/page/" s))
+
 ;; NOTE: cookies should be set using the /cookies endpoint! This is the only way
 ;; to get long-term cookie storage in e.g. Safari using JavaScript.
 (defn get-cookie
