@@ -6,16 +6,8 @@ www.wordnet.dk {
     redir https://wordnet.dk{uri}
 }
 
-# TODO: eventually remove entirely
-beta.wordnet.dk {
-    redir https://wordnet.dk/dannet/page/about
-}
-
 wordnet.dk, localhost {
-    # TODO: eventually remove redirect
-    redir / https://cst.ku.dk/projekter/dannet
-
-    rate_limit {remote.ip} 120r/m
+    rate_limit {remote.ip} 240r/m
     encode gzip
     reverse_proxy dannet:3456
 }

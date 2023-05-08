@@ -25,9 +25,7 @@
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op])
-  (:import [java.time LocalDate]
-           [java.time.format DateTimeFormatter]))
+            [dk.cst.dannet.query.operation :as op]))
 
 ;; TODO: missing labels
 ;;       http://localhost:3456/dannet/data/synset-48454
@@ -105,7 +103,7 @@
   (prefix/schema-uri 'dnc))
 
 (def dc-issued-new
-  "2023-02-01")
+  "2023-05-08")
 
 (def dc-issued-old
   "2013-01-03")
@@ -133,7 +131,7 @@
       [<dns> :dc/contributor <cst>]
       [<dns> :dc/contributor <dsl>]
       [<dns> :dc/publisher <cst>]
-      [<dns> :foaf/homepage <dns>]
+      [<dns> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
       [<dns> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
       [<dns> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
       [<dns> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
@@ -150,7 +148,7 @@
       [<dnc> :dc/contributor <cst>]
       [<dnc> :dc/contributor <dsl>]
       [<dnc> :dc/publisher <cst>]
-      [<dnc> :foaf/homepage <dnc>]
+      [<dnc> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
       [<dnc> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
       [<dnc> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
       [<dnc> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
@@ -166,7 +164,7 @@
       [<dn> :dc/contributor <cst>]
       [<dn> :dc/contributor <dsl>]
       [<dn> :dc/publisher <cst>]
-      [<dn> :foaf/homepage <dn>]
+      [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
       [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
       [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
       [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
