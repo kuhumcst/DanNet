@@ -334,8 +334,8 @@
         dn-model    (get-model dataset prefix/dn-uri)
         cor-graph   (get-graph dataset prefix/cor-uri)
         cor-model   (get-model dataset prefix/cor-uri)
-        senti-graph (get-graph dataset prefix/senti-uri)
-        senti-model (get-model dataset prefix/senti-uri)
+        senti-graph (get-graph dataset prefix/dds-uri)
+        senti-model (get-model dataset prefix/dds-uri)
         union-model (.getUnionModel dataset)
         union-graph (.getGraph union-model)]
 
@@ -541,7 +541,7 @@
                                            [[?synset :dns/inherited ?inherit]
                                             [?inherit '_ '_]]))
                                  (doall))]
-      (println "Removing" (/ (count triples-to-remove) 2)  "inheritance markers...")
+      (println "Removing" (/ (count triples-to-remove) 2) "inheritance markers...")
       (txn/transact-exec dn-model
         (doseq [triple triples-to-remove]
           (remove! dn-model triple))))
@@ -1022,16 +1022,17 @@
       (igraph-jena/make-jena-graph model)))
 
   ;; Export individual models
-  (export-rdf-model! "dn.ttl" (get-model dataset prefix/dn-uri)
+  (export-rdf-model! "export/rdf/dn.zip" (get-model dataset prefix/dn-uri)
                      :prefixes (export-prefixes 'dn))
-  (export-rdf-model! "senti.ttl" (get-model dataset prefix/senti-uri)
-                     :prefixes (export-prefixes 'senti))
-  (export-rdf-model! "cor.ttl" (get-model dataset prefix/cor-uri)
+  (export-rdf-model! "export/rdf/dds.zip" (get-model dataset prefix/dds-uri)
+                     :prefixes (export-prefixes 'dds))
+  (export-rdf-model! "export/rdf/cor.zip" (get-model dataset prefix/cor-uri)
                      :prefixes (export-prefixes 'cor))
 
   ;; Export the entire dataset as RDF
   (export-rdf! dannet)
   (export-rdf! @dk.cst.dannet.web.resources/db)
+  (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
 
   ;; Test CSV table data
   (let [g (get-graph dataset prefix/dn-uri)]

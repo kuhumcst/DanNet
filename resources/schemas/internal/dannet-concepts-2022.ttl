@@ -1,187 +1,187 @@
-@prefix : <http://wordnet.dk/dannet/concepts/> .
-@prefix dns: <http://wordnet.dk/dannet/schema/> .
+@prefix : <https://wordnet.dk/dannet/concepts/> .
+@prefix dns: <https://wordnet.dk/dannet/schema/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 :Agentive a dns:EuroWordNetConcept ;
   rdfs:label "agentive"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Animal a dns:EuroWordNetConcept ;
   rdfs:label "animal"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Artifact a dns:EuroWordNetConcept ;
   rdfs:label "artifact"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Artwork a dns:DanNetConcept ;
   rdfs:label "artwork"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :BodyPart a dns:DanNetConcept ;
   rdfs:label "body part"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :BoundedEvent a dns:EuroWordNetConcept ;
   rdfs:label "bounded event"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Building a dns:EuroWordNetConcept ;
   rdfs:label "building"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Cause a dns:EuroWordNetConcept ;
   rdfs:label "cause"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Colour a dns:EuroWordNetConcept ;
   rdfs:label "colour"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Comestible a dns:EuroWordNetConcept ;
   rdfs:label "comestible"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Communication a dns:EuroWordNetConcept ;
   rdfs:label "communication"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Condition a dns:EuroWordNetConcept ;
   rdfs:label "condition"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Container a dns:EuroWordNetConcept ;
   rdfs:label "container"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Covering a dns:EuroWordNetConcept ;
   rdfs:label "covering"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Creature a dns:EuroWordNetConcept ;
   rdfs:label "creature"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Domain a dns:DanNetConcept ;
   rdfs:label "domain"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Dynamic a dns:EuroWordNetConcept ;
   rdfs:label "dynamic"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Existence a dns:EuroWordNetConcept ;
   rdfs:label "existence"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Experience a dns:EuroWordNetConcept ;
   rdfs:label "experience"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :FirstOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "1st order entity"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Form a dns:EuroWordNetConcept ;
   rdfs:label "form"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Furniture a dns:EuroWordNetConcept ;
   rdfs:label "furniture"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Garment a dns:EuroWordNetConcept ;
   rdfs:label "garment"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :GeopoliticalPlace a dns:EuroWordNetConcept ;
   rdfs:label "geopolitical place"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Group a dns:EuroWordNetConcept ;
   rdfs:label "group"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Human a dns:EuroWordNetConcept ;
   rdfs:label "human"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Imagerepresentation a dns:EuroWordNetConcept ;
   rdfs:label "image representation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Institution a dns:DanNetConcept ;
   rdfs:label "institution"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Instrument a dns:EuroWordNetConcept ;
   rdfs:label "instrument"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :LanguageRepresentation a dns:EuroWordNetConcept ;
   rdfs:label "language representation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Liquid a dns:EuroWordNetConcept ;
   rdfs:label "liquid"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Living a dns:EuroWordNetConcept ;
   rdfs:label "living"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Location a dns:EuroWordNetConcept ;
   rdfs:label "location"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Manner a dns:EuroWordNetConcept ;
   rdfs:label "manner"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Mental a dns:EuroWordNetConcept ;
   rdfs:label "mental"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :MoneyRepresentation a dns:EuroWordNetConcept ;
   rdfs:label "money representation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Natural a dns:EuroWordNetConcept ;
   rdfs:label "natural"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Object a dns:EuroWordNetConcept ;
   rdfs:label "object"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Occupation a dns:EuroWordNetConcept ;
   rdfs:label "occupation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Part a dns:EuroWordNetConcept ;
   rdfs:label "part"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Phenomenal a dns:EuroWordNetConcept ;
   rdfs:label "phenomenal"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Physical a dns:EuroWordNetConcept ;
   rdfs:label "physical"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Place a dns:EuroWordNetConcept ;
   rdfs:label "place"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Plant a dns:EuroWordNetConcept ;
   rdfs:label "plant"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Possession a dns:EuroWordNetConcept ;
   rdfs:label "possession"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Property a dns:EuroWordNetConcept ;
   rdfs:label "property"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Purpose a dns:EuroWordNetConcept ;
   rdfs:label "purpose"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Quantity a dns:EuroWordNetConcept ;
   rdfs:label "quantity"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Relation a dns:EuroWordNetConcept ;
   rdfs:label "relation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Representation a dns:EuroWordNetConcept ;
   rdfs:label "representation"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :SecondOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "2nd order entity"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Social a dns:EuroWordNetConcept ;
   rdfs:label "social"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Software a dns:EuroWordNetConcept ;
   rdfs:label "software"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Static a dns:EuroWordNetConcept ;
   rdfs:label "static"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Stimulating a dns:EuroWordNetConcept ;
   rdfs:label "stimulating"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Substance a dns:EuroWordNetConcept ;
   rdfs:label "substance"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :ThirdOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "3rd order entity"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Time a dns:EuroWordNetConcept ;
   rdfs:label "time"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :UnboundedEvent a dns:EuroWordNetConcept ;
   rdfs:label "unbounded event"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Underspecified a dns:EuroWordNetConcept ;
   rdfs:label "underspecified"@en ;
-  rdfs:isDefinedBy <http://wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Vehicle a dns:EuroWordNetConcept ;
   rdfs:label "vehicle"@en ;
   rdfs:isDefinedBy <http://www.wordnet.dk/dannet/concepts> .

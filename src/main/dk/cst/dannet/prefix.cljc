@@ -80,9 +80,9 @@
                :download {"rdf" {:default "cor.zip"}}}
 
    ;; Sentiment data
-   'senti     {:uri      sentiment-root
+   'dds       {:uri      sentiment-root
                :export   #{'dn 'dns 'marl}
-               :download {"rdf" {:default "sentiment.zip"}}}
+               :download {"rdf" {:default "dds.zip"}}}
 
    ;; The three internal DanNet namespaces.
    'dn        {:uri      (str dannet-root "data/")
@@ -91,7 +91,7 @@
                            'wn 'ontolex 'skos 'lexinfo
                            'dcat 'vann 'foaf 'dc}
                :download {"rdf" {:default   "dannet.zip"
-                                 "merged"   "dannet-sentiment-cor.zip"
+                                 "merged"   "dannet-dds-cor.zip"
                                  "complete" "dannet-complete.zip"}
                           "csv" {:default "dannet-csv.zip"}}}
 
@@ -199,8 +199,8 @@
 (def dn-uri
   (prefix->uri 'dn))
 
-(def senti-uri
-  (prefix->uri 'senti))
+(def dds-uri
+  (prefix->uri 'dds))
 
 (def cor-uri
   (prefix->uri 'cor))

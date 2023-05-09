@@ -70,9 +70,9 @@
   "The RDF resource URI for the DanNet/EuroWordNet concepts."
   (prefix/prefix->rdf-resource 'dnc))
 
-(def <senti>
+(def <dds>
   "The RDF resource URI for the sentiment dataset."
-  (prefix/prefix->rdf-resource 'senti))
+  (prefix/prefix->rdf-resource 'dds))
 
 (def <cor>
   "The RDF resource URI for the COR dataset."
@@ -93,8 +93,8 @@
 (def cor-zip-uri
   (prefix/dataset-uri "rdf" 'cor))
 
-(def senti-zip-uri
-  (prefix/dataset-uri "rdf" 'senti))
+(def dds-zip-uri
+  (prefix/dataset-uri "rdf" 'dds))
 
 (def dns-schema-uri
   (prefix/schema-uri 'dns))
@@ -169,12 +169,12 @@
       [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
       [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
-      [<senti> :dc/title "DDS"]
-      [<senti> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
-      [<senti> :dc/description #voc/lstr "Det Danske Sentimentleksikon@da"]
-      [<senti> :dc/contributor <cst>]
-      [<senti> :dc/contributor <dsl>]
-      [<senti> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
+      [<dds> :dc/title "DDS"]
+      [<dds> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
+      [<dds> :dc/description #voc/lstr "Det Danske Sentimentleksikon@da"]
+      [<dds> :dc/contributor <cst>]
+      [<dds> :dc/contributor <dsl>]
+      [<dds> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
 
       [<cor> :dc/title "COR"]
       [<cor> :dc/contributor <cst>]
@@ -207,7 +207,7 @@
       [<dsn> :foaf/homepage <dsn>]}
 
     (see-also <dn> <dns> <dnc>)
-    (see-also <dn> <senti>)
+    (see-also <dn> <dds>)
     (see-also <dn> <cor>)
     (see-also <cst> <dsl> <dsn>)
 
@@ -217,7 +217,7 @@
       [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-complete-uri)]
       [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-csv-uri)]
       [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]
-      [<senti> :dcat/downloadURL (prefix/uri->rdf-resource senti-zip-uri)]
+      [<dds> :dcat/downloadURL (prefix/uri->rdf-resource dds-zip-uri)]
       [<dns> :dcat/downloadURL (prefix/uri->rdf-resource dns-schema-uri)]
       [<dnc> :dcat/downloadURL (prefix/uri->rdf-resource dnc-schema-uri)]}))
 
@@ -878,14 +878,15 @@
               #{[?synset :dns/ontologicalType ?ontotype]
                 [?synset :wn/hypernym ?hypernym]}))))
 
+;; Coercing to int to avoid ^^<http://www.w3.org/2001/XMLSchema#long> in export
 (def pol-val
-  {"nxx" -3
-   "nx"  -2
-   "n"   -1
-   "0"   0
-   "p"   1
-   "px"  2
-   "pxx" 3})
+  {"nxx" (int -3)
+   "nx"  (int -2)
+   "n"   (int -1)
+   "0"   (int 0)
+   "p"   (int 1)
+   "px"  (int 2)
+   "pxx" (int 3)})
 
 (defn pol-class
   [pol]
@@ -909,11 +910,11 @@
       #{#_[_word-opinion :rdf/type :marl/Opinion]
         #_[_word-opinion :marl/describesObject word]
         [word :dns/sentiment _word-opinion]
-        [_word-opinion :marl/polarityValue (get pol-val word-pol 0)]
+        [_word-opinion :marl/polarityValue (get pol-val word-pol (int 0))]
         [_word-opinion :marl/hasPolarity (pol-class word-pol)]}
       (when (not= sense-id word-id)
         #{[sense :dns/sentiment _sense-opinion]
-          [_sense-opinion :marl/polarityValue (get pol-val sense-pol 0)]
+          [_sense-opinion :marl/polarityValue (get pol-val sense-pol (int 0))]
           [_sense-opinion :marl/hasPolarity (pol-class sense-pol)]}))))
 
 (defn- preprocess-cor
@@ -1026,7 +1027,7 @@
                 :preprocess (comp mark-duplicate-senses rest)]}
 
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
-   prefix/senti-uri
+   prefix/dds-uri
    {:sentiment [->sentiment-triples
                 "bootstrap/other/sentiment/sense_polarities.tsv"
                 :encoding "UTF-8"
@@ -1134,7 +1135,7 @@
        (take 10))
 
   ;; Example sentiment triples
-  (->> (read-triples (get-in imports [prefix/senti-uri :sentiment]))
+  (->> (read-triples (get-in imports [prefix/dds-uri :sentiment]))
        (take 10))
 
   ;; Example Synsets
