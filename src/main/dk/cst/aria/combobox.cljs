@@ -37,7 +37,7 @@
   down)
 
 (def click-item
-  (set/union spacebar enter))
+  enter)
 
 (def supported-keys
   (set/union prev-item next-item click-item))
