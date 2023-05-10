@@ -1,14 +1,15 @@
-# What is DanNet?
+# DanNet
 DanNet is a WordNet for the Danish language created as a collaboration between [DSL][DSL] and [CST][CST]. This new edition of the language resource was first published in 2023 and has been supported by funding from the [Carlsberg Foundation][Carlsbergfondet].
 
-A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of a language relate to others through named relations. One can also think of a WordNet as a kind of machine-readable dictionary. DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA].
+## The structure of a WordNet
+A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of a language relate to others through named relations. One can also think of a WordNet as a kind of machine-readable dictionary. To get a sense of what DanNet is, you can try searching for a lemma by clicking on the **looking glas** in the upper left corner.
 
-Contrary to a normal dictionary, the definitions of words aren't central; instead, relations to other words are the important part. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
+Unlike a normal dictionary, the definitions of words aren't central; instead, relations to other words are the important part. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
 
 ## Download datasets
-You can traverse DanNet directly on wordnet.dk, but you may also download our data as an [RDF dataset][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. These datasets can be used for natural language processing.
+DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF dataset][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. These datasets can be used for natural language processing.
 
-DanNet is also integrated with [COR][COR] and [DDS][DDS]. These alternative RDF datasets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
+DanNet is integrated with [COR][COR] and [DDS][DDS] too. These alternative RDF datasets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
 
 You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined dataset or download a [complete copy][complete] of all of the data that can be found on wordnet.dk/dannet, including much additional, logically inferred data.
 
