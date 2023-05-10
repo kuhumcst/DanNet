@@ -98,6 +98,12 @@ However, when testing release you can either run the docker compose setup from i
 docker compose up --build
 ```
 
+Usually, the Caddy container can keep running in between restarts, i.e. only the DanNet container should be rebuilt:
+
+```shell
+docker compose up -d dannet --build
+```
+
 > NOTE: requires that the Docker daemon is installed and running!
 
 Or you may build and run a new release manually from this directory:
