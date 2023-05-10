@@ -35,12 +35,12 @@
 ;; TODO: weird? http://localhost:3456/dannet/data/synset-47363
 
 (defn da
-  [s]
-  (->LangStr s "da"))
+  [& s]
+  (->LangStr (apply str s) "da"))
 
 (defn en
-  [s]
-  (->LangStr s "en"))
+  [& s]
+  (->LangStr (apply str s) "en"))
 
 (defn fix-ellipsis
   [definition]
@@ -103,7 +103,7 @@
   (prefix/schema-uri 'dnc))
 
 (def dc-issued-new
-  "2023-05-08")
+  "2023-05-11")
 
 (def dc-issued-old
   "2013-01-03")
@@ -154,9 +154,12 @@
       [<dnc> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
       [<dn> :rdf/type :dcat/Dataset]
+      [<dn> :rdf/type :lime/Lexicon]
       [<dn> :vann/preferredNamespacePrefix "dn"]
       [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
+      [<dn> :rdfs/label "DanNet"]
       [<dn> :dc/title "DanNet"]
+      [<dn> :dc/language "da"]
       [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
       [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
       [<dn> :dc/issued dc-issued-new]
@@ -165,10 +168,17 @@
       [<dn> :dc/contributor <dsl>]
       [<dn> :dc/publisher <cst>]
       [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
-      [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature.")]
-      [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
+      [<dn> :schema/email "simongray@hum.ku.dk"]
+      [<dn> :owl/versionInfo dc-issued-new]
+      [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & "
+                           "The Society for Danish Language and Literature; "
+                           "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
+      [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & "
+                           "Det Danske Sprog- og Litteraturselskab; "
+                           "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
       [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
+      [<dds> :rdfs/label "DDS"]
       [<dds> :dc/title "DDS"]
       [<dds> :dc/description #voc/lstr "The Danish Sentiment Lexicon@en"]
       [<dds> :dc/description #voc/lstr "Det Danske Sentimentleksikon@da"]
@@ -176,6 +186,7 @@
       [<dds> :dc/contributor <dsl>]
       [<dds> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
 
+      [<cor> :rdfs/label "COR"]
       [<cor> :dc/title "COR"]
       [<cor> :dc/contributor <cst>]
       [<cor> :dc/contributor <dsl>]
