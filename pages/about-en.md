@@ -6,12 +6,12 @@ A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of
 
 Unlike a normal dictionary, the definitions of words aren't central; instead, relations to other words are the important part. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
 
-## Download datasets
-DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF dataset][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. These datasets can be used for natural language processing.
+## Download our data
+DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF data set][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. All our data sets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
 
-DanNet is integrated with [COR][COR] and [DDS][DDS] too. These alternative RDF datasets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
+DanNet is integrated with [COR][COR] and [DDS][DDS] too. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
 
-You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined dataset or download a [complete copy][complete] of all of the data that can be found on wordnet.dk/dannet, including much additional, logically inferred data.
+You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined data set or download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
 
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/english "Centre for Language Technology (University of Copenhagen)"
