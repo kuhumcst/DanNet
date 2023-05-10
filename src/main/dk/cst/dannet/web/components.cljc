@@ -155,7 +155,7 @@
      :when-let [s (not-empty (str/trim (str v)))]
 
      (= attr-key :vann/preferredNamespacePrefix)
-     (prefix-elem (symbol s))
+     (prefix-elem (symbol s) {:independent-prefix true})
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
      (re-matches #"\{.+\}" s)
@@ -288,20 +288,22 @@
   If context `opts` are provided, the `prefix` is assumed to be in the value
   column and will potentially be hidden according to the provided context."
   ([prefix]
+   (prefix-elem prefix nil))
+  ([prefix {:keys [independent-prefix] :as opts}]
    (cond
      (symbol? prefix)
      [:span.prefix {:title (prefix/prefix->uri prefix)
-                    :class (prefix/prefix->class prefix)}
+                    :class [(prefix/prefix->class prefix)
+                            (if independent-prefix
+                              "independent"
+                              (when (hide-prefix? prefix opts)
+                                "hidden"))]}
       (str prefix) [:span.prefix__sep ":"]]
 
      (string? prefix)
      [:span.prefix {:title (prefix/guess-ns prefix)
                     :class "unknown"}
-      "???"]))
-  ([prefix opts]
-   (if (hide-prefix? prefix opts)
-     [:span.hidden (prefix-elem prefix)]
-     (prefix-elem prefix))))
+      "???"])))
 
 (defn numbered?
   [x]
