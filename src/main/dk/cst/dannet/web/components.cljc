@@ -209,7 +209,7 @@
       [:a {:href  (prefix/resolve-href resource)
            :title (str prefix ":" (name resource))
            :lang  (i18n/lang label)
-           :class (or class (get prefix/prefix->class prefix ""))}
+           :class (or class (get prefix/prefix->class prefix "unknown"))}
        (or (transform-val label opts)
            (name resource))])
     (let [local-name (prefix/guess-local-name resource)]

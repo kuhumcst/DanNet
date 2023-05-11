@@ -215,9 +215,9 @@
   "Convert a `prefix` to a CSS class."
   (invert-map
     {"dannet"  #{'dn 'dnc 'dns}
-     "w3c"     #{'rdf 'rdfs 'owl 'skos 'dcat}
-     "meta"    #{'dc 'dc11 'vann 'cc}
-     "ontolex" #{'ontolex 'lexinfo 'marl 'olia}
+     "w3c"     #{'dcat 'foaf 'owl 'rdf 'rdfs 'skos 'svs}
+     "meta"    #{'cc 'dc 'dc11 'vann 'schema}
+     "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia}
      "wordnet" #{'wn}}))
 
 (defn with-prefix

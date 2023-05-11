@@ -557,6 +557,9 @@ span.unknown {
 .wordnet * {
     color: #387111;
 }
+.unknown {
+    color: #333;
+}
 
 [lang]:not(footer, footer *, h1 span, article)::after {
     content: attr(lang);
