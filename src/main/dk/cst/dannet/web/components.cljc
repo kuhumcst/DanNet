@@ -854,7 +854,11 @@
             :title "Tilgængelighedserklæring"}
         "Tilgængelighed"]
        " · "
-       [:a {:href "https://wordnet.dk/dannet/data"
+       [:a {:href (shared/page-href "releases")
+            :title "DanNet-versioner"}
+        "Versioner"]
+       " · "
+       [:a {:href "/dannet/data"
             :title "DanNet-metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "da"}
@@ -877,7 +881,11 @@
             :title "Accessibility statement"}
         "Accessibility"]
        " · "
-       [:a {:href "https://wordnet.dk/dannet/data"
+       [:a {:href (shared/page-href "releases")
+            :title "DanNet releases"}
+        "Releases"]
+       " · "
+       [:a {:href "/dannet/data"
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "en"}
