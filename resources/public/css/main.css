@@ -623,6 +623,17 @@ h2 {
    letter-spacing: 0.2ch;
 }
 
+h3 {
+   font-size: 18px;
+   font-weight: normal;
+   text-align: left;
+   border-bottom: 1px solid rgba(0,0,0,0.1);
+   margin: 36px 0 12px 0;
+   padding: 0 0 4px 0;
+   font-variant: small-caps;
+   letter-spacing: 0.2ch;
+}
+
 h2::before {
     content: "⊱ ";
     opacity: 0.33;
@@ -631,6 +642,17 @@ h2::before {
 h2::after {
     content: " ⊰";
     opacity: 0.33;
+}
+
+code,
+pre.viewer-code {
+    background: rgba(0,0,0,0.1);
+    padding: 4px 2px 4px 4px; /* Right side accounts for word spacing. */
+    border-radius: 2px;
+}
+
+pre.viewer-code {
+    padding: 12px;
 }
 
 header > .rdf-uri {
@@ -747,7 +769,7 @@ td.prefix + td {
     padding-left: 0;
 }
 
-h1, h2 {
+h1, h2, h3 {
     filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
 }
 
