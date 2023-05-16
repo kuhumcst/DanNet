@@ -1,9 +1,12 @@
 Rationale
 =========
+Note that this is the _original_ rationale that I wrote in 2020 before starting development on the new version of DanNet. It now serves as a historical document of the justification to use RDF as the native data model. ~[SG](https://github.com/simongray)
+
+----
+
 A WordNet is a knowledge graph intended for [word-sense disambiguation](https://en.wikipedia.org/wiki/Word-sense_disambiguation).
 
 The task of word-sense disambiguation - and related tasks - is separate from the _way_ the data itself is represented. While modelling word senses has an obvious linguistic dimension to it at the highest level, achieving an optimal data representation is fundamentally a computer science decision.
-
 
 ### Triplets
 The fundamental unit of a WordNet is the triplet, i.e. a tuple containing 3 items:

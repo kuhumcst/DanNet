@@ -407,7 +407,7 @@
 (def old-inserted-by-DanNet-word
   #"DN:(.+)")
 
-;; Read ./doc/label-rewrite.md for more.
+;; Read ./pages/label-rewrite-en.md for more.
 (defn sense-label
   "Create a sense label from `word`, optional `entry-id`, and `definition-id`."
   [word entry-id definition-id]

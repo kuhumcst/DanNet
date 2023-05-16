@@ -1,6 +1,8 @@
 Synset/sense label rewrite
 ==========================
-> My comments on the format of the old DanNet labels based on my own induction. ~SG
+These are my comments on the format of the old DanNet labels based on my own induction. ~[SG](https://github.com/simongray)
+
+----
 
 The label actually contains a lot of identifying information tying DanNet
 to ordnet.dk and its underlying database.

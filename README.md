@@ -28,7 +28,7 @@ In Ontolex-lemon...
 By choosing these standards, we maximise DanNet's ability to integrate with other lexical resources, in particular with other WordNets.
 
 ### Clojure support
-In its native Clojure representation, DanNet can be queried in a variety of ways (described in [queries.md](doc/queries.md)). It is especially convenient to query data from within a Clojure REPL.
+In its native Clojure representation, DanNet can be queried in a variety of ways (described in [queries.md](pages/queries-en.md)). It is especially convenient to query data from within a Clojure REPL.
 
 Support for Apache Jena transactions is built-in and enabled automatically when needed. This ensures support for persistence on disk through the [TDB](https://jena.apache.org/documentation/tdb/) layer included with Apache Jena (mandatory for [TDB 2](https://jena.apache.org/documentation/tdb2/)). Both in-memory and persisted graphs can thus be queried using the same function calls. The [DanNet website](https://wordnet.dk/dannet) contains the complete dataset inside a TDB 2 graph.
 
@@ -59,7 +59,7 @@ Implementation
 --------------
 The main database that the new tooling has been developed for is [Apache Jena](https://jena.apache.org/), which is a mature RDF triplestore that also supports [OWL](https://www.w3.org/OWL/) inferences. When represented inside Jena, the many relations of DanNet are turned into a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). The new DanNet is developed in the Clojure programming language (an alternative to Java on the JVM) which has multiple libraries for interacting with the Java-based Apache Jena, e.g. [Aristotle](https://github.com/arachne-framework/aristotle) and [igraph-jena](https://github.com/ont-app/igraph-jena).
 
-However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](doc/rationale.md) for more.
+However, standardising on the basic RDF triple abstraction does open up a world of alternative data stores, query languages, and graph algorithms. See [rationale.md](pages/rationale-en.md) for more.
 
 Web app
 -------
@@ -133,6 +133,6 @@ npm install react@17 react-dom@17 create-react-class@17
 
 Querying DanNet
 ---------------
-The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.cst.dannet.db` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](doc/queries.md).
+The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.cst.dannet.db` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](pages/queries-en.md).
 
 For simple lemma searches, you can of course visit the official instance at wordnet.dk/dannet.

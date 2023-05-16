@@ -1,6 +1,6 @@
 Queries
 =======
-DanNet can queried in a variety of ways. This plurality is intentional as explained in the [rationale](rationale.md). The directly supported query methods include:
+DanNet can queried in a variety of ways. This plurality is intentional as explained in the [rationale](/dannet/page/rationale). The directly supported query methods include:
 
 * [SPARQL](#sparql): the official RDF query language
 * [SPARQL Algebra](#sparql-algebra): the underlying algebraic expressions that SPARQL compiles to

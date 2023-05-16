@@ -14,6 +14,13 @@ DanNet er også integreret med [COR][COR] og [DDS][DDS]. Disse alternative RDF-d
 
 Du kan også hente [DanNet+COR+DDS][DanNet+COR+DDS] som et samlet datasæt eller hente en [komplet kopi][complete] af al data der kan tilgås på wordnet.dk/dannet, inklusiv logisk udledt data og tilknyttede RDF-skemaer.
 
+## Mere dokumentation
+Følgende dokumenter er kun tilgængelige på engelsk og primært tiltænkt udviklere:
+
+* [The original rationale][rationale]
+* [Querying DanNet][queries]
+* [Explaining the sense/synset labels][label-rewrite]
+
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/ "Center for Sprogteknologi (Københavns Universitet)"
 [Carlsbergfondet]: https://www.carlsbergfondet.dk/da "Carlsbergfondet"
@@ -23,19 +30,22 @@ Du kan også hente [DanNet+COR+DDS][DanNet+COR+DDS] som et samlet datasæt eller
 [GWA]: http://globalwordnet.org/ "Global WordNet Association"
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
-[DanNet RDF]: https://wordnet.dk/export/rdf/dn "DanNet (RDF)"
-[DanNet CSV]:  https://wordnet.dk/export/csv/dn "DanNet (CSV)"
-[COR-integration]: https://wordnet.dk/export/rdf/cor "COR-integration (RDF)"
-[DDS-integration]: https://wordnet.dk/export/rdf/dds "DDS-integration (RDF)"
-[DanNet+COR+DDS]: https://wordnet.dk/export/rdf/dn?variant=merged "DanNet + COR + DDS (RDF)"
-[complete]: https://wordnet.dk/export/rdf/dn?variant=complete "DanNet + COR + DDS + logisk udledt data (RDF)"
-[dværgpil]: https://wordnet.dk/dannet/data/synset-1304 "dværgpil"
-[busk]: https://wordnet.dk/dannet/data/synset-597 "busk"
-[lysthus]: https://wordnet.dk/dannet/data/synset-4733 "lysthus"
-[have]: https://wordnet.dk/dannet/data/synset-1876 "have"
-[fiberdrys]: https://wordnet.dk/dannet/data/synset-34989 "fiberdrys"
-[spise]: https://wordnet.dk/dannet/data/synset-124 "spise"
-[kage]: https://wordnet.dk/dannet/data/synset-52 "kage"
-[bage]: https://wordnet.dk/dannet/data/synset-145 "bage"
-[mel]: https://wordnet.dk/dannet/data/synset-131 "mel"
-[sukker]: https://wordnet.dk/dannet/data/synset-128 "sukker"
+[DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
+[DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
+[COR-integration]: /export/rdf/cor "COR-integration (RDF)"
+[DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
+[DanNet+COR+DDS]: /export/rdf/dn?variant=merged "DanNet + COR + DDS (RDF)"
+[complete]: /export/rdf/dn?variant=complete "DanNet + COR + DDS + logisk udledt data (RDF)"
+[dværgpil]: /dannet/data/synset-1304 "dværgpil"
+[busk]: /dannet/data/synset-597 "busk"
+[lysthus]: /dannet/data/synset-4733 "lysthus"
+[have]: /dannet/data/synset-1876 "have"
+[fiberdrys]: /dannet/data/synset-34989 "fiberdrys"
+[spise]: /dannet/data/synset-124 "spise"
+[kage]: /dannet/data/synset-52 "kage"
+[bage]: /dannet/data/synset-145 "bage"
+[mel]: /dannet/data/synset-131 "mel"
+[sukker]: /dannet/data/synset-128 "sukker"
+[label-rewrite]: /dannet/page/label-rewrite "Synset/sense label rewrite"
+[rationale]: /dannet/page/rationale "Rationale"
+[queries]: /dannet/page/queries "Queries"
