@@ -946,9 +946,7 @@
                                            "Show more details")
                                :on-click (fn [e]
                                            (.preventDefault e)
-                                           (swap! shared/state update :details? not))}]
-      [:a.github {:title "The source code for DanNet is available on Github"
-                  :href  "https://github.com/kuhumcst/DanNet"}]]
+                                           (swap! shared/state update :details? not))}]]
      [:div#content
       [:main
        (page-component opts')]

@@ -13,12 +13,13 @@ DanNet is integrated with [COR][COR] and [DDS][DDS] too. These alternative RDF d
 
 You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined data set or download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
 
-## More documentation
+## Documentation
 The following documents are only available in English and mostly for developers:
 
 * [The original rationale][rationale]
 * [Querying DanNet][queries]
 * [Explaining the sense/synset labels][label-rewrite]
+* [Github project][Github]: the source code for DanNet is available on Github + additional documentation.
 
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/english "Centre for Language Technology (University of Copenhagen)"
@@ -48,3 +49,4 @@ The following documents are only available in English and mostly for developers:
 [label-rewrite]: /dannet/page/label-rewrite "Synset/sense label rewrite"
 [rationale]: /dannet/page/rationale "Rationale"
 [queries]: /dannet/page/queries "Queries"
+[Github]: https://github.com/kuhumcst/DanNet "The Github project page"
