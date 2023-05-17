@@ -21,6 +21,7 @@
             [arachne.aristotle.graph :refer [rdf-bag]]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
+            [reitit.impl :refer [percent-encode]]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
@@ -721,6 +722,22 @@
       (re-find #"slang" register)
       (conj [sense :lexinfo/register :lexinfo/slangRegister]))))
 
+(h/defn iri-encode
+  "Encode `s` as an IRI (basically just reitit url-encode which allows ÆØÅ)."
+  [s]
+  (str/replace s #"[^ÆØÅæøåA-Za-z0-9\!'\(\)\*_~.-]+" percent-encode))
+
+(h/defn ->ddo-resource
+  "Get RDF resource with `label` for a DDO `word-id` and optionally `sense-id`."
+  ([word-id sense-id label]                                 ; for senses
+   (let [lemma (iri-encode (str/replace label #"_[^ $]+" ""))]
+     (str "<https://ordnet.dk/ddo/ordbog?entry_id=" word-id
+          (when sense-id
+            (str "&def_id=" sense-id))
+          "&query=" lemma ">")))
+  ([word-id label]                                          ; for words
+   (->ddo-resource word-id nil label)))
+
 (h/defn ->sense-triples
   "Convert a `row` from 'wordsenses.csv' to triples."
   [[sense-id word-id synset-id register _ :as row]]
@@ -739,6 +756,11 @@
         ;; sent to me by Thomas Troelsgård from DSL.
         (when-let [label (some-> sense-id id->label rewrite-sense-label)]
           #{[sense :rdfs/label label]})
+
+        ;; Links to the DDO dictionary on ordnet.dk.
+        (when-let [old-label (some-> sense-id id->label)]
+          #{[sense :dns/source (->ddo-resource word-id sense-id old-label)]
+            [word :dns/source (->ddo-resource word-id old-label)]})
 
         ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
         ;; These relations make no sense to include. Instead, the necessary
@@ -1133,6 +1155,8 @@
         #'dn-metadata-triples
         #'examples
         #'->2023-triples
+        #'iri-encode
+        #'->ddo-resource
         #'->sentiment-triples
         #'->cor-k-triples
         #'->cor-ext-triples

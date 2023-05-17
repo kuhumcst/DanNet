@@ -1,6 +1,9 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
+## SNAPSHOT
+* Mange DanNet-ord og -betydninger er blevet forbundet med [DDO](https://ordnet.dk/ddo) via den nye `dns:source`-relation.
+
 ## **2023-05-11**: Det nye DanNet
 Der er for mange ændringer i denne første version til at opremse dem alle på en kortfattet måde:
 

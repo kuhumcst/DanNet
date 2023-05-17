@@ -2,9 +2,20 @@
 @prefix dnc: <https://wordnet.dk/dannet/concepts/> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix marl: <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
+:source a rdf:Property ;
+  rdfs:subPropertyOf skos:related ;
+  rdfs:label "source"@en ;
+  rdfs:label "kilde"@da ;
+  rdfs:comment "The original source of this resource."@en ;
+  rdfs:comment "Den oprindelige kilde til denne ressource."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# TODO: can this be removed/made internal now that :source exists?
 :dslSense a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalSense ;
   rdfs:label "DSL sense"@en ;
