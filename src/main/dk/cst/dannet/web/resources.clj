@@ -181,6 +181,33 @@
   (or (:languages request)
       (i18n/lang-prefs (get-in request [:accept-language :type]))))
 
+(defn external-redirect
+  "Get a redirect response that works for both HTTP redirects and for the API
+  based on the `subject` RDF resource and the requested `content-type`.
+
+  Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
+  manually, so a somewhat hacky solution is required to make it work. By setting
+  a custom header and adding some redirect logic on the client-side, the client
+  knows when to redirect from an API call. See also: "
+  [subject content-type]
+  (let [location (if (keyword? subject)
+                   (prefix/kw->uri subject)
+                   (prefix/rdf-resource->uri subject))]
+    (case content-type
+      "text/html"
+      {:status  303
+       :headers {"Location" location}}
+
+      ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
+      ;; e.g. https://github.com/lambdaisland/fetch/issues/24
+      "application/transit+json"
+      {:status  200
+       :headers (x-headers {:redirect location})
+       :body    "{}"}
+
+      ;; else
+      nil)))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -219,10 +246,11 @@
                              :body   (body data page-meta)}
                             (let [alt (alt-resource qname)]
                               (if (and alt (not-empty (q/entity g alt)))
-                                {:status  301
+                                {:status  301               ; TODO: use 302...?
                                  :headers {"Location" (prefix/resource-path alt)}}
-                                {:status 404
-                                 :body   (body (dissoc data :entity) page-meta)}))))
+                                (or (external-redirect subject* content-type)
+                                    {:status 404
+                                     :body   (body (dissoc data :entity) page-meta)})))))
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)
                                "Content-Type" content-type)
@@ -255,7 +283,7 @@
                 (if (= (count search-results) 1)
                   (-> ctx
                       (update :response assoc
-                              :status 301)
+                              :status 303)                  ; = See Other
                       (update-in [:response :headers] assoc
                                  "Location" (str entity-redirect-path
                                                  (name (ffirst search-results)))))

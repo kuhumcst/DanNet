@@ -834,12 +834,12 @@
    "markdown" markdown-page})
 
 (defn x-header
-  "Get the custom `header` in the HTTP `response`.
+  "Get the custom `header` in the HTTP `headers`.
 
   See also: dk.cst.dannet.web.resources/x-headers"
-  [response header]
+  [headers header]
   ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
-  (get response (str "x-" (str/lower-case (name header)))))
+  (get headers (str "x-" (str/lower-case (name header)))))
 
 (rum/defc page-footer
   [{:keys [languages] :as opts}]
@@ -855,11 +855,11 @@
             :title "Tilgængelighedserklæring"}
         "Tilgængelighed"]
        " · "
-       [:a {:href (shared/page-href "releases")
+       [:a {:href  (shared/page-href "releases")
             :title "DanNet-versioner"}
         "Versioner"]
        " · "
-       [:a {:href "/dannet/data"
+       [:a {:href  "/dannet/data"
             :title "DanNet-metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "da"}
@@ -882,11 +882,11 @@
             :title "Accessibility statement"}
         "Accessibility"]
        " · "
-       [:a {:href (shared/page-href "releases")
+       [:a {:href  (shared/page-href "releases")
             :title "DanNet releases"}
         "Releases"]
        " · "
-       [:a {:href "/dannet/data"
+       [:a {:href  "/dannet/data"
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "en"}

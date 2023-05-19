@@ -112,9 +112,6 @@
 (def prefixes
   (set (keys schemas)))
 
-(def qname-re
-  (re-pattern (str "(" (str/join "|" prefixes) "):(.+)")))
-
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
@@ -141,6 +138,7 @@
     (let [[prefix local-name] (str/split qname #":")]
       (keyword prefix local-name))))
 
+;; TODO: this seems wrong???
 (defn qname->uri
   [qname]
   (subs qname 1 (dec (count qname))))

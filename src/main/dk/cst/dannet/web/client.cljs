@@ -80,21 +80,25 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
-         #(let [headers        (:headers %)
-                page           (com/x-header headers :page)
-                body           (not-empty (:body %))
-                page-component (com/page-shell page body)
-                page-title     (com/x-header headers :title)]
-            (shared/clear-fetch path)
-            (set! js/document.title page-title)
-            (reset! location {:path    path
-                              :headers headers
-                              :data    body})
-            (when-let [url (shared/response->url %)]
-              (update-scroll-state! url))
-            ;; Ensure that the search overlay closes when clicking 'back'.
-            (js/document.activeElement.blur)
-            (rum/mount page-component app))))
+         #(if-let [redirect (com/x-header (:headers %) :redirect)]
+            ;; A hack for client redirects since we are not allowed to intercept
+            ;; any 30x status codes coming from the server from JS.
+            (js/window.location.replace redirect)
+            (let [headers        (:headers %)
+                  page           (com/x-header headers :page)
+                  body           (not-empty (:body %))
+                  page-component (com/page-shell page body)
+                  page-title     (com/x-header headers :title)]
+              (shared/clear-fetch path)
+              (set! js/document.title page-title)
+              (reset! location {:path    path
+                                :headers headers
+                                :data    body})
+              (when-let [url (shared/response->url %)]
+                (update-scroll-state! url))
+              ;; Ensure that the search overlay closes when clicking 'back'.
+              (js/document.activeElement.blur)
+              (rum/mount page-component app)))))
 
 (defn set-up-navigation!
   []
