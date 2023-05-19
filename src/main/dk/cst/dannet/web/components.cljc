@@ -553,31 +553,6 @@
          local-name
          local-name]))))
 
-(rum/defc no-entity-data
-  [languages rdf-uri]
-  ;; TODO: should be more intelligent than a hardcoded value
-  (if (= languages ["da" "en" nil])
-    [:section.text
-     [:p {:lang "da"}
-      "Der er desværre intet data som beskriver denne "
-      [:abbr {:title "Resource Description Framework"}
-       "RDF"]
-      "-ressource i DanNet."]
-     [:p {:lang "da"}
-      "Kunne du i stedet for tænke dig at besøge webstedet "
-      (external-hyperlink rdf-uri)
-      " i din browser?"]]
-    [:section.text
-     [:p {:lang "en"}
-      "There is unfortunately no data describing this "
-      [:abbr {:title "Resource Description Framework"}
-       "RDF"]
-      " resource in DanNet."]
-     [:p {:lang "en"}
-      "Would you instead like to visit the website "
-      (external-hyperlink rdf-uri)
-      " in your browser?"]]))
-
 (def label-keys
   [:rdfs/label
    :dc/title
@@ -637,15 +612,13 @@
                        :title (i18n/select-label languages a-titles)
                        :key   rdf-uri}
            (break-up-uri rdf-uri)]))]
-     (if (empty? entity)
-       (no-entity-data languages rdf-uri)
-       (for [[title ks] (section/page-sections entity)]
-         (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                  (dissoc label-key)
-                                  (not-empty))]
-           [:section {:key (or title :no-title)}
-            (when title [:h2 (str (i18n/select-label languages title))])
-            (attr-val-table (assoc opts :inherited inherited) subentity)])))
+     (for [[title ks] (section/page-sections entity)]
+       (when-let [subentity (-> (ordered-subentity opts ks entity)
+                                (dissoc label-key)
+                                (not-empty))]
+         [:section {:key (or title :no-title)}
+          (when title [:h2 (str (i18n/select-label languages title))])
+          (attr-val-table (assoc opts :inherited inherited) subentity)]))
      (when (not-empty inferred)
        [:p.note [:strong "∴ "] (:inference comments)])
      (when (not-empty inherited)
