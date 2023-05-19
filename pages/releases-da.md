@@ -2,7 +2,10 @@
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
 ## SNAPSHOT
+Følgende ændringer af vores datasæt vil være tilgængelige i næste version:
+
 * Mange DanNet-ord og -betydninger er blevet forbundet med [DDO](https://ordnet.dk/ddo) via den nye `dns:source`-relation.
+* Uofficielle bøjningsformer der er til stede i COR-datasættet er blevet markeret således i deres `rdfs:label`.
 
 ## **2023-05-11**: Det nye DanNet
 Der er for mange ændringer i denne første version til at opremse dem alle på en kortfattet måde:

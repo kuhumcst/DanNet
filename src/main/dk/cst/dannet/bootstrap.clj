@@ -993,11 +993,12 @@
 
   Since the format is exploded, this function produces superfluous triples.
   However, duplicate triples are automatically subsumed upon importing."
-  [[id lemma comment grammar form _ :as row]]
+  [[id lemma comment grammar form official :as row]]
   (let [{:keys [canonical]} (meta row)                      ; via preprocessing
         form-rel     (if (canonical id)
                        :ontolex/canonicalForm
                        :ontolex/otherForm)
+        ?normative   (when (= official "0") " (unormeret)") ; DSN's own term
         [_ cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
         full         (cor-uri cor-ns lemma-id form-id rep-id)
         lexical-form (cor-uri cor-ns lemma-id form-id)
@@ -1010,7 +1011,7 @@
               [word form-rel lexical-form]
 
               [lexical-form :rdf/type :ontolex/Form]
-              [lexical-form :rdfs/label (da (qt form "-form"))]
+              [lexical-form :rdfs/label (da (qt form "-form") ?normative)]
               [lexical-form :rdfs/comment grammar-desc]
               [lexical-form :ontolex/writtenRep (da form)]}
 
