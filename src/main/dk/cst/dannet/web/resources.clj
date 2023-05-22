@@ -15,11 +15,11 @@
             [com.owoga.trie :as trie]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.bootstrap :as bootstrap]
-            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]
@@ -508,8 +508,8 @@
    :route-name ::autocomplete])
 
 (comment
-  (q/expanded-entity (:graph @db) :dn/form-11029540-land)
-  (q/expanded-entity (:graph @db) :dn/synset-4849)
+  (meta (q/expanded-entity (:graph @db) bootstrap/<dn>))
+  (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
   (q/entity (:graph @db) :dn/synset-78300)
   (q/entity (:graph @db) :dn/synset-46015)
   (q/entity-triples (:graph @db) :dn/synset-4849)

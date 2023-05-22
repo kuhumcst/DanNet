@@ -106,15 +106,15 @@
       (prefix/resource-path (prefix/uri->rdf-resource uri))))
 
 (rum/defc rdf-uri-hyperlink
-  [uri]
-  [:a.rdf-uri {:href (capture-uri uri)}
-   (break-up-uri uri)])
-
-(rum/defc external-hyperlink
-  [uri]
-  [:a {:href (or (internal-path uri)
-                 uri)}
-   (break-up-uri uri)])
+  "Display URIs in RDF <resource> style or using a label when available."
+  [uri {:keys [languages k->label attr-key] :as opts}]
+  (let [labels (get k->label (prefix/uri->rdf-resource uri))
+        label  (i18n/select-label languages labels)
+        uri'   (capture-uri uri)]
+    (if (and label
+             (not (= attr-key :foaf/homepage)))             ; special behaviour
+      [:a {:href uri'} (str label)]
+      [:a.rdf-uri {:href uri'} (break-up-uri uri)])))
 
 (defn- choose-sense-labels
   "Choose which sense labels to show from a `synset-label` based on `opts`."
@@ -137,7 +137,7 @@
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key languages k->label entity details?] :as opts}]
+  ([v {:keys [attr-key entity] :as opts}]
    (cond
      (rdf-datatype? v)
      (let [{:keys [uri value]} v]
@@ -181,7 +181,7 @@
       [:div.set__right-bracket]]
 
      rdf-resource
-     (rdf-uri-hyperlink uri)
+     (rdf-uri-hyperlink uri opts)
 
      ;; TODO: match is too broad, should be limited somewhat
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
@@ -213,6 +213,9 @@
            :class (or class (get prefix/prefix->class prefix "unknown"))}
        (or (transform-val label opts)
            (name resource))])
+    ;; RDF predicates represented as IRIs> Since the namespace is unknown,
+    ;; we likely have no label data either and do not bother to fetch it.
+    ;; See 'rdf-uri-hyperlink' for how objects are represented!
     (let [local-name (prefix/guess-local-name resource)]
       [:a {:href  (prefix/resource-path resource)
            :title local-name
@@ -323,7 +326,7 @@
     (if (empty? (name v))
       ;; Handle cases such as :rdfs/ which have been keywordised by Aristotle.
       [:td
-       (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri))]
+       (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
       [:td.attr-combo                                       ; fixes alignment
        (rdf-resource-hyperlink v opts)])
 
@@ -553,7 +556,6 @@
          local-name
          local-name]))))
 
-;; TODO: fetch all of these in entities queries, not just rdfs:label?
 (def label-keys
   [:rdfs/label
    :dc/title

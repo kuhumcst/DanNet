@@ -1,7 +1,9 @@
 (ns dk.cst.dannet.query.operation
   "Pre-built Apache Jena query operation objects (Op)."
-  (:require [arachne.aristotle.query :as q]
+  (:require [clojure.string :as str]
+            [arachne.aristotle.query :as q]
             [ont-app.vocabulary.core :as voc]
+            [dk.cst.dannet.web.components :as com]
 
             ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix :as prefix]))
@@ -13,14 +15,21 @@
   (q/build
     '[:bgp [?s ?p ?o]]))
 
-;; TODO: should do a logical OR of :rdfs/label, :dc/title, ...
 (def expanded-entity
-  (q/build
-    '[:conditional
-      [:conditional
-       [:bgp [?s ?p ?o]]
-       [:bgp [?p :rdfs/label ?pl]]]
-      [:bgp [?o :rdfs/label ?ol]]]))
+  (let [label-rels (str/join " " (map prefix/kw->qname com/label-keys))]
+    (sparql
+      "SELECT ?s ?p ?o ?pl ?ol ?plr ?olr
+     WHERE {
+       ?s ?p ?o .
+       OPTIONAL {
+         VALUES ?plr { " label-rels " }
+         ?p ?plr ?pl .
+       }
+       OPTIONAL {
+         VALUES ?olr { " label-rels " }
+         ?o ?olr ?ol .
+       }
+     }")))
 
 (def synonyms
   (q/build

@@ -179,6 +179,7 @@
                            "Det Danske Sprog- og Litteraturselskab; "
                            "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
       [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
+      ["<https://creativecommons.org/licenses/by-sa/4.0/>" :rdfs/label "CC BY-SA 4.0"]
 
       [<dds> :rdfs/label "DDS"]
       [<dds> :dc/title "DDS"]

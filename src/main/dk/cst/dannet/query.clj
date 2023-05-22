@@ -4,7 +4,9 @@
             [clojure.walk :as walk]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.transaction :as txn]
+            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
   (:import [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
@@ -148,17 +150,38 @@
     :else
     #{v1 v2}))
 
+(defn resource?
+  [x]
+  (when x
+    (or (keyword? x)
+        (symbol? x)
+        (prefix/rdf-resource? x))))
+
 (defn- entity-label-mapping
-  "Create a mapping from keyword -> rdfs:label based on the `xe` that is the
-   result of the 'expanded-entity' query."
+  "Create a mapping from resource->label based on the `xe` that is the result
+   of the 'expanded-entity' query.
+
+   The purpose of this mapping is to allow displaying labels or label-like
+   things for the different resources in the frontend, as this is often
+   necessary to successfully navigate an RDF graph as a human being."
   [xe]
   (loop [[head & tail] xe
-         m {}]
-    (if-let [{:syms [?p ?pl ?o ?ol]} head]
-      (let [pm (when ?pl {?p ?pl})
-            om (when ?ol {?o ?ol})]
-        (recur tail (merge-with set-merge m pm om)))
-      m)))
+         entity {}]
+    (if-let [{:syms [?p ?pl ?plr
+                     ?o ?ol ?olr]} head]
+
+      ;; Each label-like resource of every predicate and object are collected.
+      (recur tail (cond-> entity
+                    (and ?pl ?plr (resource? ?p))
+                    (update ?p (partial merge-with set-merge) {?plr ?pl})
+
+                    (and ?ol ?olr (resource? ?o))
+                    (update ?o (partial merge-with set-merge) {?olr ?ol})))
+
+      ;; Finally, the best label key and its associated label(s) are chosen;
+      ;; the other labels are discarded.
+      (update-vals entity (fn [m]
+                            (get m (com/entity->label-key m)))))))
 
 ;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
 ;; resort to this hack.
