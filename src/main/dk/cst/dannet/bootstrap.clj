@@ -115,9 +115,10 @@
   (set (for [[k v] (combo/permuted-combinations rdf-resources 2)]
          [k :rdfs/seeAlso v])))
 
-(h/def dn-metadata-triples
-  "Metadata for the DanNet dataset is defined here since it doesn't have a
-  associated .ttl file. The Dublin Core Terms NS is used below which supersedes
+(h/def metadata-triples
+  "Metadata for the different datasets is defined here.
+
+  The Dublin Core Terms NS is used below which supersedes
   the older DC namespace (see: https://www.dublincore.org/schemas/rdfs/ )."
   (set/union
     #{[<dns> :rdf/type :owl/Ontology]
@@ -194,6 +195,7 @@
       [<cor> :dc/contributor <dsn>]
       [<cor> :dc/description #voc/lstr "The Central Word Registry.@en"]
       [<cor> :dc/description #voc/lstr "Det Centrale Ordregister.@da"]
+      [<cor> :rdfs/seeAlso (prefix/uri->rdf-resource "https://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor/")]
 
       ;; Contributors/publishers
       [<simongray> :rdf/type :foaf/Person]
@@ -986,33 +988,33 @@
    "flerord"      nil
    "kolon"        nil})
 
-;; http://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor#
 (h/defn ->cor-k-triples
   "Convert a `row` from the COR-K ID file to triples; assumes that the
   rows have been preprocessed by 'preprocess-cor-k' beforehand.
 
   Since the format is exploded, this function produces superfluous triples.
   However, duplicate triples are automatically subsumed upon importing."
-  [[id lemma comment grammar form official :as row]]
+  [[id lemma comment grammar form normative :as row]]
   (let [{:keys [canonical]} (meta row)                      ; via preprocessing
         form-rel     (if (canonical id)
                        :ontolex/canonicalForm
                        :ontolex/otherForm)
-        ?normative   (when (= official "0") " (unormeret)") ; DSN's own term
         [_ cor-ns lemma-id form-id rep-id] (re-matches cor-id id)
         full         (cor-uri cor-ns lemma-id form-id rep-id)
         lexical-form (cor-uri cor-ns lemma-id form-id)
         word         (cor-uri cor-ns lemma-id)
         pos-abbr     (first (str/split grammar #"\."))
-        pos          (get cor-k-pos pos-abbr)
-        grammar-desc (da (str "Grammatisk beskrivelse: " grammar))]
+        pos          (get cor-k-pos pos-abbr)]
     (cond-> #{[word :rdf/type (form->lexical-entry lemma)]
               [word :rdfs/label (da (qt lemma))]
               [word form-rel lexical-form]
 
               [lexical-form :rdf/type :ontolex/Form]
-              [lexical-form :rdfs/label (da (qt form "-form") ?normative)]
-              [lexical-form :rdfs/comment grammar-desc]
+              [lexical-form :rdfs/label (da (qt form "-form ("
+                                                (if (= normative "0")
+                                                  (str "unormeret: " grammar)
+                                                  (str "" grammar))
+                                                ")"))]
               [lexical-form :ontolex/writtenRep (da form)]}
 
       pos
@@ -1021,12 +1023,11 @@
       (not-empty comment)
       (conj [word :rdfs/comment (da comment)])
 
-      ;; TODO: find a more suitable relation than rdfs:seeAlso...?
       ;; Since COR distinguishes alternative written representations with IDs,
       ;; this relation exists to avoid losing these distinctions in the dataset.
       ;; Alternative representations are represented with strings in Ontolex!
       rep-id
-      (conj [lexical-form :rdfs/seeAlso full]))))
+      (conj [lexical-form :dns/source full]))))
 
 (h/defn ->cor-ext-triples
   [[id lemma comment _ _ _ grammar form :as row]]
@@ -1048,7 +1049,7 @@
     :relations [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
     :words     [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
     :senses    [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
-    :metadata  [nil dn-metadata-triples]
+    :metadata  [nil metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
@@ -1153,7 +1154,7 @@
         #'->relation-triples
         #'->word-triples
         #'->sense-triples
-        #'dn-metadata-triples
+        #'metadata-triples
         #'examples
         #'->2023-triples
         #'iri-encode

@@ -553,6 +553,7 @@
          local-name
          local-name]))))
 
+;; TODO: fetch all of these in entities queries, not just rdfs:label?
 (def label-keys
   [:rdfs/label
    :dc/title
