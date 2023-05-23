@@ -103,7 +103,7 @@
 (def dnc-schema-uri
   (prefix/schema-uri 'dnc))
 
-(def dc-issued-new
+(def release-date
   "2023-05-11")
 
 (def dc-issued-old
@@ -128,7 +128,7 @@
       [<dns> :dc/title #voc/lstr "DanNet-skema@da"]
       [<dns> :dc/description #voc/lstr "Schema for DanNet-specific relations.@en"]
       [<dns> :dc/description #voc/lstr "Skema for DanNet-specifikke relationer.@da"]
-      [<dns> :dc/issued dc-issued-new]
+      [<dns> :dc/issued release-date]
       [<dns> :dc/contributor <simongray>]
       [<dns> :dc/contributor <cst>]
       [<dns> :dc/contributor <dsl>]
@@ -145,7 +145,7 @@
       [<dnc> :dc/title #voc/lstr "DanNet-koncepter@da"]
       [<dnc> :dc/description #voc/lstr "Schema containing all DanNet/EuroWordNet concepts.@en"]
       [<dnc> :dc/description #voc/lstr "Skema der indholder alle DanNet/EuroWordNet-koncepter.@da"]
-      [<dnc> :dc/issued dc-issued-new]
+      [<dnc> :dc/issued release-date]
       [<dnc> :dc/contributor <simongray>]
       [<dnc> :dc/contributor <cst>]
       [<dnc> :dc/contributor <dsl>]
@@ -164,14 +164,14 @@
       [<dn> :dc/language "da"]
       [<dn> :dc/description #voc/lstr "The Danish WordNet.@en"]
       [<dn> :dc/description #voc/lstr "Det danske WordNet.@da"]
-      [<dn> :dc/issued dc-issued-new]
+      [<dn> :dc/issued release-date]
       [<dn> :dc/contributor <simongray>]
       [<dn> :dc/contributor <cst>]
       [<dn> :dc/contributor <dsl>]
       [<dn> :dc/publisher <cst>]
       [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
       [<dn> :schema/email "simongray@hum.ku.dk"]
-      [<dn> :owl/versionInfo dc-issued-new]
+      [<dn> :owl/versionInfo release-date]
       [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & "
                            "The Society for Danish Language and Literature; "
                            "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
@@ -827,7 +827,7 @@
           [sense :rdfs/label sense-label]
           [synset :rdfs/label (or (:mws-label (sense-id->mws sek_id))
                                   (da (str "{" sense-label "}")))]
-          #_[synset :dc/issued dc-issued-new]
+          #_[synset :dc/issued release-date]
 
           ;; Lexical connections
           [synset :ontolex/lexicalizedSense sense]}
