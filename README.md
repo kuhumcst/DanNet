@@ -120,6 +120,32 @@ java -jar -Xmx4g dannet.jar
 
 By default, the web service is accessed on `localhost:3456`. The data is loaded into a TDB2 database located in the `./db/tdb2` directory.
 
+### Making a release on wordnet.dk/dannet
+The current release workflow assumes that the database and the export files are created on a development machine and the transferred to the production server. During the transfer, the DanNet web service will momentarily be down, so keep this in mind!
+
+To build the database, load a Clojure REPL and load the `dk.cst.dannet.web.service` namespace. From here, execute `(restart)` to get a service up and running. When the service is up, go to the `dk.cst.dannet.db` namespace and excute the following:
+
+```clojure
+;; Note: exporting the complete dataset (including inferences) usually takes ~40-45 minutes
+(export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
+(export-csv! @dk.cst.dannet.web.resources/db)
+```
+
+Normally, the Caddy service can keep running, so only the DanNet service needs to be briefly stopped:
+
+```shell
+# from inside the docker/ directory on the production server
+docker compose down dannet
+```
+
+Once the service is down, the database and export files can be transferred using SFTP to the relevant directories on the server. The git commit on the production server should also match the uploaded data, of course!
+
+The service is finally restarted with:
+
+```shell
+docker compose up -d dannet --build
+```
+
 ### Memory usage
 Currently, the entire system, including the web service, uses ~1.4 GB when idle and ~3GB when rebuilding the Apache Jena database. A server should therefore have perhaps 4GB of available RAM to run the full version of DanNet.
 
