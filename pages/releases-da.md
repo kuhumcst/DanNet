@@ -19,7 +19,7 @@ Der er for mange ændringer i denne første version til at opremse dem alle på 
 * De DSL-afledte Dannet-ID'er oversættes nu til egentlige RDF-ressourcer der kan ses i en browser.
 * Diverse alternative datasæt kan også downloades og disse er også sammenføjet med det data der er på wordnet.dk.
 * Yderligere datapunkter er også blevet udledt fra vores "bootstrap"-data, f.eks. omvendte relationer.
-* Vores CSV-download er nu CSVW og inkludere metadatafiler, der beskriver indholdet af kolonnerne.
+* Vores CSV-download er nu CSVW og inkluderer metadatafiler, der beskriver indholdet af kolonnerne.
 * DanNet-datasættene er nu tilgængelige under en CC BY-SA 4.0-licens og projektets kildekode under en MIT-licens.
 * ... og selvfølgelig er wordnet.dk/dannet nu DanNets nye hjem.
 
