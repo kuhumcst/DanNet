@@ -1,7 +1,7 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## SNAPSHOT
+## **2023-05-23**: DDS/COR improvements & links to DDO
 The following changes to our data sets will be available in the next version:
 
 * Many DanNet words and senses have been linked to [DDO](https://ordnet.dk/ddo) via the new `dns:source` relation.
