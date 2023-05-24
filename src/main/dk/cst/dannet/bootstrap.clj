@@ -104,7 +104,7 @@
   (prefix/schema-uri 'dnc))
 
 (def release-date
-  "2023-05-11")
+  "2023-05-23")
 
 (def dc-issued-old
   "2013-01-03")
