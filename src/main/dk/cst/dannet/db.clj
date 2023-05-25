@@ -7,10 +7,13 @@
             [clj-file-zip.core :refer [zip-files]]
             [arachne.aristotle :as aristotle]
             [arachne.aristotle.registry :as registry]
+            [clojure.walk :as walk]
+            [donatello.ttl :as ttl]
             [ont-app.igraph-jena.core :as igraph-jena]
             [ont-app.igraph.core :as igraph]
             [ont-app.vocabulary.core :as voc]
             [flatland.ordered.map :as fop]
+            [ont-app.vocabulary.lstr :as lstr]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.csv :as db.csv]
@@ -30,7 +33,7 @@
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
-           [java.io File]))
+           [java.io File StringWriter]))
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
@@ -896,6 +899,42 @@
    (println "CSV Export of DanNet complete!"))
   ([dannet]
    (export-csv! dannet "export/csv/")))
+
+(def donatello-prefixes-base
+  (into {} (map (fn [[k v]]
+                  [(keyword k) (:uri v)])
+                prefix/schemas)))
+
+(defn donatello-entity
+  "Prepare a `coll` for Donatello TTL output.
+
+  Converts LangStr into the type used by Donatello and attaches a Donatello
+  prefix mapping as metadata."
+  [coll]
+  (let [prefixes (atom #{})]
+    (with-meta
+      (walk/postwalk
+        (fn [x]
+          (when (keyword? x)
+            (swap! prefixes conj (namespace x)))
+          (cond
+            (instance? LangStr x) (ttl/lang-literal (str x) (lstr/lang x))
+            (symbol? x) (keyword x)
+            :else x))
+        coll)
+      {:prefixes (->> (remove nil? @prefixes)
+                      (map keyword)
+                      (select-keys donatello-prefixes-base))})))
+
+(defn ttl-entity
+  "Get the equivalent TTL output for `entity`."
+  [entity]
+  (let [subject (:subject (meta entity))
+        dentity (donatello-entity entity)]
+    (with-open [sw (StringWriter.)]
+      (ttl/write-prefixes! sw (-> dentity meta :prefixes))
+      (ttl/write-triples! sw subject dentity)
+      (str sw))))
 
 (defn synonyms
   "Return synonyms in Graph `g` of the word with the given `lemma`."
