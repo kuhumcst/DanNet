@@ -928,10 +928,12 @@
 
 (defn ttl-entity
   "Get the equivalent TTL output for `entity`."
-  [entity]
+  [entity & [base]]
   (let [subject (:subject (meta entity))
         dentity (donatello-entity entity)]
     (with-open [sw (StringWriter.)]
+      (when base
+        (ttl/write-base! sw base))
       (ttl/write-prefixes! sw (-> dentity meta :prefixes))
       (ttl/write-triples! sw subject dentity)
       (str sw))))

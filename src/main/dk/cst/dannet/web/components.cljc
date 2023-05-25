@@ -467,6 +467,7 @@
            (transform-val s* opts)])]]
       [:td {:lang (i18n/lang s) :key coll} (transform-val s opts)])))
 
+;; TODO: maybe just inline these instead?
 (defn translate-comments
   [languages]
   {:inference   (i18n/da-en languages
@@ -572,7 +573,7 @@
         (recur candidates)))))
 
 (rum/defc entity-page
-  [{:keys [languages comments subject inferred entity k->label] :as opts}]
+  [{:keys [href languages comments subject inferred entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
@@ -625,7 +626,17 @@
      (when (not-empty inferred)
        [:p.note [:strong "∴ "] (:inference comments)])
      (when (not-empty inherited)
-       [:p.note [:strong "† "] (:inheritance comments)])]))
+       [:p.note [:strong "† "] (:inheritance comments)])
+     [:p.note
+      [:strong "↓ "]
+      (i18n/da-en languages
+        "hent data som: "
+        "download data as: ")
+      [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
+                          "download=text/turtle")
+           :type     "text/turtle"
+           :download true}
+       ".ttl"]]]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."

@@ -138,10 +138,10 @@
     (let [[prefix local-name] (str/split qname #":")]
       (keyword prefix local-name))))
 
-;; TODO: this seems wrong???
-(defn qname->uri
-  [qname]
-  (subs qname 1 (dec (count qname))))
+(defn rdf-resource->uri
+  "Remove < and > from `resource` to return its URI."
+  [resource]
+  (subs resource 1 (dec (count resource))))
 
 (defn- partition-str
   "Partition a string `s` by the character `c`. Works similar to str/split,
@@ -159,14 +159,14 @@
     (partition-str \/ uri)))
 
 (defn guess-local-name
-  "Given a `qname` with an unknown namespace, attempt to guess the local name."
-  [qname]
-  (last (guess-parts (qname->uri qname))))
+  "Given a `resource` with an unknown namespace, attempt to guess the local name."
+  [resource]
+  (last (guess-parts (rdf-resource->uri resource))))
 
 (defn guess-ns
-  "Given a `qname` with an unknown namespace, attempt to guess the namespace."
-  [qname]
-  (str/join (butlast (guess-parts (qname->uri qname)))))
+  "Given a `resource` with an unknown namespace, attempt to guess the namespace."
+  [resource]
+  (str/join (butlast (guess-parts (rdf-resource->uri resource)))))
 
 (defn export-file
   "Return filename registered for `prefix` and `type`; accepts `variant` too."
@@ -249,11 +249,6 @@
   "Surround `uri` with < and > to indicate that it is an RDF resource."
   [uri]
   (str "<" uri ">"))
-
-(defn rdf-resource->uri
-  "Surround `uri` with < and > to indicate that it is an RDF resource."
-  [uri]
-  (subs uri 1 (dec (count uri))))
 
 (defn rdf-resource?
   "Is `s` an RDF resource string?"

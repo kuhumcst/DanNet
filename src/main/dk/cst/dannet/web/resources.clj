@@ -145,6 +145,11 @@
    (fn [data & _]
      (ascii-table data))
 
+   "text/turtle"
+   (fn [{:keys [entity href]} & _]
+     (when entity
+       (db/ttl-entity entity (str "https://wordnet.dk" href))))
+
    "application/edn"
    (fn [data & _]
      (pr-str data))
@@ -208,6 +213,11 @@
       ;; else
       nil)))
 
+(defn remove-internal-params
+  [query-string]
+  (when query-string
+    (str/replace query-string #"&?(transit=true|download=text/turtle)" "")))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -215,10 +225,14 @@
   [& {:keys [prefix subject] :as static-params}]
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "text/plain")
-                  {:keys [prefix subject]} (merge (:path-params request)
-                                                  (:query-params request)
-                                                  static-params)
+            (let [{:keys [prefix
+                          subject
+                          download]} (merge (:path-params request)
+                                            (:query-params request)
+                                            static-params)
+                  content-type (or download
+                                   (get-in request [:accept :field])
+                                   "text/plain")
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   g            (:graph @db)
@@ -228,7 +242,11 @@
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
                   languages    (request->languages request)
+                  qs           (remove-internal-params (:query-string request))
                   data         {:languages languages
+                                :href      (str (:uri request)
+                                                (when (not-empty qs)
+                                                  (str "?" qs)))
                                 :k->label  (-> entity meta :k->label)
                                 :inferred  (-> entity meta :inferred)
                                 :subject   subject*
@@ -254,6 +272,10 @@
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)
                                "Content-Type" content-type)
+                             (when (= content-type "text/turtle")
+                               (let [filename (str/replace qname #":" "_")
+                                     cd       (str "attachment; filename=\"" filename ".ttl\"")]
+                                 {"Content-Disposition" cd}))
                              ;; TODO: use cache in production
                              #_#_"Cache-Control" one-day-cache))))})
 
@@ -511,6 +533,10 @@
   (meta (q/expanded-entity (:graph @db) bootstrap/<dn>))
   (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
   (q/entity (:graph @db) :dn/synset-78300)
+  (let [subject :dn/synset-78300
+        entity  (q/entity (:graph @db) subject)]
+    (db/ttl-entity entity))
+
   (q/entity (:graph @db) :dn/synset-46015)
   (q/entity-triples (:graph @db) :dn/synset-4849)
 
