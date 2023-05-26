@@ -1,6 +1,9 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
+## **SNAPSHOT**
+* Skemaoversættelserne er blevet opdateret.
+
 ## **2023-05-23**: DDS/COR-forbedringer & links til DDO
 Følgende ændringer af vores datasæt vil være tilgængelige i næste version:
 

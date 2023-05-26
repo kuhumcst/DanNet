@@ -7,6 +7,7 @@
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
+@prefix marl: <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
 rdf:type rdfs:label "type"@da .
 rdf:type rdfs:comment "Subjektet er en instans af en klasse."@da .
@@ -21,8 +22,8 @@ rdfs:label rdfs:comment "Et navn for subjektet der kan læses af mennesker."@da 
 rdfs:comment rdfs:label "kommentar"@da .
 rdfs:comment rdfs:comment "En beskrivelse af subjektets ressource."@da .
 rdfs:isDefinedBy rdfs:label "er defineret i"@da .
-rdfs:subClassOf rdfs:label "subklasse af"@da .
-rdfs:subPropertyOf rdfs:label "subegenskab af"@da .
+rdfs:subClassOf rdfs:label "underklasse af"@da .
+rdfs:subPropertyOf rdfs:label "underegenskab af"@da .
 rdfs:domain rdfs:label "definitionsmængde"@da .
 rdfs:range rdfs:label "værdimængde"@da .
 rdfs:seeAlso rdfs:label "se også"@da .
@@ -58,6 +59,9 @@ owl:DatatypeProperty rdfs:comment "Klassen af datatype-egenskaber."@da .
 
 semowl:Meaning rdfs:label "betydning"@da .
 
+marl:polarityValue rdfs:label "polaritetsværdi"@da.
+marl:hasPolarity rdfs:label "har polaritet"@da.
+
 lexinfo:senseExample rdfs:label "betydningseksempel"@da .
 lexinfo:morphosyntacticProperty rdfs:label "morfosyntaktisk egenskab"@da .
 lexinfo:partOfSpeech rdfs:label "ordklasse"@da .
@@ -69,6 +73,11 @@ lexinfo:conjunction rdfs:label "konjunktion"@da .
 lexinfo:properNoun rdfs:label "egennavn"@da .
 lexinfo:interjection rdfs:label "udråbsord"@da .
 lexinfo:pronoun rdfs:label "pronomen"@da .
+lexinfo:dating rdfs:label "datering"@da .
+lexinfo:old rdfs:label "gammeldags"@da .
+lexinfo:inHouseRegister rdfs:label "jargon"@da .
+lexinfo:slangRegister rdfs:label "slang"@da .
+lexinfo:usageNote rdfs:label "brugsnote"@da .
 
 skos:note rdfs:label "bemærkning"@da .
 skos:note skos:definition "En generel bemærkning til alle slags formål."@da .

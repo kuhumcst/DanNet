@@ -1,6 +1,9 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **SNAPSHOT**
+* The schema translations have been updated.
+
 ## **2023-05-23**: DDS/COR improvements & links to DDO
 The following changes to our data sets will be available in the next version:
 
