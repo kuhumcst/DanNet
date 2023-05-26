@@ -27,6 +27,8 @@ bootstrap/other/sentiment/sense_polarities.tsv
 
 # The open English WordNet
 bootstrap/other/english/english-wordnet-2022.ttl
+bootstrap/other/english/yaml
+bootstrap/other/english/senseidx.edn
 
 .cpcache
 .DS_Store

@@ -18,6 +18,8 @@
             [clojure.data.csv :as csv]
             [clojure.tools.reader.edn :as edn]
             [clojure.math.combinatorics :as combo]
+            [clojure.walk :as walk]
+            [clj-yaml.core :as yaml]
             [arachne.aristotle.graph :refer [rdf-bag]]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
@@ -1044,6 +1046,27 @@
       [dn-word :owl/sameAs cor-word]
       [cor-word :ontolex/sense dn-sense]}))
 
+(defn build-senseidx
+  "Mapping from senseidx to Open English WordNet IDs.
+
+  Uses the 'entries-*.yaml' files from the OEWN repository. It takes around 10
+  seconds to create this data, so the corresponding .edn file is saved to disk."
+  []
+  (let [id->synset (atom {})
+        dir        (io/file "bootstrap/other/english/yaml")]
+    (doseq [file (remove #{dir} (file-seq dir))]
+      (->> (io/reader file)
+           (yaml/parse-stream)
+           (walk/postwalk (fn [x]
+                            (when (map? x)
+                              (let [#_#_{:keys [id synset]} x
+                                    id     (get x :id)
+                                    synset (get x :synset)]
+                                (when (and id synset)
+                                  (swap! id->synset assoc id synset))))
+                            x))))
+    (spit "bootstrap/other/english/senseidx.edn" (pr-str @id->synset))))
+
 (h/def imports
   {prefix/dn-uri
    {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
@@ -1218,6 +1241,9 @@
        (map (comp second first))
        (filter string?)
        (into #{}))
+
+  ;; Create a mapping from oldschool WordNet sense IDs to OEWN synset IDs
+  (build-senseidx)
 
   ;; Find instances of a specific relation
   (let [rel "used_for_qualby"]
