@@ -67,7 +67,7 @@
              :alt :no-schema}
    'synsem  {:uri "http://www.w3.org/ns/lemon/synsem#"
              :alt "schemas/external/synsem.xml"}
-   'oewnlem {:uri "http://wordnet-rdf.princeton.edu/rdf/lemma/"
+   'oewnl   {:uri "http://wordnet-rdf.princeton.edu/lemma/"
              :alt :no-schema}
    'oewn    {:uri "http://wordnet-rdf.princeton.edu/id/"
              :alt :no-schema}

@@ -588,6 +588,7 @@
 
     dataset))
 
+;; TODO: delete all triples from the OEWN dataset resource to each synset
 (h/defn add-open-english-wordnet!
   "Add the Open English WordNet to a Jena `dataset`."
   [dataset]

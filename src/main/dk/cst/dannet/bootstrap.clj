@@ -1086,24 +1086,24 @@
 
 (h/def imports
   {prefix/dn-uri
-   {:synsets   [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
-    :relations [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
-    :words     [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
-    :senses    [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
-    :metadata  [nil metadata-triples]
+   {:synsets    [->synset-triples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
+    :relations  [->relation-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
+    :words      [->word-triples "bootstrap/dannet/DanNet-2.5.1_csv/words.csv"]
+    :senses     [->sense-triples "bootstrap/dannet/DanNet-2.5.1_csv/wordsenses.csv"]
+    :metadata   [nil metadata-triples]
 
     ;; Examples are a special case - these are not actual RDF triples!
     ;; Need to query the resulting graph to generate the real example triples.
-    :examples  [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
+    :examples   [examples "bootstrap/dannet/DanNet-2.5.1_csv/synsets.csv"]
 
     ;; The 2023 additions of mainly adjectives.
-    :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
-                :encoding "UTF-8"
-                :separator \tab
-                :preprocess (comp mark-duplicate-senses rest)]
+    :2023       [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
+                 :encoding "UTF-8"
+                 :separator \tab
+                 :preprocess (comp mark-duplicate-senses rest)]
 
     ;; Links to the Open English WordNet
-    :oewn-links  [->english-link-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]}
+    :oewn-links [->english-link-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]}
 
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/dds-uri
