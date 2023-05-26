@@ -387,7 +387,7 @@ article {
 }
 
 article > section:last-child {
-    margin-bottom: 32px;
+    margin-bottom: 12px;
 }
 
 header, footer {
@@ -439,6 +439,10 @@ span.marker {
     cursor: help;
 }
 
+section.notes {
+    margin-top: 24px;
+}
+
 p.note {
     text-align: center;
     font-style: italic;
@@ -453,7 +457,7 @@ p.note + p.note {
 }
 
 p.note:last-child {
-    margin-bottom: 12px;
+    margin-bottom: 0;
 }
 
 p.note strong {
@@ -698,7 +702,7 @@ table.attr-val {
 @media only screen and (max-width: 700px) {
     td.attr-prefix > *,
     :not(h1) > span.prefix:not(.independent),
-    p.note {
+    p.note.desktop-only {
         display: none;
     }
     td.attr-name {

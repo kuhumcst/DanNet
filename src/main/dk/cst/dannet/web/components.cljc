@@ -623,20 +623,21 @@
          [:section {:key (or title :no-title)}
           (when title [:h2 (str (i18n/select-label languages title))])
           (attr-val-table (assoc opts :inherited inherited) subentity)]))
-     (when (not-empty inferred)
-       [:p.note [:strong "∴ "] (:inference comments)])
-     (when (not-empty inherited)
-       [:p.note [:strong "† "] (:inheritance comments)])
-     [:p.note
-      [:strong "↓ "]
-      (i18n/da-en languages
-        "hent data som: "
-        "download data as: ")
-      [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
-                          "download=text/turtle")
-           :type     "text/turtle"
-           :download true}
-       ".ttl"]]]))
+     [:section.notes
+      (when (not-empty inferred)
+        [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
+      (when (not-empty inherited)
+        [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
+      [:p.note
+       [:strong "↓ "]
+       (i18n/da-en languages
+         "hent data som: "
+         "download data as: ")
+       [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
+                           "download=text/turtle")
+            :type     "text/turtle"
+            :download true}
+        ".ttl"]]]]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
