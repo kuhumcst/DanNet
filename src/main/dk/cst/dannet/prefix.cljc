@@ -19,90 +19,90 @@
   "https://wordnet.dk/export/")
 
 (def schemas
-  {'rdf       {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-               :alt "schemas/external/rdf.ttl"}
-   'rdfs      {:uri "http://www.w3.org/2000/01/rdf-schema#"
-               :alt "schemas/external/rdfs.ttl"}
-   'owl       {:uri "http://www.w3.org/2002/07/owl#"
-               :alt "schemas/external/owl.ttl"}
-   'wn        {:uri "https://globalwordnet.github.io/schemas/wn#" ; https official
-               :alt "schemas/external/wn-lemon-1.2.ttl"}
-   'svs       {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"
-               :alt "schemas/external/svs.xml"}
-   'ontolex   {:uri "http://www.w3.org/ns/lemon/ontolex#"
-               :alt "schemas/external/ontolex.xml"}
-   'lemon     {:uri "http://lemon-model.net/lemon#"
-               :alt "schemas/external/lemon-model.ttl"}
-   'semowl    {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
-               :alt "schemas/external/semiotics.owl"}
-   'skos      {:uri "http://www.w3.org/2004/02/skos/core#"
-               :alt "schemas/external/skos.rdf"}
-   'lexinfo   {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"
-               :alt "schemas/external/lexinfo-3.0.owl"}
-   'marl      {:uri "http://www.gsi.upm.es/ontologies/marl/ns#"
-               :alt "schemas/external/marl.n3"}
-   'olia      {:uri "http://purl.org/olia/olia.owl#"
-               :alt "schemas/external/olia.owl"}
+  {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             :alt "schemas/external/rdf.ttl"}
+   'rdfs    {:uri "http://www.w3.org/2000/01/rdf-schema#"
+             :alt "schemas/external/rdfs.ttl"}
+   'owl     {:uri "http://www.w3.org/2002/07/owl#"
+             :alt "schemas/external/owl.ttl"}
+   'wn      {:uri "https://globalwordnet.github.io/schemas/wn#" ; https official
+             :alt "schemas/external/wn-lemon-1.2.ttl"}
+   'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"
+             :alt "schemas/external/svs.xml"}
+   'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"
+             :alt "schemas/external/ontolex.xml"}
+   'lemon   {:uri "http://lemon-model.net/lemon#"
+             :alt "schemas/external/lemon-model.ttl"}
+   'semowl  {:uri "http://www.ontologydesignpatterns.org/cp/owl/semiotics.owl#"
+             :alt "schemas/external/semiotics.owl"}
+   'skos    {:uri "http://www.w3.org/2004/02/skos/core#"
+             :alt "schemas/external/skos.rdf"}
+   'lexinfo {:uri "http://www.lexinfo.net/ontology/3.0/lexinfo#"
+             :alt "schemas/external/lexinfo-3.0.owl"}
+   'marl    {:uri "http://www.gsi.upm.es/ontologies/marl/ns#"
+             :alt "schemas/external/marl.n3"}
+   'olia    {:uri "http://purl.org/olia/olia.owl#"
+             :alt "schemas/external/olia.owl"}
 
    ;; Metadata-related namespaces.
-   'dcat      {:uri "http://www.w3.org/ns/dcat#"
-               :alt "schemas/external/dcat2.ttl"}
-   'vann      {:uri "http://purl.org/vocab/vann/"
-               :alt "schemas/external/vann.ttl"}
-   'foaf      {:uri "http://xmlns.com/foaf/0.1/"
-               :alt "schemas/external/foaf.rdf"}
-   'dc        {:uri "http://purl.org/dc/terms/"
-               :alt "schemas/external/dublin_core_terms.ttl"}
-   'dc11      {:uri "http://purl.org/dc/elements/1.1/"
-               :alt "schemas/external/dublin_core_elements.ttl"}
-   'cc        {:uri "http://creativecommons.org/ns#"
-               :alt "schemas/external/cc.rdf"}
+   'dcat    {:uri "http://www.w3.org/ns/dcat#"
+             :alt "schemas/external/dcat2.ttl"}
+   'vann    {:uri "http://purl.org/vocab/vann/"
+             :alt "schemas/external/vann.ttl"}
+   'foaf    {:uri "http://xmlns.com/foaf/0.1/"
+             :alt "schemas/external/foaf.rdf"}
+   'dc      {:uri "http://purl.org/dc/terms/"
+             :alt "schemas/external/dublin_core_terms.ttl"}
+   'dc11    {:uri "http://purl.org/dc/elements/1.1/"
+             :alt "schemas/external/dublin_core_elements.ttl"}
+   'cc      {:uri "http://creativecommons.org/ns#"
+             :alt "schemas/external/cc.rdf"}
 
    ;; Used by Open English WordNet
-   'ili       {:uri "http://ili.globalwordnet.org/ili/"
-               :alt :no-schema}
-   'lime      {:uri "http://www.w3.org/ns/lemon/lime#"
-               :alt "schemas/external/lime.xml"}
-   'schema    {:uri "http://schema.org/"
-               :alt :no-schema}
-   'synsem    {:uri "http://www.w3.org/ns/lemon/synsem#"
-               :alt "schemas/external/synsem.xml"}
-   'oewnlemma {:uri "https://en-word.net/lemma/"
-               :alt :no-schema}
-   'oewnid    {:uri "https://en-word.net/id/"
-               :alt :no-schema}
+   'ili     {:uri "http://ili.globalwordnet.org/ili/"
+             :alt :no-schema}
+   'lime    {:uri "http://www.w3.org/ns/lemon/lime#"
+             :alt "schemas/external/lime.xml"}
+   'schema  {:uri "http://schema.org/"
+             :alt :no-schema}
+   'synsem  {:uri "http://www.w3.org/ns/lemon/synsem#"
+             :alt "schemas/external/synsem.xml"}
+   'oewnlem {:uri "http://wordnet-rdf.princeton.edu/rdf/lemma/"
+             :alt :no-schema}
+   'oewn    {:uri "http://wordnet-rdf.princeton.edu/id/"
+             :alt :no-schema}
 
    ;; The COR namespace
-   'cor       {:uri      "https://ordregister.dk/id/"
-               :export   #{'dn 'cor
-                           'rdf 'rdfs 'owl
-                           'ontolex 'skos 'lexinfo}
-               :download {"rdf" {:default "cor.zip"}}}
+   'cor     {:uri      "https://ordregister.dk/id/"
+             :export   #{'dn 'cor
+                         'rdf 'rdfs 'owl
+                         'ontolex 'skos 'lexinfo}
+             :download {"rdf" {:default "cor.zip"}}}
 
    ;; Sentiment data
-   'dds       {:uri      sentiment-root
-               :export   #{'dn 'dns 'marl}
-               :download {"rdf" {:default "dds.zip"}}}
+   'dds     {:uri      sentiment-root
+             :export   #{'dn 'dns 'marl}
+             :download {"rdf" {:default "dds.zip"}}}
 
    ;; The three internal DanNet namespaces.
-   'dn        {:uri      (str dannet-root "data/")
-               :export   #{'dn 'dnc 'dns
-                           'rdf 'rdfs 'owl
-                           'wn 'ontolex 'skos 'lexinfo
-                           'dcat 'vann 'foaf 'dc}
-               :download {"rdf" {:default   "dannet.zip"
-                                 "merged"   "dannet-dds-cor.zip"
-                                 "complete" "dannet-complete.zip"}
-                          "csv" {:default "dannet-csv.zip"}}}
+   'dn      {:uri      (str dannet-root "data/")
+             :export   #{'dn 'dnc 'dns
+                         'rdf 'rdfs 'owl
+                         'wn 'ontolex 'skos 'lexinfo
+                         'dcat 'vann 'foaf 'dc}
+             :download {"rdf" {:default   "dannet.zip"
+                               "merged"   "dannet-dds-cor.zip"
+                               "complete" "dannet-complete.zip"}
+                        "csv" {:default "dannet-csv.zip"}}}
 
-   'dnc       {:uri (str dannet-root "concepts/")
-               :alt "schemas/internal/dannet-concepts-2022.ttl"}
-   'dns       {:uri (str dannet-root "schema/")
-               :alt "schemas/internal/dannet-schema-2022.ttl"}
+   'dnc     {:uri (str dannet-root "concepts/")
+             :alt "schemas/internal/dannet-concepts-2022.ttl"}
+   'dns     {:uri (str dannet-root "schema/")
+             :alt "schemas/internal/dannet-schema-2022.ttl"}
 
    ;; Various en->da translations included as additional data.
-   'tr        {:uri (str dannet-root "translations/")
-               :alt "schemas/internal/dannet-translations-2022.ttl"}})
+   'tr      {:uri (str dannet-root "translations/")
+             :alt "schemas/internal/dannet-translations-2022.ttl"}})
 
 
 
@@ -196,6 +196,9 @@
 
 (def dn-uri
   (prefix->uri 'dn))
+
+(def oewn-uri
+  (prefix->uri 'oewn))
 
 (def dds-uri
   (prefix->uri 'dds))

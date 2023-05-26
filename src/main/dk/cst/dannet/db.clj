@@ -593,7 +593,7 @@
   [dataset]
   (println "Importing Open English Wordnet...")
   (txn/transact-exec dataset
-    (aristotle/read (get-graph dataset "https://en-word.net/")
+    (aristotle/read (get-graph dataset prefix/oewn-uri)
                     "bootstrap/other/english/english-wordnet-2022.ttl"))
   (println "Open English Wordnet imported!"))
 
@@ -674,7 +674,7 @@
         (do
           (println "Data input has changed -- rebuilding database...")
           (add-bootstrap-import! dataset bootstrap-imports)
-          #_(add-open-english-wordnet! dataset)
+          (add-open-english-wordnet! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))

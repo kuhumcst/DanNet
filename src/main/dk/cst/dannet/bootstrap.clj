@@ -554,6 +554,21 @@
       (cond-> #{[subj rel* obj]}
         comment (set/union (explode-inheritance subj-id rel* comment))))))
 
+(def senseidx->english-synset
+  (delay (edn/read-string (slurp "bootstrap/other/english/senseidx.edn"))))
+
+(h/defn ->english-link-triples
+  "Convert a `row` from 'relations.csv' to triples.
+
+  Note: certain rows are unmapped, so the relation will remain a string!"
+  [[subj-id _ rel obj-id _ _ :as row]]
+  ;; Ignores eq_has_hyponym and eq_has_hyperonym, no equivalent in GWA schema.
+  ;; This loses us 123 of the original 5000l links to the Princton WordNet.
+  (when (= "eq_has_synonym" rel)
+    ;; TODO: need backup for IDs that match e.g. "ENG20-07945291-n"
+    (when-let [obj (get @senseidx->english-synset obj-id)]
+      #{[(synset-uri subj-id) :wn/eq_synonym obj]})))
+
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
   "Create writtenRep triple(s) based on a `lexical-form` and a `written-rep`.
@@ -1059,9 +1074,11 @@
            (yaml/parse-stream)
            (walk/postwalk (fn [x]
                             (when (map? x)
-                              (let [#_#_{:keys [id synset]} x
-                                    id     (get x :id)
-                                    synset (get x :synset)]
+                              (let [id     (get x :id)
+                                    synset (some->>
+                                             (get x :synset)
+                                             (str "oewn-")
+                                             (keyword "oewn"))]
                                 (when (and id synset)
                                   (swap! id->synset assoc id synset))))
                             x))))
@@ -1083,7 +1100,10 @@
     :2023      [->2023-triples "bootstrap/other/dannet-new/adjectives.tsv"
                 :encoding "UTF-8"
                 :separator \tab
-                :preprocess (comp mark-duplicate-senses rest)]}
+                :preprocess (comp mark-duplicate-senses rest)]
+
+    ;; Links to the Open English WordNet
+    :oewn-links  [->english-link-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]}
 
    ;; Received in email from Sanni 2022-05-23. File renamed, header removed.
    prefix/dds-uri
@@ -1183,6 +1203,7 @@
         #'->2023-triples
         #'iri-encode
         #'->ddo-resource
+        #'->english-link-triples
         #'->sentiment-triples
         #'->cor-k-triples
         #'->cor-ext-triples
@@ -1236,6 +1257,10 @@
   (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
        (take 10))
 
+  ;; Example links to the Open English WordNet
+  (->> (read-triples (get-in imports [prefix/dn-uri :en-links]))
+       (take 10))
+
   ;; unconverted relations
   (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
        (map (comp second first))
@@ -1244,6 +1269,7 @@
 
   ;; Create a mapping from oldschool WordNet sense IDs to OEWN synset IDs
   (build-senseidx)
+  @senseidx->english-synset
 
   ;; Find instances of a specific relation
   (let [rel "used_for_qualby"]
