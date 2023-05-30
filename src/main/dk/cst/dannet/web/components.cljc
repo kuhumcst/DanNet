@@ -317,6 +317,48 @@
 
 (declare attr-val-table)
 
+(rum/defc blank-resource
+  "Display a blank resource in either a specialised way or as an inline table."
+  [{:keys [languages] :as opts} x]
+  (cond
+    (rdf-datatype? x)
+    (transform-val x)
+
+    (= x (select-keys x [:rdf/value x]))
+    (let [x (i18n/select-str languages (:rdf/value x))]
+      (if (coll? x)
+        (into [:<>] (for [s x]
+                      [:section.text {:lang (i18n/lang s)} (str s)]))
+        [:section.text {:lang (i18n/lang x)} (str x)]))
+
+    (contains? (:rdf/type x) :rdf/Bag)
+    (let [ns->resources (-> (->> (dissoc x :rdf/type)
+                                 (filter (comp numbered? first))
+                                 (mapcat second)
+                                 (group-by namespace))
+                            (update-vals sort)
+                            (update-keys symbol))
+          resources     (->> (sort ns->resources)
+                             (vals)
+                             (apply concat))]
+      ;; TODO: hover effect like synsets?
+      [:div.set
+       (when (and (every? keyword? resources)
+                  (apply = (map namespace resources)))
+         (let [prefix (symbol (namespace (first resources)))]
+           (prefix-elem prefix opts)))
+       [:div.set__left-bracket]
+       (into [:div.set__content]
+             (->> (sort ns->resources)
+                  (vals)
+                  (apply concat)
+                  (map #(anchor-elem % opts))
+                  (interpose [:span.subtle " • "])))
+       [:div.set__right-bracket]])
+
+    :else
+    (attr-val-table opts x)))
+
 (rum/defc val-cell
   "A table cell of an 'attr-val-table' containing a single `v`. The single value
   can either be a literal or an inlined table (i.e. a blank RDF node)."
@@ -330,51 +372,15 @@
       [:td.attr-combo                                       ; fixes alignment
        (rdf-resource-hyperlink v opts)])
 
-    ;; Display blank resources as inlined tables.
+    ;; Using blank resource data included as a metadata map.
     (map? v)
-    [:td
-     (cond
-       (rdf-datatype? v)
-       (transform-val v)
-
-       (= v (select-keys v [:rdf/value v]))
-       (let [x (i18n/select-str languages (:rdf/value v))]
-         (if (coll? x)
-           (into [:<>] (for [s x]
-                         [:section.text {:lang (i18n/lang s)} (str s)]))
-           [:section.text {:lang (i18n/lang x)} (str x)]))
-
-       (contains? (:rdf/type v) :rdf/Bag)
-       (let [ns->resources (-> (->> (dissoc v :rdf/type)
-                                    (filter (comp numbered? first))
-                                    (mapcat second)
-                                    (group-by namespace))
-                               (update-vals sort)
-                               (update-keys symbol))
-             resources     (->> (sort ns->resources)
-                                (vals)
-                                (apply concat))]
-         ;; TODO: hover effect like synsets?
-         [:div.set
-          (when (and (every? keyword? resources)
-                     (apply = (map namespace resources)))
-            (let [prefix (symbol (namespace (first resources)))]
-              (prefix-elem prefix opts)))
-          [:div.set__left-bracket]
-          (into [:div.set__content]
-                (->> (sort ns->resources)
-                     (vals)
-                     (apply concat)
-                     (map #(anchor-elem % opts))
-                     (interpose [:span.subtle " • "])))
-          [:div.set__right-bracket]])
-
-       :else
-       (attr-val-table opts v))]
+    [:td (blank-resource opts v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
-    [:td.omitted {:lang "en"} "(details omitted)"]
+    (i18n/da-en languages
+      [:td.omitted "(detaljer udeladt)"]
+      [:td.omitted "(details omitted)"])
 
     :else
     (let [s (i18n/select-str languages v)]
@@ -396,12 +402,13 @@
     (keyword? item)
     [:li (rdf-resource-hyperlink item opts)]
 
-    ;; TODO: handle blank resources better?
     ;; Currently not including these as they seem to
     ;; be entirely garbage temp data, e.g. check out
     ;; http://0.0.0.0:3456/dannet/2022/external/ontolex/LexicalSense
     (symbol? item)
-    nil #_[:li (attr-val-table opts (meta item))]
+    (if (not-empty (meta item))
+      [:li (blank-resource opts (meta item))]
+      [:li.omitted (str item)])
 
     :else
     [:li {:lang (i18n/lang item)}

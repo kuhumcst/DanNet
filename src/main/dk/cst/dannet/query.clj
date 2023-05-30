@@ -129,12 +129,10 @@
 ;; TODO: what about blank-expanded-entity?
 (defn blank-entity
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
-  [g subject predicate]
+  [g subject predicate blank-object]
   (when (and subject predicate)
-    (->> (run g ['?p '?o] [:bgp
-                           [subject predicate '?blank]
-                           '[?blank ?p ?o]])
-         (map (fn [[p o]] {p #{o}}))
+    (->> (entity g blank-object)
+         (map (fn [[?p ?o]] {?p #{?o}}))
          (apply merge-with into))))
 
 (defn set-merge
@@ -197,7 +195,7 @@
                 ;; In order to avoid infinite recursive walks, entity maps are
                 ;; hidden in metadata rather than directly replacing symbols.
                 (symbol? x)
-                (with-meta x (blank-entity g subject @predicate))
+                (with-meta x (blank-entity g subject @predicate x))
 
                 :else x))
       entity)))
