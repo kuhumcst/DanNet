@@ -59,7 +59,7 @@
              :alt "schemas/external/cc.rdf"}
 
    ;; Used by Open English WordNet
-   'ili     {:uri "http://ili.globalwordnet.org/ili/"
+   'ili     {:uri "http://globalwordnet.org/ili/"
              :alt :no-schema}
    'lime    {:uri "http://www.w3.org/ns/lemon/lime#"
              :alt "schemas/external/lime.xml"}
@@ -200,6 +200,9 @@
 ;; NOTE: graph covers both oewn and oewnl prefixes
 (def oewn-uri
   "http://wordnet-rdf.princeton.edu/")
+
+(def ili-uri
+  (prefix->uri 'ili))
 
 (def dds-uri
   (prefix->uri 'dds))

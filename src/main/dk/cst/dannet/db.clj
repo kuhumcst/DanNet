@@ -594,16 +594,19 @@
   (println "Importing Open English Wordnet...")
   (let [temp-model (ModelFactory/createDefaultModel)
         temp-graph (.getGraph temp-model)
-        input      "bootstrap/other/english/english-wordnet-2022.ttl"]
-    (txn/transact-exec temp-graph
-      (println "... creating temporary in-memory graph")
-      (aristotle/read temp-graph input)
-      (println "... removing problematic entries")
-      ;; The dataset itself has too many outgoing relations,
-      (remove! temp-model ["<http://wordnet-rdf.princeton.edu/>" :lime/entry '_]))
+        oewn-file  "bootstrap/other/english/english-wordnet-2022.ttl"
+        ili-file   "bootstrap/other/english/ili.ttl"]
+    (println "... creating temporary in-memory graph")
+    (aristotle/read temp-graph oewn-file)
+    (println "... removing problematic entries")
+    ;; The WordNet resource itself has too many outgoing relations,
+    (remove! temp-model ["<http://wordnet-rdf.princeton.edu/>" :lime/entry '_])
     (txn/transact-exec dataset
       (println "... persisting temporary graph")
-      (aristotle/add (get-graph dataset prefix/oewn-uri) temp-graph)))
+      (aristotle/add (get-graph dataset prefix/oewn-uri) temp-graph))
+    (txn/transact-exec dataset
+      (println "... adding ILI data")
+      (aristotle/read (get-graph dataset prefix/ili-uri) ili-file)))
   (println "Open English Wordnet imported!"))
 
 (defn ->dataset

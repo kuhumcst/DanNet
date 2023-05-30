@@ -777,6 +777,7 @@
         (when-let [label (some-> sense-id id->label rewrite-sense-label)]
           #{[sense :rdfs/label label]})
 
+        ;; TODO: convert all uses of dns:source to dc:source
         ;; Links to the DDO dictionary on ordnet.dk.
         (when-let [old-label (some-> sense-id id->label)]
           #{[sense :dns/source (->ddo-resource word-id sense-id old-label)]
