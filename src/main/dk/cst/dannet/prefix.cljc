@@ -197,6 +197,7 @@
 (def dn-uri
   (prefix->uri 'dn))
 
+;; NOTE: graph covers both oewn and oewnl prefixes
 (def oewn-uri
   (prefix->uri 'oewn))
 

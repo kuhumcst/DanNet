@@ -588,14 +588,22 @@
 
     dataset))
 
-;; TODO: delete all triples from the OEWN dataset resource to each synset
 (h/defn add-open-english-wordnet!
   "Add the Open English WordNet to a Jena `dataset`."
   [dataset]
   (println "Importing Open English Wordnet...")
-  (txn/transact-exec dataset
-    (aristotle/read (get-graph dataset prefix/oewn-uri)
-                    "bootstrap/other/english/english-wordnet-2022.ttl"))
+  (let [temp-model (ModelFactory/createDefaultModel)
+        temp-graph (.getGraph temp-model)
+        input      "bootstrap/other/english/english-wordnet-2022.ttl"]
+    (txn/transact-exec temp-graph
+      (println "... creating temporary in-memory graph")
+      (aristotle/read temp-graph input)
+      (println "... removing problematic entries")
+      ;; The dataset itself has too many outgoing relations,
+      (remove! temp-model ["<http://wordnet-rdf.princeton.edu/>" :lime/entry '_]))
+    (txn/transact-exec dataset
+      (println "... persisting temporary graph")
+      (aristotle/add (get-graph dataset prefix/oewn-uri) temp-graph)))
   (println "Open English Wordnet imported!"))
 
 (defn ->dataset
