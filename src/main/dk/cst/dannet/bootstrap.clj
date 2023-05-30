@@ -140,7 +140,7 @@
       [<dns> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab.")]
       [<dns> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
 
-      [<dnc> :rdf/type :owl/Ontology]
+      [<dnc> :rdf/type :owl/Ontology]                       ;TODO: :skos/ConceptScheme instead?
       [<dnc> :vann/preferredNamespacePrefix "dnc"]
       [<dnc> :vann/preferredNamespaceUri (prefix/prefix->uri 'dnc)]
       [<dnc> :dc/title #voc/lstr "DanNet concepts@en"]
