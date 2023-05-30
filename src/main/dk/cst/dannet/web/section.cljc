@@ -11,7 +11,9 @@
   [[nil [:rdf/type
          :owl/sameAs
          :skos/definition
+         :wn/definition
          :rdfs/comment
+         :wn/partOfSpeech
          :lexinfo/partOfSpeech
          :lexinfo/senseExample
          :dns/sentiment
@@ -29,10 +31,15 @@
      :ontolex/sense
      :ontolex/isSenseOf
      :ontolex/lexicalizedSense
-     :ontolex/isLexicalizedSenseOf]]
+     :ontolex/isLexicalizedSenseOf
+     :wn/ili
+     :wn/eq_synonym]]
    [#{(->LangStr "Semantic relations" "en")
       (->LangStr "Betydningsrelationer" "da")}
-    (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech})
+    (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
+                                               :wn/definition
+                                               :wn/ili
+                                               :wn/eq_synonym})
              (comp #{:dns/usedFor
                      :dns/usedForObject
                      :dns/nearAntonym

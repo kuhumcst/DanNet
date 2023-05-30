@@ -28,6 +28,7 @@ bootstrap/other/sentiment/sense_polarities.tsv
 # The open English WordNet
 bootstrap/other/english/english-wordnet-2022.ttl
 bootstrap/other/english/ili.ttl
+bootstrap/other/english/ili-map-pwn20.tab
 bootstrap/other/english/yaml
 bootstrap/other/english/senseidx.edn
 

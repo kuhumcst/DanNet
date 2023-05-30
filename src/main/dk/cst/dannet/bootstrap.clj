@@ -30,6 +30,9 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]))
 
+(declare read-triples)
+(declare cor-k-pos)
+
 ;; TODO: missing labels
 ;;       http://localhost:3456/dannet/data/synset-48454
 ;;       http://localhost:3456/dannet/data/synset-49086
@@ -557,6 +560,17 @@
 (def senseidx->english-synset
   (delay (edn/read-string (slurp "bootstrap/other/english/senseidx.edn"))))
 
+(def wn20-id->ili
+  (delay (->> (read-triples [identity
+                             "bootstrap/other/english/ili-map-pwn20.tab"
+                             :encoding "UTF-8"
+                             :separator \tab])
+              (filter (fn [[_ _ confidence]]
+                        (= confidence "1")))
+              (map (fn [[ili-id wn-id _]]
+                     [(str "ENG20-" wn-id) (keyword "ili" ili-id)]))
+              (into {}))))
+
 (h/defn ->english-link-triples
   "Convert a `row` from 'relations.csv' to triples.
 
@@ -564,10 +578,12 @@
   [[subj-id _ rel obj-id _ _ :as row]]
   ;; Ignores eq_has_hyponym and eq_has_hyperonym, no equivalent in GWA schema.
   ;; This loses us 123 of the original 5000l links to the Princton WordNet.
+  ;; TODO: implement dns relations for this as we apparently use those the new data too...
   (when (= "eq_has_synonym" rel)
-    ;; TODO: need backup for IDs that match e.g. "ENG20-07945291-n"
-    (when-let [obj (get @senseidx->english-synset obj-id)]
-      #{[(synset-uri subj-id) :wn/eq_synonym obj]})))
+    (if-let [obj (get @senseidx->english-synset obj-id)]
+      #{[(synset-uri subj-id) :wn/eq_synonym obj]}
+      (when-let [ili-obj (get @wn20-id->ili obj-id)]
+        #{[(synset-uri subj-id) :wn/ili ili-obj]}))))
 
 ;; TODO: can we create new forms/words/synsets rather than overload writtenRep?
 (defn explode-written-reps
@@ -599,9 +615,6 @@
 (defn qt
   [s & after]
   (apply str "\"" s "\"" after))
-
-(declare read-triples)
-(declare cor-k-pos)
 
 (def sense-properties
   (let [row->kv (fn [[dannetsemid lemma hom pos dn_lemma id gloss]]
@@ -1103,6 +1116,7 @@
                  :separator \tab
                  :preprocess (comp mark-duplicate-senses rest)]
 
+    ;; TODO: publish as a separate dataset?
     ;; Links to the Open English WordNet
     :oewn-links [->english-link-triples "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]}
 
@@ -1256,6 +1270,11 @@
 
   ;; Example relations
   (->> (read-triples (get-in imports [prefix/dn-uri :relations]))
+       (take 10))
+
+  ;; Example English WordNet or ILI links
+  (->> (read-triples (get-in imports [prefix/dn-uri :oewn-links]))
+       (remove nil?)
        (take 10))
 
   ;; Example links to the Open English WordNet
