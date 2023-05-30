@@ -10,12 +10,13 @@
   [entity]
   [[nil [:rdf/type
          :owl/sameAs
+         :lexinfo/partOfSpeech
+         :wn/partOfSpeech
          :skos/definition
          :wn/definition
          :rdfs/comment
-         :wn/partOfSpeech
-         :lexinfo/partOfSpeech
          :lexinfo/senseExample
+         :wn/example
          :dns/sentiment
          :dns/ontologicalType
          :vann/preferredNamespacePrefix
@@ -38,6 +39,7 @@
       (->LangStr "Betydningsrelationer" "da")}
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
                                                :wn/definition
+                                               :wn/example
                                                :wn/ili
                                                :wn/eq_synonym})
              (comp #{:dns/usedFor
