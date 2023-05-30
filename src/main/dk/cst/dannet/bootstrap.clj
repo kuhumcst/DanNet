@@ -1078,7 +1078,7 @@
                                     synset (some->>
                                              (get x :synset)
                                              (str "oewn-")
-                                             (keyword "oewn"))]
+                                             (keyword "en"))]
                                 (when (and id synset)
                                   (swap! id->synset assoc id synset))))
                             x))))
