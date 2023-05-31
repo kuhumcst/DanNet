@@ -1,8 +1,9 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**
+## **SNAPSHOT**: ~5000 links to the Open English WordNet
 * The schema translations have been updated.
+* Around 5000 links have been added which link DanNet to the [Open English WordNet](https://github.com/globalwordnet/english-wordnet) or indirectly via the [CILI](https://github.com/globalwordnet/cili).
 
 ## **2023-05-23**: DDS/COR improvements & links to DDO
 The following changes to our data sets will be available in the next version:
