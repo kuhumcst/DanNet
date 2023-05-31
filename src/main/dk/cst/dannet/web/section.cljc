@@ -32,16 +32,12 @@
      :ontolex/sense
      :ontolex/isSenseOf
      :ontolex/lexicalizedSense
-     :ontolex/isLexicalizedSenseOf
-     :wn/ili
-     :wn/eq_synonym]]
+     :ontolex/isLexicalizedSenseOf]]
    [#{(->LangStr "Semantic relations" "en")
       (->LangStr "Betydningsrelationer" "da")}
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
                                                :wn/definition
-                                               :wn/example
-                                               :wn/ili
-                                               :wn/eq_synonym})
+                                               :wn/example})
              (comp #{:dns/usedFor
                      :dns/usedForObject
                      :dns/nearAntonym

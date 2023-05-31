@@ -568,7 +568,9 @@
   [:rdfs/label
    :dc/title
    :dc11/title
-   :foaf/name])
+   :foaf/name
+   :skos/definition                                         ; wn:ili Concepts
+   :ontolex/writtenRep])
 
 (defn entity->label-key
   "Return :rdfs/label or another appropriate key for labeling `entity`."
