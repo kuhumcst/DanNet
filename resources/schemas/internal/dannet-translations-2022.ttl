@@ -89,17 +89,17 @@ skos:scopeNote skos:definition "En bemærkning der hjælper til at tydeliggøre 
 skos:Concept rdfs:label "begreb"@da .
 skos:Concept skos:definition "En idé eller et begreb; en tankeenhed."@da .
 
-ontolex:evokes rdfs:label "fremkalder"@da .
+#ontolex:evokes rdfs:label "fremkalder"@da .
 ontolex:evokes rdfs:comment "Denne relation forbinder et leksikalsk opslagsord med et af de leksikalske begreber det fremkalder, dvs. det begreb som lytteren måske vil associere det leksikalske opslagsord med."@da .
-ontolex:isEvokedBy rdfs:label "fremkaldes af"@da .
+#ontolex:isEvokedBy rdfs:label "fremkaldes af"@da .
 ontolex:isEvokedBy rdfs:comment "Modparten til 'fremkalder'-relationen.'"@da .
-ontolex:sense rdfs:label "betydning"@da .
+#ontolex:sense rdfs:label "betydning"@da .
 ontolex:sense rdfs:comment "Relationen mellem et leksikalsk opslagsord og et af dets betydninger."@da .
-ontolex:isSenseOf rdfs:label "er betydning af"@da .
+#ontolex:isSenseOf rdfs:label "er betydning af"@da .
 ontolex:isSenseOf rdfs:comment "Modparten til 'betydning'-relationen.'"@da .
-ontolex:lexicalizedSense rdfs:label "leksikaliseret betydning"@da .
+#ontolex:lexicalizedSense rdfs:label "leksikaliseret betydning"@da .
 ontolex:lexicalizedSense rdfs:comment "Den leksikaliserede betydning relaterer et leksikalsk begreb til den tilsvarende betydning der leksikaliserer begrebet."@da .
-ontolex:isLexicalizedSenseOf rdfs:label "er leksikaliseret betydning af"@da .
+#ontolex:isLexicalizedSenseOf rdfs:label "er leksikaliseret betydning af"@da .
 ontolex:isLexicalizedSenseOf rdfs:comment "Modparten til 'leksikaliseret betydning'-relationen.'"@da .
 ontolex:canonicalForm rdfs:label "opslagsform"@da .
 ontolex:otherForm rdfs:label "anden form"@da .

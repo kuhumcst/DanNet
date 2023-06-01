@@ -22,8 +22,8 @@
          :vann/preferredNamespacePrefix
          :dc/description
          :dcat/downloadURL]]
-   [#{(->LangStr "Lexical components" "en")
-      (->LangStr "Leksikalske bestanddele" "da")}
+   [#{(->LangStr "Ontolex units" "en")
+      (->LangStr "Ontolex-enheder" "da")}
     [:ontolex/writtenRep
      :ontolex/canonicalForm
      :ontolex/otherForm
