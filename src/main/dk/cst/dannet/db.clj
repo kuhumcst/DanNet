@@ -621,6 +621,7 @@
                        (update m ?synset conj (str ?rep)))
         synset-label (fn [labels]
                        (as-> labels $
+                             (set $)
                              (sort $)
                              (str/join "; " $)
                              (bootstrap/en "{" $ "}")))]
