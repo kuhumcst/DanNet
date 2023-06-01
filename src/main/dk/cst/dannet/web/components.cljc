@@ -599,7 +599,9 @@
        (prefix-elem prefix)
        [:span {:title (if label
                         (prefix/kw->qname label-key)
-                        subject)
+                        (if uri-only?
+                          rdf-uri
+                          (str prefix ":" local-name)))
                :key   subject
                :lang  label-lang}
         (if label
@@ -627,7 +629,6 @@
            (break-up-uri rdf-uri)]))]
      (for [[title ks] (section/page-sections entity)]
        (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                (dissoc label-key)
                                 (not-empty))]
          [:section {:key (or title :no-title)}
           (when title [:h2 (str (i18n/select-label languages title))])
