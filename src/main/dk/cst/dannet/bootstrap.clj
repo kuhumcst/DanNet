@@ -109,7 +109,7 @@
   (prefix/schema-uri 'dnc))
 
 (def release-date
-  "2023-05-23")
+  "2023-06-01")
 
 (def dc-issued-old
   "2013-01-03")
@@ -793,8 +793,8 @@
         ;; TODO: convert all uses of dns:source to dc:source
         ;; Links to the DDO dictionary on ordnet.dk.
         (when-let [old-label (some-> sense-id id->label)]
-          #{[sense :dns/source (->ddo-resource word-id sense-id old-label)]
-            [word :dns/source (->ddo-resource word-id old-label)]})
+          #{[sense :dc/source (->ddo-resource word-id sense-id old-label)]
+            [word :dc/source (->ddo-resource word-id old-label)]})
 
         ;; The "inserted by DanNet" senses refer to the same dummy word, "TOP".
         ;; These relations make no sense to include. Instead, the necessary
@@ -1059,7 +1059,7 @@
       ;; this relation exists to avoid losing these distinctions in the dataset.
       ;; Alternative representations are represented with strings in Ontolex!
       rep-id
-      (conj [lexical-form :dns/source full]))))
+      (conj [lexical-form :dc/source full]))))
 
 (h/defn ->cor-ext-triples
   [[id lemma comment _ _ _ grammar form :as row]]

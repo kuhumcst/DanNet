@@ -9,7 +9,7 @@ Unlike a normal dictionary, the definitions of words aren't central; instead, re
 ## Download our data
 DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF data set][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. All our data sets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
 
-DanNet is integrated with [COR][COR] and [DDS][DDS] too. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration] og [DDS integration][DDS-integration]).
+DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] which we have extended with RDF labels resembling those used in DanNet. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration], [DDS integration][DDS-integration], [OEWN extension][OEWN-extension]).
 
 You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined data set or download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
 
@@ -30,10 +30,12 @@ The following documents are only available in English and mostly for developers:
 [GWA]: http://globalwordnet.org/ "Global WordNet Association"
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
+[OEWN]: https://en-word.net/ "Open English WordNet"
 [DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
+[OEWN-extension]: /export/rdf/oewn-extension "OEWN extension (RDF)"
 [DanNet+COR+DDS]: /export/rdf/dn?variant=merged "DanNet + COR + DDS (RDF)"
 [complete]: /export/rdf/dn?variant=complete "DanNet + COR + DDS + logically inferred data (RDF)"
 [dværgpil]: /dannet/data/synset-1304 "dværgpil"

@@ -1,9 +1,11 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: ~5000 links to the Open English WordNet
+## **2023-06-01**: ~5000 links to the Open English WordNet
 * The schema translations have been updated.
 * Around 5000 links have been added which link DanNet to the [Open English WordNet](https://github.com/globalwordnet/english-wordnet) or indirectly via the [CILI](https://github.com/globalwordnet/cili).
+* The OEWN data set has received a companion data set containing generated labels for synsets, senses, and words.
+* `dns:dslSense` and `dns:source` have been removed from the DanNet schema (`dns:source` has been replaced by `dc:source`)
 
 ## **2023-05-23**: DDS/COR improvements & links to DDO
 The following changes to our data sets will be available in the next version:

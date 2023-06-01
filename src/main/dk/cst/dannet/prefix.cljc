@@ -72,6 +72,11 @@
    'en      {:uri "http://wordnet-rdf.princeton.edu/id/"
              :alt :no-schema}
 
+   ;; Our extension of the OEWN containing labels for words, senses, synsets
+   'en+     {:uri      "http://wordnet.dk/oewn"
+             :export   #{'rdfs 'en 'enl}
+             :download {"rdf" {:default "oewn-extension.zip"}}}
+
    ;; The COR namespace
    'cor     {:uri      "https://ordregister.dk/id/"
              :export   #{'dn 'cor
@@ -200,6 +205,9 @@
 ;; NOTE: graph covers both oewn and oewnl prefixes
 (def oewn-uri
   "http://wordnet-rdf.princeton.edu/")
+
+(def oewn-label-uri
+  (prefix->uri 'en+))
 
 (def ili-uri
   (prefix->uri 'ili))

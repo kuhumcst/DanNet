@@ -227,7 +227,7 @@
                          (into
                            #{[sense' :rdf/type :ontolex/LexicalSense]
                              [sense' :rdfs/label label]
-                             [sense' :dns/dslSense sense-id]
+                             [sense' :dns/dslSense sense-id] ; temporary link
                              [synset :ontolex/lexicalizedSense sense']
                              [word :ontolex/sense sense']}
                            (for [other others]
@@ -459,7 +459,8 @@
       (println "Removing" (count triples-to-remove) "synset intersections...")
       (txn/transact-exec dn-model
         (doseq [triple triples-to-remove]
-          (remove! dn-model triple)))
+          (remove! dn-model triple))
+        (remove! dn-model '[_ :dns/dslSense _]))
       (txn/transact-exec dn-graph
         (safe-add! dn-graph triples-to-add)))
 
@@ -609,6 +610,35 @@
       (aristotle/read (get-graph dataset prefix/ili-uri) ili-file)))
   (println "Open English Wordnet imported!"))
 
+(h/defn add-open-english-wordnet-labels!
+  "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
+  [dataset]
+  (println "Adding labels to the Open English Wordnet...")
+  (let [oewn-graph   (get-graph dataset prefix/oewn-uri)
+        label-graph  (get-graph dataset prefix/oewn-label-uri)
+        ms           (q/run oewn-graph op/oewn-label-targets)
+        collect-rep  (fn [m {:syms [?synset ?rep]}]
+                       (update m ?synset conj (str ?rep)))
+        synset-label (fn [labels]
+                       (as-> labels $
+                             (sort $)
+                             (str/join "; " $)
+                             (bootstrap/en "{" $ "}")))]
+    (txn/transact-exec dataset
+      (println "... adding synset labels to" prefix/oewn-label-uri)
+      (->> (reduce collect-rep {} ms)
+           (map (fn [[synset labels]]
+                  [synset :rdfs/label (synset-label labels)]))
+           (aristotle/add label-graph)))
+    (txn/transact-exec dataset
+      (println "... adding sense and word labels to" prefix/oewn-label-uri)
+      (->> ms
+           (mapcat (fn [{:syms [?sense ?word ?rep]}]
+                     [[?word :rdfs/label (bootstrap/en "\"" ?rep "\"")]
+                      [?sense :rdfs/label ?rep]]))
+           (aristotle/add label-graph))))
+  (println "Labels added to the Open English WordNet!"))
+
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`."
   [db-type & [db-path]]
@@ -662,6 +692,7 @@
         fn-hashes      (conj bootstrap/hashes
                              (:hash (meta #'add-bootstrap-import!))
                              (:hash (meta #'add-open-english-wordnet!))
+                             (:hash (meta #'add-open-english-wordnet-labels!))
                              (hash prefix/schemas))
         ;; Undo potentially negative number by bit-shifting.
         files-hash     (pos-hash files)
@@ -687,6 +718,7 @@
           (println "Data input has changed -- rebuilding database...")
           (add-bootstrap-import! dataset bootstrap-imports)
           (add-open-english-wordnet! dataset)
+          (add-open-english-wordnet-labels! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no imports!"))
@@ -741,12 +773,16 @@
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
   (let [ttl-file (ttl-path path)]
     (txn/transact-exec model
+      ;; Clear potentially imported prefixes, e.g. from TTL files
+      (.clearNsPrefixMap model)
       (println "Exporting" path (str "(" (.size model) ")")
                "with prefixes:" (or prefixes "ALL"))
+      ;; Temporarily add prefixes for export
       (add-registry-prefixes! model :prefixes prefixes)
       (io/make-parents path)
       (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
       (zip-files [ttl-file] path)
+      ;; Clear temporarily added prefixes
       (.clearNsPrefixMap model)))
   nil)
 
@@ -766,7 +802,9 @@
          merged-ttl   (in-dir (prefix/export-file "rdf" 'dn "merged"))
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
-                        (doall (iterator-seq (.listNames ^Dataset dataset))))]
+                        (->> (iterator-seq (.listNames ^Dataset dataset))
+                             (remove #{prefix/oewn-uri})
+                             (doall)))]
      (println "Beginning RDF export of DanNet into" dir)
      (println "----")
 
@@ -1069,12 +1107,15 @@
       (igraph-jena/make-jena-graph model)))
 
   ;; Export individual models
-  (export-rdf-model! "export/rdf/dn.zip" (get-model dataset prefix/dn-uri)
+  (def dataset (:dataset @dk.cst.dannet.web.resources/db))
+  (export-rdf-model! "export/rdf/dannet.zip" (get-model dataset prefix/dn-uri)
                      :prefixes (export-prefixes 'dn))
   (export-rdf-model! "export/rdf/dds.zip" (get-model dataset prefix/dds-uri)
                      :prefixes (export-prefixes 'dds))
   (export-rdf-model! "export/rdf/cor.zip" (get-model dataset prefix/cor-uri)
                      :prefixes (export-prefixes 'cor))
+  (export-rdf-model! "export/rdf/oewn-extension.zip" (get-model dataset prefix/oewn-label-uri)
+                     :prefixes (export-prefixes 'en+))
 
   ;; Export the entire dataset as RDF
   (export-rdf! dannet)

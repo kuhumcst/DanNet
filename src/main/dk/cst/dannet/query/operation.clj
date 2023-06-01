@@ -249,6 +249,16 @@
        ?corWord ontolex:sense ?oldSense .
      }"))
 
+(def oewn-label-targets
+  (sparql
+    "SELECT ?synset ?sense ?word ?rep
+     WHERE {
+       ?form ontolex:writtenRep ?rep .
+       ?word ontolex:canonicalForm ?form .
+       ?word ontolex:sense ?sense .
+       ?sense ontolex:isLexicalizedSenseOf ?synset .
+     }"))
+
 (def missing-words
   (sparql
     "SELECT ?sense ?synset ?label

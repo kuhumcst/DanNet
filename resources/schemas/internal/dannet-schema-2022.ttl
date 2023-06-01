@@ -7,23 +7,6 @@
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix marl: <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
-:source a rdf:Property ;
-  rdfs:subPropertyOf skos:related ;
-  rdfs:label "source"@en ;
-  rdfs:label "kilde"@da ;
-  rdfs:comment "The original source of this resource."@en ;
-  rdfs:comment "Den oprindelige kilde til denne ressource."@da ;
-  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
-
-# TODO: can this be removed/made internal now that :source exists?
-:dslSense a owl:ObjectProperty ;
-  rdfs:domain ontolex:LexicalSense ;
-  rdfs:label "DSL sense"@en ;
-  rdfs:label "DSL-betydning"@da ;
-  rdfs:comment "The original ID of this sense; mainly used as an internal reference."@en ;
-  rdfs:comment "Den oprindelige ID for denne betydning; mest brugt som intern reference."@da ;
-  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
-
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;
   rdfs:label "sentiment"@en ;
