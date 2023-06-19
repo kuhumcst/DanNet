@@ -615,7 +615,7 @@
   [dataset]
   (println "Adding labels to the Open English Wordnet...")
   (let [oewn-graph   (get-graph dataset prefix/oewn-uri)
-        label-graph  (get-graph dataset prefix/oewn-label-uri)
+        label-graph  (get-graph dataset prefix/oewn-extension-uri)
         ms           (q/run oewn-graph op/oewn-label-targets)
         collect-rep  (fn [m {:syms [?synset ?rep]}]
                        (update m ?synset conj (str ?rep)))
@@ -626,13 +626,13 @@
                              (str/join "; " $)
                              (bootstrap/en "{" $ "}")))]
     (txn/transact-exec dataset
-      (println "... adding synset labels to" prefix/oewn-label-uri)
+      (println "... adding synset labels to" prefix/oewn-extension-uri)
       (->> (reduce collect-rep {} ms)
            (map (fn [[synset labels]]
                   [synset :rdfs/label (synset-label labels)]))
            (aristotle/add label-graph)))
     (txn/transact-exec dataset
-      (println "... adding sense and word labels to" prefix/oewn-label-uri)
+      (println "... adding sense and word labels to" prefix/oewn-extension-uri)
       (->> ms
            (mapcat (fn [{:syms [?sense ?word ?rep]}]
                      [[?word :rdfs/label (bootstrap/en "\"" ?rep "\"")]
@@ -804,7 +804,7 @@
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (->> (iterator-seq (.listNames ^Dataset dataset))
-                             (remove #{prefix/oewn-uri})
+                             (remove prefix/not-for-export)
                              (doall)))]
      (println "Beginning RDF export of DanNet into" dir)
      (println "----")
@@ -815,6 +815,13 @@
                    prefix       (prefix/uri->prefix model-uri)
                    filename     (in-dir (prefix/export-file "rdf" prefix))]]
        (export-rdf-model! filename model :prefixes (export-prefixes prefix)))
+
+     ;; The OEWN extension data is exported separately from the other models,
+     ;; since it isn't connected to a separate prefix (= graph).
+     (export-rdf-model!
+       (in-dir (get-in prefix/oewn-extension [:download "rdf" :default]))
+       (get-model dataset prefix/oewn-extension-uri)
+       :prefixes (get prefix/oewn-extension :export))
 
      ;; The union of the input datasets.
      (let [union-model (.getUnionModel dataset)]
@@ -1115,12 +1122,14 @@
                      :prefixes (export-prefixes 'dds))
   (export-rdf-model! "export/rdf/cor.zip" (get-model dataset prefix/cor-uri)
                      :prefixes (export-prefixes 'cor))
-  (export-rdf-model! "export/rdf/oewn-extension.zip" (get-model dataset prefix/oewn-label-uri)
-                     :prefixes (export-prefixes 'en+))
+  (export-rdf-model! "export/rdf/oewn-extension.zip"
+                     (get-model dataset prefix/oewn-extension-uri)
+                     :prefixes (get prefix/oewn-extension :export))
 
   ;; Export the entire dataset as RDF
   (export-rdf! dannet)
   (export-rdf! @dk.cst.dannet.web.resources/db)
+
   (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
 
   ;; Test CSV table data
