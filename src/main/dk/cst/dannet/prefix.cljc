@@ -175,7 +175,8 @@
 (defn export-file
   "Return filename registered for `prefix` and `type`; accepts `variant` too."
   [type prefix & [variant]]
-  (doto (get-in schemas [prefix :download type (or variant :default)])
+  (doto (get-in (assoc schemas 'oewn-extension oewn-extension)
+                [prefix :download type (or variant :default)])
     (assert)))
 
 (defn prefix->schema-path
