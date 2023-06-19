@@ -135,7 +135,7 @@ Normally, the Caddy service can keep running, so only the DanNet service needs t
 
 ```shell
 # from inside the docker/ directory on the production server
-docker compose down dannet
+docker compose stop dannet
 ```
 
 Once the service is down, the database and export files can be transferred using SFTP to the relevant directories on the server. The git commit on the production server should also match the uploaded data, of course!
