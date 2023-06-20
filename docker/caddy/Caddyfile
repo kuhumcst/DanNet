@@ -7,6 +7,8 @@ www.wordnet.dk {
 }
 
 wordnet.dk, localhost {
+    redir / https://cst.ku.dk/projekter/dannet
+
     rate_limit {remote.ip} 240r/m
     encode gzip
     reverse_proxy dannet:3456
