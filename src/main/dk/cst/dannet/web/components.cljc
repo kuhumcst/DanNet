@@ -917,7 +917,10 @@
 
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity languages] :as opts}]
-  (let [page-component (get pages page)
+  (let [page-component (or (get pages page)
+                           (throw (ex-info
+                                    (str "No component for page: " page)
+                                    opts)))
         state' #?(:clj {:languages languages}
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
