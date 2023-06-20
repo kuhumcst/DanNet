@@ -302,6 +302,70 @@
 (def entity-redirect-path
   (str (-> 'dn prefix/schemas :uri prefix/uri->path)))
 
+;; TODO: work on this
+(defn resource-triples-ic
+  "Get triples based on `position` (:subject or :object).
+
+  Basically, this a way to get e.g. inverse relations by returning incoming
+  relations to some resource, rather than the outgoing ones."
+  [position]
+  {:name  ::resource-triples
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [{:keys [prefix
+                          resource
+                          download]} (merge (:path-params request)
+                                            (:query-params request))
+                  content-type (or download
+                                   (get-in request [:accept :field])
+                                   "text/plain")
+                  ;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  g            (:graph @db)
+                  resource*    (cond->> (decode-query-part resource)
+                                 prefix (keyword (name prefix)))
+                  entity       (if (use-lang? content-type)
+                                 (q/inverse-relations g position resource*) ;TODO
+                                 (q/inverse-relations g position resource*))
+                  languages    (request->languages request)
+                  qs           (remove-internal-params (:query-string request))
+                  data         {:languages languages
+                                :href      (str (:uri request)
+                                                (when (not-empty qs)
+                                                  (str "?" qs)))
+                                :k->label  (-> entity meta :k->label)
+                                :inferred  (-> entity meta :inferred)
+                                :subject   resource*
+                                :entity    entity}
+                  qname        (if (keyword? resource*)
+                                 (prefix/kw->qname resource*)
+                                 resource*)
+                  body         (content-type->body-fn content-type)
+                  page-meta    {:title qname
+                                :page  (if (= position :object)
+                                         "inverse-relations"
+                                         "connections")}]
+              (-> ctx
+                  (update :response merge
+                          (if (not-empty entity)
+                            {:status 200
+                             :body   (body data page-meta)}
+                            (let [alt (alt-resource qname)]
+                              (if (and alt (not-empty (q/entity g alt)))
+                                {:status  301               ; TODO: use 302...?
+                                 :headers {"Location" (prefix/resource-path alt)}}
+                                (or (external-redirect resource* content-type)
+                                    {:status 404
+                                     :body   (body (dissoc data :entity) page-meta)})))))
+                  (update-in [:response :headers] merge
+                             (assoc (x-headers page-meta)
+                               "Content-Type" content-type)
+                             (when (= content-type "text/turtle")
+                               (let [filename (str/replace qname #":" "_")
+                                     cd       (str "attachment; filename=\"" filename ".ttl\"")]
+                                 {"Content-Disposition" cd}))
+                             ;; TODO: use cache in production
+                             #_#_"Cache-Control" one-day-cache))))})
+
 (def search-ic
   "Presents search results as synsets mathcing a given lemma.
 
@@ -419,6 +483,22 @@
            language-negotiation-ic
            (->entity-ic :subject (prefix/uri->rdf-resource uri))]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
+
+(def inverse-relations-route
+  "Entity-like view of the inverse relations of the resource."
+  [(str (prefix/uri->path prefix/dannet-root) "inverse/:prefix/:resource")
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         (resource-triples-ic :object)]
+   :route-name ::inverse-relations])
+
+(def connections-route
+  "Entity-like view of connections made possible by some predicate."
+  [(str (prefix/uri->path prefix/dannet-root) "connections/:prefix/:resource")
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         (resource-triples-ic :predicate)]
+   :route-name ::connections])
 
 (def search-route
   [prefix/search-path

@@ -827,9 +827,11 @@
 ;; TODO: find better solution? string keys + indirection reduce discoverability
 (def pages
   "Mapping from page data metadata :page key to the relevant Rum component."
-  {"entity"   entity-page
-   "search"   search-page
-   "markdown" markdown-page})
+  {"entity"            entity-page
+   "inverse-relations" entity-page
+   "connections"       entity-page
+   "search"            search-page
+   "markdown"          markdown-page})
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.

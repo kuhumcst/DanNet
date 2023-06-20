@@ -21,6 +21,8 @@
       res/autocomplete-route
       res/external-entity-route
       res/unknown-external-entity-route
+      res/inverse-relations-route                           ; [?p ?o] of ?s
+      res/connections-route                                 ; [?s ?o] of ?p
       res/export-route
       res/schema-download-route
       res/markdown-route
