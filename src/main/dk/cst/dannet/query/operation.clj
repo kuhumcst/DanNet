@@ -15,6 +15,31 @@
   (q/build
     '[:bgp [?s ?p ?o]]))
 
+;; TODO: support RDF resource IRI strings
+(defn clj->sparql
+  "Convert a Clojure data `arg` to a SPARQL-compatible string."
+  [arg]
+  (if (keyword? arg)
+    (prefix/kw->qname arg)
+    arg))
+
+(defn s-p-o
+  "Build a generic s-p-o pattern selecting and ordering by `args`,
+  optionally with `limit` and `offset`."
+  ([vars]
+   (s-p-o vars 0 0))
+  ([vars limit]
+   (s-p-o vars limit 0))
+  ([args limit offset]
+   (let [vars        (str/join " " (filter symbol? args))
+         sparql-args (str/join " " (map clj->sparql args))]
+     (sparql
+       "SELECT " vars " "
+       "WHERE { " sparql-args " } "
+       "ORDER BY " vars " "
+       "LIMIT " limit " "
+       "OFFSET " offset))))
+
 (def expanded-entity
   (let [label-rels (str/join " " (map prefix/kw->qname com/label-keys))]
     (sparql

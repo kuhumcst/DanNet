@@ -126,14 +126,13 @@
                  :subject subject))
     (with-meta {} {:subject subject})))
 
-;; TODO: rename
-(defn inverse-relations
+(defn p-o-relations
   [g position resource]
   (with-meta (if (= position :predicate)
-               (->> (run g op/entity {'?p resource})
-                    (mapv (juxt '?s '?o)))
-               (->> (run g op/entity {'?o resource})
-                    (mapv (juxt '?p '?s))))
+               (->> (run g (op/s-p-o ['?s resource '?o] 500))
+                    (map (juxt '?s '?o)))
+               (->> (run g (op/s-p-o ['?s '?p resource] 500))
+                    (map (juxt '?p '?s))))
              {:resource resource
               :position position}))
 

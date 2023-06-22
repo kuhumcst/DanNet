@@ -324,8 +324,8 @@
                   resource*    (cond->> (decode-query-part resource)
                                  prefix (keyword (name prefix)))
                   entity       (if (use-lang? content-type)
-                                 (q/inverse-relations g position resource*) ;TODO
-                                 (q/inverse-relations g position resource*))
+                                 (q/p-o-relations g position resource*) ;TODO
+                                 (q/p-o-relations g position resource*))
                   languages    (request->languages request)
                   qs           (remove-internal-params (:query-string request))
                   data         {:languages languages
