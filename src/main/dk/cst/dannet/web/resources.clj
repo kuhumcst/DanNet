@@ -302,7 +302,6 @@
 (def entity-redirect-path
   (str (-> 'dn prefix/schemas :uri prefix/uri->path)))
 
-;; TODO: work on this
 (defn resource-triples-ic
   "Get triples based on `position` (:subject or :object).
 
@@ -312,6 +311,7 @@
   {:name  ::resource-triples
    :leave (fn [{:keys [request] :as ctx}]
             (let [{:keys [prefix
+                          offset
                           resource
                           download]} (merge (:path-params request)
                                             (:query-params request))
@@ -323,9 +323,11 @@
                   g            (:graph @db)
                   resource*    (cond->> (decode-query-part resource)
                                  prefix (keyword (name prefix)))
+                  offset       (when offset
+                                 (parse-long offset))
                   entity       (if (use-lang? content-type)
-                                 (q/p-o-relations g position resource*) ;TODO
-                                 (q/p-o-relations g position resource*))
+                                 (q/p-o-relations g position resource* (or offset 0)) ;TODO
+                                 (q/p-o-relations g position resource* (or offset 0)))
                   languages    (request->languages request)
                   qs           (remove-internal-params (:query-string request))
                   data         {:languages languages
@@ -344,6 +346,7 @@
                                 :page  (if (= position :object)
                                          "inverse-relations"
                                          "connections")}]
+              (pprint entity)
               (-> ctx
                   (update :response merge
                           (if (not-empty entity)
@@ -674,4 +677,12 @@
   (autocomplete* "sar")
   (autocomplete* "spo")
   (autocomplete* "tran")
+
+  (def x (q/p-o-relations (:graph @db) :predicate :en/oewn-09455334-n))
+
+  ;; TODO: order by errors out
+  (q/run (:graph @db) (op/s-p-o '[?s :wn/eq_synonym ?o] 5))
+  (q/run (:graph @db) (op/s-p-o '[?s ?o :en/oewn-09455334-n] 100))
+  (q/run (:graph @db) (op/s-p-o '[:dn/synset-11581 ?p ?o] 6))
+
   #_.)

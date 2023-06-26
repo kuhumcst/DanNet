@@ -23,6 +23,10 @@
     (prefix/kw->qname arg)
     arg))
 
+
+;; https://stackoverflow.com/questions/18212697/aggregating-results-from-sparql-query
+;; TODO: figure out grouping directly in sparql
+;; TODO: only select resources? would make conversion in ?items groups easier
 (defn s-p-o
   "Build a generic s-p-o pattern selecting and ordering by `args`,
   optionally with `limit` and `offset`."
@@ -31,14 +35,17 @@
   ([vars limit]
    (s-p-o vars limit 0))
   ([args limit offset]
-   (let [vars        (str/join " " (filter symbol? args))
-         sparql-args (str/join " " (map clj->sparql args))]
+   (let [vars     (filter symbol? args)
+         vars-str (str/join " " (filter symbol? args))
+         where    (str/join " " (map clj->sparql args))]
      (sparql
-       "SELECT " vars " "
-       "WHERE { " sparql-args " } "
-       "ORDER BY " vars " "
+       "SELECT " (first vars) " (GROUP_CONCAT(" (second vars) ") AS ?items) "
+       "WHERE { " where " } "
+       "GROUP BY " (first vars) " "
+       "ORDER BY " (first vars) " "
        "LIMIT " limit " "
-       "OFFSET " offset))))
+       "OFFSET " offset " "
+       #_#_"GROUP BY " vars-str))))
 
 (def expanded-entity
   (let [label-rels (str/join " " (map prefix/kw->qname com/label-keys))]

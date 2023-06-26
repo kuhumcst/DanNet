@@ -500,7 +500,7 @@
                 inherited?    (get inherited k)
                 inferred?     (get inferred k)
                 opts+attr-key (assoc opts :attr-key k)]]
-      [:tr {:key   k
+      [:tr {:key   (str [k v])
             :class [(when inferred? "inferred")
                     (when inherited? "inherited")]}
        [:td.attr-prefix
@@ -582,7 +582,7 @@
         (recur candidates)))))
 
 (rum/defc entity-page
-  [{:keys [href languages comments subject inferred entity k->label] :as opts}]
+  [{:keys [href languages comments subject inferred entity k->label page] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
@@ -627,12 +627,17 @@
                        :title (i18n/select-label languages a-titles)
                        :key   rdf-uri}
            (break-up-uri rdf-uri)]))]
-     (for [[title ks] (section/page-sections entity)]
-       (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                (not-empty))]
-         [:section {:key (or title :no-title)}
-          (when title [:h2 (str (i18n/select-label languages title))])
-          (attr-val-table (assoc opts :inherited inherited) subentity)]))
+
+     ;; TODO: currently many rows are being swallowed in the subentity map due to being the same key
+     (if (not= page "connections")
+       (for [[title ks] (section/page-sections entity)]
+         (when-let [subentity (if (not= page "connections")
+                                (-> (ordered-subentity opts ks entity)
+                                    (not-empty)))]
+           [:section {:key (or title :no-title)}
+            (when title [:h2 (str (i18n/select-label languages title))])
+            (attr-val-table (assoc opts :inherited inherited) subentity)]))
+       (attr-val-table (assoc opts :inherited inherited) entity))
      [:section.notes
       (when (not-empty inferred)
         [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
@@ -927,7 +932,7 @@
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
         comments       {:comments (translate-comments languages')}
-        opts'          (merge opts state' comments)
+        opts'          (merge opts state' comments {:page page})
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix

@@ -126,15 +126,20 @@
                  :subject subject))
     (with-meta {} {:subject subject})))
 
+(def limit 500)
+
 (defn p-o-relations
-  [g position resource]
-  (with-meta (if (= position :predicate)
-               (->> (run g (op/s-p-o ['?s resource '?o] 500))
-                    (map (juxt '?s '?o)))
-               (->> (run g (op/s-p-o ['?s '?p resource] 500))
-                    (map (juxt '?p '?s))))
-             {:resource resource
-              :position position}))
+  [g position resource offset]
+  (with-meta
+    (if (= position :predicate)
+      (->> (run g (op/s-p-o ['?s resource '?o] limit offset))
+           (map (juxt '?s '?o)))
+      (->> (run g (op/s-p-o ['?s '?p resource] limit offset))
+           (map (juxt '?p '?s))))
+    {:resource resource
+     :limit    limit
+     :offset   offset
+     :position position}))
 
 ;; TODO: what about blank-expanded-entity?
 (defn blank-entity
