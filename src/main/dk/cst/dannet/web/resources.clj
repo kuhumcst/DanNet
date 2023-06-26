@@ -19,7 +19,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.bootstrap :as bootstrap]
+            [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]

@@ -74,11 +74,11 @@ Language negotiation is used to select the most suitable RDF data when multiple 
 
 Bootstrap
 ---------
-The initial dataset was [bootstrapped from the old DanNet 2.2 CSV files](src/main/dk/cst/dannet/bootstrap.clj) (technically: a slightly more recent, unpublished version) as well as several other input sources, e.g. the list of new adjectives produced by CST and DSL. This old CSV export mirrors the SQL tables of the old DanNet database.
+The initial dataset was [bootstrapped from the old DanNet 2.2 CSV files](src/main/dk/cst/dannet/old/bootstrap.clj) (technically: a slightly more recent, unpublished version) as well as several other input sources, e.g. the list of new adjectives produced by CST and DSL. This old CSV export mirrors the SQL tables of the old DanNet database.
 
 This is a two-step process which happens in two separate namespaces:
 
-* [dk.cst.dannet.bootstrap](/src/main/dk/cst/dannet/bootstrap.clj): the raw data from the previous version of DanNet is loaded into memory, cleaned up, and converted into triple data structures using the new RDF schema structure.
+* [dk.cst.dannet.bootstrap](/dk/cst/dannet/old/bootstrap.clj): the raw data from the previous version of DanNet is loaded into memory, cleaned up, and converted into triple data structures using the new RDF schema structure.
 * [dk.cst.dannet.db](/src/main/dk/cst/dannet/db.clj): these triples are imported into an Apache Jena graph. Additional triples are either inferred through OWL schemas or added programmatically via queries.
 
 Finally, on the final run of this bootstrap process, the graph is exported into an RDF dataset. This dataset constitutes the new official version of DanNet.

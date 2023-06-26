@@ -19,7 +19,7 @@
             [dk.cst.dannet.db.csv :as db.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
-            [dk.cst.dannet.bootstrap :as bootstrap :refer [da]]
+            [dk.cst.dannet.old.bootstrap :as bootstrap :refer [da]]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]

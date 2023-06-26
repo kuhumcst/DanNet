@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.bootstrap
+(ns dk.cst.dannet.old.bootstrap
   "Bootstrapping DanNet by mapping the old DanNet CSV export to Ontolex-lemon
   and Global WordNet Assocation relations.
 
