@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.db
+(ns dk.cst.dannet.old.db
   "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]

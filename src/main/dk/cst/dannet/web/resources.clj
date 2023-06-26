@@ -17,7 +17,7 @@
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.old.db :as db]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
