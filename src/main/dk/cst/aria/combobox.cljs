@@ -44,7 +44,7 @@
 
 (defn keydown-handler
   "Create a framework-independent, ARIA-compliant keydown handler to be used as
-  a keydown handler for both the combox and the options in the listbox.
+  a keydown handler for both the combobox and the options in the listbox.
 
     * submit-fn: function to execute when submitting the search form.
     * combox: HTML element for the combobox.
