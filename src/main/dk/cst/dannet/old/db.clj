@@ -16,7 +16,7 @@
             [ont-app.vocabulary.lstr :as lstr]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.db.csv :as db.csv]
+            [dk.cst.dannet.db.export.csv :as export.csv]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.old.bootstrap :as bootstrap :refer [da]]
@@ -897,25 +897,25 @@
      (export-csv-rows!
        (str dir "synsets.csv")
        (map csv-row (q/table-query g synsets-ks op/csv-synsets)))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "synsets-metadata.json")
-       db.csv/synsets-metadata)
+       export.csv/synsets-metadata)
 
      (println "Fetching table rows:" words-ks)
      (export-csv-rows!
        (str dir "words.csv")
        (map csv-row (q/table-query g words-ks op/csv-words)))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "words-metadata.json")
-       db.csv/words-metadata)
+       export.csv/words-metadata)
 
      (println "Fetching table rows:" senses-ks)
      (export-csv-rows!
        (str dir "senses.csv")
        (map csv-row (q/table-query g senses-ks op/csv-senses)))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "senses-metadata.json")
-       db.csv/senses-metadata)
+       export.csv/senses-metadata)
 
      (println "Fetching inheritance data...")
      (export-csv-rows!
@@ -925,17 +925,17 @@
                (voc/uri-for ?rel)
                (name ?from)])
             (q/run g op/csv-inheritance)))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "inheritance-metadata.json")
-       db.csv/inheritance-metadata)
+       export.csv/inheritance-metadata)
 
      (println "Fetching example data...")
      (export-csv-rows!
        (str dir "examples.csv")
        (map csv-row (q/run g '[?sense ?example] op/csv-examples)))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "examples-metadata.json")
-       db.csv/examples-metadata)
+       export.csv/examples-metadata)
 
      (println "Fetching synset relations...")
      (let [model           (get-model dataset prefix/dn-uri)
@@ -947,9 +947,9 @@
          (str dir "relations.csv")
          (->> (mapcat synset->triples synsets)
               (map csv-row))))
-     (db.csv/export-metadata!
+     (export.csv/export-metadata!
        (str dir "relations-metadata.json")
-       db.csv/relations-metadata)
+       export.csv/relations-metadata)
 
      (println "Zipping CSV files and associated metadata into" zip-path "...")
      (zip-files (non-zip-files dir) zip-path))

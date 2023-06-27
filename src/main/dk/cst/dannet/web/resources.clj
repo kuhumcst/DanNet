@@ -18,10 +18,10 @@
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.export :as export]
+            [dk.cst.dannet.db.bootstrap :as bootstrap]
+            [dk.cst.dannet.db.export.rdf :as export.rdf]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]
@@ -60,7 +60,7 @@
   (delay
     (println "DanNet opts:")
     (pprint @dannet-opts)
-    (db/->dannet @dannet-opts)))
+    (bootstrap/->dannet @dannet-opts)))
 
 (def one-day-cache
   "private, max-age=86400")
@@ -168,7 +168,7 @@
    "text/turtle"
    (fn [{:keys [entity href]} & _]
      (when entity
-       (export/ttl-entity entity (str "https://wordnet.dk" href))))
+       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))))
 
    "application/edn"
    (fn [data & _]
@@ -555,7 +555,7 @@
   (q/entity (:graph @db) :dn/synset-78300)
   (let [subject :dn/synset-78300
         entity  (q/entity (:graph @db) subject)]
-    (export/ttl-entity entity))
+    (export.rdf/ttl-entity entity))
 
   (q/entity (:graph @db) :dn/synset-46015)
   (q/entity-triples (:graph @db) :dn/synset-4849)

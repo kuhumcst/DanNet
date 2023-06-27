@@ -2,9 +2,9 @@
 .idea/
 .nrepl-port
 
-resources/wordnet
-resources/db/
-export/
+/resources/wordnet
+/resources/db/
+/export/
 dannet.ttl
 
 bootstrap/dannet
