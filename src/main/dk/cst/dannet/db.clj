@@ -1,13 +1,11 @@
 (ns dk.cst.dannet.db
   "Represent DanNet as an in-memory graph or within a persisted database (TDB)."
   (:require [clojure.java.io :as io]
-            [clojure.set :as set]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [ont-app.vocabulary.core :as voc]
-            [flatland.ordered.map :as fop]
-            [ont-app.vocabulary.lstr :refer [->LangStr]]
             [clj-file-zip.core :as zip]
+            [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.bootstrap :refer [en]]
             [dk.cst.dannet.hash :as h]
@@ -207,11 +205,6 @@
       "Created: " (.format now formatter) "\n"
       "Input data: " (str/join ", " filenames))))
 
-(defn- pos-hash
-  "Undo potentially negative number by bit-shifting when hashing `x`."
-  [x]
-  (unsigned-bit-shift-right (hash x) 1))
-
 (defn ->dannet
   "Create a Jena Dataset from DanNet 2.2 imports based on the options:
 
@@ -231,8 +224,8 @@
                         (:hash (meta #'add-open-english-wordnet-labels!))
                         (hash prefix/schemas)]
         ;; Undo potentially negative number by bit-shifting.
-        files-hash     (pos-hash files)
-        bootstrap-hash (pos-hash fn-hashes)
+        files-hash     (hash/pos-hash files)
+        bootstrap-hash (hash/pos-hash fn-hashes)
         db-name        (str files-hash "-" bootstrap-hash)
         full-db-path   (str db-path "/" db-name)
         zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
@@ -275,57 +268,3 @@
         {:dataset dataset
          :model   model
          :graph   graph}))))
-
-(def sym->kw
-  {'?synset     :rdf/value
-   '?definition :skos/definition
-   '?ontotype   :dns/ontologicalType})
-
-;; TODO: does this memoization even accomplish anything?
-(def label-lookup
-  (memoize
-    (fn [g]
-      (let [search-labels   (q/run g op/synset-search-labels)
-            ontotype-labels (q/run g op/ontotype-labels)]
-        (merge (set/rename-keys (apply merge-with q/set-merge search-labels)
-                                sym->kw)
-               (->> (for [{:syms [?ontotype ?label]} ontotype-labels]
-                      {?ontotype ?label})
-                    (apply merge-with q/set-merge)))))))
-
-(def search-keyfn
-  (let [m->label (fn [{:keys [rdf/value] :as m}]
-                   (str (get (:k->label (meta m)) value)))]
-    (comp (juxt (comp count m->label)
-                (comp m->label)
-                (comp str :skos/definition)
-                (comp :rdf/value))
-          second)))
-
-;; TODO: need to also numerically order by synset key, not just alphabetically
-(defn look-up
-  "Look up synsets in Graph `g` based on the given `lemma`."
-  [g lemma]
-  (let [k->label (label-lookup g)
-        lemma    (if (string? lemma)
-                   (->LangStr lemma "da")
-                   lemma)]
-    (->> (q/run g op/synset-search {'?lemma lemma})
-         (group-by '?synset)
-         (map (fn [[k ms]]
-                (let [{:syms [?label ?synset]
-                       :as   base} (apply merge-with q/set-merge ms)
-                      subentity (-> base
-                                    (dissoc '?lemma
-                                            '?form
-                                            '?word
-                                            '?label
-                                            '?sense)
-                                    (set/rename-keys sym->kw)
-                                    (->> (q/attach-blank-entities g k)))
-                      v         (with-meta subentity
-                                           {:k->label (assoc k->label
-                                                        ?synset ?label)})]
-                  [k v])))
-         (sort-by search-keyfn)
-         (into (fop/ordered-map)))))

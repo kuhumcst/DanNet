@@ -19,6 +19,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.export :as export]
+            [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
@@ -320,7 +321,7 @@
                                          (str "Søg: " lemma)
                                          (str "Search: " lemma))
                                 :page  "search"}]
-              (let [search-results (db/look-up (:graph @db) lemma)]
+              (let [search-results (search/look-up (:graph @db) lemma)]
                 (if (= (count search-results) 1)
                   (-> ctx
                       (update :response assoc
@@ -593,8 +594,4 @@
   (autocomplete* "sar")
   (autocomplete* "spo")
   (autocomplete* "tran")
-
-  ;; Look up synsets based on the lemma "have"
-  (db/look-up (:graph @db) "have")
-  (db/label-lookup (:graph @db))
   #_.)

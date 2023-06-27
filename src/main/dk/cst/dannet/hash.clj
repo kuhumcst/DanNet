@@ -62,3 +62,8 @@
   `(do
      (clojure.core/defn ~@args)
      (alter-meta! #'~name assoc :hash (hash-form (quote ~args)))))
+
+(defn pos-hash
+  "Undo potentially negative number by bit-shifting when hashing `x`."
+  [x]
+  (unsigned-bit-shift-right (hash x) 1))
