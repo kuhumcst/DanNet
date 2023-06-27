@@ -110,6 +110,12 @@
    :export   #{'rdfs 'en 'enl}
    :download {"rdf" {:default "oewn-extension.zip"}}})
 
+(def zip-file->uri
+  (into {} (for [{:keys [uri download]} (conj (vals schemas) oewn-extension)
+                 :let [zip-file (get-in download ["rdf" :default])]
+                 :when zip-file]
+             [zip-file uri])))
+
 (def internal-prefixes
   #{'dn 'dnc 'dns})
 

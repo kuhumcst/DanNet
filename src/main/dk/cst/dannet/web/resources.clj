@@ -17,7 +17,7 @@
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.old.db :as db]
+            [dk.cst.dannet.db :as db]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
@@ -30,11 +30,29 @@
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
 
+(def schema-uris
+  "URIs where relevant schemas can be fetched."
+  (->> (for [{:keys [alt uri export]} (vals prefix/schemas)]
+         (when-not export
+           (if alt
+             (cond
+               (= alt :no-schema)
+               nil
+
+               (or (str/starts-with? alt "http://")
+                   (str/starts-with? alt "https://"))
+               alt
+
+               :else
+               (io/resource alt))
+             uri)))
+       (filter some?)))
+
 (def dannet-opts
-  (atom {:db-type           :tdb2
-         :db-path           "db/tdb2"
-         :bootstrap-imports bootstrap/imports
-         :schema-uris       db/schema-uris}))
+  (atom {:db-type     :tdb2
+         :db-path     "db/tdb2"
+         :input-dir   (io/file "bootstrap/latest")
+         :schema-uris schema-uris}))
 
 (defonce db
   (delay
@@ -548,10 +566,6 @@
 
   ;; 51 cases of true duplicates
   (count (db/find-duplicates (:graph @db)))
-
-  ;; Dealing with senses appearing in multiple synsets.
-  (db/discrete-sense-triples (db/find-intersections (:graph @db)))
-  (db/intersecting-sense-triples (db/find-intersections (:graph @db)))
 
   ;; TODO: systematic polysemy
   (-> (->> (q/run (:graph @db) op/synset-intersection)

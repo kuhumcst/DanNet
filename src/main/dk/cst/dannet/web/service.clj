@@ -87,7 +87,7 @@
   ;; When uploading a db build from the dev machine the server, we want to skip
   ;; the bootstrap phase entirely.
   (when (not-empty (filter #{"--no-bootstrap"} args))
-    (swap! res/dannet-opts dissoc :bootstrap-imports))
+    (swap! res/dannet-opts dissoc :input-dir))
   (start))
 
 (comment
