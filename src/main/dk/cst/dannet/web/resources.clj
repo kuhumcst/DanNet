@@ -18,6 +18,7 @@
             [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.export :as export]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.old.bootstrap :as bootstrap]
             [dk.cst.dannet.query.operation :as op])
@@ -166,7 +167,7 @@
    "text/turtle"
    (fn [{:keys [entity href]} & _]
      (when entity
-       (db/ttl-entity entity (str "https://wordnet.dk" href))))
+       (export/ttl-entity entity (str "https://wordnet.dk" href))))
 
    "application/edn"
    (fn [data & _]
@@ -553,7 +554,7 @@
   (q/entity (:graph @db) :dn/synset-78300)
   (let [subject :dn/synset-78300
         entity  (q/entity (:graph @db) subject)]
-    (db/ttl-entity entity))
+    (export/ttl-entity entity))
 
   (q/entity (:graph @db) :dn/synset-46015)
   (q/entity-triples (:graph @db) :dn/synset-4849)
