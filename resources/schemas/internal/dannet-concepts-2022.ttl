@@ -1,6 +1,27 @@
 @prefix : <https://wordnet.dk/dannet/concepts/> .
 @prefix dns: <https://wordnet.dk/dannet/schema/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+
+: a owl:Ontology;
+  dc:issued "2023-06-01";
+  dc:title "DanNet-koncepter"@da, "DanNet concepts"@en;
+  dc:description "Skema der indholder alle DanNet/EuroWordNet-koncepter."@da, "Schema containing all DanNet/EuroWordNet concepts."@en;
+  dc:publisher "<https://cst.dk>";
+  vann:preferredNamespacePrefix "dnc";
+  vann:preferredNamespaceUri "https://wordnet.dk/dannet/concepts/";
+  dc:license "<https://creativecommons.org/licenses/by-sa/4.0/>";
+  dcat:downloadURL "<https://wordnet.dk/schema/dnc>";
+  foaf:homepage "<https://cst.ku.dk/projekter/dannet>";
+  dc:rights "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature."@en, "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab."@da;
+  dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
+  rdfs:seeAlso "<https://wordnet.dk/dannet/schema>", "<https://wordnet.dk/dannet/data>".
 
 :Agentive a dns:EuroWordNetConcept ;
   rdfs:label "agentive"@en ;

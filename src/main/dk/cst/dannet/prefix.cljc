@@ -9,9 +9,6 @@
 (def dannet-root
   "https://wordnet.dk/dannet/")
 
-(def sentiment-root
-  "https://wordnet.dk/sentiment/")
-
 (def schema-root
   "https://wordnet.dk/schema/")
 
@@ -74,18 +71,21 @@
 
    ;; The COR namespace
    'cor     {:uri      "https://ordregister.dk/id/"
+             :resource "<https://ordregister.dk>"
              :export   #{'dn 'cor
                          'rdf 'rdfs 'owl
                          'ontolex 'skos 'lexinfo}
              :download {"rdf" {:default "cor.zip"}}}
 
    ;; Sentiment data
-   'dds     {:uri      sentiment-root
+   'dds     {:uri      "https://wordnet.dk/sentiment/"
+             :resource "<https://wordnet.dk/sentiment>"
              :export   #{'dn 'dns 'marl}
              :download {"rdf" {:default "dds.zip"}}}
 
    ;; The three internal DanNet namespaces.
    'dn      {:uri      (str dannet-root "data/")
+             :resource (str "<" dannet-root "data>")
              :export   #{'dn 'dnc 'dns
                          'rdf 'rdfs 'owl
                          'wn 'ontolex 'skos 'lexinfo
@@ -94,11 +94,12 @@
                                "merged"   "dannet-dds-cor.zip"
                                "complete" "dannet-complete.zip"}
                         "csv" {:default "dannet-csv.zip"}}}
-
-   'dnc     {:uri (str dannet-root "concepts/")
-             :alt "schemas/internal/dannet-concepts-2022.ttl"}
-   'dns     {:uri (str dannet-root "schema/")
-             :alt "schemas/internal/dannet-schema-2022.ttl"}
+   'dnc     {:uri      (str dannet-root "concepts/")
+             :resource (str "<" dannet-root "concepts>")
+             :alt      "schemas/internal/dannet-concepts-2022.ttl"}
+   'dns     {:uri      (str dannet-root "schema/")
+             :resource (str "<" dannet-root "schema>")
+             :alt      "schemas/internal/dannet-schema-2022.ttl"}
 
    ;; Various en->da translations included as additional data.
    'tr      {:uri (str dannet-root "translations/")
@@ -106,7 +107,8 @@
 
 (def oewn-extension
   "Our extension of the OEWN containing labels for words, senses, synsets."
-  {:uri      "http://wordnet.dk/oewn"
+  {:uri      "http://wordnet.dk/oewn"                       ; only used for graph name
+   :resource "http://wordnet.dk/oewn"
    :export   #{'rdfs 'en 'enl}
    :download {"rdf" {:default "oewn-extension.zip"}}})
 
@@ -295,9 +297,8 @@
 
 (defn prefix->rdf-resource
   [prefix]
-  (-> (prefix->uri prefix)
-      (remove-trailing-slash)
-      (uri->rdf-resource)))
+  (let [schemas' (assoc schemas 'oewn oewn-extension)]
+    (-> schemas' prefix :resource)))
 
 (defn dataset-uri
   "Prepare a download URL for the dataset defined by `prefix` in specified

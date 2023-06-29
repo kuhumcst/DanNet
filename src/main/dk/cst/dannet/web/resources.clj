@@ -60,7 +60,7 @@
   (delay
     (println "DanNet opts:")
     (pprint @dannet-opts)
-    (bootstrap/->dannet @dannet-opts)))
+    (time (bootstrap/->dannet @dannet-opts))))
 
 (def one-day-cache
   "private, max-age=86400")
