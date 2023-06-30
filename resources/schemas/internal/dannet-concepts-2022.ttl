@@ -9,7 +9,7 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 
-: a owl:Ontology;
+<https://wordnet.dk/dannet/concepts> a owl:Ontology;
   dc:issued "2023-06-01";
   dc:title "DanNet-koncepter"@da, "DanNet concepts"@en;
   dc:description "Skema der indholder alle DanNet/EuroWordNet-koncepter."@da, "Schema containing all DanNet/EuroWordNet concepts."@en;

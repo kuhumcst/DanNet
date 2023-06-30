@@ -312,7 +312,7 @@
       (if db-exists?
         (println "Skipping build -- database already exists:" full-db-path)
         (do
-          (println "Creating new database from: " (.getName input-dir))
+          (println "Creating new database from:" (.getName input-dir))
           (doseq [zip-file (filter zip-file? (file-seq input-dir))]
             (zip/unzip zip-file zip-file)
             (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
