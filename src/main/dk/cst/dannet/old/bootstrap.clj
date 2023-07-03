@@ -233,7 +233,7 @@
 
     ;; Downloads
     #{[<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-basic-uri)]
-      [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-merged-uri)]
+      #_[<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-merged-uri)]
       [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-complete-uri)]
       [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-csv-uri)]
       [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]

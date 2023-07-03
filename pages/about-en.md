@@ -9,9 +9,9 @@ Unlike a normal dictionary, the definitions of words aren't central; instead, re
 ## Download our data
 DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF data set][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. All our data sets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
 
-DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] which we have extended with RDF labels resembling those used in DanNet. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration], [DDS integration][DDS-integration], [OEWN extension][OEWN-extension]).
+DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their data set from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration], [DDS integration][DDS-integration], [OEWN extension][OEWN-extension]). We have also included the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
 
-You may also download [DanNet+COR+DDS][DanNet+COR+DDS] as a combined data set or download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
+In addition, you may also download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
 
 ## Documentation
 The following documents are only available in English and mostly for developers:
@@ -31,12 +31,12 @@ The following documents are only available in English and mostly for developers:
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
 [OEWN]: https://en-word.net/ "Open English WordNet"
+[CILI]: https://github.com/globalwordnet/cili "Collaborative Interlingual Index"
 [DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
 [OEWN-extension]: /export/rdf/oewn-extension "OEWN extension (RDF)"
-[DanNet+COR+DDS]: /export/rdf/dn?variant=merged "DanNet + COR + DDS (RDF)"
 [complete]: /export/rdf/dn?variant=complete "DanNet + COR + DDS + logically inferred data (RDF)"
 [dværgpil]: /dannet/data/synset-1304 "dværgpil"
 [busk]: /dannet/data/synset-597 "busk"

@@ -10,9 +10,9 @@ Til forskel fra en almindelig ordbog er det ikke definitionen af ordet, der stå
 ## Hent vores data
 DanNet er baseret på [Ontolex][Ontolex]-standarden med [tilføjelser][GWA RDF] fra [Global WordNet Association][GWA]. Du kan udforske DanNet direkte her på wordnet.dk, men du kan også downloade vores data som et [RDF-datasæt][DanNet RDF] eller i en lidt mere begrænset [CSV-udgave][DanNet CSV]. Alle vores datasæt udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)-licensen.
 
-DanNet er også integreret med [COR][COR] og [DDS][DDS], samt det [engelske WordNet][OEWN] som vi har udvidet med RDF-etiketter, der minder om dem brugt i DanNet. Disse alternative RDF-datasæt kan ligeledes downloades her på siden ([COR-integration][COR-integration], [DDS-integration][DDS-integration], [OEWN-udvidelse][OEWN-extension]).
+DanNet er også integreret med [COR][COR] og [DDS][DDS], samt det [engelske WordNet][OEWN] (du kan hente deres datasæt fra deres egen side) som vi har udvidet med RDF-etiketter, der minder om dem brugt i DanNet. Disse alternative RDF-datasæt kan ligeledes downloades her på siden ([COR-integration][COR-integration], [DDS-integration][DDS-integration], [OEWN-udvidelse][OEWN-extension]). Vi har også inkluderet [CILI][CILI]-data i vores database, da dette bruges som et fælles integrationspunkt for forskellige WordNets.
 
-Du kan også hente [DanNet+COR+DDS][DanNet+COR+DDS] som et samlet datasæt eller hente en [komplet kopi][complete] af al data der kan tilgås på wordnet.dk/dannet, inklusiv logisk udledt data og tilknyttede RDF-skemaer.
+Du kan derudover også hente en [komplet kopi][complete] af al data der kan tilgås på wordnet.dk/dannet, inklusiv logisk udledt data og tilknyttede RDF-skemaer.
 
 ## Dokumentation
 Følgende dokumenter er kun tilgængelige på engelsk og primært tiltænkt udviklere:
@@ -32,12 +32,12 @@ Følgende dokumenter er kun tilgængelige på engelsk og primært tiltænkt udvi
 [COR]: http://ordregister.dk "Det Centrale Ordregister"
 [DDS]: https://github.com/dsldk/danish-sentiment-lexicon "Det Danske Sentimentleksikon"
 [OEWN]: https://en-word.net/ "Open English WordNet"
+[CILI]: https://github.com/globalwordnet/cili "Collaborative Interlingual Index"
 [DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
 [OEWN-extension]: /export/rdf/oewn-extension "OEWN-udvidelse (RDF)"
-[DanNet+COR+DDS]: /export/rdf/dn?variant=merged "DanNet + COR + DDS (RDF)"
 [complete]: /export/rdf/dn?variant=complete "DanNet + COR + DDS + logisk udledt data (RDF)"
 [dværgpil]: /dannet/data/synset-1304 "dværgpil"
 [busk]: /dannet/data/synset-597 "busk"

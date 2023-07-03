@@ -71,7 +71,7 @@
   ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
                                               :or   {complete false}}]
    (let [in-dir       (partial str dir)
-         merged-ttl   (in-dir (prefix/export-file "rdf" 'dn "merged"))
+         #_#_merged-ttl   (in-dir (prefix/export-file "rdf" 'dn "merged"))
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (->> (iterator-seq (.listNames ^Dataset dataset))
@@ -95,8 +95,8 @@
        :prefixes (get prefix/oewn-extension :export))
 
      ;; The union of the input datasets.
-     (let [union-model (.getUnionModel dataset)]
-       (export-rdf-model! merged-ttl union-model))
+     #_(let [union-model (.getUnionModel dataset)]
+         (export-rdf-model! merged-ttl union-model))
 
      ;; The union of the input datasets and schemas + inferred triples.
      ;; This constitutes all data available in the DanNet web presence.
