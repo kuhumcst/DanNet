@@ -11,6 +11,7 @@
 @prefix dc: <http://purl.org/dc/terms/> .
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 
 <https://wordnet.dk/dannet/schema> a owl:Ontology ;
   dc:issued "2023-06-01" ;
@@ -26,6 +27,24 @@
   dc:rights "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature."@en, "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab."@da;
   dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
   rdfs:seeAlso "<https://wordnet.dk/dannet/concepts>", "<https://wordnet.dk/dannet/data>" .
+
+# NOTE: the format of :eq_hypernym and :eq_hyponym is a copy of wn:eq_synonym
+# TODO: translate to Danish and expand the description
+:eqHypernym a wn:SynsetRelType ;
+  rdfs:label "eq hypernym"@en ;
+  rdfs:comment "A relation between two concepts in separate data sets where the object is a hypernym of the subject."@en ;
+  owl:inverseOf :eqHyponym .
+
+:eqHyponym a wn:SynsetRelType ;
+  rdfs:label "eq hyponym"@en ;
+  rdfs:comment "A relation between two concepts in separate data sets where the object is a hyponym of the subject."@en ;
+  owl:inverseOf :eqHypernym .
+
+# Infer inverse links from the ILI dataset for better navigation of the graph.
+:linkedConcept a wn:SynsetRelType ;
+  rdfs:label "linked concept"@en ;
+  rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
+  owl:inverseOf wn:ili .
 
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;

@@ -9,6 +9,7 @@
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.dannet.old.bootstrap :as old.bootstrap]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -228,6 +229,20 @@
            (aristotle/add label-graph))))
   (println "Labels added to the Open English WordNet!"))
 
+(h/defn ->missing-english-link-triples
+  "Convert a `row` from 'relations.csv' to triples.
+
+  Note: certain rows are unmapped, so the relation will remain a string!"
+  [[subj-id _ rel obj-id _ _ :as row]]
+  ;; Ignores eq_has_hyponym and eq_has_hyperonym, no equivalent in GWA schema.
+  ;; This loses us 123 of the original 5000l links to the Princton WordNet.
+  (when-let [new-rel (get {"eq_has_hyponym"   :dns/eqHyponym
+                           "eq_has_hyperonym" :dns/eqHypernym} rel)]
+    (if-let [obj (get @old.bootstrap/senseidx->english-synset obj-id)]
+      #{[(old.bootstrap/synset-uri subj-id) new-rel obj]}
+      (when-let [ili-obj (get @old.bootstrap/wn20-id->ili obj-id)]
+        #{[(old.bootstrap/synset-uri subj-id) new-rel ili-obj]}))))
+
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!
   "Add the Open English WordNet to a Jena `dataset`."
@@ -241,7 +256,19 @@
         ili-file      "bootstrap/other/english/ili.ttl"]
     (println "... creating temporary in-memory graph")
     (db/import-files dataset prefix/oewn-uri [oewn-file] oewn-changefn)
-    (db/import-files dataset prefix/ili-uri [ili-file]))
+    (db/import-files dataset prefix/ili-uri [ili-file])
+
+    ;; TODO: remove again after next release
+    (println "... add missing old English links (hypernyms and hyponyms)")
+    (let [g (.getGraph (db/get-model dataset prefix/dn-uri))]
+      (doseq [triple (->> [->missing-english-link-triples
+                           "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
+                          (old.bootstrap/read-triples)
+                          (remove nil?)
+                          (map first))]
+        (txn/transact-exec g
+          (db/safe-add! g triple)))))
+
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
 
@@ -313,6 +340,7 @@
         files          (remove #{input-dir} (file-seq input-dir))
         fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                         (:hash (meta #'add-open-english-wordnet-labels!))
+                        (:hash (meta #'->missing-english-link-triples))
                         (:hash (meta #'metadata))
                         (:hash (meta #'update-metadata!))
                         (:hash (meta #'->dannet))

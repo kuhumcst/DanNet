@@ -41,6 +41,9 @@
              (comp #{:dns/usedFor
                      :dns/usedForObject
                      :dns/nearAntonym
+                     :dns/linkedConcept                     ; inverse of wn:ili
+                     :dns/eqHyponym
+                     :dns/eqHypernym
                      :dns/orthogonalHyponym
                      :dns/orthogonalHypernym} first))]])
 
