@@ -19,7 +19,7 @@
   (:import [java.io File]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
-           [org.apache.jena.query DatasetFactory]
+           [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
@@ -246,7 +246,11 @@
   #_(add-open-english-wordnet-labels! dataset))
 
 (defn ->dataset
-  "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`."
+  "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
+
+  NOTE: TDB 1 does not require transactions until after the first transaction
+  has taken place, while TDB 2 *always* requires transactions when reading from
+  or writing to the database."
   [db-type & [db-path]]
   (case db-type
     :tdb1 (TDBFactory/createDataset ^String db-path)
@@ -275,17 +279,34 @@
       (.setMode GenericRuleReasoner/HYBRID)
       (.setTransitiveClosureCaching true))))
 
+(defn dataset->db
+  "Construct a database map from an Apache Jena `dataset`.
+
+  If `schema-uris` are provided, the returned model & graph contain inferences;
+  otherwise, the model/graph is of union of the models/graphs in the dataset."
+  [^Dataset dataset & [schema-uris]]
+  (if schema-uris
+    (let [schema    (db/->schema-model schema-uris)
+          model     (.getUnionModel dataset)
+          inf-model (ModelFactory/createInfModel reasoner schema model)
+          inf-graph (.getGraph inf-model)]
+      (println "Schema URIs found -- constructing inference model.")
+      {:dataset dataset
+       :model   inf-model
+       :graph   inf-graph})
+    (let [model (.getUnionModel dataset)
+          graph (.getGraph model)]
+      {:dataset dataset
+       :model   model
+       :graph   graph})))
+
 (h/defn ->dannet
-  "Create a Jena Dataset from DanNet 2.2 imports based on the options:
+  "Create a Jena database from the latest DanNet export.
 
     :input-dir         - Previous DanNet version TTL export as a File directory.
     :db-type           - :tdb1, :tdb2, :in-mem, and :in-mem-txn are supported
     :db-path           - Where to persist the TDB1/TDB2 data.
-    :schema-uris       - A collection of URIs containing schemas.
-
-   TDB 1 does not require transactions until after the first transaction has
-   taken place, while TDB 2 *always* requires transactions when reading from or
-   writing to the database."
+    :schema-uris       - A collection of URIs containing schemas."
   [& {:keys [^File input-dir db-path db-type schema-uris]
       :or   {db-type :in-mem} :as opts}]
   (let [log-path       (str db-path "/log.txt")
@@ -335,18 +356,4 @@
           (spit log-path (str new-entry "\n----\n") :append true)))
       (println "WARNING: no input dir provided, dataset will be empty!"))
 
-    ;; If schemas are provided, the returned model & graph contain inferences.
-    (if schema-uris
-      (let [schema    (db/->schema-model schema-uris)
-            model     (.getUnionModel dataset)
-            inf-model (ModelFactory/createInfModel reasoner schema model)
-            inf-graph (.getGraph inf-model)]
-        (println "Schema URIs found -- constructing inference model.")
-        {:dataset dataset
-         :model   inf-model
-         :graph   inf-graph})
-      (let [model (.getUnionModel dataset)
-            graph (.getGraph model)]
-        {:dataset dataset
-         :model   model
-         :graph   graph}))))
+    (dataset->db dataset schema-uris)))
