@@ -45,7 +45,7 @@
 # Infer inverse links from the ILI dataset for better navigation of the graph.
 :linkedConcept a wn:SynsetRelType ;
   rdfs:label "linked concept"@en ;
-  rdfs:label "forbundet begreb"@en ;
+  rdfs:label "forbundet begreb"@da ;
   rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
   rdfs:comment "Den udgående forbindelse til et leksikalsk begreb/synset fra dets noterede Interlingual Index."@da ;
   owl:inverseOf wn:ili .
@@ -66,7 +66,7 @@
   rdfs:label "gender"@en ;
   rdfs:label "køn"@da ;
   rdfs:comment "The gender of the subject."@en ;
-  rdfs:comment "Subjektets køn."@en ;
+  rdfs:comment "Subjektets køn."@da ;
   rdfs:range :Gender .
 
 :dslDomain a owl:AnnotationPropety ;
