@@ -33,18 +33,47 @@
 :eqHypernym a wn:SynsetRelType ;
   rdfs:label "eq hypernym"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hypernym of the subject."@en ;
+  rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hypernym af subjektet."@da ;
   owl:inverseOf :eqHyponym .
 
 :eqHyponym a wn:SynsetRelType ;
   rdfs:label "eq hyponym"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hyponym of the subject."@en ;
+  rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
   owl:inverseOf :eqHypernym .
 
 # Infer inverse links from the ILI dataset for better navigation of the graph.
 :linkedConcept a wn:SynsetRelType ;
   rdfs:label "linked concept"@en ;
+  rdfs:label "forbundet begreb"@en ;
   rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
+  rdfs:comment "Den udgående forbindelse til et leksikalsk begreb/synset fra dets noterede Interlingual Index."@da ;
   owl:inverseOf wn:ili .
+
+:Gender a owl:Class .
+
+:Male a owl:Class ;
+  rdfs:label "male"@en ;
+  rdfs:label "mand"@da ;
+  rdfs:subClassOf :Gender .
+
+:Female a owl:Class ;
+  rdfs:label "female"@en ;
+  rdfs:label "kvinde"@da ;
+  rdfs:subClassOf :Gender .
+
+:gender a wn:SynsetRelType ;
+  rdfs:label "gender"@en ;
+  rdfs:label "køn"@da ;
+  rdfs:comment "The gender of the subject."@en ;
+  rdfs:comment "Subjektets køn."@en ;
+  rdfs:range :Gender .
+
+:dslDomain a owl:AnnotationPropety ;
+  rdfs:label "DDO domain"@en ;
+  rdfs:label "DDO-domæne"@da ;
+  rdfs:comment "The domain given for the concept in DDO (\"Den Danske Ordbog\")."@en ;
+  rdfs:comment "Domæne angivet for begrebet i Den Danske Ordbog."@da .
 
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;

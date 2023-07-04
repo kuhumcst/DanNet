@@ -92,7 +92,7 @@
   (try
     (aristotle/add g data)
     (catch Exception e
-      (prn data (.getMessage e)))
+      (println (.getMessage e) "->" (subs (str data) 0 240)))
     (finally
       g)))
 

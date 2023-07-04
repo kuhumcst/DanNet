@@ -260,17 +260,44 @@
 
     ;; TODO: remove again after next release
     (println "... add missing old English links (hypernyms and hyponyms)")
-    (let [g (.getGraph (db/get-model dataset prefix/dn-uri))]
-      (doseq [triple (->> [->missing-english-link-triples
-                           "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
-                          (old.bootstrap/read-triples)
-                          (remove nil?)
-                          (map first))]
-        (txn/transact-exec g
-          (db/safe-add! g triple)))))
+    (let [g       (.getGraph (db/get-model dataset prefix/dn-uri))
+          triples (->> [->missing-english-link-triples
+                        "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
+                       (old.bootstrap/read-triples)
+                       (remove nil?)
+                       (apply set/union))]
+      (txn/transact-exec g
+        (db/safe-add! g triples))))
 
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
+
+(h/defn ->synset-attribute-triples
+  [[synset-id rel v :as row]]
+  (let [synset      (old.bootstrap/synset-uri synset-id)
+        sex->gender {"male"   :dns/Male
+                     "female" :dns/Female}]
+    (cond
+      (= rel "domain")
+      #{[synset :dns/dslDomain (da v)]}
+
+      (= rel "sex")
+      (when-let [gender (sex->gender v)]
+        #{[synset :dns/gender gender]}))))
+
+(h/defn add-gender-and-domain!
+  [dataset]
+  (println "Importing data from synset_attributes.csv...")
+  (let [g       (.getGraph (db/get-model dataset prefix/dn-uri))
+        triples (->> [->synset-attribute-triples
+                      "bootstrap/dannet/DanNet-2.5.1_csv/synset_attributes.csv"]
+                     (old.bootstrap/read-triples)
+                     (remove nil?)
+                     (apply set/union))]
+    (println "... triples to be added:" (count triples))
+    (txn/transact-exec g
+      (db/safe-add! g triples)))
+  (println "synset_attributes.csv imported!"))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -341,6 +368,8 @@
         fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                         (:hash (meta #'add-open-english-wordnet-labels!))
                         (:hash (meta #'->missing-english-link-triples))
+                        (:hash (meta #'add-gender-and-domain!))
+                        (:hash (meta #'->synset-attribute-triples))
                         (:hash (meta #'metadata))
                         (:hash (meta #'update-metadata!))
                         (:hash (meta #'->dannet))
@@ -379,6 +408,7 @@
               (db/import-files dataset model-uri [ttl-file] changefn)
               (zip/delete-file ttl-file)))
 
+          (add-gender-and-domain! dataset)
           (add-open-english-wordnet! dataset)
           (println new-entry)
           (spit log-path (str new-entry "\n----\n") :append true)))
