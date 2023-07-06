@@ -243,6 +243,60 @@
       (when-let [ili-obj (get @old.bootstrap/wn20-id->ili obj-id)]
         #{[(old.bootstrap/synset-uri subj-id) new-rel ili-obj]}))))
 
+;; WRONG and not actually needed
+(def rel-id->label
+  (delay
+    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/application_localised_string.csv")]
+      (into {} (clojure.data.csv/read-csv reader)))))
+
+(def rel-guess
+  {"200" :wn/ili
+   "201" :dns/eqHyponym
+   "202" :dns/eqHypernym
+   "203" :dns/eqSimilar})
+
+(def synset-id->ili-id
+  (delay
+    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/synset_attributes.csv")]
+      (->> (clojure.data.csv/read-csv reader)
+           (map (fn [[synset-id princeton-id ili-id]]
+                  (when (not= ili-id "\\N")
+                    [synset-id (keyword "ili" ili-id)])))
+           (remove nil?)
+           (into {})))))
+
+(defn dannet-id?
+  [s]
+  (and (str/starts-with? s "888")
+       (str/ends-with? s "000")))
+
+(defn dannet-synset
+  [synset-id]
+  (keyword "dn" (str "synset-" (subs synset-id 3 (- (count synset-id) 3)))))
+
+(h/def new-english-link-triples
+  (delay
+    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/synset_relation.csv")]
+      (->> (clojure.data.csv/read-csv reader)
+           (map (fn [[_ child-synset-id parent-synset-id rel-id]]
+                  (when-let [rel (rel-guess rel-id) #_(@rel-id->label rel-id)]
+                    (cond
+                      ;; A few of the triples are the wrong way around (en->dn)
+                      (and (dannet-id? child-synset-id)
+                           (not (dannet-id? parent-synset-id)))
+                      [(@synset-id->ili-id parent-synset-id)
+                       rel
+                       (dannet-synset child-synset-id)]
+
+                      ;; The majority are of course dn->en
+                      (and (dannet-id? parent-synset-id)
+                           (not (dannet-id? child-synset-id)))
+                      [(dannet-synset parent-synset-id)
+                       rel
+                       (@synset-id->ili-id child-synset-id)]))))
+           (remove nil?)
+           (doall)))))
+
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!
   "Add the Open English WordNet to a Jena `dataset`."
@@ -267,7 +321,11 @@
                        (remove nil?)
                        (apply set/union))]
       (txn/transact-exec g
-        (db/safe-add! g triples))))
+        (db/safe-add! g triples)))
+    (println "... add new old English links")
+    (let [g (.getGraph (db/get-model dataset prefix/dn-uri))]
+      (txn/transact-exec g
+        (db/safe-add! g @new-english-link-triples))))
 
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
@@ -368,6 +426,7 @@
         fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                         (:hash (meta #'add-open-english-wordnet-labels!))
                         (:hash (meta #'->missing-english-link-triples))
+                        (:hash (meta #'new-english-link-triples))
                         (:hash (meta #'add-gender-and-domain!))
                         (:hash (meta #'->synset-attribute-triples))
                         (:hash (meta #'metadata))
@@ -415,3 +474,10 @@
       (println "WARNING: no input dir provided, dataset will be empty!"))
 
     (dataset->db dataset schema-uris)))
+
+(comment
+  @new-english-link-triples
+  @rel-id->label
+  @synset-id->ili-id
+  (dannet-synset "888glen000")
+  #_.)

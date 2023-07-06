@@ -29,7 +29,6 @@
   rdfs:seeAlso "<https://wordnet.dk/dannet/concepts>", "<https://wordnet.dk/dannet/data>" .
 
 # NOTE: the format of :eq_hypernym and :eq_hyponym is a copy of wn:eq_synonym
-# TODO: translate to Danish and expand the description
 :eqHypernym a wn:SynsetRelType ;
   rdfs:label "eq hypernym"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hypernym of the subject."@en ;
@@ -41,6 +40,12 @@
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hyponym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
   owl:inverseOf :eqHypernym .
+
+:eqSimilar a wn:SynsetRelType ;
+  rdfs:label "eq similar"@en ;
+  rdfs:comment "A relation between two concepts in separate data sets where the object is similar to the subject, though not synonymous."@en ;
+  rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet minder om subjektet men dog ikke er et synonym."@da ;
+  owl:inverseOf :eqSimilar .
 
 # Infer inverse links from the ILI dataset for better navigation of the graph.
 :linkedConcept a wn:SynsetRelType ;

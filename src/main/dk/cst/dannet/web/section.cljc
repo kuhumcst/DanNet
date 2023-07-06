@@ -44,6 +44,7 @@
                      :dns/linkedConcept                     ; inverse of wn:ili
                      :dns/eqHyponym
                      :dns/eqHypernym
+                     :dns/eqSimilar
                      :dns/orthogonalHyponym
                      :dns/orthogonalHypernym} first))]])
 
