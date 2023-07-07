@@ -430,59 +430,65 @@
     :schema-uris       - A collection of URIs containing schemas."
   [& {:keys [^File input-dir db-path db-type schema-uris]
       :or   {db-type :in-mem} :as opts}]
-  (let [log-path       (str db-path "/log.txt")
-        files          (remove #{input-dir} (file-seq input-dir))
-        fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
-                        (:hash (meta #'add-open-english-wordnet-labels!))
-                        (:hash (meta #'->missing-english-link-triples))
-                        (:hash (meta #'new-english-link-triples))
-                        (:hash (meta #'add-gender-and-domain!))
-                        (:hash (meta #'->synset-attribute-triples))
-                        (:hash (meta #'metadata))
-                        (:hash (meta #'update-metadata!))
-                        (:hash (meta #'->dannet))
-                        (hash prefix/schemas)]
-        ;; Undo potentially negative number by bit-shifting.
-        files-hash     (hash/pos-hash files)
-        bootstrap-hash (hash/pos-hash fn-hashes)
-        db-name        (str files-hash "-" bootstrap-hash)
-        full-db-path   (str db-path "/" db-name)
-        zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
-        ttl-file?      (comp #(str/ends-with? % ".ttl") #(.getName %))
-        db-exists?     (.exists (io/file full-db-path))
-        new-entry      (log-entry db-name db-type input-dir)
-        dataset        (->dataset db-type full-db-path)]
-    (println "Database name:" db-name)
-
+  (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      (if db-exists?
-        (println "Skipping build -- database already exists:" full-db-path)
-        (do
-          (println "Creating new database from:" (.getName input-dir))
-          (doseq [zip-file (filter zip-file? (file-seq input-dir))]
-            (zip/unzip zip-file zip-file)
-            (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
-                  model-uri (prefix/zip-file->uri (.getName zip-file))
-                  prefix    (prefix/uri->prefix model-uri)
-                  update!   (when prefix
-                              (partial update-metadata! (metadata prefix)))
-                  ;; Special behaviour to check bootstrap files version
-                  changefn  (if (= prefix 'dn)
-                              (fn [model]
-                                (println "... checking version" model-uri)
-                                (assert-expected-dannet-release! model)
-                                (update! model))
-                              update!)]
-              (db/import-files dataset model-uri [ttl-file] changefn)
-              (zip/delete-file ttl-file)))
+      (let [files          (remove #{input-dir} (file-seq input-dir))
+            fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
+                            (:hash (meta #'add-open-english-wordnet-labels!))
+                            (:hash (meta #'->missing-english-link-triples))
+                            (:hash (meta #'new-english-link-triples))
+                            (:hash (meta #'add-gender-and-domain!))
+                            (:hash (meta #'->synset-attribute-triples))
+                            (:hash (meta #'metadata))
+                            (:hash (meta #'update-metadata!))
+                            (:hash (meta #'->dannet))
+                            (hash prefix/schemas)]
+            ;; Undo potentially negative number by bit-shifting.
+            files-hash     (hash/pos-hash files)
+            bootstrap-hash (hash/pos-hash fn-hashes)
+            db-name        (str files-hash "-" bootstrap-hash)
+            full-db-path   (str db-path "/" db-name)
+            zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
+            ttl-file?      (comp #(str/ends-with? % ".ttl") #(.getName %))
+            db-exists?     (.exists (io/file full-db-path))
+            new-entry      (log-entry db-name db-type input-dir)
+            dataset        (->dataset db-type full-db-path)]
+        (if db-exists?
+          (do
+            (println "Skipping build -- database already exists:" full-db-path)
+            (dataset->db dataset schema-uris))
+          (do
+            (println "Creating new database from:" (.getName input-dir))
+            (doseq [zip-file (filter zip-file? (file-seq input-dir))]
+              (zip/unzip zip-file zip-file)
+              (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
+                    model-uri (prefix/zip-file->uri (.getName zip-file))
+                    prefix    (prefix/uri->prefix model-uri)
+                    update!   (when prefix
+                                (partial update-metadata! (metadata prefix)))
+                    ;; Special behaviour to check bootstrap files version
+                    changefn  (if (= prefix 'dn)
+                                (fn [model]
+                                  (println "... checking version" model-uri)
+                                  (assert-expected-dannet-release! model)
+                                  (update! model))
+                                update!)]
+                (db/import-files dataset model-uri [ttl-file] changefn)
+                (zip/delete-file ttl-file)))
 
-          (add-gender-and-domain! dataset)
-          (add-open-english-wordnet! dataset)
-          (println new-entry)
-          (spit log-path (str new-entry "\n----\n") :append true)))
-      (println "WARNING: no input dir provided, dataset will be empty!"))
-
-    (dataset->db dataset schema-uris)))
+            (add-gender-and-domain! dataset)
+            (add-open-english-wordnet! dataset)
+            (println new-entry)
+            (spit log-path (str new-entry "\n----\n") :append true)
+            (dataset->db dataset schema-uris))))
+      (let [db-name      (->> (slurp log-path)
+                              (re-seq #"Location: (.+)")
+                              (last)
+                              (second))
+            full-db-path (str db-path "/" db-name)
+            dataset      (->dataset db-type full-db-path)]
+        (println "WARNING: no input dir provided!")
+        (dataset->db dataset schema-uris)))))
 
 (comment
   @new-english-link-triples
