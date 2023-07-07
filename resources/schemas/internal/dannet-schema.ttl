@@ -14,7 +14,7 @@
 @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 
 <https://wordnet.dk/dannet/schema> a owl:Ontology ;
-  dc:issued "2023-06-01" ;
+  dc:issued "2023-07-07" ;
   dc:title "DanNet-skema"@da, "DanNet schema"@en;
   dc:description "Skema for DanNet-specifikke relationer."@da, "Schema for DanNet-specific relations."@en ;
   dc:publisher "<https://cst.dk>";
@@ -73,12 +73,6 @@
   rdfs:comment "The gender of the subject."@en ;
   rdfs:comment "Subjektets køn."@da ;
   rdfs:range :Gender .
-
-:dslDomain a owl:AnnotationPropety ;
-  rdfs:label "DDO domain"@en ;
-  rdfs:label "DDO-domæne"@da ;
-  rdfs:comment "The domain given for the concept in DDO (\"Den Danske Ordbog\")."@en ;
-  rdfs:comment "Domæne angivet for begrebet i Den Danske Ordbog."@da .
 
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;

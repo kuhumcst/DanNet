@@ -38,7 +38,7 @@ Significant changes
 -------------------
 
 ### New schema, prefixes, URIs
-DanNet uses a new schema, [available in this repository](resources/schemas/internal/dannet-schema-2022.ttl) and also at https://wordnet.dk/dannet/schema. 
+DanNet uses a new schema, [available in this repository](resources/schemas/internal/dannet-schema.ttl) and also at https://wordnet.dk/dannet/schema. 
 
 DanNet uses the following URI prefixes for the dataset instances, concepts (the range of `dns:ontologicalFacet` and `dns:ontologicalType`) and the schema itself:
 

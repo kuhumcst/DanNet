@@ -165,8 +165,4 @@
     (->> (q/table-query g '[?synset ?definition ?ontotype ?sense] op/csv-synsets)
          (map csv-row)
          (take 10)))
-
-  ;; Export DanNet as CSV
-  (export-csv! dannet)
-  (export-csv! @dk.cst.dannet.web.resources/db)
   #_.)

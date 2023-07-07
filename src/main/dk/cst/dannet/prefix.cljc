@@ -89,21 +89,22 @@
              :export   #{'dn 'dnc 'dns
                          'rdf 'rdfs 'owl
                          'wn 'ontolex 'skos 'lexinfo
-                         'dcat 'vann 'foaf 'dc}
+                         'dcat 'vann 'foaf 'dc
+                         'ili 'en}
              :download {"rdf" {:default   "dannet.zip"
                                "merged"   "dannet-dds-cor.zip"
                                "complete" "dannet-complete.zip"}
                         "csv" {:default "dannet-csv.zip"}}}
    'dnc     {:uri      (str dannet-root "concepts/")
              :resource (str "<" dannet-root "concepts>")
-             :alt      "schemas/internal/dannet-concepts-2022.ttl"}
+             :alt      "schemas/internal/dannet-concepts.ttl"}
    'dns     {:uri      (str dannet-root "schema/")
              :resource (str "<" dannet-root "schema>")
-             :alt      "schemas/internal/dannet-schema-2022.ttl"}
+             :alt      "schemas/internal/dannet-schema.ttl"}
 
    ;; Various en->da translations included as additional data.
    'tr      {:uri (str dannet-root "translations/")
-             :alt "schemas/internal/dannet-translations-2022.ttl"}})
+             :alt "schemas/internal/dannet-translations.ttl"}})
 
 (def oewn-extension
   "Our extension of the OEWN containing labels for words, senses, synsets."

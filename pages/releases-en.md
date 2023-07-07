@@ -1,6 +1,13 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **2023-07-07**: Thousands of new links and schema updates
+* DanNet now has around 10K new links to the [CILI](https://github.com/globalwordnet/cili) which is also linked with the OEWN and other WordNets.
+* Some new relations (`dns:eqHypernym`, `dns:eqHyponym`, and `dns:eqSimilar`) have been added since `wn:ili` and `wn:eqSynonym` were not sufficient to cover the inter-WordNet links we now have.
+* DanNet synsets now also have the raw DDO domain values from DSL that were present in the older versions of DanNet. These are represented with the `dc:subject` relation.
+* Furthermore, the sex/gender data from the older versions of DanNet has also been included. It is available via the new `dns:gender` relation.
+* To better facilitate graph navigation on the DanNet website, a new relation called `dns:linkedConcept` has been added to the DanNet schema. This relation is the inverse of `wn:ili` and is inferred in the large graph that can be queried on wordnet.dk/dannet.
+
 ## **2023-06-01**: ~5000 links to the Open English WordNet
 * The schema translations have been updated.
 * Around 5000 links have been added which link DanNet to the [Open English WordNet](https://github.com/globalwordnet/english-wordnet) or indirectly via the [CILI](https://github.com/globalwordnet/cili).

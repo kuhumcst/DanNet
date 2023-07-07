@@ -11,7 +11,7 @@ DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] fro
 
 DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their data set from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration], [DDS integration][DDS-integration], [OEWN extension][OEWN-extension]). We have also included the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
 
-In addition, you may also download a [complete copy][complete] of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas.
+In earlier releases, you could also download a complete copy of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas. However, this has proven too resource-intensive to generate as part of a regular DanNet release. We will try to remedy this in the future.
 
 ## Documentation
 The following documents are only available in English and mostly for developers:

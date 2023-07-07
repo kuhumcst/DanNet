@@ -95,7 +95,7 @@
   "2023-06-01")
 
 (def current-release
-  (str old-release "-SNAPSHOT"))
+  (str "2023-07-07"#_#_old-release"-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -274,6 +274,7 @@
   [synset-id]
   (keyword "dn" (str "synset-" (subs synset-id 3 (- (count synset-id) 3)))))
 
+;; TODO: remove for next release
 (h/def new-english-link-triples
   (delay
     (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/synset_relation.csv")]
@@ -295,6 +296,14 @@
                        rel
                        (@synset-id->ili-id child-synset-id)]))))
            (remove nil?)
+           ;; A few corrections for flipped triples in the dataset.
+           (map (fn [[s p o :as triple]]
+                  (if (= "ili" (namespace s))
+                    (cond
+                      (= p :wn/ili) [o p s]
+                      (= p :dns/eqHypernym) [o :dns/eqHyponym s]
+                      :else triple)
+                    triple)))
            (doall)))))
 
 ;; TODO: move to separate ns
@@ -337,7 +346,7 @@
                      "female" :dns/Female}]
     (cond
       (= rel "domain")
-      #{[synset :dns/dslDomain (da v)]}
+      #{[synset :dc/subject (da v)]}
 
       (= rel "sex")
       (when-let [gender (sex->gender v)]

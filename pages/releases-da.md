@@ -1,6 +1,13 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
+## **2023-07-07**: Tusinder af nye links samt skemaopdateringer
+* DanNet har nu omkring 10K nye links til [CILI](https://github.com/globalwordnet/cili), som også linker til OEWN og andre WordNets.
+* Flere nye relationer ( `dns:eqHypernym`, `dns:eqHyponym` og `dns:eqSimilar` ) er blevet tilføjet, da `wn:ili` og `wn:eqSynonym` ikke var nok til at beskrive de relationer vi har mellem forskellige WordNets nu.
+* DanNet-synsets har nu også de rå DDO-domæneværdier fra DSL, der fandtes i gamle versioner af DanNet. Disse repræsenteres med  `dc:subject`-relationen.
+* Derudover er kønsdata fra de gamle versioner af DanNet også nu inkluderet. Det kan findes via den nye `dns:gender`-relation.
+* For bedre at kunne facilitere navigation af grafen på DanNet-hjemmesiden er en ny relation, `dns:linkedConcept`, blevet tilføjet til DanNet-skemaet. Denne relation er den omvendte relation af `wn:ili` og kan udledes i den store graf der kan udforskes på wordnet.dk/dannet.
+
 ## **2023-06-01**:  ~5000 links til Open English WordNet
 * Skemaoversættelserne er blevet opdateret.
 * Omtrent 5000 links er blevet tilføjet, som linker DanNet med [Open English WordNet](https://github.com/globalwordnet/english-wordnet) eller indirekte via [CILI](https://github.com/globalwordnet/cili).
