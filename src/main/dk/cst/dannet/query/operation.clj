@@ -394,3 +394,16 @@
   (q/build
     '[:bgp
       [?sense :lexinfo/senseExample ?example]]))
+
+;; The current version of the query came about after some help from quoll:
+;; https://clojurians.slack.com/archives/C09GHBXRC/p1691768521526469?thread_ts=1691410647.536539&cid=C09GHBXRC
+;; It takes <10 minutes to complete on my machine. ~sg
+(def synset-indegree
+  (sparql
+    "SELECT ?o (COUNT(*) AS ?indegree)
+     WHERE {
+       ?o rdf:type ontolex:LexicalConcept .
+       ?s ?p ?o .
+       FILTER( EXISTS {?s rdf:type ontolex:LexicalConcept} ) .
+     }
+     GROUP BY ?o"))

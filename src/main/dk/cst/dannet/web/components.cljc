@@ -422,36 +422,70 @@
 
 ;; A Rum-controlled version of the <details> element which only renders content
 ;; if the containing <details> element is open. This circumvents the default
-;; behaviour which is to pre´´render the content in the DOM, but keep it hidden.
+;; behaviour which is to prerender the content in the DOM, but keep it hidden.
 ;; Some of the more well-connected synsets take AGES to load without this fix!
 (rum/defcs react-details < (rum/local false ::open)
   [state summary content]
   (let [open (::open state)]
     [:details {:on-toggle #(swap! open not)
                :open      @open}
-     (when summary summary)
+     (when summary
+       (if (not @open)
+         summary
+         [:summary ""]))
      (when @open content)]))
+
+(defn synset-weights
+  [entity]
+  (:synset-weights (meta entity)))
+
+(defn weight-sort
+  "Sort `synsets` by `weights` (synset->weight mapping)."
+  [weights synsets]
+  (->> (select-keys weights synsets)
+       (sort-by second)
+       (map first)
+       (reverse)))
+
+(defn ol-class
+  [amount]
+  (cond
+    (< amount 100) "two-digits"
+    (< amount 1000) "three-digits"
+    (< amount 10000) "four-digits"
+    (< amount 100000) "five-digits"))
+
+(defn- expandable-coll*
+  [{:keys [languages] :as opts} summary-coll rest-coll]
+  (let [total (+ (count summary-coll) (count rest-coll))
+        c     (ol-class total)]
+    [:<>
+     [:ol {:class c}
+      (list-cell-coll-items opts summary-coll)]
+     (react-details
+       [:summary
+        (i18n/da-en languages
+          (str  (count rest-coll) " flere")
+          (str (count rest-coll) " more"))]
+       [:ol {:class c
+             :start 4}
+        (list-cell-coll-items opts rest-coll)])]))
+
+(defn expandable-coll
+  [{:keys [entity] :as opts} coll]
+  (let [weights (synset-weights entity)]
+    ;; Special behaviour for synset/LexicalConcept
+    (if (and weights (get weights (first coll)))
+      (let [synsets (take 3 (weight-sort weights coll))]
+        (expandable-coll* opts synsets (remove (set synsets) coll)))
+      (expandable-coll* opts (take 3 coll) (drop 3 coll)))))
 
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
   [opts coll]
-  (let [amount     (count coll)
-        list-items (list-cell-coll-items opts coll)]
-    (cond
-      (<= amount 5)
-      [:ol list-items]
-
-      (< amount 100)
-      (react-details [:summary ""] [:ol list-items])
-
-      (< amount 1000)
-      (react-details [:summary ""] [:ol.three-digits list-items])
-
-      (< amount 10000)
-      (react-details [:summary ""] [:ol.four-digits list-items])
-
-      :else
-      (react-details [:summary ""] [:ol.five-digits list-items]))))
+  (if (<= (count coll) 10)
+    [:ol (list-cell-coll-items opts coll)]
+    (expandable-coll opts coll)))
 
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."

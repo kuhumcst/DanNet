@@ -79,6 +79,8 @@
     (swap! visited vary-meta assoc :anchor-click? true)
     true))
 
+(def root (atom nil))
+
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
@@ -100,7 +102,7 @@
                 (update-scroll-state! url))
               ;; Ensure that the search overlay closes when clicking 'back'.
               (js/document.activeElement.blur)
-              (rum/mount page-component app)))))
+              (rum/mount page-component @root)))))
 
 (defn set-up-navigation!
   []
@@ -114,7 +116,7 @@
   (let [{:keys [data headers]} @location
         page-component (com/page-shell (com/x-header headers :page) data)]
     (set-up-navigation!)                                    ; keep up-to-date
-    (rum/mount page-component app)))
+    (rum/mount page-component @root)))
 
 (defn init!
   "The entry point of the frontend app."
@@ -125,5 +127,5 @@
                   page           (com/x-header (:headers %) :page)
                   page-component (com/page-shell page data)]
               (shared/clear-fetch entry-url)
-              (rum/hydrate page-component app)
+              (reset! root (rum/hydrate page-component app))
               (set-up-navigation!)))))

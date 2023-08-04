@@ -847,44 +847,63 @@ tr tr:nth-child(odd) {
     background-color: #F2F2F2;
 }
 
+details {
+    margin: 8px 0 0 0;
+    border-top: 1px solid transparent;
+}
+
 details summary {
-    height: 0;
     cursor: pointer;
+    border-radius: 2px;
+    color: rgba(0,0,0,0.8);
+    font-size: 12px;
+    padding: 8px 0 8px 32px;
 }
 
-details summary::after {
-    content: "...";
+details summary:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
 }
 
-details[open] summary::after {
-    content: "";
+details[open] {
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 12px;
 }
 
 ol {
     margin: 0;
-    padding-left: 24px;
+    padding-left: 32px;
     list-style-type: upper-roman;
 }
 
-details[open] ol {
-    padding: 12px;
-    padding-left: 36px;
-    margin-top: 24px;
-    border: 1px solid #AAA;
-    border-radius: 2px;
-    list-style-type: decimal;
-    background-color: #DDD;
-    box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
+ol.two-digits {
+    list-style-type: normal;
 }
 
-details[open] ol.three-digits {
+summary + ol {
+    margin-top: 12px;
+}
+
+ol.three-digits {
+    padding-left: 32px;
+    list-style-type: decimal;
+}
+ol.three-digits + details > summary {
+    padding-left: 32px;
+}
+ol.four-digits {
+    padding-left: 48px;
+    list-style-type: decimal;
+}
+ol.four-digits  + details > summary {
     padding-left: 48px;
 }
-details[open] ol.four-digits {
+ol.five-digits {
     padding-left: 52px;
+    list-style-type: decimal;
 }
-details[open] ol.five-digits {
-    padding-left: 64px;
+ol.five-digits  + details > summary {
+    padding-left: 52px;
 }
 
 li {
