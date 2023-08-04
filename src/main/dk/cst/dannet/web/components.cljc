@@ -12,6 +12,9 @@
             [nextjournal.markdown :as md]
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
+    ;; TODO: move to separate module?
+            #?(:cljs ["react-force-graph" :refer [ForceGraph2D]])
+    ;#?(:cljs ["reagraph" :refer [GraphCanvas darkTheme]])
             #?(:cljs [dk.cst.aria.combobox :as combobox])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -25,6 +28,8 @@
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
+
+#?(:cljs (prn "glen" (type ForceGraph2D)))
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
@@ -581,6 +586,36 @@
       (when candidates
         (recur candidates)))))
 
+(rum/defc graph-illustration
+  []
+  [:div {:style {:position   "absolute"
+                 :text-align "center"
+                 :background "#00000055"
+                 :top        0
+                 :bottom     0
+                 :left       0
+                 :right      0}}
+   #?(:clj  [:div]
+      :cljs (rum/adapt-class
+              ForceGraph2D
+              {:graphData {:nodes [{:id   "n-1"
+                                    :name "1"}
+                                   {:id   "n-2"
+                                    :name "2"}
+                                   {:id   "n-3"
+                                    :name "3"}
+                                   {:id   "n-4"
+                                    :name "4"}]
+                           :links [{:source "n-1"
+                                    :target "n-2"
+                                    :name   "Edge 1-2"}
+                                   {:source "n-1"
+                                    :target "n-3"
+                                    :name   "Edge 1-3"}
+                                   {:source "n-1"
+                                    :target "n-4"
+                                    :name   "Edge 1-4"}]}}))])
+
 (rum/defc entity-page
   [{:keys [href languages comments subject inferred entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
@@ -593,61 +628,62 @@
                         (map (comp prefix/qname->kw k->label))
                         (set))
         uri-only?  (and (not label) (= local-name rdf-uri))]
-    [:article
-     [:header
-      [:h1
-       (prefix-elem prefix)
-       [:span {:title (if label
-                        (prefix/kw->qname label-key)
-                        (if uri-only?
-                          rdf-uri
-                          (str prefix ":" local-name)))
-               :key   subject
-               :lang  label-lang}
-        (if label
-          (transform-val label opts)
-          (if uri-only?
+    (graph-illustration)
+    #_[:article
+       [:header
+        [:h1
+         (prefix-elem prefix)
+         [:span {:title (if label
+                          (prefix/kw->qname label-key)
+                          (if uri-only?
+                            rdf-uri
+                            (str prefix ":" local-name)))
+                 :key   subject
+                 :lang  label-lang}
+          (if label
+            (transform-val label opts)
+            (if uri-only?
+              [:a.rdf-uri {:href  rdf-uri
+                           :title (i18n/select-label languages a-titles)
+                           :key   rdf-uri}
+               (break-up-uri rdf-uri)]
+              local-name))]
+         (when label-lang
+           [:sup label-lang])]
+        (when-not uri-only?
+          (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
+            [:a.rdf-uri {:href  rdf-uri
+                         :title (i18n/select-label languages a-titles)
+                         :label (i18n/select-label languages a-titles)}
+             [:span.rdf-uri__prefix {:key uri-prefix}
+              (break-up-uri uri-prefix)]
+             [:span.rdf-uri__name {:key local-name}
+              (break-up-uri local-name)]]
             [:a.rdf-uri {:href  rdf-uri
                          :title (i18n/select-label languages a-titles)
                          :key   rdf-uri}
-             (break-up-uri rdf-uri)]
-            local-name))]
-       (when label-lang
-         [:sup label-lang])]
-      (when-not uri-only?
-        (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
-          [:a.rdf-uri {:href  rdf-uri
-                       :title (i18n/select-label languages a-titles)
-                       :label (i18n/select-label languages a-titles)}
-           [:span.rdf-uri__prefix {:key uri-prefix}
-            (break-up-uri uri-prefix)]
-           [:span.rdf-uri__name {:key local-name}
-            (break-up-uri local-name)]]
-          [:a.rdf-uri {:href  rdf-uri
-                       :title (i18n/select-label languages a-titles)
-                       :key   rdf-uri}
-           (break-up-uri rdf-uri)]))]
-     (for [[title ks] (section/page-sections entity)]
-       (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                (not-empty))]
-         [:section {:key (or title :no-title)}
-          (when title [:h2 (str (i18n/select-label languages title))])
-          (attr-val-table (assoc opts :inherited inherited) subentity)]))
-     [:section.notes
-      (when (not-empty inferred)
-        [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
-      (when (not-empty inherited)
-        [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
-      [:p.note
-       [:strong "↓ "]
-       (i18n/da-en languages
-         "hent data som: "
-         "download data as: ")
-       [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
-                           "download=text/turtle")
-            :type     "text/turtle"
-            :download true}
-        ".ttl"]]]]))
+             (break-up-uri rdf-uri)]))]
+       (for [[title ks] (section/page-sections entity)]
+         (when-let [subentity (-> (ordered-subentity opts ks entity)
+                                  (not-empty))]
+           [:section {:key (or title :no-title)}
+            (when title [:h2 (str (i18n/select-label languages title))])
+            (attr-val-table (assoc opts :inherited inherited) subentity)]))
+       [:section.notes
+        (when (not-empty inferred)
+          [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
+        (when (not-empty inherited)
+          [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
+        [:p.note
+         [:strong "↓ "]
+         (i18n/da-en languages
+           "hent data som: "
+           "download data as: ")
+         [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
+                             "download=text/turtle")
+              :type     "text/turtle"
+              :download true}
+          ".ttl"]]]]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."

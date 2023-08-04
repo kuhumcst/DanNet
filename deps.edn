@@ -25,8 +25,8 @@
            com.owoga/tightly-packed-trie  {:mvn/version "0.3.0"}
            org.slf4j/slf4j-simple         {:mvn/version "1.7.36"}
            com.wsscode/transito           {:mvn/version "2021.07.04"}
-           reagent-utils/reagent-utils    {:mvn/version "0.3.5"}
-           rum/rum                        {:mvn/version "0.12.9"}}
+           reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
+           rum/rum                        {:mvn/version "0.12.11"}}
  :aliases {:reveal   {:extra-deps {vlaaad/reveal {:mvn/version "1.3.265"}}
                       :ns-default vlaaad.reveal
                       :exec-fn    repl}
@@ -34,6 +34,6 @@
                       :jvm-opts   ["-Djdk.attach.allowAttachSelf"]}
            :build    {:extra-deps {io.github.seancorfield/build-clj
                                    {:git/tag "v0.8.3" :git/sha "7ac1f8d"}}}
-           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "2.20.6"}
+           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "2.25.2"}
                                    lambdaisland/fetch   {:git/url "https://github.com/lambdaisland/fetch.git"
                                                          :sha     "b74d2fb590917a14ae0ab3a1478bf60ff6906f65"}}}}}

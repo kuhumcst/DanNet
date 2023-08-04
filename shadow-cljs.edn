@@ -1,14 +1,16 @@
-{:deps         {:aliases [:frontend]}
- :dev-http     {7777 {:root    "resources/public"
-                      :handler user/shadow-handler}}
- :builds       {:app  {:target            :browser
-                       ;; redefs needed in dk.cst.dannet.web.i18n, warning disabled
-                       :compiler-options  {:warnings {:redef-in-file false}}
-                       :output-dir        "resources/public/js/compiled"
-                       :asset-path        "/js/compiled"
-                       :module-hash-names true
-                       :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
-                :test {:target   :browser-test
-                       :test-dir "resources/public/js/test"
-                       :devtools {:http-port 7776
-                                  :http-root "resources/public/js/test"}}}}
+{:deps     {:aliases [:frontend]}
+ :dev-http {7777 {:root    "resources/public"
+                  :handler user/shadow-handler}}
+ :builds   {:app  {:target            :browser
+                   ;; redefs needed in dk.cst.dannet.web.i18n, warning disabled
+                   :compiler-options  {:warnings {:redef-in-file false}}
+                   ;; this is needed to avoid loading three.js twice (advice from Thomas Heller)
+                   :js-options        {:resolve {"three" {:target :global :global "THREE"}}}
+                   :output-dir        "resources/public/js/compiled"
+                   :asset-path        "/js/compiled"
+                   :module-hash-names true
+                   :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
+            :test {:target   :browser-test
+                   :test-dir "resources/public/js/test"
+                   :devtools {:http-port 7776
+                              :http-root "resources/public/js/test"}}}}
