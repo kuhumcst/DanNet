@@ -598,23 +598,32 @@
    #?(:clj  [:div]
       :cljs (rum/adapt-class
               ForceGraph2D
-              {:graphData {:nodes [{:id   "n-1"
-                                    :name "1"}
-                                   {:id   "n-2"
-                                    :name "2"}
-                                   {:id   "n-3"
-                                    :name "3"}
-                                   {:id   "n-4"
-                                    :name "4"}]
-                           :links [{:source "n-1"
-                                    :target "n-2"
-                                    :name   "Edge 1-2"}
-                                   {:source "n-1"
-                                    :target "n-3"
-                                    :name   "Edge 1-3"}
-                                   {:source "n-1"
-                                    :target "n-4"
-                                    :name   "Edge 1-4"}]}}))])
+              {:nodeAutoColorBy            "group"
+               :nodeLabel                  "name"
+               :linkDirectionalArrowLength 4
+               :linkDirectionalArrowRelPos 1
+               :graphData                  {:nodes [{:id    "n-1"
+                                                     :group 2
+                                                     :label "glen"
+                                                     :val   20
+                                                     :name  "1Asas"}
+                                                    {:id    "n-2"
+                                                     :group 2
+                                                     :val   2
+                                                     :name  "2"}
+                                                    {:id   "n-3"
+                                                     :name "3"}
+                                                    {:id   "n-4"
+                                                     :name "4"}]
+                                            :links [{:source "n-1"
+                                                     :target "n-2"
+                                                     :name   "Edge 1-2"}
+                                                    {:source "n-1"
+                                                     :target "n-3"
+                                                     :name   "Edge 1-3"}
+                                                    {:source "n-1"
+                                                     :target "n-4"
+                                                     :name   "Edge 1-4"}]}}))])
 
 (rum/defc entity-page
   [{:keys [href languages comments subject inferred entity k->label] :as opts}]
