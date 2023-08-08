@@ -587,6 +587,9 @@
        (group-by (juxt '?writtenRep '?pos))
        (count))
 
+  ;; Store the synset indegrees (the file is used during bootstrap)
+  (q/save-synset-indegrees! (:graph @db))
+
   ;; Find unlabeled senses (count: 0)
   (count (q/run (:graph @db) op/unlabeled-senses))
 

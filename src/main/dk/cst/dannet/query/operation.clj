@@ -394,3 +394,12 @@
   (q/build
     '[:bgp
       [?sense :lexinfo/senseExample ?example]]))
+
+(def synset-indegree
+  (sparql
+    "SELECT ?o (COUNT(*) AS ?indegree)
+     WHERE {
+       ?o rdf:type ontolex:LexicalConcept .
+       ?s ?p ?o .
+     }
+     GROUP BY ?o"))

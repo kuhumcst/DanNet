@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.query
   "Functions for querying and navigating an Apache Jena graph."
-  (:require [clojure.string :as str]
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
@@ -200,6 +201,40 @@
                 :else x))
       entity)))
 
+(def synset-indegrees-file
+  "bootstrap/other/dannet-new/synset-indegree.edn")
+
+;; This tales around 6 minutes to generate, unfortunately...
+(defn save-synset-indegrees!
+  "Generate and store synset indegrees found in `g`."
+  [g]
+  (->> (q/run g op/synset-indegree)
+       (map (juxt '?o '?indegree))
+       (clojure.pprint/pprint)
+       (with-out-str)
+       (spit synset-indegrees-file)))
+
+(def synset-indegrees
+  "Mapping of synset-id->indegree for the synset resources."
+  (delay
+    (try
+      (->> (slurp synset-indegrees-file)
+           (edn/read-string)
+           (into {}))
+      (catch Exception _
+        nil))))
+
+(defn synset-weights
+  "Return a mapping of synset-id->weight for synset IDs found in `coll`."
+  [coll]
+  (let [weights (atom {})]
+    (clojure.walk/postwalk
+      (fn [x]
+        (when-let [v (and (keyword? x) (get @synset-indegrees x))]
+          (swap! weights assoc x v)))
+      coll)
+    @weights))
+
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
@@ -209,6 +244,8 @@
                (assoc (nav-meta g)
                  :k->label (entity-label-mapping result)
                  :inferred (inferred-entity result (find-raw g subject))
+                 ;; TODO: make more performant?
+                 :synset-weights (synset-weights result)
                  ;; TODO: is it necessary to attach subject?
                  :subject subject))
     (with-meta {} {:subject subject})))
