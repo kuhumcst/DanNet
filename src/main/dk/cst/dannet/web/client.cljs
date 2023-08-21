@@ -84,15 +84,15 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
-         #(if-let [redirect (com/x-header (:headers %) :redirect)]
+         #(if-let [redirect (shared/x-header (:headers %) :redirect)]
             ;; A hack for client redirects since we are not allowed to intercept
             ;; any 30x status codes coming from the server from JS.
             (js/window.location.replace redirect)
             (let [headers        (:headers %)
-                  page           (com/x-header headers :page)
+                  page           (shared/x-header headers :page)
                   body           (not-empty (:body %))
                   page-component (com/page-shell page body)
-                  page-title     (com/x-header headers :title)]
+                  page-title     (shared/x-header headers :title)]
               (shared/clear-fetch path)
               (set! js/document.title page-title)
               (reset! location {:path    path
@@ -114,7 +114,7 @@
 (defn ^:dev/after-load render
   []
   (let [{:keys [data headers]} @location
-        page-component (com/page-shell (com/x-header headers :page) data)]
+        page-component (com/page-shell (shared/x-header headers :page) data)]
     (set-up-navigation!)                                    ; keep up-to-date
     (rum/mount page-component @root)))
 
@@ -124,7 +124,7 @@
   (let [entry-url (str js/window.location.pathname js/window.location.search)]
     (.then (shared/api entry-url)
            #(let [data           (:body %)
-                  page           (com/x-header (:headers %) :page)
+                  page           (shared/x-header (:headers %) :page)
                   page-component (com/page-shell page data)]
               (shared/clear-fetch entry-url)
               (reset! root (rum/hydrate page-component app))

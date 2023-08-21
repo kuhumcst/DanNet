@@ -21,11 +21,11 @@
             [clojure.walk :as walk]
             [clj-yaml.core :as yaml]
             [arachne.aristotle.graph :refer [rdf-bag]]
+            [dk.cst.dannet.shared :as shared]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [better-cond.core :as better]
             [reitit.impl :refer [percent-encode]]
             [dk.cst.dannet.hash :as h]
-            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]))
@@ -485,7 +485,7 @@
   [label]
   (str "{"
        (->> (get special-cases label label)
-            (com/sense-labels old-synset-sep)
+            (shared/sense-labels old-synset-sep)
             (map rewrite-sense-label)
             (str/join "; "))
        "}"))

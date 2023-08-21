@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
+            [clojure.math :as math]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
@@ -10,6 +11,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [nextjournal.markdown :as md]
+            #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [dk.cst.aria.combobox :as combobox])
@@ -26,20 +28,13 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 
-(def sense-label
-  "On matches returns the vector: [s word rest-of-s sub mwe]."
-  #"([^_<>]+)(_((?:§|\d|\()[^_ ]+)( .+)?)?")
-
-(def synset-sep
-  #"\{|;|\}")
-
 (def omitted
   "…")
 
 (defn- sort-by-entry
   "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
   [sense-labels]
-  (->> (map (partial re-matches sense-label) sense-labels)
+  (->> (map (partial re-matches shared/sense-label) sense-labels)
        (map (fn [[s _ _ sub _]]
               (cond
                 (nil? sub)                                  ; uncertain = keep
@@ -71,14 +66,6 @@
 ;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
 #?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
    :cljs (def only-canonical (memoize only-canonical)))
-
-(defn sense-labels
-  "Split a `synset` label into sense labels. Work for both old and new formats."
-  [sep label]
-  (->> (str/split label sep)
-       (into [] (comp
-                  (remove empty?)
-                  (map str/trim)))))
 
 (def rdf-resource-re
   #"^<(.+)>$")
@@ -120,8 +107,8 @@
   "Choose which sense labels to show from a `synset-label` based on `opts`."
   [synset-label {:keys [details?] :as opts}]
   (if details?
-    (sense-labels synset-sep synset-label)
-    (let [sense-labels     (sense-labels synset-sep synset-label)
+    (shared/sense-labels shared/synset-sep synset-label)
+    (let [sense-labels     (shared/sense-labels shared/synset-sep synset-label)
           canonical-labels (canonical sense-labels)]
       (if (= (count sense-labels)
              (count canonical-labels))
@@ -165,7 +152,7 @@
             (interpose
               [:span.subtle " • "]                          ; semicolon->bullet
               (for [label (choose-sense-labels s opts)]
-                (if-let [[_ word _ sub mwe] (re-matches sense-label label)]
+                (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
                    (if (= word omitted)
                      [:span.subtle word]
@@ -186,7 +173,7 @@
      ;; TODO: match is too broad, should be limited somewhat
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
          (= (:rdf/type entity) #{:ontolex/LexicalSense}))
-     (let [[_ word _ sub mwe] (re-matches sense-label s)]
+     (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
        [:<> word [:sub sub] mwe])
 
      (re-matches #"https?://[^\s]+" s)
@@ -435,10 +422,6 @@
          [:summary ""]))
      (when @open content)]))
 
-(defn synset-weights
-  [entity]
-  (:synset-weights (meta entity)))
-
 (defn weight-sort
   "Sort `synsets` by `weights` (synset->weight mapping)."
   [weights synsets]
@@ -465,27 +448,29 @@
      (react-details
        [:summary
         (i18n/da-en languages
-          (str  (count rest-coll) " flere")
+          (str (count rest-coll) " flere")
           (str (count rest-coll) " more"))]
        [:ol {:class c
              :start 4}
         (list-cell-coll-items opts rest-coll)])]))
 
 (defn expandable-coll
-  [{:keys [entity] :as opts} coll]
-  (let [weights (synset-weights entity)]
-    ;; Special behaviour for synset/LexicalConcept
-    (if (and weights (get weights (first coll)))
-      (let [synsets (take 3 (weight-sort weights coll))]
-        (expandable-coll* opts synsets (remove (set synsets) coll)))
-      (expandable-coll* opts (take 3 coll) (drop 3 coll)))))
+  [{:keys [synset-weights] :as opts} coll]
+  ;; Special behaviour for synset/LexicalConcept
+  (if (get synset-weights (first coll))
+    (let [synsets (take 3 (weight-sort synset-weights coll))]
+      (expandable-coll* opts synsets (remove (set synsets) coll)))
+    (expandable-coll* opts (take 3 coll) (drop 3 coll))))
 
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
-  [opts coll]
-  (if (<= (count coll) 10)
-    [:ol (list-cell-coll-items opts coll)]
-    (expandable-coll opts coll)))
+  [{:keys [synset-weights display-opt] :as opts} coll]
+  (if (= display-opt "cloud")
+    #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
+       :clj  [:div])
+    (if (<= (count coll) 10)
+      [:ol (list-cell-coll-items opts coll)]
+      (expandable-coll opts coll))))
 
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
@@ -518,59 +503,92 @@
                   "helt eller delvist  nedarvet fra hypernym"
                   "fully or partially inherited from hypernym")})
 
-(rum/defc attr-val-table
-  "A table which lists attributes and corresponding values of an RDF resource."
-  [{:keys [inherited inferred comments] :as opts} subentity]
-  [:table {:class "attr-val"}
-   [:colgroup
-    [:col]                                                  ; attr prefix
-    [:col]                                                  ; attr local name
-    [:col]]
-   [:tbody
-    (for [[k v] subentity
-          :let [prefix        (if (keyword? k)
-                                (symbol (namespace k))
-                                k)
-                inherited?    (get inherited k)
-                inferred?     (get inferred k)
-                opts+attr-key (assoc opts :attr-key k)]]
-      [:tr {:key   k
-            :class [(when inferred? "inferred")
-                    (when inherited? "inherited")]}
-       [:td.attr-prefix
-        ;; TODO: link to definition below?
-        (when inferred?
-          [:span.marker {:title (:inference comments)} "∴"])
-        (when inherited?
-          [:span.marker {:title (:inheritance comments)} "†"])
-        (prefix-elem prefix)]
-       [:td.attr-name (anchor-elem k opts)]
-       (cond
-         (set? v)
+(defn display-cloud?
+  [{:keys [synset-weights] :as opts} v]
+  (and (coll? v)
+       (>= (count v) 10)
+       (get synset-weights (first v))))
+
+(rum/defcs attr-val-table < (rum/local {} ::display-opts)
+                            "A table which lists attributes and corresponding values of an RDF resource."
+  [state {:keys [subject languages inherited inferred comments] :as opts} subentity]
+  (let [display-opts (::display-opts state)]
+    [:table {:class "attr-val"}
+     [:colgroup
+      [:col]                                                ; attr prefix
+      [:col]                                                ; attr local name
+      [:col]]
+     [:tbody
+      (for [[k v] subentity
+            :let [prefix        (if (keyword? k)
+                                  (symbol (namespace k))
+                                  k)
+                  inherited?    (get inherited k)
+                  inferred?     (get inferred k)
+                  display-opt   (get-in @display-opts [subject k])
+                  opts+attr-key (assoc opts
+                                  :attr-key k
+                                  :display-opt display-opt)]]
+        [:tr {:key   k
+              :class [(when inferred? "inferred")
+                      (when inherited? "inherited")]}
+         [:td.attr-prefix
+          ;; TODO: link to definition below?
+          (when inferred?
+            [:span.marker {:title (:inference comments)} "∴"])
+          (when inherited?
+            [:span.marker {:title (:inheritance comments)} "†"])
+          (prefix-elem prefix)]
+         [:td.attr-name
+          (anchor-elem k opts)
+
+          ;; Longer lists of synsets can be displayed as a word cloud.
+          (when (display-cloud? opts v)
+            (let [value  (or display-opt "")
+                  change (fn [e]
+                           (swap! display-opts assoc-in [subject k]
+                                  (.-value (.-target e))))]
+              (i18n/da-en languages
+                [:select.display-options {:title     "Visningsmuligheder"
+                                          :value     value
+                                          :on-change change}
+                 [:option {:value ""}
+                  "liste"]
+                 [:option {:value "cloud"}
+                  "sky"]]
+                [:select.display-options {:title     "Display options"
+                                          :value     value
+                                          :on-change change}
+                 [:option {:value ""}
+                  "list"]
+                 [:option {:value "cloud"}
+                  "cloud"]])))]
          (cond
-           (= 1 (count v))
-           (let [v* (first v)]
-             (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
-                                                     (meta v*)
-                                                     v*))
-                           v))
+           (set? v)
+           (cond
+             (= 1 (count v))
+             (let [v* (first v)]
+               (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
+                                                       (meta v*)
+                                                       v*))
+                             v))
 
-           (every? i18n/rdf-string? v)
-           (str-list-cell opts+attr-key v)
+             (every? i18n/rdf-string? v)
+             (str-list-cell opts+attr-key v)
 
-           ;; TODO: use sublist for identical labels
+             ;; TODO: use sublist for identical labels
+             :else
+             (list-cell opts+attr-key v))
+
+           (keyword? v)
+           (rum/with-key (val-cell opts+attr-key v) v)
+
+           (symbol? v)
+           (rum/with-key (val-cell opts+attr-key (meta v)) v)
+
            :else
-           (list-cell opts+attr-key v))
-
-         (keyword? v)
-         (rum/with-key (val-cell opts+attr-key v) v)
-
-         (symbol? v)
-         (rum/with-key (val-cell opts+attr-key (meta v)) v)
-
-         :else
-         [:td {:lang (i18n/lang v) :key v}
-          (transform-val v opts+attr-key)])])]])
+           [:td {:lang (i18n/lang v) :key v}
+            (transform-val v opts+attr-key)])])]]))
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
@@ -616,7 +634,8 @@
         (recur candidates)))))
 
 (rum/defc entity-page
-  [{:keys [href languages comments subject inferred entity k->label] :as opts}]
+  [{:keys [href languages comments subject inferred entity k->label synset-weights]
+    :as   opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
@@ -690,13 +709,6 @@
              (when (not-empty (.-name form-element))
                [(.-name form-element) (.-value form-element)]))))
 
-(defn- navigate-to
-  "Navigate to internal `url` using reitit."
-  [url]
-  #?(:cljs (let [history @rfe/history]
-             (.pushState js/window.history nil "" (rfh/-href history url))
-             (rfh/-on-navigate history url))))
-
 (defn submit-form
   "Submit a form `target` element (optionally with a custom `query-string`)."
   [target & [query-str]]
@@ -708,7 +720,7 @@
                  url       (str action (when query-str
                                          (str "?" query-str)))]
              (js/document.activeElement.blur)
-             (navigate-to url))))
+             (shared/navigate-to url))))
 
 ;; TODO: handle other methods (only handles GET for now)
 (defn on-submit
@@ -958,8 +970,11 @@
         state' #?(:clj {:languages languages}
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
-        comments       {:comments (translate-comments languages')}
-        opts'          (merge opts state' comments)
+        comments       (translate-comments languages')
+        synset-weights (:synset-weights (meta entity))
+        opts'          (assoc (merge opts state')
+                         :comments comments
+                         :synset-weights synset-weights)
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix

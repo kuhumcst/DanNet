@@ -18,7 +18,6 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.export.csv :as export.csv]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.old.bootstrap :as bootstrap :refer [da]]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.query :as q]
@@ -99,7 +98,7 @@
                      compatible? (fn [sense]
                                    (= word (str/replace sense #"_[^ ,]+" "")))
                      labels      (->> (str ?slabel)
-                                      (com/sense-labels com/synset-sep)
+                                      (shared/sense-labels shared/synset-sep)
                                       (filter compatible?))]]
            (case (count labels)
              0 nil

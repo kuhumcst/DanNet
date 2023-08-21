@@ -2,7 +2,10 @@
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
+            [clojure.math :as math]
             [reitit.impl :refer [form-decode]]
+            #?(:cljs [reitit.frontend.easy :as rfe])
+            #?(:cljs [reitit.frontend.history :as rfh])
             #?(:clj [clojure.java.io :as io])
             #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
@@ -144,3 +147,78 @@
   [x]
   (when x
     (if (set? x) x #{x})))
+
+(defn sense-labels
+  "Split a `synset` label into sense labels. Work for both old and new formats."
+  [sep label]
+  (->> (str/split label sep)
+       (into [] (comp
+                  (remove empty?)
+                  (map str/trim)))))
+
+(def sense-label
+  "On matches returns the vector: [s word rest-of-s sub mwe]."
+  #"([^_<>]+)(_((?:§|\d|\()[^_ ]+)( .+)?)?")
+
+(def synset-sep
+  #"\{|;|\}")
+
+(defn min-max-normalize
+  [span low num]
+  (/ (- num low) span))
+
+(defn mean
+  [nums]
+  (let [sum   (apply + nums)
+        count (count nums)]
+    (if (pos? count)
+      (/ sum count)
+      0)))
+
+(defn std-deviation
+  [nums]
+  (let [avg     (mean nums)
+        squares (for [num nums]
+                  (let [num-avg (- num avg)]
+                    (* num-avg num-avg)))
+        total   (count nums)]
+    (math/sqrt (/ (apply + squares)
+                  (- total 1)))))
+
+;; TL;DR combining z-score and min-max is pointless:
+;; https://stats.stackexchange.com/questions/318170/min-max-scaling-on-z-score-standardized-data
+(defn z-score
+  [avg std-dev num]
+  (/ (- num avg) std-dev))
+
+(defn normalize
+  "Normalize a map of keys to `weights`. The effect of outliers is reduced using
+  the logarithm and the new weights are made to fit the range 0...1."
+  [weights]
+  (let [no-infinite        #(if (infinite? %) 0 %)
+        weights'           (update-vals weights (comp no-infinite math/log))
+        adjusted-vals      (sort (vals weights'))
+        low                (first adjusted-vals)
+        high               (last adjusted-vals)
+        span               (- high low)
+        min-max-normalize' (partial min-max-normalize span low)]
+    (update-vals weights' min-max-normalize')))
+
+(defn x-header
+  "Get the custom `header` in the HTTP `headers`.
+
+  See also: dk.cst.dannet.web.resources/x-headers"
+  [headers header]
+  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
+  (get headers (str "x-" (str/lower-case (name header)))))
+
+(defn navigate-to
+  "Navigate to internal `url` using reitit."
+  [url]
+  #?(:cljs (let [history @rfe/history]
+             (.pushState js/window.history nil "" (rfh/-href history url))
+             (rfh/-on-navigate history url))))
+
+(comment
+  (sort (vals (normalize {:10 10 :8 8 :6 6 :4 4 :2 2 :0 0})))
+  #_.)
