@@ -311,12 +311,19 @@
     (rdf-datatype? x)
     (transform-val x)
 
-    (= x (select-keys x [:rdf/value x]))
+    (= (keys x) [:rdf/value])
     (let [x (i18n/select-str languages (:rdf/value x))]
       (if (coll? x)
         (into [:<>] (for [s x]
                       [:section.text {:lang (i18n/lang s)} (str s)]))
         [:section.text {:lang (i18n/lang x)} (str x)]))
+
+    ;; Special handling of DanNet sentiment data.
+    (and (= (keys x) [:marl/hasPolarity :marl/polarityValue])
+         (keyword? (first (:marl/hasPolarity x))))
+    [:<>
+     (rdf-resource-hyperlink (first (:marl/hasPolarity x)) opts)
+     " (" (first (:marl/polarityValue x)) ")"]
 
     (contains? (:rdf/type x) :rdf/Bag)
     (let [ns->resources (-> (->> (dissoc x :rdf/type)
