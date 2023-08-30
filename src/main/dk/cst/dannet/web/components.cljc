@@ -223,13 +223,13 @@
           opts'           (-> opts
                               (assoc-in [:k->label resource] inherited-label)
                               (assoc :class (get prefix/prefix->class prefix)))]
-      [:<>
+      [:div.qname
        (prefix-elem (or prefix (symbol (namespace resource))) opts')
        (anchor-elem resource opts')])
 
     ;; The generic case just displays the prefix badge + the hyperlink.
     :else
-    [:<>
+    [:div.qname
      (prefix-elem (symbol (namespace resource)) opts)
      (anchor-elem resource opts)]))
 

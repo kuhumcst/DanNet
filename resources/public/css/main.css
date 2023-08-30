@@ -418,19 +418,11 @@ div.set {
     display: inline-flex;
 }
 
-div.set .prefix {
-    align-self: center;
-}
-
 div.set__left-bracket,
 div.set__right-bracket {
     padding-left: 1ch;
     opacity: 0.4;
     transition: all 0.1s;
-}
-
-div.set__content {
-    align-self: center;
 }
 
 span.marker {
@@ -467,15 +459,19 @@ p.note strong {
 }
 
 div.set__left-bracket {
-    background: url(/images/set-left.svg) no-repeat;
-    margin-right: 0.5ch;
-    background-size: auto 100%;
+    background: url(/images/set-left.svg) no-repeat left;
 }
 
 div.set__right-bracket {
-    background: url(/images/set-right.svg) no-repeat;
-    margin-left: 0.5ch;
+    background: url(/images/set-right.svg) no-repeat right;
+}
+
+div.set__left-bracket,
+div.set__right-bracket {
+    padding: 0 max(0.6ch, 1.5%);
     background-size: auto 100%;
+    opacity: 0.4;
+    transition: all 0.1s;
 }
 
 span.subtle {
@@ -833,6 +829,13 @@ tr + tr td.attr-name {
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
 .attr-combo > span {
     vertical-align: top;
+}
+
+.qname {
+    display: inline-flex;
+
+    /* TODO: doesn't center properly with multiline names + lang tag... */
+    align-items: center;
 }
 
 tr:nth-child(odd),
