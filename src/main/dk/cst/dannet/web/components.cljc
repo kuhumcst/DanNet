@@ -516,7 +516,7 @@
        (get synset-weights (first v))))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
-                            "A table which lists attributes and corresponding values of an RDF resource."
+  "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [subject languages inherited inferred comments] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table {:class "attr-val"}

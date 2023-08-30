@@ -416,13 +416,7 @@ sub {
 
 div.set {
     display: inline-flex;
-}
-
-div.set__left-bracket,
-div.set__right-bracket {
-    padding-left: 1ch;
-    opacity: 0.4;
-    transition: all 0.1s;
+    flex-basis: 100%;
 }
 
 span.marker {
@@ -460,20 +454,21 @@ p.note strong {
 
 div.set__left-bracket {
     background: url(/images/set-left.svg) no-repeat left;
+    margin-right: 0.5ch;
 }
 
 div.set__right-bracket {
     background: url(/images/set-right.svg) no-repeat right;
+    margin-left: 0.5ch;
 }
 
 div.set__left-bracket,
 div.set__right-bracket {
-    padding: 0 max(0.6ch, 1.5%);
+    min-width: 1ch;
     background-size: auto 100%;
     opacity: 0.4;
     transition: all 0.1s;
 }
-
 span.subtle {
     opacity: 0.33;
 }
