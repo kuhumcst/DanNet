@@ -328,7 +328,6 @@
           resources     (->> (sort ns->resources)
                              (vals)
                              (apply concat))]
-      ;; TODO: hover effect like synsets?
       [:div.set
        (when (and (every? keyword? resources)
                   (apply = (map namespace resources)))

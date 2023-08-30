@@ -732,8 +732,7 @@ table.attr-val {
     }
 }
 
-table.attr-val table.attr-val,
-table.attr-val section.text {
+table.attr-val table.attr-val {
     border: 1px solid rgba(0,0,0,0.2);
     box-shadow: 0 0 4px rgba(0,0,0,0.1);
 }
@@ -745,18 +744,6 @@ table.attr-val table.attr-val td.attr-name {
 }
 table.attr-val table.attr-val td.attr-name {
      border-right: none;
-}
-
-table.attr-val section.text::before {
-    content: "“";
-    margin-right: 2px;
-    opacity: 0.5;
-}
-
-table.attr-val section.text::after {
-    content: "”";
-    margin-left: 2px;
-    opacity: 0.5;
 }
 
 td.prefix {
@@ -776,22 +763,6 @@ h1, h2, h3 {
 td {
     padding: 12px;
     vertical-align: top;
-}
-
-section.text {
-    padding: 16px;
-    background-color: white;
-    font-size: 16px;
-    border: 1px solid #AAA;
-    box-shadow: 0 0 12px rgba(0,0,0,0.3);
-}
-
-section.text p {
-    margin: 0 0 24px 0;
-}
-
-section.text p:last-child {
-    margin-bottom: 0;
 }
 
 td.attr-prefix {
@@ -839,13 +810,11 @@ tr + tr td.attr-name {
 }
 
 tr:nth-child(odd),
-tr:nth-child(even) section.text,
 tr tr:nth-child(even) {
     background-color: white;
 }
 
 tr:nth-child(even),
-tr:nth-child(odd) section.text,
 tr tr:nth-child(odd) {
     background-color: #F2F2F2;
 }
