@@ -878,6 +878,16 @@ li::marker {
     font-size: 12px;
 }
 
+.word-cloud-item {
+    filter: grayscale(1) opacity(0.8);
+    transition: all 0.2s;
+}
+
+/* Only reveal colours when hovering parent SVG container. */
+svg:hover .word-cloud-item {
+    filter: grayscale(0) opacity(1);
+}
+
 .word-cloud-item:hover {
     text-decoration: underline;
     cursor: pointer;

@@ -78,31 +78,32 @@
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
-    (let [width  (when node (.-offsetWidth (.-parentElement node)))
-          hw     (/ width 2)
+    (let [width  (.-offsetWidth (.-parentElement node))
           words  (prepare-synset-cloud opts synsets width)
           ;; TODO: need a better heuristic for height
           height (min
                    (max (* (count words) 4) 128)
                    width)
-          hh     (/ height 2)
           draw   (fn [words]
                    (-> d3
+
+                       ;; Adding <svg> and <g> (group) container elements.
                        (.select node)
                        (.append "svg")
                        (.attr "width" width)
                        (.attr "height" height)
                        (.append "g")
-                       (.attr "transform" (str "translate(" hw "," hh ")"))
+                       (.attr "transform" (str "translate(" (/ width 2)
+                                               "," (/ height 2) ")"))
+
+                       ;; Styling/adding interactivity to all <text> elements.
                        (.selectAll "text")
                        (.data words)
-                       (.enter)
-                       (.append "text")
+                       (.join "text")
                        (.style "font-size" (fn [d] (str (.-size d) "px")))
                        (.style "font-family" "Georgia")
                        (.style "text-shadow" "1px 0px rgba(255,255,255,0.8)")
                        (.style "fill" next-colour)
-                       (.attr "title" "word-cloud-item")
                        (.attr "class" "word-cloud-item")
                        (.attr "text-anchor" "middle")
                        (.attr "transform"
@@ -110,9 +111,14 @@
                                 (str "translate(" (.-x d) "," (.-y d) ")"
                                      "rotate(0)")))
                        (.text (fn [d] (.-text d)))
-                       (.on "click" (fn [_ i] (shared/navigate-to (.-href i))))
+                       (.on "click" (fn [_ d]
+                                      (shared/navigate-to (.-href d))))
+
+                       ;; Adding mouseover text (in lieu of a title attribute)
                        (.append "title")
                        (.text (fn [d] (.-title d)))))
+
+          ;; The cloud layout itself is created using d3-cloud.
           layout (-> (cloud)
                      (.size #js [width height])
                      (.words (clj->js words))
