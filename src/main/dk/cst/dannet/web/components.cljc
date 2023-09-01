@@ -472,6 +472,9 @@
       (expandable-coll* opts synsets (remove (set synsets) coll)))
     (expandable-coll* opts (take 3 coll) (drop 3 coll))))
 
+(def expandable-coll-cutoff
+  4)
+
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
   [{:keys [synset-weights display-opt] :as opts} coll]
@@ -482,7 +485,7 @@
                :clj  [:div])
     "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
                    :clj  [:div])
-    (if (<= (count coll) 4)
+    (if (<= (count coll) expandable-coll-cutoff)
       [:ol (list-cell-coll-items opts coll)]
       (expandable-coll opts coll))))
 
@@ -520,7 +523,7 @@
 (defn display-cloud?
   [{:keys [synset-weights] :as opts} v]
   (and (coll? v)
-       (>= (count v) 10)
+       (> (count v) expandable-coll-cutoff)
        (get synset-weights (first v))))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
