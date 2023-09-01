@@ -167,48 +167,30 @@
   [span low num]
   (/ (- num low) span))
 
-(defn mean
-  [nums]
-  (let [sum   (apply + nums)
-        count (count nums)]
-    (if (pos? count)
-      (/ sum count)
-      0)))
+(defn log-inc
+  "Increment `n` relative to the `total` amount of numbers."
+  [n]
+  (+ n (max 1 (math/log n))))
 
-(defn std-deviation
-  [nums]
-  (let [avg     (mean nums)
-        squares (for [num nums]
-                  (let [num-avg (- num avg)]
-                    (* num-avg num-avg)))
-        total   (count nums)]
-    (math/sqrt (/ (apply + squares)
-                  (- total 1)))))
+(defn cloud-normalize
+  "Normalize a map of `weights` to fit a word cloud.
 
-;; TL;DR combining z-score and min-max is pointless:
-;; https://stats.stackexchange.com/questions/318170/min-max-scaling-on-z-score-standardized-data
-(defn z-score
-  [avg std-dev num]
-  (/ (- num avg) std-dev))
-
-(defn normalize
-  "Normalize a map of keys to `weights`. The effect of outliers is reduced using
-  the logarithm and the new weights are made to fit the range 0...1."
+  NOTE: the actual weights are only used for sorting. The normalised weights are
+  created by incrementing from 1 using a relative logarithmic increment and then
+  fitting these values into the range 0...1."
   [weights]
-  (let [no-infinite        #(if (infinite? %) 0 %)
-        weights'           (update-vals weights (comp no-infinite math/log))
-        adjusted-vals      (sort (vals weights'))
-        low                (first adjusted-vals)
-        high               (last adjusted-vals)
+  (let [weights'           (->> (sort-by second weights)
+                                (map (fn [n [k _]]
+                                       [k n])
+                                     (iterate log-inc 1)))
+        low                (second (first weights'))
+        high               (second (last weights'))
         span               (- high low)
-        min-max-normalize' (partial min-max-normalize span low)]
-
-    ;; In cases where every weight is 0, min-max normalization is impossible,
-    ;; so we must equally distribute to every key.
-    ;; TODO: fix, this currently doesn't create great results
-    (update-vals weights' (if (zero? span)
-                            (constantly (/ 1 (count weights)))
-                            min-max-normalize'))))
+        min-max-normalize' #(min-max-normalize span low %)]
+    (->> weights'
+         (map (fn [[k v]]
+                [k (min-max-normalize' v)]))
+         (into {}))))
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.
@@ -226,5 +208,10 @@
              (rfh/-on-navigate history url))))
 
 (comment
+  ;; Testing out relative weights
+  (take 10 (map double (iterate log-inc 1)))
+  (take 100 (map double (iterate log-inc 1)))
+  (take 1000 (map double (iterate log-inc 1)))
+
   (sort (vals (normalize {:10 0 :8 0 :6 0 :4 0 :2 0 :0 0})))
   #_.)

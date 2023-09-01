@@ -9,6 +9,8 @@
             ["d3-cloud" :as cloud]))
 
 (defn length-penalty
+  "Calculate a new size with a penalty based on the size of the `label` and the
+  true `size` of the word to make longer words fit the cloud a bit better."
   [label size]
   (/ size (max 1 (math/log10 (count label)))))
 
@@ -26,49 +28,44 @@
   []
   (first (swap! colours rest)))
 
+;; TODO: figure out how to include subscript
+(defn clean-text
+  [s]
+  (-> s
+      (str/replace #"\{|\}" "")
+      (str/replace #"_[^; ]+" "")))
+
 (defn prepare-synset-cloud
-  "Prepare `synsets` for display in a word cloud using the provided weights in
-  `opts` as well the current `width` of the containing element."
+  "Prepare `synsets` for word cloud display using the provided info in `opts`."
   [{:keys [k->label cloud-limit synset-weights] :as opts} synsets]
   (let [max-size 36
         weights  (select-keys synset-weights synsets)
         n        (count weights)
-        min-size (min 0.15 (/ 10 n))
+        min-size (min 0.25 (/ 10 n))
         weights' (if (<= n 10)
                    (update-vals weights (constantly (/ 1 (math/cbrt n))))
-                   (shared/normalize (if cloud-limit
-                                       (into {} (->> (sort-by second weights)
-                                                     (reverse)
-                                                     (take cloud-limit)))
-                                       weights)))
-        text     (fn [k]
-                   (or (get k->label k)
-                       (when (keyword? k)
-                         (prefix/kw->qname k))))]
+                   (shared/cloud-normalize (if cloud-limit
+                                             (->> (sort-by second weights)
+                                                  (reverse)
+                                                  (take cloud-limit)
+                                                  (into {}))
+                                             weights)))
+        k->s     (fn [k]
+                   (str (or (get k->label k)
+                            (when (keyword? k)
+                              (prefix/kw->qname k)))))]
     (->> synsets
          (mapcat (fn [k]
                    (when-let [weight (get weights' k)]
-                     (let [t          (str (text k))
-                           labels     (shared/sense-labels "; " (when t
-                                                                  (-> t
-                                                                      (str/replace #"\{|\}" "")
-                                                                      (str/replace #"_[^; ]+" ""))))
-
-                           n          (count labels)
-                           ;; To facilitate some heavy-weight synsets having many
-                           ;; labels, we need to diminish the final size by a
-                           ;; certain factor. Kinda winging this diminisher value,
-                           ;; but it is extremely critical!
-                           diminisher (if (> n 1)
-                                        (math/cbrt n)
-                                        1)
-                           size       (-> (+ weight min-size)
-                                          ;; The `max-size` and the `diminisher` balance each other out. The goal is being
-                                          ;; able to fit as much information into the allotted space.
-                                          (/ diminisher)
-                                          (* max-size))]
+                     (let [s      (clean-text (k->s k))
+                           labels (shared/sense-labels "; " s)
+                           n      (count labels)
+                           size   (* (max (/ weight (max 1 (/ n 3)))
+                                          min-size)
+                                     max-size)]
                        (for [label labels]
-                         {:text  (str " " label " ")        ; adding this margin seems to improve layout
+                         ;; adding spaces to the label seems to improve layout
+                         {:text  (str " " label " ")
                           :title label
                           :href  (prefix/resolve-href k)
                           :size  (length-penalty label size)})))))
@@ -85,9 +82,8 @@
       (.remove existing-svg))
     (let [width  (.-offsetWidth (.-parentElement node))
           words  (prepare-synset-cloud opts synsets)
-          ;; TODO: need a better heuristic for height
           height (min
-                   (max (* (count words) 4) 128)
+                   (max (* (count words) 6) 128)
                    width)
           draw   (fn [words]
                    (-> d3

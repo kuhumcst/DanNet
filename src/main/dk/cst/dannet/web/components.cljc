@@ -29,7 +29,7 @@
 
 (def word-cloud-limit
   "An arbitrary limit on default word cloud size for performance reasons."
-  300)
+  250)
 
 (def omitted
   "…")
@@ -558,6 +558,7 @@
           ;; Longer lists of synsets can be displayed as a word cloud.
           (when (display-cloud? opts v)
             (let [value  (or display-opt "")
+                  size   (count v)
                   change (fn [e]
                            (swap! display-opts assoc-in [subject k]
                                   (.-value (.-target e))))]
@@ -567,12 +568,12 @@
                                           :on-change change}
                  [:option {:value ""}
                   "liste"]
-                 (if (> (count v) word-cloud-limit)
+                 (if (> size word-cloud-limit)
                    [:<>
                     [:option {:value "cloud"}
-                     "ordsky"]
+                     (str "ordsky (top)")]
                     [:option {:value "max-cloud"}
-                     "ordsky (fuld)"]]
+                     (str "ordsky (" size ")")]]
                    [:option {:value "max-cloud"}
                     "ordsky"])]
                 [:select.display-options {:title     "Display options"
@@ -583,9 +584,9 @@
                  (if (> (count v) word-cloud-limit)
                    [:<>
                     [:option {:value "cloud"}
-                     "word cloud"]
+                     (str "word cloud (top)")]
                     [:option {:value "max-cloud"}
-                     "word cloud (full)"]]
+                     (str "word cloud (" size ")")]]
                    [:option {:value "max-cloud"}
                     "word cloud"])])))]
          (cond
