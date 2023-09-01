@@ -29,57 +29,61 @@
 (defn prepare-synset-cloud
   "Prepare `synsets` for display in a word cloud using the provided weights in
   `opts` as well the current `width` of the containing element."
-  [{:keys [k->label synset-weights] :as opts} synsets width]
+  [{:keys [k->label cloud-limit synset-weights] :as opts} synsets]
   (let [max-size 36
         weights  (select-keys synset-weights synsets)
         n        (count weights)
         weights' (if (<= n 10)
                    (update-vals weights (constantly (/ 1 (math/cbrt n))))
-                   (shared/normalize weights))
+                   (shared/normalize (if cloud-limit
+                                       (into {} (->> (sort-by second weights)
+                                                     (reverse)
+                                                     (take cloud-limit)))
+                                       weights)))
         text     (fn [k]
                    (or (get k->label k)
                        (when (keyword? k)
                          (prefix/kw->qname k))))]
     (->> synsets
          (mapcat (fn [k]
-                   (let [t          (str (text k))
-                         labels     (shared/sense-labels "; " (when t
-                                                                (-> t
-                                                                    (str/replace #"\{|\}" "")
-                                                                    (str/replace #"_[^; ]+" ""))))
+                   (when-let [weight (get weights' k)]
+                     (let [t          (str (text k))
+                           labels     (shared/sense-labels "; " (when t
+                                                                  (-> t
+                                                                      (str/replace #"\{|\}" "")
+                                                                      (str/replace #"_[^; ]+" ""))))
 
-                         n          (count labels)
-                         ;; To facilitate some heavy-weight synsets having many
-                         ;; labels, we need to diminish the final size by a
-                         ;; certain factor. Kinda winging this diminisher value,
-                         ;; but it is extremely critical!
-                         diminisher (if (> n 1)
-                                      (math/cbrt n)
-                                      1)
-                         size       (-> (get weights' k)
-                                        (+ 0.15)            ; minimum size
-                                        ;; The `max-size` and the `diminisher` balance each other out. The goal is being
-                                        ;; able to fit as much information into the allotted space.
-                                        (/ diminisher)
-                                        (* max-size))]
-                     (for [label labels]
-                       {:text  (str " " label " ")          ; adding this margin seems to improve layout
-                        :title label
-                        :href  (prefix/resolve-href k)
-                        :size  (length-penalty label size)}))))
+                           n          (count labels)
+                           ;; To facilitate some heavy-weight synsets having many
+                           ;; labels, we need to diminish the final size by a
+                           ;; certain factor. Kinda winging this diminisher value,
+                           ;; but it is extremely critical!
+                           diminisher (if (> n 1)
+                                        (math/cbrt n)
+                                        1)
+                           size       (-> (+ weight 0.15)   ; minimum size
+                                          ;; The `max-size` and the `diminisher` balance each other out. The goal is being
+                                          ;; able to fit as much information into the allotted space.
+                                          (/ diminisher)
+                                          (* max-size))]
+                       (for [label labels]
+                         {:text  (str " " label " ")        ; adding this margin seems to improve layout
+                          :title label
+                          :href  (prefix/resolve-href k)
+                          :size  (length-penalty label size)})))))
 
          ;; Favour the largest weights in case all words can't fit!
          (sort-by :size)
          (reverse))))
 
 (defn build-cloud!
-  [state opts synsets node]
-  (when (and node (not= @state synsets))
+  [state {:keys [cloud-limit] :as opts} synsets node]
+  (when (and node (not= @state [cloud-limit synsets]))
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
     (let [width  (.-offsetWidth (.-parentElement node))
-          words  (prepare-synset-cloud opts synsets width)
+          words  (prepare-synset-cloud opts synsets)
           ;; TODO: need a better heuristic for height
           height (min
                    (max (* (count words) 4) 128)
@@ -128,9 +132,9 @@
                      (.fontSize (fn [d] (.-size d)))
                      (.on "end" draw))]
       (.start layout))
-    (reset! state synsets)))
+    (reset! state [cloud-limit synsets])))
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
-  [state opts synsets]
-  [:div {:key (str (hash synsets))
+  [state {:keys [cloud-limit] :as opts} synsets]
+  [:div {:key (str (hash synsets) "-" cloud-limit)
          :ref #(build-cloud! (::synsets state) opts synsets %)}])

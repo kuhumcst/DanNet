@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
   (:require [clojure.string :as str]
-            [clojure.math :as math]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
@@ -27,6 +26,10 @@
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
+
+(def word-cloud-limit
+  "An arbitrary limit on default word cloud size for performance reasons."
+  400)
 
 (def omitted
   "…")
@@ -471,9 +474,13 @@
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
   [{:keys [synset-weights display-opt] :as opts} coll]
-  (if (= display-opt "cloud")
-    #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
-       :clj  [:div])
+  (case display-opt
+    "cloud" #?(:cljs (viz/word-cloud
+                       (assoc opts :cloud-limit word-cloud-limit)
+                       (filter synset-weights coll))
+               :clj  [:div])
+    "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
+                   :clj  [:div])
     (if (<= (count coll) 10)
       [:ol (list-cell-coll-items opts coll)]
       (expandable-coll opts coll))))
@@ -560,15 +567,27 @@
                                           :on-change change}
                  [:option {:value ""}
                   "liste"]
-                 [:option {:value "cloud"}
-                  "sky"]]
+                 (if (> (count v) word-cloud-limit)
+                   [:<>
+                    [:option {:value "cloud"}
+                     "ordsky"]
+                    [:option {:value "max-cloud"}
+                     "ordsky (fuld)"]]
+                   [:option {:value "max-cloud"}
+                    "ordsky"])]
                 [:select.display-options {:title     "Display options"
                                           :value     value
                                           :on-change change}
                  [:option {:value ""}
                   "list"]
-                 [:option {:value "cloud"}
-                  "cloud"]])))]
+                 (if (> (count v) word-cloud-limit)
+                   [:<>
+                    [:option {:value "cloud"}
+                     "word cloud"]
+                    [:option {:value "max-cloud"}
+                     "word cloud (full)"]]
+                   [:option {:value "max-cloud"}
+                    "word cloud"])])))]
          (cond
            (set? v)
            (cond
