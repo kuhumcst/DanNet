@@ -202,7 +202,13 @@
         high               (last adjusted-vals)
         span               (- high low)
         min-max-normalize' (partial min-max-normalize span low)]
-    (update-vals weights' min-max-normalize')))
+
+    ;; In cases where every weight is 0, min-max normalization is impossible,
+    ;; so we must equally distribute to every key.
+    ;; TODO: fix, this currently doesn't create great results
+    (update-vals weights' (if (zero? span)
+                            (constantly (/ 1 (count weights)))
+                            min-max-normalize'))))
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.
@@ -220,5 +226,5 @@
              (rfh/-on-navigate history url))))
 
 (comment
-  (sort (vals (normalize {:10 10 :8 8 :6 6 :4 4 :2 2 :0 0})))
+  (sort (vals (normalize {:10 0 :8 0 :6 0 :4 0 :2 0 :0 0})))
   #_.)

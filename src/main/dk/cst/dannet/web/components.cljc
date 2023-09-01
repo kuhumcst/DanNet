@@ -29,7 +29,7 @@
 
 (def word-cloud-limit
   "An arbitrary limit on default word cloud size for performance reasons."
-  400)
+  300)
 
 (def omitted
   "…")

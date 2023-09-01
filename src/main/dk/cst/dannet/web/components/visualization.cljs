@@ -10,7 +10,7 @@
 
 (defn length-penalty
   [label size]
-  (/ size (math/log10 (count label))))
+  (/ size (max 1 (math/log10 (count label)))))
 
 (def colours
   (atom
@@ -33,6 +33,7 @@
   (let [max-size 36
         weights  (select-keys synset-weights synsets)
         n        (count weights)
+        min-size (min 0.15 (/ 10 n))
         weights' (if (<= n 10)
                    (update-vals weights (constantly (/ 1 (math/cbrt n))))
                    (shared/normalize (if cloud-limit
@@ -61,7 +62,7 @@
                            diminisher (if (> n 1)
                                         (math/cbrt n)
                                         1)
-                           size       (-> (+ weight 0.15)   ; minimum size
+                           size       (-> (+ weight min-size)
                                           ;; The `max-size` and the `diminisher` balance each other out. The goal is being
                                           ;; able to fit as much information into the allotted space.
                                           (/ diminisher)
