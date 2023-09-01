@@ -481,7 +481,7 @@
                :clj  [:div])
     "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
                    :clj  [:div])
-    (if (<= (count coll) 10)
+    (if (<= (count coll) 4)
       [:ol (list-cell-coll-items opts coll)]
       (expandable-coll opts coll))))
 
