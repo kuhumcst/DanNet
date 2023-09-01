@@ -466,6 +466,7 @@
 (defn expandable-coll
   [{:keys [synset-weights] :as opts} coll]
   ;; Special behaviour for synset/LexicalConcept
+  ;; TODO: top 3 synsets by weight are still sorted alphabetically, change?
   (if (get synset-weights (first coll))
     (let [synsets (take 3 (weight-sort synset-weights coll))]
       (expandable-coll* opts synsets (remove (set synsets) coll)))

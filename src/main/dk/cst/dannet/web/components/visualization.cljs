@@ -42,14 +42,13 @@
         weights  (select-keys synset-weights synsets)
         n        (count weights)
         min-size (min 0.25 (/ 10 n))
-        weights' (if (<= n 10)
-                   (update-vals weights (constantly (/ 1 (math/cbrt n))))
-                   (shared/cloud-normalize (if cloud-limit
-                                             (->> (sort-by second weights)
-                                                  (reverse)
-                                                  (take cloud-limit)
-                                                  (into {}))
-                                             weights)))
+        weights' (shared/cloud-normalize
+                   (if cloud-limit
+                     (->> (sort-by second weights)
+                          (reverse)
+                          (take cloud-limit)
+                          (into {}))
+                     weights))
         k->s     (fn [k]
                    (str (or (get k->label k)
                             (when (keyword? k)
