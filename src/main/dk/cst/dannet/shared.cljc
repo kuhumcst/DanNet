@@ -197,11 +197,16 @@
                             [(- high (math/sqrt span))
                              (/ span 2)]
                             [high 0])
-        min-max-normalize' #(min-max-normalize (+ span bonus) low %)]
-    (into {} (for [[k v] artificial-weights]
-               [k (min-max-normalize' (if (> v threshold)
-                                        (+ v bonus)
-                                        v))]))))
+        min-max-normalize' #(min-max-normalize (+ span bonus) low %)
+        highlight          (atom #{})]
+    (with-meta
+      (into {} (for [[k v] artificial-weights]
+                 [k (min-max-normalize' (if (> v threshold)
+                                          (do
+                                            (swap! highlight conj k)
+                                            (+ v bonus))
+                                          v))]))
+      {:highlight @highlight})))
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.

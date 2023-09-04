@@ -38,21 +38,22 @@
 (defn prepare-synset-cloud
   "Prepare `synsets` for word cloud display using the provided info in `opts`."
   [{:keys [k->label cloud-limit synset-weights] :as opts} synsets]
-  (let [max-size 36
-        weights  (select-keys synset-weights synsets)
-        n        (count weights)
-        min-size (min 0.33 (/ 10 n))
-        weights' (shared/cloud-normalize
-                   (if cloud-limit
-                     (->> (sort-by second weights)
-                          (reverse)
-                          (take cloud-limit)
-                          (into {}))
-                     weights))
-        k->s     (fn [k]
-                   (str (or (get k->label k)
-                            (when (keyword? k)
-                              (prefix/kw->qname k)))))]
+  (let [max-size  36
+        weights   (select-keys synset-weights synsets)
+        n         (count weights)
+        min-size  (min 0.33 (/ 10 n))
+        weights'  (shared/cloud-normalize
+                    (if cloud-limit
+                      (->> (sort-by second weights)
+                           (reverse)
+                           (take cloud-limit)
+                           (into {}))
+                      weights))
+        highlight (:highlight (meta weights'))
+        k->s      (fn [k]
+                    (str (or (get k->label k)
+                             (when (keyword? k)
+                               (prefix/kw->qname k)))))]
     (->> synsets
          (mapcat (fn [k]
                    (when-let [weight (get weights' k)]
@@ -64,10 +65,10 @@
                                      max-size)]
                        (for [label labels]
                          ;; adding spaces to the label seems to improve layout
-                         {:text  (str " " label " ")
-                          :title label
-                          :href  (prefix/resolve-href k)
-                          :size  (length-penalty label size)})))))
+                         {:text      (str " " label " ")
+                          :highlight (boolean (get highlight k))
+                          :href      (prefix/resolve-href k)
+                          :size      (length-penalty label size)})))))
 
          ;; Favour the largest weights in case all words can't fit!
          (sort-by :size)
@@ -104,7 +105,10 @@
                        (.style "font-family" "Georgia")
                        (.style "text-shadow" "1px 0px rgba(255,255,255,0.8)")
                        (.style "fill" next-colour)
-                       (.attr "class" "word-cloud-item")
+                       (.attr "class" (fn [d]
+                                        (if (.-highlight d)
+                                          "word-cloud-item word-cloud-item__top"
+                                          "word-cloud-item")))
                        (.attr "text-anchor" "middle")
                        (.attr "transform"
                               (fn [d]

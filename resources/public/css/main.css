@@ -883,6 +883,10 @@ li::marker {
     transition: all 0.2s;
 }
 
+.word-cloud-item__top {
+    /*TODO: currently unused, find some purpose*/
+}
+
 /* Only reveal colours when hovering parent SVG container. */
 svg:hover .word-cloud-item {
     filter: grayscale(0) opacity(1);
