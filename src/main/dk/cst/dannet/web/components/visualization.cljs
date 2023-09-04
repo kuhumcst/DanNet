@@ -41,7 +41,7 @@
   (let [max-size 36
         weights  (select-keys synset-weights synsets)
         n        (count weights)
-        min-size (min 0.25 (/ 10 n))
+        min-size (min 0.33 (/ 10 n))
         weights' (shared/cloud-normalize
                    (if cloud-limit
                      (->> (sort-by second weights)

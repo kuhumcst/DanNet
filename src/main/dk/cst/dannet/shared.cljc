@@ -168,29 +168,40 @@
   (/ (- num low) span))
 
 (defn log-inc
-  "Increment `n` relative to the `total` amount of numbers."
+  "Increment `n` by log(n)."
   [n]
   (+ n (max 1 (math/log n))))
 
 (defn cloud-normalize
-  "Normalize a map of `weights` to fit a word cloud.
+  "Normalize a map of `weights` to fit a word cloud. The output is meant to
+  display well across a wide range of differently sized word clouds.
 
-  NOTE: the actual weights are only used for sorting. The normalised weights are
+  The actual weights are *ONLY* used for sorting! New, artificial weights are
   created by incrementing from 1 using a relative logarithmic increment and then
-  fitting these values into the range 0...1."
+  fitting these values into the range 0...1.
+
+  Furthermore, an artificial highlight is used for the values which lie above
+  a certain threshold. This highlight is applied as bonus constant applied to
+  the weights above the threshold. This simulates the effect of outliers."
   [weights]
-  (let [weights'           (->> (sort-by second weights)
+  (let [artificial-weights (->> (sort-by second weights)
                                 (map (fn [n [k _]]
                                        [k n])
                                      (iterate log-inc 1)))
-        low                (second (first weights'))
-        high               (second (last weights'))
+        low                (second (first artificial-weights))
+        high               (second (last artificial-weights))
         span               (- high low)
-        min-max-normalize' #(min-max-normalize span low %)]
-    (->> weights'
-         (map (fn [[k v]]
-                [k (min-max-normalize' v)]))
-         (into {}))))
+
+        ;; Highlight threshold & bonus are only used for bigger clouds.
+        [threshold bonus] (if (> (count weights) 30)
+                            [(- high (math/sqrt span))
+                             (/ span 2)]
+                            [high 0])
+        min-max-normalize' #(min-max-normalize (+ span bonus) low %)]
+    (into {} (for [[k v] artificial-weights]
+               [k (min-max-normalize' (if (> v threshold)
+                                        (+ v bonus)
+                                        v))]))))
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.

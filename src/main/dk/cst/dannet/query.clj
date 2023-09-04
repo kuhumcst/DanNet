@@ -237,7 +237,7 @@
   (let [weights (atom {})]
     (clojure.walk/postwalk
       (fn [x]
-        (when-let [v (and (keyword? x) (get @synset-indegrees x 0))]
+        (when-let [v (and (keyword? x) (get @synset-indegrees x))]
           (swap! weights assoc x v)))
       coll)
     @weights))

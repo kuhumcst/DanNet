@@ -28,8 +28,8 @@
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 
 (def word-cloud-limit
-  "An arbitrary limit on default word cloud size for performance reasons."
-  250)
+  "Arbitrary limit on word cloud size for performance and display reasons."
+  150)
 
 (def omitted
   "…")
@@ -524,7 +524,12 @@
   [{:keys [synset-weights] :as opts} v]
   (and (coll? v)
        (> (count v) expandable-coll-cutoff)
-       (get synset-weights (first v))))
+
+       ;; TODO: use known synset rels instead...?
+       ;; To guard against the possibility of the first synset having no weight.
+       ;; This might happen in cases where the cache doesn't match the db 100%.
+       (or (get synset-weights (first v))
+           (get synset-weights (second v)))))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
