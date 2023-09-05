@@ -74,13 +74,21 @@
          (sort-by :size)
          (reverse))))
 
+(defn content-width
+  "Get the width of a `node`, excluding its padding and border."
+  [node]
+  (let [style (js/window.getComputedStyle node)]
+    (- (.-clientWidth node)
+       (js/parseFloat (.-paddingLeft style))
+       (js/parseFloat (.-paddingRight style)))))
+
 (defn build-cloud!
   [state {:keys [cloud-limit] :as opts} synsets node]
   (when (and node (not= @state [cloud-limit synsets]))
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
-    (let [width  (.-offsetWidth (.-parentElement node))
+    (let [width  (content-width (.-parentElement node))
           words  (prepare-synset-cloud opts synsets)
           height (min
                    (max (* (count words) 6) 128)
