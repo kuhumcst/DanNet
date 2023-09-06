@@ -12,7 +12,6 @@
             [nextjournal.markdown :as md]
             #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])
             #?(:clj [better-cond.core :refer [cond]])
-            #?(:clj [clojure.core.memoize :as memo])
             #?(:cljs [dk.cst.aria.combobox :as combobox])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -30,45 +29,6 @@
 (def word-cloud-limit
   "Arbitrary limit on word cloud size for performance and display reasons."
   150)
-
-(def omitted
-  "…")
-
-(defn- sort-by-entry
-  "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
-  [sense-labels]
-  (->> (map (partial re-matches shared/sense-label) sense-labels)
-       (map (fn [[s _ _ sub _]]
-              (cond
-                (nil? sub)                                  ; uncertain = keep
-                [s "0§1"]
-
-                (and sub (str/starts-with? sub "§"))        ; normalisation
-                [s (str "0" sub)]
-
-                :else
-                [s sub])))
-       (sort-by second)
-       (partition-by second)))
-
-(defn canonical
-  "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
-
-  Input labels are sorted into partitions with the top partition returned.
-  In cases where only a single label would be returned, the second-highest
-  partition is concatenated, provided it contains at most 2 additional labels."
-  [sense-labels]
-  (if (= 1 (count sense-labels))
-    sense-labels
-    (let [[first-partition second-partition] (sort-by-entry sense-labels)]
-      (mapv first (if (and (= (count first-partition) 1)
-                           (<= (count second-partition) 2))
-                    (concat first-partition second-partition)
-                    first-partition)))))
-
-;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
-#?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
-   :cljs (def only-canonical (memoize only-canonical)))
 
 (def rdf-resource-re
   #"^<(.+)>$")
@@ -106,18 +66,6 @@
       [:a {:href uri'} (str label)]
       [:a.rdf-uri {:href uri'} (break-up-uri uri)])))
 
-(defn- choose-sense-labels
-  "Choose which sense labels to show from a `synset-label` based on `opts`."
-  [synset-label {:keys [details?] :as opts}]
-  (if details?
-    (shared/sense-labels shared/synset-sep synset-label)
-    (let [sense-labels     (shared/sense-labels shared/synset-sep synset-label)
-          canonical-labels (canonical sense-labels)]
-      (if (= (count sense-labels)
-             (count canonical-labels))
-        sense-labels
-        (conj canonical-labels omitted)))))
-
 (declare prefix-elem)
 (declare anchor-elem)
 
@@ -127,7 +75,7 @@
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key entity] :as opts}]
+  ([v {:keys [attr-key entity details?] :as opts}]
    (cond
      (rdf-datatype? v)
      (let [{:keys [uri value]} v]
@@ -154,10 +102,13 @@
       (into [:div.set__content]
             (interpose
               [:span.subtle " • "]                          ; semicolon->bullet
-              (for [label (choose-sense-labels s opts)]
+              (for [label (let [labels (shared/sense-labels shared/synset-sep s)]
+                            (if details?
+                              labels
+                              (shared/with-omitted labels (shared/canonical labels))))]
                 (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
-                   (if (= word omitted)
+                   (if (= word shared/omitted)
                      [:span.subtle word]
                      word)
                    ;; Correct for the rare case of comma an affixed comma.
@@ -382,15 +333,6 @@
     (let [s (i18n/select-str languages v)]
       [:td {:lang (i18n/lang s)} (transform-val s opts)])))
 
-(defn sort-keyfn
-  "Keyfn for sorting keywords and other content based on a `k->label` mapping.
-  Returns vectors so that identical labels are sorted by keywords secondly."
-  [{:keys [languages k->label] :as opts}]
-  (fn [item]
-    (let [k (if (map-entry? item) (first item) item)]
-      [(str (i18n/select-label languages (get k->label k)))
-       (str item)])))
-
 (rum/defc list-item
   "A list item element of a 'list-cell'."
   [opts item]
@@ -412,7 +354,7 @@
 
 (rum/defc list-cell-coll-items
   [opts coll]
-  (let [sort-key (sort-keyfn opts)]
+  (let [sort-key (shared/label-sortkey-fn opts)]
     (for [item (sort-by sort-key coll)]
       (rum/with-key (list-item opts item) (sort-key item)))))
 
@@ -636,7 +578,7 @@
                    (when-let [v (k entity)]
                      [k v]))
                  (remove nil?))
-            (sort-by (sort-keyfn opts)
+            (sort-by (shared/label-sortkey-fn opts)
                      (filter ks entity))))))
 
 (defn- resolve-names
@@ -667,6 +609,53 @@
       candidate
       (when candidates
         (recur candidates)))))
+
+(defn elem-classes
+  [el]
+  (set (str/split (.getAttribute el "class") #" ")))
+
+(defn apply-classes
+  [el classes]
+  (.setAttribute el "class" (str/join " " classes)))
+
+(def radial-tree-selector
+  ".radial-tree-nodes [fill],
+  .radial-tree-links [stroke],
+  .radial-tree-labels [data-theme]")
+
+;; TODO: convert to either checkboxes or radio buttons for clickable action
+(rum/defc radial-tree-legend < (rum/local false ::selected)
+  [{:keys [languages k->label inferred inherited comments] :as opts} subentity]
+  [:ul.radial-tree-legend
+   (for [k (keys subentity)]
+     (when-let [theme (get shared/synset-rel-theme k)]
+       (let [label      (i18n/select-label languages (k->label k))
+             inferred?  (get inferred k)
+             inherited? (get inherited k)]
+         [:li {:key            k
+               :lang           (i18n/lang label)
+               ;; TODO: Safari doesn't support SVG filter properly...
+               :on-mouse-enter (fn [e]
+                                 (when-let [diagram (.-previousSibling (.-parentElement (.-target e)))]
+                                   (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+                                     (when (and (not= (.getAttribute el "stroke") theme)
+                                                (not= (.getAttribute el "fill") theme)
+                                                (not= (.getAttribute el "data-theme") theme))
+                                       (let [classes (elem-classes el)]
+                                         (when-not (get classes "radial-item__subject")
+                                           (apply-classes el (conj (elem-classes el) "radial-item__de-emphasized"))))))))
+               :on-mouse-leave (fn [e]
+                                 (when-let [diagram (.-previousSibling (.-parentElement (.-target e)))]
+                                   (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+                                     (apply-classes el (disj (elem-classes el) "radial-item__de-emphasized")))))}
+
+          [:span {:class "radial-tree-legend__bullet"
+                  :style {:background theme}}]
+          (str label)
+          #_(when inferred?
+              [:span.marker {:title (:inference comments)} " ∴"])
+          #_(when inherited?
+              [:span.marker {:title (:inheritance comments)} " †"])])))])
 
 (rum/defc entity-page
   [{:keys [href languages comments subject inferred entity k->label synset-weights]
@@ -719,8 +708,35 @@
        (when-let [subentity (-> (ordered-subentity opts ks entity)
                                 (not-empty))]
          [:section {:key (or title :no-title)}
-          (when title [:h2 (str (i18n/select-label languages title))])
-          (attr-val-table (assoc opts :inherited inherited) subentity)]))
+          (when title
+            [:h2 (str (i18n/select-label languages title))])
+          (if (not-empty (select-keys shared/synset-rel-theme (keys subentity)))
+            [:<>
+             [:p.subheading (i18n/da-en languages
+                              "Vis som "
+                              "Display as ")
+              [:select {:value     (get-in opts [:section title :display :selected])
+                        :on-change (fn [e]
+                                     (swap! shared/state assoc-in
+                                            [:section title :display :selected]
+                                            (.-value (.-target e))))}
+               (let [m (get-in shared/ui [:section title :display :options])]
+                 (->> (sort-by second (if (= "da" (first languages))
+                                        (update-vals m first)
+                                        (update-vals m second)))
+                      (map (fn [[k v]]
+                             [:option {:key   k
+                                       :value k}
+                              v]))))]]
+             (case (get-in opts [:section title :display :selected])
+               "radial" [:div.radial-tree {:key (str (hash subentity))}
+                         #?(:cljs (viz/radial-tree
+                                    (assoc opts :label label)
+                                    subentity)
+                            :clj  [:div.radial-tree-diagram])
+                         (radial-tree-legend opts subentity)]
+               (attr-val-table (assoc opts :inherited inherited) subentity))]
+            (attr-val-table (assoc opts :inherited inherited) subentity))]))
      [:section.notes
       (when (not-empty inferred)
         [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
@@ -1002,7 +1018,7 @@
                            (throw (ex-info
                                     (str "No component for page: " page)
                                     opts)))
-        state' #?(:clj {:languages languages}
+        state' #?(:clj (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
         comments       (translate-comments languages')
@@ -1042,8 +1058,4 @@
 (comment
   (_hiccup->title (md/->hiccup (slurp "pages/about-da.md")))
   (_hiccup->title nil)
-
-  (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
-  (canonical ["flab_§1" "flab_§1a" "gab_2§1" "gab_2§1a"
-              "kværn_§3" "mule_1§1a" "mund_§1"])            ; ["flab_§1" "mund_§1"]
   #_.)

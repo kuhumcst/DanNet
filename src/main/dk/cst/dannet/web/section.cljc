@@ -6,35 +6,31 @@
 
 (defmulti primary-sections :rdf/type)
 
+(def ontolex-title
+  #{(->LangStr "Ontolex units" "en")
+    (->LangStr "Ontolex-enheder" "da")})
+
+(def semantic-title
+  #{(->LangStr "Semantic relations" "en")
+    (->LangStr "Betydningsrelationer" "da")})
+
 (defmethod primary-sections :default
   [entity]
   [[nil [:rdf/type
          :owl/sameAs
          :lexinfo/partOfSpeech
          :wn/partOfSpeech
+         :dns/sentiment
+         :dns/ontologicalType
          :skos/definition
          :wn/definition
          :rdfs/comment
          :lexinfo/senseExample
          :wn/example
-         :dns/sentiment
-         :dns/ontologicalType
          :vann/preferredNamespacePrefix
          :dc/description
          :dcat/downloadURL]]
-   [#{(->LangStr "Ontolex units" "en")
-      (->LangStr "Ontolex-enheder" "da")}
-    [:ontolex/writtenRep
-     :ontolex/canonicalForm
-     :ontolex/otherForm
-     :ontolex/evokes
-     :ontolex/isEvokedBy
-     :ontolex/sense
-     :ontolex/isSenseOf
-     :ontolex/lexicalizedSense
-     :ontolex/isLexicalizedSenseOf]]
-   [#{(->LangStr "Semantic relations" "en")
-      (->LangStr "Betydningsrelationer" "da")}
+   [semantic-title
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
                                                :wn/definition
                                                :wn/example})
@@ -46,7 +42,17 @@
                      :dns/eqHypernym
                      :dns/eqSimilar
                      :dns/orthogonalHyponym
-                     :dns/orthogonalHypernym} first))]])
+                     :dns/orthogonalHypernym} first))]
+   [ontolex-title
+    [:ontolex/writtenRep
+     :ontolex/canonicalForm
+     :ontolex/otherForm
+     :ontolex/evokes
+     :ontolex/isEvokedBy
+     :ontolex/sense
+     :ontolex/isSenseOf
+     :ontolex/lexicalizedSense
+     :ontolex/isLexicalizedSenseOf]]])
 
 (defn add-other-section
   "Expand `sections` to include 'Other' (containing the remainder an entity)."

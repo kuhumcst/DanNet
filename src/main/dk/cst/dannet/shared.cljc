@@ -3,9 +3,12 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.math :as math]
+            [dk.cst.dannet.web.section :as section]
             [reitit.impl :refer [form-decode]]
+            [dk.cst.dannet.web.i18n :as i18n]
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [reitit.frontend.history :as rfh])
+            #?(:clj [clojure.core.memoize :as memo])
             #?(:clj [clojure.java.io :as io])
             #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
@@ -30,6 +33,14 @@
   #?(:clj  (= main-js "main.js")
      :cljs (when (exists? js/inDevelopmentEnvironment)
              js/inDevelopmentEnvironment)))
+
+(def theme
+  ["#901a1e"
+   "#55f"
+   "#019fa1"
+   "#df7300"
+   "#387111"
+   "#666"])
 
 (defn page-href
   [s]
@@ -64,12 +75,25 @@
                (edn/read-string js/negotiatedLanguages)
                ["en" nil "da"]))))
 
+(def ui
+  "UI descriptions which shouldn't be configurable by the client."
+  {:section {section/semantic-title
+             {:display {:options {"table"  ["tabel"
+                                            "table"]
+                                  "radial" ["diagram"
+                                            "diagram"]}}}}})
+
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
   (atom {:languages default-languages
          :search    {:completion {}
                      :s          ""}
+         :section   {section/semantic-title {:display {:selected "table"}}}
          :details?  nil}))
+
+;; Temporary store for special behaviour after navigating to a new page.
+(defonce post-navigate
+  (atom nil))
 
 (def windows?
   #?(:cljs (and (exists? js/navigator.appVersion)
@@ -163,6 +187,59 @@
 (def synset-sep
   #"\{|;|\}")
 
+(def omitted
+  "…")
+
+(defn- entry-sort
+  "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
+  [sense-labels]
+  (->> (map (partial re-matches sense-label) sense-labels)
+       (map (fn [[s _ _ sub _]]
+              (cond
+                (nil? sub)                                  ; uncertain = keep
+                [s "0§1"]
+
+                (and sub (str/starts-with? sub "§"))        ; normalisation
+                [s (str "0" sub)]
+
+                :else
+                [s sub])))
+       (sort-by second)
+       (partition-by second)))
+
+(defn canonical
+  "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
+
+  Input labels are sorted into partitions with the top partition returned.
+  In cases where only a single label would be returned, the second-highest
+  partition is concatenated, provided it contains at most 2 additional labels."
+  [sense-labels]
+  (if (= 1 (count sense-labels))
+    sense-labels
+    (let [[first-partition second-partition] (entry-sort sense-labels)]
+      (mapv first (if (and (= (count first-partition) 1)
+                           (<= (count second-partition) 2))
+                    (concat first-partition second-partition)
+                    first-partition)))))
+
+;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
+#?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
+   :cljs (def canonical (memoize canonical)))
+
+
+(defn with-omitted
+  [sense-labels canonical-labels]
+  (if (= (count sense-labels)
+         (count canonical-labels))
+    sense-labels
+    (conj canonical-labels omitted)))
+
+(defn canonical-sense-labels
+  [synset-sep synset-label]
+  (let [sense-labels     (sense-labels synset-sep synset-label)
+        canonical-labels (canonical sense-labels)]
+    (with-omitted sense-labels canonical-labels)))
+
 (defn min-max-normalize
   [span low num]
   (/ (- num low) span))
@@ -228,6 +305,96 @@
              (.pushState js/window.history nil "" (rfh/-href history url))
              (rfh/-on-navigate history url))))
 
+(defn label-sortkey-fn
+  "Keyfn for sorting keywords and other content based on a `k->label` mapping.
+  Returns vectors so that identical labels are sorted by keywords secondly."
+  [{:keys [languages k->label] :as opts}]
+  (fn [item]
+    (let [k (if (map-entry? item) (first item) item)]
+      [(str (i18n/select-label languages (get k->label k)))
+       (str item)])))
+
+(defn weight-sort-fn
+  [weights]
+  (fn [x]
+    (sort-by #(get weights % 0) > (setify x))))
+
+(defn vec-conj
+  [coll v]
+  (if (nil? coll)
+    [v]
+    (conj coll v)))
+
+(defn top-n-vals
+  "Select `n` vals in `m` by picking the first of every vals iteratively."
+  [n m]
+  (let [ks (keys m)]
+    ;; The m should already be sorted by key alphabetically at this point.
+    ;; TODO: don't use cycle, a bit inefficient since we check many empty rels
+    (loop [[rel & rels] (cycle ks)
+           i       n
+           entity' m
+           ret     {}]
+      ;; We want to make sure to quit when we run out of data.
+      (if (or (zero? i) (empty? entity'))
+        ret
+        (if-let [synset (first (get entity' rel))]
+          (recur rels (dec i)
+                 (update entity' rel rest)
+                 (update ret rel vec-conj synset))
+          (recur rels i
+                 (dissoc entity' rel)
+                 ret))))))
+
+(def synset-rel-theme
+  "The maximal theme for all in-use synset relations generated via
+  `(generate-synset-rels-theme)` in the resources namespace."
+  {:wn/similar             "#bcbd22",
+   :dns/usedForObject      "#a55194",
+   :wn/is_caused_by        "#c6dbef",
+   :dns/eqSimilar          "#9ecae1",
+   :wn/involved_agent      "#cedb9c",
+   :wn/eq_synonym          "#7b4173",
+   :wn/co_instrument_agent "#9edae5",
+   :wn/co_agent_instrument "#5254a3",
+   :dns/eqHyponym          "#dbdb8d",
+   :wn/agent               "#bd9e39",
+   :dns/nearAntonym        "#e7ba52",
+   :wn/involved_patient    "#de9ed6",
+   :wn/involved_result     "#1f77b4",
+   :wn/has_domain_topic    "#df7300",
+   :dns/orthogonalHypernym "#387111",
+   :wn/hypernym            "#901a1e",
+   :wn/attribute           "#3182bd",
+   :wn/holo_member         "#e7cb94",
+   :dns/usedFor            "#fdd0a2",
+   :wn/domain_region       "#e7969c",
+   :wn/mero_part           "#9c9ede",
+   :wn/instance_hypernym   "#c7c7c7",
+   :wn/mero_substance      "#ce6dbd",
+   :wn/holonym             "#fdae6b",
+   :wn/holo_substance      "#aec7e8",
+   :wn/is_exemplified_by   "#393b79",
+   :wn/domain_topic        "#019fa1",
+   :wn/patient             "#e377c2",
+   :wn/instance_hyponym    "#c49c94",
+   :wn/hyponym             "#55f",
+   :dns/orthogonalHyponym  "#666",
+   :wn/causes              "#ffbb78",
+   :wn/meronym             "#637939",
+   :dns/eqHypernym         "#8c564b",
+   :wn/is_entailed_by      "#8ca252",
+   :wn/mero_location       "#8c6d31",
+   :wn/also                "#9467bd",
+   :wn/antonym             "#2ca02c",
+   :wn/result              "#98df8a",
+   :wn/entails             "#c5b0d5",
+   :wn/exemplifies         "#6baed6",
+   :wn/has_domain_region   "#ff9896",
+   :wn/holo_part           "#d6616b",
+   :wn/holo_location       "#b5cf6b",
+   :wn/mero_member         "#f7b6d2"})
+
 (comment
   ;; Testing out relative weights
   (take 10 (map double (iterate log-inc 1)))
@@ -235,4 +402,8 @@
   (take 1000 (map double (iterate log-inc 1)))
 
   (sort (vals (normalize {:10 0 :8 0 :6 0 :4 0 :2 0 :0 0})))
+
+  (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
+  (canonical ["flab_§1" "flab_§1a" "gab_2§1" "gab_2§1a"
+              "kværn_§3" "mule_1§1a" "mund_§1"])            ; ["flab_§1" "mund_§1"]
   #_.)

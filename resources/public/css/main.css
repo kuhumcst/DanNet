@@ -334,15 +334,6 @@ form[role=search] p {
     display: none;
 }
 
-@keyframes fade-in {
-    0% {
-        opacity: 0;
-    }
-    100% {
-        opacity: 1;
-     }
-}
-
 form[role=search] ul {
     display: none;
     cursor: default;
@@ -427,6 +418,14 @@ span.marker {
 
 section.notes {
     margin-top: 24px;
+}
+
+p.subheading {
+    text-align: center;
+    font-size: 14px;
+    margin: 0 0 24px 0;
+    padding: 0;
+    color: #666;
 }
 
 p.note {
@@ -876,6 +875,87 @@ li:last-of-type {
 li::marker {
     color: #999;
     font-size: 12px;
+}
+
+.radial-tree {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 12px;
+    border: 1px solid rgba(0,0,0,0.5);
+    box-shadow: 0 0 12px rgba(0,0,0,0.3);s
+}
+
+.radial-tree-diagram {
+    flex-grow: 1; /* Fix width in Safari. */
+    border-right: 1px solid rgba(0,0,0,0.1);
+}
+
+.radial-tree-diagram * {
+    transition: all .2s;
+}
+
+ul.radial-tree-legend {
+    min-width: fit-content;
+
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
+    padding: 12px;
+
+    border-radius: 2px;
+
+    font-variant: small-caps;
+    font-size: 14px;
+}
+
+.radial-tree-legend__bullet {
+    width: 1ch;
+    height: 1ch;
+    border-radius: 0.5ch;
+    margin-right: 1ch;
+    display: inline-block;
+    align-self: center;
+    transition: all 0.2s;
+}
+
+ul.radial-tree-legend > li {
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+}
+
+ul.radial-tree-legend > li:hover  {
+    border: 1px solid rgba(0,0,0,0.1);
+    cursor: pointer;
+}
+
+ul.radial-tree-legend  > li:hover > .radial-tree-legend__bullet {
+    transform: scale(1.5);
+}
+
+.radial-item {
+    font-size: 16px;
+    text-underline-offset: 2px;
+}
+
+.radial-item__de-emphasized {
+    filter: opacity(0.1);
+}
+
+.radial-item:not(.radial-item__subject):hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+.radial-item__subject {
+    /* Make the subject label easier to read in busy diagrams. */
+    filter: drop-shadow(2px 4px 2px white);
+    font-size: 220%;
+}
+
+tspan.sense-paragraph {
+    font-size: 12px;
+    fill: #AAA;
 }
 
 .word-cloud-item {

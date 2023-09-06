@@ -13,6 +13,8 @@
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
             [com.owoga.trie :as trie]
+            [thi.ng.color.core :as col]
+            [thi.ng.color.presets.categories :as cat]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.components :as com]
@@ -112,7 +114,7 @@
         [:meta {:charset "UTF-8"}]
         [:meta {:name    "viewport"
                 :content "width=device-width, initial-scale=1.0"}]
-        [:link {:rel "stylesheet" :href "/css/main.css"}]
+        [:link {:rel "stylesheet" :href "/css/main.css?v=1"}]
 
         ;; TODO: make this much more clean
         ;; Disable animation when JS is unavailable, otherwise much too frequent!
@@ -549,7 +551,43 @@
    :get [autocomplete-ic]
    :route-name ::autocomplete])
 
+(def not-in-theme
+  "Predicate for filtering colours with a certain HSV distance from theme."
+  (let [dist-check (fn [theme-color]
+                     (fn [other-color]
+                       (> (col/dist-hsv theme-color other-color) 0.33)))]
+    (apply every-pred (map (comp dist-check col/css) shared/theme))))
+
+(defn generate-synset-rels-theme
+  "Generate list of in-use synset relation types and map it to unique colours."
+  []
+  (let [fixed-rels  [:wn/hypernym
+                     :wn/hyponym
+                     :wn/domain_topic
+                     :wn/has_domain_topic
+                     :dns/orthogonalHypernym
+                     :dns/orthogonalHyponym]
+        fixed-theme (zipmap fixed-rels (map col/css shared/theme))
+        colors      (->> (concat cat/cat20 cat/cat20b cat/cat20c)
+                         (map col/int24)
+                         (filter not-in-theme)
+                         (map col/as-css))
+        rels        (->> (q/run (:graph @db) op/synset-relation-types)
+                         (map '?rel)
+                         (remove (set fixed-rels)))
+        num-colours (count colors)
+        num-rels    (count rels)]
+    (when (> (count rels) (count colors))
+      (throw (ex-info (str "Not enough colours available: only "
+                           num-colours " colors for " num-rels " rels")
+                      {:colors colors
+                       :rels   rels})))
+    (update-vals (merge fixed-theme (zipmap rels colors)) deref)))
+
 (comment
+  ;; Generate the them used for e.g. radial diagrams
+  (generate-synset-rels-theme)
+
   (meta (q/expanded-entity (:graph @db) bootstrap/<dn>))
   (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
   (q/entity (:graph @db) :dn/synset-78300)

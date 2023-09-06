@@ -19,8 +19,8 @@
   (let [label-rels (str/join " " (map prefix/kw->qname com/label-keys))]
     (sparql
       "SELECT ?s ?p ?o ?pl ?ol ?plr ?olr
-     WHERE {
-       ?s ?p ?o .
+       WHERE {
+         ?s ?p ?o .
        OPTIONAL {
          VALUES ?plr { " label-rels " }
          ?p ?plr ?pl .
@@ -407,3 +407,13 @@
        FILTER( EXISTS {?s rdf:type ontolex:LexicalConcept} ) .
      }
      GROUP BY ?o"))
+
+;; As of 2023-09-08, 45 relations were in use out of 97 relations total.
+;; i.e. a colour space of around 50 or so colours would be appropriate.
+(def synset-relation-types
+  (sparql
+    "SELECT DISTINCT ?rel
+     WHERE {
+       ?rel rdf:type wn:SynsetRelType .
+       ?s ?rel ?o .
+     }"))

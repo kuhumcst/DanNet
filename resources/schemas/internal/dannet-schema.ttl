@@ -14,7 +14,7 @@
 @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
 
 <https://wordnet.dk/dannet/schema> a owl:Ontology ;
-  dc:issued "2023-07-07" ;
+  dc:issued "2023-09-08" ;
   dc:title "DanNet-skema"@da, "DanNet schema"@en;
   dc:description "Skema for DanNet-specifikke relationer."@da, "Schema for DanNet-specific relations."@en ;
   dc:publisher "<https://cst.dk>";
@@ -48,7 +48,7 @@
   owl:inverseOf :eqSimilar .
 
 # Infer inverse links from the ILI dataset for better navigation of the graph.
-:linkedConcept a wn:SynsetRelType ;
+:linkedConcept a owl:ObjectProperty ;
   rdfs:label "linked concept"@en ;
   rdfs:label "forbundet begreb"@da ;
   rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
@@ -67,7 +67,7 @@
   rdfs:label "kvinde"@da ;
   rdfs:subClassOf :Gender .
 
-:gender a wn:SynsetRelType ;
+:gender a owl:ObjectProperty ;
   rdfs:label "gender"@en ;
   rdfs:label "køn"@da ;
   rdfs:comment "The gender of the subject."@en ;
@@ -114,7 +114,7 @@
   rdfs:label "nedarvet relation"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:usedFor a owl:ObjectProperty ;
+:usedFor a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "A lexical concept which the subject concept may be used for; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
@@ -123,7 +123,7 @@
   rdfs:label "brugt til"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:usedForObject a owl:ObjectProperty ;
+:usedForObject a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "TODO; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
@@ -132,7 +132,7 @@
   rdfs:label "brugt til objekt"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:nearAntonym a owl:ObjectProperty ;
+:nearAntonym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "A lexical concept which is a near antonym of the subject concept; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
@@ -142,7 +142,7 @@
   owl:inverseOf :nearAntonym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:orthogonalHypernym a owl:ObjectProperty ;
+:orthogonalHypernym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
@@ -152,7 +152,7 @@
   owl:inverseOf :orthogonalHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:orthogonalHyponym a owl:ObjectProperty ;
+:orthogonalHyponym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;

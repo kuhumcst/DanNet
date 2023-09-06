@@ -88,7 +88,8 @@
             ;; A hack for client redirects since we are not allowed to intercept
             ;; any 30x status codes coming from the server from JS.
             (js/window.location.replace redirect)
-            (let [headers        (:headers %)
+            (let [{:keys [scroll]} @shared/post-navigate
+                  headers        (:headers %)
                   page           (shared/x-header headers :page)
                   body           (not-empty (:body %))
                   page-component (com/page-shell page body)
@@ -98,11 +99,16 @@
               (reset! location {:path    path
                                 :headers headers
                                 :data    body})
-              (when-let [url (shared/response->url %)]
-                (update-scroll-state! url))
+              ;; A hack to handle scroll to for diagrams specifically.
+              ;; Otherwise, we scroll to the cached Y position (if available).
+              (when-not (= scroll :diagram)
+                (when-let [url (shared/response->url %)]
+                  (update-scroll-state! url)))
               ;; Ensure that the search overlay closes when clicking 'back'.
               (js/document.activeElement.blur)
-              (rum/mount page-component @root)))))
+              (rum/mount page-component @root)
+              ;; NOTE: this reset will run *after* refs are resolved!
+              (reset! shared/post-navigate nil)))))
 
 (defn set-up-navigation!
   []

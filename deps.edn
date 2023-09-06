@@ -26,6 +26,7 @@
            org.slf4j/slf4j-simple         {:mvn/version "1.7.36"}
            com.wsscode/transito           {:mvn/version "2021.07.04"}
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
+           thi.ng/color                   {:mvn/version "1.5.0"}
 
            ;; Our own fork of Rum which uses React 18.
            rum/rum                        {:git/url "https://github.com/kuhumcst/rum.git"
