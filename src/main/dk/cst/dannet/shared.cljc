@@ -184,6 +184,11 @@
   a certain threshold. This highlight is applied as bonus constant applied to
   the weights above the threshold. This simulates the effect of outliers."
   [weights]
+  ;; Note that in this implementation, the incrementing sizes are randomly
+  ;; assigned to synsets of the same weight. I did experiment with grouping
+  ;; by weight first, assigning the same size to synsets of the same weight
+  ;; before incrementing the size, but this creates much worse clouds,
+  ;; despite being closer to the source data. ~sg
   (let [artificial-weights (->> (sort-by second weights)
                                 (map (fn [n [k _]]
                                        [k n])
