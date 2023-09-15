@@ -891,6 +891,12 @@ li::marker {
     border-right: 1px solid rgba(0,0,0,0.1);
 }
 
+svg.radial-tree-diagram__svg {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 24px);
+}
+
 .radial-tree-diagram * {
     transition: all .2s;
 }
@@ -950,7 +956,7 @@ ul.radial-tree-legend  > li:hover > .radial-tree-legend__bullet {
 .radial-item__subject {
     /* Make the subject label easier to read in busy diagrams. */
     filter: drop-shadow(2px 4px 2px white);
-    font-size: 220%;
+    font-size: 32px;
 }
 
 tspan.sense-paragraph {

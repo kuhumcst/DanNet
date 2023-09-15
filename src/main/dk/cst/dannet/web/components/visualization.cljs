@@ -233,7 +233,7 @@
           ;; Specify the chart’s dimensions.
           cx        (* 0.5 width)
           cy        (* 0.5 height)
-          radius    (/ (min width height) 3.6)              ; overall size
+          radius    (/ (min width height) 3.2)              ; overall size
 
           ; Create a radial tree layout. The layout’s first dimension (x)
           ; is the angle, while the second (y) is the radius.
@@ -256,11 +256,11 @@
           svg       (-> d3
                         (.select node)
                         (.append "svg")
+                        (.attr "class" "radial-tree-diagram__svg")
                         #_(.create d3 "svg")
                         (.attr "width" width)
                         (.attr "height" height)
-                        (.attr "viewBox" #js [(- cx) (- cy) width height])
-                        (.attr "style" "width: 100%; height: auto;"))
+                        (.attr "viewBox" #js [(- cx) (- cy) width height]))
 
           ;; Add mouseover text (in lieu of a title attribute)
           add-title (fn [d3]
