@@ -493,9 +493,9 @@
                   opts+attr-key (assoc opts
                                   :attr-key k
                                   :display-opt display-opt)]]
-        [:tr {:key   k
-              :class [(when inferred? "inferred")
-                      (when inherited? "inherited")]}
+        [:tr (cond-> {:key k}
+               inferred? (update :class conj "inferred")
+               inherited? (update :class conj "inherited"))
          [:td.attr-prefix
           ;; TODO: link to definition below?
           (when inferred?
