@@ -985,10 +985,11 @@ svg:hover .word-cloud-item {
 
 select.display-options {
     appearance: none;
-    display: block;
-    background: transparent;
+
+    background: transparent url(/images/caret-down.svg) 0 center no-repeat;
+    background-size: 14px;
     border: none;
-    padding: 0;
+    padding: 0 0 0 16px;
     font-size: 12px;
 
     color: black;
