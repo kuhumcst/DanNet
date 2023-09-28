@@ -1,6 +1,9 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
+## **2023-09-28**: Rettelse af domain topic-relationen
+* `wn:has_domain_topic`-relationen har været brugt i stedet for `wn:domain_topic` i DanNet-datasættet. Dette er nu blevet rettet.
+
 ## **2023-07-07**: Tusinder af nye links samt skemaopdateringer
 * DanNet har nu omkring 10K nye links til [CILI](https://github.com/globalwordnet/cili), som også linker til OEWN og andre WordNets.
 * Flere nye relationer ( `dns:eqHypernym`, `dns:eqHyponym` og `dns:eqSimilar` ) er blevet tilføjet, da `wn:ili` og `wn:eqSynonym` ikke var nok til at beskrive de relationer vi har mellem forskellige WordNets nu.

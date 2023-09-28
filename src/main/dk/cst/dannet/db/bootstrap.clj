@@ -9,7 +9,6 @@
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.old.bootstrap :as old.bootstrap]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -91,11 +90,13 @@
   (prefix/schema-uri 'dnc))
 
 ;; Defines the release that the database should be bootstrapped from.
+;; If making a new release, the zip files that are placed in /bootstrap/latest
+;; need to match precisely this release.
 (def old-release
-  "2023-06-01")
+  "2023-07-07")
 
 (def current-release
-  (str "2023-07-07"#_#_old-release"-SNAPSHOT"))
+  (str "2023-09-28" #_#_old-release "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -103,7 +104,7 @@
   (let [result (q/run-basic (.getGraph ^Model model)
                             [:bgp [<dn> :owl/versionInfo old-release]])]
     (assert (not-empty result)
-            (str "bootstrap files were not the expected release (" old-release "). "
+            (str "bootstrap files not the expected release (" old-release "). "
                  result))))
 
 (defn see-also
@@ -229,83 +230,6 @@
            (aristotle/add label-graph))))
   (println "Labels added to the Open English WordNet!"))
 
-(h/defn ->missing-english-link-triples
-  "Convert a `row` from 'relations.csv' to triples.
-
-  Note: certain rows are unmapped, so the relation will remain a string!"
-  [[subj-id _ rel obj-id _ _ :as row]]
-  ;; Ignores eq_has_hyponym and eq_has_hyperonym, no equivalent in GWA schema.
-  ;; This loses us 123 of the original 5000l links to the Princton WordNet.
-  (when-let [new-rel (get {"eq_has_hyponym"   :dns/eqHyponym
-                           "eq_has_hyperonym" :dns/eqHypernym} rel)]
-    (if-let [obj (get @old.bootstrap/senseidx->english-synset obj-id)]
-      #{[(old.bootstrap/synset-uri subj-id) new-rel obj]}
-      (when-let [ili-obj (get @old.bootstrap/wn20-id->ili obj-id)]
-        #{[(old.bootstrap/synset-uri subj-id) new-rel ili-obj]}))))
-
-;; WRONG and not actually needed
-(def rel-id->label
-  (delay
-    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/application_localised_string.csv")]
-      (into {} (clojure.data.csv/read-csv reader)))))
-
-(def rel-guess
-  {"200" :wn/ili
-   "201" :dns/eqHyponym
-   "202" :dns/eqHypernym
-   "203" :dns/eqSimilar})
-
-(def synset-id->ili-id
-  (delay
-    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/synset_attributes.csv")]
-      (->> (clojure.data.csv/read-csv reader)
-           (map (fn [[synset-id princeton-id ili-id]]
-                  (when (not= ili-id "\\N")
-                    [synset-id (keyword "ili" ili-id)])))
-           (remove nil?)
-           (into {})))))
-
-(defn dannet-id?
-  [s]
-  (and (str/starts-with? s "888")
-       (str/ends-with? s "000")))
-
-(defn dannet-synset
-  [synset-id]
-  (keyword "dn" (str "synset-" (subs synset-id 3 (- (count synset-id) 3)))))
-
-;; TODO: remove for next release
-(h/def new-english-link-triples
-  (delay
-    (with-open [reader (clojure.java.io/reader "bootstrap/other/dannet-new/wordnetloom/synset_relation.csv")]
-      (->> (clojure.data.csv/read-csv reader)
-           (map (fn [[_ child-synset-id parent-synset-id rel-id]]
-                  (when-let [rel (rel-guess rel-id) #_(@rel-id->label rel-id)]
-                    (cond
-                      ;; A few of the triples are the wrong way around (en->dn)
-                      (and (dannet-id? child-synset-id)
-                           (not (dannet-id? parent-synset-id)))
-                      [(@synset-id->ili-id parent-synset-id)
-                       rel
-                       (dannet-synset child-synset-id)]
-
-                      ;; The majority are of course dn->en
-                      (and (dannet-id? parent-synset-id)
-                           (not (dannet-id? child-synset-id)))
-                      [(dannet-synset parent-synset-id)
-                       rel
-                       (@synset-id->ili-id child-synset-id)]))))
-           (remove nil?)
-           ;; A few corrections for flipped triples in the dataset.
-           (map (fn [[s p o :as triple]]
-                  (if (= "ili" (namespace s))
-                    (cond
-                      (= p :wn/ili) [o p s]
-                      (= p :dns/eqHypernym) [o :dns/eqHyponym s]
-                      :else triple)
-                    triple)))
-           (doall)))))
-
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!
   "Add the Open English WordNet to a Jena `dataset`."
@@ -319,52 +243,35 @@
         ili-file      "bootstrap/other/english/ili.ttl"]
     (println "... creating temporary in-memory graph")
     (db/import-files dataset prefix/oewn-uri [oewn-file] oewn-changefn)
-    (db/import-files dataset prefix/ili-uri [ili-file])
-
-    ;; TODO: remove again after next release
-    (println "... add missing old English links (hypernyms and hyponyms)")
-    (let [g       (.getGraph (db/get-model dataset prefix/dn-uri))
-          triples (->> [->missing-english-link-triples
-                        "bootstrap/dannet/DanNet-2.5.1_csv/relations.csv"]
-                       (old.bootstrap/read-triples)
-                       (remove nil?)
-                       (apply set/union))]
-      (txn/transact-exec g
-        (db/safe-add! g triples)))
-    (println "... add new old English links")
-    (let [g (.getGraph (db/get-model dataset prefix/dn-uri))]
-      (txn/transact-exec g
-        (db/safe-add! g @new-english-link-triples))))
-
+    (db/import-files dataset prefix/ili-uri [ili-file]))
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
 
-(h/defn ->synset-attribute-triples
-  [[synset-id rel v :as row]]
-  (let [synset      (old.bootstrap/synset-uri synset-id)
-        sex->gender {"male"   :dns/Male
-                     "female" :dns/Female}]
-    (cond
-      (= rel "domain")
-      #{[synset :dc/subject (da v)]}
-
-      (= rel "sex")
-      (when-let [gender (sex->gender v)]
-        #{[synset :dns/gender gender]}))))
-
-(h/defn add-gender-and-domain!
+(defn switch-domain-topic!
+  "Fixes an error in the DanNet `dataset` where a wrong relation has been used."
   [dataset]
-  (println "Importing data from synset_attributes.csv...")
-  (let [g       (.getGraph (db/get-model dataset prefix/dn-uri))
-        triples (->> [->synset-attribute-triples
-                      "bootstrap/dannet/DanNet-2.5.1_csv/synset_attributes.csv"]
-                     (old.bootstrap/read-triples)
-                     (remove nil?)
-                     (apply set/union))]
-    (println "... triples to be added:" (count triples))
-    (txn/transact-exec g
-      (db/safe-add! g triples)))
-  (println "synset_attributes.csv imported!"))
+  (let [graph      (db/get-graph dataset prefix/dn-uri)
+        model      (db/get-model dataset prefix/dn-uri)
+        q          (op/sparql "SELECT * WHERE { ?s wn:has_domain_topic ?o . }")
+        switch-rel (juxt '?s (constantly :wn/domain_topic) '?o)
+        triples    (set (doall (map switch-rel (q/run graph q))))]
+    (txn/transact-exec graph
+      (println "adding" (count triples) "wn:domain_topic triples...")
+      (db/safe-add! graph triples))
+    (txn/transact-exec model
+      (println "removing old wn:has_domain_topic triples... ")
+      (db/remove! model '[_ :wn/has_domain_topic _]))))
+
+(h/defn make-release-changes!
+  "This function tracks all changes made in this release, i.e. deletions and
+  additions to either of the export datasets.
+
+  This function survives between releases, but the functions it calls are all
+  considered temporary and should be deleted when the release comes."
+  [dataset]
+  (let [expected-release "2023-09-28"]
+    (assert (= current-release expected-release))           ; another check
+    (switch-domain-topic! dataset)))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -435,14 +342,14 @@
       (let [files          (remove #{input-dir} (file-seq input-dir))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
-                            (:hash (meta #'->missing-english-link-triples))
-                            (:hash (meta #'new-english-link-triples))
-                            (:hash (meta #'add-gender-and-domain!))
-                            (:hash (meta #'->synset-attribute-triples))
                             (:hash (meta #'metadata))
                             (:hash (meta #'update-metadata!))
                             (:hash (meta #'->dannet))
-                            (hash prefix/schemas)]
+                            (hash prefix/schemas)
+
+                            ;; Current release changes ONLY!
+                            ;; Remove for next release!
+                            (:hash (meta #'make-release-changes!))]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (hash/pos-hash files)
             bootstrap-hash (hash/pos-hash fn-hashes)
@@ -476,8 +383,11 @@
                 (db/import-files dataset model-uri [ttl-file] changefn)
                 (zip/delete-file ttl-file)))
 
-            (add-gender-and-domain! dataset)
             (add-open-english-wordnet! dataset)
+
+            ;; Effectuate changes for the current release.
+            (make-release-changes! dataset)
+
             (println new-entry)
             (spit log-path (str new-entry "\n----\n") :append true)
             (dataset->db dataset schema-uris))))
@@ -489,10 +399,3 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
-
-(comment
-  @new-english-link-triples
-  @rel-id->label
-  @synset-id->ili-id
-  (dannet-synset "888glen000")
-  #_.)
