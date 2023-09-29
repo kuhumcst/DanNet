@@ -4,13 +4,28 @@
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.data.csv :as csv]
+            [clojure.math.combinatorics :as combo]
             [dk.ative.docjure.spreadsheet :as xl]
             [dk.cst.dannet.db :refer [get-graph]]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.prefix :refer [cor-uri]]
-            [dk.cst.dannet.shared :refer [sense-labels sense-label synset-sep]]
+            [dk.cst.dannet.shared :refer [canonical
+                                          sense-labels
+                                          sense-label
+                                          synset-sep]]
             [dk.cst.dannet.query :refer [run]]
             [dk.cst.dannet.query.operation :refer [sparql]]
             [dk.cst.dannet.web.resources :refer [db]]))
+
+(def slang-query
+  (sparql
+    "SELECT DISTINCT (str(?rep) as ?lemma)
+     WHERE {
+       ?sense lexinfo:register lexinfo:slangRegister .
+       ?word ontolex:sense ?sense ;
+             ontolex:canonicalForm ?form .
+       ?form ontolex:writtenRep ?rep .
+     }"))
 
 (def en-et-query
   (sparql
@@ -30,6 +45,15 @@
        ?singularForm ontolex:writtenRep ?singularString .
      }
      "))
+
+(def freq-query
+  (sparql
+    "SELECT (str(?rep) as ?label) ?freq
+     WHERE {
+       ?w dns:ddoFrequency ?freq .
+       ?w ontolex:canonicalForm ?form .
+       ?form ontolex:writtenRep ?rep .
+     }"))
 
 (def artifact-comestible-liquid-query
   (sparql
@@ -234,7 +258,88 @@
        ?t rdfs:label ?tl .
      }"))
 
-(def en-et*
+(def mero-part-query
+  (sparql
+    "SELECT ?sl ?ol
+     WHERE {
+       ?s wn:mero_part ?o .
+       FILTER(STRSTARTS(str(?s), str(dn:))) .
+
+       ?s dns:ontologicalType ?sot .
+       ?o dns:ontologicalType ?oot .
+       ?sot rdfs:member ?sotmember .
+       ?oot rdfs:member ?ootmember .
+
+       # remove the synset containing 'ord' (it is messing up many examples)
+       FILTER (?o != dn:synset-7918)
+
+       # remove the synset for 'krop; organisme; system' since this usage of
+       # 'system' generally only results in bad examples.
+       FILTER (?s != dn:synset-4202)
+
+       # remove the synset for 'dyr; dyreart; kræ' since the three words are
+       # used in too different contexts to reliable generate example sentences.
+       FILTER (?s != dn:synset-3262)
+
+       # remove the synset for 'plante; plantesort; plantevækst' since the words
+       # are too apart contextually and the part-whole relationships too loose.
+       FILTER (?s != dn:synset-559)
+
+       # remove comestible parts when the parent isn't, e.g. dyrefilet
+       FILTER NOT EXISTS {
+         FILTER (?sotmember NOT IN (dnc:Comestible))
+         FILTER (?ootmember IN (dnc:Comestible))
+       }
+
+       # remove ontological types which often result in poor generations
+       FILTER NOT EXISTS {
+         FILTER (?ootmember IN (dnc:LanguageRepresentation))
+       }
+
+       ?s rdfs:label ?sl .
+       ?o rdfs:label ?ol .
+     }"))
+
+(defn ->used-for-query
+  [synset]
+  (sparql
+    "SELECT ?l
+     WHERE {
+       ?s dns:usedFor " (prefix/kw->qname synset) ".
+       ?s dns:ontologicalType ?ot .
+       ?ot rdfs:member dnc:Artifact .
+       ?ot rdfs:member dnc:Object .
+       FILTER NOT EXISTS {
+         ?ot rdfs:member dnc:Comestible .
+       }
+       ?s rdfs:label ?l .
+     }"))
+
+(def used-for-warm-query
+  (->used-for-query :dn/synset-47011))
+
+(def used-for-decorate-query
+  (->used-for-query :dn/synset-43224))
+
+(def used-for-cover-query
+  (->used-for-query :dn/synset-2711))
+
+(def used-for-dress-query
+  (->used-for-query :dn/synset-2669))
+
+(def used-for-protect-1-query
+  (->used-for-query :dn/synset-2654))
+
+(def used-for-protect-2-query
+  (->used-for-query :dn/synset-44048))
+
+(def slang-terms
+  (delay
+    (->> (run (:graph @db) slang-query)
+         (map '?lemma)
+         (set))))
+
+(def articles
   (delay
     (->> (run (get-graph (:dataset @db) cor-uri) en-et-query)
          (map (fn [{:syms [?canonical ?singular]}]
@@ -243,167 +348,242 @@
                   [?canonical "et"])))
          (into {}))))
 
-(defn en-et
-  "Return the most likely gender for `s` when available."
+(def lemma->frequency
+  "Frequencies originally sourced from DDO."
+  (delay
+    (-> (group-by '?label (run (:graph @db) freq-query))
+        (update-vals (fn [ms]
+                       (apply max (map '?freq ms)))))))
+
+(defn article-for
+  "Return the most likely article for `s` when available."
   [s]
-  (some-> (or
-            ;; the primary source
-            (get @en-et* s)
+  (when-not (str/ends-with? s "tøj")                        ; no article
+    (or
+      (get @articles s)                                     ; primary source
+      (cond                                                 ; other options
+        (or (str/ends-with? s "træ")
+            (str/ends-with? s "dyr"))
+        "et"
 
-            ;; possible additional corrections based on affixes
-            (cond
-              (or (str/ends-with? s "træ")
-                  (str/ends-with? s "dyr"))
-              "et"
+        (or (str/ends-with? s "plante")
+            (str/ends-with? s "dragt")
+            (str/ends-with? s "bog"))
+        "en"))))
 
-              (str/ends-with? s "plante")
-              "en"))
-          (str " ")))
+(defn en|et
+  [s]
+  (if-let [article (article-for s)]
+    (str/join " " [article s])
+    s))
 
 (def inference-patterns
-  "These patterns all map to the GP4_inference_nedarvningDanNet.xlsx file I was
-  sent by Sussi. The keys of the map refer to the lines in that file and the
-  values are the patterns used to generate data to test this pattern."
   {"comestible liquid"
    [[artifact-comestible-liquid-query
      artifact-liquid-query]
-    ["" " er en spiselig væske"]
-    [["" " er ikke en spiselig væske"] true]
-    [["" " er en spiselig væske"] false]]
+    ['?l "er en spiselig væske"]
+    [['?l "er ikke en spiselig væske"] true]
+    [['?l "er en spiselig væske"] false]]
 
    "non-liquid"
    [[non-liquid-hyponym-query]
-    ["" " er en væske"]
-    [["" " er ikke en væske"] true]
-    [["" " er en væske"] false]]
+    [en|et '?pl "er en væske"]
+    [[en|et '?tl "er ikke en væske"] true]
+    [[en|et '?tl "er en væske"] false]]
 
    "period of time"
    [[period-of-time-query
      point-in-time-query]
-    [en-et " er et tidsrum"]
-    [[en-et " er ikke et tidsrum"] true]
-    [[en-et " er et tidsrum"] false]]
+    [en|et '?l "er et tidsrum"]
+    [[en|et '?l "er ikke et tidsrum"] true]
+    [[en|et '?l "er et tidsrum"] false]]
 
    "point in time"
    [[point-in-time-query
      period-of-time-query]
-    [en-et " er et tidspunkt"]
-    [[en-et " er ikke et tidspunkt"] true]
-    [[en-et " er et tidspunkt"] false]]
+    [en|et '?l "er et tidspunkt"]
+    [[en|et '?l "er ikke et tidspunkt"] true]
+    [[en|et '?l "er et tidspunkt"] false]]
 
    "disciplines"
    [[disciplines-query
      activities-query]
-    ["" " er en disciplin"]
-    [["" " er ikke en disciplin"] true]
-    [["" " er en disciplin"] false]]
+    ['?l "er en disciplin"]
+    [['?l "er ikke en disciplin"] true]
+    [['?l "er en disciplin"] false]]
 
    "sports"
    [[non-sports-activities-query
      sports-query]
-    ["" " er ikke en type sport"]
-    [["" " er en type sport"] true]
-    [["" " er ikke en type sport"] false]]
+    ['?l "er ikke en type sport"]
+    [['?l "er en type sport"] true]
+    [['?l "er ikke en type sport"] false]]
 
    "feelings"
    [[feeling-query
      thought-query]
-    ["" " er en følelse"]
-    [["" " er ikke en følelse"] true]
-    [["" " er en følelse"] false]]
+    ['?l "er en følelse"]
+    [['?l "er ikke en følelse"] true]
+    [['?l "er en følelse"] false]]
 
    "orthogonal animal hypernyms"
    [[orthogonal-hypernym-animal-object-query]
-    [en-et " er et dyr"]
-    [[en-et " er et dyr"] true]
-    [[en-et " er en dyreart"] false]]
+    [en|et '?pl "er et dyr"]
+    [[en|et '?tl "er et dyr"] true]
+    [[en|et '?tl "er en dyreart"] false]]
 
    "orthogonal plant hypernyms"
    [[orthogonal-hypernym-plant-object-query]
-    [en-et " er en plante"]
-    [[en-et " er en plante"] true]
-    [[en-et " er en plantesort"] false]]})
+    [en|et '?pl "er en plante"]
+    [[en|et '?tl "er en plante"] true]
+    [[en|et '?tl "er en plantesort"] false]]
 
-(defn extract-labels
-  "Flatten the synset labels for key `k` in the query result `rows` into sense
-  labels."
-  [k rows]
-  (->> rows
-       (mapcat (fn [m]
-                 (->> (get m k)
-                      (str)
-                      (sense-labels synset-sep)
-                      (map #(second (re-find sense-label %))))))
-       (set)))
+   "part-whole"
+   [[mero-part-query]
+    [en|et '?sl "kan have" en|et '?ol]
+    [[en|et '?sl "kan ikke have" en|et '?ol] false]
+    [[en|et '?sl "er" en|et '?ol] false]]
+
+   "warm vs. decorate"
+   [[used-for-warm-query
+     used-for-decorate-query]
+    ["man kan tage" en|et '?l "på for at holde sig varm"]
+    [["man kan tage" en|et '?l "på for at holde sig varm"] false]]})
+
+(defn split-labels
+  "Flatten the `synset-label` into sense labels."
+  [synset-label]
+  (->> (str synset-label)
+       (sense-labels synset-sep)
+       (canonical)
+       (map #(second (re-find sense-label %)))))
+
+(defn cartesian-ms
+  "Split a result row `m` with split labels into every possible single-value
+  map combination of the constituent vals."
+  [m]
+  (->> (for [[k coll] m]
+         (for [v coll]
+           [k v]))
+       (apply combo/cartesian-product)
+       (map #(into {} %))))
+
+(defn by-sense-label
+  [ms]
+  (->> (map #(update-vals % split-labels) ms)
+       (mapcat cartesian-ms)))
+
+(defn- real-v
+  [m v]
+  (if (symbol? v)
+    (get m v)
+    v))
 
 (defn apply-template
-  "Apply `s` to a string `template` represented as a coll of strings."
-  [template s]
-  (let [prefix (first template)]
-    (str
-      (if (fn? prefix)
-        (prefix s)
-        prefix)
-      s (second template))))
+  "Apply result row `m` to a `template` (a coll of strings, fns, or symbols).
 
-(defn- apply-queries
-  "Return [prompt-rows test-rows prompt-ks test-ks] for `queries`."
-  [[q1 q2 :as queries]]
-  (if (= 2 (count queries))
-    [(run (:graph @db) q1)
-     (run (:graph @db) q2)
-     '?l '?l]
-    (let [rows (run (:graph @db) q1)]
-      [rows rows '?pl '?tl])))
-
-(defn symmetric-difference
-  "The symmetric difference of two sets, also known as the disjunctive union and
-  set sum, is the set of elements which are in either of the sets, but not in
-  their intersection. "
-  [coll1 coll2]
-  (let [coll1' (set coll1)
-        coll2' (set coll2)]
-    [(set/difference coll1' coll2')
-     (set/difference coll2' coll1')]))
+  Strings are used directly; symbols are resolved by looking them up in the
+  result row map; fns are applied to the next element and then disposed of."
+  [template m]
+  (let [f (atom nil)]
+    (->> (reduce (fn [ret v]
+                   (if (fn? v)
+                     (do (reset! f v) ret)                  ; store fn
+                     (conj ret (if-let [f* @f]
+                                 (do
+                                   (reset! f nil)           ; dispose of fn
+                                   (f* (real-v m v)))       ; use fn
+                                 (real-v m v)))))
+                 []
+                 template)
+         (str/join " "))))
 
 (defn sample
   [n xs]
   (take n (shuffle xs)))
 
+(defn frequent?
+  [lemma]
+  (when-let [f (get @lemma->frequency lemma)]
+    (> f 75)))
+
+(def frequent-vals?
+  (comp #(every? frequent? %) vals))
+
+(defn slang-vals?
+  [m]
+  (some @slang-terms (vals m)))
+
+(defn affix-vals?
+  [m]
+  (some #(re-find #"^-|-$" %) (vals m)))
+
+(defn duplicate-vals?
+  [m]
+  (not= (count (vals m))
+        (count (set (vals m)))))
+
 (defn gen-rows
   "Generate rows for outputting to a CSV file based on database `queries`,
-  a `prompt-template` for generating the prompt, and 1 or more `test-templates`.
-
-  Some conventions used for queries: ?t refers to the test resource while ?p
-  refers to a prompt resource, i.e. the thing being tested vs. the thing(s)
-  making up the preceding prompt. Since we want labels, ?tl and ?pl are the
-  important bits actually being selected.
-
-  The queries collection consists of either a [prompt-query test-query] pair or
-  a single [query] collection used to query both prompt-rows and test-rows. When
-  a pair is present there is no ambivalence, so ?l can be used as a label key."
+  a `prompt-template` for generating a prompt, and 1 or more `test-templates`."
   [queries prompt-template & test-templates]
-  (let [[prompt-rows test-rows prompt-ks test-ks] (apply-queries queries)
-        [prompt-lemmas test-lemmas] (symmetric-difference
-                                      (extract-labels prompt-ks prompt-rows)
-                                      (extract-labels test-ks test-rows))
-        lemma->prompt-sentence (partial apply-template prompt-template)
-        prompt-sentences       (map lemma->prompt-sentence prompt-lemmas)]
+  ;; The queries coll consists of either a [prompt-query test-query] pair or a
+  ;; single [query] coll used to create both prompt-rows and test-rows.
+  ;; The prompt-rows are also used separately to create true data points.
+  (let [[prompt-rows test-rows] (if (= 2 (count queries))
+                                  [(run (:graph @db) (first queries))
+                                   (run (:graph @db) (second queries))]
+                                  (let [rows (run (:graph @db) (first queries))]
+                                    [rows rows]))
 
+        ;; The data is synset labels and is split into rows of sense labels.
+        prompt-rows        (by-sense-label prompt-rows)
+        test-rows          (by-sense-label test-rows)
+
+        ;; Find clashes between two sets of lemmas.
+        clashes            (when (> (count queries) 1)
+                             (set/intersection
+                               (set (mapcat vals prompt-rows))
+                               (set (mapcat vals test-rows))))
+
+        ;; It should only be needed if using multiple queries as the source,
+        ;; since the lemmas cannot be coordinated directly in the query.
+        clashing-vals?     (fn [m]
+                             (when clashes
+                               (some clashes (vals m))))
+
+        ;; Clean the data, removing e.g. infrequent words and potential clashes,
+        ;; while also de-duplicating the rows to avoid repetitions.
+        clean-rows         (fn [template rows]
+                             (let [syms (filter symbol? template)]
+                               (into #{}
+                                     (comp
+                                       (map #(select-keys % syms))
+                                       (filter frequent-vals?)
+                                       (remove slang-vals?)
+                                       (remove clashing-vals?)
+                                       (remove affix-vals?)
+                                       (remove duplicate-vals?))
+                                     rows)))
+
+        ;; Generate the prompt data
+        prompt-ms          (clean-rows prompt-template prompt-rows)
+        m->prompt-sentence #(apply-template prompt-template %)
+        prompt-sentences   (map m->prompt-sentence prompt-ms)]
     (concat
       ;; add tests for test lemmas using the test templates
-      (mapcat (fn [test-lemma]
-                (for [[template bool] test-templates]
+      (mapcat (fn [[template bool]]
+                (for [m (sample 30 (clean-rows template test-rows))]
                   [(str/join "; " (sample 2 prompt-sentences))
-                   (apply-template template test-lemma)
+                   (apply-template template m)
                    bool]))
-              (sample 30 test-lemmas))
+              test-templates)
 
       ;; add additional true tests for the certified true prompt lemmas
-      (for [prompt-lemma (sample 30 prompt-lemmas)]
-        (let [other-lemmas (disj prompt-lemmas prompt-lemma)]
-          [(str/join "; " (sample 2 (map lemma->prompt-sentence other-lemmas)))
-           (apply-template prompt-template prompt-lemma)
+      (for [m (sample 30 prompt-ms)]
+        (let [other-ms (disj prompt-ms m)]
+          [(str/join "; " (sample 2 (map m->prompt-sentence other-ms)))
+           (apply-template prompt-template m)
            true])))))
 
 (defn rows
@@ -411,9 +591,10 @@
   rows for every pattern if none specified."
   [& [k]]
   (if k
-    (->> (get inference-patterns k)
-         (apply gen-rows)
-         (map (fn [row] (conj row k))))
+    (if-let [pattern (get inference-patterns k)]
+      (->> (apply gen-rows pattern)
+           (map #(conj % k)))
+      (throw (ex-info "pattern does not exist" {:k k})))
     (apply concat (for [k (keys inference-patterns)]
                     (rows k)))))
 
@@ -432,11 +613,22 @@
     (xl/save-workbook! (str title ".xlsx") wb)))
 
 (comment
-  (en-et "papegøje")                                        ; en
-  (en-et "retskrav")                                        ; en
-  (en-et 123)                                               ; nil
+  (@lemma->frequency "krummerik")
 
-  (run (:graph @db) point-in-time-query)
+  (article-for "papegøje")                                  ; en
+  (article-for "retskrav")                                  ; et
+  (article-for 123)                                         ; nil
+
+  (cartesian-ms '{?sl ("høreorgan" "øre")
+                  ?ol ("det indre øre" "labyrint")})
+
+  (run (:graph @db) slang-query)
+  (run (:graph @db) used-for-warm-query)
+  (run (:graph @db) used-for-cover-query)
+  (run (:graph @db) used-for-decorate-query)
+  (run (:graph @db) used-for-dress-query)
+  (run (:graph @db) used-for-protect-1-query)
+  (run (:graph @db) used-for-protect-2-query)
   (run (:graph @db) period-of-time-query)
   (run (:graph @db) feeling-thought-query)
   (count (run (:graph @db) feeling-query))
@@ -451,12 +643,15 @@
   (count (rows "orthogonal plant hypernyms"))
   (count (rows "sports"))
   (count (rows "disciplines"))
+  (count (rows "part-whole"))
+  (count (rows "warm vs. decorate"))
 
   ;; Write a partial dataset to disk
   (write-csv! "time" (rows "orthogonal animal hypernyms"))
   (write-spreadsheet! "ortho" (rows "feelings"))
 
   ;; Write the entire dataset to disk
-  (write-csv! "inference" (rows))
-  (write-spreadsheet! "inference" (rows))
+  (let [data (rows)]
+    (write-csv! "inference" data)
+    (write-spreadsheet! "inference" data))
   #_.)
