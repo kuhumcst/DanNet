@@ -193,3 +193,10 @@
   rdfs:comment "An ontological concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see<https://wordnet.dk/dannet/schema> .https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
   rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se<https://wordnet.dk/dannet/schema> .https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# TODO: this relation should be replaced by a mature, standardised alternative
+:ddoFrequency a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:label "DDO frequency"@en ;
+  rdfs:label "DDO-frekvens"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

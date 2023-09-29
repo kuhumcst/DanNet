@@ -1,6 +1,9 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Ordfrekvens
+* Ordfrekvens fra [DDO](https://ordnet.dk/ddo) (delt af DSL) er blevet tilføjet til DanNet-datasættet.
+
 ## **2023-09-28**: Rettelse af domain topic-relationen
 * `wn:has_domain_topic`-relationen har været brugt i stedet for `wn:domain_topic` i DanNet-datasættet. Dette er nu blevet rettet.
 

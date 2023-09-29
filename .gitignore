@@ -16,6 +16,7 @@ bootstrap/other/dannet-new/multi-word-synsets.edn
 bootstrap/other/dannet-new/dannetsemid_synsetid.csv
 bootstrap/other/dannet-new/adj_suppl_brutto_221222.csv
 bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv
+bootstrap/other/dannet-new/artikeltyngde_bet 3.csv
 bootstrap/other/dannet-new/wordnetloom
 
 # Files downloaded from https://ordregister.dk/

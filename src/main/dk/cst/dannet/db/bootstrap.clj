@@ -6,9 +6,11 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.data.csv :as csv]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -93,10 +95,10 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def old-release
-  "2023-07-07")
+  "2023-09-28")
 
 (def current-release
-  (str "2023-09-28" #_#_old-release "-SNAPSHOT"))
+  (str old-release "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -247,20 +249,55 @@
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
 
-(defn switch-domain-topic!
-  "Fixes an error in the DanNet `dataset` where a wrong relation has been used."
+(defn read-triples
+  "Return triples using `row->triples` from the rows of a CSV `file`.
+  This function was adapted from 'dk.cst.dannet.old.bootstrap/read-triples'.
+
+  For the `opts`...
+
+    - :encoding is assumed to be ISO-8859-1
+    - :separator is assumed to be @
+    - :preprocess fn is assumed to be 'identity' (no-op)"
+  [[row->triples file & {:keys [encoding separator preprocess]
+                         :or   {preprocess identity}
+                         :as   opts}
+    :as args]]
+  (with-open [reader (io/reader file :encoding (or encoding "utf-8"))]
+    (->> (csv/read-csv reader :separator (or separator \tab))
+         (preprocess)
+         (map row->triples)
+         (doall))))
+
+(defn ->freq-triples
+  [[ddo_entryid _ ddo_artikeltyngde :as row]]
+  (when (not-empty ddo_artikeltyngde)
+    (let [word  (shared/word-uri ddo_entryid)
+          value (Integer/parseUnsignedInt ddo_artikeltyngde)]
+      #{[word :dns/ddoFrequency value]})))
+
+(defn add-word-frequency!
+  "Add word frequency data from DDO; useful for ranking/selecting labels."
   [dataset]
-  (let [graph      (db/get-graph dataset prefix/dn-uri)
-        model      (db/get-model dataset prefix/dn-uri)
-        q          (op/sparql "SELECT * WHERE { ?s wn:has_domain_topic ?o . }")
-        switch-rel (juxt '?s (constantly :wn/domain_topic) '?o)
-        triples    (set (doall (map switch-rel (q/run graph q))))]
+  (let [graph     (db/get-graph dataset prefix/dn-uri)
+        model     (db/get-model dataset prefix/dn-uri)
+        unlabeled (op/sparql "SELECT ?w
+                              WHERE {
+                                ?w dns:ddoFrequency ?f .
+                                FILTER NOT EXISTS {
+                                  ?w rdfs:label ?l .
+                                }
+                              }")
+        triples   (->> (read-triples [->freq-triples "bootstrap/other/dannet-new/artikeltyngde_bet 3.csv"
+                                      :preprocess rest])
+                       (apply set/union))]
     (txn/transact-exec graph
-      (println "adding" (count triples) "wn:domain_topic triples...")
+      (println "adding" (count triples) "dns:ddoFreq triples...")
       (db/safe-add! graph triples))
-    (txn/transact-exec model
-      (println "removing old wn:has_domain_topic triples... ")
-      (db/remove! model '[_ :wn/has_domain_topic _]))))
+    (let [unlabeled (map '?w (q/run graph unlabeled))]
+      (txn/transact-exec model
+        (println "removing unlabeled" (count unlabeled) "word triples... ")
+        (for [word unlabeled]
+          (db/remove! model '[word :dns/ddoFrequency _]))))))
 
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
@@ -269,9 +306,9 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2023-09-28"]
+  (let [expected-release "2023-09-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
-    (switch-domain-topic! dataset)))
+    (add-word-frequency! dataset)))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.

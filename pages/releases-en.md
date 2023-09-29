@@ -1,6 +1,9 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Word frequencies
+* Word frequencies from [DDO](https://ordnet.dk/ddo) (provided by DSL) have been added to the DanNet dataset.
+
 ## **2023-09-28**: Fixing the domain topic relation
 * The `wn:has_domain_topic` relation had been used in place of `wn:domain_topic` in the DanNet dataset. This has now been corrected.
 
