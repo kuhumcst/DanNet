@@ -6,6 +6,7 @@
             [clojure.data.csv :as csv]
             [clojure.math.combinatorics :as combo]
             [dk.ative.docjure.spreadsheet :as xl]
+            [ham-fisted.api :as ham]
             [dk.cst.dannet.db :refer [get-graph]]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.prefix :refer [cor-uri]]
@@ -498,9 +499,25 @@
                  template)
          (str/join " "))))
 
+(def random-seed
+  (atom nil))
+
+(defn reproducible-shuffle
+  "A reproducible version of 'shuffle' which increments a random seed in order
+  to produce consistent, yet pseudorandom results.
+
+  NOTE: the random seed must be set explicitly before calling!"
+  [coll]
+  (let [seed @random-seed]
+    (if (integer? seed)
+      (ham/shuffle coll {:seed (swap! random-seed inc)})
+      (throw (ex-info "must init random-seed" {:seed seed})))))
+
+;; TODO: shuffling is reproducible, but cannot guarantee `coll` is in same order
 (defn sample
-  [n xs]
-  (take n (shuffle xs)))
+  "Take `n` randomly from `coll` in a reproducible way."
+  [n coll]
+  (take n (reproducible-shuffle coll)))
 
 (defn frequent?
   [lemma]
@@ -570,6 +587,11 @@
         prompt-ms          (clean-rows prompt-template prompt-rows)
         m->prompt-sentence #(apply-template prompt-template %)
         prompt-sentences   (map m->prompt-sentence prompt-ms)]
+
+    ;; Before we sample anything, we init the random seed to our chosen value.
+    ;; The point is to have some sense of reproducibility.
+    (reset! random-seed 42)
+
     (concat
       ;; add tests for test lemmas using the test templates
       (mapcat (fn [[template bool]]
@@ -595,7 +617,7 @@
       (->> (apply gen-rows pattern)
            (map #(conj % k)))
       (throw (ex-info "pattern does not exist" {:k k})))
-    (apply concat (for [k (keys inference-patterns)]
+    (apply concat (for [k (sort (keys inference-patterns))]
                     (rows k)))))
 
 (defn write-csv!
