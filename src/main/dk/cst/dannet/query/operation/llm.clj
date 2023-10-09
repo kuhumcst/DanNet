@@ -638,10 +638,10 @@
     (apply concat (for [k (sort (keys inference-patterns))]
                     (rows k)))))
 
-(defn write-csv!
+(defn write-tsv!
   [title rows]
-  (with-open [writer (io/writer (str title ".csv"))]
-    (csv/write-csv writer rows :quote? (constantly true))))
+  (with-open [writer (io/writer (str title ".tsv"))]
+    (csv/write-csv writer rows :separator \tab)))
 
 (defn write-spreadsheet!
   [title rows]
@@ -688,11 +688,11 @@
   (count (rows "warm vs. decorate"))
 
   ;; Write a partial dataset to disk
-  (write-csv! "time" (rows "orthogonal animal hypernyms"))
+  (write-tsv! "time" (rows "orthogonal animal hypernyms"))
   (write-spreadsheet! "ortho" (rows "feelings"))
 
   ;; Write the entire dataset to disk
   (let [data (rows)]
-    (write-csv! "inference" data)
+    (write-tsv! "inference" data)
     (write-spreadsheet! "inference" data))
   #_.)
