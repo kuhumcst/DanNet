@@ -166,18 +166,25 @@
        ?p rdfs:label ?l .
      }"))
 
-;; NOTE: things that are commonly considered sports, such as "bordfodbold",
-;; are considered "spil" in DanNet, which is a separate subtree of "aktivitet".
 (def non-sports-activities-query
   (sparql
     "SELECT DISTINCT ?l
      WHERE {
-       dn:synset-17021 wn:hyponym+ ?p . #activity
+       # activity
+       dn:synset-17021 wn:hyponym ?activityGroup .
 
-       # remove sports from activities
-       NOT EXISTS {
-         dn:synset-24138 wn:hyponym+ ?p .
-       }
+       # remove sports from activities (two synsets)
+       # remove 'spil' (games) from activities too
+       # (there is a fairly illogical split between games and sports in DanNet,
+       # which otherwise makes examples that state that certain less physical
+       # sports, e.g. 'bordfodbold' won't count while 'bordtennis' will)
+       FILTER(?activityGroup NOT IN (
+         dn:synset-1771,
+         dn:synset-24138,
+         dn:synset-24160
+       ))
+
+       ?activityGroup wn:hyponym+ ?p .
 
        ?p rdfs:label ?l .
      }"))
@@ -532,7 +539,7 @@
 (defn frequent?
   [lemma]
   (when-let [f (get @lemma->frequency lemma)]
-    (> f 75)))
+    (> f 80)))
 
 (def frequent-vals?
   (comp #(every? frequent? %) vals))
@@ -606,14 +613,14 @@
     (concat
       ;; add tests for test lemmas using the test templates
       (mapcat (fn [[template bool]]
-                (for [m (sample 30 (clean-rows template test-rows))]
+                (for [m (sample 20 (clean-rows template test-rows))]
                   [(str/join "; " (sample 2 prompt-sentences))
                    (apply-template template m)
                    bool]))
               test-templates)
 
       ;; add additional true tests for the certified true prompt lemmas
-      (for [m (sample 30 prompt-ms)]
+      (for [m (sample 20 prompt-ms)]
         (let [other-ms (disj prompt-ms m)]
           [(str/join "; " (sample 2 (map m->prompt-sentence other-ms)))
            (apply-template prompt-template m)
@@ -655,7 +662,7 @@
   (cartesian-ms '{?sl ("høreorgan" "øre")
                   ?ol ("det indre øre" "labyrint")})
 
-  (run (:graph @db) slang-query)
+  (count (run (:graph @db) non-sports-activities-query))
   (run (:graph @db) used-for-warm-query)
   (run (:graph @db) used-for-cover-query)
   (run (:graph @db) used-for-decorate-query)
