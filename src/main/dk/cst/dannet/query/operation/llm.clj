@@ -513,9 +513,19 @@
       (ham/shuffle coll {:seed (swap! random-seed inc)})
       (throw (ex-info "must init random-seed" {:seed seed})))))
 
-;; TODO: shuffling is reproducible, but cannot guarantee `coll` is in same order
+(defn first-val
+  "Used to presort each `m` in some rows by the value of the first key."
+  [m]
+  (let [first-key (-> m keys sort first)]
+    (str (get m first-key))))
+
 (defn sample
-  "Take `n` randomly from `coll` in a reproducible way."
+  "Take `n` randomly from `coll` in a reproducible way.
+
+  NOTE: while the shuffle call itself is reproducible, the input coll should be
+  also be sorted ahead of time e.g. using '(sort-by first-val rows)' to presort.
+  Given an identical database graph, these two calls should together maximise
+  reproducibility of the experiment and produce identical outputs."
   [n coll]
   (take n (reproducible-shuffle coll)))
 
@@ -554,8 +564,9 @@
                                     [rows rows]))
 
         ;; The data is synset labels and is split into rows of sense labels.
-        prompt-rows        (by-sense-label prompt-rows)
-        test-rows          (by-sense-label test-rows)
+        ;; Prior to this, it is also presorted to facilitate reproducibility.
+        prompt-rows        (by-sense-label (sort-by first-val prompt-rows))
+        test-rows          (by-sense-label (sort-by first-val test-rows))
 
         ;; Find clashes between two sets of lemmas.
         clashes            (when (> (count queries) 1)
@@ -661,6 +672,7 @@
        (map (fn [{:syms [?pl ?tl]}]
               [(str ?pl) (str ?tl)])))
 
+  (time (count (rows)))
   (count (rows))
   (count (rows "orthogonal plant hypernyms"))
   (count (rows "sports"))
