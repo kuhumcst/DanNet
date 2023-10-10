@@ -389,9 +389,9 @@
   {"comestible liquid"
    [[artifact-comestible-liquid-query
      artifact-liquid-query]
-    ['?l "er en spiselig væske"]
-    [['?l "er ikke en spiselig væske"] true]
-    [['?l "er en spiselig væske"] false]]
+    ['?l "er en væske man drikker eller spiser"]
+    [['?l "er ikke en væske man drikker eller spiser"] true]
+    [['?l "er en væske man drikker eller spiser"] false]]
 
    "non-liquid"
    [[non-liquid-hyponym-query]
@@ -463,7 +463,7 @@
   [synset-label]
   (->> (str synset-label)
        (sense-labels synset-sep)
-       (canonical)
+       #_(canonical)                                        ; this will ruin clashes
        (map #(second (re-find sense-label %)))))
 
 (defn cartesian-ms
@@ -608,7 +608,7 @@
 
     ;; Before we sample anything, we init the random seed to our chosen value.
     ;; The point is to have some sense of reproducibility.
-    (reset! random-seed 42)
+    (reset! random-seed 1234)
 
     (concat
       ;; add tests for test lemmas using the test templates
@@ -683,6 +683,7 @@
   (count (rows))
   (count (rows "orthogonal plant hypernyms"))
   (count (rows "sports"))
+  (count (rows "comestible liquid"))
   (count (rows "disciplines"))
   (count (rows "part-whole"))
   (count (rows "warm vs. decorate"))
