@@ -2,6 +2,7 @@
   "Queries for extracting data to be used in LLM (e.g. ChatGPT) testing."
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
+            [clojure.walk :as walk]
             [clojure.set :as set]
             [clojure.data.csv :as csv]
             [clojure.math.combinatorics :as combo]
@@ -385,7 +386,7 @@
     (str/join " " [article s])
     s))
 
-(def inference-patterns
+(def patterns
   {"comestible liquid"
    [[artifact-comestible-liquid-query
      artifact-liquid-query]
@@ -557,6 +558,11 @@
   (not= (count (vals m))
         (count (set (vals m)))))
 
+(defn hash-clean
+  "Replace fns in `coll` with nil, as fns do not hash the same across restarts."
+  [coll]
+  (walk/postwalk #(when (fn? %) nil) coll))
+
 (defn gen-rows
   "Generate rows for outputting to a CSV file based on database `queries`,
   a `prompt-template` for generating a prompt, and 1 or more `test-templates`."
@@ -606,9 +612,14 @@
         m->prompt-sentence #(apply-template prompt-template %)
         prompt-sentences   (map m->prompt-sentence prompt-ms)]
 
-    ;; Before we sample anything, we init the random seed to our chosen value.
-    ;; The point is to have some sense of reproducibility.
-    (reset! random-seed 1234)
+    ;; For reproducibility, we init a random seed prior to sampling any data.
+    ;; This base seed is an integer hash of the db rows and the input templates.
+    ;; The shuffle function then increments the base seed value to ensure that
+    ;; the same samples are not picked consistently from the same collection.
+    (let [fingerprint (hash [prompt-rows test-rows
+                             (hash-clean prompt-template)
+                             (hash-clean test-templates)])]
+      (reset! random-seed fingerprint))
 
     (concat
       ;; add tests for test lemmas using the test templates
@@ -631,11 +642,11 @@
   rows for every pattern if none specified."
   [& [k]]
   (if k
-    (if-let [pattern (get inference-patterns k)]
+    (if-let [pattern (get patterns k)]
       (->> (apply gen-rows pattern)
            (map #(conj % k)))
       (throw (ex-info "pattern does not exist" {:k k})))
-    (apply concat (for [k (sort (keys inference-patterns))]
+    (apply concat (for [k (sort (keys patterns))]
                     (rows k)))))
 
 (defn write-tsv!
