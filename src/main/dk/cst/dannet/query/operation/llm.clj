@@ -17,7 +17,8 @@
                                           synset-sep]]
             [dk.cst.dannet.query :refer [run]]
             [dk.cst.dannet.query.operation :refer [sparql]]
-            [dk.cst.dannet.web.resources :refer [db]]))
+            [dk.cst.dannet.web.resources :refer [db]])
+  (:import [java.io File]))
 
 (def slang-query
   (sparql
@@ -650,18 +651,51 @@
                     (rows k)))))
 
 (defn write-tsv!
-  [title rows]
-  (with-open [writer (io/writer (str title ".tsv"))]
-    (csv/write-csv writer rows :separator \tab)))
+  ([title rows]
+   (with-open [writer (io/writer (str title ".tsv"))]
+     (csv/write-csv writer rows :separator \tab)))
+  ([title rows header]
+   (write-tsv! title (concat [header] rows))))
+
+(def test-header
+  ["prompt" "test" "result" "comment"])
+
+(def answer-header
+  ["" "a" "b" "label" "comment" "answer"])
 
 (defn write-spreadsheet!
-  [title rows]
-  (let [data       (concat [["prompt" "test" "result" "comment"]] rows)
-        wb         (xl/create-workbook "Tests" data)
-        sheet      (xl/select-sheet "Tests" wb)
-        header-row (first (xl/row-seq sheet))]
-    (xl/set-row-style! header-row (xl/create-cell-style! wb {:font {:bold true}}))
-    (xl/save-workbook! (str title ".xlsx") wb)))
+  ([title rows]
+   (let [wb         (xl/create-workbook "Tests" rows)
+         sheet      (xl/select-sheet "Tests" wb)
+         header-row (first (xl/row-seq sheet))]
+     (xl/set-row-style! header-row (xl/create-cell-style! wb {:font {:bold true}}))
+     (xl/save-workbook! (str title ".xlsx") wb)))
+  ([title rows header]
+   (write-spreadsheet! title (concat [header] rows))))
+
+(defn normalize-bool
+  [tf]
+  (boolean (= "true" (str/trim (str/lower-case tf)))))
+
+(defn normalize-answer-row
+  [[id a b label comment answer :as row]]
+  [(parse-long id)
+   a
+   b
+   (normalize-bool label)
+   comment
+   (normalize-bool answer)])
+
+(defn combine-answer-csvs
+  "Return rows for all answer CSV files in `dir`."
+  [dir]
+  (->> (io/file dir)
+       (file-seq)
+       (remove #(.isDirectory ^File %))
+       (sort-by #(.getName ^File %))
+       (mapcat (fn [f]
+                 (rest (csv/read-csv (io/reader f)))))
+       (map normalize-answer-row)))
 
 (comment
   (@lemma->frequency "krummerik")
@@ -700,11 +734,16 @@
   (count (rows "warm vs. decorate"))
 
   ;; Write a partial dataset to disk
-  (write-tsv! "time" (rows "orthogonal animal hypernyms"))
-  (write-spreadsheet! "ortho" (rows "feelings"))
+  (write-tsv! "time" (rows "orthogonal animal hypernyms") test-header)
+  (write-spreadsheet! "ortho" (rows "feelings") test-header)
 
-  ;; Write the entire dataset to disk
+  ;; Write the test dataset to disk
   (let [data (rows)]
-    (write-tsv! "inference" data)
-    (write-spreadsheet! "inference" data))
+    (write-tsv! "inference" data test-header)
+    (write-spreadsheet! "inference" data test-header))
+
+  ;; Combine the answer files and write to disk
+  (let [data (combine-answer-csvs "/Users/rqf595/Downloads/manuelt")]
+    (write-tsv! "inference_combined_answers_gpt35" data answer-header)
+    (write-spreadsheet! "inference_combined_answers_gpt35" data answer-header))
   #_.)
