@@ -197,7 +197,7 @@
        (map (fn [[s _ _ sub _]]
               (cond
                 (nil? sub)                                  ; uncertain = keep
-                [s "0§1"]
+                [s "1§1"]
 
                 (and sub (str/starts-with? sub "§"))        ; normalisation
                 [s (str "0" sub)]
