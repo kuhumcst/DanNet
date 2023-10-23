@@ -327,9 +327,8 @@
               (let [results (or (not-empty (search/look-up g lemma))
                                 ;; TODO: attempt to ignore case entirely...?
                                 ;; Also check for a lower-case version
-                                (and
-                                  (first lemma)
-                                  (Character/isUpperCase ^Character (first lemma))
+                                (when (and (first lemma)
+                                           (Character/isUpperCase ^Character (first lemma)))
                                   (not-empty (search/look-up g (str/lower-case lemma)))))]
                 (if (= (count results) 1)
                   (-> ctx
