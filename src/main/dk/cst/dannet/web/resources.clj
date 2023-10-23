@@ -322,21 +322,28 @@
                   page-meta    {:title (i18n/da-en languages
                                          (str "Søg: " lemma)
                                          (str "Search: " lemma))
-                                :page  "search"}]
-              (let [search-results (search/look-up (:graph @db) lemma)]
-                (if (= (count search-results) 1)
+                                :page  "search"}
+                  g            (:graph @db)]
+              (let [results (or (not-empty (search/look-up g lemma))
+                                ;; TODO: attempt to ignore case entirely...?
+                                ;; Also check for a lower-case version
+                                (and
+                                  (first lemma)
+                                  (Character/isUpperCase ^Character (first lemma))
+                                  (not-empty (search/look-up g (str/lower-case lemma)))))]
+                (if (= (count results) 1)
                   (-> ctx
                       (update :response assoc
                               :status 303)                  ; = See Other
                       (update-in [:response :headers] assoc
                                  "Location" (str entity-redirect-path
-                                                 (name (ffirst search-results)))))
+                                                 (name (ffirst results)))))
                   (-> ctx
                       (update :response assoc
                               :status 200
                               :body (body {:languages      languages
                                            :lemma          lemma
-                                           :search-results search-results}
+                                           :search-results results}
                                           page-meta))
                       (update-in [:response :headers] merge
                                  (assoc (x-headers page-meta)
