@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.service
   "Web service handling entity look-ups and schema downloads."
   (:require [clojure.core.async :as async]
+            [clojure.string :as str]
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
@@ -38,6 +39,20 @@
       (res/prefix->dataset-entity-route 'dns)
       (res/prefix->dataset-entity-route 'dnc)}))
 
+(defn remove-trailing-slash
+  [s]
+  (if (and (str/ends-with? s "/") (not= s "/"))
+    (subs s 0 (dec (count s)))
+    s))
+
+(def trailing-slash
+  (io.pedestal.interceptor/interceptor
+    {:name  ::trailing-slash
+     :enter (fn [ctx]
+              (-> ctx
+                  (update-in [:request :uri] remove-trailing-slash)
+                  (update-in [:request :path-info] remove-trailing-slash)))}))
+
 (defn ->service-map
   [conf]
   (let [csp (if shared/development?
@@ -58,6 +73,7 @@
 
         ;; Extending default interceptors here.
         (http/default-interceptors)
+        (update ::http/interceptors #(cons %2 %1) trailing-slash)
         (update ::http/interceptors conj middleware/cookies)
 
         ;; Make sure we can communicate with the Shadow CLJS app during dev.
