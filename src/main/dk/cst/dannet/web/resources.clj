@@ -208,7 +208,7 @@
   (or (:languages request)
       (i18n/lang-prefs (get-in request [:accept-language :type]))))
 
-(defn external-redirect
+(defn entity-redirect
   "Get a redirect response that works for both HTTP redirects and for the API
   based on the `subject` RDF resource and the requested `content-type`.
 
@@ -223,13 +223,13 @@
     (case content-type
       "text/html"
       {:status  303
-       :headers {"Location" location}}
+       :headers {"Location" (prefix/uri->path location)}}
 
       ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
       ;; e.g. https://github.com/lambdaisland/fetch/issues/24
       "application/transit+json"
       {:status  200
-       :headers (x-headers {:redirect location})
+       :headers (x-headers {:redirect (prefix/uri->path location)})
        :body    "{}"}
 
       ;; else
@@ -288,7 +288,7 @@
                               (if (and alt (not-empty (q/entity g alt)))
                                 {:status  301               ; TODO: use 302...?
                                  :headers {"Location" (prefix/resource-path alt)}}
-                                (or (external-redirect subject* content-type)
+                                (or (entity-redirect subject* content-type)
                                     {:status 404
                                      :body   (body (dissoc data :entity) page-meta)})))))
                   (update-in [:response :headers] merge
@@ -303,6 +303,15 @@
 
 (def entity-redirect-path
   (str (-> 'dn prefix/schemas :uri prefix/uri->path)))
+
+(defn look-up*
+  [g lemma]
+  (or (not-empty (search/look-up g lemma))
+      ;; TODO: attempt to ignore case entirely...?
+      ;; Also check for a lower-case version
+      (when (and (first lemma)
+                 (Character/isUpperCase ^Character (first lemma)))
+        (not-empty (search/look-up g (str/lower-case lemma))))))
 
 (def search-ic
   "Presents search results as synsets mathcing a given lemma.
@@ -322,21 +331,11 @@
                   page-meta    {:title (i18n/da-en languages
                                          (str "Søg: " lemma)
                                          (str "Search: " lemma))
-                                :page  "search"}
-                  g            (:graph @db)]
-              (let [results (or (not-empty (search/look-up g lemma))
-                                ;; TODO: attempt to ignore case entirely...?
-                                ;; Also check for a lower-case version
-                                (when (and (first lemma)
-                                           (Character/isUpperCase ^Character (first lemma)))
-                                  (not-empty (search/look-up g (str/lower-case lemma)))))]
+                                :page  "search"}]
+              (let [results (look-up* (:graph @db) lemma)]
                 (if (= (count results) 1)
-                  (-> ctx
-                      (update :response assoc
-                              :status 303)                  ; = See Other
-                      (update-in [:response :headers] assoc
-                                 "Location" (str entity-redirect-path
-                                                 (name (ffirst results)))))
+                  (assoc ctx
+                    :response (entity-redirect (ffirst results) content-type))
                   (-> ctx
                       (update :response assoc
                               :status 200

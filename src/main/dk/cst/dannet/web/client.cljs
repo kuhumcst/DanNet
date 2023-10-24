@@ -84,10 +84,10 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
-         #(if-let [redirect (shared/x-header (:headers %) :redirect)]
+         #(if-let [redirect-path (shared/x-header (:headers %) :redirect)]
             ;; A hack for client redirects since we are not allowed to intercept
             ;; any 30x status codes coming from the server from JS.
-            (js/window.location.replace redirect)
+            (shared/navigate-to redirect-path)
             (let [{:keys [scroll]} @shared/post-navigate
                   headers        (:headers %)
                   page           (shared/x-header headers :page)
