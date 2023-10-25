@@ -90,7 +90,8 @@
          #(if-let [redirect-path (shared/x-header (:headers %) :redirect)]
             ;; Further distinguish between internal/SPA and external redirects.
             (if (str/starts-with? redirect-path "/")
-              (shared/navigate-to redirect-path)
+              (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
+                (shared/navigate-to redirect-path replace?))
               (js/window.location.replace redirect-path))
             (let [{:keys [scroll]} @shared/post-navigate
                   headers        (:headers %)

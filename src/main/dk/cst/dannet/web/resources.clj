@@ -208,25 +208,35 @@
   (or (:languages request)
       (i18n/lang-prefs (get-in request [:accept-language :type]))))
 
+(defn redirect-location
+  "Redirect to `x`.
+  If the provided arg isn't an RDF resource, it is assumed to be a plain URI."
+  [x]
+  (cond
+    (keyword? x)
+    (prefix/uri->dannet-path (prefix/kw->uri x))
+
+    (prefix/rdf-resource? x)
+    (prefix/resource-path x)
+
+    :else                                    ; plain URI
+    x))
+
 (defn redirect
   "Get a redirect response that works for both HTTP redirects and for the API
-  based on the `subject` RDF resource and the requested `content-type`. If the
-  provided isn't an RDF resource, it is assumed to be a plain URI redirect.
+  based on some `x` to redirect to and the requested `content-type`.
 
   Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
   manually, so a somewhat hacky solution is required to make it work. By setting
   a custom header and adding some redirect logic on the client-side, the client
-  knows when to redirect from an API call. See also: "
-  [subject content-type]
-  (let [location (cond
-                   (keyword? subject)
-                   (prefix/uri->dannet-path (prefix/kw->uri subject))
+  knows when to redirect from an API call.
 
-                   (prefix/rdf-resource? subject)
-                   (prefix/resource-path subject)
-
-                   :else                                    ; plain URI
-                   subject)]
+  NOTE: An optional `replace-state` arg may be provided to tell the client SPA
+  to replace the state in history rather than adding a new entry. This is needed
+  when automatically redirecting to an alt entity, since the back button will
+  otherwise break for the user."
+  [x content-type & [replace-state]]
+  (let [location (redirect-location x)]
     (case content-type
       "text/html"
       {:status  303
@@ -236,7 +246,8 @@
       ;; e.g. https://github.com/lambdaisland/fetch/issues/24
       "application/transit+json"
       {:status  200
-       :headers (x-headers {:redirect location})
+       :headers (x-headers {:redirect location
+                            :replace  (if replace-state "T" "F")})
        :body    "{}"}
 
       ;; else
@@ -293,7 +304,7 @@
                              :body   (body data page-meta)}
                             (let [alt (alt-resource qname)]
                               (if (and alt (not-empty (q/entity g alt)))
-                                (redirect alt content-type)
+                                (redirect alt content-type :replace)
                                 (redirect (prefix/rdf-resource->uri subject*) content-type)))))
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)

@@ -299,10 +299,14 @@
   (get headers (str "x-" (str/lower-case (name header)))))
 
 (defn navigate-to
-  "Navigate to internal `url` using reitit."
-  [url]
+  "Navigate to internal `url` using reitit.
+
+  Optionally, specify whether to `replace` the state in history."
+  [url & [replace]]
   #?(:cljs (let [history @rfe/history]
-             (.pushState js/window.history nil "" (rfh/-href history url))
+             (if replace
+               (.replaceState js/window.history nil "" (rfh/-href history url))
+               (.pushState js/window.history nil "" (rfh/-href history url)))
              (rfh/-on-navigate history url))))
 
 (defn label-sortkey-fn
