@@ -328,6 +328,21 @@
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))
 
+(defn uri->dannet-path
+  "Return the local path for DanNet `uri` -- or nil if the URI is external."
+  [uri]
+  (when (or (str/starts-with? uri dannet-root)
+            (str/starts-with? uri schema-root)
+            (str/starts-with? uri export-root))
+    (uri->path uri)))
+
+(defn uri->internal-path
+  "Ensure that an internal `uri` will point to a local path, while external URIs
+  are resolved as local look-ups of external RDF resources."
+  [uri]
+  (or (uri->dannet-path uri)
+      (resource-path (uri->rdf-resource uri))))
+
 (comment
   (re-matches uri-parts "http://glen.dk/path/to/file")
   (download-uri "https://wordnet.dk/dannet/data")

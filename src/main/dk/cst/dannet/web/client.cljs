@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.client
   "The central namespace of the frontend app."
-  (:require [rum.core :as rum]
+  (:require [clojure.string :as str]
+            [rum.core :as rum]
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
             [reitit.frontend.history :as rfh]
@@ -84,10 +85,13 @@
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
+         ;; A hack for client redirects since we are not allowed to intercept
+         ;; any 30x status codes coming from the server from JS.
          #(if-let [redirect-path (shared/x-header (:headers %) :redirect)]
-            ;; A hack for client redirects since we are not allowed to intercept
-            ;; any 30x status codes coming from the server from JS.
-            (shared/navigate-to redirect-path)
+            ;; Further distinguish between internal/SPA and external redirects.
+            (if (str/starts-with? redirect-path "/")
+              (shared/navigate-to redirect-path)
+              (js/window.location.replace redirect-path))
             (let [{:keys [scroll]} @shared/post-navigate
                   headers        (:headers %)
                   page           (shared/x-header headers :page)

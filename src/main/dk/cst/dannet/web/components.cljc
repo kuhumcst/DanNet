@@ -41,30 +41,16 @@
                   [:<> part [:wbr]]
                   part))))
 
-(defn- internal-path
-  [uri]
-  (when (or (str/starts-with? uri prefix/dannet-root)
-            (str/starts-with? uri prefix/schema-root)
-            (str/starts-with? uri prefix/export-root))
-    (prefix/uri->path uri)))
-
-(defn capture-uri
-  "Ensure that an internal `uri` will point to a local path, while external URIs
-  are resolved as look-ups of external RDF resources."
-  [uri]
-  (or (internal-path uri)
-      (prefix/resource-path (prefix/uri->rdf-resource uri))))
-
 (rum/defc rdf-uri-hyperlink
   "Display URIs in RDF <resource> style or using a label when available."
   [uri {:keys [languages k->label attr-key] :as opts}]
   (let [labels (get k->label (prefix/uri->rdf-resource uri))
         label  (i18n/select-label languages labels)
-        uri'   (capture-uri uri)]
+        path   (prefix/uri->internal-path uri)]
     (if (and label
              (not (= attr-key :foaf/homepage)))             ; special behaviour
-      [:a {:href uri'} (str label)]
-      [:a.rdf-uri {:href uri'} (break-up-uri uri)])))
+      [:a {:href path} (str label)]
+      [:a.rdf-uri {:href path} (break-up-uri uri)])))
 
 (declare prefix-elem)
 (declare anchor-elem)
@@ -493,7 +479,7 @@
                   opts+attr-key (assoc opts
                                   :attr-key k
                                   :display-opt display-opt)]]
-        [:tr (cond-> {:key k}
+        [:tr (cond-> {:key (str k)}
                inferred? (update :class conj "inferred")
                inherited? (update :class conj "inherited"))
          [:td.attr-prefix
