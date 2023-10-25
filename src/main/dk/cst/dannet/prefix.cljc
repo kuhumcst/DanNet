@@ -286,6 +286,12 @@
        (str/starts-with? s "<")
        (str/ends-with? s ">")))
 
+(defn qname?
+  "Is `s` a QName?"
+  [s]
+  (and (string? s)
+       (re-matches #"[^:/]+\:[^:/]+" s)))
+
 (defn resolve-href
   "Given a namespaced `kw`, resolve the href for the resource."
   [kw]

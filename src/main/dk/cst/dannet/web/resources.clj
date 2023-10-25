@@ -208,7 +208,7 @@
   (or (:languages request)
       (i18n/lang-prefs (get-in request [:accept-language :type]))))
 
-(defn entity-redirect
+(defn redirect
   "Get a redirect response that works for both HTTP redirects and for the API
   based on the `subject` RDF resource and the requested `content-type`. If the
   provided isn't an RDF resource, it is assumed to be a plain URI redirect.
@@ -218,17 +218,15 @@
   a custom header and adding some redirect logic on the client-side, the client
   knows when to redirect from an API call. See also: "
   [subject content-type]
-  (let [uri      (cond
+  (let [location (cond
                    (keyword? subject)
-                   (prefix/kw->uri subject)
+                   (prefix/uri->dannet-path (prefix/kw->uri subject))
 
                    (prefix/rdf-resource? subject)
-                   (prefix/rdf-resource->uri subject)
+                   (prefix/resource-path subject)
 
                    :else                                    ; plain URI
-                   subject)
-        location (or (prefix/uri->dannet-path uri)
-                     uri)]
+                   subject)]
     (case content-type
       "text/html"
       {:status  303
@@ -295,8 +293,8 @@
                              :body   (body data page-meta)}
                             (let [alt (alt-resource qname)]
                               (if (and alt (not-empty (q/entity g alt)))
-                                (entity-redirect alt content-type)
-                                (entity-redirect (prefix/rdf-resource->uri subject*) content-type)))))
+                                (redirect alt content-type)
+                                (redirect (prefix/rdf-resource->uri subject*) content-type)))))
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)
                                "Content-Type" content-type)
@@ -320,10 +318,13 @@
         (not-empty (search/look-up g (str/lower-case lemma))))))
 
 (def search-ic
-  "Presents search results as synsets mathcing a given lemma.
+  "Presents search results as synsets matching a given lemma.
 
   In cases where one-and-only-one search result is returned, the interceptor
-  automatically redirects to that specific synset, skipping the list."
+  automatically redirects to that specific synset, skipping the list.
+
+  When provided with a QName or RDF resource URI in place of a lemma, the
+  relevant redirect is performed instead."
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
             (let [content-type (get-in request [:accept :field] "text/plain")
@@ -338,22 +339,33 @@
                                          (str "Søg: " lemma)
                                          (str "Search: " lemma))
                                 :page  "search"}]
-              (let [results (look-up* (:graph @db) lemma)]
-                (if (= (count results) 1)
-                  (assoc ctx
-                    :response (entity-redirect (ffirst results) content-type))
-                  (-> ctx
-                      (update :response assoc
-                              :status 200
-                              :body (body {:languages      languages
-                                           :lemma          lemma
-                                           :search-results results}
-                                          page-meta))
-                      (update-in [:response :headers] merge
-                                 (assoc (x-headers page-meta)
-                                   "Content-Type" content-type
-                                   ;; TODO: use cache in production
-                                   #_#_"Cache-Control" one-day-cache)))))))})
+              (cond
+                (prefix/rdf-resource? lemma)
+                (assoc ctx :response (redirect lemma content-type))
+
+                (and (string? lemma) (re-find #"^https?://" lemma))
+                (assoc ctx :response (redirect (prefix/uri->rdf-resource lemma) content-type))
+
+                (prefix/qname? lemma)
+                (assoc ctx :response (redirect (prefix/qname->kw lemma) content-type))
+
+                :else
+                (let [results (look-up* (:graph @db) lemma)]
+                  (if (= (count results) 1)
+                    (assoc ctx
+                      :response (redirect (ffirst results) content-type))
+                    (-> ctx
+                        (update :response assoc
+                                :status 200
+                                :body (body {:languages      languages
+                                             :lemma          lemma
+                                             :search-results results}
+                                            page-meta))
+                        (update-in [:response :headers] merge
+                                   (assoc (x-headers page-meta)
+                                     "Content-Type" content-type
+                                     ;; TODO: use cache in production
+                                     #_#_"Cache-Control" one-day-cache))))))))})
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
