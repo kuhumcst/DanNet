@@ -140,7 +140,7 @@
            :class (or class (get prefix/prefix->class prefix "unknown"))}
        (or (transform-val label opts)
            (name resource))])
-    ;; RDF predicates represented as IRIs> Since the namespace is unknown,
+    ;; RDF predicates represented as IRIs Since the namespace is unknown,
     ;; we likely have no label data either and do not bother to fetch it.
     ;; See 'rdf-uri-hyperlink' for how objects are represented!
     (let [local-name (prefix/guess-local-name resource)]
@@ -644,8 +644,7 @@
               [:span.marker {:title (:inheritance comments)} " †"])])))])
 
 (rum/defc entity-page
-  [{:keys [href languages comments subject inferred entity k->label synset-weights]
-    :as   opts}]
+  [{:keys [href languages comments subject inferred entity k->label] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
         label-key  (entity->label-key entity)
         label      (i18n/select-label languages (get entity label-key))
@@ -733,6 +732,8 @@
        (i18n/da-en languages
          "hent data som: "
          "download data as: ")
+       ;; TODO: some weird href diff in frontend/backend here
+       ;;       http://localhost:3456/dannet/external?subject=%3Chttp%3A%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema%23%3E
        [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
                            "download=text/turtle")
             :type     "text/turtle"
