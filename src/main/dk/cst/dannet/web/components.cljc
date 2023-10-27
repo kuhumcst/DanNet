@@ -609,39 +609,54 @@
   .radial-tree-links [stroke],
   .radial-tree-labels [data-theme]")
 
-;; TODO: convert to either checkboxes or radio buttons for clickable action
-(rum/defc radial-tree-legend < (rum/local false ::selected)
-  [{:keys [languages k->label inferred inherited comments] :as opts} subentity]
-  [:ul.radial-tree-legend
-   (for [k (keys subentity)]
-     (when-let [theme (get shared/synset-rel-theme k)]
-       (let [label      (i18n/select-label languages (k->label k))
-             inferred?  (get inferred k)
-             inherited? (get inherited k)]
-         [:li {:key            k
-               :lang           (i18n/lang label)
-               ;; TODO: Safari doesn't support SVG filter properly...
-               :on-mouse-enter (fn [e]
-                                 (when-let [diagram (.-previousSibling (.-parentElement (.-target e)))]
-                                   (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                     (when (and (not= (.getAttribute el "stroke") theme)
-                                                (not= (.getAttribute el "fill") theme)
-                                                (not= (.getAttribute el "data-theme") theme))
-                                       (let [classes (elem-classes el)]
-                                         (when-not (get classes "radial-item__subject")
-                                           (apply-classes el (conj (elem-classes el) "radial-item__de-emphasized"))))))))
-               :on-mouse-leave (fn [e]
-                                 (when-let [diagram (.-previousSibling (.-parentElement (.-target e)))]
-                                   (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                     (apply-classes el (disj (elem-classes el) "radial-item__de-emphasized")))))}
+(defn- get-diagram
+  [e]
+  (.-previousSibling (.-parentElement (.-parentElement (.-parentElement (.-target e))))))
 
-          [:span {:class "radial-tree-legend__bullet"
-                  :style {:background theme}}]
-          (str label)
-          #_(when inferred?
-              [:span.marker {:title (:inference comments)} " ∴"])
-          #_(when inherited?
-              [:span.marker {:title (:inheritance comments)} " †"])])))])
+;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
+(rum/defcs radial-tree-legend < (rum/local nil ::checked)
+  [state {:keys [languages k->label inferred inherited comments] :as opts} subentity]
+  [:<>
+   [:ul.radial-tree-legend
+    (for [k (keys subentity)]
+      (when-let [theme (get shared/synset-rel-theme k)]
+        (let [label      (i18n/select-label languages (k->label k))
+              id         (str k)
+              checked    (::checked state)
+              inferred?  (get inferred k)
+              inherited? (get inherited k)]
+          [:li {:key k}
+           [:label {:lang (i18n/lang label)} (str label)
+            [:input {:type            "checkbox"
+                     :default-checked true
+                     :on-click        (fn [e]
+                                        ;; Set initial state to all checked
+                                        (when (nil? @checked)
+                                          (reset! checked (set (map shared/synset-rel-theme (keys subentity)))))
+
+                                        ;; Toggle checked/not checked
+                                        (if (.-checked (.-target e))
+                                          (swap! checked conj theme)
+                                          (swap! checked disj theme))
+
+                                        ;; Repaint the diagram based on state
+                                        (let [diagram        (get-diagram e)
+                                              current-themes @checked]
+                                          (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+                                            (let [classes (elem-classes el)]
+                                              (if (and (not (current-themes (.getAttribute el "stroke")))
+                                                       (not (current-themes (.getAttribute el "fill")))
+                                                       (not (current-themes (.getAttribute el "data-theme"))))
+                                                (when-not (get classes "radial-item__subject")
+                                                  (apply-classes el (conj (elem-classes el) "radial-item__de-emphasized")))
+                                                (apply-classes el (disj (elem-classes el) "radial-item__de-emphasized")))))))
+                     :name            id}]
+            [:span {:class "radial-tree-legend__bullet"
+                    :style {:background theme}}]
+            #_(when inferred?
+                [:span.marker {:title (:inference comments)} " ∴"])
+            #_(when inherited?
+                [:spaln.marker {:title (:inheritance comments)} " †"])]])))]])
 
 (rum/defc entity-page
   [{:keys [href languages comments subject inferred entity k->label] :as opts}]

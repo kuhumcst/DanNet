@@ -906,8 +906,7 @@ ul.radial-tree-legend {
 
     list-style: none;
     margin-left: 0;
-    padding-left: 0;
-    padding: 12px;
+    padding: 12px 0 12px 12px;
 
     border-radius: 2px;
 
@@ -915,20 +914,51 @@ ul.radial-tree-legend {
     font-size: 14px;
 }
 
+ul.radial-tree-legend label {
+    display: block;
+    position: relative;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+
+    padding: 6px 4px 6px 28px;
+}
+
+ul.radial-tree-legend input[type=checkbox] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
 .radial-tree-legend__bullet {
-    width: 1ch;
-    height: 1ch;
-    border-radius: 0.5ch;
+    width: 12px;
+    height: 12px;
+    border-radius: 12px;
     margin-right: 1ch;
     display: inline-block;
     align-self: center;
     transition: all 0.2s;
+
+    position: absolute;
+    top: 8px;
+    left: 6px;
+    background-color: #eee;
+}
+
+ul.radial-tree-legend input:not(:checked) ~ .radial-tree-legend__bullet {
+    transform: scale(0.33);
+    opacity: 0.33;
 }
 
 ul.radial-tree-legend > li {
-    padding: 6px 12px;
     border: 1px solid transparent;
     border-radius: 2px;
+    padding: 0;
+    margin-bottom: 1px;
 }
 
 ul.radial-tree-legend > li:hover  {
@@ -936,8 +966,8 @@ ul.radial-tree-legend > li:hover  {
     cursor: pointer;
 }
 
-ul.radial-tree-legend  > li:hover > .radial-tree-legend__bullet {
-    transform: scale(1.5);
+ul.radial-tree-legend > li:focus-within {
+    border: 1px solid rgba(0,0,0,0.24);
 }
 
 .radial-item {
