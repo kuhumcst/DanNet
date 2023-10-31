@@ -364,7 +364,7 @@
                 (let [results (look-up* (:graph @db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
-                      :response (redirect (ffirst results) content-type))
+                      :response (redirect (ffirst results) content-type :replace))
                     (-> ctx
                         (update :response assoc
                                 :status 200
