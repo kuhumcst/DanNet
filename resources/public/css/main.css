@@ -158,6 +158,7 @@ nav a.title {
     writing-mode: vertical-rl;
     text-orientation: sideways;
     font-size: 21px;
+    line-height: 32px; /* centre align */
     margin: auto 0 -32px 0; /* account for fixed search element */
     padding: 0;
     font-variant: small-caps;
@@ -477,8 +478,7 @@ h1 sub {
 }
 
 h1 img {
-    max-width: 33vw;
-    max-height: 33vh;
+    width: clamp(80px, 33vw, 420px);
 }
 
 .omitted {
@@ -588,10 +588,10 @@ header {
 h1 {
     display: flex;
     justify-content: center;
-    font-size: 32px;
+    font-size: 48px;
     font-weight: normal;
     padding: 0;
-    margin: 12px auto 8px auto;
+    margin: 12px auto 24px auto;
     letter-spacing: 0.2ch;
     font-variant: small-caps;
     word-break: normal;

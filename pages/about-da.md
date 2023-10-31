@@ -1,7 +1,5 @@
-# ![DanNet](/images/dannet-logo-black.svg)
-
-DanNet er et WordNet for det danske sprog skabt i fælleskab af [DSL][DSL] og [CST][CST].
-Denne nye udgave af sprogressourcen blev første gang udgivet i 2023 og er blevet støttet med midler fra [Carlsbergfondet][Carlsbergfondet].
+# Om DanNet
+DanNet er et WordNet for det danske sprog skabt i fællesskab af [DSL][DSL] og [CST][CST]. Denne nye udgave af sprogressourcen blev første gang udgivet i 2023 og er blevet støttet med midler fra [Carlsbergfondet][Carlsbergfondet].
 
 ## Et WordNets opbygning
 Et [WordNet][WordNet] er en lexico-semantisk netværksgraf, der viser hvordan betydninger i sproget relaterer til andre gennem navngivne forbindelser. Man kan også tænke på et WordNet som en slags maskinlæsbar ordbog. For at få en fornemmelse af hvad DanNet er, kan du prøve at søge efter et lemma ved at klikke på **luppen** i øverste venstre hjørne.

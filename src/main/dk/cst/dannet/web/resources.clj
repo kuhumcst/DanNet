@@ -114,7 +114,7 @@
         [:meta {:charset "UTF-8"}]
         [:meta {:name    "viewport"
                 :content "width=device-width, initial-scale=1.0"}]
-        [:link {:rel "stylesheet" :href "/css/main.css?v=3"}]
+        [:link {:rel "stylesheet" :href "/css/main.css?v=4"}]
 
         ;; TODO: make this much more clean
         ;; Disable animation when JS is unavailable, otherwise much too frequent!
@@ -463,16 +463,16 @@
          search-ic]
    :route-name ::search])
 
-(defn about-redirect
+(defn frontpage-redirect
   [_]
   {:status  301
-   :headers {"Location" (shared/page-href "about")}})
+   :headers {"Location" (shared/page-href "frontpage")}})
 
 (def root-route
-  ["/" :get [about-redirect] :route-name ::root])
+  ["/" :get [frontpage-redirect] :route-name ::root])
 
 (def dannet-route
-  ["/dannet" :get [about-redirect] :route-name ::dannet])
+  ["/dannet" :get [frontpage-redirect] :route-name ::dannet])
 
 (defn page-langstrings
   "Return Markdown pages as a set of LangStrings for the `document`."

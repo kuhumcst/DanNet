@@ -861,7 +861,9 @@
                :title                 (i18n/da-en languages
                                         "Søg efter synsets"
                                         "Search for synsets")
-               :placeholder           "lemma"
+               :placeholder           (i18n/da-en languages
+                                        "skriv noget..."
+                                        "write something...")
                :on-key-down           on-key-down
                :on-focus              (fn [e] (select-text e))
                :on-click              (fn [e] (.stopPropagation e)) ; don't close overlay
@@ -1054,8 +1056,10 @@
                                                      'dn
                                                      prefix'))]}
       (search-form opts')
-      [:a.title {:title "Frontpage"
-                 :href  (shared/page-href "about")}
+      [:a.title {:title (i18n/da-en languages
+                          "Gå til forsiden"
+                          "Go to the front page")
+                 :href  (shared/page-href "frontpage")}
        "DanNet"]
       (language-select languages')
       [:button.synset-details {:class    (when details?
