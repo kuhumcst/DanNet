@@ -10,6 +10,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [nextjournal.markdown :as md]
+            [nextjournal.markdown.transform :as md.transform]
             #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])
             #?(:clj [better-cond.core :refer [cond]])
             #?(:cljs [dk.cst.aria.combobox :as combobox])
@@ -898,7 +899,18 @@
                        k))))])
 
 (def md->hiccup
-  (memoize md/->hiccup))
+  (memoize
+    (partial md/->hiccup
+             (assoc md.transform/default-hiccup-renderers
+               ;; Clerk likes to ignore alt text and produce <figure> tags,
+               ;; so we need to intercept the regular image rendering to produce
+               ;; accessible images.
+               :image (fn [{:as ctx ::keys [parent]}
+                           {:as node :keys [attrs content]}]
+                        (let [alt (-> (filter (comp #{:text} :type) content)
+                                      (first)
+                                      (get :text))]
+                          [:img (assoc attrs :alt alt)]))))))
 
 (defn _hiccup->title
   "Find the title string located in the first :h1 element in `hiccup`."
@@ -906,7 +918,10 @@
   (->> (tree-seq vector? rest hiccup)
        (reduce (fn [_ x]
                  (when (= :h1 (first x))
-                   (reduced (last x))))
+                   (let [node (last x)]
+                     (reduced (if (= :img (first node))
+                                (:alt (second node))
+                                node)))))
                nil)))
 
 (def hiccup->title

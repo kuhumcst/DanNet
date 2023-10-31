@@ -476,6 +476,11 @@ h1 sub {
     font-size: 50%;
 }
 
+h1 img {
+    max-width: 33vw;
+    max-height: 33vh;
+}
+
 .omitted {
     color: #AAA;
     font-style: italic;

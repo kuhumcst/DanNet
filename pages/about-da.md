@@ -1,4 +1,4 @@
-![DanNet logo](/images/dannet-logo-black.svg)
+# ![DanNet](/images/dannet-logo-black.svg)
 
 DanNet er et WordNet for det danske sprog skabt i fælleskab af [DSL][DSL] og [CST][CST].
 Denne nye udgave af sprogressourcen blev første gang udgivet i 2023 og er blevet støttet med midler fra [Carlsbergfondet][Carlsbergfondet].

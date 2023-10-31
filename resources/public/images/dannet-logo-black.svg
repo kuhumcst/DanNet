@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg width="100%" height="100%" viewBox="0 0 327 118" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.5;">
-    <g transform="matrix(1,0,0,1,-151.749,-119.589)">
-        <g transform="matrix(1,0,0,1,-45.0109,-80.3065)">
-            <g transform="matrix(1,0,0,1,17.0503,-0.212155)">
+    <g transform="matrix(1,0,0,1,-100.692,-101.153)">
+        <g transform="matrix(1,0,0,1,-96.0678,-98.7428)">
+            <g id="Letters" transform="matrix(1,0,0,1,17.0503,-0.212155)">
                 <g transform="matrix(1,0,0,1,20.9188,169.287)">
                     <text x="152.182px" y="130.713px" style="font-family:'Georgia', serif;font-size:144px;">D</text>
                 </g>
@@ -23,7 +23,7 @@
                     <text x="643.23px" y="464.131px" style="font-family:'Georgia', serif;font-size:64px;">t</text>
                 </g>
             </g>
-            <g>
+            <g id="Arrows">
                 <g transform="matrix(-1.12721,-0.275814,-1.65939,7.8206,1192.58,-1367.74)">
                     <g transform="matrix(-0.843362,-0.0297433,-0.178946,0.121556,559.318,220.175)">
                         <path d="M89.392,104.78L95.351,102.772L90.169,99.209C91.367,100.796 90.979,103.582 89.392,104.78Z"/>
