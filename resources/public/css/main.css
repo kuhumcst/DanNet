@@ -127,6 +127,10 @@ article.document > div {
     padding: 16px;
 }
 
+article.document h1 {
+    font-size: 48px;
+}
+
 /* This essentially works like sharpening/emboss effect on non-white text. */
 #content *:not(.prefix) {
     text-shadow: 1px 0px rgba(255,255,255,0.8);
@@ -588,7 +592,7 @@ header {
 h1 {
     display: flex;
     justify-content: center;
-    font-size: 48px;
+    font-size: 32px;
     font-weight: normal;
     padding: 0;
     margin: 12px auto 24px auto;
