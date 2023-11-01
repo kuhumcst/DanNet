@@ -76,19 +76,22 @@
     (->> synsets
          (mapcat (fn [k]
                    (when-let [weight (get weights' k)]
-                     (let [s      (clean-label (k->s k))
+                     (let [s      (remove-parens (k->s k))
                            labels (shared/sense-labels "; " s)
                            n      (count labels)
                            size   (* (max (/ weight (max 1 (/ n 3)))
                                           min-size)
                                      max-size)]
                        (for [label labels]
-                         ;; adding spaces to the label seems to improve layout
-                         {:text      (str " " label " ")
-                          :title     label
-                          :highlight (boolean (get highlight k))
-                          :href      (prefix/resolve-href k)
-                          :size      (length-penalty label size)})))))
+                         (let [[s word rest-of-s sub mwe]
+                               (re-matches shared/sense-label label)]
+                           ;; adding spaces to the label seems to improve layout
+                           {:text      (str " " word)
+                            :title     (str/replace s #"_" " ")
+                            :sub       (str sub " ")
+                            :highlight (boolean (get highlight k))
+                            :href      (prefix/resolve-href k)
+                            :size      (length-penalty (str word sub) size)}))))))
 
          ;; Favour the largest weights in case all words can't fit!
          (sort-by :size)
@@ -101,6 +104,17 @@
     (- (.-clientWidth node)
        (js/parseFloat (.-paddingLeft style))
        (js/parseFloat (.-paddingRight style)))))
+
+;; TODO: fix, doesn't seem to add extra width to text when used
+(defn- add-sub
+  [text]
+  (-> text
+      (.append "tspan")
+      (.attr "class" "sense-paragraph")
+      (.attr "dy" "4px")
+      (.text (fn [d]
+               (.-sub d))))
+  text)
 
 (defn build-cloud!
   [state {:keys [cloud-limit] :as opts} synsets node]
@@ -140,11 +154,13 @@
                        (.attr "text-anchor" "middle")
                        (.attr "transform"
                               (fn [d]
-                                (str "translate(" (.-x d) "," (.-y d) ")"
-                                     "rotate(0)")))
+                                (str "translate(" (.-x d) "," (.-y d) ")")))
                        (.text (fn [d] (.-text d)))
                        (.on "click" (fn [_ d]
                                       (shared/navigate-to (.-href d))))
+
+                       ;; Insert subscript paragraph, returning parent text
+                       #_(add-sub)
 
                        ;; Adding mouseover text (in lieu of a title attribute)
                        (.append "title")
