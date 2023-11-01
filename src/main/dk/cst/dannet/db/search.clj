@@ -23,15 +23,6 @@
                       {?ontotype ?label})
                     (apply merge-with q/set-merge)))))))
 
-(def search-keyfn
-  (let [m->label (fn [{:keys [rdf/value] :as m}]
-                   (str (get (:k->label (meta m)) value)))]
-    (comp (juxt (comp count m->label)
-                (comp m->label)
-                (comp str :skos/definition)
-                (comp :rdf/value))
-          second)))
-
 ;; TODO: need to also numerically order by synset key, not just alphabetically
 (defn look-up
   "Look up synsets in Graph `g` based on the given `lemma`."
@@ -57,7 +48,7 @@
                                            {:k->label (assoc k->label
                                                         ?synset ?label)})]
                   [k v])))
-         (sort-by search-keyfn)
+         (sort-by (comp - #(get @q/synset-indegrees % 0) first))
          (into (fop/ordered-map)))))
 
 (comment
