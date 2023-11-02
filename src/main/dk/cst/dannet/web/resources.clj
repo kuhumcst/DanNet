@@ -219,7 +219,7 @@
     (prefix/rdf-resource? x)
     (prefix/resource-path x)
 
-    :else                                    ; plain URI
+    :else                                                   ; plain URI
     x))
 
 (defn redirect
@@ -316,9 +316,6 @@
                              ;; TODO: use cache in production
                              #_#_"Cache-Control" one-day-cache))))})
 
-(def entity-redirect-path
-  (str (-> 'dn prefix/schemas :uri prefix/uri->path)))
-
 (defn look-up*
   [g lemma]
   (or (not-empty (search/look-up g lemma))
@@ -368,9 +365,12 @@
                     (-> ctx
                         (update :response assoc
                                 :status 200
-                                :body (body {:languages      languages
-                                             :lemma          lemma
-                                             :search-results results}
+                                :body (body {:languages         languages
+                                             :lemma             lemma
+                                             :sense-label->freq (->> (keys results)
+                                                                     (map (partial q/sense-label-freqs (:graph @db)))
+                                                                     (apply merge))
+                                             :search-results    results}
                                             page-meta))
                         (update-in [:response :headers] merge
                                    (assoc (x-headers page-meta)

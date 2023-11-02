@@ -226,19 +226,31 @@
 #?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
    :cljs (def canonical (memoize canonical)))
 
-
 (defn with-omitted
   [sense-labels canonical-labels]
   (if (= (count sense-labels)
          (count canonical-labels))
     sense-labels
-    (conj canonical-labels omitted)))
+    (concat canonical-labels [omitted])))
 
 (defn canonical-sense-labels
   [synset-sep synset-label]
   (let [sense-labels     (sense-labels synset-sep synset-label)
         canonical-labels (canonical sense-labels)]
     (with-omitted sense-labels canonical-labels)))
+
+(defn freq-limit
+  "Limit to top `n` of `strs` by frequency according to `freqs` and also
+  sort alphabetically in cases where two frequencies are identical."
+  [n freqs strs]
+  (take n (reverse (sort-by (juxt freqs str) strs))))
+
+(defn top-n-senses
+  [n sense-label->freq sense-labels]
+  (let [labels' (canonical sense-labels)]
+    (if (> (count labels') n)
+      (freq-limit n sense-label->freq labels')
+      labels')))
 
 (defn min-max-normalize
   [span low num]

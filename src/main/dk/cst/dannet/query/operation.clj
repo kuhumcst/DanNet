@@ -31,6 +31,14 @@
        }
      }")))
 
+(def synset-lemma-freqs
+  (q/build
+    '[:bgp
+      [?synset :ontolex/lexicalizedSense ?sense]
+      [?word :ontolex/sense ?sense]
+      [?word :dns/ddoFrequency ?freq]
+      [?sense :rdfs/label ?lemma]]))
+
 (def synonyms
   (q/build
     '[:bgp

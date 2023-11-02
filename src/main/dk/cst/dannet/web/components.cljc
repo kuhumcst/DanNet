@@ -62,7 +62,8 @@
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key entity details?] :as opts}]
+  ([v {:keys [attr-key entity details? sense-label->freq] :as opts
+       :or   {sense-label->freq {}}}]
    (cond
      (rdf-datatype? v)
      (let [{:keys [uri value]} v]
@@ -92,7 +93,9 @@
               (for [label (let [labels (shared/sense-labels shared/synset-sep s)]
                             (if details?
                               labels
-                              (shared/with-omitted labels (shared/canonical labels))))]
+                              (->> labels
+                                   (shared/top-n-senses 2 sense-label->freq)
+                                   (shared/with-omitted labels))))]
                 (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
                    (if (= word shared/omitted)
@@ -885,7 +888,7 @@
           (rum/with-key (option v on-key-down) v)))]]))
 
 (rum/defc search-page
-  [{:keys [languages lemma search-results] :as opts}]
+  [{:keys [languages lemma search-results sense-label->freq] :as opts}]
   [:article.search
    [:header
     [:h1 (str "\"" lemma "\"")]]
@@ -895,8 +898,9 @@
            "No results could be found for this lemma.")]
      (for [[k entity] search-results]
        (let [{:keys [k->label]} (meta entity)]
-         (rum/with-key (attr-val-table {:languages languages
-                                        :k->label  k->label}
+         (rum/with-key (attr-val-table {:languages         languages
+                                        :sense-label->freq sense-label->freq
+                                        :k->label          k->label}
                                        entity)
                        k))))])
 
@@ -1032,24 +1036,27 @@
    [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [entity languages] :as opts}]
-  (let [page-component (or (get pages page)
-                           (throw (ex-info
-                                    (str "No component for page: " page)
-                                    opts)))
-        state' #?(:clj (assoc @shared/state :languages languages)
+  [page {:keys [entity languages sense-label->freq] :as opts}]
+  (let [page-component    (or (get pages page)
+                              (throw (ex-info
+                                       (str "No component for page: " page)
+                                       opts)))
+        state' #?(:clj    (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
-        languages'     (:languages state')
-        comments       (translate-comments languages')
-        synset-weights (:synset-weights (meta entity))
-        opts'          (assoc (merge opts state')
-                         :comments comments
-                         :synset-weights synset-weights)
+        languages'        (:languages state')
+        comments          (translate-comments languages')
+        synset-weights    (:synset-weights (meta entity))
+        sense-label->freq (or sense-label->freq
+                              (:sense-label->freq (meta entity)))
+        opts'             (assoc (merge opts state')
+                            :comments comments
+                            :sense-label->freq (or sense-label->freq {})
+                            :synset-weights synset-weights)
         [prefix _ _] (resolve-names opts')
-        prefix'        (or prefix (some-> entity
-                                          :vann/preferredNamespacePrefix
-                                          symbol))
-        details?       (:details? opts')]
+        prefix'           (or prefix (some-> entity
+                                             :vann/preferredNamespacePrefix
+                                             symbol))
+        details?          (:details? opts')]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")

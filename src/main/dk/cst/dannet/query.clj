@@ -242,6 +242,12 @@
       coll)
     @weights))
 
+(defn sense-label-freqs
+  [g synset]
+  (->> (run-basic g op/synset-lemma-freqs {'?synset synset})
+       (map (juxt '?lemma '?freq))
+       (into {})))
+
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
@@ -249,6 +255,7 @@
     (with-meta (->> (navigable-entity g result)
                     (attach-blank-entities g subject))
                (assoc (nav-meta g)
+                 :sense-label->freq (sense-label-freqs g subject)
                  :k->label (entity-label-mapping result)
                  :inferred (inferred-entity result (find-raw g subject))
                  ;; TODO: make more performant?
