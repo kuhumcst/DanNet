@@ -28,24 +28,35 @@
   dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
   rdfs:seeAlso "<https://wordnet.dk/dannet/concepts>", "<https://wordnet.dk/dannet/data>" .
 
+:shortLabel a owl:ObjectProperty  ;
+  rdfs:label "short label"@en;
+  rdfs:label "kort etiket"@da;
+  rdfs:comment "A shorter alternative to the regular label (if needed)."@en ;
+  rdfs:comment "Et kortere alternativ til den almindelige etiket (hvis nødvendigt)."@da ;
+  rdfs:subPropertyOf skos:altLabel ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
 # NOTE: the format of :eq_hypernym and :eq_hyponym is a copy of wn:eq_synonym
 :eqHypernym a wn:SynsetRelType ;
   rdfs:label "eq hypernym"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hypernym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hypernym af subjektet."@da ;
-  owl:inverseOf :eqHyponym .
+  owl:inverseOf :eqHyponym ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqHyponym a wn:SynsetRelType ;
   rdfs:label "eq hyponym"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is a hyponym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
-  owl:inverseOf :eqHypernym .
+  owl:inverseOf :eqHypernym ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqSimilar a wn:SynsetRelType ;
   rdfs:label "eq similar"@en ;
   rdfs:comment "A relation between two concepts in separate data sets where the object is similar to the subject, though not synonymous."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet minder om subjektet men dog ikke er et synonym."@da ;
-  owl:inverseOf :eqSimilar .
+  owl:inverseOf :eqSimilar ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 # Infer inverse links from the ILI dataset for better navigation of the graph.
 :linkedConcept a owl:ObjectProperty ;
@@ -53,26 +64,31 @@
   rdfs:label "forbundet begreb"@da ;
   rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
   rdfs:comment "Den udgående forbindelse til et leksikalsk begreb/synset fra dets noterede Interlingual Index."@da ;
-  owl:inverseOf wn:ili .
+  owl:inverseOf wn:ili ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:Gender a owl:Class .
+:Gender a owl:Class ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :Male a owl:Class ;
   rdfs:label "male"@en ;
   rdfs:label "mand"@da ;
-  rdfs:subClassOf :Gender .
+  rdfs:subClassOf :Gender ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :Female a owl:Class ;
   rdfs:label "female"@en ;
   rdfs:label "kvinde"@da ;
-  rdfs:subClassOf :Gender .
+  rdfs:subClassOf :Gender ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :gender a owl:ObjectProperty ;
   rdfs:label "gender"@en ;
   rdfs:label "køn"@da ;
   rdfs:comment "The gender of the subject."@en ;
   rdfs:comment "Subjektets køn."@da ;
-  rdfs:range :Gender .
+  rdfs:range :Gender ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;
