@@ -211,14 +211,14 @@
   "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
 
   Input labels are sorted into partitions with the top partition returned.
-  In cases where only a single label would be returned, the second-highest
-  partition is concatenated, provided it contains at most 2 additional labels."
+  In cases where adding the second partition puts the total count at n<=3,
+  this second partition is also included."
   [sense-labels]
   (if (= 1 (count sense-labels))
     sense-labels
-    (let [[first-partition second-partition] (entry-sort sense-labels)]
-      (mapv first (if (and (= (count first-partition) 1)
-                           (<= (count second-partition) 2))
+    (let [[first-partition second-partition :as parts] (entry-sort sense-labels)
+          n (+ (count first-partition) (count second-partition))]
+      (mapv first (if (<= n 3)
                     (concat first-partition second-partition)
                     first-partition)))))
 
@@ -233,12 +233,6 @@
     sense-labels
     (concat canonical-labels [omitted])))
 
-(defn canonical-sense-labels
-  [synset-sep synset-label]
-  (let [sense-labels     (sense-labels synset-sep synset-label)
-        canonical-labels (canonical sense-labels)]
-    (with-omitted sense-labels canonical-labels)))
-
 (defn freq-limit
   "Limit to top `n` of `strs` by frequency according to `freqs` and also
   sort alphabetically in cases where two frequencies are identical."
@@ -246,6 +240,8 @@
   (take n (reverse (sort-by (juxt freqs str) strs))))
 
 (defn top-n-senses
+  "Return the top `n` of the `sense-labels` based on their canonical quality
+  + word frequency based on `sense-label->freq`."
   [n sense-label->freq sense-labels]
   (let [labels' (canonical sense-labels)]
     (if (> (count labels') n)
