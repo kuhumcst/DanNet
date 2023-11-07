@@ -202,6 +202,14 @@
           [<dsn> :foaf/homepage <dsn>]
           [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}})
 
+(defn mk-sense-label->freq
+  "Create the sense-label->freq mapping based on the data in Graph `g`."
+  [g]
+  (->> (q/run g op/short-label-candidates)
+       (map (juxt '?label '?freq))
+       (remove (comp nil? second))
+       (into {})))
+
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
   [dataset]
@@ -291,13 +299,36 @@
                                       :preprocess rest])
                        (apply set/union))]
     (txn/transact-exec graph
-      (println "adding" (count triples) "dns:ddoFreq triples...")
+      (println "... adding" (count triples) "dns:ddoFreq triples")
       (db/safe-add! graph triples))
     (let [unlabeled (map '?w (q/run graph unlabeled))]
       (txn/transact-exec model
-        (println "removing unlabeled" (count unlabeled) "word triples... ")
-        (for [word unlabeled]
-          (db/remove! model '[word :dns/ddoFrequency _]))))))
+        (println "... removing" (count unlabeled) "unlabeled word triples")
+        (doseq [word unlabeled]
+          (db/remove! model [word :dns/ddoFrequency '_]))))))
+
+(defn fix-sense-label-lang!
+  "Add word frequency data from DDO; useful for ranking/selecting labels."
+  [dataset]
+  (println "... finding existing sense labels")
+  (let [graph   (db/get-graph dataset prefix/dn-uri)
+        model   (db/get-model dataset prefix/dn-uri)
+        triples (->> (op/sparql "SELECT ?sense ?label
+                                      WHERE {
+                                        ?sense rdf:type ontolex:LexicalSense ;
+                                               rdfs:label ?label .
+                                      }")
+                     (q/run-basic graph)
+                     (mapv (fn [{:syms [?sense ?label]}]
+                             [?sense :rdfs/label (da ?label)]))
+                     (set))]
+    (txn/transact-exec model
+      (println "... removing" (count triples) "sense labels")
+      (doseq [[?sense] triples]
+        (db/remove! model [?sense :rdfs/label '_])))
+    (txn/transact-exec graph
+      (println "... adding" (count triples) "fixed sense labels")
+      (db/safe-add! graph triples))))
 
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
@@ -308,7 +339,10 @@
   [dataset]
   (let [expected-release "2023-09-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
-    (add-word-frequency! dataset)))
+    (println "Applying release changes for" expected-release "...")
+    (add-word-frequency! dataset)
+    (fix-sense-label-lang! dataset)
+    (println "Release changes applied!")))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -379,14 +413,11 @@
       (let [files          (remove #{input-dir} (file-seq input-dir))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
+                            (:hash (meta #'make-release-changes!))
                             (:hash (meta #'metadata))
                             (:hash (meta #'update-metadata!))
                             (:hash (meta #'->dannet))
-                            (hash prefix/schemas)
-
-                            ;; Current release changes ONLY!
-                            ;; Remove for next release!
-                            (:hash (meta #'make-release-changes!))]
+                            (hash prefix/schemas)]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (hash/pos-hash files)
             bootstrap-hash (hash/pos-hash fn-hashes)

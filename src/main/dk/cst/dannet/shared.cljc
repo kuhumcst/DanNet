@@ -210,6 +210,9 @@
 (defn canonical
   "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
 
+  The sense of canonical being applied here is: 'reduced to the simplest and
+  most significant form possible without loss of generality'.
+
   Input labels are sorted into partitions with the top partition returned.
   In cases where adding the second partition puts the total count at n<=3,
   this second partition is also included."
@@ -240,13 +243,18 @@
   (take n (reverse (sort-by (juxt freqs str) strs))))
 
 (defn top-n-senses
-  "Return the top `n` of the `sense-labels` based on their canonical quality
-  + word frequency based on `sense-label->freq`."
+  "Return the top `n` of `sense-labels` based on `sense-label->freq` mapping."
   [n sense-label->freq sense-labels]
-  (let [labels' (canonical sense-labels)]
-    (if (> (count labels') n)
-      (freq-limit n sense-label->freq labels')
-      labels')))
+  (if (> (count sense-labels) n)
+    (freq-limit n sense-label->freq sense-labels)
+    sense-labels))
+
+(defn abridged-labels
+  "Get the frequent, canonical `sense-labels` based on `sense-label->freq`."
+  [sense-label->freq sense-labels]
+  (->> (canonical sense-labels)
+       (top-n-senses 2 sense-label->freq)
+       (with-omitted sense-labels)))
 
 (defn min-max-normalize
   [span low num]

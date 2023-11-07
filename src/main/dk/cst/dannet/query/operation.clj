@@ -425,3 +425,18 @@
        ?rel rdf:type wn:SynsetRelType .
        ?s ?rel ?o .
      }"))
+
+(def short-label-candidates
+  (sparql
+    "SELECT (STR(?senseLabel) AS ?label) ?freq
+     WHERE {
+       ?synset rdf:type ontolex:LexicalConcept .
+       FILTER(STRSTARTS(str(?synset), str(dn:))) .
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?word ontolex:sense ?sense .
+       FILTER(STRSTARTS(str(?word), str(dn:))) .
+       ?sense rdfs:label ?senseLabel .
+       OPTIONAL {
+         ?word dns:ddoFrequency ?freq .
+       }
+     }"))

@@ -93,9 +93,7 @@
               (for [label (let [labels (shared/sense-labels shared/synset-sep s)]
                             (if details?
                               labels
-                              (->> labels
-                                   (shared/top-n-senses 2 sense-label->freq)
-                                   (shared/with-omitted labels))))]
+                              (shared/abridged-labels sense-label->freq labels)))]
                 (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
                    (if (= word shared/omitted)
