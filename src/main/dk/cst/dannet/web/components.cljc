@@ -90,10 +90,7 @@
       (into [:div.set__content]
             (interpose
               [:span.subtle " • "]                          ; semicolon->bullet
-              (for [label (let [labels (shared/sense-labels shared/synset-sep s)]
-                            (if details?
-                              labels
-                              (shared/abridged-labels sense-label->freq labels)))]
+              (for [label (shared/sense-labels shared/synset-sep s)]
                 (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
                    (if (= word shared/omitted)
@@ -158,7 +155,7 @@
   (cond
     ;; Label and text colour are modified to fit the inherited relation.
     (= attr-key :dns/inherited)
-    (let [inherited       (some->> (get k->label resource) (prefix/qname->kw))
+    (let [inherited       (some->> (get k->label resource) first (prefix/qname->kw))
           inherited-label (get k->label inherited)
           prefix          (when inherited
                             (symbol (namespace inherited)))
@@ -582,21 +579,46 @@
          local-name]))))
 
 (def label-keys
-  [:rdfs/label
+  [:dns/shortLabel
+   :rdfs/label
    :dc/title
    :dc11/title
    :foaf/name
-   :skos/definition                                         ; wn:ili Concepts
+   #_:skos/definition                                       ; wn:ili Concepts
+   :ontolex/writtenRep])
+
+(def long-label-keys
+  [:rdfs/label
+   :dns/shortLabel
+   :dc/title
+   :dc11/title
+   :foaf/name
+   #_:skos/definition
+   :ontolex/writtenRep])
+
+(def short-label-keys
+  [:dns/shortLabel
+   :rdfs/label
+   :dc/title
+   :dc11/title
+   :foaf/name
+   #_:skos/definition
    :ontolex/writtenRep])
 
 (defn entity->label-key
   "Return :rdfs/label or another appropriate key for labeling `entity`."
-  [entity]
-  (loop [[candidate & candidates] label-keys]
-    (if (get entity candidate)
-      candidate
-      (when candidates
-        (recur candidates)))))
+  ([entity]
+   (entity->label-key entity label-keys))
+  ([entity ks]
+   (loop [[candidate & candidates] ks]
+     (if (get entity candidate)
+       candidate
+       (when candidates
+         (recur candidates))))))
+
+(defn entity-label
+  [ks entity]
+  (get entity (entity->label-key entity ks)))
 
 (defn elem-classes
   [el]
@@ -661,17 +683,23 @@
                 [:spaln.marker {:title (:inheritance comments)} " †"])]])))]])
 
 (rum/defc entity-page
-  [{:keys [href languages comments subject inferred entity k->label] :as opts}]
+  [{:keys [href languages comments subject inferred entity k->label details?] :as opts}]
   (let [[prefix local-name rdf-uri] (resolve-names opts)
-        label-key  (entity->label-key entity)
-        label      (i18n/select-label languages (get entity label-key))
-        label-lang (i18n/lang label)
-        a-titles   [#voc/lstr"Visit this location directly@en"
-                    #voc/lstr"Besøg denne lokation direkte@da"]
-        inherited  (->> (shared/setify (:dns/inherited entity))
-                        (map (comp prefix/qname->kw k->label))
-                        (set))
-        uri-only?  (and (not label) (= local-name rdf-uri))]
+        ;; Bypass the default use of dns:shortLabel in case the user wants the
+        ;; detailed label (usually rsfs:label).
+        label-key     (if (and details? (get (:rdf/type entity)
+                                             :ontolex/LexicalConcept))
+                        :rdfs/label
+                        (entity->label-key entity))
+        select-label* (partial i18n/select-label languages)
+        label         (select-label* (k->label subject))
+        label-lang    (i18n/lang label)
+        a-titles      [#voc/lstr"Visit this location directly@en"
+                       #voc/lstr"Besøg denne lokation direkte@da"]
+        inherited     (->> (shared/setify (:dns/inherited entity))
+                           (map (comp prefix/qname->kw first k->label))
+                           (set))
+        uri-only?     (and (not label) (= local-name rdf-uri))]
     [:article
      [:header
       [:h1
@@ -886,7 +914,7 @@
           (rum/with-key (option v on-key-down) v)))]]))
 
 (rum/defc search-page
-  [{:keys [languages lemma search-results sense-label->freq] :as opts}]
+  [{:keys [languages lemma search-results sense-label->freq details?] :as opts}]
   [:article.search
    [:header
     [:h1 (str "\"" lemma "\"")]]
@@ -895,10 +923,14 @@
            "Ingen resultater kunne findes for dette lemma."
            "No results could be found for this lemma.")]
      (for [[k entity] search-results]
-       (let [{:keys [k->label]} (meta entity)]
+       (let [{:keys [k->label short-label]} (meta entity)
+             k->label' (if (and (not details?) short-label)
+                         (assoc k->label
+                           k short-label)
+                         k->label)]
          (rum/with-key (attr-val-table {:languages         languages
                                         :sense-label->freq sense-label->freq
-                                        :k->label          k->label}
+                                        :k->label          k->label'}
                                        entity)
                        k))))])
 
@@ -1034,7 +1066,7 @@
    [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [entity languages sense-label->freq] :as opts}]
+  [page {:keys [entity subject languages sense-label->freq entities] :as opts}]
   (let [page-component    (or (get pages page)
                               (throw (ex-info
                                        (str "No component for page: " page)
@@ -1046,15 +1078,23 @@
         synset-weights    (:synset-weights (meta entity))
         sense-label->freq (or sense-label->freq
                               (:sense-label->freq (meta entity)))
+        details?          (or (get state' :details?)
+                              (get opts :details?))
+        entity-label*     (partial entity-label (if details?
+                                                  long-label-keys
+                                                  short-label-keys))
+        ;; Rejoin entities with subject (split for performance reasons)
+        entities'         (assoc entities subject entity)
+        ;; Merge frontend state and backend state into a complete product.
         opts'             (assoc (merge opts state')
                             :comments comments
+                            :k->label (update-vals entities' entity-label*)
                             :sense-label->freq (or sense-label->freq {})
                             :synset-weights synset-weights)
         [prefix _ _] (resolve-names opts')
         prefix'           (or prefix (some-> entity
                                              :vann/preferredNamespacePrefix
-                                             symbol))
-        details?          (:details? opts')]
+                                             symbol))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")

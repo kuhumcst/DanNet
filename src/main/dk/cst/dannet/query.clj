@@ -162,32 +162,6 @@
         (symbol? x)
         (prefix/rdf-resource? x))))
 
-(defn- entity-label-mapping
-  "Create a mapping from resource->label based on the `xe` that is the result
-   of the 'expanded-entity' query.
-
-   The purpose of this mapping is to allow displaying labels or label-like
-   things for the different resources in the frontend, as this is often
-   necessary to successfully navigate an RDF graph as a human being."
-  [xe]
-  (loop [[head & tail] xe
-         entity {}]
-    (if-let [{:syms [?p ?pl ?plr
-                     ?o ?ol ?olr]} head]
-
-      ;; Each label-like resource of every predicate and object are collected.
-      (recur tail (cond-> entity
-                    (and ?pl ?plr (resource? ?p))
-                    (update ?p (partial merge-with set-merge) {?plr ?pl})
-
-                    (and ?ol ?olr (resource? ?o))
-                    (update ?o (partial merge-with set-merge) {?olr ?ol})))
-
-      ;; Finally, the best label key and its associated label(s) are chosen;
-      ;; the other labels are discarded.
-      (update-vals entity (fn [m]
-                            (get m (com/entity->label-key m)))))))
-
 ;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
 ;; resort to this hack.
 (defn attach-blank-entities
@@ -248,6 +222,17 @@
        (map (juxt '?lemma '?freq))
        (into {})))
 
+(defn other-entities
+  "Restructure the `expanded-entity-result` as a mapping from resource->entity,
+  not including the subject entity itself."
+  [expanded-entity-result]
+  (->> expanded-entity-result
+       (map (fn [{:syms [?p ?o ?pl ?plr ?ol ?olr]}]
+              (cond-> {}
+                ?plr (assoc ?p {?plr #{?pl}})
+                ?olr (assoc ?o {?olr #{?ol}}))))
+       (apply merge-with (partial merge-with into))))
+
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
@@ -256,7 +241,7 @@
                     (attach-blank-entities g subject))
                (assoc (nav-meta g)
                  :sense-label->freq (sense-label-freqs g subject)
-                 :k->label (entity-label-mapping result)
+                 :entities (other-entities result)
                  :inferred (inferred-entity result (find-raw g subject))
                  ;; TODO: make more performant?
                  :synset-weights (synset-weights result)

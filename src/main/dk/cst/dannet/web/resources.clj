@@ -278,7 +278,8 @@
                   g            (:graph @db)
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
-                  entity       (if (use-lang? content-type)
+                  expanded?    (use-lang? content-type)
+                  entity       (if expanded?
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
                   languages    (request->languages request)
@@ -287,7 +288,8 @@
                                 :href      (str (:uri request)
                                                 (when (not-empty qs)
                                                   (str "?" qs)))
-                                :k->label  (-> entity meta :k->label)
+                                :entities  (dissoc (-> entity meta :entities)
+                                                   subject*)
                                 :inferred  (-> entity meta :inferred)
                                 :subject   subject*
                                 :entity    entity}

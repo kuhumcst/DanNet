@@ -9,7 +9,7 @@
 (def sym->kw
   {'?synset     :rdf/value
    '?definition :skos/definition
-   '?ontotype   :dns/ontologicalType})
+   '?ontoType   :dns/ontologicalType})
 
 ;; TODO: does this memoization even accomplish anything?
 (def label-lookup
@@ -27,26 +27,26 @@
 (defn look-up
   "Look up synsets in Graph `g` based on the given `lemma`."
   [g lemma]
-  (let [k->label (label-lookup g)
-        lemma    (if (string? lemma)
-                   (->LangStr lemma "da")
-                   lemma)]
-    (->> (q/run g op/synset-search {'?lemma lemma})
+  (let [k->label (label-lookup g)]
+    (->> (q/run g (op/synset-search-query lemma))
          (group-by '?synset)
          (map (fn [[k ms]]
-                (let [{:syms [?label ?synset]
+                (let [{:syms [?label ?shortLabel ?synset]
                        :as   base} (apply merge-with q/set-merge ms)
                       subentity (-> base
                                     (dissoc '?lemma
                                             '?form
                                             '?word
                                             '?label
+                                            '?shortLabel
                                             '?sense)
                                     (set/rename-keys sym->kw)
                                     (->> (q/attach-blank-entities g k)))
                       v         (with-meta subentity
-                                           {:k->label (assoc k->label
-                                                        ?synset ?label)})]
+                                           {:k->label    (assoc k->label
+                                                           ?synset ?label)
+                                            ;; TODO: undo ugly hack
+                                            :short-label ?shortLabel})]
                   [k v])))
          (sort-by (comp - #(get @q/synset-indegrees % 0) first))
          (into (fop/ordered-map)))))

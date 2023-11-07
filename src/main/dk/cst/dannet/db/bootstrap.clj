@@ -202,14 +202,6 @@
           [<dsn> :foaf/homepage <dsn>]
           [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}})
 
-(defn mk-sense-label->freq
-  "Create the sense-label->freq mapping based on the data in Graph `g`."
-  [g]
-  (->> (q/run g op/short-label-candidates)
-       (map (juxt '?label '?freq))
-       (remove (comp nil? second))
-       (into {})))
-
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
   [dataset]
@@ -330,6 +322,43 @@
       (println "... adding" (count triples) "fixed sense labels")
       (db/safe-add! graph triples))))
 
+(defn mk-sense-label->freq
+  "Create the sense-label->freq mapping based on the data in Graph `g`."
+  [g]
+  (->> (q/run-basic g op/short-label-candidates)
+       (map (juxt '?label '?freq))
+       (remove (comp nil? second))
+       (into {})))
+
+(defn abridged-synset-label
+  [sense-label->freq synset-label]
+  (let [labels (shared/sense-labels shared/synset-sep (str synset-label))]
+    (when (> (count labels) 2)
+      (da "{"
+          (str/join "; " (shared/abridged-labels sense-label->freq labels))
+          "}"))))
+
+(defn add-abridged-labels!
+  [dataset]
+  (println "... locating frequency data and synset labels")
+  (let [graph             (db/get-graph dataset prefix/dn-uri)
+        sense-label->freq (mk-sense-label->freq graph)
+        abridged          (partial abridged-synset-label sense-label->freq)
+        triples           (->> (op/sparql "SELECT ?synset ?label
+                                      WHERE {
+                                        ?synset rdf:type ontolex:LexicalConcept ;
+                                               rdfs:label ?label .
+                                      }")
+                               (q/run-basic graph)
+                               (map (fn [{:syms [?synset ?label]}]
+                                      (when-let [label' (abridged ?label)]
+                                        [?synset :dns/shortLabel label'])))
+                               (remove nil?)
+                               (set))]
+    (txn/transact-exec graph
+      (println "... adding" (count triples) "short synset labels")
+      (db/safe-add! graph triples))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -342,6 +371,7 @@
     (println "Applying release changes for" expected-release "...")
     (add-word-frequency! dataset)
     (fix-sense-label-lang! dataset)
+    (add-abridged-labels! dataset)
     (println "Release changes applied!")))
 
 (defn ->dataset

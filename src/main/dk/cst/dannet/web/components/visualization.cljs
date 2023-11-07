@@ -70,7 +70,8 @@
         min-size  (min 0.33 (/ 10 n))
         highlight (:highlight (meta weights'))
         k->s      (fn [k]
-                    (str (or (get k->label k)
+                    ;; TODO: remove 'first' hack? relies on monolingual labels
+                    (str (or (first (get k->label k))
                              (when (keyword? k)
                                (prefix/kw->qname k)))))]
     (->> synsets
@@ -83,15 +84,17 @@
                                           min-size)
                                      max-size)]
                        (for [label labels]
-                         (let [[s word rest-of-s sub mwe]
-                               (re-matches shared/sense-label label)]
-                           ;; adding spaces to the label seems to improve layout
-                           {:text      (str " " word)
-                            :title     (str/replace s #"_" " ")
-                            :sub       (str sub " ")
-                            :highlight (boolean (get highlight k))
-                            :href      (prefix/resolve-href k)
-                            :size      (length-penalty (str word sub) size)}))))))
+                         (when-not (= label shared/omitted)
+                           (let [[s word rest-of-s sub mwe]
+                                 (re-matches shared/sense-label label)]
+                             ;; adding spaces to the label seems to improve layout
+                             {:text      (str " " word)
+                              :title     (str/replace s #"_" " ")
+                              :sub       (str sub " ")
+                              :highlight (boolean (get highlight k))
+                              :href      (prefix/resolve-href k)
+                              :size      (length-penalty (str word sub) size)})))))))
+         (remove nil?)
 
          ;; Favour the largest weights in case all words can't fit!
          (sort-by :size)
@@ -188,9 +191,10 @@
   (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
                                         (shared/canonical)
                                         (map #(re-matches shared/sense-label %)))]
-    (assoc m
-      :name word
-      :sub sub)))
+    (when-not (= s shared/omitted)
+      (assoc m
+        :name word
+        :sub sub))))
 
 (def radial-limit
   48)
@@ -209,6 +213,7 @@
           subject   (->> (shared/sense-labels shared/synset-sep label)
                          (shared/canonical)
                          (map remove-subscript)
+                         (remove #{shared/omitted})
                          (set)                              ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
                          (sort-by count)
                          (str/join ", "))

@@ -104,6 +104,29 @@
       [?s1 ?relation ?s2]
       [?s2 :rdfs/label ?l2]]))
 
+(defn synset-search-query
+  "Look up synsets based on a `lemma`."
+  [lemma]
+  (sparql
+    "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType
+     WHERE {
+       ?form ontolex:writtenRep \"" lemma "\"@da .
+       ?word ontolex:canonicalForm ?form ;
+             ontolex:evokes ?synset .
+       OPTIONAL {
+         ?synset rdfs:label ?label .
+       }
+       OPTIONAL {
+         ?synset dns:shortLabel ?shortLabel .
+       }
+       OPTIONAL {
+         ?synset skos:definition ?definition .
+       }
+       OPTIONAL {
+         ?synset dns:ontologicalType ?ontoType .
+       }
+     }"))
+
 (def synset-search
   "Look up synsets based on a lemma."
   (q/build
