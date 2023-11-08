@@ -302,4 +302,18 @@
   (expand-kws x)
   (spit "synsets-metadata.json" (metadata->json synsets-metadata))
   (export-metadata! "synsets-metadata.json" synsets-metadata)
+
+  ;; Generate new synset labels for Thomas Troelsgård
+  (->> (q/run (:graph @dk.cst.dannet.web.resources/db) op/synset-long-short-labels)
+       (map (fn [{:syms [?synset ?label ?shortLabel]}]
+              [(second (str/split (name ?synset) #"-s?"))
+               (->> (or ?shortLabel ?label)
+                    (str)
+                    (shared/sense-labels shared/synset-sep)
+                    (map #(str/replace % #"_[^; ]+" ""))
+                    (set)
+                    (sort)
+                    (str/join "; "))]))
+       (sort-by (comp #(Integer/parseInt %) first))
+       (export-csv-rows! "synset-labels.csv"))
   #_.)

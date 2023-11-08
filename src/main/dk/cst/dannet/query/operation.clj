@@ -463,3 +463,15 @@
          ?word dns:ddoFrequency ?freq .
        }
      }"))
+
+(def synset-long-short-labels
+  (sparql
+    "SELECT ?synset ?label ?shortLabel
+     WHERE {
+       ?synset rdf:type ontolex:LexicalConcept .
+       FILTER(STRSTARTS(str(?synset), str(dn:))) .
+       ?synset rdfs:label ?label .
+       OPTIONAL {
+         ?synset dns:shortLabel ?shortLabel .
+       }
+     }"))
