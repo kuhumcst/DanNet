@@ -1,0 +1,27 @@
+# How to generate an SVG file with Graphviz:
+#   dot -Tsvg doc/ontolex.dot > doc/ontolex.svg
+
+digraph {
+    ranksep=2;
+
+    edge [style=dashed, penwidth=2, fontsize=16];
+    node [penwidth=2, fontsize=20];
+
+    LexicalEntry -> LexicalConcept [label=< <I>evokes</I> >];
+    LexicalConcept -> LexicalEntry [label=< <I>isEvokedBy</I> >]
+
+    LexicalConcept -> LexicalSense [label=< <I>lexicalizedSense</I> >];
+    LexicalSense -> LexicalConcept [label=< <I>isLexicalizedSenseOf</I> >]
+
+    LexicalEntry -> LexicalSense [label=< <I>sense</I> >]
+    LexicalSense -> LexicalEntry [label=< <I>isSenseOf</I> >]
+
+    LexicalEntry -> LexicalForm [label=< <I>canonicalForm</I> >]
+    LexicalForm -> "\"lemma@da\"" [label=< <I>writtenRep</I> >]
+
+    LexicalConcept [shape=box];
+    LexicalEntry [shape=box];
+    LexicalSense [shape=box];
+    LexicalForm [shape=box];
+    "\"lemma@da\"" [shape=none];
+}
