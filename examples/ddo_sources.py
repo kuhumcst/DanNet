@@ -6,7 +6,7 @@ g = Graph()
 g.parse('../export/rdf/dannet.ttl')
 
 # define a SPARQL query to retrieve DDO source URLs
-q = "SELECT * WHERE { ?resource dns:source ?source }"
+q = "SELECT * WHERE { ?resource <http://purl.org/dc/terms/source> ?source }"
 
 # reuse input prefixes for output, mostly for aesthetics
 nm = NamespaceManager(g)
