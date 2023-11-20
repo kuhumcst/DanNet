@@ -210,9 +210,9 @@
   rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se<https://wordnet.dk/dannet/schema> .https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-# TODO: this relation should be replaced by a mature, standardised alternative
-:ddoFrequency a owl:ObjectProperty ;
-  rdfs:domain ontolex:LexicalConcept ;
-  rdfs:label "DDO frequency"@en ;
-  rdfs:label "DDO-frekvens"@da ;
+:source a owl:ObjectProperty ;
+  rdfs:comment "A direct reference to the source of a specific lexical unit."@en ;
+  rdfs:comment "En direkte reference til kilden for en specifik leksikalsk enhed."@da ;
+  rdfs:label "source"@en ;
+  rdfs:label "kilde"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
