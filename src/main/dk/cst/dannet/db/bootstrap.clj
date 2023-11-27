@@ -268,6 +268,7 @@
          (map row->triples)
          (doall))))
 
+;; TODO: remove
 (defn ->freq-triples
   [[ddo_entryid _ ddo_artikeltyngde :as row]]
   (when (not-empty ddo_artikeltyngde)
@@ -275,6 +276,7 @@
           value (Integer/parseUnsignedInt ddo_artikeltyngde)]
       #{[word :dns/ddoFrequency value]})))
 
+;; TODO: remove
 (defn add-word-frequency!
   "Add word frequency data from DDO; useful for ranking/selecting labels."
   [dataset]
@@ -298,6 +300,29 @@
         (println "... removing" (count unlabeled) "unlabeled word triples")
         (doseq [word unlabeled]
           (db/remove! model [word :dns/ddoFrequency '_]))))))
+
+(defn fix-source-relations!
+  "Use a custom source relation that is less strict than dc:source and less
+  prone to prefix mix-up (dc can default to a different IRI, e.g. in rdflib)."
+  [dataset]
+  (println "... finding existing source relations")
+  (let [graph   (db/get-graph dataset prefix/dn-uri)
+        model   (db/get-model dataset prefix/dn-uri)
+        triples (->> (op/sparql "SELECT ?resource ?source
+                                      WHERE {
+                                        ?resource <http://purl.org/dc/terms/source> ?source .
+                                      }")
+                     (q/run-basic graph)
+                     (mapv (fn [{:syms [?resource ?source]}]
+                             [?resource :dns/source ?source]))
+                     (set))]
+    (txn/transact-exec model
+      (println "... removing" (count triples) "sense labels")
+      (doseq [[?resource] triples]
+        (db/remove! model [?resource "<http://purl.org/dc/terms/source>" '_])))
+    (txn/transact-exec graph
+      (println "... adding" (count triples) "fixed sense labels")
+      (db/safe-add! graph triples))))
 
 (defn fix-sense-label-lang!
   "Add word frequency data from DDO; useful for ranking/selecting labels."
@@ -369,7 +394,7 @@
   (let [expected-release "2023-09-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
-    (add-word-frequency! dataset)
+    (fix-source-relations! dataset)
     (fix-sense-label-lang! dataset)
     (add-abridged-labels! dataset)
     (println "Release changes applied!")))

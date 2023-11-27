@@ -211,8 +211,8 @@
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :source a owl:ObjectProperty ;
-  rdfs:comment "A direct reference to the source of a specific lexical unit."@en ;
-  rdfs:comment "En direkte reference til kilden for en specifik leksikalsk enhed."@da ;
+  rdfs:comment "A direct reference to the source of a specific lexical unit, e.g. a dictionary entry."@en ;
+  rdfs:comment "En direkte reference til kilden for en specifik leksikalsk enhed, f.eks. et ordbogsopslag."@da ;
   rdfs:label "source"@en ;
   rdfs:label "kilde"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
