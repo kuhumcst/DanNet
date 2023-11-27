@@ -23,7 +23,6 @@
                       {?ontotype ?label})
                     (apply merge-with q/set-merge)))))))
 
-;; TODO: need to also numerically order by synset key, not just alphabetically
 (defn look-up
   "Look up synsets in Graph `g` based on the given `lemma`."
   [g lemma]

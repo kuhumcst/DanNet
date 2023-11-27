@@ -62,8 +62,7 @@
 
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key entity details? sense-label->freq] :as opts
-       :or   {sense-label->freq {}}}]
+  ([v {:keys [attr-key entity] :as opts}]
    (cond
      (rdf-datatype? v)
      (let [{:keys [uri value]} v]
@@ -914,7 +913,7 @@
           (rum/with-key (option v on-key-down) v)))]]))
 
 (rum/defc search-page
-  [{:keys [languages lemma search-results sense-label->freq details?] :as opts}]
+  [{:keys [languages lemma search-results details?] :as opts}]
   [:article.search
    [:header
     [:h1 (str "\"" lemma "\"")]]
@@ -928,9 +927,8 @@
                          (assoc k->label
                            k short-label)
                          k->label)]
-         (rum/with-key (attr-val-table {:languages         languages
-                                        :sense-label->freq sense-label->freq
-                                        :k->label          k->label'}
+         (rum/with-key (attr-val-table {:languages languages
+                                        :k->label  k->label'}
                                        entity)
                        k))))])
 
@@ -1066,7 +1064,7 @@
    [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [entity subject languages sense-label->freq entities] :as opts}]
+  [page {:keys [entity subject languages entities] :as opts}]
   (let [page-component    (or (get pages page)
                               (throw (ex-info
                                        (str "No component for page: " page)
@@ -1076,8 +1074,6 @@
         languages'        (:languages state')
         comments          (translate-comments languages')
         synset-weights    (:synset-weights (meta entity))
-        sense-label->freq (or sense-label->freq
-                              (:sense-label->freq (meta entity)))
         details?          (or (get state' :details?)
                               (get opts :details?))
         entity-label*     (partial entity-label (if details?
@@ -1089,7 +1085,6 @@
         opts'             (assoc (merge opts state')
                             :comments comments
                             :k->label (update-vals entities' entity-label*)
-                            :sense-label->freq (or sense-label->freq {})
                             :synset-weights synset-weights)
         [prefix _ _] (resolve-names opts')
         prefix'           (or prefix (some-> entity

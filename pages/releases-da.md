@@ -1,8 +1,10 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Ordfrekvens
-* Ordfrekvens fra [DDO](https://ordnet.dk/ddo) (delt af DSL) er blevet tilføjet til DanNet-datasættet.
+## **2023-11-28**: Korte etiketter
+* `dns:shortLabel`-varianter af de eksisterende synset-labels (udledt fra bl.a. ordfrekvenser fra [DDO](https://ordnet.dk/ddo)) er blevet tilføjet til DanNet-datasættet.
+* `dns:source` bruges nu igen til at linke til oprindelige opslagskilder som f.eks. DDO. Brugen af `dc:source` var både problematisk ift. skemadefinitionen samt det irritationsmoment at `dc` i visse tilfælde skaber forvirring når det bruges som RDF-præfiks, da det kan være hardcoded til en bestemt IRI.
+* Nogle sense-etiketter havde ved en fejl mistet deres sprog (@da) og dette er nu udbedret.
 
 ## **2023-09-28**: Rettelse af domain topic-relationen
 * `wn:has_domain_topic`-relationen har været brugt i stedet for `wn:domain_topic` i DanNet-datasættet. Dette er nu blevet rettet.

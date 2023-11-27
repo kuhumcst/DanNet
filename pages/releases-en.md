@@ -1,8 +1,10 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Word frequencies
-* Word frequencies from [DDO](https://ordnet.dk/ddo) (provided by DSL) have been added to the DanNet dataset.
+## **2023-11-28**: Short labels
+* `dns:shortLabel` variants of synset labels (derived from, amongst other things, word frequencies from [DDO](https://ordnet.dk/ddo)) have been added to the DanNet dataset.
+* `dns:source` is now used once again to link to the original dictionary entry sources such as DDO. The usage of `dc:source` was both problematic wrt. its definition in the schema, as well the annoying fact that `dc` in some cases results in confusion when used as an RDF prefix as it may be hardcoded to a specific IRI.
+* Some sense labels had lost their language (@da) by mistake and this has now been fixed.
 
 ## **2023-09-28**: Fixing the domain topic relation
 * The `wn:has_domain_topic` relation had been used in place of `wn:domain_topic` in the DanNet dataset. This has now been corrected.

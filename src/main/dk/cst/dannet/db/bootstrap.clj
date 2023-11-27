@@ -98,7 +98,7 @@
   "2023-09-28")
 
 (def current-release
-  (str old-release "-SNAPSHOT"))
+  (str "2023-11-28" #_"-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -268,38 +268,29 @@
          (map row->triples)
          (doall))))
 
-;; TODO: remove
-(defn ->freq-triples
+(defn lemma-freq
   [[ddo_entryid _ ddo_artikeltyngde :as row]]
   (when (not-empty ddo_artikeltyngde)
     (let [word  (shared/word-uri ddo_entryid)
           value (Integer/parseUnsignedInt ddo_artikeltyngde)]
-      #{[word :dns/ddoFrequency value]})))
+      [word value])))
 
-;; TODO: remove
-(defn add-word-frequency!
-  "Add word frequency data from DDO; useful for ranking/selecting labels."
-  [dataset]
-  (let [graph     (db/get-graph dataset prefix/dn-uri)
-        model     (db/get-model dataset prefix/dn-uri)
-        unlabeled (op/sparql "SELECT ?w
-                              WHERE {
-                                ?w dns:ddoFrequency ?f .
-                                FILTER NOT EXISTS {
-                                  ?w rdfs:label ?l .
-                                }
-                              }")
-        triples   (->> (read-triples [->freq-triples "bootstrap/other/dannet-new/artikeltyngde_bet 3.csv"
-                                      :preprocess rest])
-                       (apply set/union))]
-    (txn/transact-exec graph
-      (println "... adding" (count triples) "dns:ddoFreq triples")
-      (db/safe-add! graph triples))
-    (let [unlabeled (map '?w (q/run graph unlabeled))]
-      (txn/transact-exec model
-        (println "... removing" (count unlabeled) "unlabeled word triples")
-        (doseq [word unlabeled]
-          (db/remove! model [word :dns/ddoFrequency '_]))))))
+(defn mk-word->frequency
+  []
+  (->> (read-triples [lemma-freq "bootstrap/other/dannet-new/artikeltyngde_bet 3.csv"
+                      :preprocess rest])
+       (into {})))
+
+(defn mk-sense-label->word
+  [g]
+  (->> (q/run-basic g op/short-label-candidates)
+       (map (juxt '?label '?word))
+       (remove (comp nil? second))
+       (into {})))
+
+(defn mk-sense-label->frequency
+  [g]
+  (comp (mk-word->frequency) (mk-sense-label->word g)))
 
 (defn fix-source-relations!
   "Use a custom source relation that is less strict than dc:source and less
@@ -347,14 +338,6 @@
       (println "... adding" (count triples) "fixed sense labels")
       (db/safe-add! graph triples))))
 
-(defn mk-sense-label->freq
-  "Create the sense-label->freq mapping based on the data in Graph `g`."
-  [g]
-  (->> (q/run-basic g op/short-label-candidates)
-       (map (juxt '?label '?freq))
-       (remove (comp nil? second))
-       (into {})))
-
 (defn abridged-synset-label
   [sense-label->freq synset-label]
   (let [labels (shared/sense-labels shared/synset-sep (str synset-label))]
@@ -367,7 +350,7 @@
   [dataset]
   (println "... locating frequency data and synset labels")
   (let [graph             (db/get-graph dataset prefix/dn-uri)
-        sense-label->freq (mk-sense-label->freq graph)
+        sense-label->freq (mk-sense-label->frequency graph)
         abridged          (partial abridged-synset-label sense-label->freq)
         triples           (->> (op/sparql "SELECT ?synset ?label
                                       WHERE {
@@ -391,7 +374,7 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2023-09-28-SNAPSHOT"]
+  (let [expected-release "2023-11-28"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
     (fix-source-relations! dataset)
@@ -522,3 +505,10 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
+
+(comment
+  ((mk-word->frequency) :dn/word-11000987)
+  ((mk-sense-label->word (:graph @dk.cst.dannet.web.resources/db)) "agurk_§1")
+  ((mk-sense-label->frequency (:graph @dk.cst.dannet.web.resources/db))
+   "agurk_§1")
+  #_.)

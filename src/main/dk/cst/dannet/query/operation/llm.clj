@@ -358,6 +358,7 @@
                   [?canonical "et"])))
          (into {}))))
 
+;; TODO: do via a local file instead (DSL objects the inclusion of freq data)
 (def lemma->frequency
   "Frequencies originally sourced from DDO."
   (delay

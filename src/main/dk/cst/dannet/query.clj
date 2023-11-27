@@ -7,7 +7,6 @@
             [arachne.aristotle.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.transaction :as txn]
-            [dk.cst.dannet.web.components :as com]
             [dk.cst.dannet.query.operation :as op])
   (:import [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
@@ -216,12 +215,6 @@
       coll)
     @weights))
 
-(defn sense-label-freqs
-  [g synset]
-  (->> (run-basic g op/synset-lemma-freqs {'?synset synset})
-       (map (juxt '?lemma '?freq))
-       (into {})))
-
 (defn other-entities
   "Restructure the `expanded-entity-result` as a mapping from resource->entity,
   not including the subject entity itself."
@@ -240,7 +233,6 @@
     (with-meta (->> (navigable-entity g result)
                     (attach-blank-entities g subject))
                (assoc (nav-meta g)
-                 :sense-label->freq (sense-label-freqs g subject)
                  :entities (other-entities result)
                  :inferred (inferred-entity result (find-raw g subject))
                  ;; TODO: make more performant?

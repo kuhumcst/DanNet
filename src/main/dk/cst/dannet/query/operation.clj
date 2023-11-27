@@ -451,7 +451,7 @@
 
 (def short-label-candidates
   (sparql
-    "SELECT (STR(?senseLabel) AS ?label) ?freq
+    "SELECT ?word (STR(?senseLabel) AS ?label)
      WHERE {
        ?synset rdf:type ontolex:LexicalConcept .
        FILTER(STRSTARTS(str(?synset), str(dn:))) .
@@ -459,9 +459,6 @@
        ?word ontolex:sense ?sense .
        FILTER(STRSTARTS(str(?word), str(dn:))) .
        ?sense rdfs:label ?senseLabel .
-       OPTIONAL {
-         ?word dns:ddoFrequency ?freq .
-       }
      }"))
 
 (def synset-long-short-labels
