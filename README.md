@@ -140,6 +140,12 @@ docker compose stop dannet
 
 Once the service is down, the database and export files can be transferred using SFTP to the relevant directories on the server. The git commit on the production server should also match the uploaded data, of course!
 
+After transferring the entire, zipped database as e.g. `tdb2.zip`, you may unzip it at the final destination using this command, which will overwrite the existing files:
+
+```shell
+unzip -o tdb2.zip -d /dannet/db/
+```
+
 The service is finally restarted with:
 
 ```shell

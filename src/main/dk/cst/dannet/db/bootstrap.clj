@@ -67,14 +67,8 @@
   "The RDF resource URI for the COR dataset."
   (prefix/prefix->rdf-resource 'cor))
 
-(def dn-zip-basic-uri
+(def dn-zip-uri
   (prefix/dataset-uri "rdf" 'dn))
-
-(def dn-zip-merged-uri
-  (prefix/dataset-uri "rdf" 'dn "merged"))
-
-(def dn-zip-complete-uri
-  (prefix/dataset-uri "rdf" 'dn "complete"))
 
 (def dn-zip-csv-uri
   (prefix/dataset-uri "csv" 'dn))
@@ -155,9 +149,7 @@
                                  "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
             [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
             ["<https://creativecommons.org/licenses/by-sa/4.0/>" :rdfs/label "CC BY-SA 4.0"]
-            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-basic-uri)]
-            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-merged-uri)]
-            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-complete-uri)]
+            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-uri)]
             [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-csv-uri)]
             [<dns> :dcat/downloadURL (prefix/uri->rdf-resource dns-schema-uri)]
             [<dnc> :dcat/downloadURL (prefix/uri->rdf-resource dnc-schema-uri)]

@@ -293,10 +293,7 @@
    (export-csv! dannet "export/csv/")))
 
 (comment
-  (def dataset (:dataset @dk.cst.dannet.web.resources/db))
-
   ;; Export DanNet as CSV
-  (export-csv! dannet)
   (export-csv! @dk.cst.dannet.web.resources/db)
 
   (expand-kws x)
