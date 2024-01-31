@@ -120,6 +120,19 @@ java -jar -Xmx4g dannet.jar
 
 By default, the web service is accessed on `localhost:3456`. The data is loaded into a TDB2 database located in the `./db/tdb2` directory.
 
+### Regular operation of wordnet.dk/dannet
+The system is registered as a systemd service which ensures smooth running between restarts:
+
+```shell
+cp system/dannet.service /etc/systemd/system/dannet.service
+systemctl enable dannet
+systemctl start dannet
+```
+
+This service merely delegates to the Docker daemon and attempts to ensure that both the Caddy reverse proxy and DanNet web service are available when the host OS is updated.
+
+However, when doing a new release (NOTE: requires updating the database and various files on disk), it might be beneficial to shut down _only_ the DanNet web service, not the Caddy reverse proxy, by using docker compose commands directly (see next section).
+
 ### Making a release on wordnet.dk/dannet
 The current release workflow assumes that the database and the export files are created on a development machine and the transferred to the production server. During the transfer, the DanNet web service will momentarily be down, so keep this in mind!
 
