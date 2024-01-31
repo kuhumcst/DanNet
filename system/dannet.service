@@ -1,0 +1,20 @@
+# /etc/systemd/system/dannet.service
+# based on: https://gist.github.com/mosquito/b23e1c1e5723a7fd9e6568e5cf91180f
+
+[Unit]
+Description=The DanNet web service.
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory=/home/unicph.domain/rqf595/DanNet/docker
+Environment="DANNET_DB=/dannet/db"
+Environment="DANNET_BOOTSTRAP=/dannet/bootstrap"
+Environment="DANNET_EXPORT=/dannet/export"
+ExecStart=/bin/docker compose up -d --build --remove-orphans
+ExecStop=/bin/docker compose down
+
+[Install]
+WantedBy=multi-user.target
