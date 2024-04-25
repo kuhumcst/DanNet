@@ -11,6 +11,8 @@ Some hyponyms of feeling in DanNet are nouns while a great deal are classified a
 ## Inconsistent applications of ontological types
 This section of the dataset has been queried via DanNet's concept of ontological types. Unfortunately, many drinkable liquids have not been marked as "Comestible", e.g. various types of wine or "soja" ("soy sauce").
 
+## Polysemy and ontological types
+Some words, like "juice", have both a `Liquid` form as well as an object form (juice = juicekarton) which can cause when generating sentences that assume the wrong ontological type.
 
 # Point in time vs. period of time
 Time words are a messy subject, including in DanNet, and the differences between the two senses is not necessarily as hard as the DanNet definitions make out.
