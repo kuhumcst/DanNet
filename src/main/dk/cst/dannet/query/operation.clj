@@ -472,3 +472,11 @@
          ?synset dns:shortLabel ?shortLabel .
        }
      }"))
+
+(def missing-lexinfo-pos
+  (sparql
+    "SELECT ?word ?pos
+     WHERE {
+       ?word wn:partOfSpeech ?pos .
+       FILTER NOT EXISTS { ?word lexinfo:partOfSpeech ?lexinfoPos }
+     }"))

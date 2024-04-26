@@ -284,80 +284,25 @@
   [g]
   (comp (mk-word->frequency) (mk-sense-label->word g)))
 
-(defn fix-source-relations!
-  "Use a custom source relation that is less strict than dc:source and less
-  prone to prefix mix-up (dc can default to a different IRI, e.g. in rdflib)."
+(defn fix-pos-adjective-relations!
+  "Fix wn:partOfSpeech using lexinfo:adjective as object + add missing
+  lexinfo:partOfSpeech relations."
   [dataset]
-  (println "... finding existing source relations")
-  (let [graph   (db/get-graph dataset prefix/dn-uri)
-        model   (db/get-model dataset prefix/dn-uri)
-        triples (->> (op/sparql "SELECT ?resource ?source
-                                      WHERE {
-                                        ?resource <http://purl.org/dc/terms/source> ?source .
-                                      }")
-                     (q/run-basic graph)
-                     (mapv (fn [{:syms [?resource ?source]}]
-                             [?resource :dns/source ?source]))
-                     (set))]
+  (println "... finding wrong/missing wn:partOfSpeech relations")
+  (let [graph (db/get-graph dataset prefix/dn-uri)
+        model (db/get-model dataset prefix/dn-uri)
+        words (->> (q/run-basic graph op/missing-lexinfo-pos)
+                   (map '?word)
+                   (set))]
     (txn/transact-exec model
-      (println "... removing" (count triples) "sense labels")
-      (doseq [[?resource] triples]
-        (db/remove! model [?resource "<http://purl.org/dc/terms/source>" '_])))
+      (println "... removing" (count words) "wn:partOfSpeech relations")
+      (doseq [word words]
+        (db/remove! model [word :wn/partOfSpeech '_])))
     (txn/transact-exec graph
-      (println "... adding" (count triples) "fixed sense labels")
-      (db/safe-add! graph triples))))
-
-(defn fix-sense-label-lang!
-  "Add word frequency data from DDO; useful for ranking/selecting labels."
-  [dataset]
-  (println "... finding existing sense labels")
-  (let [graph   (db/get-graph dataset prefix/dn-uri)
-        model   (db/get-model dataset prefix/dn-uri)
-        triples (->> (op/sparql "SELECT ?sense ?label
-                                      WHERE {
-                                        ?sense rdf:type ontolex:LexicalSense ;
-                                               rdfs:label ?label .
-                                      }")
-                     (q/run-basic graph)
-                     (mapv (fn [{:syms [?sense ?label]}]
-                             [?sense :rdfs/label (da ?label)]))
-                     (set))]
-    (txn/transact-exec model
-      (println "... removing" (count triples) "sense labels")
-      (doseq [[?sense] triples]
-        (db/remove! model [?sense :rdfs/label '_])))
-    (txn/transact-exec graph
-      (println "... adding" (count triples) "fixed sense labels")
-      (db/safe-add! graph triples))))
-
-(defn abridged-synset-label
-  [sense-label->freq synset-label]
-  (let [labels (shared/sense-labels shared/synset-sep (str synset-label))]
-    (when (> (count labels) 2)
-      (da "{"
-          (str/join "; " (shared/abridged-labels sense-label->freq labels))
-          "}"))))
-
-(defn add-abridged-labels!
-  [dataset]
-  (println "... locating frequency data and synset labels")
-  (let [graph             (db/get-graph dataset prefix/dn-uri)
-        sense-label->freq (mk-sense-label->frequency graph)
-        abridged          (partial abridged-synset-label sense-label->freq)
-        triples           (->> (op/sparql "SELECT ?synset ?label
-                                      WHERE {
-                                        ?synset rdf:type ontolex:LexicalConcept ;
-                                               rdfs:label ?label .
-                                      }")
-                               (q/run-basic graph)
-                               (map (fn [{:syms [?synset ?label]}]
-                                      (when-let [label' (abridged ?label)]
-                                        [?synset :dns/shortLabel label'])))
-                               (remove nil?)
-                               (set))]
-    (txn/transact-exec graph
-      (println "... adding" (count triples) "short synset labels")
-      (db/safe-add! graph triples))))
+      (println "... adding" (count words) " wn:partOfSpeech relations")
+      (db/safe-add! graph (for [word words] [word :wn/partOfSpeech :wn/adjective]))
+      (println "... adding" (count words) " lexinfo:partOfSpeech relations")
+      (db/safe-add! graph (for [word words] [word :lexinfo/partOfSpeech :lexinfo/adjective])))))
 
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
@@ -369,9 +314,7 @@
   (let [expected-release "2023-11-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
-    (fix-source-relations! dataset)
-    (fix-sense-label-lang! dataset)
-    (add-abridged-labels! dataset)
+    (fix-pos-adjective-relations! dataset)
     (println "Release changes applied!")))
 
 (defn ->dataset
@@ -481,10 +424,15 @@
                 (db/import-files dataset model-uri [ttl-file] changefn)
                 (zip/delete-file ttl-file)))
 
-            (add-open-english-wordnet! dataset)
-
             ;; Effectuate changes for the current release.
+            ;; These are always tied to the current release and depend on the
+            ;; former release, i.e. the contents of this function is versioned
+            ;; together with every single formal release.
             (make-release-changes! dataset)
+
+            ;; The English is always explicitly added as it is not part of our
+            ;; own latest export (only the DanNet-like labels we produce are).
+            (add-open-english-wordnet! dataset)
 
             (println new-entry)
             (spit log-path (str new-entry "\n----\n") :append true)
