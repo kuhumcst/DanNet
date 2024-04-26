@@ -175,8 +175,8 @@
        [?f1 :ontolex/writtenRep ?writtenRep]
        [?f2 :ontolex/writtenRep ?writtenRep]
        [?w2 :ontolex/canonicalForm ?f2]
-       [?w1 :lexinfo/partOfSpeech ?pos]
-       [?w2 :lexinfo/partOfSpeech ?pos]]]))
+       [?w1 :wn/partOfSpeech ?pos]
+       [?w2 :wn/partOfSpeech ?pos]]]))
 
 ;; TODO: use for systematic polysemy?
 (def synset-intersection
@@ -400,7 +400,7 @@
     '[:bgp
       [?word :ontolex/canonicalForm ?form]
       [?form :ontolex/writtenRep ?written-rep]
-      [?word :lexinfo/partOfSpeech ?pos]
+      [?word :wn/partOfSpeech ?pos]
       [?word :rdf/type ?rdf-type]]))
 
 (def csv-senses

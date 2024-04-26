@@ -89,10 +89,10 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def old-release
-  "2023-09-28")
+  "2023-11-28")
 
 (def current-release
-  (str "2023-11-28" #_"-SNAPSHOT"))
+  (str "2023-11-28" "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -366,7 +366,7 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2023-11-28"]
+  (let [expected-release "2023-11-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
     (fix-source-relations! dataset)
