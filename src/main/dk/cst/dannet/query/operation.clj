@@ -480,3 +480,12 @@
        ?word wn:partOfSpeech ?pos .
        FILTER NOT EXISTS { ?word lexinfo:partOfSpeech ?lexinfoPos }
      }"))
+
+(def lexical-entries
+  (sparql
+    "SELECT ?word ?rep
+    WHERE {
+      ?word a ontolex:LexicalEntry .
+      ?word ontolex:canonicalForm ?form .
+      ?form ontolex:writtenRep ?rep .
+    }"))

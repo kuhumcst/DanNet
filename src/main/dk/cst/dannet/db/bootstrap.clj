@@ -304,6 +304,37 @@
       (println "... adding" (count words) " lexinfo:partOfSpeech relations")
       (db/safe-add! graph (for [word words] [word :lexinfo/partOfSpeech :lexinfo/adjective])))))
 
+;; Ported over from the old bootstrap code
+(defn written-rep->lexical-entry
+  "Derive the Ontolex LexicalEntry type from the `written-rep` of an entry."
+  [written-rep]
+  (cond
+    (re-find #" " written-rep)
+    :ontolex/MultiwordExpression
+
+    (or (str/starts-with? written-rep "-")
+        (str/ends-with? written-rep "-"))
+    :ontolex/Affix
+
+    :else :ontolex/Word))
+
+(defn assign-specific-lexical-entry!
+  "Change any unassigned LexicalEntry instances to a specific type."
+  [dataset]
+  (println "... assigning specific LexicalEntry types.")
+  (let [graph  (db/get-graph dataset prefix/dn-uri)
+        model  (db/get-model dataset prefix/dn-uri)
+        result (q/run-basic graph op/lexical-entries)]
+    (txn/transact-exec model
+      (println "... removing" (count result) "generic LexicalEntry relations")
+      (doseq [{:syms [?word]} result]
+        (db/remove! model [?word :rdf/type '_])))
+    (txn/transact-exec graph
+      (println "... adding" (count result) "specific LexicalEntry relations")
+      (db/safe-add! graph (for [{:syms [?rep ?word]} result]
+                            (let [le (written-rep->lexical-entry (str ?rep))]
+                              [?word :rdf/type le]))))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -314,6 +345,7 @@
   (let [expected-release "2023-11-28-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
+    (assign-specific-lexical-entry! dataset)
     (fix-pos-adjective-relations! dataset)
     (println "Release changes applied!")))
 
