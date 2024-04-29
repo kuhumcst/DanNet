@@ -222,7 +222,7 @@
    (println "Beginning CSV export of DanNet into" dir)
    (println "----")
    (let [g          (db/get-graph dataset prefix/dn-uri)
-         synsets-ks '[?synset ?definition ?ontotype]
+         synsets-ks '[?synset ?definition ?onto]
          words-ks   '[?word ?written-rep ?pos ?rdf-type]
          senses-ks  '[?sense ?synset ?word ?note]
          zip-path   (str dir (prefix/export-file "csv" 'dn))]
@@ -313,4 +313,9 @@
                     (str/join "; "))]))
        (sort-by (comp #(Integer/parseInt %) first))
        (export-csv-rows! "synset-labels.csv"))
+
+  ;; Test CSV table data
+  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri)]
+    (->> (q/table-query g '[?synset ?definition ?onto] op/csv-synsets)
+         (take 10)))
   #_.)

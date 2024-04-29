@@ -392,7 +392,8 @@
     '[:bgp
       [?synset :rdf/type :ontolex/LexicalConcept]
       [?synset :skos/definition ?definition]
-      [?synset :dns/ontologicalType ?ontotype]]))
+      [?synset :dns/ontologicalType ?ontotype]
+      [?ontotype :rdfs/member ?onto]]))
 
 (def csv-words
   "Columns to export for words.csv."

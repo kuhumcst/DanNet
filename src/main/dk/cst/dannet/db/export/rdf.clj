@@ -159,10 +159,4 @@
   (export-rdf! @dk.cst.dannet.web.resources/db)
 
   (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
-
-  ;; Test CSV table data
-  (let [g (db/get-graph dataset prefix/dn-uri)]
-    (->> (q/table-query g '[?synset ?definition ?ontotype ?sense] op/csv-synsets)
-         (map csv-row)
-         (take 10)))
   #_.)
