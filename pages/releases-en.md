@@ -1,6 +1,13 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **2024-04-30**: Improved CSV export + other small fixes
+* The CSV export has been improved by...
+  1. ... removing the presence of internal IDs in `synsets.csv` (referring to ontological types) replacing them instead with the concrete mix of ontological types.
+  2. ... including lexical entries in `words.csv` which were previously erroneously excluded. 
+* Some Lexical entries which were formerly of the generic `ontolex:LexicalEntry` type now have more specific types, e.g. `ontolex:Word`, `ontolex:MultiWordExpression`, or `ontolex:Affix`.
+* Some of the parts-of-speech for the adjectives added in release `2023-05-11` were missing a PoS relation and/or mixed up two separate relation types; this has now been fixed.
+
 ## **2023-11-28**: Short labels
 * `dns:shortLabel` variants of synset labels (derived from, amongst other things, word frequencies from [DDO](https://ordnet.dk/ddo)) have been added to the DanNet dataset.
 * `dns:source` is now used once again to link to the original dictionary entry sources such as DDO. The usage of `dc:source` was both problematic wrt. its definition in the schema, as well the annoying fact that `dc` in some cases results in confusion when used as an RDF prefix as it may be hardcoded to a specific IRI.

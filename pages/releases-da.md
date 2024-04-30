@@ -1,5 +1,12 @@
 # Versioner
-De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret som `YYYY-MM-DD`.
+De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
+
+## **2024-04-30**: Forbedret CSV-eksport + andre små rettelser
+* CSV-eksporten er blevet forbedret ved...
+    1. ... at fjerne tilstedeværelsen af interne ID'er i `synsets.csv` (der henviser til ontologityper) og i stedet erstatte dem med den konkrete sammensætning af ontologityper.
+    2. .. at inkludere leksikale opslag i `words.csv`, som tidligere fejlagtigt blev udeladt.
+* Nogle leksikale opslag, der tidligere var af den generiske type `ontolex:LexicalEntry`, har nu mere specifikke typer, f.eks. `ontolex:Word`, `ontolex:MultiWordExpression` eller `ontolex:Affix`.
+* Nogle af ordklasserne for adjektiver tilføjet i udgivelsen `2023-05-11` manglede en ordklasse-relation og/eller forvekslede to separate relationstyper; dette er nu blevet rettet.
 
 ## **2023-11-28**: Korte etiketter
 * `dns:shortLabel`-varianter af de eksisterende synset-labels (udledt fra bl.a. ordfrekvenser fra [DDO](https://ordnet.dk/ddo)) er blevet tilføjet til DanNet-datasættet.
@@ -16,7 +23,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formatteret 
 * Derudover er kønsdata fra de gamle versioner af DanNet også nu inkluderet. Det kan findes via den nye `dns:gender`-relation.
 * For bedre at kunne facilitere navigation af grafen på DanNet-hjemmesiden er en ny relation, `dns:linkedConcept`, blevet tilføjet til DanNet-skemaet. Denne relation er den omvendte relation af `wn:ili` og kan udledes i den store graf der kan udforskes på wordnet.dk/dannet.
 
-## **2023-06-01**:  ~5000 links til Open English WordNet
+## **2023-06-01**: ~5000 links til Open English WordNet
 * Skemaoversættelserne er blevet opdateret.
 * Omtrent 5000 links er blevet tilføjet, som linker DanNet med [Open English WordNet](https://github.com/globalwordnet/english-wordnet) eller indirekte via [CILI](https://github.com/globalwordnet/cili).
 * OEWN-datasættet har fået et medfølgende datasæt der indeholder genererede etiketter for synsets, betydninger og ord.
