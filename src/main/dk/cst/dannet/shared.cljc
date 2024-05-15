@@ -149,7 +149,11 @@
      (defn api
        "Do a GET request for the resource at `url`, returning the response body."
        [url & [{:keys [query-params method] :or {method :get} :as opts}]]
-       (abort-fetch url)                                    ; cancel existing
+
+       ;; Cancel any existing fetches (ignoring nil state, i.e. the first run).
+       (when-not (nil? (:fetch @state))
+         (abort-fetch url))
+
        (let [string-params (uri/query-string->map (:query (uri/uri url)))
              query-params' (assoc (merge string-params query-params)
                              :transit true)

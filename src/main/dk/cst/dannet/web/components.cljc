@@ -27,6 +27,9 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 
+;; Track hydration state to distinguish between first and subsequent renders.
+(defonce ^:dynamic *hydrated* false)
+
 (def word-cloud-limit
   "Arbitrary limit on word cloud size for performance and display reasons."
   150)
@@ -1052,44 +1055,53 @@
    {:title     "Language preference"
     :value     (str (first languages))
     :on-change (fn [e]
-                 #?(:cljs (let [v (-> (.-target e)
-                                      (.-value)
-                                      (not-empty)
-                                      (i18n/lang-prefs))]
-                            (shared/api "/cookies" {:method :put
+                 #?(:cljs (let [v   (-> (.-target e)
+                                        (.-value)
+                                        (not-empty)
+                                        (i18n/lang-prefs))
+                                url "/cookies"]
+                            (swap! shared/state assoc :languages v)
+                            (.then (shared/api url {:method :put
                                                     :body   {:languages v}})
-                            (swap! shared/state assoc :languages v))))}
+                                   (shared/clear-fetch url)))))}
    [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
    [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
    [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
 
+(rum/defc loader
+  []
+  [:div.loader
+   [:span.loader__element]
+   [:span.loader__element]
+   [:span.loader__element]])
+
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities] :as opts}]
-  (let [page-component    (or (get pages page)
-                              (throw (ex-info
-                                       (str "No component for page: " page)
-                                       opts)))
-        state' #?(:clj    (assoc @shared/state :languages languages)
+  (let [page-component (or (get pages page)
+                           (throw (ex-info
+                                    (str "No component for page: " page)
+                                    opts)))
+        state' #?(:clj (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
-        languages'        (:languages state')
-        comments          (translate-comments languages')
-        synset-weights    (:synset-weights (meta entity))
-        details?          (or (get state' :details?)
-                              (get opts :details?))
-        entity-label*     (partial entity-label (if details?
-                                                  long-label-keys
-                                                  short-label-keys))
+        languages'     (:languages state')
+        comments       (translate-comments languages')
+        synset-weights (:synset-weights (meta entity))
+        details?       (or (get state' :details?)
+                           (get opts :details?))
+        entity-label*  (partial entity-label (if details?
+                                               long-label-keys
+                                               short-label-keys))
         ;; Rejoin entities with subject (split for performance reasons)
-        entities'         (assoc entities subject entity)
+        entities'      (assoc entities subject entity)
         ;; Merge frontend state and backend state into a complete product.
-        opts'             (assoc (merge opts state')
-                            :comments comments
-                            :k->label (update-vals entities' entity-label*)
-                            :synset-weights synset-weights)
+        opts'          (assoc (merge opts state')
+                         :comments comments
+                         :k->label (update-vals entities' entity-label*)
+                         :synset-weights synset-weights)
         [prefix _ _] (resolve-names opts')
-        prefix'           (or prefix (some-> entity
-                                             :vann/preferredNamespacePrefix
-                                             symbol))]
+        prefix'        (or prefix (some-> entity
+                                          :vann/preferredNamespacePrefix
+                                          symbol))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")
@@ -1110,7 +1122,12 @@
                                :on-click (fn [e]
                                            (.preventDefault e)
                                            (swap! shared/state update :details? not))}]]
-     [:div#content
+     [:div#content {:class #?(:clj  ""
+                              :cljs (if (and *hydrated*
+                                             (not-empty (:fetch opts')))
+                                      "fetching"
+                                      ""))}
+      (loader)
       [:main
        (page-component opts')]
       [:hr]

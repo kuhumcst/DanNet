@@ -9,6 +9,9 @@
             [dk.cst.dannet.shared :as shared])
   (:import [goog Uri]))
 
+;; The React root element.
+(defonce root (atom nil))
+
 (defonce location
   (atom {}))
 
@@ -80,40 +83,48 @@
     (swap! visited vary-meta assoc :anchor-click? true)
     true))
 
-(def root (atom nil))
-
 (defn on-navigate
   [{:keys [path query-params] :as m}]
   (.then (shared/api path {:query-params query-params})
          ;; A hack for client redirects since we are not allowed to intercept
          ;; any 30x status codes coming from the server from JS.
-         #(if-let [redirect-path (shared/x-header (:headers %) :redirect)]
-            ;; Further distinguish between internal/SPA and external redirects.
-            (if (str/starts-with? redirect-path "/")
-              (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
-                (shared/navigate-to redirect-path replace?))
-              (js/window.location.replace redirect-path))
-            (let [{:keys [scroll]} @shared/post-navigate
-                  headers        (:headers %)
-                  page           (shared/x-header headers :page)
-                  body           (not-empty (:body %))
-                  page-component (com/page-shell page body)
-                  page-title     (shared/x-header headers :title)]
-              (shared/clear-fetch path)
-              (set! js/document.title page-title)
-              (reset! location {:path    path
-                                :headers headers
-                                :data    body})
-              ;; A hack to handle scroll to for diagrams specifically.
-              ;; Otherwise, we scroll to the cached Y position (if available).
-              (when-not (= scroll :diagram)
-                (when-let [url (shared/response->url %)]
-                  (update-scroll-state! url)))
-              ;; Ensure that the search overlay closes when clicking 'back'.
-              (js/document.activeElement.blur)
-              (rum/mount page-component @root)
-              ;; NOTE: this reset will run *after* refs are resolved!
-              (reset! shared/post-navigate nil)))))
+         #(do
+            ;; Always clear existing fetches for the same resource.
+            (shared/clear-fetch path)
+            (if-let [redirect-path (shared/x-header (:headers %) :redirect)]
+              ;; Further distinguish between internal/SPA and external redirects.
+              (if (str/starts-with? redirect-path "/")
+                (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
+                  (shared/navigate-to redirect-path replace?))
+                (js/window.location.replace redirect-path))
+              (let [{:keys [scroll]} @shared/post-navigate
+                    headers        (:headers %)
+                    page           (shared/x-header headers :page)
+                    body           (not-empty (:body %))
+                    page-component (com/page-shell page body)
+                    page-title     (shared/x-header headers :title)]
+                (set! js/document.title page-title)
+                (reset! location {:path    path
+                                  :headers headers
+                                  :data    body})
+                ;; A hack to handle scroll to for diagrams specifically.
+                ;; Otherwise, we scroll to the cached Y position (if available).
+                (when-not (= scroll :diagram)
+                  (when-let [url (shared/response->url %)]
+                    (update-scroll-state! url)))
+                ;; Ensure that the search overlay closes when clicking 'back'.
+                (js/document.activeElement.blur)
+                (rum/mount page-component @root)
+
+                ;; Allow for certain behaviour to only occur after initial render.
+                ;; This is basically a way to get avoid a mismatching state when
+                ;; hydrating the DOM tree. Certain things must only be rendered
+                ;; after the app has been hydrated, e.g. a loading indicator.
+                (when-not com/*hydrated*
+                  (set! com/*hydrated* true))
+
+                ;; NOTE: this reset will run *after* refs are resolved!
+                (reset! shared/post-navigate nil))))))
 
 (defn set-up-navigation!
   []
