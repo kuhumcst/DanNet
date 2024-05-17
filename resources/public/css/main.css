@@ -168,6 +168,7 @@ article.document {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    max-width: 90ch;
 }
 
 article.document > div {
@@ -176,6 +177,20 @@ article.document > div {
 
 article.document h1 {
     font-size: 48px;
+    margin-bottom: 32px;
+}
+
+article.document p {
+    margin: 1em 0 2em 0;
+}
+
+article.document {
+    font-size: 18px;
+}
+
+article.document li > a:first-child {
+    font-weight: bold;
+    text-transform: uppercase;
 }
 
 /* This essentially works like sharpening/emboss effect on non-white text. */

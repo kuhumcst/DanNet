@@ -19,7 +19,7 @@ The following documents are only available in English and mostly for developers:
 * [The original rationale][rationale]
 * [Querying DanNet][queries]
 * [Explaining the sense/synset labels][label-rewrite]
-* [Github project][Github]: the source code for DanNet is available on Github + additional documentation.
+* [Github project][Github]
 
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/english "Centre for Language Technology (University of Copenhagen)"

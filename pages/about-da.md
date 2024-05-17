@@ -19,7 +19,7 @@ Følgende dokumenter er kun tilgængelige på engelsk og primært tiltænkt udvi
 * [The original rationale][rationale]
 * [Querying DanNet][queries]
 * [Explaining the sense/synset labels][label-rewrite]
-* [Github-projektet][Github]: DanNets kildekode er tilgængelig på Github + yderligere dokumentation.
+* [Github-projektet][Github]
 
 [DSL]: https://dsl.dk/ "Dansk Sprog- og Litteraturselskab"
 [CST]: https://cst.ku.dk/ "Center for Sprogteknologi (Københavns Universitet)"
