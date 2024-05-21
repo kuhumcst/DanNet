@@ -139,6 +139,51 @@ html, body {
     letter-spacing: 0.2ch;
 }
 
+@keyframes point {
+  from {
+    transform: translateX(4px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.help-overlay {
+    opacity: 0;
+    transition: opacity 1s;
+    user-select: none;
+}
+
+.help-overlay__item {
+    position: absolute;
+    opacity: 0;
+    animation:
+        0.66s ease-in 5s forwards fade-in,
+        0.33s ease-in infinite alternate point;
+    text-transform: uppercase;
+    left: 52px;
+    z-index: 66;
+    background: white;
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 6px 0 6px;
+    border-radius: 2px;
+    border: 1px solid #AAA;
+}
+
+@media only screen and (min-width: 180ch) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+.help-overlay__item::before {
+    content: "⭠";
+    font-size: 24px;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
 #content {
     flex-grow: 1;
     overflow-y: auto;
@@ -314,7 +359,7 @@ form[role=search] {
     background: url(/images/search.svg);
     background-repeat: no-repeat;
     background-position: 8px 9px; /* 4px - margin */
-    z-index: 2;
+    z-index: 99;
 }
 
 form[role=search]:focus-within {
@@ -587,6 +632,7 @@ span.unknown {
     border: 1px dashed #999;
     color: #999;
 }
+
 .prefix.dannet {
     background-color: #901a1e;
 }
@@ -954,7 +1000,7 @@ li::marker {
     background: white;
     padding: 12px;
     border: 1px solid rgba(0,0,0,0.5);
-    box-shadow: 0 0 12px rgba(0,0,0,0.3);s
+    box-shadow: 0 0 12px rgba(0,0,0,0.3);
 }
 
 .radial-tree-diagram {

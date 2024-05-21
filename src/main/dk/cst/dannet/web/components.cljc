@@ -461,7 +461,7 @@
            (get synset-weights (second v)))))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
-  "A table which lists attributes and corresponding values of an RDF resource."
+                            "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [subject languages inherited inferred comments] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table {:class "attr-val"}
@@ -1075,6 +1075,26 @@
    [:span.loader__element]
    [:span.loader__element]])
 
+(rum/defc help-arrows
+  [page {:keys [languages] :as opts}]
+  [:section.help-overlay {:aria-hidden true
+                          :style       {:opacity (when (not= page "markdown") 0)}}
+   [:div.help-overlay__item {:style {:top   6
+                                     :color "#df7300"}}
+    (i18n/da-en languages
+      "start søgning"
+      "start search")]
+   [:div.help-overlay__item {:style {:bottom 44
+                                     :color  "#55f"}}
+    (i18n/da-en languages
+      "skift sprog"
+      "change language")]
+   [:div.help-overlay__item {:style {:bottom 6
+                                     :color  "#019fa1"}}
+    (i18n/da-en languages
+      "detaljeniveau"
+      "level of detail")]])
+
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities] :as opts}]
   (let [page-component (or (get pages page)
@@ -1107,6 +1127,7 @@
      [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")
                                                      'dn
                                                      prefix'))]}
+      (help-arrows page opts')
       (search-form opts')
       [:a.title {:title (i18n/da-en languages
                           "Gå til forsiden"
