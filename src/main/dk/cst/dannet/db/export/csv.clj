@@ -217,7 +217,7 @@
          (remove #(str/ends-with? % ".zip")))))
 
 (defn export-csv!
-  "Write CSV `rows` to file `f`."
+  "Export the `dannet` dataset to `dir` as CSVW."
   ([{:keys [dataset] :as dannet} dir]
    (println "Beginning CSV export of DanNet into" dir)
    (println "----")
@@ -288,7 +288,7 @@
      (zip/zip-files (non-zip-files dir) zip-path))
 
    (println "----")
-   (println "CSV Export of DanNet complete!"))
+   (println "CSV export of DanNet complete!"))
   ([dannet]
    (export-csv! dannet "export/csv/")))
 

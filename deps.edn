@@ -1,6 +1,7 @@
 {:paths   [#_"../rum/src" "src/main" "src/dev" "resources"]
  :deps    {org.clojure/clojure            {:mvn/version "1.11.1"}
            org.clojure/data.csv           {:mvn/version "1.0.1"}
+           org.clojure/data.xml           {:mvn/version "0.2.0-alpha9"}
            org.clojure/data.json          {:mvn/version "2.4.0"}
            org.clojure/math.combinatorics {:mvn/version "0.2.0"}
            clj-file-zip/clj-file-zip      {:mvn/version "0.1.0"}
