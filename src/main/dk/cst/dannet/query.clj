@@ -183,7 +183,7 @@
 (def synset-indegrees-file
   "db/synset-indegree.edn")
 
-;; This tales around 6 minutes to generate, unfortunately...
+;; This takes around 6 minutes to generate, unfortunately...
 (defn save-synset-indegrees!
   "Generate and store synset indegrees found in `g`."
   [g]

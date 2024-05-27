@@ -25,10 +25,9 @@
 
        ?form ontolex:writtenRep ?writtenRep .
 
-       ?sense lexinfo:senseExample ?example .
-
-       ?synset wn:ili ?ili ;
-               skos:definition ?definition .
+       OPTIONAL { ?synset wn:ili ?ili . }
+       OPTIONAL { ?synset skos:definition ?definition . }
+       OPTIONAL { ?sense lexinfo:senseExample ?example . }
      }"))
 
 (defn ->synset-relations-query
@@ -72,11 +71,12 @@
                             :members members}
                      pos (assoc :partOfSpeech pos)
                      ili (assoc :ili (name ili)))
-           [:Definition (-> vs first (get '?definition) str)]]
+           (when-let [definition (some-> vs first (get '?definition) str)]
+             [:Definition definition])]
           (concat
-            (map (fn [{:syms [?example]}]
-                   [:Example (str ?example)])
-                 vs)
+            (->> (keep '?example vs)
+                 (map (fn [example]
+                        [:Example (str example)])))
             (synset-relations g id)))))
 
 (def lexicon
@@ -100,12 +100,21 @@
            (->> (group-by '?synset ms)
                 (map (partial synset g)))))])
 
+(def doctype
+  "<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd\">")
+
+(defn add-doctype
+  [xml]
+  (let [[before after] (str/split xml #"\r?\n" 2)]
+    (str before "\n" doctype "\n" after)))
+
 (defn xml-str
   [g]
   (let [ms (q/run g lexical-entry-query)]
     (-> (lexical-resource g ms)
         (xml/sexp-as-element)
-        (xml/indent-str))))
+        (xml/indent-str)
+        (add-doctype))))
 
 (defn export-xml!
   [f]
