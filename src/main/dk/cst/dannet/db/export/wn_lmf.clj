@@ -3,6 +3,7 @@
   (:require [clj-file-zip.core :as zip]
             [clojure.data.xml :as xml]
             [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
@@ -133,15 +134,6 @@
        ?synset skos:definition ?definition .
      }"))
 
-(defn ->synset-relations-query
-  [?synset]
-  (op/sparql
-    "SELECT ?synset ?rel ?object
-     WHERE {
-       ?object a ontolex:LexicalConcept .
-       " (prefix/kw->qname ?synset) " ?rel ?object .
-     }"))
-
 (def pos-str
   {:wn/adjective "a"
    :wn/noun      "n"
@@ -167,12 +159,11 @@
 
 (defn synset
   [synset-props [id ms]]
-  (let [pos        (-> ms first (get '?pos) pos-str)
-        {:keys [ili definition examples members]} (get synset-props id)]
-    (into [:Synset (cond-> {:id      (name id)
-                            :members (str/join " " members)}
-                     pos (assoc :partOfSpeech pos)
-                     ili (assoc :ili ili))
+  (let [{:keys [ili pos definition examples members]} (get synset-props id)]
+    (into [:Synset (cond-> {:id           (name id)
+                            :members      (str/join " " members)
+                            :ili          (or ili "")       ; attr required by https://github.com/goodmami/wn
+                            :partOfSpeech (or pos "")})     ; attr required by https://github.com/goodmami/wn
            (when definition
              [:Definition definition])]
           (concat
@@ -192,12 +183,12 @@
     :url      "https://wordnet.dk/dannet"}])
 
 (defn lexical-resource
-  [[lexical-entry-results relation-results synset-props]]
+  [[entry-grouping relation-grouping synset-props]]
   [:LexicalResource {:xmlns/dc "https://globalwordnet.github.io/schemas/dc/"}
    (into lexicon
          (concat
-           (map lexical-entry lexical-entry-results)
-           (map #(synset synset-props %) relation-results)))])
+           (map lexical-entry entry-grouping)
+           (map #(synset synset-props %) relation-grouping)))])
 
 (def doctype
   "<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd\">")
@@ -231,28 +222,46 @@
 
 (defn run-queries
   [g]
-  (let [lexical-entry-res    (label-time
-                               'lexical-entry-res
-                               (q/run g lexical-entry-query))
-        sense-example-res    (label-time
-                               'sense-example-res
-                               (q/run g sense-example-query))
-        ili-query-res        (label-time
-                               'ili-query-res
-                               (q/run g ili-query))
-        definition-query-res (label-time
-                               'definition-query-res
-                               (q/run g definition-query))
-        get-relations-res    (label-time
-                               'get-relations
-                               (get-relations g))]
-    [(group-by '?lexicalEntry lexical-entry-res)
-     (group-by '?subject get-relations-res)
+  (let [lexical-entry-res     (label-time
+                                'lexical-entry-res
+                                (q/run g lexical-entry-query))
+        sense-example-res     (label-time
+                                'sense-example-res
+                                (q/run g sense-example-query))
+        ili-query-res         (label-time
+                                'ili-query-res
+                                (q/run g ili-query))
+        definition-query-res  (label-time
+                                'definition-query-res
+                                (q/run g definition-query))
+        get-relations-res     (label-time
+                                'get-relations
+                                (get-relations g))
+
+        entry-synset-grouping (group-by '?synset lexical-entry-res)
+        synset-entries        (set (keys entry-synset-grouping))
+        has-entry             (every-pred
+                                (comp synset-entries '?subject)
+                                (comp synset-entries '?object))
+
+        entry-grouping        (group-by '?lexicalEntry lexical-entry-res)
+        relations-grouping    (->> get-relations-res
+                                   (filter has-entry)
+                                   (group-by '?subject))
+        orphan-synsets        (set/difference
+                                (set (keys entry-synset-grouping))
+                                (set (keys relations-grouping)))]
+    [entry-grouping
+     (merge
+       relations-grouping
+       ;; also add synsets with no relations emanating from them
+       (zipmap orphan-synsets (repeat nil)))
      (merge-with merge
                  (update-vals
-                   (group-by '?synset lexical-entry-res)
+                   entry-synset-grouping
                    (fn [ms]
-                     {:members (sort (set (map (comp name '?sense) ms)))}))
+                     {:pos     (-> ms first (get '?pos) pos-str)
+                      :members (sort (set (map (comp name '?sense) ms)))}))
                  (update-vals
                    (group-by '?synset sense-example-res)
                    (fn [ms]
@@ -267,9 +276,9 @@
                      {:definition (-> ms first (get '?definition) str)})))]))
 
 (defn xml-str
-  [[lexical-entry-results relation-results _synset-props :as query-results]]
-  (println (count lexical-entry-results) "lexical entries")
-  (println (count relation-results) "synsets")
+  [[entry-grouping relations-grouping _synset-props :as query-results]]
+  (println (count entry-grouping) "lexical entries found")
+  (println (count relations-grouping) "synsets found")
   (-> (lexical-resource query-results)
       (xml/sexp-as-element)
       (xml/indent-str)
