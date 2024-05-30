@@ -1,5 +1,9 @@
 (ns dk.cst.dannet.db.export.wn-lmf
-  "WordNet LMF export functionality."
+  "WordNet LMF export functionality. This format is limited to what the GWA
+  decides should be in a WordNet, so it doesn't contain all of DanNet.
+
+  See also: the `wn_lmf_query.py` Python example code which parses and queries
+  the resulting XML file."
   (:require [clj-file-zip.core :as zip]
             [clojure.data.xml :as xml]
             [clojure.java.io :as io]
@@ -11,8 +15,8 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]))
 
-(def wn-relations
-  "Taken from https://globalwordnet.github.io/schemas/"
+(def supported-wn-relations
+  "Supported relations (from https://globalwordnet.github.io/schemas/)."
   [:wn/hypernym
    :wn/hyponym
    :wn/instance_hyponym
@@ -190,6 +194,7 @@
            (map lexical-entry entry-grouping)
            (map #(synset synset-props %) relation-grouping)))])
 
+;; TODO: use later standard, e.g. 1.3? Does goodmami/wn support that?
 (def doctype
   "<!DOCTYPE LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd\">")
 
@@ -199,8 +204,7 @@
     (str before "\n" doctype "\n" after)))
 
 (defmacro label-time
-  "Evaluates expr and prints the time it took.  Returns the value of
- expr."
+  "A version of the built-in (time expr) macro that allows for a label."
   {:added "1.0"}
   [label expr]
   `(let [start# (. System (nanoTime))
@@ -209,10 +213,10 @@
      (println (str " ... " (/ (double (- (. System (nanoTime)) start#)) 1000000000.0) " secs"))
      ret#))
 
-(defn get-relations
+(defn get-supported-relations
   [g]
   (loop [out []
-         [rel & rels] wn-relations]
+         [rel & rels] supported-wn-relations]
     (if rel
       (recur (->> (q/run g (->wn-relations-query rel))
                   (map #(assoc % '?rel rel))
@@ -221,6 +225,7 @@
       out)))
 
 (defn run-queries
+  "Fetch data from `g` and prepare it for populating the XML file."
   [g]
   (let [lexical-entry-res     (label-time
                                 'lexical-entry-res
@@ -235,8 +240,8 @@
                                 'definition-query-res
                                 (q/run g definition-query))
         get-relations-res     (label-time
-                                'get-relations
-                                (get-relations g))
+                                'get-supported-relations
+                                (get-supported-relations g))
 
         entry-synset-grouping (group-by '?synset lexical-entry-res)
         synset-entries        (set (keys entry-synset-grouping))
@@ -276,6 +281,7 @@
                      {:definition (-> ms first (get '?definition) str)})))]))
 
 (defn xml-str
+  "Create a valid WN-LMF XML string from `query-results`."
   [[entry-grouping relations-grouping _synset-props :as query-results]]
   (println (count entry-grouping) "lexical entries found")
   (println (count relations-grouping) "synsets found")
@@ -285,6 +291,7 @@
       (add-doctype)))
 
 (defn export-xml!
+  "Write WN-LMF to `f`."
   [f]
   (println "Exporting" f)
   (io/make-parents f)
