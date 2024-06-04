@@ -4,8 +4,7 @@
 
   See also: the `wn_lmf_query.py` Python example code which parses and queries
   the resulting XML file."
-  (:require [clj-file-zip.core :as zip]
-            [clojure.data.xml :as xml]
+  (:require [clojure.data.xml :as xml]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -13,7 +12,8 @@
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]))
+            [dk.cst.dannet.query.operation :as op])
+  (:import [java.util.zip GZIPOutputStream]))
 
 (def supported-wn-relations
   "Supported relations (from https://globalwordnet.github.io/schemas/)."
@@ -297,15 +297,26 @@
   (io/make-parents f)
   (spit f (xml-str (run-queries @dannet-graph))))
 
+;; Taken from here:
+;; https://gist.github.com/mikeananev/b2026b712ecb73012e680805c56af45f
+(defn gzip
+  "compress data.
+    input: something which can be copied from by io/copy (e.g. filename ...).
+    output: something which can be opend by io/output-stream.
+        The bytes written to the resulting stream will be gzip compressed."
+  [input output & opts]
+  (with-open [output (-> output io/output-stream GZIPOutputStream.)]
+    (apply io/copy input output opts)))
+
 (defn export-wn-lmf!
   "Export DanNet into `dir` as WordNet LMF."
   [dir]
   (println "Beginning WN-LMF export of DanNet into" dir)
   (println "----")
-  (let [f (str dir "dannet-wn-lmf.xml")
-        z (str dir "dannet-wn-lmf.zip")]
+  (let [f  (str dir "dannet-wn-lmf.xml")
+        gz (str dir "dannet-wn-lmf.gz")]
     (export-xml! f)
-    (zip/zip-files [f] z))
+    (gzip (io/file f) (io/file gz)))
   (println "----")
   (println "WN-LMF export of DanNet complete!"))
 
