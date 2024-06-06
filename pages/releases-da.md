@@ -3,6 +3,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret s
 
 ## **SNAPSHOT**: WN-LMF som alternativt format
 * På baggrund af en forespørgsel via Github er WN-LMF nu blevet tilføjet som et alternativt format. Den nye fil, `dannet-wn-lmf.gz`, kan bruges direkte i software som [goodmami/wn](https://github.com/goodmami/wn) (se også: [eksempel på Github](https://github.com/kuhumcst/DanNet/blob/master/examples/wn_lmf_query.py)). Desværre understøtter WN-LMF ikke det fulde sortiment af data som findes i DanNet; eksempelvis er vores ontologiske typer ikke at finde i dette format og det samme gælder DanNet-specifikke relationer som `brugt til`.
+* I alt 1906 dårlige kildehenvisninger til DDO er blevet fjernet fra datasættet. Disse `dns:source`-relationer var blevet oprettet automatisk baseret på ID'er der udelukkende eksister i DanNet, så derfor kan der ikke kildehenvises til DDO.
 
 ## **2024-04-30**: Forbedret CSV-eksport + andre små rettelser
 * CSV-eksporten er blevet forbedret ved...

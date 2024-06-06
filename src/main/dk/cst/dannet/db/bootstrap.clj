@@ -6,11 +6,9 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.data.csv :as csv]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -241,99 +239,24 @@
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
 
-(defn read-triples
-  "Return triples using `row->triples` from the rows of a CSV `file`.
-  This function was adapted from 'dk.cst.dannet.old.bootstrap/read-triples'.
-
-  For the `opts`...
-
-    - :encoding is assumed to be ISO-8859-1
-    - :separator is assumed to be @
-    - :preprocess fn is assumed to be 'identity' (no-op)"
-  [[row->triples file & {:keys [encoding separator preprocess]
-                         :or   {preprocess identity}
-                         :as   opts}
-    :as args]]
-  (with-open [reader (io/reader file :encoding (or encoding "utf-8"))]
-    (->> (csv/read-csv reader :separator (or separator \tab))
-         (preprocess)
-         (map row->triples)
-         (doall))))
-
-(defn lemma-freq
-  [[ddo_entryid _ ddo_artikeltyngde :as row]]
-  (when (not-empty ddo_artikeltyngde)
-    (let [word  (shared/word-uri ddo_entryid)
-          value (Integer/parseUnsignedInt ddo_artikeltyngde)]
-      [word value])))
-
-(defn mk-word->frequency
-  []
-  (->> (read-triples [lemma-freq "bootstrap/other/dannet-new/artikeltyngde_bet 3.csv"
-                      :preprocess rest])
-       (into {})))
-
-(defn mk-sense-label->word
-  [g]
-  (->> (q/run-basic g op/short-label-candidates)
-       (map (juxt '?label '?word))
-       (remove (comp nil? second))
-       (into {})))
-
-(defn mk-sense-label->frequency
-  [g]
-  (comp (mk-word->frequency) (mk-sense-label->word g)))
-
-(defn fix-pos-adjective-relations!
-  "Fix wn:partOfSpeech using lexinfo:adjective as object + add missing
-  lexinfo:partOfSpeech relations."
+(defn remove-bad-ddo-links!
   [dataset]
-  (println "... finding wrong/missing wn:partOfSpeech relations")
-  (let [graph (db/get-graph dataset prefix/dn-uri)
-        model (db/get-model dataset prefix/dn-uri)
-        words (->> (q/run-basic graph op/missing-lexinfo-pos)
-                   (map '?word)
-                   (set))]
+  (let [graph    (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        temp-id? (fn [{:syms [?object]}]
+                   (and (string? ?object)
+                        (re-find #"temporary" ?object)))
+        result   (->> (op/sparql
+                        "SELECT ?subject ?object
+                         WHERE {
+                           ?subject dns:source ?object .
+                         }")
+                      (q/run graph)
+                      (filter temp-id?))]
     (txn/transact-exec model
-      (println "... removing" (count words) "wn:partOfSpeech relations")
-      (doseq [word words]
-        (db/remove! model [word :wn/partOfSpeech '_])))
-    (txn/transact-exec graph
-      (println "... adding" (count words) " wn:partOfSpeech relations")
-      (db/safe-add! graph (for [word words] [word :wn/partOfSpeech :wn/adjective]))
-      (println "... adding" (count words) " lexinfo:partOfSpeech relations")
-      (db/safe-add! graph (for [word words] [word :lexinfo/partOfSpeech :lexinfo/adjective])))))
-
-;; Ported over from the old bootstrap code
-(defn written-rep->lexical-entry
-  "Derive the Ontolex LexicalEntry type from the `written-rep` of an entry."
-  [written-rep]
-  (cond
-    (re-find #" " written-rep)
-    :ontolex/MultiwordExpression
-
-    (or (str/starts-with? written-rep "-")
-        (str/ends-with? written-rep "-"))
-    :ontolex/Affix
-
-    :else :ontolex/Word))
-
-(defn assign-specific-lexical-entry!
-  "Change any unassigned LexicalEntry instances to a specific type."
-  [dataset]
-  (println "... assigning specific LexicalEntry types.")
-  (let [graph  (db/get-graph dataset prefix/dn-uri)
-        model  (db/get-model dataset prefix/dn-uri)
-        result (q/run-basic graph op/lexical-entries)]
-    (txn/transact-exec model
-      (println "... removing" (count result) "generic LexicalEntry relations")
-      (doseq [{:syms [?word]} result]
-        (db/remove! model [?word :rdf/type '_])))
-    (txn/transact-exec graph
-      (println "... adding" (count result) "specific LexicalEntry relations")
-      (db/safe-add! graph (for [{:syms [?rep ?word]} result]
-                            (let [le (written-rep->lexical-entry (str ?rep))]
-                              [?word :rdf/type le]))))))
+      (println "... removing" (count result) "bad links to DDO")
+      (doseq [{:syms [?subject ?object]} result]
+        (db/remove! model [?subject :dns/source ?object])))))
 
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
@@ -345,8 +268,10 @@
   (let [expected-release "2024-04-30-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
-    (assign-specific-lexical-entry! dataset)
-    (fix-pos-adjective-relations! dataset)
+
+    ;; The block of changes for this particular release.
+    (remove-bad-ddo-links! dataset)
+
     (println "Release changes applied!")))
 
 (defn ->dataset
@@ -477,10 +402,3 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
-
-(comment
-  ((mk-word->frequency) :dn/word-11000987)
-  ((mk-sense-label->word (:graph @dk.cst.dannet.web.resources/db)) "agurk_§1")
-  ((mk-sense-label->frequency (:graph @dk.cst.dannet.web.resources/db))
-   "agurk_§1")
-  #_.)
