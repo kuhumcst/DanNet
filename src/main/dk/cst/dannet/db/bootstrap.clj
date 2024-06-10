@@ -360,6 +360,17 @@
       (println "... adding" (count triples-to-add) "new definitions")
       (db/safe-add! graph (conj triples-to-add special-triple-to-add)))))
 
+(defn fix-fuge-definition!
+  [dataset]
+  (let [graph             (db/get-graph dataset prefix/dn-uri)
+        model             (db/get-model dataset prefix/dn-uri)]
+    (txn/transact-exec model
+      (println "... removing old fuge definition")
+      (db/remove! model [:dn/synset-42125 :skos/definition '_]))
+    (txn/transact-exec graph
+      (println "... adding new fuge definition")
+      (db/safe-add! graph [[:dn/synset-42125 :skos/definition (da "grænselinje eller smalt mellemrum der dannes hvor to byggesten, brædder eller andet byggemateriale er sammenføjet er ofte udfyldt af mørtel eller fugemasse")]]))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -374,6 +385,7 @@
     ;; The block of changes for this particular release.
     (remove-bad-ddo-links! dataset)
     (fix-title-definitions! dataset)
+    (fix-fuge-definition! dataset)
 
     (println "Release changes applied!")))
 
