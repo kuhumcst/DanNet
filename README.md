@@ -152,9 +152,10 @@ The current release workflow assumes that the database and the export files are 
 To build the database, load a Clojure REPL and load the `dk.cst.dannet.web.service` namespace. From here, execute `(restart)` to get a service up and running. When the service is up, go to the `dk.cst.dannet.db` namespace and execute either of the following:
 
 ```clojure
-;; A standard RDF & CSV export
+;; A standard RDF, CSV & WN-LMF export
 (export-rdf! @dk.cst.dannet.web.resources/db)
 (export-csv! @dk.cst.dannet.web.resources/db)
+(export-wn-lmf! "export/wn-lmf/")
 
 ;; The entire, realised dataset including inferences can also be written do disk.
 ;; Note: exporting the complete dataset (including inferences) usually takes ~40-45 minutes
@@ -184,9 +185,10 @@ docker compose up -d dannet --build
 
 When updating the database, you will likely also need to update the exported files. These are zip files which reside in either `/dannet/export/csv` or `/dannet/export/rdf`. I typically just move them to the server using Cyberduck and the run
 
-```
+```shell
 mv cor.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
 mv dannet-csv.zip /dannet/export/csv/
+mv dannet-wn-lmf.xml.gz /dannet/export/wn-lmf/
 ```
 
 ### Memory usage

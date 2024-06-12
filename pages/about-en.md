@@ -17,7 +17,7 @@ DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English
 
 - [COR integration][COR-integration]
 - [DDS integration][DDS-integration]
-- [OEWN extension][OEWN-extension]).
+- [OEWN extension][OEWN-extension]
 
 We also include the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
 
