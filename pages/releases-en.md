@@ -1,10 +1,11 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: WN-LMF as an alternative format
+## **2024-06-12**: WN-LMF as an alternative format
 * WN-LMF has been added as an alternative format following a request on Github. The new file, `dannet-wn-lmf.gz`, can even be used directly in software such as  [goodmami/wn](https://github.com/goodmami/wn) (see also:  [example on Github](https://github.com/kuhumcst/DanNet/blob/master/examples/wn_lmf_query.py)). Unfortunately, WN-LMF currently does not support the full set of data found in DanNet; for instance, our ontological types are not present in this format and the same applies to DanNet-specific relations such as `used for`.
 * A total of 1906 bad source references to DDO have been removed from the dataset. These `dns:source`-relations had been created automatically based on IDs that exclusively exist within DanNet and for this reason they couldn't reference DDO.
 * 88 Synset definitions have been fixed such that the split between titles and occupations is correct.
+* Synset indegrees have been recalculated.
 
 ## **2024-04-30**: Improved CSV export + other small fixes
 * The CSV export has been improved by...
@@ -31,26 +32,26 @@ The newer DanNet releases use the release date as the version number, formatted 
 ## **2023-06-01**: ~5000 links to the Open English WordNet
 * The schema translations have been updated.
 * Around 5000 links have been added which link DanNet to the [Open English WordNet](https://github.com/globalwordnet/english-wordnet) or indirectly via the [CILI](https://github.com/globalwordnet/cili).
-* The OEWN data set has received a companion data set containing generated labels for synsets, senses, and words.
+* The OEWN dataset has received a companion dataset containing generated labels for synsets, senses, and words.
 * `dns:dslSense` and `dns:source` have been removed from the DanNet schema (`dns:source` has been replaced by `dc:source`)
 
 ## **2023-05-23**: DDS/COR improvements & links to DDO
-The following changes to our data sets will be available in the next version:
+The following changes to our datasets will be available in the next version:
 
 * Many DanNet words and senses have been linked to [DDO](https://ordnet.dk/ddo) via the new `dns:source` relation.
-* Unofficial conjugations present in the COR companion data set have been marked as such in their `rdfs:label`.
+* Unofficial conjugations present in the COR companion dataset have been marked as such in their `rdfs:label`.
 * Various other smaller tweaks to the COR dataset.
-* The DDS data set now uses 32-bit `float` as opposed to `double`, which results in a smaller RDF export as this data type doesn't require any special encoding in .ttl-files.
+* The DDS dataset now uses 32-bit `float` as opposed to `double`, which results in a smaller RDF export as this data type doesn't require any special encoding in .ttl-files.
 
 ## **2023-05-11**: The new DanNet
 There are too many changes in this initial release to list all of them in a succinct way:
 
 * Around 5000 new senses have been added, mostly adjectives.
-* Many data set inconsistencies and other undesirable properties have been cleaned up.
+* Many dataset inconsistencies and other undesirable properties have been cleaned up.
 * The entirety of DanNet has been converted to the Ontolex standard and uses the relations from the Global WordDet Association.
 * DanNet is now RDF-native; RDF schemas are also available covering e.g. the ontological types.
 * The DSL-derived DanNet IDs all resolve to actual RDF resources which can be viewed in a browser.
-* Several companion data sets are available for download and are also merged with the data on wordnet.dk.
+* Several companion datasets are available for download and are also merged with the data on wordnet.dk.
 * Additional data points have also been inferred from the bootstrap data, e.g. inverse relations.
 * The CSV download is now CSVW and includes metadata files describing contents of the columns.
 * The DanNet data is now licensed as CC BY-SA 4.0 and the source code of the project is available under the MIT licence.

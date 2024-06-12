@@ -314,7 +314,7 @@
   (println "Beginning WN-LMF export of DanNet into" dir)
   (println "----")
   (let [f  (str dir "dannet-wn-lmf.xml")
-        gz (str dir "dannet-wn-lmf.gz")]
+        gz (str dir "dannet-wn-lmf.xml.gz")]
     (export-xml! f)
     (gzip (io/file f) (io/file gz)))
   (println "----")
