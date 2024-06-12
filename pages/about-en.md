@@ -7,11 +7,23 @@ A [WordNet][WordNet] is a lexico-semantic network graph that shows how senses of
 Unlike a normal dictionary, the definitions of words aren't central; instead, relations to other words are the important part. For example, in DanNet you can see that a [Swiss willow][dværgpil] is a kind of [bush][busk], that a [gazebo][lysthus] is located in a [garden][have], that "[fiberdrys][fiberdrys]" is for [eating][spise], and that [cakes][kage] are typically produced by [baking][bage] and usually made from [flour][mel] and [sugar][sukker].
 
 ## Download our data
-DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an [RDF data set][DanNet RDF] or in a slightly more limited [CSV edition][DanNet CSV]. All our data sets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
+DanNet is based on the [Ontolex][Ontolex] standard with [additions][GWA RDF] from the [Global WordNet Association][GWA]. You can explore DanNet directly on wordnet.dk, but you may also download our data as an `RDF` dataset or in a slightly more limited `CSV` edition. We also offer DanNet as `WN-LMF` ready to be used in supporting software. All our datasets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license:
 
-DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their data set from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF data sets can also be downloaded on this page ([COR integration][COR-integration], [DDS integration][DDS-integration], [OEWN extension][OEWN-extension]). We have also included the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
+- [RDF edition][DanNet RDF] - full dataset (sans inferences)
+- [CSV edition][DanNet CSV] - alternative dataset
+- [WN-LMF edition][DanNet WN-LMF] - alternative dataset, limited to WN-LMF relations
 
-In earlier releases, you could also download a complete copy of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas. However, this has proven too resource-intensive to generate as part of a regular DanNet release. We will try to remedy this in the future.
+DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their dataset from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF datasets can also be downloaded on this page:
+
+- [COR integration][COR-integration]
+- [DDS integration][DDS-integration]
+- [OEWN extension][OEWN-extension]).
+
+We also include the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
+
+All releases of this iteration of DanNet may also be downloaded on our [releases][releases] page on Github.
+
+> NOTE: In earlier releases, you could download a complete copy of all the data that can be found on wordnet.dk/dannet, including logically inferred data and associated RDF schemas. However, this has proven too resource-intensive to generate as part of a regular DanNet release. We will try to remedy this in the future.
 
 ## Documentation
 The following documents are only available in English and mostly for developers:
@@ -34,6 +46,7 @@ The following documents are only available in English and mostly for developers:
 [CILI]: https://github.com/globalwordnet/cili "Collaborative Interlingual Index"
 [DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
+[DanNet WN-LMF]: /export/wn-lmf/dn "DanNet (WN-LMF)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
 [OEWN-extension]: /export/rdf/oewn-extension "OEWN extension (RDF)"
@@ -52,3 +65,4 @@ The following documents are only available in English and mostly for developers:
 [rationale]: /dannet/page/rationale "Rationale"
 [queries]: /dannet/page/queries "Queries"
 [Github]: https://github.com/kuhumcst/DanNet "The Github project page"
+[releases]: https://github.com/kuhumcst/DanNet/releases "Past releases"

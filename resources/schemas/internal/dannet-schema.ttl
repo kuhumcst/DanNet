@@ -39,21 +39,21 @@
 # NOTE: the format of :eq_hypernym and :eq_hyponym is a copy of wn:eq_synonym
 :eqHypernym a wn:SynsetRelType ;
   rdfs:label "eq hypernym"@en ;
-  rdfs:comment "A relation between two concepts in separate data sets where the object is a hypernym of the subject."@en ;
+  rdfs:comment "A relation between two concepts in separate datasets where the object is a hypernym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hypernym af subjektet."@da ;
   owl:inverseOf :eqHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqHyponym a wn:SynsetRelType ;
   rdfs:label "eq hyponym"@en ;
-  rdfs:comment "A relation between two concepts in separate data sets where the object is a hyponym of the subject."@en ;
+  rdfs:comment "A relation between two concepts in separate datasets where the object is a hyponym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
   owl:inverseOf :eqHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqSimilar a wn:SynsetRelType ;
   rdfs:label "eq similar"@en ;
-  rdfs:comment "A relation between two concepts in separate data sets where the object is similar to the subject, though not synonymous."@en ;
+  rdfs:comment "A relation between two concepts in separate datasets where the object is similar to the subject, though not synonymous."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet minder om subjektet men dog ikke er et synonym."@da ;
   owl:inverseOf :eqSimilar ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
@@ -136,7 +136,7 @@
   rdfs:comment "A lexical concept which the subject concept may be used for; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
   rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
   rdfs:label "used for"@en ;
-  rdfs:label "brugt til"@da ;
+  rdfs:label "bruges til"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :usedForObject a wn:SynsetRelType ;
@@ -145,7 +145,7 @@
   rdfs:comment "TODO; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
   rdfs:comment "TODO; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
   rdfs:label "used for object"@en ;
-  rdfs:label "brugt til objekt"@da ;
+  rdfs:label "bruges til objekt"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :nearAntonym a wn:SynsetRelType ;

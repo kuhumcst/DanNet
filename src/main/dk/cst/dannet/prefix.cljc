@@ -91,10 +91,11 @@
                          'wn 'ontolex 'skos 'lexinfo
                          'dcat 'vann 'foaf 'dc
                          'ili 'en}
-             :download {"rdf" {:default   "dannet.zip"
-                               "merged"   "dannet-dds-cor.zip"
-                               "complete" "dannet-complete.zip"}
-                        "csv" {:default "dannet-csv.zip"}}}
+             :download {"rdf"    {:default   "dannet.zip"
+                                  "merged"   "dannet-dds-cor.zip"
+                                  "complete" "dannet-complete.zip"}
+                        "csv"    {:default "dannet-csv.zip"}
+                        "wn-lmf" {:default "dannet-wn-lmf.gz"}}}
    'dnc     {:uri      (str dannet-root "concepts/")
              :resource (str "<" dannet-root "concepts>")
              :alt      "schemas/internal/dannet-concepts.ttl"}
