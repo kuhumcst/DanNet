@@ -87,10 +87,10 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def old-release
-  "2024-04-30")
+  "2024-06-12")
 
 (def current-release
-  (str "2024-06-12"))
+  (str "2024-06-12" "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -362,8 +362,8 @@
 
 (defn fix-fuge-definition!
   [dataset]
-  (let [graph             (db/get-graph dataset prefix/dn-uri)
-        model             (db/get-model dataset prefix/dn-uri)]
+  (let [graph (db/get-graph dataset prefix/dn-uri)
+        model (db/get-model dataset prefix/dn-uri)]
     (txn/transact-exec model
       (println "... removing old fuge definition")
       (db/remove! model [:dn/synset-42125 :skos/definition '_]))
@@ -378,14 +378,14 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2024-06-12"]
+  (let [expected-release "2024-06-12-SNAPSHOT"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; The block of changes for this particular release.
-    (remove-bad-ddo-links! dataset)
-    (fix-title-definitions! dataset)
-    (fix-fuge-definition! dataset)
+    #_(remove-bad-ddo-links! dataset)
+    #_(fix-title-definitions! dataset)
+    #_(fix-fuge-definition! dataset)
 
     (println "Release changes applied!")))
 
@@ -472,7 +472,9 @@
             ttl-file?      (comp #(str/ends-with? % ".ttl") #(.getName %))
             db-exists?     (.exists (io/file full-db-path))
             new-entry      (log-entry db-name db-type input-dir)
-            dataset        (->dataset db-type full-db-path)]
+            dataset        (->dataset db-type full-db-path)
+            ;; Include the current build hash to make debugging easier
+            metadata'      (update metadata 'dn conj [<dn> :dn/build db-name])]
         (if db-exists?
           (do
             (println "Skipping build -- database already exists:" full-db-path)
@@ -485,7 +487,7 @@
                     model-uri (prefix/zip-file->uri (.getName zip-file))
                     prefix    (prefix/uri->prefix model-uri)
                     update!   (when prefix
-                                (partial update-metadata! (metadata prefix)))
+                                (partial update-metadata! (metadata' prefix)))
                     ;; Special behaviour to check bootstrap files version
                     changefn  (if (= prefix 'dn)
                                 (fn [model]

@@ -216,3 +216,9 @@
   rdfs:label "source"@en ;
   rdfs:label "kilde"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:build a owl:ObjectProperty ;
+  rdfs:comment "The current build hash of this iteration of DanNet, mainly for debugging."@en ;
+  rdfs:comment "Det nuværende 'build hash' for denne iteration af DanNet, mest til debugging."@da ;
+  rdfs:label "build"@en ; # TODO: dansk oversætteselse?
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
