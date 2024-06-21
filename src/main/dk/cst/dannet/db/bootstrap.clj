@@ -9,6 +9,7 @@
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.dannet.db.bootstrap.supsersenses :as ss]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -239,137 +240,15 @@
   (println "Open English Wordnet imported!")
   #_(add-open-english-wordnet-labels! dataset))
 
-(defn remove-bad-ddo-links!
+(defn add-supersenses!
   [dataset]
-  (let [graph    (db/get-graph dataset prefix/dn-uri)
-        model    (db/get-model dataset prefix/dn-uri)
-        temp-id? (fn [{:syms [?object]}]
-                   (and (string? ?object)
-                        (re-find #"temporary" ?object)))
-        result   (->> (op/sparql
-                        "SELECT ?subject ?object
-                         WHERE {
-                           ?subject dns:source ?object .
-                         }")
-                      (q/run graph)
-                      (filter temp-id?))]
-    (txn/transact-exec model
-      (println "... removing" (count result) "bad links to DDO")
-      (doseq [{:syms [?subject ?object]} result]
-        (db/remove! model [?subject :dns/source ?object])))))
-
-(def synset-titles-query
-  (op/sparql
-    "SELECT ?synset ?definition ?otherSynset ?otherDefinition
-     WHERE {
-       ?synset skos:definition ?definition .
-       ?word ontolex:evokes ?synset ;
-             ontolex:evokes ?otherSynset .
-       FILTER (?synset != ?otherSynset) .
-       ?otherSynset skos:definition ?otherDefinition .
-     }"))
-
-;; Found by checking the definitions of the `synset-titles-query`
-(def remove-titel-for
-  #{:dn/synset-3854
-    :dn/synset-40780
-    :dn/synset-38199
-    :dn/synset-3819
-    :dn/synset-6029
-    :dn/synset-38750
-    :dn/synset-4486
-    :dn/synset-4500
-    :dn/synset-4514
-    :dn/synset-4617
-    :dn/synset-7656
-    :dn/synset-74079
-    :dn/synset-6655
-    :dn/synset-6772
-    :dn/synset-7658
-    :dn/synset-11908
-    :dn/synset-12972
-    :dn/synset-13127
-    :dn/synset-13163
-    :dn/synset-13175
-    :dn/synset-13246
-    :dn/synset-13262
-    :dn/synset-13266
-    :dn/synset-13270
-    :dn/synset-13280
-    :dn/synset-13284
-    :dn/synset-13289
-    :dn/synset-13300
-    :dn/synset-13314
-    :dn/synset-13316
-    :dn/synset-13336
-    :dn/synset-13344
-    :dn/synset-13347
-    :dn/synset-13351
-    :dn/synset-13353
-    :dn/synset-13357
-    :dn/synset-13428
-    :dn/synset-18855
-    :dn/synset-18858
-    :dn/synset-18863
-    :dn/synset-19103
-    :dn/synset-19610
-    :dn/synset-20311
-    :dn/synset-38758
-    :dn/synset-38219
-    :dn/synset-38744
-    :dn/synset-7664
-    :dn/synset-38754
-    :dn/synset-38757
-    :dn/synset-39820
-    :dn/synset-47706
-    :dn/synset-74077
-    :dn/synset-74107})
-
-(def special-triple-to-add
-  [:dn/synset-74146 :skos/definition (da "titel for person som har en universitetsuddannelse i jura, o…")])
-
-(def special-triple-to-remove
-  [:dn/synset-74146 :skos/definition '_])
-
-(defn fix-title-definitions!
-  [dataset]
-  (let [graph             (db/get-graph dataset prefix/dn-uri)
-        model             (db/get-model dataset prefix/dn-uri)
-        result            (->> (q/run graph synset-titles-query)
-                               (filter (fn [{:syms [?definition]}]
-                                         (str/starts-with? (str ?definition) "(titel for)")))
-                               (set))
-        triples-to-add    (->> result
-                               (remove (comp :dn/synset-74146 '?synset)) ; special triple
-                               (map (fn [{:syms [?synset ?definition]}]
-                                      (let [s    (str ?definition)
-                                            lstr (da (if (get remove-titel-for ?synset)
-                                                       (str/replace s #"\(titel for\) " "")
-                                                       (str/replace s #"\(titel for\) " "titel for ")))]
-                                        [?synset :skos/definition lstr])))
-
-                               (set))
-        triples-to-remove (map (fn [[subject predicate _]]
-                                 [subject predicate '_])
-                               triples-to-add)]
-    (txn/transact-exec model
-      (println "... removing" (count triples-to-remove) "definitions")
-      (doseq [triple (conj triples-to-remove special-triple-to-remove)]
-        (db/remove! model triple)))
+  (let [graph          (db/get-graph dataset prefix/dn-uri)
+        _              (->> (ss/prepare-rows @ss/rows)
+                            (ss/create-mapping! dataset))
+        triples-to-add (ss/triples-to-add @ss/supersense->synsets)]
     (txn/transact-exec graph
-      (println "... adding" (count triples-to-add) "new definitions")
-      (db/safe-add! graph (conj triples-to-add special-triple-to-add)))))
-
-(defn fix-fuge-definition!
-  [dataset]
-  (let [graph (db/get-graph dataset prefix/dn-uri)
-        model (db/get-model dataset prefix/dn-uri)]
-    (txn/transact-exec model
-      (println "... removing old fuge definition")
-      (db/remove! model [:dn/synset-42125 :skos/definition '_]))
-    (txn/transact-exec graph
-      (println "... adding new fuge definition")
-      (db/safe-add! graph [[:dn/synset-42125 :skos/definition (da "grænselinje eller smalt mellemrum der dannes hvor to byggesten, brædder eller andet byggemateriale er sammenføjet er ofte udfyldt af mørtel eller fugemasse")]]))))
+      (println "... adding" (count triples-to-add) "supersenses")
+      (db/safe-add! graph triples-to-add))))
 
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
@@ -383,9 +262,7 @@
     (println "Applying release changes for" expected-release "...")
 
     ;; The block of changes for this particular release.
-    #_(remove-bad-ddo-links! dataset)
-    #_(fix-title-definitions! dataset)
-    #_(fix-fuge-definition! dataset)
+    (add-supersenses! dataset)
 
     (println "Release changes applied!")))
 

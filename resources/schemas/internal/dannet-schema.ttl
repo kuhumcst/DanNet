@@ -222,3 +222,10 @@
   rdfs:comment "Det nuværende 'build hash' for denne iteration af DanNet, mest til debugging."@da ;
   rdfs:label "build"@en ; # TODO: dansk oversætteselse?
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:supersense a owl:ObjectProperty  ;
+  rdfs:label "supersense";
+  rdfs:comment "An expanded version of the WordNet Supersense; see https://aclanthology.org/2016.gwc-1.30.pdf for more."@en ;
+  rdfs:comment "En udvidet udgave af WordNet Supersense; se https://aclanthology.org/2016.gwc-1.30.pdf for uddybning."@da ;
+  rdfs:subPropertyOf dc:subject ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

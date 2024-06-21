@@ -17,6 +17,7 @@ bootstrap/other/dannet-new/dannetsemid_synsetid.csv
 bootstrap/other/dannet-new/adj_suppl_brutto_221222.csv
 bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv
 bootstrap/other/dannet-new/artikeltyngde_bet 3.csv
+bootstrap/other/dannet-new/Mapning af ontotype til supersense.xlsx
 bootstrap/other/dannet-new/wordnetloom
 
 # Files downloaded from https://ordregister.dk/
@@ -46,3 +47,6 @@ out/
 target/
 dannet.jar
 /db/
+
+# MS office temp files
+~$*
