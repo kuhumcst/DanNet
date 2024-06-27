@@ -64,9 +64,11 @@
              :alt :no-schema}
    'synsem  {:uri "http://www.w3.org/ns/lemon/synsem#"
              :alt "schemas/external/synsem.xml"}
-   'enl     {:uri "http://wordnet-rdf.princeton.edu/lemma/"
+   'enl     {:uri "https://en-word.net/lemma/"
              :alt :no-schema}
-   'en      {:uri "http://wordnet-rdf.princeton.edu/id/"
+   'en      {:uri "https://en-word.net/id/"
+             :alt :no-schema}
+   'enold   {:uri "http://wordnet-rdf.princeton.edu/id/"
              :alt :no-schema}
 
    ;; The COR namespace
@@ -214,7 +216,7 @@
 
 ;; NOTE: graph covers both oewn and oewnl prefixes
 (def oewn-uri
-  "http://wordnet-rdf.princeton.edu/")
+  "https://en-word.net/")
 
 (def oewn-extension-uri
   (:uri oewn-extension))

@@ -1,8 +1,10 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Supersenses
+## **SNAPSHOT**: Supersenses + OEWN-opdatering
 * Tilføjede 67263 Supersenses til DanNet baseret på en mapping skabt til SemDaX-korporaet.
+* De eksisterende links til 2022-udgaven af Open English WordNet er blevet erstattet af links til 2023-udgaven (nye synset-ID'er)
+* OEWN-udvidelsesdatasættet er blevet opdateret sådan at det bruger de new OEWN-synset-ID'er.
 
 ## **2024-06-12**: WN-LMF som alternativt format
 * På baggrund af en forespørgsel via Github er WN-LMF nu blevet tilføjet som et alternativt format. Den nye fil, `dannet-wn-lmf.xml.gz`, kan bruges direkte i software som [goodmami/wn](https://github.com/goodmami/wn) (se også: [eksempel på Github](https://github.com/kuhumcst/DanNet/blob/master/examples/wn_lmf_query.py)). Desværre understøtter WN-LMF ikke det fulde sortiment af data som findes i DanNet; eksempelvis er vores ontologiske typer ikke at finde i dette format og det samme gælder DanNet-specifikke relationer som `bruges til`.

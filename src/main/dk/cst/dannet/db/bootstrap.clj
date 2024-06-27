@@ -228,17 +228,16 @@
   "Add the Open English WordNet to a Jena `dataset`."
   [dataset]
   (println "Importing Open English Wordnet...")
-  (let [oewn-file     "bootstrap/other/english/english-wordnet-2022.ttl"
+  (let [oewn-file     "bootstrap/other/english/english-wordnet-2023.ttl"
         oewn-changefn (fn [temp-model]
-                        (let [princeton "<http://wordnet-rdf.princeton.edu/>"]
-                          (println "... removing problematic entries")
-                          (db/remove! temp-model [princeton :lime/entry '_])))
+                        (println "... removing problematic entries")
+                        (db/remove! temp-model [prefix/oewn-uri :lime/entry '_]))
         ili-file      "bootstrap/other/english/ili.ttl"]
     (println "... creating temporary in-memory graph")
     (db/import-files dataset prefix/oewn-uri [oewn-file] oewn-changefn)
     (db/import-files dataset prefix/ili-uri [ili-file]))
   (println "Open English Wordnet imported!")
-  #_(add-open-english-wordnet-labels! dataset))
+  (add-open-english-wordnet-labels! dataset))
 
 (defn add-supersenses!
   [dataset]
@@ -248,6 +247,30 @@
         triples-to-add (ss/triples-to-add @ss/supersense->synsets)]
     (txn/transact-exec graph
       (println "... adding" (count triples-to-add) "supersenses")
+      (db/safe-add! graph triples-to-add))))
+
+(defn update-oewn-links!
+  [dataset]
+  (let [graph             (db/get-graph dataset prefix/dn-uri)
+        model             (db/get-model dataset prefix/dn-uri)
+        ms                (->> (op/sparql
+                                 "SELECT *
+                                  WHERE {
+                                    VALUES ?p { wn:eq_synonym dns:eqHyponym dns:eqHypernym }
+                                    ?s ?p ?o .
+                                  }")
+                               (q/run graph)
+                               (filter (comp #{"enold"} namespace '?o)))
+        triples-to-remove (for [{:syms [?s ?p ?o]} ms]
+                            [?s ?p ?o])
+        triples-to-add    (for [{:syms [?s ?p ?o]} ms]
+                            [?s ?p (keyword "en" (name ?o))])]
+    (txn/transact-exec model
+      (println "... removing" (count triples-to-remove) "OEWN links")
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))
+    (txn/transact-exec graph
+      (println "... adding" (count triples-to-add) "OEWN links")
       (db/safe-add! graph triples-to-add))))
 
 (h/defn make-release-changes!
@@ -262,6 +285,7 @@
     (println "Applying release changes for" expected-release "...")
 
     ;; The block of changes for this particular release.
+    (update-oewn-links! dataset)
     (add-supersenses! dataset)
 
     (println "Release changes applied!")))

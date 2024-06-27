@@ -1,8 +1,10 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Supersenses
+## **SNAPSHOT**: Supersenses + OEWN update
 * Added 67263 Supersenses to DanNet based on a mapping devised for the SemDaX corpora.
+* The existing links to the 2022 edition of the Open English WordNet were replaced with links to the 2023 edition (new synset IDs).
+* The OEWN extension dataset has been updated such that it uses the new OEWN synset IDs.
 
 ## **2024-06-12**: WN-LMF as an alternative format
 * WN-LMF has been added as an alternative format following a request on Github. The new file, `dannet-wn-lmf.xml.gz`, can even be used directly in software such as  [goodmami/wn](https://github.com/goodmami/wn) (see also:  [example on Github](https://github.com/kuhumcst/DanNet/blob/master/examples/wn_lmf_query.py)). Unfortunately, WN-LMF currently does not support the full set of data found in DanNet; for instance, our ontological types are not present in this format and the same applies to DanNet-specific relations such as `used for`.
