@@ -9,11 +9,10 @@
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.transaction :as txn])
   (:import [clojure.lang Symbol]
            [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.datatypes.xsd XSDDateTime]
            [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.query Dataset]
@@ -117,6 +116,7 @@
 ;; Donatello compatibility with Aristotle blank nodes and ont-app LangStrings.
 (defmethod ttl/serialize Symbol [x] (str "_:" (subs (str x) 1)))
 (defmethod ttl/serialize LangStr [x] (str \" (ttl/escape (str x)) "\"@" (lstr/lang x)))
+(defmethod ttl/serialize XSDDateTime [x] (str "\"" x "\"^^xsd:dateTime"))
 
 (defn donatello-prefixes
   "Prepare prefixes in `entity` for Donatello TTL output."
