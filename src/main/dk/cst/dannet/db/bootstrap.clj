@@ -241,13 +241,35 @@
 
 (defn add-supersenses!
   [dataset]
-  (let [graph          (db/get-graph dataset prefix/dn-uri)
+  (let [g              (db/get-graph dataset prefix/dn-uri)
         _              (->> (ss/prepare-rows @ss/rows)
                             (ss/create-mapping! dataset))
         triples-to-add (ss/triples-to-add @ss/supersense->synsets)]
-    (txn/transact-exec graph
+    (txn/transact-exec g
       (println "... adding" (count triples-to-add) "supersenses")
-      (db/safe-add! graph triples-to-add))))
+      (db/safe-add! g triples-to-add))))
+
+(defn fix-verb-creation-supersenses!
+  [dataset]
+  (let [g                 (db/get-graph dataset prefix/dn-uri)
+        model             (db/get-model dataset prefix/dn-uri)
+        ancestors         (keys ss/ancestor->supersense)
+        ancestor          (fn [{:syms [?synset]}]
+                            (ss/by-ancestors g ancestors ?synset))
+        groupings         (group-by ancestor (ss/by-dn-supersense g "verb.creation"))
+        triples-to-remove (for [{:syms [?synset]} (mapcat second groupings)]
+                            [?synset :dns/supersense '_])
+        triples-to-add    (mapcat (fn [[k ms]]
+                                    (for [{:syms [?synset]} ms]
+                                      [?synset :dns/supersense (ss/ancestor->supersense k)]))
+                                  groupings)]
+    (txn/transact-exec model
+      (println "... removing" (count triples-to-remove) "bad supersenses")
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "fixed supersenses")
+      (db/safe-add! g triples-to-add))))
 
 (defn update-oewn-links!
   [dataset]
@@ -287,6 +309,7 @@
     ;; The block of changes for this particular release.
     (update-oewn-links! dataset)
     (add-supersenses! dataset)
+    (fix-verb-creation-supersenses! dataset)
 
     (println "Release changes applied!")))
 
