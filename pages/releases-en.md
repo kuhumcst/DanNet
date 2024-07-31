@@ -5,6 +5,7 @@ The newer DanNet releases use the release date as the version number, formatted 
 * Added 71055 Supersenses to DanNet, mostly based on a mapping devised for the SemDaX corpora.
   * Around 300 of these were "fixed" according to hypernym, differing from the mapping.
   * Another 3793 of these were created based on a new mapping of unmapped synsets.
+* Added sentiment to 183 synsets taken from the old DanNet 2 connotation data.
 * The existing links to the 2022 edition of the Open English WordNet were replaced with links to the 2023 edition (new synset IDs).
 * The OEWN extension dataset has been updated such that it uses the new OEWN synset IDs.
 

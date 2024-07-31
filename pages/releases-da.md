@@ -5,6 +5,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret s
 * Tilføjede 71055 Supersenses til DanNet, primært baseret på en mapping skabt til SemDaX-korporaet.
   * Omkring 300 af disse er "rettet" efter hypernym til forskel fra mappingen.
   * Yderligere 3793 af disse er blevet til på baggrund af en ny mapping af ikke-mappede synsets.
+* Tilføjede valør/sentiment til 183 synsets taget fra det gamle DanNet 2 connotation-data.
 * De eksisterende links til 2022-udgaven af Open English WordNet er blevet erstattet af links til 2023-udgaven (nye synset-ID'er)
 * OEWN-udvidelsesdatasættet er blevet opdateret sådan at det bruger de new OEWN-synset-ID'er.
 

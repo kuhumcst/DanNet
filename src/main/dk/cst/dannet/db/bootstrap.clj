@@ -273,9 +273,8 @@
 
 (defn add-remaining-supersenses!
   [dataset]
-  (let [g                 (db/get-graph dataset prefix/dn-uri)
-        triples-to-add    (ss/remaining-supersense-triples g)]
-    (prn triples-to-add)
+  (let [g              (db/get-graph dataset prefix/dn-uri)
+        triples-to-add (ss/remaining-supersense-triples g)]
     (txn/transact-exec g
       (println "... adding" (count triples-to-add) "remaining supersenses")
       (db/safe-add! g triples-to-add))))
@@ -304,6 +303,47 @@
       (println "... adding" (count triples-to-add) "OEWN links")
       (db/safe-add! graph triples-to-add))))
 
+(defn existing-sentiment
+  [g]
+  (->> '[:bgp
+         [?synset :rdf/type :ontolex/LexicalConcept]
+         [?synset :dns/sentiment _]]
+       (q/run g)
+       (map '?synset)
+       (set)))
+
+(defn connotation-rows
+  []
+  (-> (slurp "bootstrap/dannet/DanNet-2.5.0_csv/synset_attributes.csv")
+      (str/split #"\n")
+      (->> (map #(str/split % #"@"))
+           (filter (comp #{"connotation"} second))
+           (filter (comp #{"negative" "positive"} last))
+           (map (fn [[id _ sentiment]]
+                  [(keyword "dn" (str "synset-" id)) sentiment])))))
+
+(defn ->connotation-sentiment-triples
+  [dataset]
+  (let [model    (.getUnionModel dataset)
+        g        (.getGraph model)
+        existing (existing-sentiment g)]
+    (->> (remove (comp existing first) (connotation-rows))
+         (map (fn [[synset s]]
+                (let [opinion  (symbol (str "_opinion_" (name synset)))
+                      polarity (->> (str/capitalize s)
+                                    (keyword "marl"))]
+                  #{[synset :dns/sentiment opinion]
+                    [opinion :marl/hasPolarity polarity]})))
+         (apply set/union))))
+
+(defn add-connotation-sentiment!
+  [dataset]
+  (let [g              (db/get-graph dataset prefix/dn-uri)
+        triples-to-add (->connotation-sentiment-triples dataset)]
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "connotation sentiment triples")
+      (db/safe-add! g triples-to-add))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -320,6 +360,7 @@
     (add-supersenses! dataset)
     (fix-verb-creation-supersenses! dataset)
     (add-remaining-supersenses! dataset)
+    (add-connotation-sentiment! dataset)
 
     (println "Release changes applied!")))
 
@@ -453,3 +494,33 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
+
+(comment
+  (existing-sentiment (:graph @dk.cst.dannet.web.resources/db))
+  (connotation-rows)
+
+  ;; data needed by Bolette
+  (let [g        (:graph @dk.cst.dannet.web.resources/db)
+        existing (existing-sentiment g)
+        rows     (connotation-rows)]
+    (->> (map (fn [[synset sentiment]]
+                (let [label (->> [:bgp
+                                  [synset :rdfs/label '?label]]
+                                 (q/run g)
+                                 (ffirst)
+                                 (second))]
+
+                  [(str label)
+                   (prefix/kw->uri synset)
+                   sentiment
+                   (boolean (existing synset))]))
+              rows)
+         (set)
+         (sort-by first)))
+
+  (let [g        (:graph @dk.cst.dannet.web.resources/db)
+        existing (existing-sentiment g)]
+    (count (remove (comp existing first) (connotation-rows))))
+
+  (->connotation-sentiment-triples (:dataset @dk.cst.dannet.web.resources/db))
+  #_.)
