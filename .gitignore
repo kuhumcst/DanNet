@@ -19,6 +19,7 @@ bootstrap/other/dannet-new/adj_suppl_cit_brutto_221222.csv
 bootstrap/other/dannet-new/artikeltyngde_bet 3.csv
 bootstrap/other/dannet-new/Mapning af ontotype til supersense.xlsx
 bootstrap/other/dannet-new/wordnetloom
+bootstrap/other/dannet-new/missing_supersenses_BSP.xlsx
 
 # Files downloaded from https://ordregister.dk/
 bootstrap/other/cor/cor1.02.tsv
@@ -36,6 +37,9 @@ bootstrap/other/english/ili.ttl
 bootstrap/other/english/ili-map-pwn20.tab
 bootstrap/other/english/yaml
 bootstrap/other/english/senseidx.edn
+
+# Elexis
+bootstrap/other/elexis-wsd-1.1
 
 .cpcache
 .DS_Store

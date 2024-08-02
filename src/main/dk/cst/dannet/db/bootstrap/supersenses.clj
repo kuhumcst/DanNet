@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.db.bootstrap.supsersenses
+(ns dk.cst.dannet.db.bootstrap.supersenses
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
@@ -193,7 +193,152 @@
    :dn/synset-74861 "verb.body"
    #_.})
 
+(def sense-inventories-file
+  "bootstrap/other/elexis-wsd-1.1/sense_inventories/elexis-wsd-da_sense-inventory.tsv")
+
+(def conllu-file
+  "bootstrap/other/elexis-wsd-1.1/corpora/elexis-wsd-da_corpus.conllu")
+
+(def sense-inventories-rows
+  (delay
+    (-> (slurp sense-inventories-file)
+        (str/split #"\n")
+        (->> (map #(str/split % #"\t"))))))
+
+(def sense+defs
+  (delay
+    (->> @sense-inventories-rows
+         (map (fn [[_ _ id definition]]
+                (when-let [sense-id (re-find #"@_(.+)" id)]
+                  [(keyword "dn" (str "sense-" (second sense-id)))
+                   (when definition
+                     (str/replace definition #" \.\.\." "…"))])))
+         (remove nil?))))
+
+(defn sense-information
+  [g]
+  (delay
+    (->> (for [[sense definition] @sense+defs]
+           (let [ms (when definition
+                      (q/run g
+                             (let [alt-definition (str/replace definition #"[()]" "")]
+                               (op/sparql
+                                 "SELECT *
+                                WHERE {
+                                  VALUES ?definition {\"" definition "\"@da \"" alt-definition "\"@da}
+                                  ?synset skos:definition ?definition ;
+                                          ontolex:lexicalizedSense ?sense ;
+                                          dns:supersense ?supersense .
+                                  FILTER (strstarts(str(?sense), '" (prefix/kw->uri sense) "'))
+                                }"))))]
+             (if (not-empty ms)
+               (first ms)
+               (if-let [ms (not-empty (q/run g
+                                             (op/sparql
+                                               "SELECT *
+                                                WHERE {
+                                                  ?synset ontolex:lexicalizedSense " (prefix/kw->qname sense) " ;
+                                                          dns:supersense ?supersense .
+                                                }")))]
+                 (first ms)
+                 (str "MISSING: " sense " - " definition))))))))
+
+(def missing-supersense
+  (op/sparql
+    "SELECT ?synset ?ontotype ?label ?pos
+     WHERE {
+       ?synset dns:ontologicalType ?ot .
+       FILTER NOT EXISTS { ?synset dns:supersense ?_ }
+       ?ot rdfs:member ?ontotype .
+       ?synset rdfs:label ?label .
+       ?word ontolex:evokes ?synset ;
+             wn:partOfSpeech ?pos .
+     }"))
+
+(defn synsets-without-supersenses
+  "Find remaining synsets without supersenses in graph `g`."
+  [g]
+  (-> (->> (q/run g missing-supersense)
+           (group-by '?synset))
+      (update-vals (fn [ms]
+                     (let [{:syms [?ontotype] :as res} (first ms)]
+                       (assoc res
+                         '?ontotype (set (conj (map '?ontotype (rest ms))
+                                               ?ontotype))))))
+      (vals)
+      (->> (group-by (juxt '?ontotype '?pos)))))
+
+(defn by-synset-count
+  [ontotype+pos->synsets]
+  (->> ontotype+pos->synsets
+       (sort-by (comp count second))
+       (reverse)))
+
+(defn remaining-supersense-rows
+  "Load remaining data from the xlsx file filled out by BSP."
+  []
+  (->> (xl/load-workbook "bootstrap/other/dannet-new/missing_supersenses_BSP.xlsx")
+       (xl/select-sheet "missing supersenses")
+       (xl/row-seq)
+       (map (comp #(map xl/read-cell %) xl/cell-seq))
+       (rest)))
+
+(defn remaining-supersense-triples
+  [g]
+  (let [rows   (remaining-supersense-rows)
+        groups (synsets-without-supersenses g)]
+    (->> rows
+         (mapcat (fn [[ontotype pos supersense]]
+                   (let [ontotype' (->> (str/split ontotype #"\+")
+                                        (map (partial keyword "dnc"))
+                                        (set))
+                         pos'      (keyword "wn" pos)]
+                     (->> (get groups [ontotype' pos'])
+                          (map (fn [{:syms [?synset]}]
+                                 (when supersense
+                                   [?synset :dns/supersense supersense])))))))
+         (remove nil?)
+         (set))))
+
 (comment
+  (slurp sense-inventories-file)
+  (slurp conllu-file)
+
+  (count (q/run (:graph @dk.cst.dannet.web.resources/db)
+                (op/sparql
+                  "SELECT*
+                   WHERE {
+                      ?synset dns:supersense ?supersense .
+                   }")))
+
+  (update-vals (synsets-without-supersenses (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri)) count)
+
+  (remaining-supersense-triples (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri))
+
+  ;; Create a spreadsheet with remaining groupings of missing supersenses
+  ;; To be filled out with supersense (third column)
+  (let [rows       (for [[[ontotype pos] ms] (-> (:graph @dk.cst.dannet.web.resources/db)
+                                                 (synsets-without-supersenses)
+                                                 (by-synset-count))
+                         :let [sample (take 10 (shuffle ms))]]
+                     [(str/join "+" (sort (map name ontotype)))
+                      (name pos)
+                      nil
+                      (count ms)
+                      (str/join " " (map (comp str '?label) sample))
+                      (str/join " " (map (comp prefix/kw->uri '?synset) sample))])
+        wb         (xl/create-workbook
+                     "missing supersenses"
+                     (concat [["ontotype" "pos" "supersense" "count" "labels (sample)" "ids (sample)"]] rows))
+        sheet      (xl/select-sheet "missing supersenses" wb)
+        header-row (first (xl/row-seq sheet))]
+    (xl/set-row-style! header-row (xl/create-cell-style! wb {:font {:bold true}}))
+    (xl/save-workbook! "missing_supersenses.xlsx" wb))
+
+  ;; Retrieve the correct senses from the graph
+  (count (->> (filter string? (sense-information (:graph @dk.cst.dannet.web.resources/db)))
+              (filter (partial re-find #"hyponymOf"))))
+
   ;; for comparing supersenses vs. ontotypes
   (->> (by-dn-supersense (:graph @dk.cst.dannet.web.resources/db) "verb.contact")
        (group-by '?hypernym)

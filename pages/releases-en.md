@@ -2,8 +2,9 @@
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
 ## **SNAPSHOT**: Supersenses + OEWN update
-* Added 67263 Supersenses to DanNet based on a mapping devised for the SemDaX corpora.
+* Added 71055 Supersenses to DanNet, mostly based on a mapping devised for the SemDaX corpora.
   * Around 300 of these were "fixed" according to hypernym, differing from the mapping.
+  * Another 3793 of these were created based on a new mapping of unmapped synsets.
 * The existing links to the 2022 edition of the Open English WordNet were replaced with links to the 2023 edition (new synset IDs).
 * The OEWN extension dataset has been updated such that it uses the new OEWN synset IDs.
 

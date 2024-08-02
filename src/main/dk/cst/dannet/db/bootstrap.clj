@@ -9,7 +9,7 @@
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.db.bootstrap.supsersenses :as ss]
+            [dk.cst.dannet.db.bootstrap.supersenses :as ss]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -271,6 +271,15 @@
       (println "... adding" (count triples-to-add) "fixed supersenses")
       (db/safe-add! g triples-to-add))))
 
+(defn add-remaining-supersenses!
+  [dataset]
+  (let [g                 (db/get-graph dataset prefix/dn-uri)
+        triples-to-add    (ss/remaining-supersense-triples g)]
+    (prn triples-to-add)
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "remaining supersenses")
+      (db/safe-add! g triples-to-add))))
+
 (defn update-oewn-links!
   [dataset]
   (let [graph             (db/get-graph dataset prefix/dn-uri)
@@ -310,6 +319,7 @@
     (update-oewn-links! dataset)
     (add-supersenses! dataset)
     (fix-verb-creation-supersenses! dataset)
+    (add-remaining-supersenses! dataset)
 
     (println "Release changes applied!")))
 
