@@ -217,31 +217,30 @@
 
 (defn sense-information
   [g]
-  (delay
-    (->> (for [[sense definition] @sense+defs]
-           (let [ms (when definition
-                      (q/run g
-                             (let [alt-definition (str/replace definition #"[()]" "")]
-                               (op/sparql
-                                 "SELECT *
-                                WHERE {
-                                  VALUES ?definition {\"" definition "\"@da \"" alt-definition "\"@da}
+  (->> (for [[sense definition] @sense+defs]
+         (let [ms (when definition
+                    (q/run g
+                           (let [alt-definition (str/replace definition #"[()]" "")]
+                             (op/sparql
+                               "SELECT *
+                              WHERE {
+                                VALUES ?definition {\"" definition "\"@da \"" alt-definition "\"@da}
                                   ?synset skos:definition ?definition ;
                                           ontolex:lexicalizedSense ?sense ;
                                           dns:supersense ?supersense .
                                   FILTER (strstarts(str(?sense), '" (prefix/kw->uri sense) "'))
                                 }"))))]
-             (if (not-empty ms)
-               (first ms)
-               (if-let [ms (not-empty (q/run g
-                                             (op/sparql
-                                               "SELECT *
-                                                WHERE {
-                                                  ?synset ontolex:lexicalizedSense " (prefix/kw->qname sense) " ;
+           (if (not-empty ms)
+             (first ms)
+             (if-let [ms (not-empty (q/run g
+                                           (op/sparql
+                                             "SELECT *
+                                              WHERE {
+                                                ?synset ontolex:lexicalizedSense " (prefix/kw->qname sense) " ;
                                                           dns:supersense ?supersense .
                                                 }")))]
-                 (first ms)
-                 (str "MISSING: " sense " - " definition))))))))
+               (first ms)
+               (str "MISSING: " sense " - " definition)))))))
 
 (def missing-supersense
   (op/sparql
@@ -300,9 +299,77 @@
          (remove nil?)
          (set))))
 
+(defn supersense-mapping
+  [g]
+  (->> (op/sparql
+         "SELECT ?sense ?supersense
+          WHERE {
+             ?synset dns:supersense ?supersense ;
+                     ontolex:lexicalizedSense ?sense .
+          }")
+       (q/run g)
+       (map (juxt '?sense '?supersense))
+       (into {})))
+
+(defn rewrite-conllu
+  [dataset f]
+  (let [g                 (db/get-graph dataset prefix/dn-uri)
+        sense->supersense (supersense-mapping g)
+        missing-wsd       (atom {})
+        mark-missing-wsd! (fn [lemma wsd s]
+                            (swap! missing-wsd assoc wsd lemma)
+                            s)]
+    (with-meta
+      (-> (slurp f)
+          (str/split #"\n")
+          (->> (map (fn [s]
+                      (let [row (str/split s #"\t")]
+                        (if (< (count row) 10)                ; ignore comments/blank lines
+                          s
+                          (let [attr-str (nth row 9)
+                                lemma    (nth row 2)
+                                attr     (when (not= attr-str "_")
+                                           (-> attr-str
+                                               (str/split #"\|")
+                                               (->> (map #(str/split % #"="))
+                                                    (map (fn [[k v]]
+                                                           [k (or v "")]))
+                                                    (into {}))))
+                                wsd      (get attr "WSD")]
+                            (if wsd
+                              (if (or (= wsd "non-content-word") (empty? wsd))
+                                s
+                                (if-let [[_ id] (re-matches #".+@_(\d+)" wsd)]
+                                  (if-let [supersense (get sense->supersense (keyword "dn" (str "sense-" id)))]
+                                    (str/join "\t" (conj (subvec row 0 9)
+                                                         (str attr-str "|supersense=" supersense)))
+                                    (mark-missing-wsd! lemma wsd s))
+                                  (mark-missing-wsd! lemma wsd s)))
+                              s))))))
+               (doall)))
+      {:missing-wsd @missing-wsd})))
+
 (comment
   (slurp sense-inventories-file)
   (slurp conllu-file)
+
+  ;; find all sense IDs not present in DanNet, i.e. no supersenses (count: 3141)
+  ;; and write to file
+  (-> (rewrite-conllu (:dataset @dk.cst.dannet.web.resources/db) conllu-file)
+      (meta)
+      (get :missing-wsd)
+      (->> (sort-by (juxt (comp str/lower-case second) first))
+           (map (fn [[id lemma]]
+                  (str lemma "\t" id "\n")))
+           (str/join)
+           (spit "missing_ids.tsv")))
+
+  (->> (rewrite-conllu (:dataset @dk.cst.dannet.web.resources/db) conllu-file)
+       (str/join "\n")
+       (spit "elexis-wsd-da_sense-inventory_WITH_SUPERSENSES.tsv"))
+
+
+  (supersense-mapping (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri))
 
   (count (q/run (:graph @dk.cst.dannet.web.resources/db)
                 (op/sparql
