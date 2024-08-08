@@ -362,11 +362,11 @@
            (map (fn [[id lemma]]
                   (str lemma "\t" id "\n")))
            (str/join)
-           (spit "missing_ids.tsv")))
+           (spit "export/missing_ids.tsv")))
 
   (->> (rewrite-conllu (:dataset @dk.cst.dannet.web.resources/db) conllu-file)
        (str/join "\n")
-       (spit "elexis-wsd-da_sense-inventory_WITH_SUPERSENSES.tsv"))
+       (spit "export/elexis-wsd-da_sense-inventory_WITH_SUPERSENSES.conllu"))
 
 
   (supersense-mapping (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri))
