@@ -4,6 +4,8 @@ This document concerns itself with the process (and associated challenges of) ad
 Many of the Danish tokens were annotated with sense IDs from the DanNet dataset, meaning that semantic information derived from DanNet could be used in part to further annotate these words; specifically in this case: the synsets/senses in DanNet are annotated with EuroWordNet ontological types.
 
 > **RELEVANT ISSUES**: #138, #141, #144
+> 
+> [LINK TO THE RELEVANT DATASET](https://github.com/kuhumcst/DanNet/releases/tag/elexis-wsd-1.1-supersenses-partial)
 
 ## From ontological type to supersense
 Bolette et al had already produced a partial mapping from EuroWordNet ontological types to a (slightly expanded) set of supersenses. This mapping was partial since it didn't map ontological types to every possible part-of-speech. Supersenses are discrete and partitioned according to part-of-speech. Nevertheless, many supersenses could be assigned based on this direct mapping.
