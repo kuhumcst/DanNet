@@ -90,7 +90,7 @@
              :resource (str "<" dannet-root "data>")
              :export   #{'dn 'dnc 'dns
                          'rdf 'rdfs 'owl
-                         'wn 'ontolex 'skos 'lexinfo
+                         'wn 'ontolex 'skos 'lexinfo 'marl
                          'dcat 'vann 'foaf 'dc
                          'ili 'en}
              :download {"rdf"    {:default   "dannet.zip"

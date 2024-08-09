@@ -1,7 +1,7 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Supersenses + OEWN update
+## **2024-08-09**: Supersenses + OEWN update
 * Added 71055 Supersenses to DanNet, mostly based on a mapping devised for the SemDaX corpora.
   * Around 300 of these were "fixed" according to hypernym, differing from the mapping.
   * Another 3793 of these were created based on a new mapping of unmapped synsets.

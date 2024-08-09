@@ -1,7 +1,7 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Supersenses + OEWN-opdatering
+## **2024-08-09**: Supersenses + OEWN-opdatering
 * Tilføjede 71055 Supersenses til DanNet, primært baseret på en mapping skabt til SemDaX-korporaet.
   * Omkring 300 af disse er "rettet" efter hypernym til forskel fra mappingen.
   * Yderligere 3793 af disse er blevet til på baggrund af en ny mapping af ikke-mappede synsets.

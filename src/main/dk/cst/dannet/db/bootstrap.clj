@@ -91,7 +91,7 @@
   "2024-06-12")
 
 (def current-release
-  (str "2024-06-12" "-SNAPSHOT"))
+  (str "2024-08-09" #_"-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -351,7 +351,7 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2024-06-12-SNAPSHOT"]
+  (let [expected-release "2024-08-09"]
     (assert (= current-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
 

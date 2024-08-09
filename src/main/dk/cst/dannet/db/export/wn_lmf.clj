@@ -138,6 +138,13 @@
        ?synset skos:definition ?definition .
      }"))
 
+(def supersense-query
+  (op/sparql
+    "SELECT ?synset ?supersense
+     WHERE {
+       ?synset dns:supersense ?supersense .
+     }"))
+
 (def pos-str
   {:wn/adjective "a"
    :wn/noun      "n"
@@ -163,9 +170,10 @@
 
 (defn synset
   [synset-props [id ms]]
-  (let [{:keys [ili pos definition examples members]} (get synset-props id)]
+  (let [{:keys [ili pos definition lexfile examples members]} (get synset-props id)]
     (into [:Synset (cond-> {:id           (name id)
                             :members      (str/join " " members)
+                            :lexfile      lexfile
                             :ili          (or ili "")       ; attr required by https://github.com/goodmami/wn
                             :partOfSpeech (or pos "")})     ; attr required by https://github.com/goodmami/wn
            (when definition
@@ -239,6 +247,9 @@
         definition-query-res  (label-time
                                 'definition-query-res
                                 (q/run g definition-query))
+        supersense-query-res  (label-time
+                                'supersense-query-res
+                                (q/run g supersense-query))
         get-relations-res     (label-time
                                 'get-supported-relations
                                 (get-supported-relations g))
@@ -278,7 +289,11 @@
                  (update-vals
                    (group-by '?synset definition-query-res)
                    (fn [ms]
-                     {:definition (-> ms first (get '?definition) str)})))]))
+                     {:definition (-> ms first (get '?definition) str)}))
+                 (update-vals
+                   (group-by '?synset supersense-query-res)
+                   (fn [ms]
+                     {:lexfile (-> ms first (get '?supersense))})))]))
 
 (defn xml-str
   "Create a valid WN-LMF XML string from `query-results`."
