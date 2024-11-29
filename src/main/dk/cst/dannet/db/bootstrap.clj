@@ -87,19 +87,19 @@
 ;; Defines the release that the database should be bootstrapped from.
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
-(def old-release
-  "2024-06-12")
+(def bootstrap-base-release
+  "2024-08-09")
 
-(def current-release
-  (str "2024-08-09" #_"-SNAPSHOT"))
+(def new-release
+  (str "2024-08-09" "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
   [model]
   (let [result (q/run-basic (.getGraph ^Model model)
-                            [:bgp [<dn> :owl/versionInfo old-release]])]
+                            [:bgp [<dn> :owl/versionInfo bootstrap-base-release]])]
     (assert (not-empty result)
-            (str "bootstrap files not the expected release (" old-release "). "
+            (str "bootstrap files not the expected release (" bootstrap-base-release "). "
                  result))))
 
 (defn see-also
@@ -132,14 +132,14 @@
             [<dn> :dc/language "da"]
             [<dn> :dc/description (en "The Danish WordNet.")]
             [<dn> :dc/description (da "Det danske WordNet.")]
-            [<dn> :dc/issued current-release]
+            [<dn> :dc/issued new-release]
             [<dn> :dc/contributor <simongray>]
             [<dn> :dc/contributor <cst>]
             [<dn> :dc/contributor <dsl>]
             [<dn> :dc/publisher <cst>]
             [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
             [<dn> :schema/email "simongray@hum.ku.dk"]
-            [<dn> :owl/versionInfo current-release]
+            [<dn> :owl/versionInfo new-release]
             [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & "
                                  "The Society for Danish Language and Literature; "
                                  "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
@@ -351,16 +351,16 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2024-08-09"]
-    (assert (= current-release expected-release))           ; another check
+  (let [expected-release "2024-08-09-SNAPSHOT"]
+    (assert (= new-release expected-release))           ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; The block of changes for this particular release.
-    (update-oewn-links! dataset)
-    (add-supersenses! dataset)
-    (fix-verb-creation-supersenses! dataset)
-    (add-remaining-supersenses! dataset)
-    (add-connotation-sentiment! dataset)
+    #_(update-oewn-links! dataset)
+    #_(add-supersenses! dataset)
+    #_(fix-verb-creation-supersenses! dataset)
+    #_(add-remaining-supersenses! dataset)
+    #_(add-connotation-sentiment! dataset)
 
     (println "Release changes applied!")))
 

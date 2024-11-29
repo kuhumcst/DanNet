@@ -190,7 +190,7 @@
     :language "da"
     :email    "simongray@hum.ku.dk"
     :license  "https://creativecommons.org/licenses/by-sa/4.0/" ; TODO: change licence? See relevant issue
-    :version  bootstrap/current-release
+    :version  bootstrap/new-release
     :citation "Pedersen, Bolette S. Sanni Nimb, Jørg Asmussen, Nicolai H. Sørensen, Lars Trap-Jensen og Henrik Lorentzen (2009). DanNet – the challenge of compiling a WordNet for Danish by reusing a monolingual dictionary (pdf). Lang Resources & Evaluation 43:269–299."
     :url      "https://wordnet.dk/dannet"}])
 
