@@ -21,8 +21,9 @@
          :lexinfo/partOfSpeech
          :wn/partOfSpeech
          :dns/sentiment
-         :dns/ontologicalType
          :skos/definition
+         :dns/ontologicalType
+         :wn/lexfile
          :wn/definition
          :rdfs/comment
          :lexinfo/senseExample
@@ -33,6 +34,7 @@
    [semantic-title
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
                                                :wn/definition
+                                               :wn/lexfile
                                                :wn/example})
              (comp #{:dns/usedFor
                      :dns/usedForObject
