@@ -352,7 +352,7 @@
   considered temporary and should be deleted when the release comes."
   [dataset]
   (let [expected-release "2024-08-09-SNAPSHOT"]
-    (assert (= new-release expected-release))           ; another check
+    (assert (= new-release expected-release))               ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; The block of changes for this particular release.
@@ -430,7 +430,8 @@
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      (let [files          (remove #{input-dir} (file-seq input-dir))
+      (let [files          (->> (file-seq input-dir)
+                                (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
                             (:hash (meta #'make-release-changes!))
@@ -450,6 +451,7 @@
             dataset        (->dataset db-type full-db-path)
             ;; Include the current build hash to make debugging easier
             metadata'      (update metadata 'dn conj [<dn> :dn/build db-name])]
+        (println "Full database path:" full-db-path)
         (if db-exists?
           (do
             (println "Skipping build -- database already exists:" full-db-path)
