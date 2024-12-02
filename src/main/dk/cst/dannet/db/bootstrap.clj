@@ -344,6 +344,62 @@
       (println "... adding" (count triples-to-add) "connotation sentiment triples")
       (db/safe-add! g triples-to-add))))
 
+(defn new-reps
+  [label]
+  (let [clean     (fn [lstr]
+                    (-> (str lstr)
+                        (str/replace #"(^| )'+" "$1")       ; infixed apostrophe
+                        (str/replace "\"" "")))
+        label-str (clean label)
+        reps      (first (re-find #"[^ \(\)]+(/[^ \(\)]+)+" label-str))]
+    (when reps
+      (for [part (str/split reps #"/")]
+        (da (str/replace label-str reps part))))))
+
+(defn fix-canonical-reps!
+  [dataset]
+  (let [g     (db/get-graph dataset prefix/dn-uri)
+        q     (op/sparql
+                "SELECT ?w ?form ?label ?rep
+                 WHERE {
+                   ?w ontolex:canonicalForm ?form .
+                   ?form ontolex:writtenRep ?rep .
+                   ?form ontolex:writtenRep ?rep2 .
+                   FILTER (?rep != ?rep2) .
+                   ?w rdfs:label ?label .
+                 }")
+        w->ms (group-by '?w (q/run g q))
+        ms    (map (fn [[?word [{:syms [?label]} :as ms]]]
+                     (when-let [reps (new-reps ?label)]
+                       {:add    (if (= ?word :dn/word-51001426) ; m/k'er special case
+                                  [[:dn/word-51001426 :ontolex/canonicalForm '_mker_form]
+                                   ['_mker_form :ontolex/writtenRep (da "m/k'er")]]
+                                  (into
+                                    (let [cf (symbol (str "_form_" (name ?word)))]
+                                      [[?word :ontolex/canonicalForm cf]
+                                       [cf :ontolex/writtenRep (first reps)]])
+                                    (apply concat (map-indexed
+                                                    (fn [n rep]
+                                                      (let [of (symbol (str "_form_" (name ?word) "_" n))]
+                                                        [[?word :ontolex/otherForm of]
+                                                         [of :ontolex/writtenRep rep]]))
+                                                    (rest reps)))))
+                        :remove (into [[?word :ontolex/canonicalForm '_]]
+                                      (for [rep (set (map '?rep ms))]
+                                        ['_ :ontolex/writtenRep rep]))}))
+                   w->ms)]
+    (let [g                 (db/get-graph dataset prefix/dn-uri)
+          model             (db/get-model dataset prefix/dn-uri)
+          triples-to-add    (mapcat :add ms)
+          triples-to-remove (mapcat :remove ms)]
+      (txn/transact-exec model
+        (println "... removing old form triples:" (count triples-to-remove))
+        (doseq [triple triples-to-remove]
+          (db/remove! model triple)))
+      (txn/transact-exec g
+        (println "... adding" (count triples-to-add) "updated form triples")
+        (db/safe-add! g triples-to-add)))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -356,6 +412,9 @@
     (println "Applying release changes for" expected-release "...")
 
     ;; ==== The block of changes for this particular release. ====
+
+    ;; Remove duplicate canonical forms, add other forms instead #148
+    (fix-canonical-reps! dataset)
 
     ;; Rename dns:supersense -> wn:lexfile #146
     (db/update-triples! prefix/dn-uri dataset
@@ -509,6 +568,8 @@
 (comment
   (existing-sentiment (:graph @dk.cst.dannet.web.resources/db))
   (connotation-rows)
+
+  (fix-canonical-reps! (:dataset @dk.cst.dannet.web.resources/db))
 
   ;; data needed by Bolette
   (let [g        (:graph @dk.cst.dannet.web.resources/db)

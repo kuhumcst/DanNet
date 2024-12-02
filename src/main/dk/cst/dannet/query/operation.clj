@@ -111,7 +111,7 @@
     "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType
      WHERE {
        ?form ontolex:writtenRep \"" lemma "\"@da .
-       ?word ontolex:canonicalForm ?form ;
+       ?word ontolex:canonicalForm|ontolex:otherForm ?form ;
              ontolex:evokes ?synset .
        OPTIONAL {
          ?synset rdfs:label ?label .

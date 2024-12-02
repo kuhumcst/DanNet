@@ -618,6 +618,8 @@
     (update-vals (merge fixed-theme (zipmap rels colors)) deref)))
 
 (comment
+  (bootstrap/fix-canonical-reps! (:dataset @db))
+
   ;; Generate the them used for e.g. radial diagrams
   (generate-synset-rels-theme)
 
