@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [ont-app.vocabulary.core :as voc]
+            [dk.cst.dannet.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.transaction :as txn])
@@ -119,3 +120,25 @@
      (println "... persisting temporary graph:" model-uri)
      (txn/transact-exec dataset
        (aristotle/add (get-graph dataset model-uri) temp-graph)))))
+
+(defn update-triples!
+  "Update triples in named model `uri` of `dataset` by mapping `f` to `query`
+  result maps producing new triples. Optionally, supply one or more
+  `triples-to-remove` which may be generic triple patterns."
+  [uri dataset query f & [removal :as triples-to-remove]]
+  (let [g              (get-graph dataset uri)
+        model          (get-model dataset uri)
+        ms             (q/run g query)
+        triples-to-add (remove nil? (map f ms))]
+    (when (not (empty? triples-to-remove))
+      (txn/transact-exec model
+        (println "... removing triples:"
+                 (if (second triples-to-remove)
+                   (str removal "... (" (count triples-to-remove) ")")
+                   removal))
+        (doseq [triple triples-to-remove]
+          (remove! model triple))))
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "updated triples"
+               "based on" (count ms) "results for query:" query)
+      (safe-add! g triples-to-add))))

@@ -249,22 +249,6 @@
       (println "... adding" (count triples-to-add) "supersenses")
       (db/safe-add! g triples-to-add))))
 
-(defn rename-supersense->lexfile!
-  [dataset]
-  (let [g              (db/get-graph dataset prefix/dn-uri)
-        model          (db/get-model dataset prefix/dn-uri)
-        ms             (q/run g '[:bgp
-                                  [?synset :dns/supersense ?supersense]])
-        triples-to-add (map (fn [{:syms [?synset ?supersense]}]
-                              [?synset :wn/lexfile ?supersense])
-                            ms)]
-    (txn/transact-exec model
-      (println "... removing" (count ms) "supersense rels")
-      (db/remove! model '[_ :dns/supersense _]))
-    (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "lexfile rels")
-      (db/safe-add! g triples-to-add))))
-
 (defn fix-verb-creation-supersenses!
   [dataset]
   (let [g                 (db/get-graph dataset prefix/dn-uri)
@@ -371,7 +355,16 @@
     (assert (= new-release expected-release))               ; another check
     (println "Applying release changes for" expected-release "...")
 
-    ;; The block of changes for this particular release.
+    ;; ==== The block of changes for this particular release. ====
+
+    ;; Rename dns:supersense -> wn:lexfile #146
+    (db/update-triples! prefix/dn-uri dataset
+                        '[:bgp
+                          [?synset :dns/supersense ?supersense]]
+                        (fn [{:syms [?synset ?supersense]}]
+                          [?synset :wn/lexfile ?supersense])
+                        '[_ :dns/supersense _])
+
     #_(update-oewn-links! dataset)
     #_(add-supersenses! dataset)
     #_(fix-verb-creation-supersenses! dataset)
