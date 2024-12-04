@@ -590,9 +590,31 @@
          (set)
          (sort-by first)))
 
-  (let [g        (:graph @dk.cst.dannet.web.resources/db)
-        existing (existing-sentiment g)]
-    (count (remove (comp existing first) (connotation-rows))))
+  ;; Finding 89 words with duplicate sense lemmas
+  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                        prefix/dn-uri)
+        q (op/sparql
+            "SELECT *
+             WHERE {
+               ?synset ontolex:lexicalizedSense ?s1 ;
+                       ontolex:lexicalizedSense ?s2 .
+               FILTER (?s1 != ?s2)
+               ?w ontolex:evokes ?synset ;
+                  ontolex:sense ?s1 ;
+                  ontolex:sense ?s2 .
+             }")]
+
+    (-> (group-by '?w (q/run g q))
+        (update-vals (fn [ms]
+                       (->> (map (fn [{:syms [?s1 ?s2] :as m}]
+                                   (assoc (dissoc m '?s1 '?s2)
+                                     '?senses #{?s1 ?s2}))
+
+                                 ms)
+                            (apply merge-with #(if (set? %1)
+                                                 (into %1 %2)
+                                                 %)))))
+        (count)))
 
   (->connotation-sentiment-triples (:dataset @dk.cst.dannet.web.resources/db))
   #_.)
