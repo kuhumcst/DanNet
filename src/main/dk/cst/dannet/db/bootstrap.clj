@@ -421,14 +421,9 @@
       (dissoc m' :skos/altLabel)
       (assoc m' :skos/altLabel altLabel'))))
 
-(comment
-
-  (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
-                                prefix/dn-uri)
-                  #{:dn/sense-21079468 :dn/sense-21079466})
-  ;; Finding 89 words with duplicate sense lemmas
-  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
-                        prefix/dn-uri)
+(defn sense-mergers
+  [dataset]
+  (let [g (db/get-graph dataset prefix/dn-uri)
         q (op/sparql
             "SELECT *
              WHERE {
@@ -439,7 +434,6 @@
                   ontolex:sense ?s1 ;
                   ontolex:sense ?s2 .
              }")]
-
     (-> (group-by '?w (q/run g q))
         (update-vals (fn [ms]
                        (->> (map (fn [{:syms [?s1 ?s2] :as m}]
@@ -451,18 +445,53 @@
                                                  (into %1 %2)
                                                  %))
                             ((fn [{:syms [?senses] :as m}]
-                               (-> m
-                                   (assoc :uri
-                                          (->> (map name ?senses)
-                                               (map #(subs % 6))
-                                               (interpose "+")
-                                               (apply str "sense-")
-                                               (keyword "dn")))
-                                   (assoc :merged
-                                          (-> (merge-entities g ?senses)
-                                              (set/rename-keys {:rdfs/label :skos/altLabel})
-                                              (set-primary-label)
-                                              #_(update :dns/source into ?senses)))))))))))
+                               (let [uri    (->> (map name ?senses)
+                                                 (map #(subs % 6))
+                                                 (interpose "_")
+                                                 (apply str "sense-")
+                                                 (keyword "dn"))
+                                     merged (-> (merge-entities g ?senses)
+                                                (set/rename-keys {:rdfs/label :skos/altLabel})
+                                                (set-primary-label)
+                                                (assoc :rdf/about uri))]
+                                 (-> m
+                                     (assoc :uri uri)
+                                     (assoc :merged merged)))))))))))
+
+(defn merge-senses!
+  [dataset]
+  (let [g                 (db/get-graph dataset prefix/dn-uri)
+        model             (db/get-model dataset prefix/dn-uri)
+        word->m           (sense-mergers dataset)
+        triples-to-remove (->> (mapcat '?senses (vals word->m))
+                               (mapcat (fn [sense]
+                                         [[sense '_ '_]
+                                          ['_ '_ sense]])))
+        triples-to-add    (mapcat (fn [[_ {:keys [uri] :syms [?w ?synset]}]]
+                                    [[?w :ontolex/sense uri]
+                                     [?synset :ontolex/lexicalizedSense uri]])
+                                  word->m)
+        maps-to-add       (map (comp :merged second) word->m)]
+    (txn/transact-exec model
+      (println "... removing old sense triples:" (count triples-to-remove))
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (println "... adding" (count maps-to-add) "merged senses")
+      (db/safe-add! g maps-to-add))
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "updated sense links")
+      (db/safe-add! g triples-to-add))))
+
+(comment
+
+  (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                                prefix/dn-uri)
+                  #{:dn/sense-21079468 :dn/sense-21079466})
+  ;; Finding 89 words with duplicate sense lemmas
+  (sense-mergers (:dataset @dk.cst.dannet.web.resources/db))
+
+  (merge-senses! (:dataset @dk.cst.dannet.web.resources/db))
   #_.)
 
 (h/defn make-release-changes!
@@ -477,6 +506,10 @@
     (println "Applying release changes for" expected-release "...")
 
     ;; ==== The block of changes for this particular release. ====
+
+    ;; Replace synsets with duplicate lemmas with new merged senses
+    (merge-senses! dataset)
+    ;; TODO: generate new labels and short labels for the affected synsets
 
     ;; Remove duplicate canonical forms, add other forms instead #148
     (fix-canonical-reps! dataset)
