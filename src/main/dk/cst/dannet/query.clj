@@ -8,7 +8,8 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.transaction :as txn]
             [dk.cst.dannet.query.operation :as op])
-  (:import [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
+  (:import [org.apache.jena.reasoner BaseInfGraph]
+           [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
 (defn run-basic
   "Same as 'run' below, but doesn't attach Navigable metadata."
@@ -126,10 +127,11 @@
   "Return the entity description of `subject` in Graph `g`."
   [g subject]
   (if-let [result (not-empty (run g op/entity {'?s subject}))]
-    (with-meta (navigable-entity g result)
-               (assoc (nav-meta g)
-                 :inferred (inferred-entity result (find-raw g subject))
-                 :subject subject))
+    (with-meta
+      (navigable-entity g result)
+      (cond-> (assoc (nav-meta g) :subject subject)
+        (instance? BaseInfGraph g)
+        (assoc :inferred (inferred-entity result (find-raw g subject)))))
     (with-meta {} {:subject subject})))
 
 ;; TODO: what about blank-expanded-entity?

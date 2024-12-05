@@ -8,6 +8,7 @@
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
+            [dk.cst.dannet.shared :as shared]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.db.bootstrap.supersenses :as ss]
             [dk.cst.dannet.hash :as hash]
@@ -400,6 +401,70 @@
         (println "... adding" (count triples-to-add) "updated form triples")
         (db/safe-add! g triples-to-add)))))
 
+(defn merge-entities
+  [g subjects]
+  (let [normalize-entity #(update-vals (q/entity g %) shared/setify)]
+    (->> (map normalize-entity subjects)
+         (apply merge-with set/union))))
+
+(defn set-primary-label
+  [{:keys [skos/altLabel] :as m}]
+  (let [primary-label (-> altLabel shared/canonical first da)
+        generic-label (some->> altLabel
+                               (map (comp (partial re-matches shared/sense-label) str))
+                               (remove #(nth % 2))
+                               (ffirst)
+                               (da))
+        altLabel'     (disj altLabel primary-label generic-label)
+        m'            (assoc m :rdfs/label primary-label)]
+    (if (empty? altLabel')
+      (dissoc m' :skos/altLabel)
+      (assoc m' :skos/altLabel altLabel'))))
+
+(comment
+
+  (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                                prefix/dn-uri)
+                  #{:dn/sense-21079468 :dn/sense-21079466})
+  ;; Finding 89 words with duplicate sense lemmas
+  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                        prefix/dn-uri)
+        q (op/sparql
+            "SELECT *
+             WHERE {
+               ?synset ontolex:lexicalizedSense ?s1 ;
+                       ontolex:lexicalizedSense ?s2 .
+               FILTER (?s1 != ?s2)
+               ?w ontolex:evokes ?synset ;
+                  ontolex:sense ?s1 ;
+                  ontolex:sense ?s2 .
+             }")]
+
+    (-> (group-by '?w (q/run g q))
+        (update-vals (fn [ms]
+                       (->> (map (fn [{:syms [?s1 ?s2] :as m}]
+                                   (assoc (dissoc m '?s1 '?s2)
+                                     '?senses #{?s1 ?s2}))
+
+                                 ms)
+                            (apply merge-with #(if (set? %1)
+                                                 (into %1 %2)
+                                                 %))
+                            ((fn [{:syms [?senses] :as m}]
+                               (-> m
+                                   (assoc :uri
+                                          (->> (map name ?senses)
+                                               (map #(subs % 6))
+                                               (interpose "+")
+                                               (apply str "sense-")
+                                               (keyword "dn")))
+                                   (assoc :merged
+                                          (-> (merge-entities g ?senses)
+                                              (set/rename-keys {:rdfs/label :skos/altLabel})
+                                              (set-primary-label)
+                                              #_(update :dns/source into ?senses)))))))))))
+  #_.)
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -589,32 +654,6 @@
               rows)
          (set)
          (sort-by first)))
-
-  ;; Finding 89 words with duplicate sense lemmas
-  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
-                        prefix/dn-uri)
-        q (op/sparql
-            "SELECT *
-             WHERE {
-               ?synset ontolex:lexicalizedSense ?s1 ;
-                       ontolex:lexicalizedSense ?s2 .
-               FILTER (?s1 != ?s2)
-               ?w ontolex:evokes ?synset ;
-                  ontolex:sense ?s1 ;
-                  ontolex:sense ?s2 .
-             }")]
-
-    (-> (group-by '?w (q/run g q))
-        (update-vals (fn [ms]
-                       (->> (map (fn [{:syms [?s1 ?s2] :as m}]
-                                   (assoc (dissoc m '?s1 '?s2)
-                                     '?senses #{?s1 ?s2}))
-
-                                 ms)
-                            (apply merge-with #(if (set? %1)
-                                                 (into %1 %2)
-                                                 %)))))
-        (count)))
 
   (->connotation-sentiment-triples (:dataset @dk.cst.dannet.web.resources/db))
   #_.)

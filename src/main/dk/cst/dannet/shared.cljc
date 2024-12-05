@@ -197,7 +197,7 @@
 (defn- entry-sort
   "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
   [sense-labels]
-  (->> (map (partial re-matches sense-label) sense-labels)
+  (->> (map (comp (partial re-matches sense-label) str) sense-labels)
        (map (fn [[s _ _ sub _]]
               (cond
                 (nil? sub)                                  ; uncertain = keep
