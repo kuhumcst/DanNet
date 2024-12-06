@@ -453,6 +453,7 @@
                                      merged (-> (merge-entities g ?senses)
                                                 (set/rename-keys {:rdfs/label :skos/altLabel})
                                                 (set-primary-label)
+                                                (assoc :dns/subsumed ?senses)
                                                 (assoc :rdf/about uri))]
                                  (-> m
                                      (assoc :uri uri)
@@ -483,8 +484,43 @@
       (println "... adding" (count triples-to-add) "updated sense links")
       (db/safe-add! g triples-to-add))))
 
+(defn sense-labels->synset-label
+  [labels]
+  (da (str "{" (->> labels
+                    (sort-by str)
+                    (str/join "; "))
+           "}")))
+
+(defn relabel-synsets!
+  [dataset]
+  (let [g                   (db/get-graph dataset prefix/dn-uri)
+        model               (db/get-model dataset prefix/dn-uri)
+        synset->ms          (-> (q/run g '[:bgp
+                                           [?synset :ontolex/lexicalizedSense ?sense]
+                                           [?sense :dns/subsumed ?oldSense]
+                                           [?sense :rdfs/label ?label]])
+                                (->> (group-by '?synset))
+                                (update-vals (fn [ms] (set (map '?label ms)))))
+        triples-to-remove   (for [synset (keys synset->ms)]
+                              [synset :rdfs/label '_])
+        synset->label       (update-vals synset->ms sense-labels->synset-label)
+        synset->short-label (update-vals synset->ms (comp sense-labels->synset-label shared/canonical))
+        triples-to-add      (concat
+                              (for [[synset label] synset->label]
+                                [synset :rdfs/label label])
+                              (for [[synset short-label] synset->short-label]
+                                [synset :dns/shortLabel short-label]))]
+    (txn/transact-exec model
+      (println "... removing old synset labels:" (count triples-to-remove))
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "updated labels & short labels")
+      (db/safe-add! g triples-to-add))))
+
 (comment
 
+  (count (relabel-synsets! (:dataset @dk.cst.dannet.web.resources/db)))
   (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
                                 prefix/dn-uri)
                   #{:dn/sense-21079468 :dn/sense-21079466})
@@ -509,7 +545,8 @@
 
     ;; Replace synsets with duplicate lemmas with new merged senses
     (merge-senses! dataset)
-    ;; TODO: generate new labels and short labels for the affected synsets
+    (relabel-synsets! dataset)
+    ;; TODO: fix sense links in COR and DDS
 
     ;; Remove duplicate canonical forms, add other forms instead #148
     (fix-canonical-reps! dataset)

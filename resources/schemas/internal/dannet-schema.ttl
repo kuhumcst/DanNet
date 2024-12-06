@@ -222,3 +222,10 @@
   rdfs:comment "Det nuværende 'build hash' for denne iteration af DanNet, mest til debugging."@da ;
   rdfs:label "build"@en ; # TODO: dansk oversætteselse?
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:subsumed a owl:ObjectProperty ;
+  rdfs:comment "Resources from a past version of DanNet which have been subsumed by this resource."@en ;
+  rdfs:comment "Ressourcer fra en tidligere udgave af DanNet, som er blevet indlemmet i denne ressource."@da ;
+  rdfs:label "subsumed"@en ;
+  rdfs:label "indlemmet"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
