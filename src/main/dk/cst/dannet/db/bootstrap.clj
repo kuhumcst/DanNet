@@ -518,7 +518,49 @@
       (println "... adding" (count triples-to-add) "updated labels & short labels")
       (db/safe-add! g triples-to-add))))
 
+(defn relink-cor!
+  [dataset]
+  (let [g                 (db/get-graph dataset prefix/cor-uri)
+        model             (db/get-model dataset prefix/cor-uri)
+        ms                (q/run (.getGraph (.getUnionModel dataset))
+                                 (op/sparql
+                                   "SELECT *
+                                     WHERE {
+                                       ?sense dns:subsumed ?oldSense .
+                                       ?x ?rel ?oldSense .
+                                       FILTER (?rel != dns:subsumed)
+                                       ?x rdf:type ?type .
+                                     }"))
+        triples-to-remove (set (map (fn [{:syms [?x ?rel ?oldSense]}]
+                                      [?x ?rel ?oldSense])
+                                    ms))
+        triples-to-add    (set (map (fn [{:syms [?x ?rel ?sense]}]
+                                      [?x ?rel ?sense])
+                                    ms))]
+    (txn/transact-exec model
+      (println "... removing old COR sense links:" (count triples-to-remove))
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (println "... adding" (count triples-to-add) "updated COR sense links")
+      (db/safe-add! g triples-to-add))))
+
 (comment
+
+  (let [ms (q/run (:graph @dk.cst.dannet.web.resources/db)
+                  (op/sparql
+                    "SELECT *
+                      WHERE {
+                        ?sense dns:subsumed ?oldSense .
+                        ?x ?rel ?oldSense .
+                        FILTER (?rel != dns:subsumed)
+                        ?x rdf:type ?type .
+                      }"))]
+    (set (map (fn [{:syms [?x ?rel ?oldSense]}]
+                [?x ?rel ?oldSense])
+              ms)))
+
+  (relink-cor! (:dataset @dk.cst.dannet.web.resources/db))
 
   (count (relabel-synsets! (:dataset @dk.cst.dannet.web.resources/db)))
   (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
@@ -546,7 +588,7 @@
     ;; Replace synsets with duplicate lemmas with new merged senses
     (merge-senses! dataset)
     (relabel-synsets! dataset)
-    ;; TODO: fix sense links in COR and DDS
+    (relink-cor! dataset)
 
     ;; Remove duplicate canonical forms, add other forms instead #148
     (fix-canonical-reps! dataset)
