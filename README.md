@@ -207,3 +207,24 @@ Querying DanNet
 The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.cst.dannet.db` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](pages/queries-en.md).
 
 For simple lemma searches, you can of course visit the official instance at wordnet.dk/dannet.
+
+Validating DanNet
+-----------------
+> NOTE: this only validates the WN-LMF file, not the core RDF dataset!
+
+The structure of DanNet can currently be validated by using the validator in the `wn` Python package:
+
+```shell
+# install wn in a virtulenv
+python3 -m venv examples/venv
+source examples/venv/bin/activate
+python3 -m pip install wn
+
+# validate the current state using the CLI
+python -m wn validate --output-file examples/wn-lmf-validation.json export/wn-lmf/dannet-wn-lmf.xml
+```
+
+This will create a map of validation errors with lists of the offending entities.
+
+> NOTE: subsequent runs must also first execute `source examples/venv/bin/activate` in the terminal window before validation can commence.
+
