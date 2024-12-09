@@ -232,6 +232,14 @@
              rels)
       out)))
 
+;; #146 - At the time of writing, 1194 DN synsets have links to the same ILIs.
+;; It requires too much labour to correct these, so they are left out for now.
+(defn remove-bad-ili-links
+  [ili-res]
+  (->> (group-by '?ili ili-res)
+       (remove (comp (partial not= 1) count second))
+       (mapcat second)))
+
 (defn run-queries
   "Fetch data from `g` and prepare it for populating the XML file."
   [g]
@@ -283,7 +291,7 @@
                    (fn [ms]
                      {:examples (sort (set (map (comp str '?example) ms)))}))
                  (update-vals
-                   (group-by '?synset ili-query-res)
+                   (group-by '?synset (remove-bad-ili-links ili-query-res))
                    (fn [ms]
                      {:ili (-> ms first (get '?ili) name)}))
                  (update-vals
