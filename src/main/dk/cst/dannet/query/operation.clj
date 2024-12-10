@@ -490,3 +490,28 @@
       ?word ontolex:canonicalForm ?form .
       ?form ontolex:writtenRep ?rep .
     }"))
+
+(def different-pos-synsets
+  (sparql
+    "SELECT *
+     WHERE {
+       ?w1 lexinfo:partOfSpeech ?pos1 ;
+          ontolex:evokes ?synset .
+       ?w2 ontolex:evokes ?synset ;
+           lexinfo:partOfSpeech ?pos2 .
+       FILTER ( ?pos1 != ?pos2 )
+       ?synset rdfs:label ?label .
+     }"))
+
+(def different-pos-hypernyms
+  (sparql
+    "SELECT *
+     WHERE {
+       ?w lexinfo:partOfSpeech lexinfo:adjective ;
+          ontolex:evokes ?synset .
+       ?synset wn:hypernym ?hypernym .
+       ?w2 ontolex:evokes ?hypernym .
+       ?w2 lexinfo:partOfSpeech ?pos .
+       FILTER (?pos != lexinfo:adjective )
+       ?hypernym rdfs:label ?label .
+     }"))

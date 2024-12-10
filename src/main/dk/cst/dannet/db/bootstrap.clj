@@ -460,14 +460,18 @@
 (comment
   (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
                                 prefix/dn-uri)
-                  (op/sparql
-                    "SELECT *
-                      WHERE {
-                        ?synset ?rel ?synset .
-                        FILTER (strstarts(str(?synset), 'https://wordnet.dk/dannet/data/synset-'))
-                      }"))]
-    (for [{:syms [?synset ?rel]} ms]
-      [?synset ?rel ?synset]))
+                  op/different-pos-synsets)]
+    (->> ms
+         (group-by (juxt '?label '?synset))
+         (keys)
+         #_(count)))
+  (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                                prefix/dn-uri)
+                  op/different-pos-hypernyms)]
+    (->> ms
+         (group-by (juxt '?label '?hypernym))
+         (keys)
+         #_(count)))
   #_.)
 
 (h/defn make-release-changes!
