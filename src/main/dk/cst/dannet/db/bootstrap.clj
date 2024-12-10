@@ -440,19 +440,34 @@
       (println "... adding" (count triples-to-add) "updated COR sense links")
       (db/safe-add! g triples-to-add))))
 
+(defn remove-self-references!
+  [dataset]
+  (let [g                 (db/get-graph dataset prefix/dn-uri)
+        model             (db/get-model dataset prefix/dn-uri)
+        ms                (q/run g (op/sparql
+                                     "SELECT *
+                                      WHERE {
+                                        ?synset ?rel ?synset .
+                                        FILTER (strstarts(str(?synset), 'https://wordnet.dk/dannet/data/synset-'))
+                                      }"))
+        triples-to-remove (for [{:syms [?synset ?rel]} ms]
+                            [?synset ?rel ?synset])]
+    (txn/transact-exec model
+      (println "... removing self-referencing synsets:" (count triples-to-remove))
+      (doseq [triple triples-to-remove]
+        (db/remove! model triple)))))
+
 (comment
-  (let [ms (q/run (:graph @dk.cst.dannet.web.resources/db)
+  (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                                prefix/dn-uri)
                   (op/sparql
                     "SELECT *
                       WHERE {
-                        ?sense dns:subsumed ?oldSense .
-                        ?x ?rel ?oldSense .
-                        FILTER (?rel != dns:subsumed)
-                        ?x rdf:type ?type .
+                        ?synset ?rel ?synset .
+                        FILTER (strstarts(str(?synset), 'https://wordnet.dk/dannet/data/synset-'))
                       }"))]
-    (set (map (fn [{:syms [?x ?rel ?oldSense]}]
-                [?x ?rel ?oldSense])
-              ms)))
+    (for [{:syms [?synset ?rel]} ms]
+      [?synset ?rel ?synset]))
   #_.)
 
 (h/defn make-release-changes!
@@ -468,7 +483,9 @@
 
     ;; ==== The block of changes for this particular release. ====
 
-    ;; Replace synsets with duplicate lemmas with new merged senses
+    (remove-self-references! dataset)
+
+    ;; Replace synsets with duplicate lemmas with new merged senses #146
     (merge-senses! dataset)
     (relabel-synsets! dataset)
     (relink-cor! dataset)
