@@ -240,111 +240,6 @@
   (println "Open English Wordnet imported!")
   (add-open-english-wordnet-labels! dataset))
 
-(defn add-supersenses!
-  [dataset]
-  (let [g              (db/get-graph dataset prefix/dn-uri)
-        _              (->> (ss/prepare-rows @ss/rows)
-                            (ss/create-mapping! dataset))
-        triples-to-add (ss/triples-to-add @ss/supersense->synsets)]
-    (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "supersenses")
-      (db/safe-add! g triples-to-add))))
-
-(defn fix-verb-creation-supersenses!
-  [dataset]
-  (let [g                 (db/get-graph dataset prefix/dn-uri)
-        model             (db/get-model dataset prefix/dn-uri)
-        ancestors         (keys ss/ancestor->supersense)
-        ancestor          (fn [{:syms [?synset]}]
-                            (ss/by-ancestors g ancestors ?synset))
-        groupings         (group-by ancestor (ss/by-dn-supersense g "verb.creation"))
-        triples-to-remove (for [{:syms [?synset]} (mapcat second groupings)]
-                            [?synset :dns/supersense '_])
-        triples-to-add    (mapcat (fn [[k ms]]
-                                    (for [{:syms [?synset]} ms]
-                                      [?synset :dns/supersense (ss/ancestor->supersense k)]))
-                                  groupings)]
-    (txn/transact-exec model
-      (println "... removing" (count triples-to-remove) "bad supersenses")
-      (doseq [triple triples-to-remove]
-        (db/remove! model triple)))
-    (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "fixed supersenses")
-      (db/safe-add! g triples-to-add))))
-
-(defn add-remaining-supersenses!
-  [dataset]
-  (let [g              (db/get-graph dataset prefix/dn-uri)
-        triples-to-add (ss/remaining-supersense-triples g)]
-    (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "remaining supersenses")
-      (db/safe-add! g triples-to-add))))
-
-(defn update-oewn-links!
-  [dataset]
-  (let [graph             (db/get-graph dataset prefix/dn-uri)
-        model             (db/get-model dataset prefix/dn-uri)
-        ms                (->> (op/sparql
-                                 "SELECT *
-                                  WHERE {
-                                    VALUES ?p { wn:eq_synonym dns:eqHyponym dns:eqHypernym }
-                                    ?s ?p ?o .
-                                  }")
-                               (q/run graph)
-                               (filter (comp #{"enold"} namespace '?o)))
-        triples-to-remove (for [{:syms [?s ?p ?o]} ms]
-                            [?s ?p ?o])
-        triples-to-add    (for [{:syms [?s ?p ?o]} ms]
-                            [?s ?p (keyword "en" (name ?o))])]
-    (txn/transact-exec model
-      (println "... removing" (count triples-to-remove) "OEWN links")
-      (doseq [triple triples-to-remove]
-        (db/remove! model triple)))
-    (txn/transact-exec graph
-      (println "... adding" (count triples-to-add) "OEWN links")
-      (db/safe-add! graph triples-to-add))))
-
-(defn existing-sentiment
-  [g]
-  (->> '[:bgp
-         [?synset :rdf/type :ontolex/LexicalConcept]
-         [?synset :dns/sentiment _]]
-       (q/run g)
-       (map '?synset)
-       (set)))
-
-(defn connotation-rows
-  []
-  (-> (slurp "bootstrap/dannet/DanNet-2.5.0_csv/synset_attributes.csv")
-      (str/split #"\n")
-      (->> (map #(str/split % #"@"))
-           (filter (comp #{"connotation"} second))
-           (filter (comp #{"negative" "positive"} last))
-           (map (fn [[id _ sentiment]]
-                  [(keyword "dn" (str "synset-" id)) sentiment])))))
-
-(defn ->connotation-sentiment-triples
-  [dataset]
-  (let [model    (.getUnionModel dataset)
-        g        (.getGraph model)
-        existing (existing-sentiment g)]
-    (->> (remove (comp existing first) (connotation-rows))
-         (map (fn [[synset s]]
-                (let [opinion  (symbol (str "_opinion_" (name synset)))
-                      polarity (->> (str/capitalize s)
-                                    (keyword "marl"))]
-                  #{[synset :dns/sentiment opinion]
-                    [opinion :marl/hasPolarity polarity]})))
-         (apply set/union))))
-
-(defn add-connotation-sentiment!
-  [dataset]
-  (let [g              (db/get-graph dataset prefix/dn-uri)
-        triples-to-add (->connotation-sentiment-triples dataset)]
-    (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "connotation sentiment triples")
-      (db/safe-add! g triples-to-add))))
-
 (defn new-reps
   [label]
   (let [clean     (fn [lstr]
@@ -546,7 +441,6 @@
       (db/safe-add! g triples-to-add))))
 
 (comment
-
   (let [ms (q/run (:graph @dk.cst.dannet.web.resources/db)
                   (op/sparql
                     "SELECT *
@@ -559,17 +453,6 @@
     (set (map (fn [{:syms [?x ?rel ?oldSense]}]
                 [?x ?rel ?oldSense])
               ms)))
-
-  (relink-cor! (:dataset @dk.cst.dannet.web.resources/db))
-
-  (count (relabel-synsets! (:dataset @dk.cst.dannet.web.resources/db)))
-  (merge-entities (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
-                                prefix/dn-uri)
-                  #{:dn/sense-21079468 :dn/sense-21079466})
-  ;; Finding 89 words with duplicate sense lemmas
-  (sense-mergers (:dataset @dk.cst.dannet.web.resources/db))
-
-  (merge-senses! (:dataset @dk.cst.dannet.web.resources/db))
   #_.)
 
 (h/defn make-release-changes!
@@ -600,12 +483,6 @@
                         (fn [{:syms [?synset ?supersense]}]
                           [?synset :wn/lexfile ?supersense])
                         '[_ :dns/supersense _])
-
-    #_(update-oewn-links! dataset)
-    #_(add-supersenses! dataset)
-    #_(fix-verb-creation-supersenses! dataset)
-    #_(add-remaining-supersenses! dataset)
-    #_(add-connotation-sentiment! dataset)
 
     (println "Release changes applied!")))
 
@@ -741,31 +618,3 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
-
-(comment
-  (existing-sentiment (:graph @dk.cst.dannet.web.resources/db))
-  (connotation-rows)
-
-  (fix-canonical-reps! (:dataset @dk.cst.dannet.web.resources/db))
-
-  ;; data needed by Bolette
-  (let [g        (:graph @dk.cst.dannet.web.resources/db)
-        existing (existing-sentiment g)
-        rows     (connotation-rows)]
-    (->> (map (fn [[synset sentiment]]
-                (let [label (->> [:bgp
-                                  [synset :rdfs/label '?label]]
-                                 (q/run g)
-                                 (ffirst)
-                                 (second))]
-
-                  [(str label)
-                   (prefix/kw->uri synset)
-                   sentiment
-                   (boolean (existing synset))]))
-              rows)
-         (set)
-         (sort-by first)))
-
-  (->connotation-sentiment-triples (:dataset @dk.cst.dannet.web.resources/db))
-  #_.)
