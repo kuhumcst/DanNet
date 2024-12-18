@@ -242,25 +242,26 @@
 
 (defn run-queries
   "Fetch data from `g` and prepare it for populating the XML file."
-  [g]
-  (let [lexical-entry-res     (label-time
+  [{:keys [dataset graph] :as db}]
+  (let [dannet-graph          (db/get-graph dataset prefix/dn-uri)
+        lexical-entry-res     (label-time
                                 'lexical-entry-res
-                                (q/run g lexical-entry-query))
+                                (q/run dannet-graph lexical-entry-query))
         sense-example-res     (label-time
                                 'sense-example-res
-                                (q/run g sense-example-query))
+                                (q/run dannet-graph sense-example-query))
         ili-query-res         (label-time
                                 'ili-query-res
-                                (q/run g ili-query))
+                                (q/run dannet-graph ili-query))
         definition-query-res  (label-time
                                 'definition-query-res
-                                (q/run g definition-query))
+                                (q/run dannet-graph definition-query))
         supersense-query-res  (label-time
                                 'supersense-query-res
-                                (q/run g supersense-query))
+                                (q/run dannet-graph supersense-query))
         get-relations-res     (label-time
                                 'get-supported-relations
-                                (get-supported-relations g))
+                                (get-supported-relations graph))
 
         entry-synset-grouping (group-by '?synset lexical-entry-res)
         synset-entries        (set (keys entry-synset-grouping))
@@ -318,7 +319,7 @@
   [f]
   (println "Exporting" f)
   (io/make-parents f)
-  (spit f (xml-str (run-queries @dannet-graph))))
+  (spit f (xml-str (run-queries @dk.cst.dannet.web.resources/db))))
 
 ;; Taken from here:
 ;; https://gist.github.com/mikeananev/b2026b712ecb73012e680805c56af45f
@@ -344,7 +345,7 @@
   (println "WN-LMF export of DanNet complete!"))
 
 (comment
-  (xml-str (run-queries @dannet-graph))
+  (xml-str (run-queries @dk.cst.dannet.web.resources/db))
   (time (export-xml! "export/wn-lmf/dannet-wn-lmf.xml"))
   (time (export-wn-lmf! "export/wn-lmf/"))
   #_.)
