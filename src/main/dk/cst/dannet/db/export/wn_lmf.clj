@@ -89,9 +89,40 @@
    :wn/subevent
    :wn/target_direction])
 
-(def dannet-graph
-  (delay (let [dataset (:dataset @dk.cst.dannet.web.resources/db)]
-           (db/get-graph dataset prefix/dn-uri))))
+;; See #146 - caught by WN-LMF validation
+;; W203: redundant lexical entry with the same lemma and synset
+(def excluded-synsets
+  #{:dn/synset-14978
+    :dn/synset-14909
+    :dn/synset-24050
+    :dn/synset-17868
+    :dn/synset-15034
+    :dn/synset-14930
+    :dn/synset-14937
+    :dn/synset-14933
+    :dn/synset-67904
+    :dn/synset-15022
+    :dn/synset-57516
+    :dn/synset-14877
+    :dn/synset-14936
+    :dn/synset-12476
+    :dn/synset-26586
+    :dn/synset-14895
+    :dn/synset-15021
+    :dn/synset-14890
+    :dn/synset-63551
+    :dn/synset-14927
+    :dn/synset-48300
+    :dn/synset-14945
+    :dn/synset-14674
+    :dn/synset-14919
+    :dn/synset-9652
+    :dn/synset-34562
+    :dn/synset-37443})
+
+(defn remove-excluded-synsets
+  [m]
+  (apply dissoc m excluded-synsets))
 
 (defn ->wn-relations-query
   [rel]
@@ -262,14 +293,15 @@
         get-relations-res     (label-time
                                 'get-supported-relations
                                 (get-supported-relations graph))
-
-        entry-synset-grouping (group-by '?synset lexical-entry-res)
+        lexical-entry-res'    (remove (comp excluded-synsets '?synset)
+                                      lexical-entry-res)
+        entry-synset-grouping (group-by '?synset lexical-entry-res')
         synset-entries        (set (keys entry-synset-grouping))
         has-entry             (every-pred
                                 (comp synset-entries '?subject)
                                 (comp synset-entries '?object))
-
-        entry-grouping        (group-by '?lexicalEntry lexical-entry-res)
+        exclude-synsets       (fn [m] (apply dissoc m excluded-synsets))
+        entry-grouping        (group-by '?lexicalEntry lexical-entry-res')
         relations-grouping    (->> get-relations-res
                                    (filter has-entry)
                                    (group-by '?subject))
@@ -277,32 +309,34 @@
                                 (set (keys entry-synset-grouping))
                                 (set (keys relations-grouping)))]
     [entry-grouping
-     (merge
-       relations-grouping
-       ;; also add synsets with no relations emanating from them
-       (zipmap orphan-synsets (repeat nil)))
-     (merge-with merge
-                 (update-vals
-                   entry-synset-grouping
-                   (fn [ms]
-                     {:pos     (-> ms first (get '?pos) pos-str)
-                      :members (sort (set (map (comp name '?sense) ms)))}))
-                 (update-vals
-                   (group-by '?synset sense-example-res)
-                   (fn [ms]
-                     {:examples (sort (set (map (comp str '?example) ms)))}))
-                 (update-vals
-                   (group-by '?synset (remove-bad-ili-links ili-query-res))
-                   (fn [ms]
-                     {:ili (-> ms first (get '?ili) name)}))
-                 (update-vals
-                   (group-by '?synset definition-query-res)
-                   (fn [ms]
-                     {:definition (-> ms first (get '?definition) str)}))
-                 (update-vals
-                   (group-by '?synset supersense-query-res)
-                   (fn [ms]
-                     {:lexfile (-> ms first (get '?supersense))})))]))
+     (exclude-synsets
+       (merge
+         relations-grouping
+         ;; also add synsets with no relations emanating from them
+         (zipmap orphan-synsets (repeat nil))))
+     (exclude-synsets
+       (merge-with merge
+                   (update-vals
+                     entry-synset-grouping
+                     (fn [ms]
+                       {:pos     (-> ms first (get '?pos) pos-str)
+                        :members (sort (set (map (comp name '?sense) ms)))}))
+                   (update-vals
+                     (group-by '?synset sense-example-res)
+                     (fn [ms]
+                       {:examples (sort (set (map (comp str '?example) ms)))}))
+                   (update-vals
+                     (group-by '?synset (remove-bad-ili-links ili-query-res))
+                     (fn [ms]
+                       {:ili (-> ms first (get '?ili) name)}))
+                   (update-vals
+                     (group-by '?synset definition-query-res)
+                     (fn [ms]
+                       {:definition (-> ms first (get '?definition) str)}))
+                   (update-vals
+                     (group-by '?synset supersense-query-res)
+                     (fn [ms]
+                       {:lexfile (-> ms first (get '?supersense))}))))]))
 
 (defn xml-str
   "Create a valid WN-LMF XML string from `query-results`."
