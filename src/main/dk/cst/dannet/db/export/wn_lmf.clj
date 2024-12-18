@@ -12,7 +12,8 @@
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op])
+            [dk.cst.dannet.query.operation :as op]
+            [dk.cst.dannet.shared :as shared])
   (:import [java.util.zip GZIPOutputStream]))
 
 (def supported-wn-relations
@@ -120,15 +121,38 @@
     :dn/synset-34562
     :dn/synset-37443})
 
-(defn remove-excluded-synsets
+;; #146 - some 500 cases left out, should really be fixed manually (eventually)
+(def excluded-hypernymy
+  (delay
+    (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+                                  prefix/dn-uri)
+                    op/cross-pos-hypernymy)]
+      (->> ms
+           (map (fn [{:syms [?synset ?hypernym]}]
+                  {?synset (shared/setify ?hypernym)}))
+           (apply merge-with set/union)))))
+
+(defn map-invert-multi
+  "Like 'map-invert', but supports flipping maps where the value is a set."
   [m]
-  (apply dissoc m excluded-synsets))
+  (reduce (fn [m' [k vs]]
+            (->> (for [v vs]
+                   [v #{k}])
+                 (into {})
+                 (merge-with set/union m')))
+          {}
+          m))
+
+(def excluded-hyponymy
+  (delay
+    (map-invert-multi @excluded-hypernymy)))
 
 (defn ->wn-relations-query
   [rel]
   (op/sparql
     "SELECT ?subject ?object
      WHERE {
+       FILTER(STRSTARTS(str(?subject), str(dn:))) .
        ?subject " (prefix/kw->qname rel) " ?object .
      }"))
 
@@ -303,6 +327,11 @@
         exclude-synsets       (fn [m] (apply dissoc m excluded-synsets))
         entry-grouping        (group-by '?lexicalEntry lexical-entry-res')
         relations-grouping    (->> get-relations-res
+                                   (remove (fn [{:syms [?rel ?subject ?object]}]
+                                             (or (and (= ?rel :wn/hypernym)
+                                                      (get (get @excluded-hypernymy ?subject) ?object))
+                                                 (and (= ?rel :wn/hyponym)
+                                                      (get (get @excluded-hyponymy ?subject) ?object)))))
                                    (filter has-entry)
                                    (group-by '?subject))
         orphan-synsets        (set/difference
@@ -379,6 +408,8 @@
   (println "WN-LMF export of DanNet complete!"))
 
 (comment
+  (get @excluded-hypernymy :dn/synset-30829)
+  @excluded-hyponymy
   (xml-str (run-queries @dk.cst.dannet.web.resources/db))
   (time (export-xml! "export/wn-lmf/dannet-wn-lmf.xml"))
   (time (export-wn-lmf! "export/wn-lmf/"))

@@ -123,20 +123,27 @@
 
 (defn update-triples!
   "Update triples in named model `uri` of `dataset` by mapping `f` to `query`
-  result maps producing new triples. Optionally, supply one or more
-  `triples-to-remove` which may be generic triple patterns."
+  result maps producing new triples.
+
+  Optionally, supply one or more `triples-to-remove` which may either be generic
+  triple patterns -OR- if only a one `removal` is supplied it may serve as an fn
+  applied to the result maps (like `f`) producing removal triples instead."
   [uri dataset query f & [removal :as triples-to-remove]]
-  (let [g              (get-graph dataset uri)
-        model          (get-model dataset uri)
-        ms             (q/run g query)
-        triples-to-add (remove nil? (map f ms))]
-    (when (not (empty? triples-to-remove))
+  (let [g                  (get-graph dataset uri)
+        model              (get-model dataset uri)
+        ms                 (set (q/run g query))
+        triples-to-add     (remove nil? (map f ms))
+        triples-to-remove' (if (fn? removal)
+                             (remove nil? (map removal ms))
+                             triples-to-remove)]
+    (when (not (empty? triples-to-remove'))
       (txn/transact-exec model
         (println "... removing triples:"
-                 (if (second triples-to-remove)
-                   (str removal "... (" (count triples-to-remove) ")")
-                   removal))
-        (doseq [triple triples-to-remove]
+                 (if (second triples-to-remove')
+                   (str (first triples-to-remove')
+                        "... (" (count triples-to-remove') ")")
+                   triples-to-remove'))
+        (doseq [triple triples-to-remove']
           (remove! model triple))))
     (txn/transact-exec g
       (println "... adding" (count triples-to-add) "updated triples"

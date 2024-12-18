@@ -503,15 +503,38 @@
        ?synset rdfs:label ?label .
      }"))
 
-(def different-pos-hypernyms
+(def adj-cross-pos-hypernymy
   (sparql
-    "SELECT *
+    "SELECT ?synset ?hypernym
      WHERE {
-       ?w lexinfo:partOfSpeech lexinfo:adjective ;
-          ontolex:evokes ?synset .
+       ?w1 lexinfo:partOfSpeech lexinfo:adjective ;
+           ontolex:evokes ?synset .
        ?synset wn:hypernym ?hypernym .
        ?w2 ontolex:evokes ?hypernym .
        ?w2 lexinfo:partOfSpeech ?pos .
        FILTER (?pos != lexinfo:adjective )
-       ?hypernym rdfs:label ?label .
+
+       # make sure we don't include synsets whose words have multiple PoS
+       FILTER NOT EXISTS {
+         ?w3 ontolex:evokes ?synset .
+         FILTER (?w3 != ?w1) .
+         ?w3 lexinfo:partOfSpeech ?w3pos .
+         FILTER (?w3pos != lexinfo:adjective ) .
+       }
+     }"))
+
+(def cross-pos-hypernymy
+  (sparql
+    "SELECT ?synset ?hypernym
+     WHERE {
+       ?w1 lexinfo:partOfSpeech ?pos1 ;
+           ontolex:evokes ?synset .
+       ?synset wn:hypernym ?hypernym .
+
+       # abstract top-level categories
+       #FILTER (?hypernym NOT IN (dn:synset-42970, dn:synset-42971, dn:synset-3290))
+
+       ?w2 ontolex:evokes ?hypernym .
+       ?w2 lexinfo:partOfSpeech ?pos2 .
+       FILTER (?pos1 != ?pos2 )
      }"))

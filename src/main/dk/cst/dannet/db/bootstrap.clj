@@ -458,20 +458,25 @@
         (db/remove! model triple)))))
 
 (comment
+  (let [ms                (-> (:dataset @dk.cst.dannet.web.resources/db)
+                              (db/get-graph prefix/dn-uri)
+                              (q/run op/adj-cross-pos-hypernymy)
+                              (set))
+        triples-to-remove (for [{:syms [?synset ?hypernym]} ms]
+                            [?synset :wn/hypernym ?hypernym])
+        triples-to-add    (for [{:syms [?synset ?hypernym]} ms]
+                            [?synset :dn/crossPoSHypernym ?hypernym])]
+    (count triples-to-remove))
+
   (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
                                 prefix/dn-uri)
-                  op/different-pos-synsets)]
+                  op/cross-pos-hypernymy)]
     (->> ms
-         (group-by (juxt '?label '?synset))
-         (keys)
+         #_(remove (comp #{:lexinfo/adjective} '?pos1))
+         (set)
+         (take 10)
          #_(count)))
-  (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
-                                prefix/dn-uri)
-                  op/different-pos-hypernyms)]
-    (->> ms
-         (group-by (juxt '?label '?hypernym))
-         (keys)
-         #_(count)))
+
   #_.)
 
 (h/defn make-release-changes!
@@ -504,6 +509,14 @@
                         (fn [{:syms [?synset ?supersense]}]
                           [?synset :wn/lexfile ?supersense])
                         '[_ :dns/supersense _])
+
+    ;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
+    (db/update-triples! prefix/dn-uri dataset
+                        op/adj-cross-pos-hypernymy
+                        (fn [{:syms [?synset ?hypernym]}]
+                          [?synset :dn/crossPoSHypernym ?hypernym])
+                        (fn [{:syms [?synset ?hypernym]}]
+                          [?synset :wn/hypernym ?hypernym]))
 
     (println "Release changes applied!")))
 
