@@ -514,7 +514,7 @@
     (db/update-triples! prefix/dn-uri dataset
                         op/adj-cross-pos-hypernymy
                         (fn [{:syms [?synset ?hypernym]}]
-                          [?synset :dn/crossPoSHypernym ?hypernym])
+                          [?synset :dns/crossPoSHypernym ?hypernym])
                         (fn [{:syms [?synset ?hypernym]}]
                           [?synset :wn/hypernym ?hypernym]))
 

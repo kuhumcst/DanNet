@@ -133,8 +133,8 @@
 :usedFor a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "A lexical concept which the subject concept may be used for; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:comment "A lexical concept which the subject concept may be used for; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "used for"@en ;
   rdfs:label "bruges til"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
@@ -142,8 +142,8 @@
 :usedForObject a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "TODO; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:comment "TODO; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:comment "TODO; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "TODO; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "used for object"@en ;
   rdfs:label "bruges til objekt"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
@@ -151,8 +151,8 @@
 :nearAntonym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "A lexical concept which is a near antonym of the subject concept; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:comment "Et leksikalsk begreb som er et nær-antonym af subjekt-begrebet; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:comment "A lexical concept which is a near antonym of the subject concept; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "Et leksikalsk begreb som er et nær-antonym af subjekt-begrebet; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "near antonym"@en ;
   rdfs:label "nær-antonym"@da ;
   owl:inverseOf :nearAntonym ;
@@ -161,8 +161,8 @@
 :orthogonalHypernym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "orthogonal hypernym"@en ;
   rdfs:label "ortogonalt hyperonym"@da ;
   owl:inverseOf :orthogonalHyponym ;
@@ -171,8 +171,8 @@
 :orthogonalHyponym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@en ;
-  rdfs:comment "Hyponymer der er ortogonale i taxonomien; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>"@da ;
+  rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "Hyponymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "orthogonal hyponym"@en ;
   rdfs:label "ortogonalt hyponym"@da ;
   owl:inverseOf :orthogonalHypernym ;
@@ -198,16 +198,16 @@
   rdfs:subClassOf :OntologicalConcept ;
   rdfs:label "DanNet concept"@en ;
   rdfs:label "DanNet-koncept"@da ;
-  rdfs:comment "An ontological concept created specifically for DanNet extending the concepts from EuroWordNet; see<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@en ;
-  rdfs:comment "Et ontologisk koncept skabt specifikt til DanNet, som udvider konceptsættet fra EuroWordNet; se<https://wordnet.dk/dannet/schema> .https://cst.ku.dk/projekter/dannet/#heading-1612789460891>."@da ;
+  rdfs:comment "An ontological concept created specifically for DanNet extending the concepts from EuroWordNet; see <https://cst.ku.dk/projekter/dannet>."@en ;
+  rdfs:comment "Et ontologisk koncept skabt specifikt til DanNet, som udvider konceptsættet fra EuroWordNet; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :EuroWordNetConcept a owl:Class ;
   rdfs:subClassOf :OntologicalConcept ;
   rdfs:label "EuroWordNet concept"@en ;
   rdfs:label "EuroWordNet-koncept"@da ;
-  rdfs:comment "An ontological concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see<https://wordnet.dk/dannet/schema> .https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
-  rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se<https://wordnet.dk/dannet/schema> .https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da ;
+  rdfs:comment "An ontological concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
+  rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :source a owl:ObjectProperty ;
@@ -228,4 +228,24 @@
   rdfs:comment "Ressourcer fra en tidligere udgave af DanNet, som er blevet indlemmet i denne ressource."@da ;
   rdfs:label "subsumed"@en ;
   rdfs:label "indlemmet"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:crossPoSHypernym a wn:SynsetRelType ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "Hypernym-like relation that crosses a part-of-speech boundary."@en ;
+  rdfs:comment "Hyperonym-agtig relation der skifter over i en anden ordklasse."@da ;
+  rdfs:label "cross-PoS hypernym"@en ;
+  rdfs:label "ordklasseskift-hyperonym"@da ;
+  owl:inverseOf :crossPoSHyponym ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:crossPoSHyponym a wn:SynsetRelType ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "Hyponym-like relation that crosses a part-of-speech boundary."@en ;
+  rdfs:comment "Hyponym-agtig relation der skifter over i en anden ordklasse."@da ;
+  rdfs:label "cross-PoS hyponym"@en ;
+  rdfs:label "ordklasseskift-hyponym"@da ;
+  owl:inverseOf :crossPoSHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

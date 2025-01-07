@@ -1,6 +1,21 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Forbedret validitet af WN-LMF
+* WN-LMF-eksporten valideres nu korrekt i henhold til outputtet fra `wn` kommandolinjeprogrammet.
+  * De fundne problemer og eliminationsprocessen er dokumenteret i [Github issue #146](https://github.com/kuhumcst/DanNet/issues/146).
+* Dublerede betydninger er blevet flettet. Deres synsets er blevet ommærket og relinket til COR.
+* Dublerede former er blevet fjernet.
+* Synset-selvreferencer er blevet fjernet.
+* For adjektiver, hvor `wn:hypernym`-relationen krydser ordklassegrænser, er denne relation blevet erstattet med den specialdesignede `dns:crossPoSHypernym`, som kan bruges til at skabe noget, der minder om hypernymiske relationer på tværs af forskellige ordklasser.
+  * BEMÆRK: Andre cross-PoS-hyperonymer er *ikke* blevet ændret i denne udgivelse, men de er udelukket fra WN-LMF-formatet indtil videre, da disse relationer teknisk set er ugyldige, når de er markeret som `wn:hypernym`.
+* Dublerede ILI-links er blevet udelukket fra WN-LMF-formatet.
+  * 1194 synsets i DanNet er linket til de samme ressourcer i `CILI`, hvilket ikke er en gyldig brug af relationen `wn:ili`!
+* Afledte `wn:hyponym`-links er nu *inkluderet* i WN-LMF-formatet.
+* `dns:supersense` er nu `wn:lexfile`, den tilsvarende relation i GWA-skemaet.
+  * Den engelske WordNet brugte faktisk ikke denne relation tidligere, men vil nu gøre det i fremtidige udgivelser (efter vores forespørgsel).
+* Forskellige mindre manuelle udelukkelser af synsets i WN-LMF-formatet for at opfylde valideringskrav.
+
 ## **2024-08-09**: Supersenses + OEWN-opdatering
 * Tilføjede 71055 Supersenses til DanNet, primært baseret på en mapping skabt til SemDaX-korporaet.
   * Omkring 300 af disse er "rettet" efter hypernym til forskel fra mappingen.
