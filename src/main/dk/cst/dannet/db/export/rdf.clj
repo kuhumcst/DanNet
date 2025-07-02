@@ -6,6 +6,7 @@
             [arachne.aristotle.registry :as registry]
             [clojure.walk :as walk]
             [donatello.ttl :as ttl]
+            [quoll.rdf :refer [print-escape]]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
@@ -114,9 +115,15 @@
                 prefix/schemas)))
 
 ;; Donatello compatibility with Aristotle blank nodes and ont-app LangStrings.
-(defmethod ttl/serialize Symbol [x] (str "_:" (subs (str x) 1)))
-(defmethod ttl/serialize LangStr [x] (str \" (ttl/escape (str x)) "\"@" (lstr/lang x)))
-(defmethod ttl/serialize XSDDateTime [x] (str "\"" x "\"^^xsd:dateTime"))
+(extend-protocol ttl/Serializable
+  Symbol
+  (serialize [x] (str "_:" (subs (str x) 1)))
+
+  LangStr
+  (serialize[x] (str \" (print-escape (str x)) "\"@" (lstr/lang x)))
+
+  XSDDateTime
+  (serialize [x] (str "\"" x "\"^^xsd:dateTime")))
 
 (defn donatello-prefixes
   "Prepare prefixes in `entity` for Donatello TTL output."
