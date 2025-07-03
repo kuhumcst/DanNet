@@ -89,10 +89,10 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def bootstrap-base-release
-  "2024-08-09")
+  "2025-07-03")
 
 (def new-release
-  (str "2024-08-09" "-SNAPSHOT"))
+  (str "2025-07-03" "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -486,37 +486,37 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release "2024-08-09-SNAPSHOT"]
+  (let [expected-release (str "2025-07-03-SNAPSHOT")]
     (assert (= new-release expected-release))               ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; ==== The block of changes for this particular release. ====
 
-    (remove-self-references! dataset)
-
-    ;; Replace synsets with duplicate lemmas with new merged senses #146
-    (merge-senses! dataset)
-    (relabel-synsets! dataset)
-    (relink-cor! dataset)
-
-    ;; Remove duplicate canonical forms, add other forms instead #148
-    (fix-canonical-reps! dataset)
-
-    ;; Rename dns:supersense -> wn:lexfile #146
-    (db/update-triples! prefix/dn-uri dataset
-                        '[:bgp
-                          [?synset :dns/supersense ?supersense]]
-                        (fn [{:syms [?synset ?supersense]}]
-                          [?synset :wn/lexfile ?supersense])
-                        '[_ :dns/supersense _])
-
-    ;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
-    (db/update-triples! prefix/dn-uri dataset
-                        op/adj-cross-pos-hypernymy
-                        (fn [{:syms [?synset ?hypernym]}]
-                          [?synset :dns/crossPoSHypernym ?hypernym])
-                        (fn [{:syms [?synset ?hypernym]}]
-                          [?synset :wn/hypernym ?hypernym]))
+    ;(remove-self-references! dataset)
+    ;
+    ;;; Replace synsets with duplicate lemmas with new merged senses #146
+    ;(merge-senses! dataset)
+    ;(relabel-synsets! dataset)
+    ;(relink-cor! dataset)
+    ;
+    ;;; Remove duplicate canonical forms, add other forms instead #148
+    ;(fix-canonical-reps! dataset)
+    ;
+    ;;; Rename dns:supersense -> wn:lexfile #146
+    ;(db/update-triples! prefix/dn-uri dataset
+    ;                    '[:bgp
+    ;                      [?synset :dns/supersense ?supersense]]
+    ;                    (fn [{:syms [?synset ?supersense]}]
+    ;                      [?synset :wn/lexfile ?supersense])
+    ;                    '[_ :dns/supersense _])
+    ;
+    ;;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
+    ;(db/update-triples! prefix/dn-uri dataset
+    ;                    op/adj-cross-pos-hypernymy
+    ;                    (fn [{:syms [?synset ?hypernym]}]
+    ;                      [?synset :dns/crossPoSHypernym ?hypernym])
+    ;                    (fn [{:syms [?synset ?hypernym]}]
+    ;                      [?synset :wn/hypernym ?hypernym]))
 
     (println "Release changes applied!")))
 
