@@ -1,15 +1,14 @@
-FROM golang:1.21.6-bookworm as build
+FROM golang:1.24-bookworm AS build
 
 WORKDIR /etc/caddy
 
-# TODO: use fixed versions of these packages
 # Install xcaddy and compile a custom build of Caddy w/ rate limiting
-RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.4
 RUN xcaddy build --with github.com/RussellLuo/caddy-ext/ratelimit
 
 
 
-FROM ubuntu:focal-20231211
+FROM ubuntu:noble
 
 RUN apt-get clean && \
     apt-get update && \
