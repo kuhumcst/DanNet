@@ -1,7 +1,7 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Improved validity of WN-LMF
+## **2025-07-03**: Improved validity of WN-LMF
 * The WN-LMF export now passes validation as per the output of the `wn` command line program.
   * The issues found and the process of elimination has been documented in [Github issue #146](https://github.com/kuhumcst/DanNet/issues/146).
 * Duplicate senses have been merged. Their synsets have been relabeled and relinked to COR.
@@ -15,6 +15,7 @@ The newer DanNet releases use the release date as the version number, formatted 
 * `dns:supersense` is now `wn:lexfile`, the equivalent relation in the GWA schema.
   * The English WordNet actually didn't use this relation itself, but will now do so in future releases (per our request).
 * Various smaller manual synset exclusions in the WN-LMF format to satisfy validation requirements.
+* Synset indegrees have been recalculated.
 
 ## **2024-08-09**: Supersenses + OEWN update
 * Added 71055 Supersenses to DanNet, mostly based on a mapping devised for the SemDaX corpora.
