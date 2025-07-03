@@ -1,4 +1,4 @@
-FROM ubuntu:jammy-20221101
+FROM ubuntu:jammy
 
 RUN apt-get clean && \
     apt-get update && \
@@ -7,7 +7,7 @@ RUN apt-get clean && \
     git \
     npm \
     tree \
-    openjdk-17-jdk \
+    openjdk-21-jdk \
     curl \
     rlwrap \
     locales
@@ -20,10 +20,10 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 # The recommended way of installing Clojure CLI tools
-# https://clojure.org/guides/getting_started#_installation_on_linux
-RUN curl -O https://download.clojure.org/install/linux-install-1.11.1.1139.sh
-RUN chmod +x linux-install-1.11.1.1139.sh
-RUN ./linux-install-1.11.1.1139.sh
+# https://clojure.org/guides/install_clojure#_linux_instructions
+RUN curl -L -O https://github.com/clojure/brew-install/releases/download/1.12.1.1550/linux-install.sh
+RUN chmod +x linux-install.sh
+RUN ./linux-install.sh
 
 WORKDIR /etc/dannet
 
