@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:noble
 
 RUN apt-get clean && \
     apt-get update && \
