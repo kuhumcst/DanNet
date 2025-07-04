@@ -4,7 +4,20 @@
 
 Compatibility
 -------------
-Special care has been taken to maximise the compatibility of this iteration of DanNet. Like the DanNet of yore, the base dataset is published as both RDF (Turtle) and CSV. RDF is the native representation and can be loaded as-is inside a suitable RDF graph database, e.g. Apache Jena. The CSV files are now published along with column metadata as [CSVW](https://csvw.org/).
+Special care has been taken to maximise the compatibility of this iteration of DanNet.
+
+- RDF (Turtle) is the native representation and can be loaded as-is inside a suitable RDF graph database, e.g. Apache Jena, and queried using [SPARQL](https://en.wikipedia.org/wiki/SPARQL).
+- The CSV files are now published along with column metadata as [CSVW](https://csvw.org/).
+- There is also a [WN-LMF](https://globalwordnet.github.io/schemas/#xml) version which can be loaded and queried e.g. using Python libraries such as [https://github.com/goodmami/wn](wn):
+
+```python
+import wn
+
+wn.add("dannet-wn-lmf.xml.gz")
+
+for synset in wn.synsets('kage'):
+    print((synset.lexfile() or "?") + ": " + (synset.definition() or "?"))
+```
 
 ### Companion datasets
 Apart from the base DanNet dataset, several **companion datasets** exist expanding the graph with additional data. The companion datasets collectively provide a broader view of the data with both implicit and explicit links to other data:
@@ -15,30 +28,19 @@ Apart from the base DanNet dataset, several **companion datasets** exist expandi
 
 The current version of the datasets can be downloaded on wordnet.dk/dannet. All of the releases from 2023 and onwards are [available as releases on this project page](https://github.com/kuhumcst/DanNet/releases).
 
-### Inferred data
-Additional data is also implicitly inferred from the base dataset, the aforementioned companion datasets, and any associated ontological metadata. These inferred data points can be browsed along with the rest of the data on the [official DanNet website](https://wordnet.dk/dannet).
-
-Inferring data so can be both computationally expensive and mentally taxing for the consumer of the data, so we do not always publish the fully inferred graph in a DanNet release; when we do, those release will be specifically marked as containing this extra data.
-
 ### Standards-based
-The old DanNet was modelled as tables inside a relational database. Two serialised representations also exist: [RDF/XML 1.0](https://www.w3.org/TR/2004/REC-rdf-syntax-grammar-20040210/) and a custom CSV format. The latter served as input for the new data model, remapping the relations described in these files onto a modern WordNet based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) standard combined with various [relations](https://globalwordnet.github.io/gwadoc/) defined by the Global Wordnet Association as used in the official [GWA RDF standard](https://globalwordnet.github.io/schemas/#rdf).
+DanNet is based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) standard combined with various [relations](https://globalwordnet.github.io/gwadoc/) defined by the Global Wordnet Association as used in the official [GWA RDF standard](https://globalwordnet.github.io/schemas/#rdf).
 
 In Ontolex-lemon...
 
-* Synsets are analogous to `ontolex:LexicalConcept`.
-* Word senses are analogous to `ontolex:LexicalSense`.
-* Words are analogous to `ontolex:LexicalEntry`.
-* Forms are analogous to `ontolex:Form`.
+* Synsets are represented by `ontolex:LexicalConcept`.
+* Word senses are represented by `ontolex:LexicalSense`.
+* Words are represented by`ontolex:LexicalEntry`.
+* Forms are represented by `ontolex:Form`.
 
 ![alt text](doc/ontolex.png "The Ontolex-lemon representation of a WordNet")
 
-By building DanNet according to these standards we maximise its ability to integrate with other lexical resources, in particular with other WordNets.
-
-Significant changes
--------------------
-
-### New schema, prefixes, URIs
-DanNet uses a new schema, [available in this repository](resources/schemas/internal/dannet-schema.ttl) and also at https://wordnet.dk/dannet/schema. 
+DanNet also has a few proprietary relations which defined in the official [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) in an Ontolex-compatible way. There is also a schema for [translations](/resources/schemas/internal/dannet-translations.ttl)) and a schema for [EuroWordNet concepts](/resources/schemas/internal/dannet-concepts.ttl). Just like the DanNet RDF dataset itself, the DanNet schemas are also written in Turtle. The new DanNet schema is also written in accordance with the [RDF conventions](http://www-sop.inria.fr/acacia/personnel/phmartin/RDF/conventions.html#reversingRelations) listed by Philippe Martin.
 
 DanNet uses the following URI prefixes for the dataset instances, concepts (members of a `dns:ontologicalType`) and the schema itself:
 
@@ -46,13 +48,14 @@ DanNet uses the following URI prefixes for the dataset instances, concepts (memb
 * `dnc` -> [https://wordnet.dk/dannet/concepts/](https://wordnet.dk/dannet/concepts)
 * `dns` -> [https://wordnet.dk/dannet/schema/](https://wordnet.dk/dannet/schema)
 
-> NOTE: these new prefixes/URIs take over from the ones used for DanNet 2.2 (the last version before the 2023 re-release):
-> * `dn` -> http://www.wordnet.dk/owl/instance/2009/03/instances/
-> * `dn_schema` -> http://www.wordnet.dk/owl/instance/2009/03/schema/
+All DanNet URIs resolve to HTTP resources, which is to say that accessing a resource with a GET request (e.g. through a web browser) returns data for the resource (or schema) in question.
 
-All the new URIs resolve to HTTP resources, which is to say that accessing a resource with a GET request (e.g. through a web browser) returns data for the resource (or schema) in question.
+By building DanNet according to these standards we maximise its ability to integrate with other lexical resources, in particular with other WordNets.
 
-Finally, the new DanNet schema is written in accordance with the [RDF conventions](http://www-sop.inria.fr/acacia/personnel/phmartin/RDF/conventions.html#reversingRelations) listed by Philippe Martin.
+### Inferred data
+Additional data is also implicitly inferred from the base dataset, the aforementioned companion datasets, and any associated ontological metadata. These inferred data points can be browsed along with the rest of the data on the [official DanNet website](https://wordnet.dk/dannet).
+
+Inferring data so can be both computationally expensive and mentally taxing for the consumer of the data, so we do not always publish the fully inferred graph in a DanNet release; when we do, those release will be specifically marked as containing this extra data.
 
 Implementation
 --------------
@@ -80,9 +83,6 @@ Language negotiation is used to select the most suitable RDF data when multiple 
 
 Bootstrap
 ---------
-### Initial bootstrap
-The initial dataset was [bootstrapped from the old DanNet 2.2 CSV files](src/main/dk/cst/dannet/old/bootstrap.clj) (technically: a slightly more recent, unpublished version) as well as several other input sources, e.g. the list of new adjectives produced by CST and DSL. This old CSV export mirrors the SQL tables of the old DanNet database.
-
 ### Current releases
 New releases of DanNet are now bootstrapped from the RDF export of the [immediately preceding release](https://github.com/kuhumcst/DanNet/releases).
 
@@ -202,12 +202,6 @@ npm init -y
 npm install react@17 react-dom@17 create-react-class@17
 ```
 
-Querying DanNet
----------------
-The easiest way to query DanNet currently is by compiling and running the Clojure code, then navigating to the `dk.cst.dannet.db` namespace in the Clojure REPL. From there, you can use a variety of query methods as described in [queries.md](pages/queries-en.md).
-
-For simple lemma searches, you can of course visit the official instance at wordnet.dk/dannet.
-
 Validating DanNet
 -----------------
 > NOTE: this only validates the WN-LMF file, not the core RDF dataset!
@@ -227,4 +221,3 @@ python -m wn validate --output-file examples/wn-lmf-validation.json export/wn-lm
 This will create a map of validation errors with lists of the offending entities.
 
 > NOTE: subsequent runs must also first execute `source examples/venv/bin/activate` in the terminal window before validation can commence.
-

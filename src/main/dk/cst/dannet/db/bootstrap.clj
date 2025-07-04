@@ -10,7 +10,6 @@
             [clj-file-zip.core :as zip]
             [dk.cst.dannet.shared :as shared]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.db.bootstrap.supersenses :as ss]
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
@@ -89,10 +88,10 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def bootstrap-base-release
-  "2025-07-03")
+  "2024-08-09")
 
 (def new-release
-  (str "2025-07-03" "-SNAPSHOT"))
+  (str "2025-07-03" #_"-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to boostrap from."
@@ -229,7 +228,7 @@
   "Add the Open English WordNet to a Jena `dataset`."
   [dataset]
   (println "Importing Open English Wordnet...")
-  (let [oewn-file     "bootstrap/other/english/english-wordnet-2023.ttl"
+  (let [oewn-file     "bootstrap/other/english/english-wordnet-2024.ttl"
         oewn-changefn (fn [temp-model]
                         (println "... removing problematic entries")
                         (db/remove! temp-model [prefix/oewn-uri :lime/entry '_]))
@@ -486,37 +485,37 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release (str "2025-07-03-SNAPSHOT")]
+  (let [expected-release (str "2025-07-03")]
     (assert (= new-release expected-release))               ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; ==== The block of changes for this particular release. ====
 
-    ;(remove-self-references! dataset)
-    ;
-    ;;; Replace synsets with duplicate lemmas with new merged senses #146
-    ;(merge-senses! dataset)
-    ;(relabel-synsets! dataset)
-    ;(relink-cor! dataset)
-    ;
-    ;;; Remove duplicate canonical forms, add other forms instead #148
-    ;(fix-canonical-reps! dataset)
-    ;
-    ;;; Rename dns:supersense -> wn:lexfile #146
-    ;(db/update-triples! prefix/dn-uri dataset
-    ;                    '[:bgp
-    ;                      [?synset :dns/supersense ?supersense]]
-    ;                    (fn [{:syms [?synset ?supersense]}]
-    ;                      [?synset :wn/lexfile ?supersense])
-    ;                    '[_ :dns/supersense _])
-    ;
-    ;;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
-    ;(db/update-triples! prefix/dn-uri dataset
-    ;                    op/adj-cross-pos-hypernymy
-    ;                    (fn [{:syms [?synset ?hypernym]}]
-    ;                      [?synset :dns/crossPoSHypernym ?hypernym])
-    ;                    (fn [{:syms [?synset ?hypernym]}]
-    ;                      [?synset :wn/hypernym ?hypernym]))
+    (remove-self-references! dataset)
+
+    ;; Replace synsets with duplicate lemmas with new merged senses #146
+    (merge-senses! dataset)
+    (relabel-synsets! dataset)
+    (relink-cor! dataset)
+
+    ;; Remove duplicate canonical forms, add other forms instead #148
+    (fix-canonical-reps! dataset)
+
+    ;; Rename dns:supersense -> wn:lexfile #146
+    (db/update-triples! prefix/dn-uri dataset
+                        '[:bgp
+                          [?synset :dns/supersense ?supersense]]
+                        (fn [{:syms [?synset ?supersense]}]
+                          [?synset :wn/lexfile ?supersense])
+                        '[_ :dns/supersense _])
+
+    ;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
+    (db/update-triples! prefix/dn-uri dataset
+                        op/adj-cross-pos-hypernymy
+                        (fn [{:syms [?synset ?hypernym]}]
+                          [?synset :dns/crossPoSHypernym ?hypernym])
+                        (fn [{:syms [?synset ?hypernym]}]
+                          [?synset :wn/hypernym ?hypernym]))
 
     (println "Release changes applied!")))
 

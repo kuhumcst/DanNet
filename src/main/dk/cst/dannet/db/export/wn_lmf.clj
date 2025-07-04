@@ -197,7 +197,7 @@
   (op/sparql
     "SELECT ?synset ?supersense
      WHERE {
-       ?synset dns:supersense ?supersense .
+       ?synset wn:lexfile ?supersense .
      }"))
 
 (def pos-str

@@ -15,6 +15,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret s
 * `dns:supersense` er nu `wn:lexfile`, den tilsvarende relation i GWA-skemaet.
   * Den engelske WordNet brugte faktisk ikke denne relation tidligere, men vil nu gøre det i fremtidige udgivelser (efter vores forespørgsel).
 * Forskellige mindre manuelle udelukkelser af synsets i WN-LMF-formatet for at opfylde valideringskrav.
+* OEWN-mærkaterne er nu skabt på baggrund af 2024-versionen af Open English WordNet.
 * Synset indegrees er blevet genberegnet.
 
 ## **2024-08-09**: Supersenses + OEWN-opdatering

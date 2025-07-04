@@ -1012,7 +1012,7 @@
             :title "DanNet-metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "da"}
-       "© 2023, "
+       "© 2023–2025, "
        [:a {:href "https://cst.ku.dk"}
         "Center for Sprogteknologi"]
        " (" [:abbr {:title "Københavns Universitet"}
@@ -1039,7 +1039,7 @@
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "en"}
-       "© 2023, "
+       "© 2023–2025, "
        [:a {:href "https://cst.ku.dk/english"}
         "Centre for Language Technology"]
        " (" [:abbr {:title "University of Copenhagen"}
