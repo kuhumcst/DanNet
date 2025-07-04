@@ -2,13 +2,16 @@
 
 [DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. The goal of this project is to represent DanNet in full using [RDF](https://www.w3.org/RDF/) as its native representation at both the database level, in the application space, and as its primary serialisation format.
 
+- The full version of DanNet can always be browsed at [wordnet.dk](https://wordnet.dk); the official DanNet web app. The current release of the datasets can be found there too.
+- In addition, the current datasets along with all releases since 2023 are available on the [releases page of this repository](https://github.com/kuhumcst/DanNet/releases).
+
 Compatibility
 -------------
-Special care has been taken to maximise the compatibility of this iteration of DanNet.
+Special care has been taken to maximise the compatibility of this iteration of DanNet, including multiple variants of the core DanNet dataset:
 
-- RDF (Turtle) is the native representation and can be loaded as-is inside a suitable RDF graph database, e.g. Apache Jena, and queried using [SPARQL](https://en.wikipedia.org/wiki/SPARQL).
-- The CSV files are now published along with column metadata as [CSVW](https://csvw.org/).
-- There is also a [WN-LMF](https://globalwordnet.github.io/schemas/#xml) version which can be loaded and queried e.g. using Python libraries such as [https://github.com/goodmami/wn](wn):
+- RDF (Turtle) is the native representation of DanNet and can be loaded as-is inside a suitable RDF graph database, e.g. Apache Jena, and queried using [SPARQL](https://en.wikipedia.org/wiki/SPARQL).
+- The CSV variant is published together with column metadata as [CSVW](https://csvw.org/).
+- There is also a [WN-LMF](https://globalwordnet.github.io/schemas/#xml) variant which can be loaded and queried e.g. using Python libraries such as the NLTK-derived [wn](https://github.com/goodmami/wn):
 
 ```python
 import wn
@@ -19,14 +22,17 @@ for synset in wn.synsets('kage'):
     print((synset.lexfile() or "?") + ": " + (synset.definition() or "?"))
 ```
 
+### Differences between dataset variants
+While every dataset variant includes every synset/sense/word, the CSV and WN-LMF variants do *not* include every single data point. In the case of CSV, this is a question of reduced ergonomics when converting from an open graph to fixed tables, while in the case of WN-LMF only the official GWA relations are allowed as per the standard (i.e. the proprietary DanNet relations described in the [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) are not included).
+
+To access the full and comprehensive version of DanNet, you can either load the RDF dataset in an RDF database as a graph _or_ access this graph via your browser at [wordnet.dk](https://wordnet.dk).
+
 ### Companion datasets
-Apart from the base DanNet dataset, several **companion datasets** exist expanding the graph with additional data. The companion datasets collectively provide a broader view of the data with both implicit and explicit links to other data:
+Apart from the base DanNet dataset, several **companion datasets** exist for the RDF variant expanding the graph with additional data. These companion datasets collectively provide a broader view of the data with both implicit and explicit links to other data:
 
 * The **COR** companion dataset links DanNet resources to IDs from the COR project.
 * The **DDS** companion dataset decorates DanNet resources with sentiment data.
 * The **OEWN extension** companion dataset provides DanNet-like labels for the [Open English WordNet](https://en-word.net/) to better facilitate browsing the connections between the two datasets.
-
-The current version of the datasets can be downloaded on wordnet.dk/dannet. All of the releases from 2023 and onwards are [available as releases on this project page](https://github.com/kuhumcst/DanNet/releases).
 
 ### Standards-based
 DanNet is based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) standard combined with various [relations](https://globalwordnet.github.io/gwadoc/) defined by the Global Wordnet Association as used in the official [GWA RDF standard](https://globalwordnet.github.io/schemas/#rdf).
@@ -40,7 +46,7 @@ In Ontolex-lemon...
 
 ![alt text](doc/ontolex.png "The Ontolex-lemon representation of a WordNet")
 
-DanNet also has a few proprietary relations which defined in the official [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) in an Ontolex-compatible way. There is also a schema for [translations](/resources/schemas/internal/dannet-translations.ttl)) and a schema for [EuroWordNet concepts](/resources/schemas/internal/dannet-concepts.ttl). Just like the DanNet RDF dataset itself, the DanNet schemas are also written in Turtle. The new DanNet schema is also written in accordance with the [RDF conventions](http://www-sop.inria.fr/acacia/personnel/phmartin/RDF/conventions.html#reversingRelations) listed by Philippe Martin.
+DanNet also has a few proprietary relations which defined in the official [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) in an Ontolex-compatible way. There is also a schema for [EuroWordNet concepts](/resources/schemas/internal/dannet-concepts.ttl). Just like the DanNet RDF dataset itself, the DanNet schemas are also written in Turtle. The new DanNet schema is also written in accordance with the [RDF conventions](http://www-sop.inria.fr/acacia/personnel/phmartin/RDF/conventions.html#reversingRelations) listed by Philippe Martin.
 
 DanNet uses the following URI prefixes for the dataset instances, concepts (members of a `dns:ontologicalType`) and the schema itself:
 
@@ -53,7 +59,7 @@ All DanNet URIs resolve to HTTP resources, which is to say that accessing a reso
 By building DanNet according to these standards we maximise its ability to integrate with other lexical resources, in particular with other WordNets.
 
 ### Inferred data
-Additional data is also implicitly inferred from the base dataset, the aforementioned companion datasets, and any associated ontological metadata. These inferred data points can be browsed along with the rest of the data on the [official DanNet website](https://wordnet.dk/dannet).
+Additional data is also implicitly inferred from the base dataset, the aforementioned companion datasets, and any associated ontological metadata. These inferred data points can be browsed along with the rest of the data on the [official DanNet website](https://wordnet.dk).
 
 Inferring data so can be both computationally expensive and mentally taxing for the consumer of the data, so we do not always publish the fully inferred graph in a DanNet release; when we do, those release will be specifically marked as containing this extra data.
 
@@ -66,7 +72,7 @@ However, standardising on the basic RDF triple abstraction does open up a world 
 ### Clojure support
 In its native Clojure representation, DanNet can be queried in a variety of ways (described in [queries.md](pages/queries-en.md)). It is especially convenient to query data from within a Clojure REPL.
 
-Support for Apache Jena transactions is built-in and enabled automatically when needed. This ensures support for persistence on disk through the [TDB](https://jena.apache.org/documentation/tdb/) layer included with Apache Jena (mandatory for [TDB 2](https://jena.apache.org/documentation/tdb2/)). Both in-memory and persisted graphs can thus be queried using the same function calls. The [DanNet website](https://wordnet.dk/dannet) contains the complete dataset inside a TDB 2 graph.
+Support for Apache Jena transactions is built-in and enabled automatically when needed. This ensures support for persistence on disk through the [TDB](https://jena.apache.org/documentation/tdb/) layer included with Apache Jena (mandatory for [TDB 2](https://jena.apache.org/documentation/tdb2/)). Both in-memory and persisted graphs can thus be queried using the same function calls. The [DanNet website](https://wordnet.dk) contains the complete dataset inside a TDB 2 graph.
 
 Furthermore, DanNet query results are all decorated with support for the Clojure `Navigable` protocol. The entire RDF graph can therefore easily be navigated in tools such as [Morse](https://github.com/nubank/morse) or [Reveal](https://github.com/vlaaad/reveal) from a single query result.
 
@@ -133,7 +139,7 @@ java -jar -Xmx4g dannet.jar
 
 By default, the web service is accessed on `localhost:3456`. The data is loaded into a TDB2 database located in the `./db/tdb2` directory.
 
-### Regular operation of wordnet.dk/dannet
+### Regular operation of wordnet.dk
 The system is registered as a systemd service which ensures smooth running between restarts:
 
 ```shell
@@ -146,7 +152,7 @@ This service merely delegates to the Docker daemon and attempts to ensure that b
 
 However, when doing a new release (NOTE: requires updating the database and various files on disk), it might be beneficial to shut down _only_ the DanNet web service, not the Caddy reverse proxy, by using docker compose commands directly (see next section).
 
-### Making a release on wordnet.dk/dannet
+### Making a release on wordnet.dk
 The current release workflow assumes that the database and the export files are created on a development machine and the transferred to the production server. During the transfer, the DanNet web service will momentarily be down, so keep this in mind!
 
 To build the database, load a Clojure REPL and load the `dk.cst.dannet.web.service` namespace. From here, execute `(restart)` to get a service up and running. When the service is up, go to the `dk.cst.dannet.db` namespace and execute either of the following:
