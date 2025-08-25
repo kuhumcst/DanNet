@@ -227,3 +227,18 @@ python -m wn validate --output-file examples/wn-lmf-validation.json export/wn-lm
 This will create a map of validation errors with lists of the offending entities.
 
 > NOTE: subsequent runs must also first execute `source examples/venv/bin/activate` in the terminal window before validation can commence.
+
+Clojure-mcp
+-----------
+I've added experimental support for [clojure-mcp](https://github.com/bhauman/clojure-mcp) through Claude, which is an MCP server for AI-assisted Clojure development. The project hasn't been developed with AI at all, but future changes may be AI-assisted.
+
+See my personal [mcp-stuff repo](https://github.com/simongray/mcp-stuff) for documentation. The current versions of `LLM_CODE_STYLE.md` should also be located in that repo as well as my most recent personal `config.edn` for clojure-mcp projects.
+
+### REPL
+When integrating with clojure-mcp, an external nREPL on localhost:7888 should be used:
+
+```shell
+clojure -M:nrepl
+```
+
+You can then use e.g. IntelliJ IDEA to connect to this REPL and share it with the LLM.
