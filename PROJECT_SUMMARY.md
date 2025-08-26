@@ -307,7 +307,14 @@ WHERE {
 - [pages/rationale-en.md](/pages/rationale-en.md) - Design rationale
 - [DanNet Schema](/resources/schemas/internal/dannet-schema.ttl) - RDF schema definition
 
-## Special REPL instructions for AI/LLM
-- Don't attempt to start shadow-cljs yourself, let me (the developer) do that manually.
-- When eval'ing code in the REPL keep it short and sweet, don't test every possible angle all at once.
-- When rewriting Clojure, attempt to gauge the appropriate ratio of comments to code from the surrounding lines of
+## Special Instructions for AI/LLM Assistants
+
+### REPL Interaction Guidelines
+- **Shadow-cljs**: Don't attempt to start shadow-cljs - the developer will handle this manually
+- **Code Evaluation**: Keep REPL evaluations short and focused - test one specific aspect at a time rather than exhaustive testing
+- **Code Style**: When writing or rewriting Clojure code, match the comment density of the surrounding code - observe the existing ratio of comments to code in nearby functions
+
+### Working with This Codebase
+- The project uses Apache Jena for RDF operations - transactions are automatic for TDB
+- The web app works both as SPA and traditional server-rendered HTML
+- Bootstrap is run once per version - subsequent work is query-only until the next version bootstrap
