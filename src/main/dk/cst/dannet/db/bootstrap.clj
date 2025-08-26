@@ -6,6 +6,7 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.data.json :as json]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [dk.cst.dannet.shared :as shared]
@@ -88,13 +89,13 @@
 ;; If making a new release, the zip files that are placed in /bootstrap/latest
 ;; need to match precisely this release.
 (def bootstrap-base-release
-  "2024-08-09")
+  "2025-07-03")
 
 (def new-release
-  (str "2025-07-03" #_"-SNAPSHOT"))
+  (str "2025-07-03" "-SNAPSHOT"))
 
 (defn assert-expected-dannet-release!
-  "Assert that the DanNet `model` is the expected release to boostrap from."
+  "Assert that the DanNet `model` is the expected release to bootstrap from."
   [model]
   (let [result (q/run-basic (.getGraph ^Model model)
                             [:bgp [<dn> :owl/versionInfo bootstrap-base-release]])]
@@ -485,37 +486,12 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release (str "2025-07-03")]
+  (let [expected-release (str "2025-07-03-SNAPSHOT")]
     (assert (= new-release expected-release))               ; another check
     (println "Applying release changes for" expected-release "...")
 
     ;; ==== The block of changes for this particular release. ====
-
-    (remove-self-references! dataset)
-
-    ;; Replace synsets with duplicate lemmas with new merged senses #146
-    (merge-senses! dataset)
-    (relabel-synsets! dataset)
-    (relink-cor! dataset)
-
-    ;; Remove duplicate canonical forms, add other forms instead #148
-    (fix-canonical-reps! dataset)
-
-    ;; Rename dns:supersense -> wn:lexfile #146
-    (db/update-triples! prefix/dn-uri dataset
-                        '[:bgp
-                          [?synset :dns/supersense ?supersense]]
-                        (fn [{:syms [?synset ?supersense]}]
-                          [?synset :wn/lexfile ?supersense])
-                        '[_ :dns/supersense _])
-
-    ;; Rename wn:hypernym -> dns:crossPoSHypernym for adjectives #146
-    (db/update-triples! prefix/dn-uri dataset
-                        op/adj-cross-pos-hypernymy
-                        (fn [{:syms [?synset ?hypernym]}]
-                          [?synset :dns/crossPoSHypernym ?hypernym])
-                        (fn [{:syms [?synset ?hypernym]}]
-                          [?synset :wn/hypernym ?hypernym]))
+    ;; TODO: add release changes for next release
 
     (println "Release changes applied!")))
 
@@ -573,6 +549,44 @@
       {:dataset dataset
        :model   model
        :graph   graph})))
+
+(defn fetch-bootstrap-datasets
+  "Fetch DanNet dataset releases from GitHub and prepare them for bootstrapping.
+
+     :version - Specific release (e.g. \"v2024-08-09\"), defaults to latest
+     :files - Set of datasets to fetch, defaults to all"
+  [& {:keys [version files]
+      :or   {files #{"dannet.zip"
+                     "cor.zip"
+                     "dds.zip"
+                     "oewn-extension.zip"}}}]
+  (let [bootstrap-dir (io/file "bootstrap/latest")
+        github-api    "https://api.github.com/repos/kuhumcst/DanNet/releases"]
+
+    (when-not (.exists bootstrap-dir)
+      (.mkdirs bootstrap-dir))
+
+    (println "Fetching release information from GitHub...")
+    (let [releases-url (if version
+                         (str github-api "/tags/" version)
+                         (str github-api "/latest"))
+          response     (slurp releases-url)
+          release      (json/read-str response :key-fn keyword)
+          assets       (:assets release)
+          release-name (or (:tag_name release) (:name release))]
+      (println (str "Found release: " release-name))
+
+      (doseq [filename files]
+        (when-let [asset (first (filter #(= filename (:name %)) assets))]
+          (let [download-url (:browser_download_url asset)
+                output-file  (io/file bootstrap-dir filename)]
+            (println (str "Downloading " filename "..."))
+            (with-open [in  (io/input-stream download-url)
+                        out (io/output-stream output-file)]
+              (io/copy in out)))))
+
+      (println "Bootstrap datasets ready!")
+      release-name)))
 
 (h/defn ->dannet
   "Create a Jena database from the latest DanNet export.
@@ -651,3 +665,8 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
+
+(comment
+  (fetch-bootstrap-datasets)                                ; latest version
+  (fetch-bootstrap-datasets :version "v2024-08-09")         ; specific version
+  (fetch-bootstrap-datasets :files #{"dannet.zip"}))

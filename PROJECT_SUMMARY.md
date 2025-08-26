@@ -110,55 +110,6 @@ resources/
 - **ham-fisted** (2.030): High-performance collections
 - **core.memoize** (1.1.266): Function memoization
 
-## Key APIs and Functions
-
-### Database Operations
-```clojure
-;; Import RDF files into a model
-(dk.cst.dannet.db/import-files model ["file.ttl" "file2.ttl"])
-
-;; Get a model from dataset
-(dk.cst.dannet.db/get-model dataset "model-uri")
-
-;; Update triples with a function
-(dk.cst.dannet.db/update-triples! uri dataset query update-fn)
-```
-
-### Query Interface
-```clojure
-;; Run SPARQL or Aristotle query
-(dk.cst.dannet.query/run graph query-string)
-
-;; Get entity with all properties
-(dk.cst.dannet.query/entity graph subject-uri)
-
-;; Get expanded entity with related entities
-(dk.cst.dannet.query/expanded-entity graph subject-uri)
-
-;; Navigate query results
-(dk.cst.dannet.query/nav-meta graph) ; Returns navigable metadata
-```
-
-### Bootstrap Process
-```clojure
-;; Main bootstrap function (reads from ./bootstrap directory)
-(dk.cst.dannet.db.bootstrap/bootstrap dataset)
-
-;; Export functions
-(dk.cst.dannet.db.export.rdf/save-rdf-files! dataset "output-dir")
-(dk.cst.dannet.db.export.csv/write-csv-files dataset "output-dir")
-(dk.cst.dannet.db.export.wn-lmf/export-as-wn-lmf dataset "output-file.xml")
-```
-
-### Web Service
-```clojure
-;; Start the web server
-(dk.cst.dannet.web.service/start)
-
-;; Development server with auto-reload
-(dk.cst.dannet.web.service/start-dev)
-```
-
 ## Development Workflow
 
 ### Setup
@@ -318,3 +269,5 @@ WHERE {
 - The project uses Apache Jena for RDF operations - transactions are automatic for TDB
 - The web app works both as SPA and traditional server-rendered HTML
 - Bootstrap is run once per version - subsequent work is query-only until the next version bootstrap
+- A database gets automatically bootstrapped and/or initialised when the backend in `dk.cst.dannet.web.service` is launched (by calling the `restart` function during development)
+
