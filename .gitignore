@@ -1,6 +1,7 @@
 *.iml
 .idea/
 .nrepl-port
+.clojure-mcp/scratch_pad.edn
 
 /resources/wordnet
 /resources/db/

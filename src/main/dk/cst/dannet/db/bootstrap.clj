@@ -21,6 +21,7 @@
   (:import [java.io File]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
+           [java.util.zip GZIPInputStream]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
@@ -550,7 +551,7 @@
        :model   model
        :graph   graph})))
 
-(defn fetch-bootstrap-datasets
+(defn fetch-bootstrap-datasets!
   "Fetch DanNet dataset releases from GitHub and prepare them for bootstrapping.
 
      :version - Specific release (e.g. \"v2024-08-09\"), defaults to latest
@@ -587,6 +588,38 @@
 
       (println "Bootstrap datasets ready!")
       release-name)))
+
+(defn fetch-english-datasets!
+  "Download OEWN and ILI datasets to bootstrap/other/english/ if missing."
+  []
+  (let [english-dir (io/file "bootstrap/other/english")
+        oewn-file   (io/file english-dir "english-wordnet-2024.ttl")
+        oewn-gz     (io/file english-dir "english-wordnet-2024.ttl.gz")
+        ili-file    (io/file english-dir "ili.ttl")]
+    (.mkdirs english-dir)
+
+    (when-not (.exists oewn-file)
+      (try
+        (with-open [in-gz  (io/input-stream "https://en-word.net/static/english-wordnet-2024.ttl.gz")
+                    out-gz (io/output-stream oewn-gz)]
+          (io/copy in-gz out-gz))
+        (with-open [in-ttl  (GZIPInputStream. (io/input-stream oewn-gz))
+                    out-ttl (io/output-stream oewn-file)]
+          (io/copy in-ttl out-ttl))
+        (.delete oewn-gz)
+        (println "✓ OEWN")
+        (catch Exception e (println "⚠ OEWN failed:" (.getMessage e)))))
+
+    (when-not (.exists ili-file)
+      (try
+        (with-open [in-ili  (io/input-stream "https://raw.githubusercontent.com/globalwordnet/cili/master/ili.ttl")
+                    out-ili (io/output-stream ili-file)]
+          (io/copy in-ili out-ili))
+        (println "✓ ILI")
+        (catch Exception e (println "⚠ ILI failed:" (.getMessage e)))))
+
+    {:oewn-exists (.exists oewn-file)
+     :ili-exists  (.exists ili-file)}))
 
 (h/defn ->dannet
   "Create a Jena database from the latest DanNet export.
@@ -667,6 +700,8 @@
         (dataset->db dataset schema-uris)))))
 
 (comment
-  (fetch-bootstrap-datasets)                                ; latest version
-  (fetch-bootstrap-datasets :version "v2024-08-09")         ; specific version
-  (fetch-bootstrap-datasets :files #{"dannet.zip"}))
+  (fetch-english-datasets!)                                 ; ILI and OEWN
+
+  (fetch-bootstrap-datasets!)                               ; latest version
+  (fetch-bootstrap-datasets! :version "v2024-08-09")        ; specific version
+  (fetch-bootstrap-datasets! :files #{"dannet.zip"}))

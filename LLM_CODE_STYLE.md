@@ -321,11 +321,12 @@ Most applications should probably use simpler alternatives than these advanced p
 
 # Additional Instructions for AI/LLM Assistants
 - **Shadow-cljs**: Don't attempt to start shadow-cljs - the developer will handle this manually for now
-- **Code Evaluation**: Keep REPL evaluations short and focused - test one specific aspect at a time rather than
-  exhaustive testing
 - **Comment Style**: When writing or rewriting Clojure code, match the comment density of the surrounding code - observe
   the existing ratio of comments to code in nearby functions
 - **Rich Comment Blocks**: When creating example code, add it to Rich Comment Blocks in the relevant namespace rather
   than creating code in a user/dev NS
 - **Relevant Namespace**: When creating function definitions or other defs, put them directly in the relevant
   namespace (and not in a comment block)
+- **Code Evaluation**: Keep REPL evaluations short and focused
+  - verify one specific aspect at a time rather than exhaustive testing
+  - it's better to stop and ask me for input rather than spending valuable LLM tokens on verifying multipe things at once
