@@ -9,7 +9,10 @@ www.wordnet.dk {
 wordnet.dk, localhost {
     redir / /dannet
 
-    rate_limit {remote.ip} 240r/m
+    # a reasonably generous OUTER rate limit based solely on the IP address
+    # additional rate limiting should occur WITHIN the web service itself
+    rate_limit {remote.ip} 1200r/m
+
     encode gzip
     reverse_proxy dannet:3456
 }
