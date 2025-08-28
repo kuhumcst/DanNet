@@ -6,6 +6,7 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
+            [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
   (:gen-class))
@@ -53,6 +54,11 @@
                   (update-in [:request :uri] remove-trailing-slash)
                   (update-in [:request :path-info] remove-trailing-slash)))}))
 
+;; 400 requests/minute based on fingerprinting
+(def dannet-rate-limit-ic
+  (rl/->rate-limit-ic {:quota     400
+                       :window-ms 60000}))
+
 (defn ->service-map
   [conf]
   (let [csp (if shared/development?
@@ -73,6 +79,8 @@
 
         ;; Extending default interceptors here.
         (http/default-interceptors)
+        ;; TODO: consider route-differentiated rate limits instead
+        (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic)
         (update ::http/interceptors #(cons %2 %1) trailing-slash)
         (update ::http/interceptors conj middleware/cookies)
 
@@ -110,4 +118,9 @@
   @conf
   (restart)
   (stop-dev)
+
+  ;; Rate-limiting
+  (rl/get-storage-state)
+  (rl/reset-storage!)
+
   #_.)
