@@ -6,50 +6,50 @@
             [clojure.tools.logging :as log])
   (:import [java.time Instant]))
 
-(defonce ^:private storage
+;; Registry of composite keys to expiration and hit count.
+(defonce registry
   (atom {}))
 
-(defn now-millis
-  "Current time in milliseconds since epoch."
+(defn now-ms
+  "Get current time in milliseconds."
   []
   (.toEpochMilli (Instant/now)))
 
-(defn get-count
-  "Get current count for key, cleaning expired entries."
+(defn get-hit-count!
+  "Get current hit count for `key`, cleaning expired entries too."
   [key]
-  (let [now   (now-millis)
-        entry (get @storage key)]
-    (if (and entry (< (:expiry entry) now))
-      (do (swap! storage dissoc key) 0)
-      (:count entry 0))))
+  (let [{:keys [hits expiry-ms]
+         :or   {hits 0}} (get @registry key)]
+    (if (and expiry-ms (< expiry-ms (now-ms)))
+      (do (swap! registry dissoc key) 0)
+      hits)))
 
-(defn increment-count!
-  "Increment count for key with TTL in milliseconds."
+(defn inc-hit-count!
+  "Increment hit count for `key` by `ttl-ms` (milliseconds)."
   [key ttl-ms]
-  (let [now    (now-millis)
-        expiry (+ now ttl-ms)]
-    (swap! storage update key
-           (fn [old]
-             {:count  (inc (:count old 0))
-              :expiry expiry}))
-    (:count (get @storage key))))
+  (let [expiry-ms (+ (now-ms) ttl-ms)]
+    (swap! registry update key
+           (fn [{:keys [hits]
+                 :or   {hits 0}}]
+             {:hits      (inc hits)
+              :expiry-ms expiry-ms}))))
 
 (defn get-expiry
-  "Get expiry time for key."
+  "Get expiry time in milliseconds for `key`."
   [key]
-  (when-let [expiry (get-in @storage [key :expiry])]
-    (Instant/ofEpochMilli expiry)))
+  (when-let [expiry-ms (get-in @registry [key :expiry-ms])]
+    (Instant/ofEpochMilli expiry-ms)))
 
-;; Good for handling shared IP scenarios (coffee shops, classrooms, offices).
-(defn ip-user-agent-lang-key
-  "Generate composite key from IP, User-Agent, and Accept-Language."
+;; TODO: use data structure instead of string?
+(defn req->composite-key
+  "Generate composite key from `req` using IP, User-Agent, and Accept-Language."
   [req]
   (str (:remote-addr req) "-"
        (get-in req [:headers "user-agent"]) "-"
        (get-in req [:headers "accept-language"])))
 
 (defn rate-limit-response
-  "Create 429 response based on request Accept header."
+  "Get 429 response based on `req`, current `quota` and `retry-after-seconds`."
   [quota retry-after-seconds req]
   (let [accept (get-in req [:headers "accept"] "")]
     (if (str/includes? accept "text/html")
@@ -69,49 +69,40 @@
        :body    (str "{\"error\": \"Too Many Requests\", \"quota\": " quota "}")})))
 
 (defn ->rate-limit-ic
-  "Create rate limiting interceptor with simple configuration map.
+  "Create rate limiting interceptor with simple `config` map.
   
-  Config map should contain:
-  - :quota - requests allowed per window  
-  - :window-ms - window duration in milliseconds
-  - :key-fn - function to generate key from request (defaults to ip-user-agent-lang-key)"
-  [config]
-  (let [{:keys [quota window-ms key-fn]
-         :or   {key-fn ip-user-agent-lang-key}} config]
-    (interceptor/interceptor
-      {:name ::rate-limit
-       :enter
-       (fn [context]
-         (let [req           (:request context)
-               key           (key-fn req)
-               current-count (get-count key)]
+  The config map should contain the following keys:
+    :quota     - requests allowed per window.
+    :window-ms - window duration in milliseconds.
+    :req->key  - function to generate key from request."
+  [{:keys [quota window-ms req->key]
+    :or   {req->key req->composite-key}}]
+  (interceptor/interceptor
+    {:name ::rate-limit
+     :enter
+     (fn [ctx]
+       (let [req           (:request ctx)
+             key           (req->key req)
+             current-count (get-hit-count! key)]
 
-           (if (>= current-count quota)
-             ;; Rate limit exceeded
-             (let [retry-after-inst    (or (get-expiry key)
-                                           (Instant/ofEpochMilli (+ (now-millis) window-ms)))
-                   retry-after-seconds (int (/ (.toEpochMilli retry-after-inst) 1000))
-                   response            (rate-limit-response quota retry-after-seconds req)]
-               (log/warn "Rate limit exceeded"
-                         {:key         key
-                          :count       current-count
-                          :quota       quota
-                          :remote-addr (:remote-addr req)})
-               (chain/terminate (assoc context :response response)))
+         (if (>= current-count quota)
+           ;; Rate limit exceeded
+           (let [retry-after-inst    (or (get-expiry key)
+                                         (Instant/ofEpochMilli (+ (now-ms) window-ms)))
+                 retry-after-seconds (int (/ (.toEpochMilli retry-after-inst) 1000))
+                 response            (rate-limit-response quota retry-after-seconds req)]
+             (log/warn "Rate limit exceeded"
+                       {:key         key
+                        :hits        current-count
+                        :quota       quota
+                        :remote-addr (:remote-addr req)})
+             (chain/terminate (assoc ctx :response response)))
 
-             ;; Allow request and increment counter
-             (do
-               (increment-count! key window-ms)
-               (when (= 0 (mod (inc current-count) 10))
-                 (log/debug "Rate limit status" {:key key :count (inc current-count) :quota quota}))
-               context))))})))
-
-(defn reset-storage!
-  "Clear all rate limiting state."
-  []
-  (reset! storage {}))
-
-(defn get-storage-state
-  "Get current storage state for debugging."
-  []
-  @storage)
+           ;; Allow request and increment counter
+           (do
+             (inc-hit-count! key window-ms)
+             (when (= 0 (mod (inc current-count) 10))
+               (log/debug "Rate limit status" {:key   key
+                                               :hits  (inc current-count)
+                                               :quota quota}))
+             ctx))))}))

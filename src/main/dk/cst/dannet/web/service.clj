@@ -120,7 +120,6 @@
   (stop-dev)
 
   ;; Rate-limiting
-  (rl/get-storage-state)
-  (rl/reset-storage!)
-
+  @rl/registry
+  (reset! rl/registry {})
   #_.)
