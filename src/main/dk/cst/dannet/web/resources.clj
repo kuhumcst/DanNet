@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.pprint :refer [pprint print-table]]
+            [clojure.data.json :as json]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [io.pedestal.http.body-params :refer [body-params]]
@@ -141,6 +142,24 @@
   [lstr]
   (str (.s lstr) "@" (.lang lstr)))
 
+(defn- ->json-safe
+  "Convert RDF data to JSON-compatible format."
+  [data]
+  (cond
+    (instance? LangStr data)
+    {:value (.s data) :lang (.lang data)}
+
+    (instance? BaseDatatype$TypedValue data)
+    {:value (.getLexicalValue data) :datatype (str (.getDatatypeURI data))}
+
+    (instance? XSDDateTime data)
+    {:value (str data) :datatype "xsd:dateTime"}
+
+    (keyword? data) (str data)
+    (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
+    (coll? data) (mapv ->json-safe data)
+    :else data))
+
 (defn- TypedValue->m
   [o]
   {:value (.-lexicalValue o)
@@ -175,6 +194,10 @@
    "application/edn"
    (fn [data & _]
      (pr-str data))
+
+   "application/json"
+   (fn [data & _]
+     (json/write-str (->json-safe data)))
 
    "application/transit+json"
    (fn [data & _]
@@ -236,13 +259,26 @@
   to replace the state in history rather than adding a new entry. This is needed
   when automatically redirecting to an alt entity, since the back button will
   otherwise break for the user."
-  [x content-type & [replace-state]]
-  (let [location (redirect-location x)]
+  [x content-type & [replace-state {:keys [format lang] :as query-params}]]
+  (let [location     (redirect-location x)
+        ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
+        api-location (if (or lang format)
+                       (cond
+                         (and lang format)
+                         (str location "?lang=" lang "&format=" format)
+
+                         lang
+                         (str location "?lang=" lang)
+
+                         format
+                         (str location "?format=" format))
+                       location)]
     (case content-type
       "text/html"
       {:status  303
        :headers {"Location" location}}
 
+      ;; Custom header hack for SPA client-side redirect handling
       ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
       ;; e.g. https://github.com/lambdaisland/fetch/issues/24
       "application/transit+json"
@@ -251,13 +287,18 @@
                             :replace  (if replace-state "T" "F")})
        :body    "{}"}
 
+      ;; Simple redirect for JSON - let HTTP client follow the redirect
+      "application/json"
+      {:status  303
+       :headers {"Location" api-location}}
+
       ;; else
       nil)))
 
 (defn remove-internal-params
   [query-string]
   (when query-string
-    (str/replace query-string #"&?(transit=true|download=text/turtle)" "")))
+    (str/replace query-string #"&?(transit=true|format=turtle)" "")))
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -267,13 +308,11 @@
   {:name  ::entity
    :leave (fn [{:keys [request] :as ctx}]
             (let [{:keys [prefix
-                          subject
-                          download]} (merge (:path-params request)
-                                            (:query-params request)
-                                            static-params)
-                  content-type (or download
-                                   (get-in request [:accept :field])
-                                   "text/plain")
+                          subject]} (merge (:path-params request)
+                                           (:query-params request)
+                                           static-params)
+                  content-type (or (get-in request [:accept :field])
+                                   "application/json")
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   g            (:graph @db)
@@ -344,7 +383,8 @@
   relevant redirect is performed instead."
   {:name  ::search
    :leave (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "text/plain")
+            (let [content-type (get-in request [:accept :field] "application/json")
+                  query-params (:query-params request)
                   languages    (request->languages request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
@@ -358,19 +398,19 @@
                                 :page  "search"}]
               (cond
                 (prefix/rdf-resource? lemma)
-                (assoc ctx :response (redirect lemma content-type))
+                (assoc ctx :response (redirect lemma content-type nil query-params))
 
                 (and (string? lemma) (re-find #"^https?://" lemma))
-                (assoc ctx :response (redirect (prefix/uri->rdf-resource lemma) content-type))
+                (assoc ctx :response (redirect (prefix/uri->rdf-resource lemma) content-type nil query-params))
 
                 (prefix/qname? lemma)
-                (assoc ctx :response (redirect (prefix/qname->kw lemma) content-type))
+                (assoc ctx :response (redirect (prefix/qname->kw lemma) content-type nil query-params))
 
                 :else
                 (let [results (look-up* (:graph @db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
-                      :response (redirect (ffirst results) content-type :replace))
+                      :response (redirect (ffirst results) content-type :replace query-params))
                     (-> ctx
                         (update :response assoc
                                 :status 200
@@ -428,6 +468,49 @@
 (def content-negotiation-ic
   (conneg/negotiate-content (keys content-type->body-fn)))
 
+(def explicit-params-ic
+  "Interceptor that completely supersedes content and language negotiation
+  when explicit query parameters are provided.
+  
+  Supports:
+  - ?format= query parameter for content types (json, edn, transit, turtle, html, plain)
+  - ?lang= query parameter for languages (da, en, danish, english)
+  
+  Layman's terms are mapped to proper values, while standard MIME types and
+  language codes pass through as-is. This provides both user-friendly shortcuts
+  and precise control for API clients.
+  
+  Must be placed AFTER content-negotiation-ic and language-negotiation-ic
+  in the interceptor chain to completely override their results."
+  {:name  ::explicit-params
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [format lang]} (:query-params request)
+                  ;; TODO: why is decoding necessary?
+                  ;; You would think that the query-params-decoder handled this.
+                  format*         (when format (decode-query-part format))
+                  lang*           (when lang (decode-query-part lang))
+
+                  ;; Map layman's terms to proper MIME types
+                  format->mime    {"json"    "application/json"
+                                   "edn"     "application/edn"
+                                   "transit" "application/transit+json"
+                                   "turtle"  "text/turtle"
+                                   "ttl"     "text/turtle"  ; common alias
+                                   "html"    "text/html"
+                                   "plain"   "text/plain"}
+                  content-type    (or (format->mime format*) format*)
+
+                  ;; Map layman's terms to language vectors
+                  lang->languages {"danish" ["da"], "english" ["en"]}
+                  languages       (or (lang->languages lang*) (when lang* [lang*]))]
+
+              (cond-> ctx
+                content-type
+                (assoc-in [:request :accept :field] content-type)
+
+                languages
+                (assoc-in [:request :languages] languages))))})
+
 (defn prefix->entity-route
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
   a map of URIs and creates a local, relative path based on this URI."
@@ -435,6 +518,7 @@
   [(str (-> prefix prefix/schemas :uri prefix/uri->path) ":subject")
    :get [content-negotiation-ic
          language-negotiation-ic
+         explicit-params-ic
          (->entity-ic :prefix prefix)]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
@@ -443,6 +527,7 @@
   [(str prefix/external-path "/:prefix/:subject")
    :get [content-negotiation-ic
          language-negotiation-ic
+         explicit-params-ic
          (->entity-ic)]
    :route-name ::external-entity])
 
@@ -450,6 +535,7 @@
   [prefix/external-path
    :get [content-negotiation-ic
          language-negotiation-ic
+         explicit-params-ic
          (->entity-ic)]
    :route-name ::unknown-external-entity])
 
@@ -459,6 +545,7 @@
     [(prefix/uri->path uri)
      :get [content-negotiation-ic
            language-negotiation-ic
+           explicit-params-ic
            (->entity-ic :subject (prefix/uri->rdf-resource uri))]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
@@ -466,6 +553,7 @@
   [prefix/search-path
    :get [content-negotiation-ic
          language-negotiation-ic
+         explicit-params-ic
          search-ic]
    :route-name ::search])
 
@@ -498,7 +586,7 @@
   {:name  ::markdown
    :leave (fn [{:keys [request] :as ctx}]
             (let [document     (-> request :path-params :document)
-                  content-type (get-in request [:accept :field] "text/plain")
+                  content-type (get-in request [:accept :field] "application/json")
                   languages    (request->languages request)
                   body         (content-type->body-fn content-type)
                   page-meta    {:page "markdown"}
@@ -520,6 +608,7 @@
   [prefix/markdown-path
    :get [content-negotiation-ic
          language-negotiation-ic
+         explicit-params-ic
          markdown-ic]
    :route-name ::markdown])
 
@@ -570,17 +659,19 @@
 (def autocomplete-ic
   {:name  ::autocomplete
    :leave (fn [{:keys [request] :as ctx}]
-            (let [;; TODO: why is decoding necessary?
+            (let [content-type (get-in request [:accept :field] "application/transit+json")
+                  body         (content-type->body-fn content-type)
+                  ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  s (get-in request [:query-params :s])]
+                  s            (get-in request [:query-params :s])]
               (when-let [s' (shared/search-string s)]
                 (if (> (count s') 2)
                   (-> ctx
                       (update :response assoc
                               :status 200
-                              :body (to/write-str (autocomplete s')))
+                              :body (body (autocomplete s')))
                       (update-in [:response :headers] assoc
-                                 "Content-Type" "application/transit+json"
+                                 "Content-Type" content-type
                                  "Cache-Control" one-day-cache))
                   (update ctx :response assoc
                           :status 204
@@ -588,7 +679,9 @@
 
 (def autocomplete-route
   [autocomplete-path
-   :get [autocomplete-ic]
+   :get [content-negotiation-ic
+         explicit-params-ic
+         autocomplete-ic]
    :route-name ::autocomplete])
 
 (def not-in-theme

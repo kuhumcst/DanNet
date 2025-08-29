@@ -2,6 +2,9 @@
 .idea/
 .nrepl-port
 .clojure-mcp/scratch_pad.edn
+__pycache__
+venv*
+.venv
 
 /resources/wordnet
 /resources/db/

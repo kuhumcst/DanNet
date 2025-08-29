@@ -79,7 +79,7 @@
   [router e el uri]
   (when (and (rfh/ignore-anchor-click? router e el uri)
              ;; don't include downloads in client routing
-             (not (re-find #"download=" (.getQuery uri))))
+             (not (re-find #"format=" (.getQuery uri))))
     (swap! visited vary-meta assoc :anchor-click? true)
     true))
 
