@@ -222,6 +222,7 @@
     :else                                                   ; plain URI
     x))
 
+;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
 (defn redirect
   "Get a redirect response that works for both HTTP redirects and for the API
   based on some `x` to redirect to and the requested `content-type`.
@@ -305,8 +306,14 @@
                             {:status 200
                              :body   (body data page-meta)}
                             (let [alt (alt-resource qname)]
-                              (if (and alt (not-empty (q/entity g alt)))
+                              (cond
+                                (and alt (not-empty (q/entity g alt)))
                                 (redirect alt content-type :replace)
+
+                                (keyword? subject*)
+                                (redirect (prefix/kw->uri subject*) content-type)
+
+                                (string? subject*)
                                 (redirect (prefix/rdf-resource->uri subject*) content-type)))))
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)
