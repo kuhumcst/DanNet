@@ -4,7 +4,7 @@ WORKDIR /etc/caddy
 
 # Install xcaddy and compile a custom build of Caddy w/ rate limiting
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.4
-RUN xcaddy build --with github.com/RussellLuo/caddy-ext/ratelimit
+RUN xcaddy build --with github.com/RussellLuo/caddy-ext/ratelimit --with github.com/caddyserver/caddy/v2@v2.9.0
 
 
 
