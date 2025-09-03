@@ -13,9 +13,8 @@ Usage:
 
 import argparse
 import logging
-import sys
 from typing import Dict, List, Optional, Any, Union
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin
 
 import httpx
 from pydantic import BaseModel, Field
@@ -34,62 +33,6 @@ MAX_RETRIES = 3
 class DanNetError(Exception):
     """Custom exception for DanNet API errors"""
     pass
-
-
-class SynsetInfo(BaseModel):
-    """Structured information about a DanNet synset"""
-    synset_id: str = Field(description="Synset identifier")
-    label: Optional[str] = Field(description="Primary label")
-    short_label: Optional[str] = Field(description="Short label")
-    definition: Optional[str] = Field(description="Definition in Danish")
-    pos: Optional[str] = Field(description="Part of speech")
-    words: List[str] = Field(default=[], description="Words in this synset")
-    
-    # Semantic relations
-    hypernyms: List[str] = Field(default=[], description="More general concepts (is-a relationships)")
-    hyponyms: List[str] = Field(default=[], description="More specific concepts")
-    meronyms: List[str] = Field(default=[], description="Part-of relationships")
-    holonyms: List[str] = Field(default=[], description="Whole-of relationships") 
-    similar_to: List[str] = Field(default=[], description="Similar synsets")
-    also: List[str] = Field(default=[], description="See-also relationships")
-    antonyms: List[str] = Field(default=[], description="Opposite meanings")
-    derivationally_related: List[str] = Field(default=[], description="Derivationally related forms")
-    
-    # Additional semantic properties
-    domain_topic: List[str] = Field(default=[], description="Topic domain")
-    domain_region: List[str] = Field(default=[], description="Regional domain")
-    usage: List[str] = Field(default=[], description="Usage information")
-    
-    # Lexical relations
-    pertainyms: List[str] = Field(default=[], description="Pertains to relationships")
-    participles: List[str] = Field(default=[], description="Participle relationships")
-    
-    # DanNet specific relations
-    eq_hypernym: List[str] = Field(default=[], description="Equivalent hypernyms")
-    eq_hyponym: List[str] = Field(default=[], description="Equivalent hyponyms")
-    eq_synonym: List[str] = Field(default=[], description="Equivalent synonyms")
-    near_synonym: List[str] = Field(default=[], description="Near synonyms")
-    xpos_hypernym: List[str] = Field(default=[], description="Cross-POS hypernyms")
-    xpos_hyponym: List[str] = Field(default=[], description="Cross-POS hyponyms")
-    xpos_synonym: List[str] = Field(default=[], description="Cross-POS synonyms")
-    
-    # Examples and usage
-    examples: List[str] = Field(default=[], description="Usage examples")
-    
-    # Additional metadata
-    ontological_type: Optional[str] = Field(default=None, description="Ontological type")
-    sentiment: Optional[str] = Field(default=None, description="Sentiment information")
-    
-    # Raw data for debugging
-    all_properties: Dict[str, Any] = Field(default={}, description="All raw properties from the synset")
-
-
-class WordInfo(BaseModel):
-    """Structured information about a DanNet word"""
-    word_id: str = Field(description="Word identifier") 
-    lemma: str = Field(description="The word form")
-    pos: Optional[str] = Field(description="Part of speech")
-    synsets: List[str] = Field(default=[], description="Associated synset IDs")
 
 
 class SearchResult(BaseModel):
@@ -155,48 +98,23 @@ class DanNetClient:
         return self._make_request(f"/dannet/data/{resource_id}")
     
     def autocomplete(self, prefix: str) -> List[str]:
-        """Get autocomplete suggestions for a word prefix"""
+        """Get autocomplete suggestions for a word prefix
+        
+        Note: DanNet's autocomplete endpoint requires at least 3 characters
+        to avoid returning too much data. Shorter prefixes will return empty results.
+        """
         try:
-            # Autocomplete endpoint doesn't support format parameter, returns transit+json
-            # So we need to make the request without format parameter for this endpoint
-            url = urljoin(self.base_url + '/', "/dannet/autocomplete")
-            params = {"s": prefix}
+            # Use _make_request to automatically include format=json parameter
+            data = self._make_request("/dannet/autocomplete", {"s": prefix})
             
-            for attempt in range(MAX_RETRIES):
-                try:
-                    logger.debug(f"Making autocomplete request to {url} with params {params}")
-                    response = self.client.get(url, params=params)
-                    response.raise_for_status()
-                    
-                    # The response is in transit format, but we can parse it as JSON
-                    # since transit is JSON-compatible
-                    data = response.json()
-                    
-                    # Handle different possible response formats
-                    if isinstance(data, list):
-                        return data
-                    elif isinstance(data, dict) and 'suggestions' in data:
-                        return data['suggestions']
-                    else:
-                        return []
-                        
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 404:
-                        raise DanNetError(f"Resource not found: /dannet/autocomplete")
-                    elif e.response.status_code == 429:
-                        if attempt < MAX_RETRIES - 1:
-                            logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
-                            continue
-                        raise DanNetError("Rate limit exceeded")
-                    else:
-                        raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
-                except Exception as e:
-                    if attempt < MAX_RETRIES - 1:
-                        logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
-                        continue
-                    raise DanNetError(f"Request failed: {e}")
-            
-            raise DanNetError("Max retries exceeded")
+            # Handle different possible response formats
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict) and 'suggestions' in data:
+                return data['suggestions']
+            else:
+                return []
+                
         except Exception as e:
             logger.error(f"Autocomplete failed for '{prefix}': {e}")
             return []
@@ -233,63 +151,6 @@ def parse_resource_id(resource_uri: str) -> str:
             return resource_uri.split('/')[-1]
         return resource_uri
     return str(resource_uri)
-
-
-def extract_relation_list(entity: Dict, relation_key: str) -> List[str]:
-    """Extract a list of synset IDs from a relation property"""
-    relations = []
-    
-    # Try both with and without colon prefix
-    relation_data = entity.get(f':{relation_key}', entity.get(relation_key))
-    
-    if relation_data is None:
-        return relations
-    
-    # Handle single value
-    if isinstance(relation_data, str):
-        relation_data = [relation_data]
-    elif not isinstance(relation_data, list):
-        return relations
-    
-    for item in relation_data:
-        if isinstance(item, str):
-            synset_id = parse_resource_id(item)
-            if synset_id and synset_id not in relations:
-                relations.append(synset_id)
-        elif isinstance(item, dict):
-            # Handle nested structures
-            for key in ['@id', ':@id', 'rdf/value', ':rdf/value']:
-                if key in item:
-                    synset_id = parse_resource_id(item[key])
-                    if synset_id and synset_id not in relations:
-                        relations.append(synset_id)
-                    break
-    
-    return relations
-
-
-def extract_string_list(entity: Dict, property_key: str) -> List[str]:
-    """Extract a list of string values from a property"""
-    values = []
-    
-    # Try both with and without colon prefix
-    property_data = entity.get(f':{property_key}', entity.get(property_key))
-    
-    if property_data is None:
-        return values
-    
-    # Handle single value
-    if isinstance(property_data, str):
-        property_data = [property_data]
-    elif not isinstance(property_data, list):
-        return values
-    
-    for item in property_data:
-        text_value = extract_language_string(item)
-        if text_value and text_value not in values:
-            values.append(text_value)
-    
-    return values
 
 
 @mcp.tool()
@@ -514,11 +375,14 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
     Get autocomplete suggestions for Danish word prefixes.
     
     Args:
-        prefix: The beginning of a Danish word
+        prefix: The beginning of a Danish word (minimum 3 characters required)
         max_results: Maximum number of suggestions to return
     
     Returns:
         List of word completions
+    
+    Note: DanNet's autocomplete requires at least 3 characters. Shorter prefixes 
+    will return empty results to avoid overwhelming amounts of data.
     """
     try:
         suggestions = dannet_client.autocomplete(prefix)
