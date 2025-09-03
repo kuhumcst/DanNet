@@ -370,7 +370,7 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
 
 
 @mcp.tool()
-def get_synset_info(synset_id: str) -> SynsetInfo:
+def get_synset_info(synset_id: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific DanNet synset.
     
@@ -496,7 +496,7 @@ def get_synset_info(synset_id: str) -> SynsetInfo:
         ontological_type = extract_language_string(combined_data.get(':dns/ontologicalType')) or None
         sentiment = extract_language_string(combined_data.get(':dns/sentiment')) or None
         
-        return SynsetInfo(
+        synset_info = SynsetInfo(
             synset_id=clean_id,
             label=label,
             short_label=short_label,
@@ -536,6 +536,9 @@ def get_synset_info(synset_id: str) -> SynsetInfo:
             all_properties=combined_data
         )
         
+        # Return filtered dictionary excluding default empty values
+        return synset_info.model_dump(exclude_defaults=True)
+        
     except Exception as e:
         raise RuntimeError(f"Failed to get synset info: {e}")
 
@@ -561,7 +564,7 @@ def get_word_synonyms(word: str) -> List[str]:
                 # Get synset info to find other words
                 try:
                     synset_info = get_synset_info(result.synset_id)
-                    for syn_word in synset_info.words:
+                    for syn_word in synset_info.get('words', []):
                         if syn_word.lower() != word.lower():
                             synonyms.add(syn_word)
                 except Exception as e:
@@ -640,7 +643,8 @@ def get_synset_resource(synset_id: str) -> str:
     """
     try:
         synset_info = get_synset_info(synset_id)
-        return synset_info.model_dump_json(indent=2)
+        import json
+        return json.dumps(synset_info, indent=2)
     except Exception as e:
         return f"Error accessing synset {synset_id}: {e}"
 
