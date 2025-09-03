@@ -223,8 +223,11 @@ def extract_language_string(value: Union[str, Dict]) -> Optional[str]:
 def parse_resource_id(resource_uri: str) -> str:
     """Extract resource ID from a DanNet URI"""
     if isinstance(resource_uri, str):
-        # Handle URIs like "dn:synset-1876" or full URIs
-        if ':' in resource_uri:
+        # Handle URIs like ":dn/synset-1876", ":dn/word-123", or full URIs
+        if resource_uri.startswith(':dn/'):
+            # Remove the :dn/ prefix - the dn namespace maps to /dannet/data/
+            return resource_uri[4:]  # Strip ":dn/"
+        elif ':' in resource_uri:
             return resource_uri.split(':')[-1]
         elif '/' in resource_uri:
             return resource_uri.split('/')[-1]
@@ -378,7 +381,7 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         synset_id: The synset identifier (e.g., "synset-1876")
     
     Returns:
-        Detailed synset information including words, definition, and relationships
+        Raw RDF data for the synset including all properties and relationships
     """
     try:
         # Clean the synset_id
@@ -392,152 +395,15 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         if not data or ':entity' not in data:
             raise DanNetError(f"No data found for synset {clean_id}")
         
-        # Use ':entity' key with colon
-        entity = data[':entity']
+        # Start with entity data and add inferred metadata
+        result = dict(data[':entity'])
+        if ':inferred' in data:
+            result[':inferred'] = data[':inferred']
         
-        # Extract synset information using colon-prefixed keys
-        label = extract_language_string(entity.get(':rdfs/label', ''))
-        short_label = extract_language_string(entity.get(':dns/shortLabel', ''))
-        definition = extract_language_string(entity.get(':skos/definition', ''))
-        pos = extract_language_string(entity.get(':lexinfo/partOfSpeech', ''))
+        # Add the cleaned synset_id for convenience (without colon prefix)
+        result['synset_id'] = clean_id
         
-        # Extract associated words from inferred data
-        words = []
-        
-        # First try to get words from the inferred section
-        inferred = data.get(':inferred', {})
-        if ':ontolex/isEvokedBy' in inferred:
-            evoked_by = inferred[':ontolex/isEvokedBy']
-            # Handle both single word and multiple words
-            if isinstance(evoked_by, str):
-                evoked_by = [evoked_by]
-            elif not isinstance(evoked_by, list):
-                evoked_by = []
-                
-            for word_ref in evoked_by:
-                word_id = parse_resource_id(word_ref)
-                try:
-                    word_data = dannet_client.get_resource(word_id)
-                    if word_data and ':entity' in word_data:
-                        word_entity = word_data[':entity']
-                        if ':ontolex/canonicalForm' in word_entity:
-                            form_id = parse_resource_id(word_entity[':ontolex/canonicalForm'])
-                            form_data = dannet_client.get_resource(form_id)
-                            if form_data and ':entity' in form_data:
-                                form_entity = form_data[':entity']
-                                lemma = extract_language_string(form_entity.get(':ontolex/writtenRep', ''))
-                                if lemma:
-                                    words.append(lemma)
-                except Exception as e:
-                    logger.warning(f"Could not fetch word data for {word_id}: {e}")
-        
-        # Also try to get words directly from entity properties if available
-        if ':ontolex/isEvokedBy' in entity:
-            evoked_by = entity[':ontolex/isEvokedBy']
-            if isinstance(evoked_by, str):
-                evoked_by = [evoked_by]
-            elif not isinstance(evoked_by, list):
-                evoked_by = []
-                
-            for word_ref in evoked_by:
-                word_id = parse_resource_id(word_ref)
-                try:
-                    word_data = dannet_client.get_resource(word_id)
-                    if word_data and ':entity' in word_data:
-                        word_entity = word_data[':entity']
-                        if ':ontolex/canonicalForm' in word_entity:
-                            form_id = parse_resource_id(word_entity[':ontolex/canonicalForm'])
-                            form_data = dannet_client.get_resource(form_id)
-                            if form_data and ':entity' in form_data:
-                                form_entity = form_data[':entity']
-                                lemma = extract_language_string(form_entity.get(':ontolex/writtenRep', ''))
-                                if lemma and lemma not in words:  # Avoid duplicates
-                                    words.append(lemma)
-                except Exception as e:
-                    logger.warning(f"Could not fetch word data for {word_id}: {e}")
-        
-        # Extract semantic relations from both direct entity and inferred data
-        # Combine both entity and inferred data for relation extraction
-        combined_data = dict(entity)
-        combined_data.update(inferred)
-        
-        # Standard WordNet relations
-        hypernyms = extract_relation_list(combined_data, 'wn/hyperonym')
-        hyponyms = extract_relation_list(combined_data, 'wn/hyponym')
-        meronyms = extract_relation_list(combined_data, 'wn/meronym')
-        holonyms = extract_relation_list(combined_data, 'wn/holonym')
-        similar_to = extract_relation_list(combined_data, 'wn/similar_to')
-        also = extract_relation_list(combined_data, 'wn/also')
-        antonyms = extract_relation_list(combined_data, 'wn/antonym')
-        derivationally_related = extract_relation_list(combined_data, 'wn/derivationally_related')
-        
-        # Additional semantic properties
-        domain_topic = extract_relation_list(combined_data, 'wn/domain_topic')
-        domain_region = extract_relation_list(combined_data, 'wn/domain_region')
-        usage = extract_string_list(combined_data, 'wn/usage')
-        
-        # Lexical relations
-        pertainyms = extract_relation_list(combined_data, 'wn/pertainym')
-        participles = extract_relation_list(combined_data, 'wn/participle')
-        
-        # DanNet specific relations
-        eq_hypernym = extract_relation_list(combined_data, 'dns/eq_hyperonym')
-        eq_hyponym = extract_relation_list(combined_data, 'dns/eq_hyponym')
-        eq_synonym = extract_relation_list(combined_data, 'dns/eq_synonym')
-        near_synonym = extract_relation_list(combined_data, 'dns/near_synonym')
-        xpos_hypernym = extract_relation_list(combined_data, 'dns/xpos_hyperonym')
-        xpos_hyponym = extract_relation_list(combined_data, 'dns/xpos_hyponym')
-        xpos_synonym = extract_relation_list(combined_data, 'dns/xpos_synonym')
-        
-        # Examples and usage
-        examples = extract_string_list(combined_data, 'skos/example')
-        
-        # Additional metadata
-        ontological_type = extract_language_string(combined_data.get(':dns/ontologicalType')) or None
-        sentiment = extract_language_string(combined_data.get(':dns/sentiment')) or None
-        
-        synset_info = SynsetInfo(
-            synset_id=clean_id,
-            label=label,
-            short_label=short_label,
-            definition=definition,
-            pos=pos,
-            words=words,
-            # Standard WordNet relations
-            hypernyms=hypernyms,
-            hyponyms=hyponyms,
-            meronyms=meronyms,
-            holonyms=holonyms,
-            similar_to=similar_to,
-            also=also,
-            antonyms=antonyms,
-            derivationally_related=derivationally_related,
-            # Additional semantic properties
-            domain_topic=domain_topic,
-            domain_region=domain_region,
-            usage=usage,
-            # Lexical relations
-            pertainyms=pertainyms,
-            participles=participles,
-            # DanNet specific relations
-            eq_hypernym=eq_hypernym,
-            eq_hyponym=eq_hyponym,
-            eq_synonym=eq_synonym,
-            near_synonym=near_synonym,
-            xpos_hypernym=xpos_hypernym,
-            xpos_hyponym=xpos_hyponym,
-            xpos_synonym=xpos_synonym,
-            # Examples and usage
-            examples=examples,
-            # Additional metadata
-            ontological_type=ontological_type,
-            sentiment=sentiment,
-            # Raw data for debugging
-            all_properties=combined_data
-        )
-        
-        # Return filtered dictionary excluding default empty values
-        return synset_info.model_dump(exclude_defaults=True)
+        return result
         
     except Exception as e:
         raise RuntimeError(f"Failed to get synset info: {e}")
@@ -555,20 +421,52 @@ def get_word_synonyms(word: str) -> List[str]:
         List of synonymous words
     """
     try:
-        # First search for the word
+        # Search for the word to find its synsets
         search_results = search_dannet(word)
         synonyms = set()
         
         for result in search_results:
-            if result.synset_id and result.word.lower() == word.lower():
-                # Get synset info to find other words
-                try:
-                    synset_info = get_synset_info(result.synset_id)
-                    for syn_word in synset_info.get('words', []):
-                        if syn_word.lower() != word.lower():
-                            synonyms.add(syn_word)
-                except Exception as e:
-                    logger.warning(f"Could not get synset info for {result.synset_id}: {e}")
+            # Only process exact matches
+            if not (result.synset_id and result.word.lower() == word.lower()):
+                continue
+                
+            # Get the full synset data
+            synset_data = get_synset_info(result.synset_id)
+            
+            # Extract word IDs from :ontolex/isEvokedBy
+            evoked_by = synset_data.get(':ontolex/isEvokedBy', [])
+            
+            # Normalize to list if single string
+            if isinstance(evoked_by, str):
+                evoked_by = [evoked_by]
+            elif not isinstance(evoked_by, list):
+                continue
+            
+            # Process each word reference
+            for word_ref in evoked_by:
+                # Extract the word ID from the reference
+                word_id = parse_resource_id(word_ref)
+                
+                # Fetch the word entity
+                word_data = dannet_client.get_resource(word_id)
+                if not word_data or ':entity' not in word_data:
+                    continue
+                
+                # Extract the lemma directly from :rdfs/label
+                label_data = word_data[':entity'].get(':rdfs/label', {})
+                
+                # Handle the RDF label structure {"value": "\"word\"", "lang": "da"}
+                lemma = None
+                if isinstance(label_data, dict) and 'value' in label_data:
+                    # Extract value and strip quotes
+                    lemma = label_data['value'].strip('"')
+                elif isinstance(label_data, str):
+                    # Fallback for direct string values
+                    lemma = label_data.strip('"')
+                
+                # Add to synonyms if it's not the input word
+                if lemma and lemma.lower() != word.lower():
+                    synonyms.add(lemma)
         
         return sorted(list(synonyms))
         
