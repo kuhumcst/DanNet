@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import logging
+import os
 from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urljoin
 
@@ -120,11 +121,23 @@ class DanNetClient:
             return []
 
 
-# Initialize the DanNet client
-dannet_client = DanNetClient()
+# Initialize the DanNet client (will be set in main())
+dannet_client = None
 
 # Create FastMCP server
 mcp = FastMCP("DanNet")
+
+
+def get_client():
+    """Get the DanNet client, initializing with default URL if not already set"""
+    global dannet_client
+    if dannet_client is None:
+        # Fallback initialization - check environment variable
+        is_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
+        base_url = "http://localhost:3456" if is_local else "https://wordnet.dk"
+        dannet_client = DanNetClient(base_url)
+        logger.info(f"Lazy initialization of DanNet client with base URL: {base_url}")
+    return dannet_client
 
 
 def extract_language_string(value: Union[str, Dict]) -> Optional[str]:
@@ -166,7 +179,7 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
         List of search results with words, synsets, and definitions
     """
     try:
-        results = dannet_client.search(query, language)
+        results = get_client().search(query, language)
         search_results = []
         
         # Handle DanNet's response structure - check for both single entity and multiple results
@@ -250,7 +263,7 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         if not clean_id.startswith('synset-'):
             clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
             
-        data = dannet_client.get_resource(clean_id)
+        data = get_client().get_resource(clean_id)
         
         # Check for ':entity' (with colon) - this is the actual response structure
         if not data or ':entity' not in data:
@@ -309,7 +322,7 @@ def get_word_synonyms(word: str) -> List[str]:
                 word_id = parse_resource_id(word_ref)
                 
                 # Fetch the word entity
-                word_data = dannet_client.get_resource(word_id)
+                word_data = get_client().get_resource(word_id)
                 if not word_data or ':entity' not in word_data:
                     continue
                 
@@ -385,48 +398,264 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
     will return empty results to avoid overwhelming amounts of data.
     """
     try:
-        suggestions = dannet_client.autocomplete(prefix)
+        suggestions = get_client().autocomplete(prefix)
         return suggestions[:max_results]
         
     except Exception as e:
         raise RuntimeError(f"Autocomplete failed: {e}")
 
 
-@mcp.resource("dannet://synset/{synset_id}")
-def get_synset_resource(synset_id: str) -> str:
+@mcp.resource("dannet://schema/{prefix}")
+def get_schema_resource(prefix: str) -> str:
     """
-    Access DanNet synset data as a resource.
+    Access RDF schemas used by DanNet by their namespace prefix.
     
     Args:
-        synset_id: The synset identifier
+        prefix: Schema namespace prefix (e.g., 'dns', 'dnc', 'rdfs', 'owl', 'ontolex')
     
     Returns:
-        JSON representation of the synset
+        RDF schema in Turtle format
+    
+    Most relevant schemas for DanNet:
+    - 'dns': DanNet-specific relations and properties (essential)  
+    - 'dnc': DanNet/EuroWordNet ontological concepts (essential)
+    - 'ontolex': OntoLex-Lemon vocabulary for lexical data (core)
+    - 'wn': Global WordNet schema for synsets and relations (core)
+    
+    Standard W3C schemas also available:
+    - 'rdf', 'rdfs', 'owl', 'skos': Core semantic web vocabularies
+    - 'dc': Dublin Core metadata terms
+    
+    See dannet://schemas for complete list with descriptions.
     """
     try:
-        synset_info = get_synset_info(synset_id)
-        import json
-        return json.dumps(synset_info, indent=2)
+        response = get_client().client.get(f"{get_client().base_url}/schema/{prefix}")
+        response.raise_for_status()
+        return response.text
     except Exception as e:
-        return f"Error accessing synset {synset_id}: {e}"
+        return f"Error accessing schema '{prefix}': {e}"
 
 
-@mcp.resource("dannet://search/{query}")
-def get_search_resource(query: str) -> str:
+@mcp.resource("dannet://schemas")
+def list_available_schemas() -> str:
     """
-    Access DanNet search results as a resource.
-    
-    Args:
-        query: The search query
+    List all available RDF schemas with descriptions and relevance to DanNet.
     
     Returns:
-        JSON representation of search results
+        JSON listing of all schemas with metadata and usage information
     """
-    try:
-        results = search_dannet(query)
-        return "\n".join(result.model_dump_json() for result in results)
-    except Exception as e:
-        return f"Error searching for '{query}': {e}"
+    import json
+    
+    schemas = {
+        "dannet_core": {
+            "description": "Essential schemas for understanding DanNet data structure",
+            "schemas": {
+                "dns": {
+                    "uri": "https://wordnet.dk/dannet/schema/",
+                    "title": "DanNet Schema",
+                    "description": "DanNet-specific relations, properties, and classes",
+                    "key_properties": [
+                        "dns:shortLabel", "dns:sentiment", "dns:ontologicalType", 
+                        "dns:usedFor", "dns:orthogonalHypernym", "dns:eqHypernym"
+                    ],
+                    "relevance": "essential"
+                },
+                "dnc": {
+                    "uri": "https://wordnet.dk/dannet/concepts/", 
+                    "title": "DanNet Concepts",
+                    "description": "All DanNet and EuroWordNet ontological concepts",
+                    "key_concepts": [
+                        "dnc:Animal", "dnc:Human", "dnc:Object", "dnc:Institution",
+                        "dnc:BodyPart", "dnc:Plant", "dnc:Place"
+                    ],
+                    "relevance": "essential"
+                }
+            }
+        },
+        "linguistic_core": {
+            "description": "Core linguistic vocabularies used in DanNet",
+            "schemas": {
+                "ontolex": {
+                    "uri": "http://www.w3.org/ns/lemon/ontolex#",
+                    "title": "OntoLex-Lemon",
+                    "description": "W3C vocabulary for representing lexical data",
+                    "key_classes": [
+                        "ontolex:LexicalConcept", "ontolex:LexicalEntry", 
+                        "ontolex:Form", "ontolex:isEvokedBy"
+                    ],
+                    "relevance": "core"
+                },
+                "wn": {
+                    "uri": "https://globalwordnet.github.io/schemas/wn#",
+                    "title": "Global WordNet Schema", 
+                    "description": "Standard schema for WordNet synsets and relations",
+                    "key_properties": [
+                        "wn:hypernym", "wn:hyponym", "wn:similar", "wn:antonym",
+                        "wn:lexfile", "wn:ili", "wn:eq_synonym"
+                    ],
+                    "relevance": "core"
+                },
+                "lexinfo": {
+                    "uri": "http://www.lexinfo.net/ontology/3.0/lexinfo#",
+                    "title": "LexInfo",
+                    "description": "Ontology for lexical information and linguistic categories",
+                    "usage": "Part-of-speech tags and morphological features",
+                    "relevance": "supporting"
+                }
+            }
+        },
+        "semantic_web_standards": {
+            "description": "Standard W3C vocabularies for RDF and semantic web",
+            "schemas": {
+                "rdf": {
+                    "uri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+                    "title": "RDF",
+                    "description": "Core RDF vocabulary", 
+                    "key_properties": ["rdf:type", "rdf:value"],
+                    "relevance": "foundational"
+                },
+                "rdfs": {
+                    "uri": "http://www.w3.org/2000/01/rdf-schema#",
+                    "title": "RDF Schema",
+                    "description": "Basic schema vocabulary for RDF",
+                    "key_properties": ["rdfs:label", "rdfs:comment", "rdfs:subClassOf", "rdfs:domain", "rdfs:range"],
+                    "relevance": "foundational"
+                },
+                "owl": {
+                    "uri": "http://www.w3.org/2002/07/owl#",
+                    "title": "Web Ontology Language",
+                    "description": "Rich ontology vocabulary for complex relationships",
+                    "key_classes": ["owl:Class", "owl:ObjectProperty", "owl:DatatypeProperty", "owl:inverseOf"],
+                    "relevance": "foundational"
+                },
+                "skos": {
+                    "uri": "http://www.w3.org/2004/02/skos/core#",
+                    "title": "Simple Knowledge Organization System",
+                    "description": "Vocabulary for thesauri and classification schemes",
+                    "key_properties": ["skos:definition", "skos:altLabel", "skos:broader", "skos:narrower"],
+                    "relevance": "supporting"
+                }
+            }
+        },
+        "metadata": {
+            "description": "Metadata and annotation vocabularies", 
+            "schemas": {
+                "dc": {
+                    "uri": "http://purl.org/dc/terms/",
+                    "title": "Dublin Core Terms",
+                    "description": "Standard metadata vocabulary",
+                    "key_properties": ["dc:subject", "dc:title", "dc:description", "dc:license", "dc:issued"],
+                    "relevance": "metadata"
+                },
+                "foaf": {
+                    "uri": "http://xmlns.com/foaf/0.1/",
+                    "title": "Friend of a Friend",
+                    "description": "Vocabulary for people and organizations",
+                    "relevance": "metadata"
+                },
+                "marl": {
+                    "uri": "http://www.gsi.upm.es/ontologies/marl/ns#",
+                    "title": "MARL Sentiment",
+                    "description": "Vocabulary for sentiment and emotion annotation",
+                    "relevance": "specialized"
+                }
+            }
+        }
+    }
+    
+    return json.dumps(schemas, indent=2)
+
+
+@mcp.resource("dannet://namespaces")
+def get_namespace_documentation() -> str:
+    """
+    Comprehensive documentation of all namespaces used in DanNet RDF data.
+    
+    Returns:
+        JSON documentation with namespace URIs, prefixes, and usage patterns
+    """
+    import json
+    
+    namespaces = {
+        "usage_guide": {
+            "understanding_prefixes": "Namespace prefixes map to full URIs in RDF data. For example, 'dns:sentiment' expands to 'https://wordnet.dk/dannet/schema/sentiment'",
+            "prefix_resolution": "Use the schema resources to get full ontology definitions for each namespace",
+            "data_interpretation": "Most DanNet synset properties use these prefixes. Core data is in 'dn:' namespace, relations defined in 'dns:' namespace"
+        },
+        "namespace_mappings": {
+            "dn": {
+                "uri": "https://wordnet.dk/dannet/data/",
+                "description": "Core DanNet data namespace - all synsets, words, senses, and instances",
+                "examples": ["dn:synset-3047", "dn:word-11021722", "dn:sense-21045953"],
+                "usage": "Primary namespace for all DanNet entities"
+            },
+            "dns": {
+                "uri": "https://wordnet.dk/dannet/schema/",  
+                "description": "DanNet-specific schema - properties and classes unique to DanNet",
+                "examples": ["dns:sentiment", "dns:ontologicalType", "dns:usedFor", "dns:orthogonalHypernym"],
+                "usage": "Custom relations and properties extending standard WordNet"
+            },
+            "dnc": {
+                "uri": "https://wordnet.dk/dannet/concepts/",
+                "description": "Ontological concepts from DanNet and EuroWordNet taxonomies", 
+                "examples": ["dnc:Animal", "dnc:Human", "dnc:Institution", "dnc:BodyPart"],
+                "usage": "Semantic classification of synsets via dns:ontologicalType"
+            },
+            "ontolex": {
+                "uri": "http://www.w3.org/ns/lemon/ontolex#",
+                "description": "W3C OntoLex-Lemon vocabulary for lexical resources",
+                "examples": ["ontolex:LexicalConcept", "ontolex:isEvokedBy", "ontolex:lexicalizedSense"],
+                "usage": "Structural representation of lexical data - synsets are ontolex:LexicalConcept"
+            },
+            "wn": {
+                "uri": "https://globalwordnet.github.io/schemas/wn#",
+                "description": "Global WordNet Association schema for synset relations",
+                "examples": ["wn:hypernym", "wn:hyponym", "wn:similar", "wn:lexfile", "wn:ili"],
+                "usage": "Standard WordNet semantic relations between synsets"
+            },
+            "skos": {
+                "uri": "http://www.w3.org/2004/02/skos/core#", 
+                "description": "W3C vocabulary for knowledge organization systems",
+                "examples": ["skos:definition", "skos:altLabel", "skos:broader"],
+                "usage": "Definitions and alternative labels for synsets"
+            },
+            "rdfs": {
+                "uri": "http://www.w3.org/2000/01/rdf-schema#",
+                "description": "RDF Schema vocabulary for basic ontology constructs",
+                "examples": ["rdfs:label", "rdfs:comment", "rdfs:subClassOf"],
+                "usage": "Basic labeling and classification of resources"
+            },
+            "dc": {
+                "uri": "http://purl.org/dc/terms/",
+                "description": "Dublin Core metadata vocabulary",
+                "examples": ["dc:subject", "dc:title", "dc:issued"],
+                "usage": "Metadata about synsets and other resources"
+            }
+        },
+        "common_patterns": {
+            "synset_structure": {
+                "description": "Typical properties found on synset resources",
+                "core_properties": [
+                    "rdf:type → ontolex:LexicalConcept",
+                    "rdfs:label → Human readable synset label", 
+                    "skos:definition → Definition text",
+                    "dns:ontologicalType → Semantic classification (dnc: concepts)",
+                    "ontolex:isEvokedBy → Words that evoke this synset",
+                    "wn:hypernym/wn:hyponym → Taxonomic relations"
+                ]
+            },
+            "word_structure": {
+                "description": "Typical properties found on word resources", 
+                "core_properties": [
+                    "rdf:type → ontolex:LexicalEntry",
+                    "rdfs:label → The word form",
+                    "ontolex:evokes → Synsets this word can evoke"
+                ]
+            }
+        }
+    }
+    
+    return json.dumps(namespaces, indent=2)
 
 
 @mcp.prompt()
@@ -510,10 +739,14 @@ def main():
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    # Check environment variable for local mode
+    env_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
+    is_local = args.local or env_local
+    
     # Determine base URL
     if args.base_url:
         base_url = args.base_url
-    elif args.local:
+    elif is_local:
         base_url = "http://localhost:3456"
     else:
         base_url = "https://wordnet.dk"
@@ -522,6 +755,14 @@ def main():
     dannet_client = DanNetClient(base_url)
     
     logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
+    if is_local:
+        if args.local and env_local:
+            logger.info("Local mode enabled via both --local flag and DANNET_MCP_LOCAL environment variable")
+        elif args.local:
+            logger.info("Local mode enabled via --local command line flag")
+        elif env_local:
+            logger.info("Local mode enabled via DANNET_MCP_LOCAL environment variable")
+    
     
     # Run the MCP server
     mcp.run()
