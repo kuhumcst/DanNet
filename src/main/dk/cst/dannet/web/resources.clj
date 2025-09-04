@@ -155,6 +155,14 @@
     (instance? XSDDateTime data)
     {:value (str data) :datatype "xsd:dateTime"}
 
+    ;; Handle symbols with metadata (blank entities from attach-blank-entities)
+    (symbol? data)
+    (if-let [resolved-data (meta data)]
+      ;; If the symbol has metadata, use the resolved data
+      (->json-safe resolved-data)
+      ;; Otherwise, convert the symbol to string
+      (str data))
+
     (keyword? data) (str data)
     (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
     (coll? data) (mapv ->json-safe data)
@@ -202,9 +210,6 @@
    "application/transit+json"
    (fn [data & _]
      (to/write-str data {:handlers transit-write-handlers}))})
-
-(def use-lang?
-  #{"application/transit+json" "text/html"})
 
 (defn- alt-resource
   "Return an alternate resource qname for the given `qname`; useful for e.g.
@@ -318,8 +323,13 @@
                   g            (:graph @db)
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
-                  expanded?    (use-lang? content-type)
-                  entity       (if expanded?
+                  ;; TODO: just always expand?
+                  entity       (if (get #{"application/transit+json"
+                                          "text/html"
+
+                                          ;; MCP server needs it too
+                                          "application/json"}
+                                        content-type)
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
                   languages    (request->languages request)

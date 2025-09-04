@@ -166,6 +166,73 @@ def parse_resource_id(resource_uri: str) -> str:
     return str(resource_uri)
 
 
+def extract_ontological_types(ontotype_data):
+    """
+    Extract and format ontological types from DanNet RDF bag structure.
+    
+    Args:
+        ontotype_data: List containing RDF bag structure with :rdf/_0, :rdf/_1, etc.
+    
+    Returns:
+        List of dnc: concept strings, or the original data if not in expected format
+    """
+    if not isinstance(ontotype_data, list) or not ontotype_data:
+        return ontotype_data
+    
+    bag_data = ontotype_data[0]
+    if not isinstance(bag_data, dict):
+        return ontotype_data
+    
+    # Extract dnc: concepts from RDF bag structure
+    concepts = []
+    for key, value in bag_data.items():
+        if key.startswith(':rdf/_') and isinstance(value, list) and value:
+            concept = value[0]
+            if isinstance(concept, str) and concept.startswith(':dnc/'):
+                # Remove the leading colon to get clean dnc:Concept format
+                concepts.append(concept[1:])
+    
+    # Sort for consistent ordering
+    concepts.sort()
+    return concepts if concepts else ontotype_data
+
+
+def extract_sentiment_info(sentiment_data):
+    """
+    Extract and format sentiment information from DanNet sentiment structure.
+    
+    Args:
+        sentiment_data: List containing sentiment structure with :marl properties
+    
+    Returns:
+        Dict with polarity and value, or the original data if not in expected format
+    """
+    if not isinstance(sentiment_data, list) or not sentiment_data:
+        return sentiment_data
+    
+    sentiment_obj = sentiment_data[0]
+    if not isinstance(sentiment_obj, dict):
+        return sentiment_data
+    
+    result = {}
+    
+    # Extract polarity
+    polarity = sentiment_obj.get(':marl/hasPolarity')
+    if isinstance(polarity, list) and polarity:
+        polarity_value = polarity[0]
+        if isinstance(polarity_value, str):
+            # Remove prefix and colon to get clean value
+            result['polarity'] = polarity_value.replace(':marl/', '')
+    
+    # Extract numerical value
+    polarity_val = sentiment_obj.get(':marl/polarityValue')
+    if isinstance(polarity_val, list) and polarity_val:
+        if isinstance(polarity_val[0], (int, float)):
+            result['value'] = polarity_val[0]
+    
+    return result if result else sentiment_data
+
+
 @mcp.tool()
 def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
     """
@@ -276,6 +343,16 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         
         # Add the cleaned synset_id for convenience (without colon prefix)
         result['synset_id'] = clean_id
+        
+        # Extract and format ontological types for better usability
+        if ':dns/ontologicalType' in result:
+            extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
+            result[':dns/ontologicalType_extracted'] = extracted_types
+        
+        # Extract and format sentiment information for better usability
+        if ':dns/sentiment' in result:
+            extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
+            result[':dns/sentiment_extracted'] = extracted_sentiment
         
         return result
         

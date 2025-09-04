@@ -228,6 +228,7 @@
                 ?olr (assoc ?o {?olr #{?ol}}))))
        (apply merge-with (partial merge-with into))))
 
+;; TODO: factor out navigable entity from here, possibly other things
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
