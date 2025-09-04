@@ -124,8 +124,27 @@ class DanNetClient:
 # Initialize the DanNet client (will be set in main())
 dannet_client = None
 
-# Create FastMCP server
-mcp = FastMCP("DanNet")
+# Create FastMCP server with helpful instructions
+mcp = FastMCP(
+    "DanNet",
+    instructions="""DanNet MCP Server - Danish WordNet semantic database access
+
+IMPORTANT: Before using DanNet tools, check these key resources for context:
+• dannet://ontological-types - DanNet's extended EuroWordNet ontological types (dnc: namespace)
+• dannet://dannet-schema - DanNet-specific properties (dns: namespace)  
+• dannet://wordnet-schema - Standard WordNet relations (wn: namespace)
+
+Key features:
+- Search Danish words and get semantic synsets with definitions
+- Access ontological classifications (what type of thing a word represents)
+- Find semantic relationships: synonyms, hypernyms, hyponyms
+- Sentiment analysis for Danish words
+- Rich RDF-based linguistic data with extracted user-friendly formats
+
+Most synset results include both raw RDF data and extracted fields (ending in _extracted) 
+for easier interpretation. Always check the ontological types resource first to understand
+the semantic concepts returned by the tools."""
+)
 
 
 def get_client():
@@ -174,7 +193,7 @@ def extract_ontological_types(ontotype_data):
         ontotype_data: List containing RDF bag structure with :rdf/_0, :rdf/_1, etc.
     
     Returns:
-        List of dnc: concept strings, or the original data if not in expected format
+        List of dnc: type strings, or the original data if not in expected format
     """
     if not isinstance(ontotype_data, list) or not ontotype_data:
         return ontotype_data
@@ -183,7 +202,7 @@ def extract_ontological_types(ontotype_data):
     if not isinstance(bag_data, dict):
         return ontotype_data
     
-    # Extract dnc: concepts from RDF bag structure
+    # Extract dnc: types from RDF bag structure
     concepts = []
     for key, value in bag_data.items():
         if key.startswith(':rdf/_') and isinstance(value, list) and value:
@@ -322,7 +341,12 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         synset_id: The synset identifier (e.g., "synset-1876")
     
     Returns:
-        Raw RDF data for the synset including all properties and relationships
+        Raw RDF data for the synset including all properties and relationships.
+        Includes extracted fields :dns/ontologicalType_extracted and :dns/sentiment_extracted
+        for easier interpretation.
+        
+    NOTE: To understand ontological types (dnc: namespace), check dannet://ontological-types first.
+    For DanNet properties, see dannet://dannet-schema resource.
     """
     try:
         # Clean the synset_id
@@ -482,6 +506,50 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
         raise RuntimeError(f"Autocomplete failed: {e}")
 
 
+@mcp.resource("dannet://ontological-types")
+def get_ontological_types_schema() -> str:
+    """
+    Access the ontological types taxonomy (dnc: namespace) - DanNet's extended EuroWordNet classification.
+    
+    Returns:
+        RDF schema defining ontological types like dnc:Animal, dnc:Human, dnc:Object, etc.
+        
+    This resource is essential for understanding the :dns/ontologicalType_extracted 
+    values returned by DanNet synset tools. DanNet uses an EXTENDED version of the 
+    EuroWordNet ontological type system, adding Danish-specific semantic categories 
+    beyond the original EuroWordNet taxonomy.
+    """
+    return get_schema_resource("dnc")
+
+
+@mcp.resource("dannet://dannet-schema")  
+def get_dannet_schema() -> str:
+    """
+    Access the DanNet-specific schema (dns: namespace).
+    
+    Returns:
+        RDF schema defining DanNet properties like dns:ontologicalType, dns:sentiment, etc.
+        
+    This resource explains DanNet's custom semantic properties that extend 
+    standard WordNet with Danish-specific linguistic annotations.
+    """
+    return get_schema_resource("dns")
+
+
+@mcp.resource("dannet://wordnet-schema")
+def get_wordnet_schema() -> str:
+    """
+    Access the Global WordNet schema (wn: namespace).
+    
+    Returns:
+        RDF schema defining standard WordNet relations like wn:hypernym, wn:hyponym, etc.
+        
+    This resource explains the semantic relationships between synsets following 
+    international WordNet standards.
+    """
+    return get_schema_resource("wn")
+
+
 @mcp.resource("dannet://schema/{prefix}")
 def get_schema_resource(prefix: str) -> str:
     """
@@ -495,7 +563,7 @@ def get_schema_resource(prefix: str) -> str:
     
     Most relevant schemas for DanNet:
     - 'dns': DanNet-specific relations and properties (essential)  
-    - 'dnc': DanNet/EuroWordNet ontological concepts (essential)
+    - 'dnc': DanNet/EuroWordNet ontological types (essential)
     - 'ontolex': OntoLex-Lemon vocabulary for lexical data (core)
     - 'wn': Global WordNet schema for synsets and relations (core)
     
@@ -540,7 +608,7 @@ def list_available_schemas() -> str:
                 "dnc": {
                     "uri": "https://wordnet.dk/dannet/concepts/", 
                     "title": "DanNet Concepts",
-                    "description": "All DanNet and EuroWordNet ontological concepts",
+                    "description": "All DanNet and EuroWordNet ontological types",
                     "key_concepts": [
                         "dnc:Animal", "dnc:Human", "dnc:Object", "dnc:Institution",
                         "dnc:BodyPart", "dnc:Plant", "dnc:Place"
@@ -674,7 +742,7 @@ def get_namespace_documentation() -> str:
             },
             "dnc": {
                 "uri": "https://wordnet.dk/dannet/concepts/",
-                "description": "Ontological concepts from DanNet and EuroWordNet taxonomies", 
+                "description": "Ontological types from DanNet and EuroWordNet taxonomies", 
                 "examples": ["dnc:Animal", "dnc:Human", "dnc:Institution", "dnc:BodyPart"],
                 "usage": "Semantic classification of synsets via dns:ontologicalType"
             },
@@ -716,7 +784,7 @@ def get_namespace_documentation() -> str:
                     "rdf:type → ontolex:LexicalConcept",
                     "rdfs:label → Human readable synset label", 
                     "skos:definition → Definition text",
-                    "dns:ontologicalType → Semantic classification (dnc: concepts)",
+                    "dns:ontologicalType → Semantic classification (dnc: types)",
                     "ontolex:isEvokedBy → Words that evoke this synset",
                     "wn:hypernym/wn:hyponym → Taxonomic relations"
                 ]
