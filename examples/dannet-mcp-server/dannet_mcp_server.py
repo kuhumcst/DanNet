@@ -5,9 +5,15 @@ DanNet MCP Server - A Model Context Protocol server for accessing DanNet (Danish
 This server provides AI applications with access to DanNet's rich Danish linguistic data
 including synsets, semantic relationships, word definitions, and examples.
 
+Server Selection (in order of precedence):
+1. --base-url <url>                   # Explicit custom URL
+2. --local or DANNET_MCP_LOCAL=true  # Force local server (localhost:3456)  
+3. Auto-detect local server          # Default: try local, fallback to remote
+4. Remote server fallback            # Uses wordnet.dk if local unavailable
+
 Usage:
-    python dannet_mcp_server.py                    # Uses wordnet.dk (production)
-    python dannet_mcp_server.py --local           # Uses localhost:3456 (development)
+    python dannet_mcp_server.py                    # Auto-detect (local preferred, remote fallback)
+    python dannet_mcp_server.py --local           # Force localhost:3456 (development)
     python dannet_mcp_server.py --base-url <url>  # Custom base URL
 """
 
@@ -1184,6 +1190,28 @@ def get_namespace_documentation() -> str:
     return json.dumps(namespaces, indent=2)
 
 
+def _detect_available_server() -> str:
+    """
+    Detect if local DanNet server is available, fallback to remote.
+    
+    Returns:
+        str: URL of available server (local preferred, remote fallback)
+    """
+    try:
+        # Test local server connectivity with a quick timeout
+        with httpx.Client(timeout=3.0) as test_client:
+            response = test_client.get(LOCAL_URL)
+            # Accept any response (including 404) as indication the server is running
+            if response.status_code < 500:
+                logger.info(f"Local DanNet server detected and available at {LOCAL_URL}")
+                return LOCAL_URL
+    except Exception as e:
+        logger.debug(f"Local server not available at {LOCAL_URL}: {e}")
+    
+    logger.info(f"Using remote DanNet server at {REMOTE_URL} (local server not available)")
+    return REMOTE_URL
+
+
 @mcp.prompt()
 def analyze_danish_word(word: str, include_examples: bool = True) -> str:
     """
@@ -1242,12 +1270,12 @@ def main():
     global dannet_client
     
     parser = argparse.ArgumentParser(
-        description="DanNet MCP Server - Access Danish WordNet data via MCP"
+        description="DanNet MCP Server - Access Danish WordNet data via MCP. Defaults to local server if available, otherwise uses remote server."
     )
     parser.add_argument(
         "--local",
         action="store_true",
-        help="Use local development server (localhost:3456)"
+        help="Force local development server (localhost:3456)"
     )
     parser.add_argument(
         "--base-url",
@@ -1267,27 +1295,29 @@ def main():
     
     # Check environment variable for local mode
     env_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
-    is_local = args.local or env_local
     
-    # Determine base URL
+    # Determine base URL with precedence: CLI args > env vars > auto-detect > remote fallback
     if args.base_url:
+        # Explicit base URL argument takes highest precedence
         base_url = args.base_url
-    elif is_local:
+        logger.info(f"Using explicitly specified base URL: {base_url}")
+    elif args.local or env_local:
+        # Explicit local flag or environment variable
         base_url = LOCAL_URL
-    else:
-        base_url = REMOTE_URL
-    
-    # Initialize client with the chosen base URL
-    dannet_client = DanNetClient(base_url)
-    
-    logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
-    if is_local:
         if args.local and env_local:
             logger.info("Local mode enabled via both --local flag and DANNET_MCP_LOCAL environment variable")
         elif args.local:
             logger.info("Local mode enabled via --local command line flag")
         elif env_local:
             logger.info("Local mode enabled via DANNET_MCP_LOCAL environment variable")
+    else:
+        # Auto-detect: try local first, fallback to remote
+        base_url = _detect_available_server()
+    
+    # Initialize client with the chosen base URL
+    dannet_client = DanNetClient(base_url)
+    
+    logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
     
     
     # Run the MCP server
