@@ -195,6 +195,45 @@ def get_client():
     return dannet_client
 
 
+def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None, synset_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Process raw synset entity data into enriched format with extracted fields.
+    
+    This helper function is used by both get_synset_info() and search_dannet() 
+    to ensure consistent processing of synset data.
+    
+    Args:
+        entity_data: Raw entity data from DanNet API
+        inferred_data: Optional inferred properties from OWL reasoning
+        synset_id: Optional synset ID to add for convenience
+    
+    Returns:
+        Dict with processed synset data including extracted fields
+    """
+    # Start with entity data
+    result = dict(entity_data)
+    
+    # Add inferred metadata if available
+    if inferred_data:
+        result[':inferred'] = inferred_data
+    
+    # Add the synset_id for convenience if provided
+    if synset_id:
+        result['synset_id'] = synset_id
+    
+    # Extract and format ontological types for better usability
+    if ':dns/ontologicalType' in result:
+        extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
+        result[':dns/ontologicalType_extracted'] = extracted_types
+    
+    # Extract and format sentiment information for better usability
+    if ':dns/sentiment' in result:
+        extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
+        result[':dns/sentiment_extracted'] = extracted_sentiment
+    
+    return result
+
+
 def extract_language_string(value: Union[str, Dict]) -> Optional[str]:
     """Extract string value from DanNet language-tagged values"""
     if isinstance(value, str):
@@ -298,7 +337,7 @@ def extract_sentiment_info(sentiment_data):
 
 
 @mcp.tool()
-def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
+def search_dannet(query: str, language: str = "da") -> Union[List[SearchResult], Dict[str, Any]]:
     """
     Search DanNet for Danish words, synsets, and their lexical meanings.
 
@@ -313,20 +352,46 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
     - Verbs distinguish motion vs. state (e.g., "løbe" = run/flow)
     - Check synset's dns:ontologicalType for semantic classification
 
+    RETURN BEHAVIOR:
+    This function has two possible return modes depending on search results:
+    
+    1. MULTIPLE RESULTS: Returns List[SearchResult] with basic information for each synset
+    2. SINGLE RESULT (redirect): Returns full synset data Dict when DanNet automatically 
+       redirects to a single synset. This provides immediate access to all semantic 
+       relationships, ontological types, sentiment data, and other rich information 
+       without requiring a separate get_synset_info() call.
+
+    The single-result case is equivalent to calling get_synset_info() on the synset,
+    providing the same comprehensive RDF data structure with all semantic relations.
+
     Args:
         query: The Danish word or phrase to search for
     
         language: Language for results (default: "da" for Danish, "en" for English labels)
     Returns:
-        List of search results with:
+        MULTIPLE RESULTS: List of SearchResult objects with:
         - word: The lexical form
         - synset_id: Unique synset identifier (format: synset-NNNNN)
         - label: Human-readable synset label (e.g., "{kage_1§1}")
         - definition: Brief semantic definition (may be truncated with "...")
+        
+        SINGLE RESULT: Dict with complete synset data including:
+        - All RDF properties with namespace prefixes (e.g., :wn/hypernym)
+        - :dns/ontologicalType_extracted → human-readable semantic types
+        - :dns/sentiment_extracted → parsed sentiment (if present)
+        - synset_id → clean identifier for convenience
+        - All semantic relationships and linguistic properties
 
-    Example:
+    Examples:
+        # Multiple results case
         results = search_dannet("hund")
-        # Returns synsets for dog (animal), person (slang), etc.
+        # Returns hits for all relevant synsets, i.e. a list of short summaries
+        # => [SearchResult, SearchResult, SearchResult, SearchResult]
+        
+        # Single result case (redirect)
+        result = search_dannet("svinkeærinde")  
+        # Returns a single full synset
+        # => {':wn/hypernym': ':dn/synset-11677', ':dns/sentiment_extracted': {...}, ...}
     """
     try:
         results = get_client().search(query, language)
@@ -336,7 +401,7 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
         if isinstance(results, dict):
             # Check if this is a single entity response (redirected from search)
             if ':entity' in results:
-                # This is a single synset entity response
+                # This is a single synset entity response - return full synset data
                 entity = results[':entity']
                 
                 # Extract synset ID from the subject
@@ -345,17 +410,13 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
                 if isinstance(subject, str) and subject.startswith(':dn/'):
                     synset_id = subject.replace(':dn/', '')
                 
-                # Extract definition and label
-                definition = extract_language_string(entity.get(':skos/definition'))
-                label = extract_language_string(entity.get(':rdfs/label'))
-                
-                if synset_id and definition:
-                    search_results.append(SearchResult(
-                        word=query,
-                        synset_id=synset_id,
-                        label=label,
-                        definition=definition
-                    ))
+                if synset_id:
+                    # Use helper function to process synset data consistently
+                    return _process_synset_data(
+                        entity_data=entity,
+                        inferred_data=results.get(':inferred'),
+                        synset_id=synset_id
+                    )
                     
             else:
                 # Check for multiple search results in EDN format
@@ -367,28 +428,28 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
                         if not isinstance(synset_data, dict):
                             continue
                         
-                        # Extract synset information from EDN-style response
+                        # Extract synset ID from the key
                         synset_id = None
                         if isinstance(synset_key, str) and synset_key.startswith(':dn/'):
                             synset_id = synset_key.replace(':dn/', '')
-                        elif 'rdf/value' in synset_data or ':rdf/value' in synset_data:
-                            rdf_value = synset_data.get(':rdf/value', synset_data.get('rdf/value', ''))
-                            if isinstance(rdf_value, str) and rdf_value.startswith(':dn/'):
-                                synset_id = rdf_value.replace(':dn/', '')
                         
-                        # Extract definition from EDN structure
-                        definition = extract_language_string(synset_data.get(':skos/definition', synset_data.get('skos/definition')))
-                        
-                        # Extract label if available
-                        label = extract_language_string(synset_data.get(':rdfs/label', synset_data.get('rdfs/label')))
-                        
-                        if synset_id and definition:
-                            search_results.append(SearchResult(
-                                word=lemma,
-                                synset_id=synset_id,
-                                label=label,
-                                definition=definition
-                            ))
+                        if synset_id:
+                            # Get full synset data to extract definition and label
+                            try:
+                                synset_info = get_synset_info(synset_id)
+                                definition = extract_language_string(synset_info.get(':skos/definition'))
+                                label = extract_language_string(synset_info.get(':rdfs/label'))
+                                
+                                # Include synset even if no definition (some synsets only have labels)
+                                search_results.append(SearchResult(
+                                    word=lemma,
+                                    synset_id=synset_id,
+                                    label=label,
+                                    definition=definition or ""
+                                ))
+                            except Exception as e:
+                                logger.warning(f"Failed to fetch synset {synset_id}: {e}")
+                                continue
         
         return search_results
         
@@ -466,32 +527,19 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         if not data or ':entity' not in data:
             raise DanNetError(f"No data found for synset {clean_id}")
         
-        # Start with entity data and add inferred metadata
-        result = dict(data[':entity'])
-        if ':inferred' in data:
-            result[':inferred'] = data[':inferred']
-        
-        # Add the cleaned synset_id for convenience (without colon prefix)
-        result['synset_id'] = clean_id
-        
-        # Extract and format ontological types for better usability
-        if ':dns/ontologicalType' in result:
-            extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
-            result[':dns/ontologicalType_extracted'] = extracted_types
-        
-        # Extract and format sentiment information for better usability
-        if ':dns/sentiment' in result:
-            extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
-            result[':dns/sentiment_extracted'] = extracted_sentiment
-        
-        return result
+        # Use helper function to process synset data consistently
+        return _process_synset_data(
+            entity_data=data[':entity'],
+            inferred_data=data.get(':inferred'),
+            synset_id=clean_id
+        )
         
     except Exception as e:
         raise RuntimeError(f"Failed to get synset info: {e}")
 
 
 @mcp.tool()
-def get_word_synonyms(word: str) -> List[str]:
+def get_word_synonyms(word: str) -> str:
     """
     Find synonyms for a Danish word through shared synsets (word senses).
 
@@ -507,11 +555,14 @@ def get_word_synonyms(word: str) -> List[str]:
         word: The Danish word to find synonyms for
     
     Returns:
-        List of synonymous words (aggregated across all word senses)
+        Comma-separated string of synonymous words (aggregated across all word senses)
+        
+        # TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
+        # Currently returns string to work around concatenation without separators.
 
     Example:
         synonyms = get_word_synonyms("løbe")
-        # Returns: ["rende", "spurte", "flyde", "strømme", ...]
+        # Returns: "rende, spurte, flyde, strømme"
 
     Note: Check synset definitions to understand which synonyms apply
     to which meaning (polysemy is common in Danish).
@@ -521,9 +572,22 @@ def get_word_synonyms(word: str) -> List[str]:
         search_results = search_dannet(word)
         synonyms = set()
         
+        # Handle both return types from search_dannet
+        if isinstance(search_results, dict):
+            # Single synset result - convert to list format
+            synset_id = search_results.get('synset_id')
+            if synset_id:
+                search_results = [type('SearchResult', (), {
+                    'synset_id': synset_id, 
+                    'word': word
+                })()]
+            else:
+                return ""
+        
         for result in search_results:
             # Only process exact matches
-            if not (result.synset_id and result.word.lower() == word.lower()):
+            if not (hasattr(result, 'synset_id') and result.synset_id and 
+                   hasattr(result, 'word') and result.word.lower() == word.lower()):
                 continue
                 
             # Get the full synset data
@@ -548,23 +612,19 @@ def get_word_synonyms(word: str) -> List[str]:
                 if not word_data or ':entity' not in word_data:
                     continue
                 
-                # Extract the lemma directly from :rdfs/label
-                label_data = word_data[':entity'].get(':rdfs/label', {})
+                # Extract the lemma using the existing helper function
+                label_data = word_data[':entity'].get(':rdfs/label')
+                lemma = extract_language_string(label_data)
                 
-                # Handle the RDF label structure {"value": "\"word\"", "lang": "da"}
-                lemma = None
-                if isinstance(label_data, dict) and 'value' in label_data:
-                    # Extract value and strip quotes
-                    lemma = label_data['value'].strip('"')
-                elif isinstance(label_data, str):
-                    # Fallback for direct string values
-                    lemma = label_data.strip('"')
+                # Strip quotes if present
+                if lemma:
+                    lemma = lemma.strip('"')
                 
                 # Add to synonyms if it's not the input word
                 if lemma and lemma.lower() != word.lower():
                     synonyms.add(lemma)
         
-        return sorted(list(synonyms))
+        return ", ".join(sorted(list(synonyms)))
         
     except Exception as e:
         raise RuntimeError(f"Failed to find synonyms: {e}")
@@ -617,7 +677,7 @@ def get_word_definitions(word: str) -> List[Dict[str, str]]:
 
 
 @mcp.tool()
-def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
+def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
     """
     Get autocomplete suggestions for Danish word prefixes.
     
@@ -629,18 +689,22 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
     
         max_results: Maximum number of suggestions to return (default: 10)
     Returns:
-        List of word completions in alphabetical order
+        Comma-separated string of word completions in alphabetical order
+        
+        # TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
+        # Currently returns string to work around concatenation without separators.
 
     Note: DanNet's autocomplete requires at least 3 characters. Shorter prefixes
     will return empty results to avoid overwhelming amounts of data.
 
     Example:
         suggestions = autocomplete_danish_word("hyg", 5)
-        # Returns: ["hygge", "hyggelig", "hygiejne", ...]
+        # Returns: "hygge, hyggelig, hygiejne"
     """
     try:
         suggestions = get_client().autocomplete(prefix)
-        return suggestions[:max_results]
+        limited_suggestions = suggestions[:max_results]
+        return ", ".join(limited_suggestions)
         
     except Exception as e:
         raise RuntimeError(f"Autocomplete failed: {e}")
