@@ -710,6 +710,141 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
         raise RuntimeError(f"Autocomplete failed: {e}")
 
 
+@mcp.tool()
+def switch_dannet_server(server: str) -> Dict[str, str]:
+    """
+    Switch between local and remote DanNet servers on the fly.
+    
+    This tool allows you to change the DanNet server endpoint during runtime
+    without restarting the MCP server. Useful for switching between development
+    (local) and production (remote) servers.
+
+    Args:
+        server: Server to switch to. Options:
+               - "local": Use localhost:3456 (development server)
+               - "remote": Use wordnet.dk (production server)
+               - Custom URL: Any valid URL starting with http:// or https://
+    
+    Returns:
+        Dict with status information:
+        - status: "success" or "error"
+        - message: Description of the operation
+        - previous_url: The URL that was previously active
+        - current_url: The URL that is now active
+
+    Example:
+        # Switch to local development server
+        result = switch_dannet_server("local")
+        
+        # Switch to production server
+        result = switch_dannet_server("remote")
+        
+        # Switch to custom server
+        result = switch_dannet_server("https://my-custom-dannet.example.com")
+    """
+    global dannet_client
+    
+    try:
+        # Store the previous URL for response
+        previous_url = dannet_client.base_url if dannet_client else "None"
+        
+        # Determine the target URL
+        if server.lower() == "local":
+            new_url = LOCAL_URL
+        elif server.lower() == "remote":
+            new_url = REMOTE_URL
+        elif server.startswith(("http://", "https://")):
+            new_url = server
+        else:
+            return {
+                "status": "error",
+                "message": f"Invalid server specification: '{server}'. Use 'local', 'remote', or a valid URL.",
+                "previous_url": previous_url,
+                "current_url": previous_url
+            }
+        
+        # Create new client instance
+        dannet_client = DanNetClient(new_url)
+        
+        # Test the connection with a simple request
+        try:
+            # Try to access the base endpoint to verify connectivity
+            test_response = dannet_client.client.get(f"{new_url}/")
+            if test_response.status_code not in [200, 404]:  # 404 is okay for root endpoint
+                logger.warning(f"Server responded with status {test_response.status_code}, but continuing...")
+        except Exception as conn_error:
+            logger.warning(f"Could not verify connectivity to {new_url}: {conn_error}")
+            # Continue anyway - the server might be accessible for API calls even if root isn't
+        
+        logger.info(f"DanNet client switched from {previous_url} to {new_url}")
+        
+        return {
+            "status": "success",
+            "message": f"Successfully switched DanNet server from {previous_url} to {new_url}",
+            "previous_url": previous_url,
+            "current_url": new_url
+        }
+        
+    except Exception as e:
+        error_msg = f"Failed to switch server: {e}"
+        logger.error(error_msg)
+        return {
+            "status": "error",
+            "message": error_msg,
+            "previous_url": previous_url if 'previous_url' in locals() else "Unknown",
+            "current_url": dannet_client.base_url if dannet_client else "Unknown"
+        }
+
+
+@mcp.tool()
+def get_current_dannet_server() -> Dict[str, str]:
+    """
+    Get information about the currently active DanNet server.
+    
+    Returns:
+        Dict with current server information:
+        - server_url: The base URL of the current DanNet server
+        - server_type: "local", "remote", or "custom"
+        - status: Connection status information
+    
+    Example:
+        info = get_current_dannet_server()
+        # Returns: {"server_url": "https://wordnet.dk", "server_type": "remote", "status": "active"}
+    """
+    global dannet_client
+    
+    if dannet_client is None:
+        return {
+            "server_url": "None",
+            "server_type": "uninitialized", 
+            "status": "No client initialized"
+        }
+    
+    current_url = dannet_client.base_url
+    
+    # Determine server type
+    if current_url == LOCAL_URL:
+        server_type = "local"
+    elif current_url == REMOTE_URL:
+        server_type = "remote"
+    else:
+        server_type = "custom"
+    
+    # Try to check server status
+    try:
+        # Simple connectivity test
+        test_response = dannet_client.client.get(f"{current_url}/", timeout=5.0)
+        status = f"Connected (HTTP {test_response.status_code})"
+    except Exception as e:
+        status = f"Connection issue: {str(e)[:100]}"
+    
+    return {
+        "server_url": current_url,
+        "server_type": server_type,
+        "status": status
+    }
+
+
 @mcp.resource("dannet://ontological-types")
 def get_ontological_types_schema() -> str:
     """
