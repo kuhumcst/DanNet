@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import logging
+import json
 import os
 from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urljoin
@@ -26,7 +27,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global configuration
-BASE_URL = "https://wordnet.dk"
+REMOTE_URL = "https://wordnet.dk"
+LOCAL_URL = "http://localhost:3456"
 TIMEOUT = 30.0
 MAX_RETRIES = 3
 
@@ -45,16 +47,23 @@ class SearchResult(BaseModel):
 
 
 class DanNetClient:
-    """HTTP client for DanNet API"""
-    
-    def __init__(self, base_url: str = BASE_URL):
+    """HTTP client for DanNet API with format negotiation support"""
+
+    def __init__(self, base_url: str = REMOTE_URL):
+        """
+        Initialize DanNet client.
+
+        The DanNet service supports multiple response formats:
+        - JSON: Convenient for Python processing, includes extracted fields
+        - Turtle: Native RDF format, preserves full semantic structure
+        - EDN: Clojure data format (internally used, converted to JSON)
+
+        Args:
+            base_url: DanNet service URL
+        """
         self.base_url = base_url.rstrip('/')
-        self.client = httpx.Client(
-            timeout=TIMEOUT
-            # Note: DanNet doesn't support Accept: application/json header
-            # Content format is determined by URL parameters or server defaults
-        )
-    
+        self.client = httpx.Client(timeout=TIMEOUT)
+
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make HTTP request to DanNet API"""
         url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
@@ -127,23 +136,50 @@ dannet_client = None
 # Create FastMCP server with helpful instructions
 mcp = FastMCP(
     "DanNet",
-    instructions="""DanNet MCP Server - Danish WordNet semantic database access
+    instructions="""DanNet MCP Server - Danish WordNet with rich semantic relationships
 
-IMPORTANT: Before using DanNet tools, check these key resources for context:
-• dannet://ontological-types - DanNet's extended EuroWordNet ontological types (dnc: namespace)
-• dannet://dannet-schema - DanNet-specific properties (dns: namespace)  
-• dannet://wordnet-schema - Standard WordNet relations (wn: namespace)
+SEMANTIC DATA MODEL:
+DanNet follows OntoLex-Lemon + Global WordNet standards where:
+• Words (LexicalEntry) → Senses → Synsets (LexicalConcept)
+• Synsets represent units of meaning shared by synonymous words
+• Rich semantic network with 70+ relation types
 
-Key features:
-- Search Danish words and get semantic synsets with definitions
-- Access ontological classifications (what type of thing a word represents)
-- Find semantic relationships: synonyms, hypernyms, hyponyms
-- Sentiment analysis for Danish words
-- Rich RDF-based linguistic data with extracted user-friendly formats
+QUICK START WORKFLOW:
+1. Check resources for context:
+   - dannet://ontological-types → Semantic categories (Animal, Human, Object, etc.)
+   - dannet://namespaces → Understanding prefixes in the data
+   
+2. Search for words to find synsets:
+   - search_dannet("hund") → Find all meanings
+   - Note: Danish has high polysemy (words with multiple meanings)
+   
+3. Explore synset details:
+   - get_synset_info() → Full RDF data with relationships
+   - Check dns:ontologicalType_extracted for semantic class
+   - Follow wn:hypernym for categories, wn:hyponym for specifics
+   
+4. Navigate semantic relationships:
+   - Taxonomic: hypernym (broader) / hyponym (narrower)
+   - Similarity: similar, near_synonym, antonym
+   - Part-whole: meronym/holonym (part/substance/member)
+   - Functional: used_for, causes, instrument (DanNet-specific)
 
-Most synset results include both raw RDF data and extracted fields (ending in _extracted) 
-for easier interpretation. Always check the ontological types resource first to understand
-the semantic concepts returned by the tools."""
+KEY SEMANTIC PATTERNS:
+• Hypernym chains reveal conceptual hierarchies
+• Multiple hyponyms indicate important category nodes
+• dns:inherited shows properties from parent concepts
+• Cross-linguistic via wn:ili and wn:eq_synonym to Princeton WordNet
+
+DATA FORMATS:
+• JSON responses include _extracted fields for easier parsing
+• Raw RDF available via Turtle format for graph operations
+• All entities use namespace prefixes (dn: for data, dns: for schema)
+
+TIPS FOR LLM USAGE:
+- Start broad with word search, then narrow to specific synsets
+- Use ontological types to understand what kind of entity something is
+- Check relationships to build semantic context
+- Danish-specific: Watch for compound words and derivations"""
 )
 
 
@@ -153,7 +189,7 @@ def get_client():
     if dannet_client is None:
         # Fallback initialization - check environment variable
         is_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
-        base_url = "http://localhost:3456" if is_local else "https://wordnet.dk"
+        base_url = LOCAL_URL if is_local else REMOTE_URL
         dannet_client = DanNetClient(base_url)
         logger.info(f"Lazy initialization of DanNet client with base URL: {base_url}")
     return dannet_client
@@ -189,11 +225,16 @@ def extract_ontological_types(ontotype_data):
     """
     Extract and format ontological types from DanNet RDF bag structure.
     
+    DanNet uses ontological types from the EuroWordNet taxonomy to classify synsets
+    semantically. These types indicate what kind of entity a synset represents
+    (e.g., Animal, Human, Object, Event, etc.).
+
     Args:
         ontotype_data: List containing RDF bag structure with :rdf/_0, :rdf/_1, etc.
     
     Returns:
-        List of dnc: type strings, or the original data if not in expected format
+        List of dnc: type strings (e.g., ['dnc/Animal', 'dnc/Living']),
+        or the original data if not in expected format
     """
     if not isinstance(ontotype_data, list) or not ontotype_data:
         return ontotype_data
@@ -220,11 +261,15 @@ def extract_sentiment_info(sentiment_data):
     """
     Extract and format sentiment information from DanNet sentiment structure.
     
+    DanNet includes sentiment annotations for words that carry emotional polarity,
+    using the MARL (Machine-Readable Language) vocabulary.
+
     Args:
         sentiment_data: List containing sentiment structure with :marl properties
     
     Returns:
-        Dict with polarity and value, or the original data if not in expected format
+        Dict with polarity ('positive', 'negative', 'neutral') and numerical value,
+        or the original data if not in expected format
     """
     if not isinstance(sentiment_data, list) or not sentiment_data:
         return sentiment_data
@@ -255,14 +300,33 @@ def extract_sentiment_info(sentiment_data):
 @mcp.tool()
 def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
     """
-    Search DanNet for Danish words, synsets, and their meanings.
-    
+    Search DanNet for Danish words, synsets, and their lexical meanings.
+
+    DanNet follows the OntoLex-Lemon model where:
+    - Words (ontolex:LexicalEntry) evoke concepts through senses
+    - Synsets (ontolex:LexicalConcept) represent units of meaning
+    - Multiple words can share the same synset (synonyms)
+    - One word can have multiple synsets (polysemy)
+
+    Common search patterns:
+    - Nouns often have multiple senses (e.g., "kage" = cake/lump)
+    - Verbs distinguish motion vs. state (e.g., "løbe" = run/flow)
+    - Check synset's dns:ontologicalType for semantic classification
+
     Args:
         query: The Danish word or phrase to search for
-        language: Language for results (default: "da" for Danish)
     
+        language: Language for results (default: "da" for Danish, "en" for English labels)
     Returns:
-        List of search results with words, synsets, and definitions
+        List of search results with:
+        - word: The lexical form
+        - synset_id: Unique synset identifier (format: synset-NNNNN)
+        - label: Human-readable synset label (e.g., "{kage_1§1}")
+        - definition: Brief semantic definition (may be truncated with "...")
+
+    Example:
+        results = search_dannet("hund")
+        # Returns synsets for dog (animal), person (slang), etc.
     """
     try:
         results = get_client().search(query, language)
@@ -335,18 +399,60 @@ def search_dannet(query: str, language: str = "da") -> List[SearchResult]:
 @mcp.tool()
 def get_synset_info(synset_id: str) -> Dict[str, Any]:
     """
-    Get detailed information about a specific DanNet synset.
-    
+    Get comprehensive RDF data for a DanNet synset (lexical concept).
+
+    UNDERSTANDING THE DATA MODEL:
+    Synsets are ontolex:LexicalConcept instances representing word meanings.
+    They connect to words via ontolex:isEvokedBy and have rich semantic relations.
+
+    KEY RELATIONSHIPS (by importance):
+
+    1. TAXONOMIC (most fundamental):
+       - wn:hypernym → broader concept (e.g., "hund" → "pattedyr")
+       - wn:hyponym → narrower concepts (e.g., "hund" → "puddel", "schæfer")
+       - dns:orthogonalHypernym → cross-cutting categories
+
+    2. LEXICAL CONNECTIONS:
+       - ontolex:isEvokedBy → words expressing this concept
+       - ontolex:lexicalizedSense → sense instances
+       - wn:similar → related but distinct concepts
+
+    3. PART-WHOLE RELATIONS:
+       - wn:mero_part/wn:holo_part → component relationships
+       - wn:mero_substance/wn:holo_substance → material composition
+       - wn:mero_member/wn:holo_member → membership relations
+
+    4. SEMANTIC PROPERTIES:
+       - dns:ontologicalType → semantic classification (see _extracted field)
+         Common types: dnc:Animal, dnc:Human, dnc:Object, dnc:Physical,
+         dnc:Dynamic (events/actions), dnc:Static (states)
+       - dns:sentiment → emotional polarity (if applicable)
+       - wn:lexfile → semantic domain (e.g., "noun.food", "verb.motion")
+
+    5. CROSS-LINGUISTIC:
+       - wn:ili → Interlingual Index for cross-language mapping
+       - wn:eq_synonym → Princeton WordNet equivalent
+
+    NAVIGATION TIPS:
+    - Follow wn:hypernym chains to find semantic categories
+    - Check dns:inherited for properties from parent synsets
+    - Use parse_resource_id() on URI references to get clean IDs
+
     Args:
-        synset_id: The synset identifier (e.g., "synset-1876")
-    
+        synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
+
     Returns:
-        Raw RDF data for the synset including all properties and relationships.
-        Includes extracted fields :dns/ontologicalType_extracted and :dns/sentiment_extracted
-        for easier interpretation.
-        
-    NOTE: To understand ontological types (dnc: namespace), check dannet://ontological-types first.
-    For DanNet properties, see dannet://dannet-schema resource.
+        Dict containing:
+        - All RDF properties with namespace prefixes (e.g., :wn/hypernym)
+        - :inferred → properties derived through OWL reasoning
+        - synset_id → clean identifier for convenience
+        - :dns/ontologicalType_extracted → human-readable semantic types
+        - :dns/sentiment_extracted → parsed sentiment (if present)
+
+    Example:
+        info = get_synset_info("synset-52")  # cake synset
+        # Check info[':wn/hypernym'] for parent concepts
+        # Check info[':dns/ontologicalType_extracted'] for semantic class
     """
     try:
         # Clean the synset_id
@@ -387,13 +493,28 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
 @mcp.tool()
 def get_word_synonyms(word: str) -> List[str]:
     """
-    Find synonyms for a Danish word by looking up its synsets.
-    
+    Find synonyms for a Danish word through shared synsets (word senses).
+
+    SYNONYM TYPES IN DANNET:
+    - True synonyms: Words sharing the exact same synset
+    - Near-synonyms: Words in synsets marked with wn:similar
+    - Context-specific: Different synonyms for different word senses
+
+    The function returns all words that share synsets with the input word,
+    effectively finding lexical alternatives that express the same concepts.
+
     Args:
         word: The Danish word to find synonyms for
     
     Returns:
-        List of synonymous words
+        List of synonymous words (aggregated across all word senses)
+
+    Example:
+        synonyms = get_word_synonyms("løbe")
+        # Returns: ["rende", "spurte", "flyde", "strømme", ...]
+
+    Note: Check synset definitions to understand which synonyms apply
+    to which meaning (polysemy is common in Danish).
     """
     try:
         # Search for the word to find its synsets
@@ -449,16 +570,28 @@ def get_word_synonyms(word: str) -> List[str]:
         raise RuntimeError(f"Failed to find synonyms: {e}")
 
 
-@mcp.tool() 
+@mcp.tool()
 def get_word_definitions(word: str) -> List[Dict[str, str]]:
     """
     Get all definitions for the different senses/meanings of a Danish word.
     
+    Danish words often have multiple distinct meanings (polysemy). This function
+    returns all definitions with their corresponding synset information, allowing
+    you to understand the full semantic range of a word.
+
     Args:
         word: The Danish word to get definitions for
     
     Returns:
-        List of definitions with synset information
+        List of definitions with:
+        - word: The word form
+        - definition: Semantic definition
+        - synset_id: Unique synset identifier for this sense
+        - label: Human-readable synset label (if available)
+
+    Example:
+        defs = get_word_definitions("bank")
+        # Returns definitions for: financial institution, riverbank, bench, etc.
     """
     try:
         search_results = search_dannet(word)
@@ -488,15 +621,22 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> List[str]:
     """
     Get autocomplete suggestions for Danish word prefixes.
     
+    Useful for discovering Danish vocabulary or finding the correct spelling
+    of words. Returns lemma forms (dictionary forms) of words.
+
     Args:
         prefix: The beginning of a Danish word (minimum 3 characters required)
-        max_results: Maximum number of suggestions to return
     
+        max_results: Maximum number of suggestions to return (default: 10)
     Returns:
-        List of word completions
-    
-    Note: DanNet's autocomplete requires at least 3 characters. Shorter prefixes 
+        List of word completions in alphabetical order
+
+    Note: DanNet's autocomplete requires at least 3 characters. Shorter prefixes
     will return empty results to avoid overwhelming amounts of data.
+
+    Example:
+        suggestions = autocomplete_danish_word("hyg", 5)
+        # Returns: ["hygge", "hyggelig", "hygiejne", ...]
     """
     try:
         suggestions = get_client().autocomplete(prefix)
@@ -522,7 +662,7 @@ def get_ontological_types_schema() -> str:
     return get_schema_resource("dnc")
 
 
-@mcp.resource("dannet://dannet-schema")  
+@mcp.resource("dannet://dannet-schema")
 def get_dannet_schema() -> str:
     """
     Access the DanNet-specific schema (dns: namespace).
@@ -553,28 +693,72 @@ def get_wordnet_schema() -> str:
 @mcp.resource("dannet://schema/{prefix}")
 def get_schema_resource(prefix: str) -> str:
     """
-    Access RDF schemas used by DanNet by their namespace prefix.
-    
+    Access RDF schemas defining DanNet's semantic structure.
+
+    SCHEMA HIERARCHY AND USAGE:
+
+    Essential DanNet schemas (START HERE):
+    ----------------------------------------
+    'dns' - DanNet Schema (https://wordnet.dk/dannet/schema/)
+        Defines Danish-specific relations and properties:
+        - dns:ontologicalType → links to semantic categories
+        - dns:sentiment → emotional polarity annotations
+        - dns:usedFor → functional relationships
+        - dns:orthogonalHypernym → cross-cutting hierarchies
+        - dns:inherited → properties from parent synsets
+        USE: Understanding DanNet-specific features
+
+    'dnc' - DanNet Concepts (https://wordnet.dk/dannet/concepts/)
+        Taxonomy of ontological types (semantic categories):
+        - EuroWordNet concepts: FirstOrderEntity (physical things),
+          SecondOrderEntity (events/processes), ThirdOrderEntity (abstract)
+        - Semantic primitives: Animal, Human, Object, Place, Time
+        - Properties: Physical/Mental, Static/Dynamic, Natural/Artifact
+        USE: Interpreting dns:ontologicalType values
+
+    Core linguistic schemas:
+    ------------------------
+    'ontolex' - OntoLex-Lemon (W3C standard for lexical resources)
+        - LexicalEntry → words and multi-word expressions
+        - LexicalConcept → synsets (word meanings)
+        - LexicalSense → connection between words and concepts
+        - Form → inflected word forms
+        USE: Understanding the word-sense-synset model
+
+    'wn' - Global WordNet (standard WordNet relations)
+        - Taxonomic: hypernym, hyponym, instance_of
+        - Part-whole: meronym, holonym (part/member/substance)
+        - Lexical: antonym, similar, also, pertainym
+        - Cross-lingual: ili (Interlingual Index)
+        USE: Navigating semantic relationships
+
+    Supporting vocabularies:
+    -----------------------
+    'skos' - Simple Knowledge Organization System
+        Used for: definitions, alternative labels
+
+    'lexinfo' - Linguistic categories
+        Used for: part-of-speech, morphological features
+
+    'marl' - Sentiment annotation
+        Used for: polarity values in dns:sentiment
+
     Args:
-        prefix: Schema namespace prefix (e.g., 'dns', 'dnc', 'rdfs', 'owl', 'ontolex')
-    
+        prefix: Namespace prefix (case-sensitive)
+
     Returns:
-        RDF schema in Turtle format
-    
-    Most relevant schemas for DanNet:
-    - 'dns': DanNet-specific relations and properties (essential)  
-    - 'dnc': DanNet/EuroWordNet ontological types (essential)
-    - 'ontolex': OntoLex-Lemon vocabulary for lexical data (core)
-    - 'wn': Global WordNet schema for synsets and relations (core)
-    
-    Standard W3C schemas also available:
-    - 'rdf', 'rdfs', 'owl', 'skos': Core semantic web vocabularies
-    - 'dc': Dublin Core metadata terms
-    
-    See dannet://schemas for complete list with descriptions.
+        RDF schema in Turtle format with full ontology definitions
+
+    Example:
+        # First understand the semantic categories:
+        dnc_schema = get_schema_resource("dnc")
+
+        # Then explore DanNet's custom properties:
+        dns_schema = get_schema_resource("dns")
     """
     try:
-        response = get_client().client.get(f"{get_client().base_url}/schema/{prefix}")
+        client = get_client()
+        response = client.client.get(f"{client.base_url}/schema/{prefix}")
         response.raise_for_status()
         return response.text
     except Exception as e:
@@ -589,8 +773,7 @@ def list_available_schemas() -> str:
     Returns:
         JSON listing of all schemas with metadata and usage information
     """
-    import json
-    
+
     schemas = {
         "dannet_core": {
             "description": "Essential schemas for understanding DanNet data structure",
@@ -600,13 +783,13 @@ def list_available_schemas() -> str:
                     "title": "DanNet Schema",
                     "description": "DanNet-specific relations, properties, and classes",
                     "key_properties": [
-                        "dns:shortLabel", "dns:sentiment", "dns:ontologicalType", 
+                        "dns:shortLabel", "dns:sentiment", "dns:ontologicalType",
                         "dns:usedFor", "dns:orthogonalHypernym", "dns:eqHypernym"
                     ],
                     "relevance": "essential"
                 },
                 "dnc": {
-                    "uri": "https://wordnet.dk/dannet/concepts/", 
+                    "uri": "https://wordnet.dk/dannet/concepts/",
                     "title": "DanNet Concepts",
                     "description": "All DanNet and EuroWordNet ontological types",
                     "key_concepts": [
@@ -625,14 +808,14 @@ def list_available_schemas() -> str:
                     "title": "OntoLex-Lemon",
                     "description": "W3C vocabulary for representing lexical data",
                     "key_classes": [
-                        "ontolex:LexicalConcept", "ontolex:LexicalEntry", 
+                        "ontolex:LexicalConcept", "ontolex:LexicalEntry",
                         "ontolex:Form", "ontolex:isEvokedBy"
                     ],
                     "relevance": "core"
                 },
                 "wn": {
                     "uri": "https://globalwordnet.github.io/schemas/wn#",
-                    "title": "Global WordNet Schema", 
+                    "title": "Global WordNet Schema",
                     "description": "Standard schema for WordNet synsets and relations",
                     "key_properties": [
                         "wn:hypernym", "wn:hyponym", "wn:similar", "wn:antonym",
@@ -655,7 +838,7 @@ def list_available_schemas() -> str:
                 "rdf": {
                     "uri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
                     "title": "RDF",
-                    "description": "Core RDF vocabulary", 
+                    "description": "Core RDF vocabulary",
                     "key_properties": ["rdf:type", "rdf:value"],
                     "relevance": "foundational"
                 },
@@ -683,7 +866,7 @@ def list_available_schemas() -> str:
             }
         },
         "metadata": {
-            "description": "Metadata and annotation vocabularies", 
+            "description": "Metadata and annotation vocabularies",
             "schemas": {
                 "dc": {
                     "uri": "http://purl.org/dc/terms/",
@@ -719,8 +902,7 @@ def get_namespace_documentation() -> str:
     Returns:
         JSON documentation with namespace URIs, prefixes, and usage patterns
     """
-    import json
-    
+
     namespaces = {
         "usage_guide": {
             "understanding_prefixes": "Namespace prefixes map to full URIs in RDF data. For example, 'dns:sentiment' expands to 'https://wordnet.dk/dannet/schema/sentiment'",
@@ -735,14 +917,14 @@ def get_namespace_documentation() -> str:
                 "usage": "Primary namespace for all DanNet entities"
             },
             "dns": {
-                "uri": "https://wordnet.dk/dannet/schema/",  
+                "uri": "https://wordnet.dk/dannet/schema/",
                 "description": "DanNet-specific schema - properties and classes unique to DanNet",
                 "examples": ["dns:sentiment", "dns:ontologicalType", "dns:usedFor", "dns:orthogonalHypernym"],
                 "usage": "Custom relations and properties extending standard WordNet"
             },
             "dnc": {
                 "uri": "https://wordnet.dk/dannet/concepts/",
-                "description": "Ontological types from DanNet and EuroWordNet taxonomies", 
+                "description": "Ontological types from DanNet and EuroWordNet taxonomies",
                 "examples": ["dnc:Animal", "dnc:Human", "dnc:Institution", "dnc:BodyPart"],
                 "usage": "Semantic classification of synsets via dns:ontologicalType"
             },
@@ -759,7 +941,7 @@ def get_namespace_documentation() -> str:
                 "usage": "Standard WordNet semantic relations between synsets"
             },
             "skos": {
-                "uri": "http://www.w3.org/2004/02/skos/core#", 
+                "uri": "http://www.w3.org/2004/02/skos/core#",
                 "description": "W3C vocabulary for knowledge organization systems",
                 "examples": ["skos:definition", "skos:altLabel", "skos:broader"],
                 "usage": "Definitions and alternative labels for synsets"
@@ -782,7 +964,7 @@ def get_namespace_documentation() -> str:
                 "description": "Typical properties found on synset resources",
                 "core_properties": [
                     "rdf:type → ontolex:LexicalConcept",
-                    "rdfs:label → Human readable synset label", 
+                    "rdfs:label → Human readable synset label",
                     "skos:definition → Definition text",
                     "dns:ontologicalType → Semantic classification (dnc: types)",
                     "ontolex:isEvokedBy → Words that evoke this synset",
@@ -790,7 +972,7 @@ def get_namespace_documentation() -> str:
                 ]
             },
             "word_structure": {
-                "description": "Typical properties found on word resources", 
+                "description": "Typical properties found on word resources",
                 "core_properties": [
                     "rdf:type → ontolex:LexicalEntry",
                     "rdfs:label → The word form",
@@ -864,7 +1046,7 @@ def main():
         description="DanNet MCP Server - Access Danish WordNet data via MCP"
     )
     parser.add_argument(
-        "--local", 
+        "--local",
         action="store_true",
         help="Use local development server (localhost:3456)"
     )
@@ -875,7 +1057,7 @@ def main():
     )
     parser.add_argument(
         "--debug",
-        action="store_true", 
+        action="store_true",
         help="Enable debug logging"
     )
     
@@ -892,9 +1074,9 @@ def main():
     if args.base_url:
         base_url = args.base_url
     elif is_local:
-        base_url = "http://localhost:3456"
+        base_url = LOCAL_URL
     else:
-        base_url = "https://wordnet.dk"
+        base_url = REMOTE_URL
     
     # Initialize client with the chosen base URL
     dannet_client = DanNetClient(base_url)
