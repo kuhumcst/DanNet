@@ -13,7 +13,7 @@ practical utility.
   
   Additional context in subsequent paragraphs (if needed)."
   (:require [clojure.string :as str]
-    [clojure.walk :as walk]))
+            [clojure.walk :as walk]))
 ```
 
 **Key Points:**
@@ -47,9 +47,12 @@ practical utility.
 
 - Comprehensive docstrings with parameter types and examples
 - Wrap parameters in backticks: `xml`, `:file-meta`
+- **Mention all parameters in first line with backticks**: "Convert `xml` in `conn`..."
 - Present tense, active voice ("Convert", not "Converts")
 - Multi-arity docstring on function name, not individual arities
 - Include concrete examples for non-obvious usage
+- **Keep docstring lines at or below 80 characters**
+- Attempt to keep code lines at or below 80 characters too (if it makes sense).
 
 ### Forward Declarations
 
@@ -77,6 +80,10 @@ Use `declare` for mutual recursion and complex interdependencies.
 (defn persist-results! [data] ...)  ; Bang suffix for side effects
 (defn valid? [x] ...)               ; Question suffix for predicates
 ```
+
+**Parameter Naming:**
+- Match parameter names with existing functions in the same namespace
+- Prefer established conventions (`conn`, `ident`, `opts`) over descriptive names
 
 ### Parameter Handling
 
@@ -119,12 +126,12 @@ Simpler arity should delegate to more complex one.
 ;; Clear accumulator pattern with termination check first
 (defn transform-until-nil [items]
   (loop [remaining items
-     result []]
+         result []]
     (if (or (empty? remaining)
-        (nil? (first remaining)))
+            (nil? (first remaining)))
       result
       (recur (rest remaining)
-         (conj result (transform (first remaining)))))))
+             (conj result (transform (first remaining)))))))
 ```
 
 Consider sequence functions (map, filter, reduce) before explicit loops.
@@ -143,9 +150,9 @@ Consider sequence functions (map, filter, reduce) before explicit loops.
 ;; transducer for efficient single-pass processing
 ;; Avoids intermediate collections
 (into []
-  (comp (filter valid?)
-    (map process-item))
-  items)
+      (comp (filter valid?)
+            (map process-item))
+      items)
 ```
 
 ## Error Handling
@@ -163,9 +170,9 @@ Consider sequence functions (map, filter, reduce) before explicit loops.
 ;; nil-safe navigation with some->
 (defn get-user-email [data]
   (some-> data
-    :user
-    :contact
-    :email))
+          :user
+          :contact
+          :email))
 ```
 
 Handle edge cases explicitly and prefer safe operations that won't throw exceptions.
@@ -186,9 +193,9 @@ Handle edge cases explicitly and prefer safe operations that won't throw excepti
 (defn persist-results! [results]
   (io/make-parents "out/results/")  ; Ensure directory exists
   (doseq [[idx result] (map-indexed vector results)]
-     (write-file (str "out/results/" idx ".edn") result)
-     (when (zero? (mod idx 100))     ; Progress every 100 items
-       (println "processed" idx "items")))
+    (write-file (str "out/results/" idx ".edn") result)
+    (when (zero? (mod idx 100))     ; Progress every 100 items
+      (println "processed" idx "items")))
   (println "completed:" (count results) "total items"))
 ```
 
@@ -281,8 +288,8 @@ Use `delay` for expensive computations that might not be needed.
 ;; composable transducer that can be reused
 (defn ->frequencies-xf [tokenizer-xf]
   (comp tokenizer-xf
-    (map frequencies)
-    (map normalize)))
+        (map frequencies)
+        (map normalize)))
 
 ;; Usage: can be applied to different collections efficiently
 ;; (into [] (->frequencies-xf tokenizer) documents)
@@ -294,9 +301,9 @@ Use `delay` for expensive computations that might not be needed.
 ;; attaching metadata to preserve file info
 (defn read-with-meta [file]
   (with-meta (slurp file)
-         {:filename (.getName file)
-      :path     (.getPath file)
-      :modified (.lastModified file)}))
+             {:filename (.getName file)
+              :path     (.getPath file)
+              :modified (.lastModified file)}))
 ```
 
 Most applications should probably use simpler alternatives than these advanced patterns.
@@ -328,5 +335,5 @@ Most applications should probably use simpler alternatives than these advanced p
 - **Relevant Namespace**: When creating function definitions or other defs, put them directly in the relevant
   namespace (and not in a comment block)
 - **Code Evaluation**: Keep REPL evaluations short and focused
-  - verify one specific aspect at a time rather than exhaustive testing
-  - it's better to stop and ask me for input rather than spending valuable LLM tokens on verifying multipe things at once
+    - verify one specific aspect at a time rather than exhaustive testing
+    - it's better to stop and ask me for input rather than spending valuable LLM tokens on verifying multiple things at once
