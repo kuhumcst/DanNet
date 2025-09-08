@@ -1671,7 +1671,186 @@ Analyze and compare:
 Use DanNet tools to gather comprehensive data about both words, then provide a detailed comparison that highlights their semantic relationship and differences. Include specific synset IDs and definitions where relevant."""
 
 
-def main():
+@mcp.prompt()
+def explore_semantic_field(concept: str, depth: int = 2) -> str:
+    """
+    Generate a prompt to explore a semantic field or domain in Danish.
+    
+    Args:
+        concept: The central concept or domain (e.g., "mad" for food, "dyr" for animals)
+        depth: How many levels of hyponyms to explore (default: 2)
+    
+    Returns:
+        Exploration prompt for the semantic field
+    """
+    return f"""Please explore the semantic field around the Danish concept "{concept}" using DanNet.
+
+Perform the following analysis:
+1. Find the primary synset(s) for "{concept}"
+2. Map out all hyponyms (subcategories) up to {depth} levels deep
+3. Identify the ontological types (dns:ontologicalType) for this semantic field
+4. Find related concepts via wn:similar and dns:orthogonalHypernym
+5. List key vocabulary items in this semantic domain
+6. Identify any domain-specific relationships (e.g., dns:usedFor for tools)
+
+Create a structured overview of this semantic field that would be useful for vocabulary learning or domain analysis."""
+
+
+@mcp.prompt()
+def trace_taxonomic_path(word1: str, word2: str) -> str:
+    """
+    Generate a prompt to find the taxonomic relationship between two words.
+    
+    Args:
+        word1: Starting word
+        word2: Target word
+    
+    Returns:
+        Prompt for tracing taxonomic relationships
+    """
+    return f"""Please trace the taxonomic relationship between "{word1}" and "{word2}" in Danish using DanNet.
+
+Investigate:
+1. Is there a direct hypernym/hyponym relationship between these words?
+2. If not directly related, find their common hypernym (shared parent concept)
+3. Trace the full hypernym chain from each word to their common ancestor
+4. Calculate the semantic distance (number of steps) between them
+5. Identify any cross-cutting relationships via dns:orthogonalHypernym
+6. Explain what semantic features differentiate these concepts
+
+Provide a clear visualization of the taxonomic paths and explain the semantic relationship."""
+
+
+@mcp.prompt()
+def map_part_whole_relations(entity: str, direction: str = "both") -> str:
+    """
+    Generate a prompt to explore part-whole relationships for an entity.
+    
+    Args:
+        entity: The Danish word for the entity to analyze
+        direction: "parts" (meronyms), "wholes" (holonyms), or "both"
+    
+    Returns:
+        Prompt for part-whole relationship analysis
+    """
+    directions_text = {
+        "parts": "all component parts (meronyms)",
+        "wholes": "all containing wholes (holonyms)", 
+        "both": "both parts (meronyms) and wholes (holonyms)"
+    }
+    
+    return f"""Please map {directions_text.get(direction, "part-whole relationships")} for the Danish word "{entity}" using DanNet.
+
+Analyze:
+1. Find all synsets for "{entity}"
+2. For each synset, identify:
+   - wn:mero_part / wn:holo_part (physical components)
+   - wn:mero_substance / wn:holo_substance (material composition)
+   - wn:mero_member / wn:holo_member (membership relations)
+   - wn:mero_location / wn:holo_location (spatial containment)
+3. Create a structured hierarchy showing these relationships
+4. Note which relationships are inherited vs. direct
+5. Identify the ontological types of related entities
+
+Present this as a clear structural decomposition that shows how "{entity}" fits into larger systems or breaks down into components."""
+
+
+@mcp.prompt()
+def find_translation_equivalents(word: str, target_lang: str = "en") -> str:
+    """
+    Generate a prompt to find cross-linguistic equivalents.
+    
+    Args:
+        word: Danish word to translate
+        target_lang: Target language code (default: "en" for English)
+    
+    Returns:
+        Prompt for finding translation equivalents
+    """
+    return f"""Please find translation equivalents for the Danish word "{word}" using DanNet's cross-linguistic connections.
+
+Perform this analysis:
+1. Find all synsets for "{word}"
+2. For each synset:
+   - Check wn:ili (Inter-Lingual Index) mappings
+   - Look for wn:eq_synonym (Open English WordNet equivalents)
+   - Note the specific sense that each translation corresponds to
+3. Identify which senses have direct equivalents vs. approximate matches
+4. Explain any semantic differences or gaps between languages
+5. If multiple English words map to the Danish word, explain the distinctions
+6. Provide example contexts where each translation would be appropriate
+
+Give a nuanced translation guide that captures the semantic range of "{word}" across languages."""
+
+
+@mcp.prompt()
+def analyze_verb_roles(verb: str) -> str:
+    """
+    Generate a prompt to analyze thematic roles for Danish verbs.
+    
+    Args:
+        verb: Danish verb to analyze
+    
+    Returns:
+        Prompt for thematic role analysis
+    """
+    return f"""Please analyze the thematic roles and argument structure of the Danish verb "{verb}" using DanNet.
+
+Investigate:
+1. Find all verbal synsets for "{verb}"
+2. For each verbal sense, identify:
+   - dns:agent / dns:involved_agent (who performs the action)
+   - dns:patient / dns:involved_patient (what is affected)
+   - dns:instrument / dns:involved_instrument (tools/means used)
+   - dns:result / dns:involved_result (outcomes produced)
+3. Look for co-occurrence patterns:
+   - dns:co_agent_instrument (typical agent-instrument pairs)
+   - dns:co_patient_agent (typical patient-agent pairs)
+4. Identify causal relationships:
+   - wn:causes / dns:is_caused_by
+   - wn:entails / dns:is_entailed_by
+5. Find related actions via wn:subevent
+6. Note the ontological type (Agentive, Cause, etc.)
+
+Provide a comprehensive analysis of how "{verb}" structures events and what semantic roles it assigns."""
+
+
+@mcp.prompt()
+def explore_polysemy(word: str, include_etymology: bool = False) -> str:
+    """
+    Generate a prompt to explore polysemous meanings of a word.
+    
+    Args:
+        word: Danish word to analyze for multiple meanings
+        include_etymology: Whether to request etymological connections
+    
+    Returns:
+        Prompt for polysemy analysis
+    """
+    etymology_section = """
+7. If possible, identify whether different senses share etymological origins
+8. Note any metaphorical extensions from concrete to abstract meanings""" if include_etymology else ""
+    
+    return f"""Please explore the polysemy (multiple meanings) of the Danish word "{word}" using DanNet.
+
+Analyze:
+1. List all distinct synsets (senses) for "{word}"
+2. For each sense:
+   - Provide the full definition (use fetch_ddo_definition if truncated)
+   - Identify the ontological type and semantic domain
+   - Note the register/formality level if available
+3. Group related senses vs. completely distinct meanings
+4. Identify the most common/prototypical sense
+5. Show how senses relate through:
+   - Metaphorical extension
+   - Specialization/generalization
+   - Domain-specific usage
+6. Find synonyms unique to each sense{etymology_section}
+
+Create a sense map that helps learners understand how one word form carries multiple meanings in Danish."""
+
+
+def main()
     """Main entry point with command line argument parsing"""
     global dannet_client
 
