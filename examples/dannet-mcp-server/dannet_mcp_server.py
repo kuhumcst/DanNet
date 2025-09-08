@@ -59,11 +59,6 @@ class DanNetClient:
         """
         Initialize DanNet client.
 
-        The DanNet service supports multiple response formats:
-        - JSON: Convenient for Python processing, includes extracted fields
-        - Turtle: Native RDF format, preserves full semantic structure
-        - EDN: Clojure data format (internally used, converted to JSON)
-
         Args:
             base_url: DanNet service URL
         """
@@ -114,11 +109,7 @@ class DanNetClient:
         return self._make_request(f"/dannet/data/{resource_id}")
 
     def autocomplete(self, prefix: str) -> List[str]:
-        """Get autocomplete suggestions for a word prefix
-        
-        Note: DanNet's autocomplete endpoint requires at least 3 characters
-        to avoid returning too much data. Shorter prefixes will return empty results.
-        """
+        """Get autocomplete suggestions for a word prefix"""
         try:
             # Use _make_request to automatically include format=json parameter
             data = self._make_request("/dannet/autocomplete", {"s": prefix})
@@ -471,7 +462,9 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
     Args:
         query: The Danish word or phrase to search for
     
-        language: Language for results (default: "da" for Danish, "en" for English labels)
+        language: Language for labels and definitions in results (default: "da" for Danish, "en" for English when available)
+        Note: Only Danish words can be searched regardless of this parameter
+        
     Returns:
         MULTIPLE RESULTS: List of SearchResult objects with:
         - word: The lexical form
@@ -489,8 +482,8 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
     Examples:
         # Multiple results case
         results = get_word_synsets("hund")
-        # Returns list of synsets for all meanings of "hund"
-        # => [SearchResult, SearchResult, SearchResult, SearchResult]
+        # Returns list of search result dictionaries for all meanings of "hund"
+        # => [{"word": "hund", "synset_id": "synset-3047", ...}, ...]
         
         # Single result case (redirect)
         result = get_word_synsets("svinkeærinde")  
@@ -722,11 +715,9 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
        - wn:eq_synonym → Open English WordNet equivalent
 
     DDO CONNECTION FOR FULLER DEFINITIONS:
-    DanNet synset definitions (:skos/definition) may be capped at a certain length.
-    For complete definitions, use get_sense_info() to access individual sense
-    source URLs (dns:source) that link to full DDO entries. The senses themselves
-    don't contain definitions, but their source URLs point to DDO pages with
-    the authoritative, untruncated definitions marked by CSS class "selected".
+    DanNet synset definitions (:skos/definition) may be truncated (ending with "…").
+    For complete definitions, use the fetch_ddo_definition() tool which automatically
+    retrieves full DDO text, or manually examine sense source URLs via get_sense_info().
 
     NAVIGATION TIPS:
     - Follow wn:hypernym chains to find semantic categories
@@ -846,8 +837,7 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
     SOURCE TRACEABILITY: The dns:source URLs link back to specific DDO entries:
     - Format: https://ordnet.dk/ddo/ordbog?entry_id=X&def_id=Y&query=word
-    - WARNING: DanNet and DDO have diverged over time, so these URLs may not always
-      return the expected content due to ID mismatches between the systems
+    - Note: Some DDO URLs may not resolve correctly if IDs have changed since import
     - If the DDO page loads correctly, the relevant definition has CSS class "selected"
 
     METADATA ORIGINS: Usage examples, register information, and definitions flow from DDO's
@@ -887,6 +877,9 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
     return get_entity_info(clean_id, namespace="dn")
 
 
+
+# TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
+# Currently returns string to work around concatenation without separators.
 @mcp.tool()
 def get_word_synonyms(word: str) -> str:
     """
@@ -894,8 +887,8 @@ def get_word_synonyms(word: str) -> str:
 
     SYNONYM TYPES IN DANNET:
     - True synonyms: Words sharing the exact same synset
-    - Near-synonyms: Words in synsets marked with wn:similar
     - Context-specific: Different synonyms for different word senses
+    Note: Near-synonyms via wn:similar relations are not currently included
 
     The function returns all words that share synsets with the input word,
     effectively finding lexical alternatives that express the same concepts.
@@ -905,13 +898,10 @@ def get_word_synonyms(word: str) -> str:
     
     Returns:
         Comma-separated string of synonymous words (aggregated across all word senses)
-        
-        # TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
-        # Currently returns string to work around concatenation without separators.
 
     Example:
-        synonyms = get_word_synonyms("løbe")
-        # Returns: "rende, spurte, flyde, strømme"
+        synonyms = get_word_synonyms("hund")
+        # Returns: "køter, vovhund, vovse"
 
     Note: Check synset definitions to understand which synonyms apply
     to which meaning (polysemy is common in Danish).
@@ -979,6 +969,9 @@ def get_word_synonyms(word: str) -> str:
         raise RuntimeError(f"Failed to find synonyms: {e}")
 
 
+
+# TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
+# Currently returns string to work around concatenation without separators.
 @mcp.tool()
 def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
     """
@@ -991,14 +984,11 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
         prefix: The beginning of a Danish word (minimum 3 characters required)
     
         max_results: Maximum number of suggestions to return (default: 10)
+        
     Returns:
         Comma-separated string of word completions in alphabetical order
-        
-        # TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
-        # Currently returns string to work around concatenation without separators.
 
-    Note: DanNet's autocomplete requires at least 3 characters. Shorter prefixes
-    will return empty results to avoid overwhelming amounts of data.
+    Note: Autocomplete requires at least 3 characters to prevent excessive results.
 
     Example:
         suggestions = autocomplete_danish_word("hyg", 5)
@@ -1353,59 +1343,22 @@ def get_schema_resource(prefix: str) -> str:
     """
     Access RDF schemas defining DanNet's semantic structure.
 
-    SCHEMA HIERARCHY AND USAGE:
-
-    Essential DanNet schemas (START HERE):
-    ----------------------------------------
-    'dns' - DanNet Schema (https://wordnet.dk/dannet/schema/)
-        Defines Danish-specific relations and properties:
-        - dns:ontologicalType → links to semantic categories
-        - dns:sentiment → emotional polarity annotations
-        - dns:usedFor → functional relationships
-        - dns:orthogonalHypernym → cross-cutting hierarchies
-        - dns:inherited → properties from parent synsets
-        USE: Understanding DanNet-specific features
-
-    'dnc' - DanNet Concepts (https://wordnet.dk/dannet/concepts/)
-        Taxonomy of ontological types (semantic categories):
-        - EuroWordNet concepts: FirstOrderEntity (physical things),
-          SecondOrderEntity (events/processes), ThirdOrderEntity (abstract)
-        - Semantic primitives: Animal, Human, Object, Place, Time
-        - Properties: Physical/Mental, Static/Dynamic, Natural/Artifact
-        USE: Interpreting dns:ontologicalType values
-
-    Core linguistic schemas:
-    ------------------------
-    'ontolex' - OntoLex-Lemon (W3C standard for lexical resources)
-        - LexicalEntry → words and multi-word expressions
-        - LexicalConcept → synsets (word meanings)
-        - LexicalSense → connection between words and concepts
-        - Form → inflected word forms
-        USE: Understanding the word-sense-synset model
-
-    'wn' - Global WordNet (standard WordNet relations)
-        - Taxonomic: hypernym, hyponym, instance_of
-        - Part-whole: meronym, holonym (part/member/substance)
-        - Lexical: antonym, similar, also, pertainym
-        - Cross-lingual: ili (Interlingual Index)
-        USE: Navigating semantic relationships
-
-    Supporting vocabularies:
-    -----------------------
-    'skos' - Simple Knowledge Organization System
-        Used for: definitions, alternative labels
-
-    'lexinfo' - Linguistic categories
-        Used for: part-of-speech, morphological features
-
-    'marl' - Sentiment annotation
-        Used for: polarity values in dns:sentiment
+    Essential schemas:
+    - 'dns': DanNet-specific properties and relations
+    - 'dnc': Ontological types (semantic categories)
+    - 'wn': Standard WordNet relations
+    - 'ontolex': Word-sense-synset model
+    
+    Supporting schemas:
+    - 'skos': Definitions and labels
+    - 'lexinfo': Part-of-speech and morphology
+    - 'marl': Sentiment annotations
 
     Args:
-        prefix: Namespace prefix (case-sensitive)
+        prefix: Namespace prefix (e.g., 'dns', 'wn', 'ontolex')
 
     Returns:
-        RDF schema in Turtle format with full ontology definitions
+        RDF schema in Turtle format
 
     Example:
         # First understand the semantic categories:
