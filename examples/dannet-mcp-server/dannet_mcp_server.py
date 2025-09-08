@@ -156,7 +156,7 @@ QUICK START WORKFLOW:
    - dannet://namespaces → Understanding prefixes in the data
    
 2. Search for words to find synsets:
-   - search_dannet("hund") → Find all meanings
+   - get_word_synsets("hund") → Find all meanings
    - Note: Danish has high polysemy (words with multiple meanings)
    
 3. Explore synset details:
@@ -205,7 +205,7 @@ def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None
     """
     Process raw synset entity data into enriched format with extracted fields.
     
-    This helper function is used by both get_synset_info() and search_dannet() 
+    This helper function is used by both get_synset_info() and get_word_synsets() 
     to ensure consistent processing of synset data.
     
     Args:
@@ -236,6 +236,49 @@ def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None
     if ':dns/sentiment' in result:
         extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
         result[':dns/sentiment_extracted'] = extracted_sentiment
+    
+    return result
+
+
+def _process_entity_data(entity_data: Dict, inferred_data: Optional[Dict] = None, resource_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Process raw entity data into enriched format.
+    
+    This is a more generic version of _process_synset_data that works for any entity type.
+    
+    Args:
+        entity_data: Raw entity data from DanNet API
+        inferred_data: Optional inferred properties from OWL reasoning
+        resource_id: Optional resource ID to add for convenience
+    
+    Returns:
+        Dict with processed entity data
+    """
+    # Start with entity data
+    result = dict(entity_data)
+    
+    # Add inferred metadata if available
+    if inferred_data:
+        result[':inferred'] = inferred_data
+    
+    # Add the resource_id for convenience if provided
+    if resource_id:
+        result['resource_id'] = resource_id
+    
+    # Only process synset-specific fields if this is actually a synset
+    entity_types = result.get(':rdf/type', [])
+    if isinstance(entity_types, str):
+        entity_types = [entity_types]
+    
+    if ':ontolex/LexicalConcept' in entity_types:
+        # This is a synset, apply synset-specific processing
+        if ':dns/ontologicalType' in result:
+            extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
+            result[':dns/ontologicalType_extracted'] = extracted_types
+        
+        if ':dns/sentiment' in result:
+            extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
+            result[':dns/sentiment_extracted'] = extracted_sentiment
     
     return result
 
@@ -343,9 +386,9 @@ def extract_sentiment_info(sentiment_data):
 
 
 @mcp.tool()
-def search_dannet(query: str, language: str = "da") -> Union[List[SearchResult], Dict[str, Any]]:
+def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResult], Dict[str, Any]]:
     """
-    Search DanNet for Danish words, synsets, and their lexical meanings.
+    Get synsets (word meanings) for a Danish word, returning a sorted list of lexical concepts.
 
     DanNet follows the OntoLex-Lemon model where:
     - Words (ontolex:LexicalEntry) evoke concepts through senses
@@ -353,7 +396,11 @@ def search_dannet(query: str, language: str = "da") -> Union[List[SearchResult],
     - Multiple words can share the same synset (synonyms)
     - One word can have multiple synsets (polysemy)
 
-    Common search patterns:
+    This function returns all synsets associated with a word, effectively giving you
+    all the different meanings/senses that word can have. Each synset represents
+    a distinct semantic concept with its own definition and semantic relationships.
+
+    Common patterns in Danish:
     - Nouns often have multiple senses (e.g., "kage" = cake/lump)
     - Verbs distinguish motion vs. state (e.g., "løbe" = run/flow)
     - Check synset's dns:ontologicalType for semantic classification
@@ -390,13 +437,13 @@ def search_dannet(query: str, language: str = "da") -> Union[List[SearchResult],
 
     Examples:
         # Multiple results case
-        results = search_dannet("hund")
-        # Returns hits for all relevant synsets, i.e. a list of short summaries
+        results = get_word_synsets("hund")
+        # Returns list of synsets for all meanings of "hund"
         # => [SearchResult, SearchResult, SearchResult, SearchResult]
         
         # Single result case (redirect)
-        result = search_dannet("svinkeærinde")  
-        # Returns a single full synset
+        result = get_word_synsets("svinkeærinde")  
+        # Returns complete synset data for unique word
         # => {':wn/hypernym': ':dn/synset-11677', ':dns/sentiment_extracted': {...}, ...}
     """
     try:
@@ -464,6 +511,128 @@ def search_dannet(query: str, language: str = "da") -> Union[List[SearchResult],
 
 
 @mcp.tool()
+def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
+    """
+    Get comprehensive RDF data for any entity in the DanNet database.
+    
+    Supports both DanNet entities and external vocabulary entities loaded
+    into the triplestore from various schemas and datasets.
+
+    UNDERSTANDING THE DATA MODEL:
+    The DanNet database contains entities from multiple sources:
+    - DanNet entities (namespace="dn"): synsets, words, senses, and other resources
+    - External entities (other namespaces): OntoLex vocabulary, Inter-Lingual Index, etc.
+    
+    All entities follow RDF patterns with namespace prefixes for properties and relationships.
+
+    NAVIGATION TIPS:
+    - DanNet synsets have rich semantic relationships (wn:hypernym, wn:hyponym, etc.)
+    - External entities provide vocabulary definitions and cross-references
+    - Use parse_resource_id() on URI references to get clean IDs
+    - Check :rdf/type to understand what kind of entity you're working with
+
+    Args:
+        identifier: Entity identifier (e.g., "synset-3047", "word-11021628", "LexicalConcept", "i76470")
+        namespace: Namespace for the entity (default: "dn" for DanNet entities)
+                  - "dn": DanNet entities via /dannet/data/ endpoint
+                  - Other values: External entities via /dannet/external/{namespace}/ endpoint
+                  - Common external namespaces: "ontolex", "ili", "wn", "lexinfo", etc.
+
+    Returns:
+        Dict containing:
+        - All RDF properties with namespace prefixes (e.g., :wn/hypernym, :ontolex/evokes)
+        - :inferred → properties derived through OWL reasoning (if available)
+        - For DanNet synsets: extracted fields like :dns/ontologicalType_extracted
+        - Entity-specific convenience fields (synset_id, resource_id, etc.)
+
+    Examples:
+        # DanNet entities
+        get_entity_info("synset-3047")  # DanNet synset
+        get_entity_info("word-11021628")  # DanNet word
+        get_entity_info("sense-21033604")  # DanNet sense
+        
+        # External vocabulary entities  
+        get_entity_info("LexicalConcept", namespace="ontolex")  # OntoLex class definition
+        get_entity_info("i76470", namespace="ili")  # Inter-Lingual Index entry
+        get_entity_info("noun", namespace="lexinfo")  # Lexinfo part-of-speech
+    """
+    try:
+        if namespace == "dn":
+            # DanNet entities use the standard data endpoint
+            endpoint_path = f"dannet/data/{identifier}"
+        else:
+            # External entities use the external endpoint
+            endpoint_path = f"dannet/external/{namespace}/{identifier}"
+        
+        # Make the request using the appropriate endpoint
+        client = get_client()
+        url = f"{client.base_url}/{endpoint_path}"
+        
+        # Use same request pattern as get_resource but with custom path
+        request_params = {"format": "json"}
+        
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.debug(f"Making request to {url} with params {request_params}")
+                response = client.client.get(url, params=request_params, follow_redirects=True)
+                response.raise_for_status()
+                data = response.json()
+                break
+                
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise DanNetError(f"Entity not found: {namespace}/{identifier}")
+                elif e.response.status_code == 429:
+                    if attempt < MAX_RETRIES - 1:
+                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
+                        continue
+                    raise DanNetError("Rate limit exceeded")
+                else:
+                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
+            except Exception as e:
+                if attempt < MAX_RETRIES - 1:
+                    logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
+                    continue
+                raise DanNetError(f"Request failed: {e}")
+        
+        # Check for entity data in response
+        if not data or ':entity' not in data:
+            raise DanNetError(f"No entity data found for {namespace}/{identifier}")
+        
+        # Process the entity data with appropriate handling
+        if namespace == "dn":
+            # For DanNet entities, determine if it's a synset for special processing
+            entity_types = data[':entity'].get(':rdf/type', [])
+            if isinstance(entity_types, str):
+                entity_types = [entity_types]
+            
+            if ':ontolex/LexicalConcept' in entity_types:
+                # This is a DanNet synset - use synset-specific processing
+                return _process_synset_data(
+                    entity_data=data[':entity'],
+                    inferred_data=data.get(':inferred'),
+                    synset_id=identifier
+                )
+            else:
+                # Other DanNet entity - use generic processing
+                return _process_entity_data(
+                    entity_data=data[':entity'],
+                    inferred_data=data.get(':inferred'),
+                    resource_id=identifier
+                )
+        else:
+            # External entity - use generic processing
+            return _process_entity_data(
+                entity_data=data[':entity'],
+                inferred_data=data.get(':inferred'),
+                resource_id=f"{namespace}/{identifier}"
+            )
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get entity info: {e}")
+
+
+@mcp.tool()
 def get_synset_info(synset_id: str) -> Dict[str, Any]:
     """
     Get comprehensive RDF data for a DanNet synset (lexical concept).
@@ -521,27 +690,115 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         # Check info[':wn/hypernym'] for parent concepts
         # Check info[':dns/ontologicalType_extracted'] for semantic class
     """
-    try:
-        # Clean the synset_id
-        clean_id = parse_resource_id(synset_id)
-        if not clean_id.startswith('synset-'):
-            clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
-            
-        data = get_client().get_resource(clean_id)
-        
-        # Check for ':entity' (with colon) - this is the actual response structure
-        if not data or ':entity' not in data:
-            raise DanNetError(f"No data found for synset {clean_id}")
-        
-        # Use helper function to process synset data consistently
-        return _process_synset_data(
-            entity_data=data[':entity'],
-            inferred_data=data.get(':inferred'),
-            synset_id=clean_id
-        )
-        
-    except Exception as e:
-        raise RuntimeError(f"Failed to get synset info: {e}")
+    # Clean the synset_id and ensure proper prefix
+    clean_id = parse_resource_id(synset_id)
+    if not clean_id.startswith('synset-'):
+        clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
+    
+    return get_entity_info(clean_id, namespace="dn")
+
+
+@mcp.tool()
+def get_word_info(word_id: str) -> Dict[str, Any]:
+    """
+    Get comprehensive RDF data for a DanNet word (lexical entry).
+
+    UNDERSTANDING THE DATA MODEL:
+    Words are ontolex:LexicalEntry instances representing lexical forms.
+    They connect to synsets via senses and have morphological information.
+
+    KEY RELATIONSHIPS:
+
+    1. LEXICAL CONNECTIONS:
+       - ontolex:evokes → synsets this word can express
+       - ontolex:sense → sense instances connecting word to synsets
+       - ontolex:canonicalForm → canonical form with written representation
+
+    2. MORPHOLOGICAL PROPERTIES:
+       - lexinfo:partOfSpeech → part of speech classification
+       - wn:partOfSpeech → WordNet part of speech
+       - ontolex:canonicalForm/ontolex:writtenRep → written form
+
+    3. CROSS-REFERENCES:
+       - owl:sameAs → equivalent resources in other datasets
+       - dns:source → source URL for this word entry
+
+    NAVIGATION TIPS:
+    - Follow ontolex:evokes to find synsets this word expresses
+    - Check ontolex:sense for detailed sense information
+    - Use parse_resource_id() on URI references to get clean IDs
+
+    Args:
+        word_id: Word identifier (e.g., "word-11021628" or just "11021628")
+
+    Returns:
+        Dict containing:
+        - All RDF properties with namespace prefixes (e.g., :ontolex/evokes)
+        - resource_id → clean identifier for convenience
+        - All linguistic properties and relationships
+
+    Example:
+        info = get_word_info("word-11021628")  # "hund" word
+        # Check info[':ontolex/evokes'] for synsets this word can express
+        # Check info[':ontolex/sense'] for senses
+    """
+    # Clean the word_id and ensure proper prefix
+    clean_id = parse_resource_id(word_id)
+    if not clean_id.startswith('word-'):
+        clean_id = f"word-{clean_id}" if clean_id.isdigit() else clean_id
+    
+    return get_entity_info(clean_id, namespace="dn")
+
+
+@mcp.tool()
+def get_sense_info(sense_id: str) -> Dict[str, Any]:
+    """
+    Get comprehensive RDF data for a DanNet sense (lexical sense).
+
+    UNDERSTANDING THE DATA MODEL:
+    Senses are ontolex:LexicalSense instances connecting words to synsets.
+    They represent specific meanings of words with examples and definitions.
+
+    KEY RELATIONSHIPS:
+
+    1. LEXICAL CONNECTIONS:
+       - ontolex:isSenseOf → word this sense belongs to
+       - ontolex:isLexicalizedSenseOf → synset this sense represents
+
+    2. SEMANTIC INFORMATION:
+       - lexinfo:senseExample → usage examples in context
+       - rdfs:label → sense label (e.g., "hund_1§1")
+
+    3. SOURCE INFORMATION:
+       - dns:source → source URL for this sense entry
+
+    NAVIGATION TIPS:
+    - Follow ontolex:isSenseOf to find the parent word
+    - Follow ontolex:isLexicalizedSenseOf to find the synset
+    - Check lexinfo:senseExample for usage examples
+    - Use parse_resource_id() on URI references to get clean IDs
+
+    Args:
+        sense_id: Sense identifier (e.g., "sense-21033604" or just "21033604")
+
+    Returns:
+        Dict containing:
+        - All RDF properties with namespace prefixes (e.g., :ontolex/isSenseOf)
+        - resource_id → clean identifier for convenience
+        - All sense properties and relationships
+
+    Example:
+        info = get_sense_info("sense-21033604")  # "hund_1§1" sense
+        # Check info[':ontolex/isSenseOf'] for parent word
+        # Check info[':ontolex/isLexicalizedSenseOf'] for synset
+        # Check info[':lexinfo/senseExample'] for usage examples
+    """
+    # Clean the sense_id and ensure proper prefix
+    clean_id = parse_resource_id(sense_id)
+    if not clean_id.startswith('sense-'):
+        clean_id = f"sense-{clean_id}" if clean_id.isdigit() else clean_id
+    
+    return get_entity_info(clean_id, namespace="dn")
 
 
 @mcp.tool()
@@ -575,10 +832,10 @@ def get_word_synonyms(word: str) -> str:
     """
     try:
         # Search for the word to find its synsets
-        search_results = search_dannet(word)
+        search_results = get_word_synsets(word)
         synonyms = set()
         
-        # Handle both return types from search_dannet
+        # Handle both return types from get_word_synsets
         if isinstance(search_results, dict):
             # Single synset result - convert to list format
             synset_id = search_results.get('synset_id')
@@ -634,52 +891,6 @@ def get_word_synonyms(word: str) -> str:
         
     except Exception as e:
         raise RuntimeError(f"Failed to find synonyms: {e}")
-
-
-@mcp.tool()
-def get_word_definitions(word: str) -> List[Dict[str, str]]:
-    """
-    Get all definitions for the different senses/meanings of a Danish word.
-    
-    Danish words often have multiple distinct meanings (polysemy). This function
-    returns all definitions with their corresponding synset information, allowing
-    you to understand the full semantic range of a word.
-
-    Args:
-        word: The Danish word to get definitions for
-    
-    Returns:
-        List of definitions with:
-        - word: The word form
-        - definition: Semantic definition
-        - synset_id: Unique synset identifier for this sense
-        - label: Human-readable synset label (if available)
-
-    Example:
-        defs = get_word_definitions("bank")
-        # Returns definitions for: financial institution, riverbank, bench, etc.
-    """
-    try:
-        search_results = search_dannet(word)
-        definitions = []
-        
-        for result in search_results:
-            if result.word.lower() == word.lower() and result.definition:
-                def_info = {
-                    "word": result.word,
-                    "definition": result.definition
-                }
-                if result.synset_id:
-                    def_info["synset_id"] = result.synset_id
-                if result.label:
-                    def_info["label"] = result.label
-                    
-                definitions.append(def_info)
-        
-        return definitions
-        
-    except Exception as e:
-        raise RuntimeError(f"Failed to get definitions: {e}")
 
 
 @mcp.tool()

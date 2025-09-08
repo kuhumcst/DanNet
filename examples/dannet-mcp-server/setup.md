@@ -75,10 +75,9 @@ Edit `~/Library/Application Support/Claude Desktop/claude_desktop_config.json` (
 ## Features
 
 ### Tools
-- `search_dannet` - Search for Danish words and synsets
+- `get_word_synsets` - Get synsets (word meanings) for Danish words
 - `get_synset_info` - Get detailed synset information with RDF properties
 - `get_word_synonyms` - Find synonyms by analyzing synset relationships
-- `get_word_definitions` - Get all definitions and senses for a word
 - `autocomplete_danish_word` - Get word completion suggestions (3+ characters)
 
 ### Resources

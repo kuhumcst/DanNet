@@ -1,0 +1,9 @@
+- Clojure is a FUNCTIONAL programming language.
+    - i.e. I expect you to do to REPL-based development in a FUNCTIONAL style.
+      - So when testing newly developed code, please just do a few relevant function calls in the REPL.
+- Be surgical in your edits.
+  - I generally favour clean and lean git diffs over large refactors of the namespace(s).
+- IMPORTANT: if you encounter something UNUSUAL (e.g. weird output or unexpected errors), report back **immediately** to me!
+  - Don't go on a longer tangent trying to analyze an unexpected error yourself (unless it is trivial to do so).
+- Generally, you will need explicit permission from me to restart the web service we're developing.
+  - Again, try to test newly developed fixes/functionality in an isolated way using the REPL.
