@@ -769,13 +769,18 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
        - lexinfo:senseExample → usage examples in context
        - rdfs:label → sense label (e.g., "hund_1§1")
 
-    3. SOURCE INFORMATION:
+    3. REGISTER AND STYLISTIC INFORMATION:
+       - lexinfo:register → formal register classification (e.g., ":lexinfo/slangRegister")
+       - lexinfo:usageNote → human-readable usage notes (e.g., "slang", "formal")
+
+    4. SOURCE INFORMATION:
        - dns:source → source URL for this sense entry
 
     NAVIGATION TIPS:
     - Follow ontolex:isSenseOf to find the parent word
     - Follow ontolex:isLexicalizedSenseOf to find the synset
     - Check lexinfo:senseExample for usage examples
+    - Check lexinfo:register and lexinfo:usageNote for stylistic information
     - Use parse_resource_id() on URI references to get clean IDs
 
     Args:
@@ -789,9 +794,6 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
     Example:
         info = get_sense_info("sense-21033604")  # "hund_1§1" sense
-        # Check info[':ontolex/isSenseOf'] for parent word
-        # Check info[':ontolex/isLexicalizedSenseOf'] for synset
-        # Check info[':lexinfo/senseExample'] for usage examples
     """
     # Clean the sense_id and ensure proper prefix
     clean_id = parse_resource_id(sense_id)
