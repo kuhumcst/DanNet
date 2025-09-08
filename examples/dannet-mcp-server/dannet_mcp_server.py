@@ -73,20 +73,20 @@ class DanNetClient:
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make HTTP request to DanNet API"""
         url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
-        
+
         # Add format=json parameter since DanNet doesn't support Accept header
         request_params = params or {}
         request_params["format"] = "json"
-        
+
         for attempt in range(MAX_RETRIES):
             try:
                 logger.debug(f"Making request to {url} with params {request_params}")
                 # Note: allow_redirects=True handles automatic redirects for single search results
                 response = self.client.get(url, params=request_params, follow_redirects=True)
                 response.raise_for_status()
-                
+
                 return response.json()
-                
+
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
                     raise DanNetError(f"Resource not found: {endpoint}")
@@ -102,17 +102,17 @@ class DanNetClient:
                     logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
                     continue
                 raise DanNetError(f"Request failed: {e}")
-        
+
         raise DanNetError("Max retries exceeded")
-    
+
     def search(self, query: str, language: str = "da") -> Dict:
         """Search DanNet for words and synsets"""
         return self._make_request("/dannet/search", {"lemma": query, "lang": language})
-    
+
     def get_resource(self, resource_id: str) -> Dict:
         """Get a specific resource (synset, word, etc.) by ID"""
         return self._make_request(f"/dannet/data/{resource_id}")
-    
+
     def autocomplete(self, prefix: str) -> List[str]:
         """Get autocomplete suggestions for a word prefix
         
@@ -122,7 +122,7 @@ class DanNetClient:
         try:
             # Use _make_request to automatically include format=json parameter
             data = self._make_request("/dannet/autocomplete", {"s": prefix})
-            
+
             # Handle different possible response formats
             if isinstance(data, list):
                 return data
@@ -130,7 +130,7 @@ class DanNetClient:
                 return data['suggestions']
             else:
                 return []
-                
+
         except Exception as e:
             logger.error(f"Autocomplete failed for '{prefix}': {e}")
             return []
@@ -146,12 +146,14 @@ mcp = FastMCP(
 
 SEMANTIC DATA MODEL:
 DanNet follows OntoLex-Lemon + Global WordNet standards where:
-• Words (LexicalEntry) → Senses → Synsets (LexicalConcept)
-• Synsets represent units of meaning shared by synonymous words
-• Rich semantic network with 70+ relation types
+- Words (LexicalEntry) → Senses → Synsets (LexicalConcept)
+- Synsets represent units of meaning shared by synonymous words
+- Rich semantic network with 10+ major relation categories, 70+ specific types
 
 QUICK START WORKFLOW:
 1. Check resources for context:
+   - dannet://wordnet-schema → core WordNet RDF relations
+   - dannet://dannet-schema → DanNet-specific WordNet relation extensions
    - dannet://ontological-types → Semantic categories (Animal, Human, Object, etc.)
    - dannet://namespaces → Understanding prefixes in the data
    
@@ -170,22 +172,55 @@ QUICK START WORKFLOW:
    - Part-whole: meronym/holonym (part/substance/member)
    - Functional: used_for, causes, instrument (DanNet-specific)
 
+CORE RELATION CATEGORIES:
+- Taxonomic: hypernym/hyponym chains + orthogonalHyponym for cross-cutting categories
+- Part-Whole: mero_part/holo_part (components), mero_member/holo_member (collections), 
+  mero_substance/holo_substance (materials), mero_location/holo_location (spatial)
+- Thematic Roles: agent/involved_agent (who), instrument/involved_instrument (with what),
+  patient/involved_patient (to what), result/involved_result (outcome)
+- Functional: usedFor/usedForObject (purpose), domain_topic/has_domain_topic (fields)
+- Causal-Temporal: causes/is_caused_by, entails/is_entailed_by, subevent/is_subevent_of
+- Similarity-Opposition: similar, eq_synonym, antonym (+ gradable/simple/converse variants)
+- Co-occurrence: co_agent_instrument, co_patient_agent (systematic co-occurrence patterns)
+
+SEMANTIC PATTERNS BY DOMAIN:
+- Animals: taxonomic hierarchies + agent roles + instrument co-occurrence
+- Artifacts: extensive part-whole decomposition + functional domains
+- Actions: thematic role chains (agent-instrument-patient-result)
+- Body parts: anatomical part-whole hierarchies + location relations
+- Emotions: similarity networks + sentiment annotations
+- Locations: spatial containment + domain classifications
+
+ONTOLOGICAL TYPES (dns:ontologicalType_extracted):
+Core: Animal, Human, Object, Physical, Mental, Property
+Events: BoundedEvent, UnboundedEvent, Agentive, Cause
+Artifacts: Vehicle, Instrument, Artifact, Natural, BodyPart
+Domains: Place, Location, Comestible, Occupation
+
+DANNET EXTENSIONS:
+- Sentiment polarity (Positive/Negative) with intensity values
+- Inheritance system (dns:inherited) reduces redundancy
+- DDO integration via synset labels {word_entry§definition}
+- Cross-linguistic via wn:ili (Inter-Lingual Index) + the Open English WordNet
+
 KEY SEMANTIC PATTERNS:
-• Hypernym chains reveal conceptual hierarchies
-• Multiple hyponyms indicate important category nodes
-• dns:inherited shows properties from parent concepts
-• Cross-linguistic via wn:ili and wn:eq_synonym to Princeton WordNet
+- Hypernym chains reveal conceptual hierarchies
+- Multiple hyponyms indicate important category nodes
+- dns:inherited shows properties from parent concepts
+- Cross-linguistic via wn:ili (or wn:eq_synonym to the Open English WordNet)
 
 DATA FORMATS:
-• JSON responses include _extracted fields for easier parsing
-• Raw RDF available via Turtle format for graph operations
-• All entities use namespace prefixes (dn: for data, dns: for schema)
+- JSON responses include _extracted fields for easier parsing
+- Raw RDF available via Turtle format for graph operations
+- All entities use namespace prefixes (dn: for data, dns: for schema)
 
 TIPS FOR LLM USAGE:
 - Start broad with word search, then narrow to specific synsets
 - Use ontological types to understand what kind of entity something is
-- Check relationships to build semantic context
-- Danish-specific: Watch for compound words and derivations"""
+- Follow relation chains: taxonomic for classification, functional for purpose,
+  part-whole for composition, thematic roles for event structure
+- Check sentiment annotations for emotional concepts
+"""
 )
 
 
@@ -201,7 +236,8 @@ def get_client():
     return dannet_client
 
 
-def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None, synset_id: Optional[str] = None) -> Dict[str, Any]:
+def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None, synset_id: Optional[str] = None) -> \
+        Dict[str, Any]:
     """
     Process raw synset entity data into enriched format with extracted fields.
     
@@ -218,29 +254,30 @@ def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None
     """
     # Start with entity data
     result = dict(entity_data)
-    
+
     # Add inferred metadata if available
     if inferred_data:
         result[':inferred'] = inferred_data
-    
+
     # Add the synset_id for convenience if provided
     if synset_id:
         result['synset_id'] = synset_id
-    
+
     # Extract and format ontological types for better usability
     if ':dns/ontologicalType' in result:
         extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
         result[':dns/ontologicalType_extracted'] = extracted_types
-    
+
     # Extract and format sentiment information for better usability
     if ':dns/sentiment' in result:
         extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
         result[':dns/sentiment_extracted'] = extracted_sentiment
-    
+
     return result
 
 
-def _process_entity_data(entity_data: Dict, inferred_data: Optional[Dict] = None, resource_id: Optional[str] = None) -> Dict[str, Any]:
+def _process_entity_data(entity_data: Dict, inferred_data: Optional[Dict] = None, resource_id: Optional[str] = None) -> \
+        Dict[str, Any]:
     """
     Process raw entity data into enriched format.
     
@@ -256,30 +293,30 @@ def _process_entity_data(entity_data: Dict, inferred_data: Optional[Dict] = None
     """
     # Start with entity data
     result = dict(entity_data)
-    
+
     # Add inferred metadata if available
     if inferred_data:
         result[':inferred'] = inferred_data
-    
+
     # Add the resource_id for convenience if provided
     if resource_id:
         result['resource_id'] = resource_id
-    
+
     # Only process synset-specific fields if this is actually a synset
     entity_types = result.get(':rdf/type', [])
     if isinstance(entity_types, str):
         entity_types = [entity_types]
-    
+
     if ':ontolex/LexicalConcept' in entity_types:
         # This is a synset, apply synset-specific processing
         if ':dns/ontologicalType' in result:
             extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
             result[':dns/ontologicalType_extracted'] = extracted_types
-        
+
         if ':dns/sentiment' in result:
             extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
             result[':dns/sentiment_extracted'] = extracted_sentiment
-    
+
     return result
 
 
@@ -326,11 +363,11 @@ def extract_ontological_types(ontotype_data):
     """
     if not isinstance(ontotype_data, list) or not ontotype_data:
         return ontotype_data
-    
+
     bag_data = ontotype_data[0]
     if not isinstance(bag_data, dict):
         return ontotype_data
-    
+
     # Extract dnc: types from RDF bag structure
     concepts = []
     for key, value in bag_data.items():
@@ -339,7 +376,7 @@ def extract_ontological_types(ontotype_data):
             if isinstance(concept, str) and concept.startswith(':dnc/'):
                 # Remove the leading colon to get clean dnc:Concept format
                 concepts.append(concept[1:])
-    
+
     # Sort for consistent ordering
     concepts.sort()
     return concepts if concepts else ontotype_data
@@ -361,13 +398,13 @@ def extract_sentiment_info(sentiment_data):
     """
     if not isinstance(sentiment_data, list) or not sentiment_data:
         return sentiment_data
-    
+
     sentiment_obj = sentiment_data[0]
     if not isinstance(sentiment_obj, dict):
         return sentiment_data
-    
+
     result = {}
-    
+
     # Extract polarity
     polarity = sentiment_obj.get(':marl/hasPolarity')
     if isinstance(polarity, list) and polarity:
@@ -375,13 +412,13 @@ def extract_sentiment_info(sentiment_data):
         if isinstance(polarity_value, str):
             # Remove prefix and colon to get clean value
             result['polarity'] = polarity_value.replace(':marl/', '')
-    
+
     # Extract numerical value
     polarity_val = sentiment_obj.get(':marl/polarityValue')
     if isinstance(polarity_val, list) and polarity_val:
         if isinstance(polarity_val[0], (int, float)):
             result['value'] = polarity_val[0]
-    
+
     return result if result else sentiment_data
 
 
@@ -463,20 +500,20 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
     try:
         results = get_client().search(query, language)
         search_results = []
-        
+
         # Handle DanNet's response structure - check for both single entity and multiple results
         if isinstance(results, dict):
             # Check if this is a single entity response (redirected from search)
             if ':entity' in results:
                 # This is a single synset entity response - return full synset data
                 entity = results[':entity']
-                
+
                 # Extract synset ID from the subject
                 synset_id = None
                 subject = results.get(':subject', '')
                 if isinstance(subject, str) and subject.startswith(':dn/'):
                     synset_id = subject.replace(':dn/', '')
-                
+
                 if synset_id:
                     # Use helper function to process synset data consistently
                     return _process_synset_data(
@@ -484,29 +521,29 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
                         inferred_data=results.get(':inferred'),
                         synset_id=synset_id
                     )
-                    
+
             else:
                 # Check for multiple search results in EDN format
                 search_data = results.get(':search-results', results.get('search-results', {}))
                 lemma = results.get(':lemma', results.get('lemma', query))
-                
+
                 if isinstance(search_data, dict):
                     for synset_key, synset_data in search_data.items():
                         if not isinstance(synset_data, dict):
                             continue
-                        
+
                         # Extract synset ID from the key
                         synset_id = None
                         if isinstance(synset_key, str) and synset_key.startswith(':dn/'):
                             synset_id = synset_key.replace(':dn/', '')
-                        
+
                         if synset_id:
                             # Get full synset data to extract definition and label
                             try:
                                 synset_info = get_synset_info(synset_id)
                                 definition = extract_language_string(synset_info.get(':skos/definition'))
                                 label = extract_language_string(synset_info.get(':rdfs/label'))
-                                
+
                                 # Include synset even if no definition (some synsets only have labels)
                                 search_results.append(SearchResult(
                                     word=lemma,
@@ -517,9 +554,9 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
                             except Exception as e:
                                 logger.warning(f"Failed to fetch synset {synset_id}: {e}")
                                 continue
-        
+
         return search_results
-        
+
     except Exception as e:
         raise RuntimeError(f"Search failed: {e}")
 
@@ -577,14 +614,14 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
         else:
             # External entities use the external endpoint
             endpoint_path = f"dannet/external/{namespace}/{identifier}"
-        
+
         # Make the request using the appropriate endpoint
         client = get_client()
         url = f"{client.base_url}/{endpoint_path}"
-        
+
         # Use same request pattern as get_resource but with custom path
         request_params = {"format": "json"}
-        
+
         for attempt in range(MAX_RETRIES):
             try:
                 logger.debug(f"Making request to {url} with params {request_params}")
@@ -592,7 +629,7 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
                 response.raise_for_status()
                 data = response.json()
                 break
-                
+
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
                     raise DanNetError(f"Entity not found: {namespace}/{identifier}")
@@ -608,18 +645,18 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
                     logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
                     continue
                 raise DanNetError(f"Request failed: {e}")
-        
+
         # Check for entity data in response
         if not data or ':entity' not in data:
             raise DanNetError(f"No entity data found for {namespace}/{identifier}")
-        
+
         # Process the entity data with appropriate handling
         if namespace == "dn":
             # For DanNet entities, determine if it's a synset for special processing
             entity_types = data[':entity'].get(':rdf/type', [])
             if isinstance(entity_types, str):
                 entity_types = [entity_types]
-            
+
             if ':ontolex/LexicalConcept' in entity_types:
                 # This is a DanNet synset - use synset-specific processing
                 return _process_synset_data(
@@ -641,7 +678,7 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
                 inferred_data=data.get(':inferred'),
                 resource_id=f"{namespace}/{identifier}"
             )
-        
+
     except Exception as e:
         raise RuntimeError(f"Failed to get entity info: {e}")
 
@@ -682,7 +719,7 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
 
     5. CROSS-LINGUISTIC:
        - wn:ili → Interlingual Index for cross-language mapping
-       - wn:eq_synonym → Princeton WordNet equivalent
+       - wn:eq_synonym → Open English WordNet equivalent
 
     DDO CONNECTION FOR FULLER DEFINITIONS:
     DanNet synset definitions (:skos/definition) may be capped at a certain length.
@@ -717,7 +754,7 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
     clean_id = parse_resource_id(synset_id)
     if not clean_id.startswith('synset-'):
         clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
-    
+
     return get_entity_info(clean_id, namespace="dn")
 
 
@@ -769,7 +806,7 @@ def get_word_info(word_id: str) -> Dict[str, Any]:
     clean_id = parse_resource_id(word_id)
     if not clean_id.startswith('word-'):
         clean_id = f"word-{clean_id}" if clean_id.isdigit() else clean_id
-    
+
     return get_entity_info(clean_id, namespace="dn")
 
 
@@ -846,7 +883,7 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
     clean_id = parse_resource_id(sense_id)
     if not clean_id.startswith('sense-'):
         clean_id = f"sense-{clean_id}" if clean_id.isdigit() else clean_id
-    
+
     return get_entity_info(clean_id, namespace="dn")
 
 
@@ -883,61 +920,61 @@ def get_word_synonyms(word: str) -> str:
         # Search for the word to find its synsets
         search_results = get_word_synsets(word)
         synonyms = set()
-        
+
         # Handle both return types from get_word_synsets
         if isinstance(search_results, dict):
             # Single synset result - convert to list format
             synset_id = search_results.get('synset_id')
             if synset_id:
                 search_results = [type('SearchResult', (), {
-                    'synset_id': synset_id, 
+                    'synset_id': synset_id,
                     'word': word
                 })()]
             else:
                 return ""
-        
+
         for result in search_results:
             # Only process exact matches
-            if not (hasattr(result, 'synset_id') and result.synset_id and 
-                   hasattr(result, 'word') and result.word.lower() == word.lower()):
+            if not (hasattr(result, 'synset_id') and result.synset_id and
+                    hasattr(result, 'word') and result.word.lower() == word.lower()):
                 continue
-                
+
             # Get the full synset data
             synset_data = get_synset_info(result.synset_id)
-            
+
             # Extract word IDs from :ontolex/isEvokedBy
             evoked_by = synset_data.get(':ontolex/isEvokedBy', [])
-            
+
             # Normalize to list if single string
             if isinstance(evoked_by, str):
                 evoked_by = [evoked_by]
             elif not isinstance(evoked_by, list):
                 continue
-            
+
             # Process each word reference
             for word_ref in evoked_by:
                 # Extract the word ID from the reference
                 word_id = parse_resource_id(word_ref)
-                
+
                 # Fetch the word entity
                 word_data = get_client().get_resource(word_id)
                 if not word_data or ':entity' not in word_data:
                     continue
-                
+
                 # Extract the lemma using the existing helper function
                 label_data = word_data[':entity'].get(':rdfs/label')
                 lemma = extract_language_string(label_data)
-                
+
                 # Strip quotes if present
                 if lemma:
                     lemma = lemma.strip('"')
-                
+
                 # Add to synonyms if it's not the input word
                 if lemma and lemma.lower() != word.lower():
                     synonyms.add(lemma)
-        
+
         return ", ".join(sorted(list(synonyms)))
-        
+
     except Exception as e:
         raise RuntimeError(f"Failed to find synonyms: {e}")
 
@@ -971,7 +1008,7 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
         suggestions = get_client().autocomplete(prefix)
         limited_suggestions = suggestions[:max_results]
         return ", ".join(limited_suggestions)
-        
+
     except Exception as e:
         raise RuntimeError(f"Autocomplete failed: {e}")
 
@@ -1009,11 +1046,11 @@ def switch_dannet_server(server: str) -> Dict[str, str]:
         result = switch_dannet_server("https://my-custom-dannet.example.com")
     """
     global dannet_client
-    
+
     try:
         # Store the previous URL for response
         previous_url = dannet_client.base_url if dannet_client else "None"
-        
+
         # Determine the target URL
         if server.lower() == "local":
             new_url = LOCAL_URL
@@ -1028,10 +1065,10 @@ def switch_dannet_server(server: str) -> Dict[str, str]:
                 "previous_url": previous_url,
                 "current_url": previous_url
             }
-        
+
         # Create new client instance
         dannet_client = DanNetClient(new_url)
-        
+
         # Test the connection with a simple request
         try:
             # Try to access the base endpoint to verify connectivity
@@ -1041,16 +1078,16 @@ def switch_dannet_server(server: str) -> Dict[str, str]:
         except Exception as conn_error:
             logger.warning(f"Could not verify connectivity to {new_url}: {conn_error}")
             # Continue anyway - the server might be accessible for API calls even if root isn't
-        
+
         logger.info(f"DanNet client switched from {previous_url} to {new_url}")
-        
+
         return {
             "status": "success",
             "message": f"Successfully switched DanNet server from {previous_url} to {new_url}",
             "previous_url": previous_url,
             "current_url": new_url
         }
-        
+
     except Exception as e:
         error_msg = f"Failed to switch server: {e}"
         logger.error(error_msg)
@@ -1078,16 +1115,16 @@ def get_current_dannet_server() -> Dict[str, str]:
         # Returns: {"server_url": "https://wordnet.dk", "server_type": "remote", "status": "active"}
     """
     global dannet_client
-    
+
     if dannet_client is None:
         return {
             "server_url": "None",
-            "server_type": "uninitialized", 
+            "server_type": "uninitialized",
             "status": "No client initialized"
         }
-    
+
     current_url = dannet_client.base_url
-    
+
     # Determine server type
     if current_url == LOCAL_URL:
         server_type = "local"
@@ -1095,7 +1132,7 @@ def get_current_dannet_server() -> Dict[str, str]:
         server_type = "remote"
     else:
         server_type = "custom"
-    
+
     # Try to check server status
     try:
         # Simple connectivity test
@@ -1103,7 +1140,7 @@ def get_current_dannet_server() -> Dict[str, str]:
         status = f"Connected (HTTP {test_response.status_code})"
     except Exception as e:
         status = f"Connection issue: {str(e)[:100]}"
-    
+
     return {
         "server_url": current_url,
         "server_type": server_type,
@@ -1154,10 +1191,10 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
         clean_id = parse_resource_id(synset_id)
         if not clean_id.startswith('synset-'):
             clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
-        
+
         # Get synset information
         synset_info = get_synset_info(clean_id)
-        
+
         # Extract the original (possibly truncated) definition
         truncated_def = ""
         skos_def = synset_info.get(':skos/definition')
@@ -1168,81 +1205,84 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
                 truncated_def = skos_def.get('value', '')
             else:
                 truncated_def = str(skos_def)
-        
+
         # Get associated senses
         senses = synset_info.get(':ontolex/lexicalizedSense', [])
         if isinstance(senses, str):
             senses = [senses]
-        
+
         # Extract sense IDs and get their source URLs
         source_urls = []
         ddo_definitions = []
         success_urls = []
         errors = []
-        
+
         for sense_uri in senses:
             try:
                 # Extract sense ID from URI
                 sense_id = parse_resource_id(sense_uri)
                 if not sense_id.startswith('sense-'):
                     sense_id = f"sense-{sense_id}" if sense_id.replace('sense-', '').isdigit() else sense_id
-                
+
                 # Get sense information
                 sense_info = get_sense_info(sense_id)
-                
+
                 # Extract DDO source URL
                 source = sense_info.get(':dns/source')
                 if source:
                     if isinstance(source, list):
                         source = source[0]
-                    
+
                     # Clean up the URL (remove < > brackets if present)
                     source_url = str(source).strip('<>')
                     source_urls.append(source_url)
-                    
+
                     try:
                         # Fetch the DDO page
                         response = get_client().client.get(source_url, timeout=10.0)
                         response.raise_for_status()
                         html_content = response.text
-                        
+
                         import re
-                        
+
                         # Look for elements with class="definitionBox selected" and extract span.definition content
                         # The classes are space-separated, so we need to match "definitionBox selected" or "selected definitionBox"
                         definition_box_pattern = r'<div[^>]+class="[^"]*(?:definitionBox\s+selected|selected\s+definitionBox)[^"]*"[^>]*>(.*?)</div>'
                         box_matches = re.findall(definition_box_pattern, html_content, re.IGNORECASE | re.DOTALL)
-                        
+
                         for box_content in box_matches:
                             # Within the box, find span with class="definition"
                             span_pattern = r'<span[^>]+class="[^"]*definition[^"]*"[^>]*>(.*?)</span>'
                             span_matches = re.findall(span_pattern, box_content, re.IGNORECASE | re.DOTALL)
-                            
+
                             for span_content in span_matches:
                                 # Clean up the definition text
                                 clean_text = re.sub(r'<[^>]+>', '', span_content)
                                 # Decode HTML entities
-                                clean_text = clean_text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                                clean_text = clean_text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;',
+                                                                                                             '<').replace(
+                                    '&gt;', '>')
                                 # Normalize whitespace
                                 clean_text = re.sub(r'\s+', ' ', clean_text).strip()
-                                
+
                                 if clean_text and len(clean_text) > 5:  # Filter out very short matches
                                     ddo_definitions.append(clean_text)
                                     success_urls.append(source_url)
                                     break  # Only take the first good match per URL
-                            
+
                             if ddo_definitions:  # Found definition, stop looking
                                 break
-                        
+
                         if not ddo_definitions:
-                            errors.append(f"No definition found with pattern 'definitionBox selected' > 'span.definition' at {source_url}")
-                        
+                            errors.append(
+                                f"No definition found with pattern 'definitionBox selected' > 'span.definition' at {source_url}")
+
                     except Exception as e:
                         errors.append(f"Failed to fetch/parse {source_url}: {str(e)}")
-                        
+
             except Exception as e:
                 errors.append(f"Failed to process sense {sense_uri}: {str(e)}")
-        
+
         return {
             'synset_id': clean_id,
             'ddo_definitions': ddo_definitions,
@@ -1251,7 +1291,7 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
             'errors': errors,
             'truncated_definition': truncated_def
         }
-        
+
     except Exception as e:
         return {
             'synset_id': synset_id,
@@ -1508,7 +1548,7 @@ def list_available_schemas() -> str:
             }
         }
     }
-    
+
     return json.dumps(schemas, indent=2)
 
 
@@ -1599,7 +1639,7 @@ def get_namespace_documentation() -> str:
             }
         }
     }
-    
+
     return json.dumps(namespaces, indent=2)
 
 
@@ -1620,7 +1660,7 @@ def _detect_available_server() -> str:
                 return LOCAL_URL
     except Exception as e:
         logger.debug(f"Local server not available at {LOCAL_URL}: {e}")
-    
+
     logger.info(f"Using remote DanNet server at {REMOTE_URL} (local server not available)")
     return REMOTE_URL
 
@@ -1640,7 +1680,7 @@ def analyze_danish_word(word: str, include_examples: bool = True) -> str:
     example_section = """
     5. Usage examples and contexts where this word appears
     6. Collocations and common phrases""" if include_examples else ""
-    
+
     return f"""Please provide a comprehensive linguistic analysis of the Danish word "{word}" using DanNet data.
 
 Include the following information:
@@ -1681,7 +1721,7 @@ Use DanNet tools to gather comprehensive data about both words, then provide a d
 def main():
     """Main entry point with command line argument parsing"""
     global dannet_client
-    
+
     parser = argparse.ArgumentParser(
         description="DanNet MCP Server - Access Danish WordNet data via MCP. Defaults to local server if available, otherwise uses remote server."
     )
@@ -1700,15 +1740,15 @@ def main():
         action="store_true",
         help="Enable debug logging"
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
-    
+
     # Check environment variable for local mode
     env_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
-    
+
     # Determine base URL with precedence: CLI args > env vars > auto-detect > remote fallback
     if args.base_url:
         # Explicit base URL argument takes highest precedence
@@ -1726,13 +1766,12 @@ def main():
     else:
         # Auto-detect: try local first, fallback to remote
         base_url = _detect_available_server()
-    
+
     # Initialize client with the chosen base URL
     dannet_client = DanNetClient(base_url)
-    
+
     logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
-    
-    
+
     # Run the MCP server
     mcp.run()
 
