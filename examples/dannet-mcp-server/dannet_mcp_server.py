@@ -405,6 +405,20 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
     - Verbs distinguish motion vs. state (e.g., "løbe" = run/flow)
     - Check synset's dns:ontologicalType for semantic classification
 
+    DDO CONNECTION AND SYNSET LABELS:
+    Synset labels are compositions of DDO-derived sense labels, showing all words that 
+    express the same meaning. For example:
+    - "{hund_1§1; køter_§1; vovhund_§1; vovse_§1}" = all words meaning "domestic dog"
+    - "{forlygte_§2; babs_§1; bryst_§2; patte_1§1a}" = all words meaning "female breast"
+    
+    Each individual sense label follows DDO structure:
+    - "hund_1§1" = word "hund", entry 1, definition 1 in DDO (ordnet.dk)
+    - "patte_1§1a" = word "patte", entry 1, definition 1, subdefinition a
+    - The § notation connects directly to DDO's definition numbering system
+
+    This composition reveals the semantic relationships between Danish words and their
+    shared meanings, all traceable back to authoritative DDO lexicographic data.
+
     RETURN BEHAVIOR:
     This function has two possible return modes depending on search results:
     
@@ -664,15 +678,24 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
          dnc:Dynamic (events/actions), dnc:Static (states)
        - dns:sentiment → emotional polarity (if applicable)
        - wn:lexfile → semantic domain (e.g., "noun.food", "verb.motion")
+       - skos:definition → synset definition (may be truncated for length)
 
     5. CROSS-LINGUISTIC:
        - wn:ili → Interlingual Index for cross-language mapping
        - wn:eq_synonym → Princeton WordNet equivalent
 
+    DDO CONNECTION FOR FULLER DEFINITIONS:
+    DanNet synset definitions (:skos/definition) may be capped at a certain length.
+    For complete definitions, use get_sense_info() to access individual sense
+    source URLs (dns:source) that link to full DDO entries. The senses themselves
+    don't contain definitions, but their source URLs point to DDO pages with
+    the authoritative, untruncated definitions marked by CSS class "selected".
+
     NAVIGATION TIPS:
     - Follow wn:hypernym chains to find semantic categories
     - Check dns:inherited for properties from parent synsets
     - Use parse_resource_id() on URI references to get clean IDs
+    - For fuller definitions, examine individual sense source URLs via get_sense_info()
 
     Args:
         synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
@@ -776,11 +799,29 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
     4. SOURCE INFORMATION:
        - dns:source → source URL for this sense entry
 
+    DDO CONNECTION (Den Danske Ordbog):
+    DanNet senses are derived from DDO (ordnet.dk), the authoritative modern Danish dictionary.
+    
+    SENSE LABELS: The format "word_entry§definition" connects to DDO structure:
+    - "hund_1§1" = word "hund", entry 1, definition 1 in DDO
+    - "forlygte_§2" = word "forlygte", definition 2 in DDO
+    - The § notation directly corresponds to DDO's definition numbering
+
+    SOURCE TRACEABILITY: The dns:source URLs link back to specific DDO entries:
+    - Format: https://ordnet.dk/ddo/ordbog?entry_id=X&def_id=Y&query=word
+    - WARNING: DanNet and DDO have diverged over time, so these URLs may not always
+      return the expected content due to ID mismatches between the systems
+    - If the DDO page loads correctly, the relevant definition has CSS class "selected"
+
+    METADATA ORIGINS: Usage examples, register information, and definitions flow from DDO's
+    corpus-based lexicographic data, providing authoritative linguistic information.
+
     NAVIGATION TIPS:
     - Follow ontolex:isSenseOf to find the parent word
     - Follow ontolex:isLexicalizedSenseOf to find the synset
-    - Check lexinfo:senseExample for usage examples
+    - Check lexinfo:senseExample for usage examples from DDO corpus
     - Check lexinfo:register and lexinfo:usageNote for stylistic information
+    - Use dns:source to attempt tracing back to original DDO definition (with caveats)
     - Use parse_resource_id() on URI references to get clean IDs
 
     Args:
@@ -794,6 +835,12 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
     Example:
         info = get_sense_info("sense-21033604")  # "hund_1§1" sense
+        # Check info[':ontolex/isSenseOf'] for parent word
+        # Check info[':ontolex/isLexicalizedSenseOf'] for synset
+        # Check info[':lexinfo/senseExample'] for usage examples from DDO
+        # Check info[':lexinfo/register'] for register classification
+        # Check info[':lexinfo/usageNote'] for usage notes like "slang"
+        # Check info[':dns/source'] for DDO source URL (may not always work)
     """
     # Clean the sense_id and ensure proper prefix
     clean_id = parse_resource_id(sense_id)
@@ -1062,6 +1109,159 @@ def get_current_dannet_server() -> Dict[str, str]:
         "server_type": server_type,
         "status": status
     }
+
+
+# TODO: replace with official DDO API if ever available
+@mcp.tool()
+def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
+    """
+    Fetch the full, untruncated definition from DDO (Den Danske Ordbog) for a synset.
+    
+    This tool addresses the issue that DanNet synset definitions (:skos/definition)
+    may be capped at a certain length. It retrieves the complete definition from
+    the authoritative DDO source by following sense source URLs.
+    
+    WORKFLOW:
+    1. Get synset information to find associated senses
+    2. Extract DDO source URLs from sense data (dns:source)
+    3. Fetch DDO HTML pages and parse for definitions
+    4. Find elements with class "definitionBox selected" and extract span.definition content
+    
+    IMPORTANT NOTES:
+    - Looks for CSS classes "definitionBox selected" and child span.definition
+    - DDO and DanNet have diverged over time, so source URLs may not always work
+    - This implementation uses httpx for web requests and regex-based HTML parsing
+    
+    Args:
+        synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
+    
+    Returns:
+        Dict containing:
+        - synset_id: The queried synset ID
+        - ddo_definitions: List of definitions found from DDO pages
+        - source_urls: List of DDO URLs that were attempted
+        - success_urls: List of URLs that successfully returned definitions
+        - errors: List of any errors encountered
+        - truncated_definition: The original DanNet definition for comparison
+    
+    Example:
+        result = fetch_ddo_definition("synset-3047")
+        # Check result['ddo_definitions'] for full DDO definitions
+        # Compare with result['truncated_definition'] from DanNet
+    """
+    try:
+        # Clean the synset_id
+        clean_id = parse_resource_id(synset_id)
+        if not clean_id.startswith('synset-'):
+            clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
+        
+        # Get synset information
+        synset_info = get_synset_info(clean_id)
+        
+        # Extract the original (possibly truncated) definition
+        truncated_def = ""
+        skos_def = synset_info.get(':skos/definition')
+        if skos_def:
+            if isinstance(skos_def, list) and skos_def:
+                truncated_def = skos_def[0].get('value', '') if isinstance(skos_def[0], dict) else str(skos_def[0])
+            elif isinstance(skos_def, dict):
+                truncated_def = skos_def.get('value', '')
+            else:
+                truncated_def = str(skos_def)
+        
+        # Get associated senses
+        senses = synset_info.get(':ontolex/lexicalizedSense', [])
+        if isinstance(senses, str):
+            senses = [senses]
+        
+        # Extract sense IDs and get their source URLs
+        source_urls = []
+        ddo_definitions = []
+        success_urls = []
+        errors = []
+        
+        for sense_uri in senses:
+            try:
+                # Extract sense ID from URI
+                sense_id = parse_resource_id(sense_uri)
+                if not sense_id.startswith('sense-'):
+                    sense_id = f"sense-{sense_id}" if sense_id.replace('sense-', '').isdigit() else sense_id
+                
+                # Get sense information
+                sense_info = get_sense_info(sense_id)
+                
+                # Extract DDO source URL
+                source = sense_info.get(':dns/source')
+                if source:
+                    if isinstance(source, list):
+                        source = source[0]
+                    
+                    # Clean up the URL (remove < > brackets if present)
+                    source_url = str(source).strip('<>')
+                    source_urls.append(source_url)
+                    
+                    try:
+                        # Fetch the DDO page
+                        response = get_client().client.get(source_url, timeout=10.0)
+                        response.raise_for_status()
+                        html_content = response.text
+                        
+                        import re
+                        
+                        # Look for elements with class="definitionBox selected" and extract span.definition content
+                        # The classes are space-separated, so we need to match "definitionBox selected" or "selected definitionBox"
+                        definition_box_pattern = r'<div[^>]+class="[^"]*(?:definitionBox\s+selected|selected\s+definitionBox)[^"]*"[^>]*>(.*?)</div>'
+                        box_matches = re.findall(definition_box_pattern, html_content, re.IGNORECASE | re.DOTALL)
+                        
+                        for box_content in box_matches:
+                            # Within the box, find span with class="definition"
+                            span_pattern = r'<span[^>]+class="[^"]*definition[^"]*"[^>]*>(.*?)</span>'
+                            span_matches = re.findall(span_pattern, box_content, re.IGNORECASE | re.DOTALL)
+                            
+                            for span_content in span_matches:
+                                # Clean up the definition text
+                                clean_text = re.sub(r'<[^>]+>', '', span_content)
+                                # Decode HTML entities
+                                clean_text = clean_text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                                # Normalize whitespace
+                                clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+                                
+                                if clean_text and len(clean_text) > 5:  # Filter out very short matches
+                                    ddo_definitions.append(clean_text)
+                                    success_urls.append(source_url)
+                                    break  # Only take the first good match per URL
+                            
+                            if ddo_definitions:  # Found definition, stop looking
+                                break
+                        
+                        if not ddo_definitions:
+                            errors.append(f"No definition found with pattern 'definitionBox selected' > 'span.definition' at {source_url}")
+                        
+                    except Exception as e:
+                        errors.append(f"Failed to fetch/parse {source_url}: {str(e)}")
+                        
+            except Exception as e:
+                errors.append(f"Failed to process sense {sense_uri}: {str(e)}")
+        
+        return {
+            'synset_id': clean_id,
+            'ddo_definitions': ddo_definitions,
+            'source_urls': source_urls,
+            'success_urls': success_urls,
+            'errors': errors,
+            'truncated_definition': truncated_def
+        }
+        
+    except Exception as e:
+        return {
+            'synset_id': synset_id,
+            'error': f"Failed to fetch DDO definition: {str(e)}",
+            'ddo_definitions': [],
+            'source_urls': [],
+            'success_urls': [],
+            'errors': [str(e)],
+            'truncated_definition': ""
+        }
 
 
 @mcp.resource("dannet://ontological-types")
