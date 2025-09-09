@@ -141,6 +141,13 @@ DanNet follows OntoLex-Lemon + Global WordNet standards where:
 - Synsets represent units of meaning shared by synonymous words
 - Rich semantic network with 10+ major relation categories, 70+ specific types
 
+RDF PRESENTATION GUIDELINES:
+When presenting DanNet data, use standard Turtle/SPARQL namespace notation (ns:identifier) 
+rather than internal :ns/identifier format. Present relations with human-readable labels 
+when available from schema vocabularies. Use Danish labels in Danish contexts, English 
+labels in English contexts. For relations without defined labels, convert identifiers to 
+readable strings (e.g., "mero_part" → "meronym part", "holo_member" → "holonym member").
+
 QUICK START WORKFLOW:
 1. Check resources for context:
    - dannet://wordnet-schema → core WordNet RDF relations
@@ -554,6 +561,7 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
         raise RuntimeError(f"Search failed: {e}")
 
 
+# TODO: Consider preprocessing JSON responses to use proper ns:identifier format instead of :ns/identifier.
 @mcp.tool()
 def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
     """
@@ -588,6 +596,9 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
         - :inferred → properties derived through OWL reasoning (if available)
         - For DanNet synsets: extracted fields like :dns/ontologicalType_extracted
         - Entity-specific convenience fields (synset_id, resource_id, etc.)
+    
+    Note: Present results using RDF notation (ns:identifier), not internal format.
+    Use human-readable labels where available from schemas.
 
     Examples:
         # DanNet entities
@@ -690,23 +701,23 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
     1. TAXONOMIC (most fundamental):
        - wn:hypernym → broader concept (e.g., "hund" → "pattedyr")
        - wn:hyponym → narrower concepts (e.g., "hund" → "puddel", "schæfer")
-       - dns:orthogonalHypernym → cross-cutting categories
+       - dns:orthogonalHypernym → cross-cutting categories [Danish: ortogonalt hyperonym]
 
     2. LEXICAL CONNECTIONS:
-       - ontolex:isEvokedBy → words expressing this concept
-       - ontolex:lexicalizedSense → sense instances
+       - ontolex:isEvokedBy → words expressing this concept [Danish: fremkaldes af]
+       - ontolex:lexicalizedSense → sense instances [Danish: leksikaliseret betydning]
        - wn:similar → related but distinct concepts
 
     3. PART-WHOLE RELATIONS:
-       - wn:mero_part/wn:holo_part → component relationships
+       - wn:mero_part/wn:holo_part → component relationships [English: meronym/holonym part]
        - wn:mero_substance/wn:holo_substance → material composition
        - wn:mero_member/wn:holo_member → membership relations
 
     4. SEMANTIC PROPERTIES:
-       - dns:ontologicalType → semantic classification (see _extracted field)
+       - dns:ontologicalType → semantic classification (see _extracted field) [Danish: ontologisk type]
          Common types: dnc:Animal, dnc:Human, dnc:Object, dnc:Physical,
          dnc:Dynamic (events/actions), dnc:Static (states)
-       - dns:sentiment → emotional polarity (if applicable)
+       - dns:sentiment → emotional polarity (if applicable) [always use the English 'sentiment']
        - wn:lexfile → semantic domain (e.g., "noun.food", "verb.motion")
        - skos:definition → synset definition (may be truncated for length)
 
@@ -735,6 +746,9 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         - synset_id → clean identifier for convenience
         - :dns/ontologicalType_extracted → human-readable semantic types
         - :dns/sentiment_extracted → parsed sentiment (if present)
+    
+    Note: Present results using RDF notation (ns:identifier), not internal format.
+    Use human-readable labels where available from schemas.
 
     Example:
         info = get_synset_info("synset-52")  # cake synset
@@ -787,6 +801,9 @@ def get_word_info(word_id: str) -> Dict[str, Any]:
         - All RDF properties with namespace prefixes (e.g., :ontolex/evokes)
         - resource_id → clean identifier for convenience
         - All linguistic properties and relationships
+    
+    Note: Present results using RDF notation (ns:identifier), not internal format.
+    Use human-readable labels where available from schemas.
 
     Example:
         info = get_word_info("word-11021628")  # "hund" word
@@ -859,6 +876,9 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
         - All RDF properties with namespace prefixes (e.g., :ontolex/isSenseOf)
         - resource_id → clean identifier for convenience
         - All sense properties and relationships
+    
+    Note: Present results using RDF notation (ns:identifier), not internal format.
+    Use human-readable labels where available from schemas.
 
     Example:
         info = get_sense_info("sense-21033604")  # "hund_1§1" sense
@@ -1850,7 +1870,7 @@ Analyze:
 Create a sense map that helps learners understand how one word form carries multiple meanings in Danish."""
 
 
-def main()
+def main():
     """Main entry point with command line argument parsing"""
     global dannet_client
 
