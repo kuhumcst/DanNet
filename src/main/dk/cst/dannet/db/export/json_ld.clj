@@ -6,7 +6,8 @@
   (:require [clojure.walk :as walk]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix])
-  (:import [ont_app.vocabulary.lstr LangStr]))
+  (:import [ont_app.vocabulary.lstr LangStr]
+           [org.apache.jena.datatypes BaseDatatype$TypedValue]))
 
 (defn entity->kws
   "Return the keywords contained in the RDF resource `entity` at any level."
@@ -53,6 +54,11 @@
     {"@value"    (str v)
      "@language" (i18n/lang v)}
 
+    ;; Should handle e.g. XSDDateTime and other special values
+    (instance? BaseDatatype$TypedValue v)
+    {"@value" (.getLexicalValue v)
+     "@type"  (str (.getDatatypeURI v))}
+
     (set? v)
     (->> v (map transform-value) vec)
 
@@ -64,7 +70,6 @@
     (coll? v)
     (mapv transform-value v)
 
-    ;; TODO: other transformations needed?
     :else (str v)))
 
 (defn- transform-entity-key-vals
