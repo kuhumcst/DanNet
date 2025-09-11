@@ -23,6 +23,7 @@
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.db.export.rdf :as export.rdf]
+            [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op])
@@ -199,13 +200,34 @@
      (when entity
        (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))))
 
+   ;; TODO: should this match the JSON output? Or be used for debugging Transit?
    "application/edn"
    (fn [data & _]
      (pr-str data))
 
+   ;; The JSON format is used as an API and doesn't need the same information
+   ;; that is passed to the web app through Transit.
    "application/json"
-   (fn [data & _]
-     (json/write-str (->json-safe data)))
+   (fn [{:keys [entity entities
+                search-results lemma]
+         :as   data} & _]
+     (let [kv->entity (fn [[subject entity]]
+                        (assoc entity :dc/subject subject))]
+       (json/write-str (cond
+                         entity
+                         (json-ld-ify
+                           (merge-with
+                             q/set-merge entity
+                             {:rdfs/comment "The @graph contains labels for the properties and values of the core RDF resource defined @id."})
+                           (map kv->entity entities))
+
+                         search-results
+                         (json-ld-ify
+                           {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                           (map kv->entity search-results))
+
+                         :else
+                         (->json-safe data)))))
 
    "application/transit+json"
    (fn [data & _]
@@ -305,6 +327,13 @@
   (when query-string
     (str/replace query-string #"&?(transit=true|format=turtle)" "")))
 
+(defn json-ld-upgrade
+  "Change JSON `content-type` to JSON-LD (used by the core RDF endpoints)."
+  [content-type]
+  (if (= "application/json" content-type)
+    "application/ld+json"
+    content-type))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -366,7 +395,7 @@
                                 (redirect (prefix/rdf-resource->uri subject*) content-type)))))
                   (update-in [:response :headers] merge
                              (assoc (x-headers page-meta)
-                               "Content-Type" content-type)
+                               "Content-Type" (json-ld-upgrade content-type))
                              (when (= content-type "text/turtle")
                                (let [filename (str/replace qname #":" "_")
                                      cd       (str "attachment; filename=\"" filename ".ttl\"")]
@@ -430,7 +459,7 @@
                                             page-meta))
                         (update-in [:response :headers] merge
                                    (assoc (x-headers page-meta)
-                                     "Content-Type" content-type
+                                     "Content-Type" (json-ld-upgrade content-type)
                                      ;; TODO: use cache in production
                                      #_#_"Cache-Control" one-day-cache))))))))})
 

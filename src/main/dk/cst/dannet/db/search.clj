@@ -7,7 +7,7 @@
             [dk.cst.dannet.query.operation :as op]))
 
 (def sym->kw
-  {'?synset     :rdf/value
+  {'?synset     :dc/subject
    '?definition :skos/definition
    '?ontoType   :dns/ontologicalType})
 

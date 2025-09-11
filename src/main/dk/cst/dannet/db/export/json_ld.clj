@@ -4,28 +4,21 @@
   Transforms entity maps with namespaced keywords into JSON-LD structure
   with proper @context and @id mappings."
   (:require [clojure.walk :as walk]
+            [flatland.ordered.map :as fop]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix])
   (:import [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]))
 
-(defn entity->kws
-  "Return the keywords contained in the RDF resource `entity` at any level."
-  [entity]
-  (let [kws (atom #{})]
-    (walk/postwalk #(when (keyword? %)
-                      (swap! kws conj %))
-                   entity)
-    @kws))
-
 (defn entity->prefixes
   "Extract unique prefixes from namespaced keywords in RDF resource `entity`."
   [entity]
-  (into #{}
-        (comp
-          (keep namespace)
-          (map symbol))
-        (entity->kws entity)))
+  (let [prefixes (atom #{})]
+    (walk/postwalk #(when (keyword? %)
+                      (when-let [prefix (namespace %)]
+                        (swap! prefixes conj (symbol prefix))))
+                   entity)
+    @prefixes))
 
 (defn prefixes->context
   "Build JSON-LD @context map from `prefixes` set.
@@ -38,6 +31,9 @@
                    (assoc context (str prefix) uri)
                    context))
                {})))
+
+(def entity->context
+  (comp prefixes->context entity->prefixes))
 
 (defn transform-key
   "Transform `k` to a JSON-LD property name."
@@ -60,19 +56,18 @@
      "@type"  (str (.getDatatypeURI v))}
 
     (set? v)
-    (->> v (map transform-value) vec)
+    (if (= (count v) 1)
+      (transform-value (first v))
+      (map transform-value v))
 
     (keyword? v)
     (if-let [qname (prefix/kw->qname v)]
       qname
       (str v))
 
-    (coll? v)
-    (mapv transform-value v)
-
     :else (str v)))
 
-(defn- transform-entity-key-vals
+(defn- entity->properties
   "Transform RDF resource `entity` key-vals to JSON-LD format."
   [entity]
   (->> entity
@@ -80,23 +75,56 @@
                     (assoc result
                       (transform-key k)
                       (transform-value v)))
-                  {})))
+                  {})
+       (sort-by first)
+       (into (sorted-map))))
 
-(def non-rdf-keys
+(def non-rdf-ks
   #{:subject :inferred :languages :entities :synset-weights})
 
+;; TODO: take lang into account
+;; TODO: use nil entity to signal @graph entities only?
+;;       this can be used to represent search results or other colls
 (defn json-ld-ify
-  "Convert DanNet `entity` map to a JSON-LD structure."
-  [entity]
+  "Convert DanNet `entity` map to a JSON-LD structure. Optionally, a coll of
+  supporting `entities` may be supplied as a graph around the core entity.
+
+  NOTE: outputs JSON-LD 1.1 which allows combining one RDF resource defined by
+        @id with a @graph of other RDF resources. In JSON-LD 1.0 this would be
+        either-or."
+  [{:keys [dc/subject rdf/type rdfs/label rdfs/comment] :as entity} & [entities]]
   ;; TODO: include any dissoc'd parts that make sense (if at all possible)
-  (let [rdf-entity (apply dissoc entity non-rdf-keys)
-        subject    (or (:rdf/about rdf-entity)
-                       (:subject (meta rdf-entity)))
-        context    (-> rdf-entity entity->prefixes prefixes->context)
-        properties (transform-entity-key-vals rdf-entity)]
-    (cond-> properties
+  (let [subject        (or (:subject (meta entity))
+                           subject)
+        core-entity    (apply dissoc entity :dc/subject :rdf/type non-rdf-ks)
+        core-context   (into (sorted-map) (entity->context core-entity))
+        graph-entities (not-empty (map json-ld-ify entities))
+        graph-contexts (map #(get % "@context") graph-entities)
+        context        (apply merge core-context graph-contexts)
+        properties     (entity->properties core-entity)]
+
+    ;; NOTE: fop/ordered-map is needed to maintain insertion order, as array-map
+    ;;       gets converted into a hash-map once it reaches a certain size.
+    (cond-> (fop/ordered-map)
+
+      ;; Semantic ordering: @context, @id, and @type come first.
       (seq context) (assoc "@context" context)
-      subject (assoc "@id" (transform-value subject)))))
+      subject (assoc "@id" (transform-value subject))
+      type (assoc "@type" (transform-value type))
+
+      ;; Important RDFS properties come next: label and comment.
+      ;; NOTE: rdfs:comment is often used to explain what's inside the @graph.
+      label (assoc "rdfs:label" (get properties "rdfs:label"))
+      comment (assoc "rdfs:comment" (get properties "rdfs:comment"))
+
+      ;; Then the other properties of the core resource/entity follow.
+      properties (into (dissoc properties "rdfs:label" "rdfs:comment"))
+
+      ;; Semantically, @graph always comes last as it often contains a list of
+      ;; additional supporting data for the core RDF resource, e.g. a SynSet.
+      ;; NOTE: the graph is presumed to be pre-sorted (e.g. search results),
+      ;;       so they should *NOT* be sorted here!
+      graph-entities (assoc "@graph" (map #(dissoc % "@context") graph-entities)))))
 
 (comment
   ;; Test with simple entity structure
@@ -108,10 +136,14 @@
 
   (entity->kws test-entity)
   (entity->prefixes test-entity)
+  (entity->context test-entity)
   (json-ld-ify test-entity)
 
   ;; testing with a real entity
-  (json-ld-ify (dk.cst.dannet.query/entity
-                 (:graph @dk.cst.dannet.web.resources/db)
-                 :dn/synset-s50002104))
+  (let [entity         (dk.cst.dannet.query/expanded-entity
+                         (:graph @dk.cst.dannet.web.resources/db)
+                         :dn/synset-s50002104)
+        graph-entities (map (fn [[subject entity]] (assoc entity :rdf/about subject))
+                            (:entities (meta entity)))]
+    (json-ld-ify entity graph-entities))
   #_.)

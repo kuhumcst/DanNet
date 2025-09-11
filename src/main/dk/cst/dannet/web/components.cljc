@@ -208,7 +208,7 @@
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
   [prefix {:keys [attr-key details?] :as opts}]
-  (or (= :rdf/value attr-key)
+  (or (= :rdf/about attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
       (and (not= :dns/inherited attr-key)                   ; special case
@@ -252,8 +252,8 @@
     (rdf-datatype? x)
     (transform-val x)
 
-    (= (keys x) [:rdf/value])
-    (let [x (i18n/select-str languages (:rdf/value x))]
+    (= (keys x) [:dc/subject])
+    (let [x (i18n/select-str languages (:dc/subject x))]
       (if (coll? x)
         (into [:<>] (for [s x]
                       [:section.text {:lang (i18n/lang s)} (str s)]))

@@ -148,7 +148,7 @@
 (def synset-search-labels
   (q/build
     [:bgp
-     [:rdf/value :rdfs/label '?synset]
+     [:dc/subject :rdfs/label '?synset]
      [:skos/definition :rdfs/label '?definition]
      [:dns/ontologicalType :rdfs/label '?ontotype]]))
 
