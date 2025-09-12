@@ -114,11 +114,9 @@ class DanNetClient:
             # Use _make_request to automatically include format=json parameter
             data = self._make_request("/dannet/autocomplete", {"s": prefix})
 
-            # Handle different possible response formats
-            if isinstance(data, list):
-                return data
-            elif isinstance(data, dict) and 'suggestions' in data:
-                return data['suggestions']
+            # Extract autocompletions from the JSON response
+            if isinstance(data, dict) and 'autocompletions' in data:
+                return data['autocompletions']
             else:
                 return []
 

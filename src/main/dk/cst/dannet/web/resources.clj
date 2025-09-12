@@ -164,7 +164,7 @@
       ;; Otherwise, convert the symbol to string
       (str data))
 
-    (keyword? data) (str data)
+    (keyword? data) (prefix/kw->qname data)
     (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
     (coll? data) (mapv ->json-safe data)
     :else data))
@@ -698,7 +698,7 @@
 (def autocomplete-ic
   {:name  ::autocomplete
    :leave (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "application/transit+json")
+            (let [content-type (get-in request [:accept :field] "application/json")
                   body         (content-type->body-fn content-type)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
@@ -708,7 +708,7 @@
                   (-> ctx
                       (update :response assoc
                               :status 200
-                              :body (body (autocomplete s')))
+                              :body (body {:autocompletions (autocomplete s')}))
                       (update-in [:response :headers] assoc
                                  "Content-Type" content-type
                                  "Cache-Control" one-day-cache))
