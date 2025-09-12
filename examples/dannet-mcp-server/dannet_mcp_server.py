@@ -241,36 +241,30 @@ def get_client():
     return dannet_client
 
 
-# REMOVED: _process_synset_data() function - no longer needed with JSON-LD format
-# The new JSON-LD format provides clean data directly without custom processing
-
-
-# REMOVED: _process_entity_data() function - no longer needed with JSON-LD format  
-# The new JSON-LD format provides clean data directly without custom processing
-
-
-# REMOVED: extract_language_string() function - JSON-LD format handles this properly
-# Values are now directly accessible as strings or objects with @value/@language structure
-
-
 def parse_resource_id(resource_uri: str) -> str:
-    """Extract resource ID from a DanNet URI"""
+    """
+    Extract resource ID from a DanNet URI.
+    
+    Handles various URI formats:
+    - Prefixed: "dn:synset-1876" → "synset-1876"  
+    - Full URIs: "https://wordnet.dk/dannet/data/synset-1876" → "synset-1876"
+    - Clean IDs: "synset-1876" → "synset-1876"
+    
+    Args:
+        resource_uri: URI or ID string to parse
+        
+    Returns:
+        Clean resource identifier
+    """
     if isinstance(resource_uri, str):
-        # Handle URIs like ":dn/synset-1876", ":dn/word-123", or full URIs
-        if resource_uri.startswith(':dn/'):
-            # Remove the :dn/ prefix - the dn namespace maps to /dannet/data/
-            return resource_uri[4:]  # Strip ":dn/"
-        elif ':' in resource_uri:
-            return resource_uri.split(':')[-1]
+        # Handle prefixed URIs like "dn:synset-1876"
+        if resource_uri.startswith('dn:'):
+            return resource_uri[3:]  # Strip "dn:" prefix
+        # Handle full HTTP URIs
         elif '/' in resource_uri:
             return resource_uri.split('/')[-1]
         return resource_uri
     return str(resource_uri)
-
-
-# ====================================================================================
-# PHASE 4 ENHANCEMENTS: JSON-LD Utilities and Enhanced Error Handling
-# ====================================================================================
 
 def validate_jsonld_structure(data: Dict[str, Any]) -> bool:
     """
@@ -361,12 +355,12 @@ def extract_sentiment_data(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
     return None
 
 
-def get_language_value(data: Union[str, Dict[str, Any]], preferred_lang: str = 'da') -> str:
+def get_language_value(data: Union[str, Dict[str, Any], List[Dict[str, Any]]], preferred_lang: str = 'da') -> str:
     """
     Extract language-specific value from JSON-LD language object.
     
     Args:
-        data: Either a string or language object with @value/@language
+        data: Either a string, language object with @value/@language, or list of such objects
         preferred_lang: Preferred language code (default: 'da')
         
     Returns:
@@ -374,17 +368,19 @@ def get_language_value(data: Union[str, Dict[str, Any]], preferred_lang: str = '
     """
     if isinstance(data, str):
         return data
+    elif isinstance(data, list):
+        # Handle multiple language variants
+        for item in data:
+            if isinstance(item, dict) and item.get('@language') == preferred_lang:
+                return item.get('@value', '')
+        # Fall back to first available
+        if data and isinstance(data[0], dict):
+            return data[0].get('@value', '')
+        elif data and isinstance(data[0], str):
+            return data[0]
     elif isinstance(data, dict):
         if '@value' in data:
             return data['@value']
-        elif isinstance(data, list):
-            # Handle multiple language variants
-            for item in data:
-                if isinstance(item, dict) and item.get('@language') == preferred_lang:
-                    return item.get('@value', '')
-            # Fall back to first available
-            if data and isinstance(data[0], dict):
-                return data[0].get('@value', '')
     return str(data) if data else ''
 
 
@@ -414,19 +410,6 @@ def enhanced_error_message(error: Exception, context: str = '') -> str:
     if context:
         return f"{context}: {base_msg}. {guidance}"
     return f"{base_msg}. {guidance}"
-
-
-# ====================================================================================
-# END PHASE 4 ENHANCEMENTS
-# ====================================================================================
-
-
-# REMOVED: extract_ontological_types() function - no longer needed with JSON-LD format
-# Ontological types are now directly available as dns:ontologicalType["@set"] array
-
-
-# REMOVED: extract_sentiment_info() function - no longer needed with JSON-LD format  
-# Sentiment is now directly available as dns:sentiment object with marl: properties
 
 
 @mcp.tool()
@@ -543,21 +526,13 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
                         synset_id = entity_id[3:]  # Remove "dn:" prefix
 
                     if synset_id:
-                        # Extract definition - handle both JSON-LD formats
-                        definition = ""
-                        skos_def = synset_data.get('skos:definition', {})
-                        if isinstance(skos_def, dict) and '@value' in skos_def:
-                            definition = skos_def['@value']
-                        elif isinstance(skos_def, str):
-                            definition = skos_def
-
-                        # Extract proper label from rdfs:label if available
-                        label = f"{{{query}_§1}}"  # Default fallback
-                        rdfs_label = synset_data.get('rdfs:label', {})
-                        if isinstance(rdfs_label, dict) and '@value' in rdfs_label:
-                            label = rdfs_label['@value']
-                        elif isinstance(rdfs_label, str):
-                            label = rdfs_label
+                        # Extract definition using get_language_value helper
+                        definition = get_language_value(synset_data.get('skos:definition', {}))
+                        
+                        # Extract label using get_language_value helper
+                        label = get_language_value(synset_data.get('rdfs:label', {}))
+                        if not label:
+                            label = f"{{{query}_§1}}"  # Default fallback
 
                         search_results.append(SearchResult(
                             word=query,
@@ -611,9 +586,6 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
         - All RDF properties with namespace prefixes (e.g., wn:hypernym, ontolex:evokes)
         - For DanNet synsets: dns:ontologicalType and dns:sentiment (if applicable)
         - Entity-specific convenience fields (synset_id, resource_id, etc.)
-    
-    Note: The new JSON-LD format provides clean, directly accessible data.
-    Use human-readable labels where available from schemas.
 
     Examples:
         # DanNet entities
@@ -743,9 +715,6 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         - dns:ontologicalType → {"@set": ["dnc:Animal", ...]} (if applicable)
         - dns:sentiment → {"marl:hasPolarity": "marl:Positive", "marl:polarityValue": "3"} (if applicable)
         - synset_id → clean identifier for convenience
-    
-    Note: The new JSON-LD format provides clean, directly accessible data without
-    requiring custom extraction functions.
 
     Example:
         info = get_synset_info("synset-52")  # cake synset
@@ -811,9 +780,6 @@ def get_word_info(word_id: str) -> Dict[str, Any]:
         - All RDF properties with namespace prefixes (e.g., ontolex:evokes)
         - resource_id → clean identifier for convenience
         - All linguistic properties and relationships
-    
-    Note: Present results using RDF notation (ns:identifier), not internal format.
-    Use human-readable labels where available from schemas.
 
     Example:
         info = get_word_info("word-11021628")  # "hund" word
@@ -886,9 +852,6 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
         - All RDF properties with namespace prefixes (e.g., ontolex:isSenseOf)
         - resource_id → clean identifier for convenience
         - All sense properties and relationships
-    
-    Note: Present results using RDF notation (ns:identifier), not internal format.
-    Use human-readable labels where available from schemas.
 
     Example:
         info = get_sense_info("sense-21033604")  # "hund_1§1" sense
@@ -908,8 +871,6 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
 
 
-# TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
-# Currently returns string to work around concatenation without separators.
 @mcp.tool()
 def get_word_synonyms(word: str) -> str:
     """
@@ -943,20 +904,21 @@ def get_word_synonyms(word: str) -> str:
 
         # Handle both return types from get_word_synsets
         if isinstance(search_results, dict):
-            # Single synset result - convert to list format
+            # Single synset result - convert to list format  
             synset_id = search_results.get('synset_id')
             if synset_id:
-                search_results = [type('SearchResult', (), {
-                    'synset_id': synset_id,
-                    'word': word
-                })()]
+                search_results = [SearchResult(
+                    word=word,
+                    synset_id=synset_id,
+                    label='',
+                    definition=''
+                )]
             else:
                 return ""
-
+        
+        # Process each synset to find synonyms
         for result in search_results:
-            # Only process exact matches
-            if not (hasattr(result, 'synset_id') and result.synset_id and
-                    hasattr(result, 'word') and result.word.lower() == word.lower()):
+            if not (result.synset_id and result.word.lower() == word.lower()):
                 continue
 
             # Get the full synset data
@@ -964,39 +926,32 @@ def get_word_synonyms(word: str) -> str:
 
             # Extract word IDs from ontolex:isEvokedBy (JSON-LD format)
             evoked_by = synset_data.get('ontolex:isEvokedBy', [])
-
+            
             # Normalize to list if single string
             if isinstance(evoked_by, str):
                 evoked_by = [evoked_by]
-            elif not isinstance(evoked_by, list):
-                continue
 
             # Process each word reference
             for word_ref in evoked_by:
                 # Extract the word ID from the reference
                 word_id = parse_resource_id(word_ref)
-
-                # Fetch the word entity
-                word_data = get_client().get_resource(word_id)
-                if not word_data:
-                    continue
-
-                # Extract the lemma from JSON-LD format
-                label_data = word_data.get('rdfs:label', {})
-                lemma = ""
                 
-                if isinstance(label_data, dict) and '@value' in label_data:
-                    lemma = label_data['@value']
-                elif isinstance(label_data, str):
-                    lemma = label_data
-
-                # Strip quotes if present
-                if lemma:
-                    lemma = lemma.strip('"')
-
-                # Add to synonyms if it's not the input word
-                if lemma and lemma.lower() != word.lower():
-                    synonyms.add(lemma)
+                # Fetch the word entity
+                try:
+                    word_data = get_client().get_resource(word_id)
+                    if not word_data:
+                        continue
+                    
+                    # Extract the lemma from JSON-LD format
+                    label_data = word_data.get('rdfs:label', {})
+                    lemma = get_language_value(label_data)
+                    
+                    # Add to synonyms if it's not the input word
+                    if lemma and lemma.lower() != word.lower():
+                        synonyms.add(lemma)
+                        
+                except Exception:
+                    continue  # Skip words that can't be fetched
 
         return ", ".join(sorted(list(synonyms)))
 
@@ -1005,8 +960,6 @@ def get_word_synonyms(word: str) -> str:
 
 
 
-# TODO: Change back to List[str] if MCP framework serialization issue gets fixed.
-# Currently returns string to work around concatenation without separators.
 @mcp.tool()
 def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
     """
@@ -1017,7 +970,6 @@ def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
 
     Args:
         prefix: The beginning of a Danish word (minimum 3 characters required)
-    
         max_results: Maximum number of suggestions to return (default: 10)
         
     Returns:
@@ -1173,7 +1125,6 @@ def get_current_dannet_server() -> Dict[str, str]:
     }
 
 
-# TODO: replace with official DDO API if ever available
 @mcp.tool()
 def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
     """
@@ -1220,13 +1171,8 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
         # Get synset information
         synset_info = get_synset_info(clean_id)
 
-        # Extract the original (possibly truncated) definition from JSON-LD format
-        truncated_def = ""
-        skos_def = synset_info.get('skos:definition', {})
-        if isinstance(skos_def, dict) and '@value' in skos_def:
-            truncated_def = skos_def['@value']
-        elif isinstance(skos_def, str):
-            truncated_def = skos_def
+        # Extract the original (possibly truncated) definition using helper
+        truncated_def = get_language_value(synset_info.get('skos:definition', {}))
 
         # Get associated senses from JSON-LD format
         senses = synset_info.get('ontolex:lexicalizedSense', [])
@@ -1325,10 +1271,6 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
             'truncated_definition': ""
         }
 
-
-# ====================================================================================
-# PHASE 4 ENHANCED MCP TOOLS: Advanced JSON-LD Processing
-# ====================================================================================
 
 @mcp.tool()
 def validate_synset_structure(synset_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -1500,11 +1442,6 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
             'error': enhanced_error_message(e, 'Namespace analysis'),
             'valid': False
         }
-
-
-# ====================================================================================
-# END PHASE 4 ENHANCED MCP TOOLS
-# ====================================================================================
 
 
 @mcp.resource("dannet://ontological-types")
