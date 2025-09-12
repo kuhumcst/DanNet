@@ -161,7 +161,7 @@ QUICK START WORKFLOW:
    
 3. Explore synset details:
    - get_synset_info() → Full RDF data with relationships
-   - Check dns:ontologicalType_extracted for semantic class
+   - Check dns:ontologicalType for semantic class
    - Follow wn:hypernym for categories, wn:hyponym for specifics
    
 4. Navigate semantic relationships:
@@ -189,7 +189,7 @@ SEMANTIC PATTERNS BY DOMAIN:
 - Emotions: similarity networks + sentiment annotations
 - Locations: spatial containment + domain classifications
 
-ONTOLOGICAL TYPES (dns:ontologicalType_extracted):
+ONTOLOGICAL TYPES (dns:ontologicalType):
 Core: Animal, Human, Object, Physical, Mental, Property
 Events: BoundedEvent, UnboundedEvent, Agentive, Cause
 Artifacts: Vehicle, Instrument, Artifact, Natural, BodyPart
@@ -201,6 +201,14 @@ DANNET EXTENSIONS:
 - DDO integration via synset labels {word_entry§definition}
 - Cross-linguistic via wn:ili (Inter-Lingual Index) + the Open English WordNet
 
+JSON-LD FORMAT GUIDE:
+- All responses use standard JSON-LD with @context, @id, @type
+- Namespace prefixes: dns: (schema), wn: (WordNet), ontolex: (vocabulary)
+- Semantic data directly accessible: dns:ontologicalType["@set"], dns:sentiment["marl:hasPolarity"]
+- Property names use colon format: "dns:sentiment" not ":dns/sentiment"
+- Multi-value properties use arrays: ["dn:synset-1", "dn:synset-2"]
+- Language-tagged literals: {"@value": "text", "@language": "da"}
+
 KEY SEMANTIC PATTERNS:
 - Hypernym chains reveal conceptual hierarchies
 - Multiple hyponyms indicate important category nodes
@@ -208,9 +216,10 @@ KEY SEMANTIC PATTERNS:
 - Cross-linguistic via wn:ili (or wn:eq_synonym to the Open English WordNet)
 
 DATA FORMATS:
-- JSON responses include _extracted fields for easier parsing
+- JSON-LD responses with semantic data directly accessible
+- Clean namespace prefixes (dns: for schema, dn: for data)
 - Raw RDF available via Turtle format for graph operations
-- All entities use namespace prefixes (dn: for data, dns: for schema)
+- All properties use standard JSON-LD format with @context
 
 TIPS FOR LLM USAGE:
 - Start broad with word search, then narrow to specific synsets
@@ -234,99 +243,16 @@ def get_client():
     return dannet_client
 
 
-def _process_synset_data(entity_data: Dict, inferred_data: Optional[Dict] = None, synset_id: Optional[str] = None) -> \
-        Dict[str, Any]:
-    """
-    Process raw synset entity data into enriched format with extracted fields.
-    
-    This helper function is used by both get_synset_info() and get_word_synsets() 
-    to ensure consistent processing of synset data.
-    
-    Args:
-        entity_data: Raw entity data from DanNet API
-        inferred_data: Optional inferred properties from OWL reasoning
-        synset_id: Optional synset ID to add for convenience
-    
-    Returns:
-        Dict with processed synset data including extracted fields
-    """
-    # Start with entity data
-    result = dict(entity_data)
-
-    # Add inferred metadata if available
-    if inferred_data:
-        result[':inferred'] = inferred_data
-
-    # Add the synset_id for convenience if provided
-    if synset_id:
-        result['synset_id'] = synset_id
-
-    # Extract and format ontological types for better usability
-    if ':dns/ontologicalType' in result:
-        extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
-        result[':dns/ontologicalType_extracted'] = extracted_types
-
-    # Extract and format sentiment information for better usability
-    if ':dns/sentiment' in result:
-        extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
-        result[':dns/sentiment_extracted'] = extracted_sentiment
-
-    return result
+# REMOVED: _process_synset_data() function - no longer needed with JSON-LD format
+# The new JSON-LD format provides clean data directly without custom processing
 
 
-def _process_entity_data(entity_data: Dict, inferred_data: Optional[Dict] = None, resource_id: Optional[str] = None) -> \
-        Dict[str, Any]:
-    """
-    Process raw entity data into enriched format.
-    
-    This is a more generic version of _process_synset_data that works for any entity type.
-    
-    Args:
-        entity_data: Raw entity data from DanNet API
-        inferred_data: Optional inferred properties from OWL reasoning
-        resource_id: Optional resource ID to add for convenience
-    
-    Returns:
-        Dict with processed entity data
-    """
-    # Start with entity data
-    result = dict(entity_data)
-
-    # Add inferred metadata if available
-    if inferred_data:
-        result[':inferred'] = inferred_data
-
-    # Add the resource_id for convenience if provided
-    if resource_id:
-        result['resource_id'] = resource_id
-
-    # Only process synset-specific fields if this is actually a synset
-    entity_types = result.get(':rdf/type', [])
-    if isinstance(entity_types, str):
-        entity_types = [entity_types]
-
-    if ':ontolex/LexicalConcept' in entity_types:
-        # This is a synset, apply synset-specific processing
-        if ':dns/ontologicalType' in result:
-            extracted_types = extract_ontological_types(result[':dns/ontologicalType'])
-            result[':dns/ontologicalType_extracted'] = extracted_types
-
-        if ':dns/sentiment' in result:
-            extracted_sentiment = extract_sentiment_info(result[':dns/sentiment'])
-            result[':dns/sentiment_extracted'] = extracted_sentiment
-
-    return result
+# REMOVED: _process_entity_data() function - no longer needed with JSON-LD format  
+# The new JSON-LD format provides clean data directly without custom processing
 
 
-def extract_language_string(value: Union[str, Dict]) -> Optional[str]:
-    """Extract string value from DanNet language-tagged values"""
-    if isinstance(value, str):
-        return value
-    elif isinstance(value, dict) and 'value' in value:
-        return value['value']
-    elif isinstance(value, list) and value:
-        return extract_language_string(value[0])
-    return None
+# REMOVED: extract_language_string() function - JSON-LD format handles this properly
+# Values are now directly accessible as strings or objects with @value/@language structure
 
 
 def parse_resource_id(resource_uri: str) -> str:
@@ -344,80 +270,165 @@ def parse_resource_id(resource_uri: str) -> str:
     return str(resource_uri)
 
 
-def extract_ontological_types(ontotype_data):
-    """
-    Extract and format ontological types from DanNet RDF bag structure.
-    
-    DanNet uses ontological types from the EuroWordNet taxonomy to classify synsets
-    semantically. These types indicate what kind of entity a synset represents
-    (e.g., Animal, Human, Object, Event, etc.).
+# ====================================================================================
+# PHASE 4 ENHANCEMENTS: JSON-LD Utilities and Enhanced Error Handling
+# ====================================================================================
 
+def validate_jsonld_structure(data: Dict[str, Any]) -> bool:
+    """
+    Validate that a response has proper JSON-LD structure.
+    
     Args:
-        ontotype_data: List containing RDF bag structure with :rdf/_0, :rdf/_1, etc.
-    
+        data: Response data to validate
+        
     Returns:
-        List of dnc: type strings (e.g., ['dnc/Animal', 'dnc/Living']),
-        or the original data if not in expected format
+        True if valid JSON-LD, False otherwise
     """
-    if not isinstance(ontotype_data, list) or not ontotype_data:
-        return ontotype_data
-
-    bag_data = ontotype_data[0]
-    if not isinstance(bag_data, dict):
-        return ontotype_data
-
-    # Extract dnc: types from RDF bag structure
-    concepts = []
-    for key, value in bag_data.items():
-        if key.startswith(':rdf/_') and isinstance(value, list) and value:
-            concept = value[0]
-            if isinstance(concept, str) and concept.startswith(':dnc/'):
-                # Remove the leading colon to get clean dnc:Concept format
-                concepts.append(concept[1:])
-
-    # Sort for consistent ordering
-    concepts.sort()
-    return concepts if concepts else ontotype_data
-
-
-def extract_sentiment_info(sentiment_data):
-    """
-    Extract and format sentiment information from DanNet sentiment structure.
+    if not isinstance(data, dict):
+        return False
     
-    DanNet includes sentiment annotations for words that carry emotional polarity,
-    using the MARL (Machine-Readable Language) vocabulary.
+    # Check for essential JSON-LD properties
+    required_props = ['@context', '@id', '@type']
+    return all(prop in data for prop in required_props)
 
+
+def get_namespace_prefixes(data: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Extract namespace prefixes from JSON-LD @context.
+    
     Args:
-        sentiment_data: List containing sentiment structure with :marl properties
-    
+        data: JSON-LD data with @context
+        
     Returns:
-        Dict with polarity ('positive', 'negative', 'neutral') and numerical value,
-        or the original data if not in expected format
+        Dict mapping prefixes to full namespace URLs
     """
-    if not isinstance(sentiment_data, list) or not sentiment_data:
-        return sentiment_data
+    context = data.get('@context', {})
+    if isinstance(context, dict):
+        return {k: v for k, v in context.items() if isinstance(v, str)}
+    return {}
 
-    sentiment_obj = sentiment_data[0]
-    if not isinstance(sentiment_obj, dict):
-        return sentiment_data
 
-    result = {}
+def resolve_prefixed_uri(uri: str, context: Dict[str, str]) -> str:
+    """
+    Resolve a prefixed URI using JSON-LD context.
+    
+    Args:
+        uri: Prefixed URI like "dns:sentiment" or full URI
+        context: Namespace context mapping
+        
+    Returns:
+        Resolved full URI or original if not prefixed
+    """
+    if ':' in uri and not uri.startswith(('http://', 'https://')):
+        prefix, local = uri.split(':', 1)
+        if prefix in context:
+            return context[prefix] + local
+    return uri
 
-    # Extract polarity
-    polarity = sentiment_obj.get(':marl/hasPolarity')
-    if isinstance(polarity, list) and polarity:
-        polarity_value = polarity[0]
-        if isinstance(polarity_value, str):
-            # Remove prefix and colon to get clean value
-            result['polarity'] = polarity_value.replace(':marl/', '')
 
-    # Extract numerical value
-    polarity_val = sentiment_obj.get(':marl/polarityValue')
-    if isinstance(polarity_val, list) and polarity_val:
-        if isinstance(polarity_val[0], (int, float)):
-            result['value'] = polarity_val[0]
+def extract_ontological_types(data: Dict[str, Any]) -> List[str]:
+    """
+    Extract ontological types from JSON-LD synset data.
+    
+    Args:
+        data: Synset JSON-LD data
+        
+    Returns:
+        List of ontological type URIs (e.g., ["dnc:Animal", "dnc:Object"])
+    """
+    ont_type = data.get('dns:ontologicalType', {})
+    if isinstance(ont_type, dict) and '@set' in ont_type:
+        return ont_type['@set']
+    elif isinstance(ont_type, list):
+        return ont_type
+    return []
 
-    return result if result else sentiment_data
+
+def extract_sentiment_data(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """
+    Extract sentiment information from JSON-LD synset data.
+    
+    Args:
+        data: Synset JSON-LD data
+        
+    Returns:
+        Dict with polarity and value, or None if no sentiment
+    """
+    sentiment = data.get('dns:sentiment')
+    if isinstance(sentiment, dict):
+        return {
+            'polarity': sentiment.get('marl:hasPolarity', ''),
+            'value': sentiment.get('marl:polarityValue', '')
+        }
+    return None
+
+
+def get_language_value(data: Union[str, Dict[str, Any]], preferred_lang: str = 'da') -> str:
+    """
+    Extract language-specific value from JSON-LD language object.
+    
+    Args:
+        data: Either a string or language object with @value/@language
+        preferred_lang: Preferred language code (default: 'da')
+        
+    Returns:
+        String value, preferring the specified language
+    """
+    if isinstance(data, str):
+        return data
+    elif isinstance(data, dict):
+        if '@value' in data:
+            return data['@value']
+        elif isinstance(data, list):
+            # Handle multiple language variants
+            for item in data:
+                if isinstance(item, dict) and item.get('@language') == preferred_lang:
+                    return item.get('@value', '')
+            # Fall back to first available
+            if data and isinstance(data[0], dict):
+                return data[0].get('@value', '')
+    return str(data) if data else ''
+
+
+def enhanced_error_message(error: Exception, context: str = '') -> str:
+    """
+    Generate enhanced error messages with JSON-LD context.
+    
+    Args:
+        error: Original exception
+        context: Additional context about the operation
+        
+    Returns:
+        Enhanced error message with debugging guidance
+    """
+    base_msg = str(error)
+    
+    # Add JSON-LD specific guidance for common issues
+    if 'KeyError' in str(type(error)) or 'key' in base_msg.lower():
+        guidance = "Tip: Check property names use JSON-LD format (dns:sentiment not :dns/sentiment)"
+    elif 'TypeError' in str(type(error)) or 'type' in base_msg.lower():
+        guidance = "Tip: Verify JSON-LD structure with @context, @id, @type properties"
+    elif 'ConnectionError' in str(type(error)) or 'connection' in base_msg.lower():
+        guidance = "Tip: Check DanNet server availability and network connectivity"
+    else:
+        guidance = "Tip: Verify data format matches expected JSON-LD structure"
+    
+    if context:
+        return f"{context}: {base_msg}. {guidance}"
+    return f"{base_msg}. {guidance}"
+
+
+# ====================================================================================
+# END PHASE 4 ENHANCEMENTS
+# ====================================================================================
+
+
+# REMOVED: extract_ontological_types() function - no longer needed with JSON-LD format
+# Ontological types are now directly available as dns:ontologicalType["@set"] array
+
+
+# REMOVED: extract_sentiment_info() function - no longer needed with JSON-LD format  
+# Sentiment is now directly available as dns:sentiment object with marl: properties
 
 
 @mcp.tool()
@@ -480,9 +491,9 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
         - definition: Brief semantic definition (may be truncated with "...")
         
         SINGLE RESULT: Dict with complete synset data including:
-        - All RDF properties with namespace prefixes (e.g., :wn/hypernym)
-        - :dns/ontologicalType_extracted → human-readable semantic types
-        - :dns/sentiment_extracted → parsed sentiment (if present)
+        - All RDF properties with namespace prefixes (e.g., wn:hypernym)
+        - dns:ontologicalType → semantic types with @set array
+        - dns:sentiment → parsed sentiment (if present)
         - synset_id → clean identifier for convenience
         - All semantic relationships and linguistic properties
 
@@ -495,73 +506,77 @@ def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResul
         # Single result case (redirect)
         result = get_word_synsets("svinkeærinde")  
         # Returns complete synset data for unique word
-        # => {':wn/hypernym': ':dn/synset-11677', ':dns/sentiment_extracted': {...}, ...}
+        # => {'wn:hypernym': 'dn:synset-11677', 'dns:sentiment': {...}, ...}
     """
     try:
         results = get_client().search(query, language)
         search_results = []
 
-        # Handle DanNet's response structure - check for both single entity and multiple results
+        # Handle DanNet's JSON-LD response structure
         if isinstance(results, dict):
             # Check if this is a single entity response (redirected from search)
-            if ':entity' in results:
+            if '@id' in results and '@type' in results:
                 # This is a single synset entity response - return full synset data
-                entity = results[':entity']
-
-                # Extract synset ID from the subject
+                
+                # Extract synset ID from @id (e.g., "dn:synset-68420" -> "synset-68420")
                 synset_id = None
-                subject = results.get(':subject', '')
-                if isinstance(subject, str) and subject.startswith(':dn/'):
-                    synset_id = subject.replace(':dn/', '')
-
+                entity_id = results.get('@id', '')
+                if entity_id.startswith('dn:'):
+                    synset_id = entity_id[3:]  # Remove "dn:" prefix
+                
                 if synset_id:
-                    # Use helper function to process synset data consistently
-                    return _process_synset_data(
-                        entity_data=entity,
-                        inferred_data=results.get(':inferred'),
-                        synset_id=synset_id
-                    )
+                    # JSON-LD format is already clean - just add convenience field
+                    result = dict(results)
+                    result['synset_id'] = synset_id
+                    return result
 
-            else:
-                # Check for multiple search results in EDN format
-                search_data = results.get(':search-results', results.get('search-results', {}))
-                lemma = results.get(':lemma', results.get('lemma', query))
+            # Check for multiple search results in @graph structure
+            graph_results = results.get('@graph', [])
+            if isinstance(graph_results, list) and graph_results:
+                search_results = []
+                for synset_data in graph_results:
+                    if not isinstance(synset_data, dict):
+                        continue
 
-                if isinstance(search_data, dict):
-                    for synset_key, synset_data in search_data.items():
-                        if not isinstance(synset_data, dict):
-                            continue
+                    # Extract synset ID from @id
+                    synset_id = None
+                    entity_id = synset_data.get('@id', '')
+                    if entity_id.startswith('dn:'):
+                        synset_id = entity_id[3:]  # Remove "dn:" prefix
 
-                        # Extract synset ID from the key
-                        synset_id = None
-                        if isinstance(synset_key, str) and synset_key.startswith(':dn/'):
-                            synset_id = synset_key.replace(':dn/', '')
+                    if synset_id:
+                        # Extract definition - handle both JSON-LD formats
+                        definition = ""
+                        skos_def = synset_data.get('skos:definition', {})
+                        if isinstance(skos_def, dict) and '@value' in skos_def:
+                            definition = skos_def['@value']
+                        elif isinstance(skos_def, str):
+                            definition = skos_def
 
-                        if synset_id:
-                            # Get full synset data to extract definition and label
-                            try:
-                                synset_info = get_synset_info(synset_id)
-                                definition = extract_language_string(synset_info.get(':skos/definition'))
-                                label = extract_language_string(synset_info.get(':rdfs/label'))
+                        # Extract proper label from rdfs:label if available
+                        label = f"{{{query}_§1}}"  # Default fallback
+                        rdfs_label = synset_data.get('rdfs:label', {})
+                        if isinstance(rdfs_label, dict) and '@value' in rdfs_label:
+                            label = rdfs_label['@value']
+                        elif isinstance(rdfs_label, str):
+                            label = rdfs_label
 
-                                # Include synset even if no definition (some synsets only have labels)
-                                search_results.append(SearchResult(
-                                    word=lemma,
-                                    synset_id=synset_id,
-                                    label=label,
-                                    definition=definition or ""
-                                ))
-                            except Exception as e:
-                                logger.warning(f"Failed to fetch synset {synset_id}: {e}")
-                                continue
+                        search_results.append(SearchResult(
+                            word=query,
+                            synset_id=synset_id,
+                            label=label,
+                            definition=definition or ""
+                        ))
 
-        return search_results
+                return search_results
+
+        # If no results found, return empty list
+        return []
 
     except Exception as e:
         raise RuntimeError(f"Search failed: {e}")
 
 
-# TODO: Consider preprocessing JSON responses to use proper ns:identifier format instead of :ns/identifier.
 @mcp.tool()
 def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
     """
@@ -581,7 +596,7 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
     - DanNet synsets have rich semantic relationships (wn:hypernym, wn:hyponym, etc.)
     - External entities provide vocabulary definitions and cross-references
     - Use parse_resource_id() on URI references to get clean IDs
-    - Check :rdf/type to understand what kind of entity you're working with
+    - Check @type to understand what kind of entity you're working with
 
     Args:
         identifier: Entity identifier (e.g., "synset-3047", "word-11021628", "LexicalConcept", "i76470")
@@ -591,13 +606,15 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
                   - Common external namespaces: "ontolex", "ili", "wn", "lexinfo", etc.
 
     Returns:
-        Dict containing:
-        - All RDF properties with namespace prefixes (e.g., :wn/hypernym, :ontolex/evokes)
-        - :inferred → properties derived through OWL reasoning (if available)
-        - For DanNet synsets: extracted fields like :dns/ontologicalType_extracted
+        Dict containing JSON-LD format with:
+        - @context → namespace mappings (if applicable)
+        - @id → entity identifier
+        - @type → entity type
+        - All RDF properties with namespace prefixes (e.g., wn:hypernym, ontolex:evokes)
+        - For DanNet synsets: dns:ontologicalType and dns:sentiment (if applicable)
         - Entity-specific convenience fields (synset_id, resource_id, etc.)
     
-    Note: Present results using RDF notation (ns:identifier), not internal format.
+    Note: The new JSON-LD format provides clean, directly accessible data.
     Use human-readable labels where available from schemas.
 
     Examples:
@@ -650,38 +667,18 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
                     continue
                 raise DanNetError(f"Request failed: {e}")
 
-        # Check for entity data in response
-        if not data or ':entity' not in data:
-            raise DanNetError(f"No entity data found for {namespace}/{identifier}")
+        # Check for valid JSON-LD response
+        if not data:
+            raise DanNetError(f"No data found for {namespace}/{identifier}")
 
-        # Process the entity data with appropriate handling
+        # JSON-LD format is already clean - just add convenience field
+        result = dict(data)
         if namespace == "dn":
-            # For DanNet entities, determine if it's a synset for special processing
-            entity_types = data[':entity'].get(':rdf/type', [])
-            if isinstance(entity_types, str):
-                entity_types = [entity_types]
-
-            if ':ontolex/LexicalConcept' in entity_types:
-                # This is a DanNet synset - use synset-specific processing
-                return _process_synset_data(
-                    entity_data=data[':entity'],
-                    inferred_data=data.get(':inferred'),
-                    synset_id=identifier
-                )
-            else:
-                # Other DanNet entity - use generic processing
-                return _process_entity_data(
-                    entity_data=data[':entity'],
-                    inferred_data=data.get(':inferred'),
-                    resource_id=identifier
-                )
+            result['resource_id'] = identifier
         else:
-            # External entity - use generic processing
-            return _process_entity_data(
-                entity_data=data[':entity'],
-                inferred_data=data.get(':inferred'),
-                resource_id=f"{namespace}/{identifier}"
-            )
+            result['resource_id'] = f"{namespace}/{identifier}"
+        
+        return result
 
     except Exception as e:
         raise RuntimeError(f"Failed to get entity info: {e}")
@@ -714,10 +711,10 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
        - wn:mero_member/wn:holo_member → membership relations
 
     4. SEMANTIC PROPERTIES:
-       - dns:ontologicalType → semantic classification (see _extracted field) [Danish: ontologisk type]
+       - dns:ontologicalType → semantic classification with @set array of dnc: types
          Common types: dnc:Animal, dnc:Human, dnc:Object, dnc:Physical,
          dnc:Dynamic (events/actions), dnc:Static (states)
-       - dns:sentiment → emotional polarity (if applicable) [always use the English 'sentiment']
+       - dns:sentiment → emotional polarity with marl:hasPolarity and marl:polarityValue
        - wn:lexfile → semantic domain (e.g., "noun.food", "verb.motion")
        - skos:definition → synset definition (may be truncated for length)
 
@@ -726,7 +723,7 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
        - wn:eq_synonym → Open English WordNet equivalent
 
     DDO CONNECTION FOR FULLER DEFINITIONS:
-    DanNet synset definitions (:skos/definition) may be truncated (ending with "…").
+    DanNet synset definitions (skos:definition) may be truncated (ending with "…").
     For complete definitions, use the fetch_ddo_definition() tool which automatically
     retrieves full DDO text, or manually examine sense source URLs via get_sense_info().
 
@@ -740,27 +737,42 @@ def get_synset_info(synset_id: str) -> Dict[str, Any]:
         synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
 
     Returns:
-        Dict containing:
-        - All RDF properties with namespace prefixes (e.g., :wn/hypernym)
-        - :inferred → properties derived through OWL reasoning
+        Dict containing JSON-LD format with:
+        - @context → namespace mappings
+        - @id → entity identifier (e.g., "dn:synset-1876")
+        - @type → "ontolex:LexicalConcept"
+        - All RDF properties with namespace prefixes (e.g., wn:hypernym)
+        - dns:ontologicalType → {"@set": ["dnc:Animal", ...]} (if applicable)
+        - dns:sentiment → {"marl:hasPolarity": "marl:Positive", "marl:polarityValue": "3"} (if applicable)
         - synset_id → clean identifier for convenience
-        - :dns/ontologicalType_extracted → human-readable semantic types
-        - :dns/sentiment_extracted → parsed sentiment (if present)
     
-    Note: Present results using RDF notation (ns:identifier), not internal format.
-    Use human-readable labels where available from schemas.
+    Note: The new JSON-LD format provides clean, directly accessible data without
+    requiring custom extraction functions.
 
     Example:
         info = get_synset_info("synset-52")  # cake synset
-        # Check info[':wn/hypernym'] for parent concepts
-        # Check info[':dns/ontologicalType_extracted'] for semantic class
+        # Check info['wn:hypernym'] for parent concepts
+        # Check info['dns:ontologicalType']['@set'] for semantic types
+        # Check info['dns:sentiment']['marl:hasPolarity'] for sentiment
     """
-    # Clean the synset_id and ensure proper prefix
-    clean_id = parse_resource_id(synset_id)
-    if not clean_id.startswith('synset-'):
-        clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
+    try:
+        # Clean the synset_id and ensure proper prefix
+        clean_id = parse_resource_id(synset_id)
+        if not clean_id.startswith('synset-'):
+            clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
 
-    return get_entity_info(clean_id, namespace="dn")
+        # Get the JSON-LD data directly from DanNet
+        data = get_client().get_resource(clean_id)
+        if not data:
+            raise DanNetError(f"Synset not found: {clean_id}")
+            
+        # JSON-LD format is already clean - just add convenience field
+        result = dict(data)
+        result['synset_id'] = clean_id
+        return result
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get synset info: {e}")
 
 
 @mcp.tool()
@@ -798,7 +810,7 @@ def get_word_info(word_id: str) -> Dict[str, Any]:
 
     Returns:
         Dict containing:
-        - All RDF properties with namespace prefixes (e.g., :ontolex/evokes)
+        - All RDF properties with namespace prefixes (e.g., ontolex:evokes)
         - resource_id → clean identifier for convenience
         - All linguistic properties and relationships
     
@@ -807,8 +819,8 @@ def get_word_info(word_id: str) -> Dict[str, Any]:
 
     Example:
         info = get_word_info("word-11021628")  # "hund" word
-        # Check info[':ontolex/evokes'] for synsets this word can express
-        # Check info[':ontolex/sense'] for senses
+        # Check info['ontolex:evokes'] for synsets this word can express
+        # Check info['ontolex:sense'] for senses
     """
     # Clean the word_id and ensure proper prefix
     clean_id = parse_resource_id(word_id)
@@ -873,7 +885,7 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
     Returns:
         Dict containing:
-        - All RDF properties with namespace prefixes (e.g., :ontolex/isSenseOf)
+        - All RDF properties with namespace prefixes (e.g., ontolex:isSenseOf)
         - resource_id → clean identifier for convenience
         - All sense properties and relationships
     
@@ -882,12 +894,12 @@ def get_sense_info(sense_id: str) -> Dict[str, Any]:
 
     Example:
         info = get_sense_info("sense-21033604")  # "hund_1§1" sense
-        # Check info[':ontolex/isSenseOf'] for parent word
-        # Check info[':ontolex/isLexicalizedSenseOf'] for synset
-        # Check info[':lexinfo/senseExample'] for usage examples from DDO
-        # Check info[':lexinfo/register'] for register classification
-        # Check info[':lexinfo/usageNote'] for usage notes like "slang"
-        # Check info[':dns/source'] for DDO source URL (may not always work)
+        # Check info['ontolex:isSenseOf'] for parent word
+        # Check info['ontolex:isLexicalizedSenseOf'] for synset
+        # Check info['lexinfo:senseExample'] for usage examples from DDO
+        # Check info['lexinfo:register'] for register classification
+        # Check info['lexinfo:usageNote'] for usage notes like "slang"
+        # Check info['dns:source'] for DDO source URL (may not always work)
     """
     # Clean the sense_id and ensure proper prefix
     clean_id = parse_resource_id(sense_id)
@@ -952,8 +964,8 @@ def get_word_synonyms(word: str) -> str:
             # Get the full synset data
             synset_data = get_synset_info(result.synset_id)
 
-            # Extract word IDs from :ontolex/isEvokedBy
-            evoked_by = synset_data.get(':ontolex/isEvokedBy', [])
+            # Extract word IDs from ontolex:isEvokedBy (JSON-LD format)
+            evoked_by = synset_data.get('ontolex:isEvokedBy', [])
 
             # Normalize to list if single string
             if isinstance(evoked_by, str):
@@ -968,12 +980,17 @@ def get_word_synonyms(word: str) -> str:
 
                 # Fetch the word entity
                 word_data = get_client().get_resource(word_id)
-                if not word_data or ':entity' not in word_data:
+                if not word_data:
                     continue
 
-                # Extract the lemma using the existing helper function
-                label_data = word_data[':entity'].get(':rdfs/label')
-                lemma = extract_language_string(label_data)
+                # Extract the lemma from JSON-LD format
+                label_data = word_data.get('rdfs:label', {})
+                lemma = ""
+                
+                if isinstance(label_data, dict) and '@value' in label_data:
+                    lemma = label_data['@value']
+                elif isinstance(label_data, str):
+                    lemma = label_data
 
                 # Strip quotes if present
                 if lemma:
@@ -1205,19 +1222,16 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
         # Get synset information
         synset_info = get_synset_info(clean_id)
 
-        # Extract the original (possibly truncated) definition
+        # Extract the original (possibly truncated) definition from JSON-LD format
         truncated_def = ""
-        skos_def = synset_info.get(':skos/definition')
-        if skos_def:
-            if isinstance(skos_def, list) and skos_def:
-                truncated_def = skos_def[0].get('value', '') if isinstance(skos_def[0], dict) else str(skos_def[0])
-            elif isinstance(skos_def, dict):
-                truncated_def = skos_def.get('value', '')
-            else:
-                truncated_def = str(skos_def)
+        skos_def = synset_info.get('skos:definition', {})
+        if isinstance(skos_def, dict) and '@value' in skos_def:
+            truncated_def = skos_def['@value']
+        elif isinstance(skos_def, str):
+            truncated_def = skos_def
 
-        # Get associated senses
-        senses = synset_info.get(':ontolex/lexicalizedSense', [])
+        # Get associated senses from JSON-LD format
+        senses = synset_info.get('ontolex:lexicalizedSense', [])
         if isinstance(senses, str):
             senses = [senses]
 
@@ -1237,8 +1251,8 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
                 # Get sense information
                 sense_info = get_sense_info(sense_id)
 
-                # Extract DDO source URL
-                source = sense_info.get(':dns/source')
+                # Extract DDO source URL from JSON-LD format
+                source = sense_info.get('dns:source')
                 if source:
                     if isinstance(source, list):
                         source = source[0]
@@ -1314,6 +1328,187 @@ def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
         }
 
 
+# ====================================================================================
+# PHASE 4 ENHANCED MCP TOOLS: Advanced JSON-LD Processing
+# ====================================================================================
+
+@mcp.tool()
+def validate_synset_structure(synset_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate and analyze the structure of synset JSON-LD data.
+    
+    This enhanced tool helps debug and understand synset data structure,
+    providing validation and insights into the JSON-LD format.
+    
+    Args:
+        synset_data: Synset data returned from get_synset_info()
+        
+    Returns:
+        Dict with validation results and structural analysis
+    """
+    try:
+        result = {
+            'is_valid_jsonld': validate_jsonld_structure(synset_data),
+            'has_ontological_types': bool(extract_ontological_types(synset_data)),
+            'has_sentiment': extract_sentiment_data(synset_data) is not None,
+            'namespace_prefixes': get_namespace_prefixes(synset_data),
+            'synset_id': synset_data.get('synset_id', 'Not found'),
+            'entity_type': synset_data.get('@type', 'Unknown')
+        }
+        
+        # Add ontological types if present
+        ont_types = extract_ontological_types(synset_data)
+        if ont_types:
+            result['ontological_types'] = ont_types
+            result['ontological_count'] = len(ont_types)
+        
+        # Add sentiment details if present
+        sentiment = extract_sentiment_data(synset_data)
+        if sentiment:
+            result['sentiment_details'] = sentiment
+            
+        # Validate key properties
+        key_properties = ['rdfs:label', 'skos:definition', 'wn:hypernym', 'ontolex:isEvokedBy']
+        result['available_properties'] = [prop for prop in key_properties if prop in synset_data]
+        result['missing_properties'] = [prop for prop in key_properties if prop not in synset_data]
+        
+        return result
+        
+    except Exception as e:
+        return {
+            'error': enhanced_error_message(e, 'Synset structure validation'),
+            'is_valid': False
+        }
+
+
+@mcp.tool()
+def extract_semantic_data(entity_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract and normalize semantic data from any DanNet JSON-LD entity.
+    
+    This tool provides a unified way to extract semantic information from
+    synsets, words, or senses, handling different JSON-LD structures consistently.
+    
+    Args:
+        entity_data: Any DanNet entity JSON-LD data
+        
+    Returns:
+        Dict with normalized semantic information
+    """
+    try:
+        result = {
+            'entity_id': entity_data.get('@id', 'Unknown'),
+            'entity_type': entity_data.get('@type', 'Unknown'),
+            'valid_jsonld': validate_jsonld_structure(entity_data)
+        }
+        
+        # Extract labels (handling language variants)
+        if 'rdfs:label' in entity_data:
+            result['label'] = get_language_value(entity_data['rdfs:label'])
+        
+        # Extract definitions
+        if 'skos:definition' in entity_data:
+            result['definition'] = get_language_value(entity_data['skos:definition'])
+            
+        # Extract ontological types (for synsets)
+        ont_types = extract_ontological_types(entity_data)
+        if ont_types:
+            result['ontological_types'] = ont_types
+            
+        # Extract sentiment (for synsets)
+        sentiment = extract_sentiment_data(entity_data)
+        if sentiment:
+            result['sentiment'] = sentiment
+            
+        # Extract key relationships based on entity type
+        entity_type = entity_data.get('@type', '')
+        
+        if 'LexicalConcept' in entity_type:  # Synset
+            for rel in ['wn:hypernym', 'wn:hyponym', 'ontolex:isEvokedBy']:
+                if rel in entity_data:
+                    result[rel.replace(':', '_')] = entity_data[rel]
+                    
+        elif 'Word' in entity_type:  # Word
+            for rel in ['ontolex:evokes', 'ontolex:sense']:
+                if rel in entity_data:
+                    result[rel.replace(':', '_')] = entity_data[rel]
+                    
+        elif 'LexicalSense' in entity_type:  # Sense
+            for rel in ['ontolex:isSenseOf', 'ontolex:isLexicalizedSenseOf']:
+                if rel in entity_data:
+                    result[rel.replace(':', '_')] = entity_data[rel]
+        
+        return result
+        
+    except Exception as e:
+        return {
+            'error': enhanced_error_message(e, 'Semantic data extraction'),
+            'entity_id': entity_data.get('@id', 'Unknown'),
+            'valid': False
+        }
+
+
+@mcp.tool()
+def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Analyze namespace usage and provide resolution for prefixed properties.
+    
+    This debugging tool helps understand how namespaces are used in
+    DanNet JSON-LD data and resolves prefixed URIs to full forms.
+    
+    Args:
+        entity_data: Any DanNet JSON-LD entity data
+        
+    Returns:
+        Dict with namespace analysis and URI resolution
+    """
+    try:
+        context = get_namespace_prefixes(entity_data)
+        
+        result = {
+            'available_prefixes': list(context.keys()),
+            'namespace_mappings': context,
+            'prefixed_properties': [],
+            'resolved_uris': {},
+            'entity_namespace': 'Unknown'
+        }
+        
+        # Analyze entity ID namespace
+        entity_id = entity_data.get('@id', '')
+        if ':' in entity_id and not entity_id.startswith('http'):
+            prefix = entity_id.split(':')[0]
+            result['entity_namespace'] = prefix
+            result['entity_resolved'] = resolve_prefixed_uri(entity_id, context)
+        
+        # Find all prefixed properties
+        for key in entity_data.keys():
+            if ':' in key and not key.startswith('@'):
+                result['prefixed_properties'].append(key)
+                result['resolved_uris'][key] = resolve_prefixed_uri(key, context)
+        
+        # Count usage by namespace
+        namespace_counts = {}
+        for prop in result['prefixed_properties']:
+            if ':' in prop:
+                prefix = prop.split(':')[0]
+                namespace_counts[prefix] = namespace_counts.get(prefix, 0) + 1
+        
+        result['namespace_usage_counts'] = namespace_counts
+        
+        return result
+        
+    except Exception as e:
+        return {
+            'error': enhanced_error_message(e, 'Namespace analysis'),
+            'valid': False
+        }
+
+
+# ====================================================================================
+# END PHASE 4 ENHANCED MCP TOOLS
+# ====================================================================================
+
+
 @mcp.resource("dannet://ontological-types")
 def get_ontological_types_schema() -> str:
     """
@@ -1322,7 +1517,7 @@ def get_ontological_types_schema() -> str:
     Returns:
         RDF schema defining ontological types like dnc:Animal, dnc:Human, dnc:Object, etc.
         
-    This resource is essential for understanding the :dns/ontologicalType_extracted 
+    This resource is essential for understanding the dns:ontologicalType 
     values returned by DanNet synset tools. DanNet uses an EXTENDED version of the 
     EuroWordNet ontological type system, adding Danish-specific semantic categories 
     beyond the original EuroWordNet taxonomy.
