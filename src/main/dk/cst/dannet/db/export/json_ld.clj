@@ -6,7 +6,8 @@
   (:require [clojure.walk :as walk]
             [flatland.ordered.map :as fop]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.prefix :as prefix])
+            [dk.cst.dannet.prefix :as prefix]
+            [ont-app.vocabulary.lstr :as lstr])
   (:import [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]))
 
@@ -60,7 +61,14 @@
     (set? v)
     (if (= (count v) 1)
       (transform-value (first v))
-      (map transform-value v))
+      (->> v
+           ;; Removes any labels that are not in Danish or English
+           ;; TODO: consider filtering languages dynamically based on prefs
+           (filter (fn [x]
+                     (if (instance? LangStr x)
+                       (get #{"da" "en"} (lstr/lang x))
+                       true)))
+           (map transform-value)))
 
     (keyword? v)
     (if-let [qname (prefix/kw->qname v)]
