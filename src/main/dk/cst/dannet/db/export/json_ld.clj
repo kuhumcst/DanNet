@@ -42,6 +42,8 @@
     (prefix/kw->qname k)
     k))
 
+(declare entity->properties)
+
 (defn- transform-value
   "Transform `v` into a valid JSON-LD representation."
   [v]
@@ -65,6 +67,16 @@
       qname
       (str v))
 
+    ;; Symbols are used in the Clojure map to represent complex sub-entities.
+    ;; Their metadata comprises the realised data and can be substituted.
+    (symbol? v)
+    (let [blank-node (entity->properties (meta v))]
+      ;; Special handling of rdf:Bag type (sets) used for e.g. ontological type.
+      (if (= (get blank-node "rdf:type") "rdf:Bag")
+        {"@set" (->> (dissoc blank-node "rdf:type")
+                     (sort-by first)
+                     (map second))}
+        blank-node))
     :else (str v)))
 
 (defn- entity->properties
