@@ -11,6 +11,7 @@
    '?definition :skos/definition
    '?ontoType   :dns/ontologicalType})
 
+;; TODO: optimize -- seems to just include every ontotype label on every request
 ;; TODO: does this memoization even accomplish anything?
 (def label-lookup
   (memoize

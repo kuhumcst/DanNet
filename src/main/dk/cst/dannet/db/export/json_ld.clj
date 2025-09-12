@@ -95,8 +95,7 @@
   #{:subject :inferred :languages :entities :synset-weights})
 
 ;; TODO: take lang into account
-;; TODO: use nil entity to signal @graph entities only?
-;;       this can be used to represent search results or other colls
+;; TODO: use k->label from search results to populate @graph
 (defn json-ld-ify
   "Convert DanNet `entity` map to a JSON-LD structure. Optionally, a coll of
   supporting `entities` may be supplied as a graph around the core entity.
