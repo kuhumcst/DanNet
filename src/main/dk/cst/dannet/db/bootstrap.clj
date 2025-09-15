@@ -98,8 +98,8 @@
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from."
   [model]
-  (let [result (q/run-basic (.getGraph ^Model model)
-                            [:bgp [<dn> :owl/versionInfo bootstrap-base-release]])]
+  (let [result (q/run (.getGraph ^Model model)
+                      [:bgp [<dn> :owl/versionInfo bootstrap-base-release]])]
     (assert (not-empty result)
             (str "bootstrap files not the expected release (" bootstrap-base-release "). "
                  result))))

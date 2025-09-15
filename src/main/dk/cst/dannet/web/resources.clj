@@ -770,7 +770,6 @@
     (export.rdf/ttl-entity entity))
 
   (q/entity (:graph @db) :dn/synset-46015)
-  (q/entity-triples (:graph @db) :dn/synset-4849)
 
   ;; Test for existence of duplicate ontotypes
   (->> (q/run (:graph @db) '[:bgp

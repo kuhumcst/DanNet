@@ -1,102 +1,39 @@
 (ns dk.cst.dannet.query
-  "Functions for querying and navigating an Apache Jena graph."
+  "Functions for querying an Apache Jena graph."
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]
             [clojure.walk :as walk]
-            [clojure.core.protocols :as p]
             [arachne.aristotle.query :as q]
-            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.transaction :as txn]
             [dk.cst.dannet.query.operation :as op])
   (:import [org.apache.jena.reasoner BaseInfGraph]
            [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
-(defn run-basic
-  "Same as 'run' below, but doesn't attach Navigable metadata."
+(defn run
+  "Wraps the 'run' function from Aristotle, providing transactions when needed."
   [g & remaining-args]
   (txn/transact g
     (apply q/run g remaining-args)))
 
-(defn anonymous?
-  [resource]
-  (and (symbol? resource)
-       (str/starts-with? resource "_")))
+(defn set-merge
+  "Helper function for merge-with in 'entity-label-mapping'."
+  [v1 v2]
+  (cond
+    (= v1 v2)
+    v1
 
-;; TODO: currently removes examples which is not desirable - fix?
-(defn only-uris
-  "Exclude anonymous resource `results`, optionally keyed under `k`.
+    (set? v1)
+    (conj v1 v2)
 
-  The OWL reasoner produces a bunch of triples with anonymous resources in the
-  object position. This is a way to remove these triples from the results of an
-  Aristotle query."
-  ([k results]
-   (remove (comp anonymous? k) results))
-  ([results]
-   (remove (comp #(some anonymous? %) vals) results)))
-
-;; TODO: what about symbols? Some are ?vars, others are _blank-resources
-(defn entity?
-  "Is `x` an RDF entity?"
-  [x]
-  (or (keyword? x)
-      (and (string? x)
-           (re-matches #"<.+>" x))))
+    :else
+    #{v1 v2}))
 
 (declare entity)
-(declare run)
-(declare run-basic)
-
-(defn- nav-subjects
-  "Helper function for 'nav-meta'."
-  [g & subject-triples]
-  (let [results (->> (into [:bgp] subject-triples)
-                     (run g)
-                     (only-uris)
-                     (mapcat vals)
-                     (into #{}))]
-    (if (= 1 (count results))
-      (entity g (first results))
-      results)))
-
-(defn nav-meta
-  "Create metadata with a generalised Navigable implementation for a Graph `g`.
-
-  For RDF entities, returns the entity description as a map.
-  For literals, returns all the subjects of the same relation to the literal.
-  For one-to-many relations, returns all subjects with the same set of objects."
-  [g]
-  {`p/nav (fn [coll k v]
-            (cond
-              (entity? v)
-              (entity g v)
-
-              (set? v)
-              (with-meta (apply nav-subjects g (for [o v] [(gensym "?") k o]))
-                         (nav-meta g))
-
-              :else
-              (with-meta (nav-subjects g ['?s k v])
-                         (nav-meta g))))})
-
-(defn- set-nav-merge
-  "Helper function for merge-with in 'entity'."
-  [g]
-  (fn [v1 v2]
-    (if (set? v1)
-      (with-meta (conj v1 v2) (meta v1))
-      (vary-meta (hash-set v1 v2) merge (nav-meta g)))))
 
 (defn- basic-entity
   "Get entity from `entity-query-result`."
   [entity-query-result]
   (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) entity-query-result)
-       (apply merge)))
-
-(defn- navigable-entity
-  "Get entity from `entity-query-result` implementing the Navigable protocol."
-  [g entity-query-result]
-  (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) entity-query-result)
-       (apply merge-with (set-nav-merge g))))
+       (apply merge-with set-merge)))
 
 (defn find-raw
   "Return the raw entity query result for `subject` in `g` (no inference)."
@@ -113,23 +50,15 @@
          (filter #(not (get raw-result (select-keys % '[?s ?p ?o]))))
          (basic-entity))))
 
-(defn entity-triples
-  [g subject]
-  (when-let [result (run-basic g op/entity {'?s subject})]
-    (map (juxt '?s '?p '?o) result)))
-
-(defn entity-map
-  [g subject]
-  (when-let [result (run-basic g op/entity {'?s subject})]
-    (basic-entity result)))
-
 (defn entity
-  "Return the entity description of `subject` in Graph `g`."
+  "Return the entity description of `subject` in Graph `g`.
+  
+  For inference graphs, includes metadata with inferred vs. raw triples."
   [g subject]
   (if-let [result (not-empty (run g op/entity {'?s subject}))]
     (with-meta
-      (navigable-entity g result)
-      (cond-> (assoc (nav-meta g) :subject subject)
+      (basic-entity result)
+      (cond-> {:subject subject}
         (instance? BaseInfGraph g)
         (assoc :inferred (inferred-entity result (find-raw g subject)))))
     (with-meta {} {:subject subject})))
@@ -142,26 +71,6 @@
     (->> (entity g blank-object)
          (map (fn [[?p ?o]] {?p #{?o}}))
          (apply merge-with into))))
-
-(defn set-merge
-  "Helper function for merge-with in 'entity-label-mapping'."
-  [v1 v2]
-  (cond
-    (= v1 v2)
-    v1
-
-    (set? v1)
-    (conj v1 v2)
-
-    :else
-    #{v1 v2}))
-
-(defn resource?
-  [x]
-  (when x
-    (or (keyword? x)
-        (symbol? x)
-        (prefix/rdf-resource? x))))
 
 ;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
 ;; resort to this hack.
@@ -189,7 +98,7 @@
 (defn save-synset-indegrees!
   "Generate and store synset indegrees found in `g`."
   [g]
-  (->> (run-basic g op/synset-indegree)
+  (->> (run g op/synset-indegree)
        (map (juxt '?o '?indegree))
        (sort-by first)
        (clojure.pprint/pprint)
@@ -228,28 +137,20 @@
                 ?olr (assoc ?o {?olr #{?ol}}))))
        (apply merge-with (partial merge-with into))))
 
-;; TODO: factor out navigable entity from here, possibly other things
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
   (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
-    (with-meta (->> (navigable-entity g result)
+    (with-meta (->> (basic-entity result)
                     (attach-blank-entities g subject))
-               (assoc (nav-meta g)
-                 :entities (other-entities result)
-                 :inferred (inferred-entity result (find-raw g subject))
-                 ;; TODO: make more performant?
-                 :synset-weights (synset-weights result)
-                 ;; TODO: is it necessary to attach subject?
-                 :subject subject))
+               (cond-> {:entities       (other-entities result)
+                        ;; TODO: make more performant?
+                        :synset-weights (synset-weights result)
+                        ;; TODO: is it necessary to attach subject?
+                        :subject        subject}
+                 (instance? BaseInfGraph g)
+                 (assoc :inferred (inferred-entity result (find-raw g subject)))))
     (with-meta {} {:subject subject})))
-
-(defn run
-  "Wraps the 'run' function from Aristotle, providing transactions when needed.
-  The results are also made Navigable using for use with e.g. Reveal or REBL."
-  [g & remaining-args]
-  (->> (apply run-basic g remaining-args)
-       (map #(vary-meta % merge (nav-meta g)))))
 
 (defn table-query
   "Run query `q` in `g`, transposing the results as rows of `ks`.
@@ -262,3 +163,8 @@
        (-> (group-by #(get % (first ks)) (run g q))
            (update-vals #(apply merge-with set-merge %))
            (vals))))
+
+(comment
+  (entity (:graph @dk.cst.dannet.web.resources/db)
+          :dn/synset-1771)
+  #_.)

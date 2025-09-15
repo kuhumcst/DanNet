@@ -20,7 +20,6 @@ The system includes:
 
 ### Query System (`dk.cst.dannet.query`)
 - Multiple query methods: SPARQL, SPARQL Algebra, Aristotle DSL
-- Navigation protocol for exploring graph relationships
 - Entity expansion and blank node resolution
 - Weighted synset algorithms for semantic similarity
 

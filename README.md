@@ -74,8 +74,6 @@ In its native Clojure representation, DanNet can be queried in a variety of ways
 
 Support for Apache Jena transactions is built-in and enabled automatically when needed. This ensures support for persistence on disk through the [TDB](https://jena.apache.org/documentation/tdb/) layer included with Apache Jena (mandatory for [TDB 2](https://jena.apache.org/documentation/tdb2/)). Both in-memory and persisted graphs can thus be queried using the same function calls. The [DanNet website](https://wordnet.dk) contains the complete dataset inside a TDB 2 graph.
 
-Furthermore, DanNet query results are all decorated with support for the Clojure `Navigable` protocol. The entire RDF graph can therefore easily be navigated in tools such as [Morse](https://github.com/nubank/morse) or [Reveal](https://github.com/vlaaad/reveal) from a single query result.
-
 ### Web app
 > Note: A more detailed explanation is available at [doc/web.md](doc/web.md).
 
