@@ -17,22 +17,29 @@
 (defn routes
   []
   (route/expand-routes
-    #{res/root-route
+    #{;; Frontend redirects
+      res/root-route
       res/dannet-route
-      res/search-route
-      res/autocomplete-route
-      res/external-entity-route
-      res/unknown-external-entity-route
-      res/export-route
-      res/schema-download-route
-      res/markdown-route
 
       ;; See also: middleware/cookies added below as a default interceptor!
       res/cookies-route
 
+      ;; API and other single content-type routes
+      res/export-route
+      res/schema-download-route
+      res/sparql-route
+
+      ;; Non-entity routes which support content-negotiation
+      res/markdown-route
+      res/search-route
+      res/autocomplete-route
+
+      ;; Various entity routes which support content-negotiation
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
       (res/prefix->entity-route 'dns)
+      res/external-entity-route
+      res/unknown-external-entity-route
 
       ;; These special routes ensure that we also match the individual dataset
       ;; or schema resources; can't use the 'prefix->entity-route' for this.

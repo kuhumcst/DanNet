@@ -139,12 +139,12 @@ DanNet follows OntoLex-Lemon + Global WordNet standards where:
 - Synsets represent units of meaning shared by synonymous words
 - Rich semantic network with 10+ major relation categories, 70+ specific types
 
-RDF PRESENTATION GUIDELINES:
-When presenting DanNet data, use standard Turtle/SPARQL namespace notation (ns:identifier) 
-rather than internal :ns/identifier format. Present relations with human-readable labels 
-when available from schema vocabularies. Use Danish labels in Danish contexts, English 
-labels in English contexts. For relations without defined labels, convert identifiers to 
-readable strings (e.g., "mero_part" → "meronym part", "holo_member" → "holonym member").
+RDF STORAGE PATTERNS:
+DanNet uses sophisticated RDF structures for complex data:
+- Ontological types (dns:ontologicalType) are stored as RDF Bags with numbered properties (rdf:_0, rdf:_1, etc.)
+- Word connections use ontolex:isEvokedBy pointing to word entities, not direct labels
+- Synset labels contain quoted word forms with DDO notation (e.g., "{\"hund\", \"køter\"}")
+- Some properties may be stored as blank nodes requiring multi-step queries
 
 QUICK START WORKFLOW:
 1. Check resources for context:
@@ -1442,6 +1442,216 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
             'error': enhanced_error_message(e, 'Namespace analysis'),
             'valid': False
         }
+
+
+@mcp.tool()
+def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dict[str, Any]:
+    """
+    Execute a SPARQL SELECT query against the DanNet triplestore.
+
+    This tool provides direct access to DanNet's RDF data through SPARQL queries.
+    The query is automatically prepended with common namespace prefix declarations,
+    so you can use short prefixes instead of full URIs in your queries.
+
+    PERFORMANCE OPTIMIZATION WARNING:
+    Avoid queries that create cartesian products (cross joins) as they can cause timeouts.
+    Common problematic patterns include:
+    - Comparing all entities with labels containing word X to all entities with labels containing word Y
+    - Multiple unconnected graph patterns without shared variables (e.g., ?x a Type1. ?y a Type2.)
+    - Excessive OPTIONAL clauses that multiply result combinations
+    - Broad FILTER operations on string matching across large result sets
+    
+    Instead, use specific entity URIs (e.g., dn:synset-2228), connect patterns with shared variables,
+    apply LIMIT clauses, and prefer VALUES lists over broad FILTER conditions. Start with targeted
+    queries on known entities, then explore their direct relationships using specific property paths.
+
+    KNOWN PREFIXES (automatically declared):
+    - rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+    - rdfs: http://www.w3.org/2000/01/rdf-schema#
+    - owl: http://www.w3.org/2002/07/owl#
+    - wn: https://globalwordnet.github.io/schemas/wn#
+    - ontolex: http://www.w3.org/ns/lemon/ontolex#
+    - skos: http://www.w3.org/2004/02/skos/core#
+    - lexinfo: http://www.lexinfo.net/ontology/3.0/lexinfo#
+    - marl: http://www.gsi.upm.es/ontologies/marl/ns#
+    - olia: http://purl.org/olia/olia.owl#
+    - dcat: http://www.w3.org/ns/dcat#
+    - vann: http://purl.org/vocab/vann/
+    - foaf: http://xmlns.com/foaf/0.1/
+    - dc: http://purl.org/dc/terms/
+    - dc11: http://purl.org/dc/elements/1.1/
+    - cc: http://creativecommons.org/ns#
+    - ili: http://globalwordnet.org/ili/
+    - lime: http://www.w3.org/ns/lemon/lime#
+    - schema: http://schema.org/
+    - synsem: http://www.w3.org/ns/lemon/synsem#
+    - enl: https://en-word.net/lemma/
+    - en: https://en-word.net/id/
+    - enold: http://wordnet-rdf.princeton.edu/id/
+    - cor: https://ordregister.dk/id/
+    - dds: https://wordnet.dk/sentiment/
+    - dn: https://wordnet.dk/dannet/data/
+    - dnc: https://wordnet.dk/dannet/concepts/
+    - dns: https://wordnet.dk/dannet/schema/
+    - tr: https://wordnet.dk/dannet/translations/
+
+    COMMON QUERY PATTERNS:
+
+    # Find all synsets for a word:
+    SELECT ?synset ?definition WHERE {
+      ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .
+      ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
+      ?synset skos:definition ?definition .
+    }
+
+    # Find hypernyms (broader concepts):
+    SELECT ?hypernym ?label WHERE {
+      dn:synset-3047 wn:hypernym ?hypernym .
+      ?hypernym rdfs:label ?label .
+    }
+
+    # Find functional relations (DanNet-specific "used for" patterns):
+    SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
+      ?tool dns:usedFor ?purpose .
+      ?tool rdfs:label ?toolLabel .
+      ?purpose rdfs:label ?purposeLabel .
+    }
+
+    # Discover thematic role patterns (agents of actions):
+    SELECT ?action ?actionLabel ?agent ?agentLabel WHERE {
+      ?action wn:involved_agent ?agent .
+      ?action rdfs:label ?actionLabel .
+      ?agent rdfs:label ?agentLabel .
+    }
+
+    # Find co-occurrence patterns (systematic co-occurrences):
+    SELECT ?concept ?conceptLabel ?coAgent ?coAgentLabel WHERE {
+      ?concept wn:co_agent_instrument ?coAgent .
+      ?concept rdfs:label ?conceptLabel .
+      ?coAgent rdfs:label ?coAgentLabel .
+    }
+
+    # Explore cross-cutting categories (orthogonal hypernyms):
+    SELECT ?specific ?specificLabel ?ortho ?orthoLabel WHERE {
+      ?specific dns:orthogonalHypernym ?ortho .
+      ?specific rdfs:label ?specificLabel .
+      ?ortho rdfs:label ?orthoLabel .
+    }
+
+    # Find synsets with ontological types (stored as RDF Bags):
+    SELECT ?synset ?label ?type WHERE {
+      ?synset dns:ontologicalType ?typeNode .
+      ?typeNode rdf:_0 ?type .
+      ?synset rdfs:label ?label .
+    }
+
+    # Explore causality chains:
+    SELECT ?cause ?causeLabel ?effect ?effectLabel WHERE {
+      ?cause wn:causes ?effect .
+      ?cause rdfs:label ?causeLabel .
+      ?effect rdfs:label ?effectLabel .
+    }
+
+    Args:
+        query: SPARQL SELECT query string (prefixes will be automatically added)
+        timeout: Query timeout in milliseconds (default: 5000, max: 10000)
+        max_results: Maximum number of results to return (default: 100, max: 100)
+
+    Returns:
+        Dict containing SPARQL results in standard JSON format:
+        - head: Query metadata with variable names
+        - results: Bindings array with variable-value mappings
+        Each value includes type (uri/literal) and language information when applicable
+
+    FASCINATING RELATIONSHIP EXAMPLES FROM DANNET:
+    
+    Functional Relations (dns:usedFor):
+    - {idrætshal; sportshal} used for {idræt; sport} (sports hall used for sports)
+    - {faldskærm; skærm} used for {idræt; sport} (parachute used for sports)
+    - {sportstøj} used for {idræt; sport} (sportswear used for sports)
+    
+    Thematic Roles (wn:involved_agent):
+    - {kommunikere} typically involves agent {presseattaché} (communication involves press attaché)
+    - {skrive} typically involves agent {informationsmedarbejder} (writing involves information worker)
+    
+    Co-occurrence Patterns (wn:co_agent_instrument):
+    - {krig} co-occurs with agent-instrument {våben} (war systematically co-occurs with weapons)
+    - {verdenskrig} co-occurs with agent-instrument {våben} (world war co-occurs with weapons)
+    
+    Cross-cutting Categories (dns:orthogonalHypernym):
+    - {fiskefartøj} has orthogonal hypernym {fartøj} (fishing vessel has cross-cutting category vessel)
+    - {handelsfartøj} has orthogonal hypernym {fartøj} (merchant vessel has cross-cutting category vessel)
+    
+    These examples show how DanNet captures not just taxonomic relationships but also 
+    functional, instrumental, and systematic co-occurrence patterns in Danish language and culture.
+
+    Example Usage:
+        # Simple entity lookup
+        result = sparql_query("SELECT ?s ?p ?o WHERE { dn:synset-3047 ?p ?o } LIMIT 10")
+        
+        # Complex semantic query exploring functional relations
+        result = sparql_query('''
+            SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
+              ?tool dns:usedFor ?purpose .
+              ?tool rdfs:label ?toolLabel .
+              ?purpose rdfs:label ?purposeLabel .
+              FILTER(CONTAINS(?purposeLabel, "sport"))
+            }
+        ''')
+
+    Note: Only SELECT queries are supported. The query is validated before execution.
+    """
+    try:
+        # Make the SPARQL request using proper URL encoding
+        client = get_client()
+        
+        request_params = {
+            "query": query,
+            "format": "json"
+        }
+        
+        # Add optional parameters if they differ from defaults
+        if timeout != 5000:
+            request_params["timeout"] = str(timeout)
+        if max_results != 100:
+            request_params["maxResults"] = str(max_results)
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.debug(f"Making SPARQL request with params {request_params}")
+                response = client.client.get(f"{client.base_url}/dannet/sparql", 
+                                           params=request_params, 
+                                           follow_redirects=True)
+                response.raise_for_status()
+                return response.json()
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 400:
+                    # Query validation or syntax error
+                    error_text = e.response.text
+                    if "Query parsing failed" in error_text or "QueryParseException" in error_text:
+                        raise DanNetError(f"SPARQL syntax error in query: {error_text}")
+                    else:
+                        raise DanNetError(f"Invalid SPARQL query: {error_text}")
+                elif e.response.status_code == 404:
+                    raise DanNetError("SPARQL endpoint not found - check server configuration")
+                elif e.response.status_code == 429:
+                    if attempt < MAX_RETRIES - 1:
+                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
+                        continue
+                    raise DanNetError("Rate limit exceeded for SPARQL endpoint")
+                else:
+                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
+            except Exception as e:
+                if attempt < MAX_RETRIES - 1:
+                    logger.warning(f"SPARQL request failed, retrying... (attempt {attempt + 1}): {e}")
+                    continue
+                raise DanNetError(f"SPARQL request failed: {e}")
+
+        raise DanNetError("Max retries exceeded for SPARQL query")
+
+    except Exception as e:
+        raise RuntimeError(f"SPARQL query failed: {e}")
 
 
 @mcp.resource("dannet://ontological-types")

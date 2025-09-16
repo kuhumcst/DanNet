@@ -6,9 +6,11 @@
             [clojure.data.json :as json]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
+            [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
+            [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
@@ -27,10 +29,13 @@
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op])
-  (:import [java.io File]
+  (:import [java.io ByteArrayOutputStream File]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
-           [org.apache.jena.datatypes.xsd XSDDateTime]))
+           [org.apache.jena.datatypes.xsd XSDDateTime]
+           [org.apache.jena.query ResultSet]
+           [org.apache.jena.riot ResultSetMgr]
+           [org.apache.jena.riot.resultset ResultSetLang]))
 
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
@@ -179,6 +184,12 @@
    BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
    XSDDateTime             (t/write-handler "datetime" str)})
 
+(defn with-comment
+  [m comment]
+  (with-meta
+    (update m :rdfs/comment q/set-merge comment)
+    (meta m)))
+
 ;; TODO: order matters when creating conneg interceptor, should be kvs as
 ;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
@@ -200,33 +211,41 @@
    (fn [data & _]
      (pr-str data))
 
-   ;; The JSON format is used as an API and doesn't need the same information
-   ;; that is passed to the web app through Transit.
-   "application/json"
+   "application/ld+json"
    (fn [{:keys [entity entities
                 search-results lemma]
          :as   data} & _]
      (let [kv->entity (fn [[subject entity]]
                         (assoc entity :dc/subject subject))]
-       (json/write-str (cond
-                         entity
-                         (json-ld-ify
-                           (merge-with
-                             q/set-merge entity
-                             {:rdfs/comment "The @graph contains labels for the properties and values of the core RDF resource defined @id."})
-                           (map kv->entity entities))
+       (some-> (cond
+                 entity
+                 (json-ld-ify
+                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
+                   (map kv->entity entities))
 
-                         search-results
-                         (json-ld-ify
-                           {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                           (map kv->entity search-results))
+                 search-results
+                 (json-ld-ify
+                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                   (map kv->entity search-results)))
 
-                         :else
-                         (->json-safe data))
+               (json/write-str {:indent         true
+                                :escape-unicode false}))))
 
-                       ;; Pretty-printed and in Unicode
-                       {:indent         true
-                        :escape-unicode false})))
+   ;; https://www.w3.org/TR/sparql11-results-json/
+   "application/sparql-results+json"
+   (fn [{:keys [sparql-result]
+         :as   data} & _]
+     (when sparql-result
+       (let [out (ByteArrayOutputStream.)]
+         (ResultSetMgr/write out ^ResultSet sparql-result ResultSetLang/RS_JSON)
+         (.toString out "UTF-8"))))
+
+   "application/json"
+   (fn [{:keys [sparql-result]
+         :as   data} & _]
+     (json/write-str (->json-safe data)
+                     {:indent         true
+                      :escape-unicode false}))
 
    "application/transit+json"
    (fn [data & _]
@@ -272,66 +291,133 @@
     x))
 
 ;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
-(defn redirect
+(def redirect-ic
   "Get a redirect response that works for both HTTP redirects and for the API
-  based on some `x` to redirect to and the requested `content-type`.
+  based on keys set in the the context:
+
+    :redirect        - (symbolic) location to redirect to
+    :redirect-params - query-params to used when redirecting
+    :replace         - (symbolic) location which replaces the current state
+
+
+  NOTE: The alternative `replace` location arg may be provided to tell the
+        client to replace the state in history rather than adding a new entry.
+        This is needed when automatically redirecting to an alt entity,
+        as the back button will otherwise break for the user.
+
+  ----
 
   Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
   manually, so a somewhat hacky solution is required to make it work. By setting
   a custom header and adding some redirect logic on the client-side, the client
-  knows when to redirect from an API call.
+  knows when to redirect from an API call."
+  {:name  ::redirect
+   :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
+            (let [{:keys [lang format]} redirect-params
+                  content-type (or (get-in request [:accept :field])
+                                   "application/json")
+                  location     (redirect-location (or redirect replace))
+                  ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
+                  api-location (if (or lang format)
+                                 (cond
+                                   (and lang format)
+                                   (str location "?lang=" lang "&format=" format)
 
-  NOTE: An optional `replace-state` arg may be provided to tell the client SPA
-  to replace the state in history rather than adding a new entry. This is needed
-  when automatically redirecting to an alt entity, since the back button will
-  otherwise break for the user."
-  [x content-type & [replace-state {:keys [format lang] :as query-params}]]
-  (let [location     (redirect-location x)
-        ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
-        api-location (if (or lang format)
-                       (cond
-                         (and lang format)
-                         (str location "?lang=" lang "&format=" format)
+                                   lang
+                                   (str location "?lang=" lang)
 
-                         lang
-                         (str location "?lang=" lang)
+                                   format
+                                   (str location "?format=" format))
+                                 location)]
+              (if location
+                (assoc ctx
+                  :response (case content-type
+                              "text/html"
+                              {:status  303
+                               :headers {"Location" location}}
 
-                         format
-                         (str location "?format=" format))
-                       location)]
-    (case content-type
-      "text/html"
-      {:status  303
-       :headers {"Location" location}}
+                              ;; Custom header hack for SPA client-side redirect handling
+                              ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
+                              ;; e.g. https://github.com/lambdaisland/fetch/issues/24
+                              "application/transit+json"
+                              {:status  200
+                               :headers (x-headers {:redirect location
+                                                    :replace  (if replace "T" "F")})
+                               :body    "{}"}
 
-      ;; Custom header hack for SPA client-side redirect handling
-      ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
-      ;; e.g. https://github.com/lambdaisland/fetch/issues/24
-      "application/transit+json"
-      {:status  200
-       :headers (x-headers {:redirect location
-                            :replace  (if replace-state "T" "F")})
-       :body    "{}"}
+                              ;; Simple redirect for JSON - let HTTP client follow the redirect
+                              "application/json"
+                              {:status  303
+                               :headers {"Location" api-location}}
 
-      ;; Simple redirect for JSON - let HTTP client follow the redirect
-      "application/json"
-      {:status  303
-       :headers {"Location" api-location}}
-
-      ;; else
-      nil)))
+                              ;; else
+                              nil))
+                ctx)))})
 
 (defn remove-internal-params
   [query-string]
   (when query-string
     (str/replace query-string #"&?(transit=true|format=turtle)" "")))
 
-(defn json-ld-upgrade
-  "Change JSON `content-type` to JSON-LD (used by the core RDF endpoints)."
-  [content-type]
-  (if (= "application/json" content-type)
-    "application/ld+json"
-    content-type))
+(defn with-file-ext
+  [title content-type]
+  (when (get #{"application/json"
+               "application/ld+json"
+               "text/turtle"}
+             content-type)
+    (let [filename  (str/replace title #":" "_")
+          extension (get {"application/json"    ".json"
+                          "application/ld+json" ".json"
+                          "text/turtle"         ".ttl"}
+                         content-type)]
+      {"Content-Disposition"
+       (str "attachment; filename=\"" filename extension "\"")})))
+
+(defn json-body-fn
+  "Combined body-fn that prefers specific types of JSON-LD over unspecified JSON
+  when they are available."
+  [& args]
+  (let [json-ld-body             (content-type->body-fn "application/ld+json")
+        json-sparql-results-body (content-type->body-fn "application/sparql-results+json")
+        json-body                (content-type->body-fn "application/json")]
+    (or (apply json-ld-body args)
+        (apply json-sparql-results-body args)
+        (apply json-body args))))
+
+(def response-body-ic
+  "Generate a response containing the content body (if available)."
+  {:name  ::response-body
+   :leave (fn [{:keys [request content page-meta] :as ctx}]
+            (let [content-type (or (get-in request [:accept :field])
+                                   "application/json")
+                  ;; Prefer using the JSON-LD body if available whenever the
+                  ;; content-type is regular JSON too. In this case the response
+                  ;; content-type doesn't get changed to JSON-LD, though.
+                  body         (if (= content-type "application/json")
+                                 json-body-fn
+                                 (content-type->body-fn content-type))
+                  title        (get page-meta :title "DanNet")]
+              (-> ctx
+                  (update :response merge
+                          (cond
+                            (false? content)
+                            {:status  204
+                             :headers {}}
+
+                            (empty? content)
+                            {:status  404
+                             :headers {}}
+
+                            :else
+                            {:status 200
+                             :body   (body content page-meta)}))
+                  (update-in [:response :headers] merge
+                             (-> (assoc (x-headers page-meta)
+                                   "Content-Type" content-type
+                                   "Cache-Control" one-day-cache)
+
+                                 ;; Add filename extensions when needed.
+                                 (merge (with-file-ext title content-type)))))))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -339,7 +425,7 @@
   within the path-params."
   [& {:keys [prefix subject] :as static-params}]
   {:name  ::entity
-   :leave (fn [{:keys [request] :as ctx}]
+   :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [prefix
                           subject]} (merge (:path-params request)
                                            (:query-params request)
@@ -356,51 +442,39 @@
                                           "text/html"
 
                                           ;; MCP server needs it too
+                                          "application/ld+json"
                                           "application/json"}
                                         content-type)
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
                   languages    (request->languages request)
                   qs           (remove-internal-params (:query-string request))
-                  data         {:languages languages
-                                :href      (str (:uri request)
-                                                (when (not-empty qs)
-                                                  (str "?" qs)))
-                                :entities  (dissoc (-> entity meta :entities)
-                                                   subject*)
-                                :inferred  (-> entity meta :inferred)
-                                :subject   subject*
-                                :entity    entity}
                   qname        (if (keyword? subject*)
                                  (prefix/kw->qname subject*)
-                                 subject*)
-                  body         (content-type->body-fn content-type)
-                  page-meta    {:title qname
-                                :page  "entity"}]
-              (-> ctx
-                  (update :response merge
-                          (if (not-empty entity)
-                            {:status 200
-                             :body   (body data page-meta)}
-                            (let [alt (alt-resource qname)]
-                              (cond
-                                (and alt (not-empty (q/entity g alt)))
-                                (redirect alt content-type :replace)
+                                 subject*)]
+              (if (not-empty entity)
+                (assoc ctx
+                  :content {:languages languages
+                            :href      (str (:uri request)
+                                            (when (not-empty qs)
+                                              (str "?" qs)))
+                            :entities  (dissoc (-> entity meta :entities)
+                                               subject*)
+                            :inferred  (-> entity meta :inferred)
+                            :subject   subject*
+                            :entity    entity}
+                  :page-meta {:title qname
+                              :page  "entity"})
+                (let [alt (alt-resource qname)]
+                  (cond
+                    (and alt (not-empty (q/entity g alt)))
+                    (assoc ctx :replace alt)
 
-                                (keyword? subject*)
-                                (redirect (prefix/kw->uri subject*) content-type)
+                    (keyword? subject*)
+                    (assoc ctx :redirect (prefix/kw->uri subject*))
 
-                                (string? subject*)
-                                (redirect (prefix/rdf-resource->uri subject*) content-type)))))
-                  (update-in [:response :headers] merge
-                             (assoc (x-headers page-meta)
-                               "Content-Type" (json-ld-upgrade content-type))
-                             (when (= content-type "text/turtle")
-                               (let [filename (str/replace qname #":" "_")
-                                     cd       (str "attachment; filename=\"" filename ".ttl\"")]
-                                 {"Content-Disposition" cd}))
-                             ;; TODO: use cache in production
-                             #_#_"Cache-Control" one-day-cache))))})
+                    (string? subject*)
+                    (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
 
 (defn look-up*
   [g lemma]
@@ -420,47 +494,44 @@
   When provided with a QName or RDF resource URI in place of a lemma, the
   relevant redirect is performed instead."
   {:name  ::search
-   :leave (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "application/json")
-                  query-params (:query-params request)
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [query-params (:query-params request)
                   languages    (request->languages request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   lemma        (-> request
                                    (get-in [:query-params :lemma])
-                                   (decode-query-part))
-                  body         (content-type->body-fn content-type)
-                  page-meta    {:title (i18n/da-en languages
-                                         (str "Søg: " lemma)
-                                         (str "Search: " lemma))
-                                :page  "search"}]
+                                   (decode-query-part))]
               (cond
                 (prefix/rdf-resource? lemma)
-                (assoc ctx :response (redirect lemma content-type nil query-params))
+                (assoc ctx
+                  :redirect lemma
+                  :redirect-params query-params)
 
                 (and (string? lemma) (re-find #"^https?://" lemma))
-                (assoc ctx :response (redirect (prefix/uri->rdf-resource lemma) content-type nil query-params))
+                (assoc ctx
+                  :redirect (prefix/uri->rdf-resource lemma)
+                  :redirect-params query-params)
 
                 (prefix/qname? lemma)
-                (assoc ctx :response (redirect (prefix/qname->kw lemma) content-type nil query-params))
+                (assoc ctx
+                  :redirect (prefix/qname->kw lemma)
+                  :redirect-params query-params)
 
                 :else
                 (let [results (look-up* (:graph @db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
-                      :response (redirect (ffirst results) content-type :replace query-params))
-                    (-> ctx
-                        (update :response assoc
-                                :status 200
-                                :body (body {:languages      languages
-                                             :lemma          lemma
-                                             :search-results results}
-                                            page-meta))
-                        (update-in [:response :headers] merge
-                                   (assoc (x-headers page-meta)
-                                     "Content-Type" (json-ld-upgrade content-type)
-                                     ;; TODO: use cache in production
-                                     #_#_"Cache-Control" one-day-cache))))))))})
+                      :redirect (ffirst results)
+                      :redirect-params query-params)
+                    (assoc ctx
+                      :content {:languages      languages
+                                :lemma          lemma
+                                :search-results results}
+                      :page-meta {:title (i18n/da-en languages
+                                           (str "Søg: " lemma)
+                                           (str "Search: " lemma))
+                                  :page  "search"}))))))})
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
@@ -525,21 +596,22 @@
             (let [{:keys [format lang]} (:query-params request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the query-params-decoder handled this.
-                  format*         (when format (decode-query-part format))
-                  lang*           (when lang (decode-query-part lang))
+                  format'         (when format (decode-query-part format))
+                  lang'           (when lang (decode-query-part lang))
 
                   ;; Map layman's terms to proper MIME types
                   format->mime    {"json"    "application/json"
+                                   "json-ld" "application/ld+json"
                                    "edn"     "application/edn"
                                    "transit" "application/transit+json"
                                    "turtle"  "text/turtle"
                                    "ttl"     "text/turtle"  ; common alias
                                    "html"    "text/html"}
-                  content-type    (or (format->mime format*) format*)
-
-                  ;; Map layman's terms to language vectors
-                  lang->languages {"danish" ["da"], "english" ["en"]}
-                  languages       (or (lang->languages lang*) (when lang* [lang*]))]
+                  content-type    (get format->mime format' format')
+                  lang->languages {"danish"  ["da"]
+                                   "english" ["en"]}
+                  languages       (or (lang->languages lang')
+                                      (when lang' [lang']))]
 
               (cond-> ctx
                 content-type
@@ -556,7 +628,9 @@
    :get [content-negotiation-ic
          language-negotiation-ic
          explicit-params-ic
-         (->entity-ic :prefix prefix)]
+         (->entity-ic :prefix prefix)
+         redirect-ic
+         response-body-ic]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
 (def external-entity-route
@@ -565,7 +639,9 @@
    :get [content-negotiation-ic
          language-negotiation-ic
          explicit-params-ic
-         (->entity-ic)]
+         (->entity-ic)
+         redirect-ic
+         response-body-ic]
    :route-name ::external-entity])
 
 (def unknown-external-entity-route
@@ -573,7 +649,9 @@
    :get [content-negotiation-ic
          language-negotiation-ic
          explicit-params-ic
-         (->entity-ic)]
+         (->entity-ic)
+         redirect-ic
+         response-body-ic]
    :route-name ::unknown-external-entity])
 
 (defn prefix->dataset-entity-route
@@ -583,7 +661,9 @@
      :get [content-negotiation-ic
            language-negotiation-ic
            explicit-params-ic
-           (->entity-ic :subject (prefix/uri->rdf-resource uri))]
+           (->entity-ic :subject (prefix/uri->rdf-resource uri))
+           redirect-ic
+           response-body-ic]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
 (def search-route
@@ -591,7 +671,9 @@
    :get [content-negotiation-ic
          language-negotiation-ic
          explicit-params-ic
-         search-ic]
+         search-ic
+         redirect-ic
+         response-body-ic]
    :route-name ::search])
 
 (defn frontpage-redirect
@@ -621,32 +703,23 @@
 (def markdown-ic
   "Returns a generic, localised markdown page for the given given page."
   {:name  ::markdown
-   :leave (fn [{:keys [request] :as ctx}]
-            (let [document     (-> request :path-params :document)
-                  content-type (get-in request [:accept :field] "application/json")
-                  languages    (request->languages request)
-                  body         (content-type->body-fn content-type)
-                  page-meta    {:page "markdown"}
-                  data         {:languages languages
-                                :content   (page-langstrings document)}]
-              ;; TODO: implement generic 404 page
-              (when (not-empty (:content data))
-                (-> ctx
-                    (update :response assoc
-                            :status 200
-                            :body (body data page-meta))
-                    (update-in [:response :headers] merge
-                               (assoc (x-headers page-meta)
-                                 "Content-Type" content-type
-                                 ;; TODO: use cache in production
-                                 #_#_"Cache-Control" one-day-cache))))))})
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [document  (-> request :path-params :document)
+                  languages (request->languages request)
+                  md-pages  (page-langstrings document)]
+              (when (not-empty md-pages)
+                (assoc ctx
+                  :content {:languages languages
+                            :content   md-pages}
+                  :page-meta {:page "markdown"}))))})
 
 (def markdown-route
   [prefix/markdown-path
    :get [content-negotiation-ic
          language-negotiation-ic
          explicit-params-ic
-         markdown-ic]
+         markdown-ic
+         response-body-ic]
    :route-name ::markdown])
 
 (def cookie-opts
@@ -695,31 +768,59 @@
 
 (def autocomplete-ic
   {:name  ::autocomplete
-   :leave (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "application/json")
-                  body         (content-type->body-fn content-type)
-                  ;; TODO: why is decoding necessary?
-                  ;; You would think that the path-params-decoder handled this.
-                  s            (get-in request [:query-params :s])]
+   :enter (fn [ctx]
+            (let [s (get-in ctx [:request :query-params :s])]
               (when-let [s' (shared/search-string s)]
-                (if (> (count s') 2)
-                  (-> ctx
-                      (update :response assoc
-                              :status 200
-                              :body (body {:autocompletions (autocomplete s')}))
-                      (update-in [:response :headers] assoc
-                                 "Content-Type" content-type
-                                 "Cache-Control" one-day-cache))
-                  (update ctx :response assoc
-                          :status 204
-                          :headers {})))))})
+                (when (> (count s') 2)
+                  (assoc ctx
+                    :content {:autocompletions (autocomplete s')})))))})
 
 (def autocomplete-route
   [autocomplete-path
    :get [content-negotiation-ic
          explicit-params-ic
-         autocomplete-ic]
+         autocomplete-ic
+         response-body-ic]
    :route-name ::autocomplete])
+
+(def sparql-validation-ic
+  "Pedestal interceptor for SPARQL query validation and parameter extraction."
+  {:name  ::sparql-validation
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [query timeout maxResults]} (:query-params request)
+                  raw-sparql (or query (:body request))]
+              (if raw-sparql
+                (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
+                      query-obj   (sparql/validate sparql)
+                      timeout'    (if timeout
+                                    (min (Long/parseLong timeout)
+                                         sparql/max-timeout)
+                                    sparql/max-timeout)
+                      maxResults' (if maxResults
+                                    (min (Long/parseLong maxResults)
+                                         sparql/max-results-limit)
+                                    sparql/max-results-limit)]
+                  (assoc ctx
+                    :sparql-query query-obj
+                    :sparql-timeout timeout'
+                    :sparql-max-results maxResults')))))})
+
+(def sparql-execution-ic
+  {:name  ::sparql-execution
+   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results] :as ctx}]
+            (assoc ctx
+              :content (sparql/execute (:model @db) sparql-query sparql-timeout sparql-max-results)
+              :page-meta {:title "query-result"}))})        ; used as filename
+
+;; TODO: should have a differentiated rate limit (more limited)
+(def sparql-route
+  [prefix/sparql-path
+   :any [content-negotiation-ic
+         explicit-params-ic
+         sparql-validation-ic
+         sparql-execution-ic
+         response-body-ic]
+   :route-name ::sparql])
 
 (def not-in-theme
   "Predicate for filtering colours with a certain HSV distance from theme."

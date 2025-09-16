@@ -18,6 +18,9 @@
   "Helper function for merge-with in 'entity-label-mapping'."
   [v1 v2]
   (cond
+    (nil? v1)
+    v2
+
     (= v1 v2)
     v1
 
