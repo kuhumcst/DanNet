@@ -8,8 +8,11 @@
 
 (defn do-transaction!
   "Runs `f` as a transaction inside `db` which may be a Graph, Model, or
-  Transactional (e.g. Dataset)."
-  [db f & {:keys [return?]}]
+  Transactional (e.g. Dataset).
+
+    :read-only? - create a read-only transaction (cannot be promoted to write).
+    :return?    - no return values."
+  [db f & {:keys [return? read-only?]}]
   (let [action (if return?
                  (reify Supplier (get [_] (f)))
                  (reify Runnable (run [_] (f))))]
@@ -31,9 +34,11 @@
 
       ;; Dataset implements the Transactional interface and is covered here.
       (instance? Transactional db)
-      (if return?
-        (Txn/calculate db action)
-        (Txn/execute db action)))))
+      (if read-only?
+        (Txn/calculateRead db action)
+        (if return?
+          (Txn/calculate db action)
+          (Txn/execute db action))))))
 
 (defmacro transact-exec
   "Transact `body` within `db`. Only executes - does not return the result!"
@@ -48,3 +53,10 @@
   (let [g (gensym)]
     `(let [~g ~db]
        (do-transaction! ~g #(do ~@body) :return? true))))
+
+(defmacro transact-read
+  "Transact `body` within `db` in read-only transaction and return the result."
+  [db & body]
+  (let [g (gensym)]
+    `(let [~g ~db]
+       (do-transaction! ~g #(do ~@body) :return? true :read-only? true))))
