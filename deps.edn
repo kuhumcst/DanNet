@@ -16,7 +16,7 @@
            better-cond/better-cond        {:mvn/version "2.1.5"}
            org.clojure/core.memoize       {:mvn/version "1.1.266"}
            metosin/reitit                 {:mvn/version "0.9.1"} ; for url-encode
-           io.github.nextjournal/markdown {:mvn/version "0.7.186"}
+           io.github.nextjournal/markdown {:mvn/version "0.7.189"}
 
            io.pedestal/pedestal.service   {:mvn/version "0.7.2"}
            io.pedestal/pedestal.route     {:mvn/version "0.7.2"}
@@ -28,11 +28,11 @@
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
            thi.ng/color                   {:mvn/version "1.5.1"}
            dk.ative/docjure               {:mvn/version "1.21.0"}
-           com.cnuernber/ham-fisted       {:mvn/version "2.030"}
+           com.cnuernber/ham-fisted       {:mvn/version "2.031"}
 
            ;; https://github.com/taoensso/telemere/wiki/3-Config#java-logging
-           org.slf4j/slf4j-api          {:mvn/version "2.0.17"}
-           com.taoensso/telemere        {:mvn/version "1.1.0"}
+           org.slf4j/slf4j-api            {:mvn/version "2.0.17"}
+           com.taoensso/telemere          {:mvn/version "1.1.0"}
            com.taoensso/telemere-slf4j    {:mvn/version "1.1.0"}
 
            ;; Our own fork of Rum which uses React 18.
@@ -42,7 +42,7 @@
                       :jvm-opts   ["-Djdk.attach.allowAttachSelf"]}
            :build    {:extra-deps {io.github.seancorfield/build-clj
                                    {:git/tag "v0.9.2" :git/sha "9c9f078"}}}
-           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "3.1.7"}
+           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.0"}
                                    lambdaisland/fetch   {:git/url "https://github.com/lambdaisland/fetch.git"
                                                          :sha     "b74d2fb590917a14ae0ab3a1478bf60ff6906f65"}}}
 
