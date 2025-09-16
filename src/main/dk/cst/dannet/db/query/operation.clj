@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.query.operation
+(ns dk.cst.dannet.db.query.operation
   "Pre-built Apache Jena query operation objects (Op)."
   (:require [clojure.string :as str]
             [arachne.aristotle.query :as q]

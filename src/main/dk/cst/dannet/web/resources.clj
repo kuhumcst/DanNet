@@ -25,8 +25,8 @@
             [dk.cst.dannet.db.export.rdf :as export.rdf]
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
-            [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op])
+            [dk.cst.dannet.db.query :as q]
+            [dk.cst.dannet.db.query.operation :as op])
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]

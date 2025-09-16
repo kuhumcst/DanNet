@@ -9,8 +9,8 @@
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]
+            [dk.cst.dannet.db.query :as q]
+            [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [org.apache.jena.rdf.model Model Statement]))

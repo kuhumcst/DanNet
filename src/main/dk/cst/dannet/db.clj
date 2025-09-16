@@ -6,7 +6,7 @@
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [ont-app.vocabulary.core :as voc]
-            [dk.cst.dannet.query :as q]
+            [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.db.transaction :as txn])

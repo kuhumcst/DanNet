@@ -1,10 +1,10 @@
-(ns dk.cst.dannet.query
+(ns dk.cst.dannet.db.query
   "Functions for querying an Apache Jena graph."
   (:require [clojure.edn :as edn]
             [clojure.walk :as walk]
             [arachne.aristotle.query :as q]
             [dk.cst.dannet.db.transaction :as txn]
-            [dk.cst.dannet.query.operation :as op])
+            [dk.cst.dannet.db.query.operation :as op])
   (:import [org.apache.jena.reasoner BaseInfGraph]
            [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 

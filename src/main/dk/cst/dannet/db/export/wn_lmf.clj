@@ -11,8 +11,8 @@
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]
+            [dk.cst.dannet.db.query :as q]
+            [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.shared :as shared])
   (:import [java.util.zip GZIPOutputStream]))
 

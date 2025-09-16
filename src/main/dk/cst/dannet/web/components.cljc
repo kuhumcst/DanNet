@@ -982,14 +982,6 @@
    "search"   search-page
    "markdown" markdown-page})
 
-(defn x-header
-  "Get the custom `header` in the HTTP `headers`.
-
-  See also: dk.cst.dannet.web.resources/x-headers"
-  [headers header]
-  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
-  (get headers (str "x-" (str/lower-case (name header)))))
-
 (rum/defc page-footer
   [{:keys [languages] :as opts}]
   [:footer

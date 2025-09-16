@@ -2,8 +2,8 @@
   "Graph database search functionality."
   (:require [clojure.set :as set]
             [flatland.ordered.map :as fop]
-            [dk.cst.dannet.query :as q]
-            [dk.cst.dannet.query.operation :as op]))
+            [dk.cst.dannet.db.query :as q]
+            [dk.cst.dannet.db.query.operation :as op]))
 
 (def sym->kw
   {'?synset     :dc/subject

@@ -159,7 +159,7 @@
   (json-ld-ify test-entity)
 
   ;; testing with a real entity
-  (let [entity         (dk.cst.dannet.query/expanded-entity
+  (let [entity         (dk.cst.dannet.db.query/expanded-entity
                          (:graph @dk.cst.dannet.web.resources/db)
                          :dn/synset-s50002104)
         graph-entities (map (fn [[subject entity]] (assoc entity :rdf/about subject))

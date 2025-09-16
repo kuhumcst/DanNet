@@ -3,7 +3,7 @@
   (:require [clojure.string :as str]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.interceptor.chain :as chain]
-            [clojure.tools.logging :as log])
+            [taoensso.telemere :as t])
   (:import [java.time Instant]))
 
 ;; Registry of composite keys to expiration and hit count.
@@ -91,18 +91,21 @@
                                          (Instant/ofEpochMilli (+ (now-ms) window-ms)))
                  retry-after-seconds (int (/ (.toEpochMilli retry-after-inst) 1000))
                  response            (rate-limit-response quota retry-after-seconds req)]
-             (log/warn "Rate limit exceeded"
-                       {:key         key
-                        :hits        current-count
-                        :quota       quota
-                        :remote-addr (:remote-addr req)})
+             (t/log! {:level :warn
+                      :data  {:key         key
+                              :hits        current-count
+                              :quota       quota
+                              :remote-addr (:remote-addr req)}}
+                     "Rate limit exceeded")
              (chain/terminate (assoc ctx :response response)))
 
            ;; Allow request and increment counter
            (do
              (inc-hit-count! key window-ms)
              (when (= 0 (mod (inc current-count) 10))
-               (log/debug "Rate limit status" {:key   key
-                                               :hits  (inc current-count)
-                                               :quota quota}))
+               (t/log! {:level :debug
+                        :data  {:key   key
+                                :hits  (inc current-count)
+                                :quota quota}}
+                       "Rate limit status"))
              ctx))))}))
