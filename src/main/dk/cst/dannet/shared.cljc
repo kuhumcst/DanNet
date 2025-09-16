@@ -233,33 +233,6 @@
 #?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
    :cljs (def canonical (memoize canonical)))
 
-(defn with-omitted
-  [sense-labels canonical-labels]
-  (if (= (count sense-labels)
-         (count canonical-labels))
-    sense-labels
-    (concat canonical-labels [omitted])))
-
-(defn freq-limit
-  "Limit to top `n` of `strs` by frequency according to `freqs` and also
-  sort alphabetically in cases where two frequencies are identical."
-  [n freqs strs]
-  (take n (reverse (sort-by (juxt freqs str) strs))))
-
-(defn top-n-senses
-  "Return the top `n` of `sense-labels` based on `sense-label->freq` mapping."
-  [n sense-label->freq sense-labels]
-  (if (> (count sense-labels) n)
-    (freq-limit n sense-label->freq sense-labels)
-    sense-labels))
-
-(defn abridged-labels
-  "Get the frequent, canonical `sense-labels` based on `sense-label->freq`."
-  [sense-label->freq sense-labels]
-  (->> (canonical sense-labels)
-       (top-n-senses 2 sense-label->freq)
-       (with-omitted sense-labels)))
-
 (defn min-max-normalize
   [span low num]
   (/ (- num low) span))
@@ -418,26 +391,6 @@
    :wn/holo_part           "#d6616b",
    :wn/holo_location       "#b5cf6b",
    :wn/mero_member         "#f7b6d2"})
-
-(defn synset-uri
-  [id]
-  (keyword "dn" (str "synset-" id)))
-
-(defn word-uri
-  [id]
-  (keyword "dn" (str "word-" id)))
-
-(defn sense-uri
-  [id]
-  (keyword "dn" (str "sense-" id)))
-
-;; I am not allowed to start the identifier/local name with a dot in QNames.
-;; Similarly, I cannot begin the name part of a keyword with a number.
-;; For this reason, I need to include the "COR." part in the local name too.
-;; NOTE: QName an be validated using http://sparql.org/query-validator.html
-(defn cor-uri
-  [& parts]
-  (keyword "cor" (str "COR." (str/join "." (remove nil? parts)))))
 
 (comment
   ;; Testing out relative weights
