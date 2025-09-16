@@ -190,11 +190,6 @@
        languages
        (com/page-shell page data)))
 
-   "text/plain"
-   ;; TODO: make generic
-   (fn [data & _]
-     (ascii-table data))
-
    "text/turtle"
    (fn [{:keys [entity href]} & _]
      (when entity
@@ -227,7 +222,11 @@
                            (map kv->entity search-results))
 
                          :else
-                         (->json-safe data)))))
+                         (->json-safe data))
+
+                       ;; Pretty-printed and in Unicode
+                       {:indent         true
+                        :escape-unicode false})))
 
    "application/transit+json"
    (fn [data & _]
@@ -535,8 +534,7 @@
                                    "transit" "application/transit+json"
                                    "turtle"  "text/turtle"
                                    "ttl"     "text/turtle"  ; common alias
-                                   "html"    "text/html"
-                                   "plain"   "text/plain"}
+                                   "html"    "text/html"}
                   content-type    (or (format->mime format*) format*)
 
                   ;; Map layman's terms to language vectors

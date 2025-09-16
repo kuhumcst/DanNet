@@ -781,11 +781,19 @@
          "download data as: ")
        ;; TODO: some weird href diff in frontend/backend here
        ;;       http://localhost:3456/dannet/external?subject=%3Chttp%3A%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema%23%3E
-              [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
+       [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
                            "format=turtle")
             :type     "text/turtle"
+            :title    "Turtle"
             :download true}
-        ".ttl"]]]]))
+        ".ttl"]
+       ", "
+       [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
+                           "format=json")
+            :type     "application/ld+json"
+            :title    "JSON-LD"
+            :download true}
+        ".json"]]]]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
