@@ -397,10 +397,4 @@
   (take 10 (map double (iterate log-inc 1)))
   (take 100 (map double (iterate log-inc 1)))
   (take 1000 (map double (iterate log-inc 1)))
-
-  (sort (vals (normalize {:10 0 :8 0 :6 0 :4 0 :2 0 :0 0})))
-
-  (canonical ["legemsdel_§1" "kropsdel"])                   ; identical
-  (canonical ["flab_§1" "flab_§1a" "gab_2§1" "gab_2§1a"
-              "kværn_§3" "mule_1§1a" "mund_§1"])            ; ["flab_§1" "mund_§1"]
   #_.)
