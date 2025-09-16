@@ -252,8 +252,8 @@
     (rdf-datatype? x)
     (transform-val x)
 
-    (= (keys x) [:dc/subject])
-    (let [x (i18n/select-str languages (:dc/subject x))]
+    (= (keys x) [:rdf/value])
+    (let [x (i18n/select-str languages (:rdf/value x))]
       (if (coll? x)
         (into [:<>] (for [s x]
                       [:section.text {:lang (i18n/lang s)} (str s)]))
