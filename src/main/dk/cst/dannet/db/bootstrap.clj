@@ -14,7 +14,7 @@
             [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
-            [dk.cst.dannet.transaction :as txn]
+            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix])

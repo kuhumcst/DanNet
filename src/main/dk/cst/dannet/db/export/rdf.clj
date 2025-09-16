@@ -10,7 +10,7 @@
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.transaction :as txn])
+            [dk.cst.dannet.db.transaction :as txn])
   (:import [clojure.lang Symbol]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes.xsd XSDDateTime]

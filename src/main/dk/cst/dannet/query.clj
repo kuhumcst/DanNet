@@ -3,7 +3,7 @@
   (:require [clojure.edn :as edn]
             [clojure.walk :as walk]
             [arachne.aristotle.query :as q]
-            [dk.cst.dannet.transaction :as txn]
+            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.query.operation :as op])
   (:import [org.apache.jena.reasoner BaseInfGraph]
            [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))

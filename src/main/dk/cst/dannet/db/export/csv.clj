@@ -12,7 +12,7 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.query.operation :as op]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.transaction :as txn])
+            [dk.cst.dannet.db.transaction :as txn])
   (:import [org.apache.jena.rdf.model Model Statement]))
 
 (defn- expand-kw

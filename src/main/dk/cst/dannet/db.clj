@@ -9,7 +9,7 @@
             [dk.cst.dannet.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.hash :as h]
-            [dk.cst.dannet.transaction :as txn])
+            [dk.cst.dannet.db.transaction :as txn])
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.rdf.model ModelFactory Model ResourceFactory]
