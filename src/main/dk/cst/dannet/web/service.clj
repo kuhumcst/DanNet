@@ -6,6 +6,7 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
+            [dk.cst.dannet.web.sparql :as sparql]
             [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
@@ -26,6 +27,7 @@
       res/export-route
       res/schema-download-route
       res/markdown-route
+      sparql/sparql-route
 
       ;; See also: middleware/cookies added below as a default interceptor!
       res/cookies-route
