@@ -333,6 +333,9 @@
 (def markdown-path
   (str (uri->path dannet-root) "page/:document"))
 
+(def sparql-path
+  (str (uri->path dannet-root) "sparql"))
+
 (defn resource-path
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))

@@ -9,7 +9,7 @@
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr])
   (:import [org.apache.jena.query Query QueryFactory QueryExecution
-            QueryExecutionFactory ResultSet QuerySolution]
+                                  QueryExecutionFactory ResultSet QuerySolution]
            [org.apache.jena.rdf.model Model RDFNode Literal Resource]
            [org.apache.jena.query ResultSetFormatter]
            [org.apache.jena.update UpdateFactory UpdateRequest]
@@ -62,7 +62,7 @@
   (try
     ;; Use QueryFactory with prefix declarations like the rest of DanNet
     (let [query-with-prefixes (voc/prepend-prefix-declarations sparql-string)
-          query (QueryFactory/create query-with-prefixes)]
+          query               (QueryFactory/create query-with-prefixes)]
       (when-not (safe-query-type? query)
         (throw (ex-info "Only SELECT, ASK, CONSTRUCT, and DESCRIBE queries allowed"
                         {:type       :unsafe-query-type
@@ -107,8 +107,8 @@
   (cond
     (.isLiteral node)
     (let [literal (.asLiteral node)
-          value (.getString literal)
-          lang (.getLanguage literal)]
+          value   (.getString literal)
+          lang    (.getLanguage literal)]
       (if (and lang (not (str/blank? lang)))
         ;; Return language-tagged literal as LangStr (following DanNet pattern)
         (lstr/->LangStr value lang)
@@ -273,29 +273,30 @@
     [:describe :json-ld] "application/ld+json"
     "application/sparql-results+json"))
 
-(def sparql-query-interceptor
+(def sparql-query-ic
   "Pedestal interceptor for SPARQL query validation and parameter extraction."
   (interceptor/interceptor
     {:name  ::sparql-query
      :enter (fn [ctx]
               (let [request       (:request ctx)
                     method        (:request-method request)
-                    params        (:query-params request)
+                    {:keys [query
+                            timeout
+                            maxResults]} (:query-params request)
                     sparql-string (case method
-                                    :get (get params "query")
-                                    :post (or (get params "query")
+                                    :get query
+                                    :post (or query
                                               (when (= "application/sparql-query"
                                                        (get-in request [:headers "content-type"]))
-                                                (slurp (:body request)))
-                                              (get params "query")))]
+                                                (slurp (:body request)))))]
                 (if sparql-string
                   (try
                     (let [query       (validate-sparql-query sparql-string)
-                          timeout     (if-let [t (get params "timeout")]
-                                        (Long/parseLong t)
+                          timeout     (if timeout
+                                        (Long/parseLong timeout)
                                         default-timeout-ms)
-                          max-results (if-let [m (get params "maxResults")]
-                                        (Long/parseLong m)
+                          max-results (if maxResults
+                                        (Long/parseLong maxResults)
                                         default-max-results)]
                       (-> ctx
                           (assoc-in [:request :sparql-query] query)
@@ -362,19 +363,23 @@
              "Access-Control-Max-Age"       "86400"}
    :body    ""})
 
+(defn request-delegation-handler
+  [request]
+  (case (:request-method request)
+    :options (sparql-options-handler request)
+    (:get :post) (sparql-handler request)
+    {:status  405
+     :headers {"Allow" "GET, POST, OPTIONS"}
+     :body    "Method Not Allowed"}))
+
 ;; Route definitions to be added to service
 (def sparql-route
-  {:route-name   ::sparql-endpoint
-   :path         "/sparql"
-   :method       :any
-   :interceptors [sparql-query-interceptor]
-   :handler      (fn [request]
-                   (case (:request-method request)
-                     :options (sparql-options-handler request)
-                     (:get :post) (sparql-handler request)
-                     {:status  405
-                      :headers {"Allow" "GET, POST, OPTIONS"}
-                      :body    "Method Not Allowed"}))})
+  [prefix/sparql-path
+   :any [#_content-negotiation-ic
+         #_explicit-params-ic
+         sparql-query-ic
+         request-delegation-handler]
+   :route-name ::sparql])
 
 (comment
   ;; Example usage for testing
@@ -387,13 +392,13 @@
     (validate-sparql-query "INSERT DATA { <http://example.org/s> <http://example.org/p> <http://example.org/o> }")
     (catch Exception e (ex-data e)))
 
-;; Test with real model (requires data to be loaded)
+  ;; Test with real model (requires data to be loaded)
   (let [db    @dk.cst.dannet.web.resources/db
         model (:model db)
         query (validate-sparql-query "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 5")]
     (execute-sparql-query model query 10000 100))
 
-;; Test simple Danish word query - variables become symbols
+  ;; Test simple Danish word query - variables become symbols
   (let [db    @dk.cst.dannet.web.resources/db
         model (:model db)
         query (validate-sparql-query "
