@@ -11,16 +11,16 @@
   (:import [org.apache.jena.query Query QueryFactory QueryExecution
                                   QueryExecutionFactory ResultSet QuerySolution]
            [org.apache.jena.rdf.model Model RDFNode Literal Resource]
-           [org.apache.jena.query ResultSetFormatter]
+           [org.apache.jena.query Dataset ResultSetFormatter]
            [org.apache.jena.update UpdateFactory UpdateRequest]
-           [java.io StringWriter ByteArrayOutputStream]
+           [java.io StringWriter ByteArrayOutputStream Writer]
            [java.util.concurrent TimeoutException]
            [ont_app.vocabulary.lstr LangStr]))
 
 ;; Configuration constants
-(def ^:const default-timeout-ms 30000)
-(def ^:const default-max-results 10000)
-(def ^:const max-query-length 50000)
+(def ^:const default-timeout-ms 10000)
+(def ^:const default-max-results 100)
+(def ^:const max-query-length 5000)
 
 ;; Content type mappings for W3C SPARQL Protocol compliance
 (def sparql-result-formats
@@ -62,7 +62,7 @@
   (try
     ;; Use QueryFactory with prefix declarations like the rest of DanNet
     (let [query-with-prefixes (voc/prepend-prefix-declarations sparql-string)
-          query               (QueryFactory/create query-with-prefixes)]
+          query               (QueryFactory/create ^String query-with-prefixes)]
       (when-not (safe-query-type? query)
         (throw (ex-info "Only SELECT, ASK, CONSTRUCT, and DESCRIBE queries allowed"
                         {:type       :unsafe-query-type
@@ -86,7 +86,7 @@
   [query-obj max-results]
   (when (and (.isSelectType query-obj)
              (or (nil? (.getLimit query-obj))
-                 (> (.getLimit query-obj) max-results)))
+                 (> (.getLimit query-obj) 5 #_max-results)))
     (.setLimit query-obj max-results))
   query-obj)
 
@@ -132,7 +132,7 @@
   "Convert Jena QuerySolution to Clojure map.
   
   Variable names become symbols with ? prefix, preserving SPARQL syntax."
-  [solution var-names]
+  [var-names solution]
   (reduce (fn [acc var-name]
             (if-let [node (.get solution var-name)]
               (assoc acc (symbol (str "?" var-name)) (rdf-node->value node))
@@ -149,9 +149,12 @@
   [results format]
   (case format
     :json
-    {:bindings (mapv #(update-vals % (fn [v] (dissoc v :type)))
-                     (:results results))
-     :head     {:vars (mapv name (:vars results))}}
+    (str (vec (:results results)))
+    #_(with-out-str (ResultSetFormatter/outputAsJSON ^ResultSet (:result-set results)))
+
+    #_{:bindings (mapv #(update-vals % (fn [v] (dissoc v :type)))
+                       (:results results))
+       :head     {:vars (mapv name (:vars results))}}
 
     :xml
     (let [writer (StringWriter.)]
@@ -204,21 +207,22 @@
     (.toString out "UTF-8")))
 
 (defn execute-sparql-query
-  "Execute validated SPARQL query against dataset with safety constraints."
-  [dataset query timeout max-results]
-  (tx/transact-read dataset
-                    (let [query (-> query
+  "Execute validated SPARQL query-obj against model with safety constraints."
+  [^Model model ^Query query-obj timeout max-results]
+  (tx/transact-read model
+                    (let [query (-> query-obj
                                     (apply-timeout timeout)
                                     (limit-results max-results))
-                          qexec (QueryExecutionFactory/create query dataset)]
+                          qexec (QueryExecutionFactory/create query-obj model)]
                       (try
                         (cond
                           (.isSelectType query)
                           (let [result-set  (.execSelect qexec)
                                 result-vars (vec (.getResultVars result-set))
                                 ;; Convert to list to avoid holding onto result set
-                                results     (mapv #(query-solution->map % result-vars)
-                                                  (take max-results (iterator-seq result-set)))]
+                                results     #_(mapv identity (iterator-seq result-set))
+                                            (take 5 #_max-results (mapv (partial query-solution->map result-vars)
+                                                                        (take 5 #_max-results (iterator-seq result-set))))]
                             {:type       :select
                              :vars       result-vars
                              :results    results
@@ -288,29 +292,19 @@
                                     :post (or query
                                               (when (= "application/sparql-query"
                                                        (get-in request [:headers "content-type"]))
-                                                (slurp (:body request)))))]
+                                                (:body request))))]
                 (if sparql-string
-                  (try
-                    (let [query       (validate-sparql-query sparql-string)
-                          timeout     (if timeout
-                                        (Long/parseLong timeout)
-                                        default-timeout-ms)
-                          max-results (if maxResults
-                                        (Long/parseLong maxResults)
-                                        default-max-results)]
-                      (-> ctx
-                          (assoc-in [:request :sparql-query] query)
-                          (assoc-in [:request :sparql-timeout] timeout)
-                          (assoc-in [:request :sparql-max-results] max-results)))
-                    (catch Exception e
-                      (let [error-data (ex-data e)]
-                        (assoc ctx :response
-                                   {:status  400
-                                    :headers {"Content-Type" "application/json"}
-                                    :body    (json/write-str
-                                               {:error   (.getMessage e)
-                                                :type    (:type error-data)
-                                                :details (dissoc error-data :type)})}))))
+                  (let [query-obj   (validate-sparql-query sparql-string)
+                        timeout     (if timeout
+                                      (Long/parseLong timeout)
+                                      default-timeout-ms)
+                        max-results (if maxResults
+                                      (Long/parseLong maxResults)
+                                      default-max-results)]
+                    (-> ctx
+                        (assoc-in [:request :sparql-query] query-obj)
+                        (assoc-in [:request :sparql-timeout] timeout)
+                        (assoc-in [:request :sparql-max-results] max-results)))
                   (assoc ctx :response
                              {:status  400
                               :headers {"Content-Type" "application/json"}
@@ -346,12 +340,7 @@
         {:status  408
          :headers {"Content-Type" "application/json"}
          :body    (json/write-str {:error   "Query timeout"
-                                   :timeout sparql-timeout})})
-      (catch Exception e
-        {:status  500
-         :headers {"Content-Type" "application/json"}
-         :body    (json/write-str {:error   "Query execution failed"
-                                   :message (.getMessage e)})}))))
+                                   :timeout sparql-timeout})}))))
 
 (defn sparql-options-handler
   "Handle CORS preflight requests."
