@@ -5,17 +5,16 @@
             [io.pedestal.interceptor :as interceptor]
             [dk.cst.dannet.db.transaction :as tx]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db.query.operation :as op]
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr])
-  (:import [org.apache.jena.query Query QueryFactory QueryExecution
-                                  QueryExecutionFactory ResultSet QuerySolution]
-           [org.apache.jena.rdf.model Model RDFNode Literal Resource]
-           [org.apache.jena.query Dataset ResultSetFormatter]
-           [org.apache.jena.update UpdateFactory UpdateRequest]
-           [java.io StringWriter ByteArrayOutputStream Writer]
-           [java.util.concurrent TimeoutException]
-           [ont_app.vocabulary.lstr LangStr]))
+  (:import [org.apache.jena.query Query QueryFactory QueryExecutionFactory
+                                  ResultSet]
+           [org.apache.jena.rdf.model Model RDFNode]
+           [org.apache.jena.riot ResultSetMgr]
+           [org.apache.jena.riot.resultset ResultSetLang]
+           [org.apache.jena.update UpdateFactory]
+           [java.io ByteArrayOutputStream]
+           [java.util.concurrent TimeoutException]))
 
 ;; Configuration constants
 (def ^:const default-timeout-ms 10000)
@@ -81,12 +80,12 @@
                          :cause (.getMessage e)}
                         e))))))
 
-(defn limit-results
+(defn limit-results!
   "Apply result limit to SELECT queries to prevent resource exhaustion."
   [query-obj max-results]
   (when (and (.isSelectType query-obj)
              (or (nil? (.getLimit query-obj))
-                 (> (.getLimit query-obj) 5 #_max-results)))
+                 (> (.getLimit query-obj) max-results)))
     (.setLimit query-obj max-results))
   query-obj)
 
@@ -140,36 +139,18 @@
           {}
           var-names))
 
-
-
-
-
 (defn format-select-results
   "Format SELECT query results based on requested format."
-  [results format]
+  [{:keys [^ResultSet result-set] :as results} format]
   (case format
     :json
-    (str (vec (:results results)))
-    #_(with-out-str (ResultSetFormatter/outputAsJSON ^ResultSet (:result-set results)))
+    ;; https://www.w3.org/TR/sparql11-results-json/
+    (let [out (ByteArrayOutputStream.)]
+      (ResultSetMgr/write out result-set ResultSetLang/RS_JSON)
+      (.toString out "UTF-8"))
 
-    #_{:bindings (mapv #(update-vals % (fn [v] (dissoc v :type)))
-                       (:results results))
-       :head     {:vars (mapv name (:vars results))}}
-
-    :xml
-    (let [writer (StringWriter.)]
-      (ResultSetFormatter/outputAsXML writer (:result-set results))
-      (.toString writer))
-
-    :csv
-    (let [writer (StringWriter.)]
-      (ResultSetFormatter/outputAsCSV writer (:result-set results))
-      (.toString writer))
-
-    :tsv
-    (let [writer (StringWriter.)]
-      (ResultSetFormatter/outputAsTSV writer (:result-set results))
-      (.toString writer))))
+    ;; else
+    "UNSUPPORTED FORMAT"))
 
 (defn format-ask-results
   "Format ASK query results based on requested format."
@@ -211,8 +192,8 @@
   [^Model model ^Query query-obj timeout max-results]
   (tx/transact-read model
                     (let [query (-> query-obj
-                                    (apply-timeout timeout)
-                                    (limit-results max-results))
+                                    (apply-timeout timeout) ; TODO: this is currently noop
+                                    (limit-results! max-results))
                           qexec (QueryExecutionFactory/create query-obj model)]
                       (try
                         (cond
@@ -220,9 +201,8 @@
                           (let [result-set  (.execSelect qexec)
                                 result-vars (vec (.getResultVars result-set))
                                 ;; Convert to list to avoid holding onto result set
-                                results     #_(mapv identity (iterator-seq result-set))
-                                            (take 5 #_max-results (mapv (partial query-solution->map result-vars)
-                                                                        (take 5 #_max-results (iterator-seq result-set))))]
+                                results     (mapv (partial query-solution->map result-vars)
+                                                  (take max-results (iterator-seq result-set)))]
                             {:type       :select
                              :vars       result-vars
                              :results    results
