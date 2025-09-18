@@ -179,6 +179,12 @@
    BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
    XSDDateTime             (t/write-handler "datetime" str)})
 
+(defn with-comment
+  [m comment]
+  (with-meta
+    (update m :rdfs/comment q/set-merge comment)
+    (meta m)))
+
 ;; TODO: order matters when creating conneg interceptor, should be kvs as
 ;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
@@ -200,33 +206,30 @@
    (fn [data & _]
      (pr-str data))
 
-   ;; The JSON format is used as an API and doesn't need the same information
-   ;; that is passed to the web app through Transit.
-   "application/json"
+   "application/ld+json"
    (fn [{:keys [entity entities
                 search-results lemma]
          :as   data} & _]
      (let [kv->entity (fn [[subject entity]]
                         (assoc entity :dc/subject subject))]
-       (json/write-str (cond
-                         entity
-                         (json-ld-ify
-                           (merge-with
-                             q/set-merge entity
-                             {:rdfs/comment "The @graph contains labels for the properties and values of the core RDF resource defined @id."})
-                           (map kv->entity entities))
+       (some-> (cond
+                 entity
+                 (json-ld-ify
+                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
+                   (map kv->entity entities))
 
-                         search-results
-                         (json-ld-ify
-                           {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                           (map kv->entity search-results))
+                 search-results
+                 (json-ld-ify
+                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                   (map kv->entity search-results)))
 
-                         :else
-                         (->json-safe data))
+               (json/write-str {:indent         true
+                                :escape-unicode false}))))
 
-                       ;; Pretty-printed and in Unicode
-                       {:indent         true
-                        :escape-unicode false})))
+   "application/json"
+   (fn [data & _]
+     (json/write-str (->json-safe data) {:indent         true
+                                         :escape-unicode false}))
 
    "application/transit+json"
    (fn [data & _]
@@ -340,20 +343,34 @@
   (when query-string
     (str/replace query-string #"&?(transit=true|format=turtle)" "")))
 
-(defn content-disposition
-  [title]
-  (let [filename (str/replace title #":" "_")]
-    (str "attachment; filename=\"" filename ".ttl\"")))
+(defn with-file-ext
+  [title content-type]
+  (when (get #{"application/json"
+               "application/ld+json"
+               "text/turtle"}
+             content-type)
+    (let [filename  (str/replace title #":" "_")
+          extension (get {"application/json"    ".json"
+                          "application/ld+json" ".json"
+                          "text/turtle"         ".ttl"}
+                         content-type)]
+      {"Content-Disposition"
+       (str "attachment; filename=\"" filename extension "\"")})))
 
-(def content-body-ic
-  ""
-  {:name  ::content-body
+(def response-body-ic
+  "Generate a response containing the content body (if available)."
+  {:name  ::response-body
    :leave (fn [{:keys [request content page-meta] :as ctx}]
             (let [content-type (or (get-in request [:accept :field])
                                    "application/json")
-                  body         (content-type->body-fn content-type)
+                  ;; Prefer using the the JSON-LD body if available whenever the
+                  ;; content-type is regular JSON too. In this case the response
+                  ;; content-type doesn't get changed to JSON-LD, though.
+                  body         (if (= content-type "application/json")
+                                 (or (content-type->body-fn "application/ld+json")
+                                     (content-type->body-fn "application/json"))
+                                 (content-type->body-fn content-type))
                   title        (get page-meta :title "DanNet")]
-              (prn 'content-body-ic)
               (-> ctx
                   (update :response merge
                           (cond
@@ -369,12 +386,12 @@
                             {:status 200
                              :body   (body content page-meta)}))
                   (update-in [:response :headers] merge
-                             (cond-> (assoc (x-headers page-meta)
-                                       "Content-Type" content-type
-                                       "Cache-Control" one-day-cache)
+                             (-> (assoc (x-headers page-meta)
+                                   "Content-Type" content-type
+                                   "Cache-Control" one-day-cache)
 
-                               (= content-type "text/turtle")
-                               (assoc "Content-Disposition" (content-disposition title)))))))})
+                                 ;; Add filename extensions when needed.
+                                 (merge (with-file-ext title content-type)))))))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -399,6 +416,7 @@
                                           "text/html"
 
                                           ;; MCP server needs it too
+                                          "application/ld+json"
                                           "application/json"}
                                         content-type)
                                  (q/expanded-entity g subject*)
@@ -557,16 +575,17 @@
 
                   ;; Map layman's terms to proper MIME types
                   format->mime    {"json"    "application/json"
+                                   "json-ld" "application/ld+json"
                                    "edn"     "application/edn"
                                    "transit" "application/transit+json"
                                    "turtle"  "text/turtle"
                                    "ttl"     "text/turtle"  ; common alias
                                    "html"    "text/html"}
                   content-type    (or (format->mime format*) format*)
-
-                  ;; Map layman's terms to language vectors
-                  lang->languages {"danish" ["da"], "english" ["en"]}
-                  languages       (or (lang->languages lang*) (when lang* [lang*]))]
+                  lang->languages {"danish"  ["da"]
+                                   "english" ["en"]}
+                  languages       (or (lang->languages lang*)
+                                      (when lang* [lang*]))]
 
               (cond-> ctx
                 content-type
@@ -585,7 +604,7 @@
          explicit-params-ic
          (->entity-ic :prefix prefix)
          redirect-ic
-         content-body-ic]
+         response-body-ic]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
 (def external-entity-route
@@ -596,7 +615,7 @@
          explicit-params-ic
          (->entity-ic)
          redirect-ic
-         content-body-ic]
+         response-body-ic]
    :route-name ::external-entity])
 
 (def unknown-external-entity-route
@@ -606,7 +625,7 @@
          explicit-params-ic
          (->entity-ic)
          redirect-ic
-         content-body-ic]
+         response-body-ic]
    :route-name ::unknown-external-entity])
 
 (defn prefix->dataset-entity-route
@@ -618,7 +637,7 @@
            explicit-params-ic
            (->entity-ic :subject (prefix/uri->rdf-resource uri))
            redirect-ic
-           content-body-ic]
+           response-body-ic]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
 (def search-route
@@ -628,7 +647,7 @@
          explicit-params-ic
          search-ic
          redirect-ic
-         content-body-ic]
+         response-body-ic]
    :route-name ::search])
 
 (defn frontpage-redirect
@@ -674,7 +693,7 @@
          language-negotiation-ic
          explicit-params-ic
          markdown-ic
-         content-body-ic]
+         response-body-ic]
    :route-name ::markdown])
 
 (def cookie-opts
@@ -735,7 +754,7 @@
    :get [content-negotiation-ic
          explicit-params-ic
          autocomplete-ic
-         content-body-ic]
+         response-body-ic]
    :route-name ::autocomplete])
 
 (def not-in-theme

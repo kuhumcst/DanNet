@@ -786,14 +786,14 @@
             :type     "text/turtle"
             :title    "Turtle"
             :download true}
-        ".ttl"]
+        "Turtle"]
        ", "
        [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
-                           "format=json")
+                           "format=json-ld")
             :type     "application/ld+json"
             :title    "JSON-LD"
             :download true}
-        ".json"]]]]))
+        "JSON-LD"]]]]))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
