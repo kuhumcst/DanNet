@@ -326,13 +326,10 @@
   (when query-string
     (str/replace query-string #"&?(transit=true|format=turtle)" "")))
 
-;; TODO: remove
-(defn json-ld-upgrade
-  "Change JSON `content-type` to JSON-LD (used by the core RDF endpoints)."
-  [content-type]
-  (if (= "application/json" content-type)
-    "application/ld+json"
-    content-type))
+(defn content-disposition
+  [title]
+  (let [filename (str/replace title #":" "_")]
+    (str "attachment; filename=\"" filename ".ttl\"")))
 
 (def content-body-ic
   ""
@@ -340,7 +337,8 @@
    :leave (fn [{:keys [request content page-meta] :as ctx}]
             (let [content-type (or (get-in request [:accept :field])
                                    "application/json")
-                  body         (content-type->body-fn content-type)]
+                  body         (content-type->body-fn content-type)
+                  title        (get page-meta :title "DanNet")]
               (prn 'content-body-ic)
               (-> ctx
                   (update :response merge
@@ -367,15 +365,12 @@
                                   (string? subject*)
                                   (redirect (prefix/rdf-resource->uri subject*) content-type)))))
                   (update-in [:response :headers] merge
-                             (assoc (x-headers page-meta)
-                               "Content-Type" content-type)
-                             #_(when (= content-type "text/turtle")
-                                 (let [filename (str/replace qname #":" "_")
-                                       cd       (str "attachment; filename=\"" filename ".ttl\"")]
-                                   {"Content-Disposition" cd}))
-                             ;; TODO: use cache in production
-                             #_#_"Cache-Control" one-day-cache))))})
+                             (cond-> (assoc (x-headers page-meta)
+                                       "Content-Type" content-type
+                                       "Cache-Control" one-day-cache)
 
+                               (= content-type "text/turtle")
+                               (assoc "Content-Disposition" (content-disposition title)))))))})
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
