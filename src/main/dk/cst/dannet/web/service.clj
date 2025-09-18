@@ -28,7 +28,7 @@
       ;; API and other single content-type routes
       res/export-route
       res/schema-download-route
-      sparql/sparql-route
+      res/sparql-route
 
       ;; Non-entity routes which support content-negotiation
       res/markdown-route

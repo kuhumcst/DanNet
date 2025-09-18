@@ -13,12 +13,16 @@
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
            [org.apache.jena.update UpdateFactory]
-           [java.io ByteArrayOutputStream]
-           [java.util.concurrent TimeoutException]))
+           [java.io ByteArrayOutputStream]))
+
+
+
+;; TODO: clean up this namespace
+;; TODO: return the result-set as the content body and convert it in the response-body-ic
 
 ;; Configuration constants
 (def ^:const default-timeout-ms 10000)
-(def ^:const default-max-results 100)
+(def ^:const default-limit 100)
 (def ^:const max-query-length 5000)
 
 ;; Content type mappings for W3C SPARQL Protocol compliance
@@ -141,12 +145,12 @@
 
 (defn format-select-results
   "Format SELECT query results based on requested format."
-  [{:keys [^ResultSet result-set] :as results} format]
+  [result-set format]
   (case format
     :json
     ;; https://www.w3.org/TR/sparql11-results-json/
     (let [out (ByteArrayOutputStream.)]
-      (ResultSetMgr/write out result-set ResultSetLang/RS_JSON)
+      (ResultSetMgr/write out ^ResultSet result-set ResultSetLang/RS_JSON)
       (.toString out "UTF-8"))
 
     ;; else
@@ -198,27 +202,20 @@
                       (try
                         (cond
                           (.isSelectType query)
-                          (let [result-set  (.execSelect qexec)
-                                result-vars (vec (.getResultVars result-set))
-                                ;; Convert to list to avoid holding onto result set
-                                results     (mapv (partial query-solution->map result-vars)
-                                                  (take max-results (iterator-seq result-set)))]
-                            {:type       :select
-                             :vars       result-vars
-                             :results    results
-                             :result-set result-set})       ; Keep for formatter compatibility
+                          {:sparql-type   :select
+                           :sparql-result (.materialise (.execSelect qexec))}
 
                           (.isAskType query)
-                          {:type   :ask
-                           :result (.execAsk qexec)}
+                          {:sparql-type   :ask
+                           :sparql-result (.execAsk qexec)}
 
                           (.isConstructType query)
-                          {:type  :construct
-                           :model (.execConstruct qexec)}
+                          {:sparql-type   :construct
+                           :sparql-result (.execConstruct qexec)}
 
                           (.isDescribeType query)
-                          {:type  :describe
-                           :model (.execDescribe qexec)})
+                          {:sparql-type   :describe
+                           :sparql-result (.execDescribe qexec)})
                         (finally
                           (.close qexec))))))
 
@@ -257,71 +254,6 @@
     [:describe :json-ld] "application/ld+json"
     "application/sparql-results+json"))
 
-(def sparql-query-ic
-  "Pedestal interceptor for SPARQL query validation and parameter extraction."
-  (interceptor/interceptor
-    {:name  ::sparql-query
-     :enter (fn [ctx]
-              (let [request       (:request ctx)
-                    method        (:request-method request)
-                    {:keys [query
-                            timeout
-                            maxResults]} (:query-params request)
-                    sparql-string (case method
-                                    :get query
-                                    :post (or query
-                                              (when (= "application/sparql-query"
-                                                       (get-in request [:headers "content-type"]))
-                                                (:body request))))]
-                (if sparql-string
-                  (let [query-obj   (validate-sparql-query sparql-string)
-                        timeout     (if timeout
-                                      (Long/parseLong timeout)
-                                      default-timeout-ms)
-                        max-results (if maxResults
-                                      (Long/parseLong maxResults)
-                                      default-max-results)]
-                    (-> ctx
-                        (assoc-in [:request :sparql-query] query-obj)
-                        (assoc-in [:request :sparql-timeout] timeout)
-                        (assoc-in [:request :sparql-max-results] max-results)))
-                  (assoc ctx :response
-                             {:status  400
-                              :headers {"Content-Type" "application/json"}
-                              :body    (json/write-str {:error "No query provided"})}))))}))
-
-(defn sparql-handler
-  "Main SPARQL endpoint handler."
-  [request]
-  (let [{:keys [sparql-query sparql-timeout sparql-max-results]} request
-        db            @dk.cst.dannet.web.resources/db
-        model         (:model db)                           ; Use the model with actual data                           ; Use the model with actual data                         ; Extract the actual Jena Dataset
-        accept-header (get-in request [:headers "accept"])]
-    (try
-      (let [results        (execute-sparql-query model sparql-query
-                                                 sparql-timeout sparql-max-results)
-            query-type     (:type results)
-            format         (determine-response-format accept-header query-type)
-            content-type   (get-content-type format query-type)
-            formatted-body (case query-type
-                             :select (format-select-results results format)
-                             :ask (format-ask-results (:result results) format)
-                             (:construct :describe)
-                             (format-construct-describe-results (:model results) format))]
-        {:status  200
-         :headers {"Content-Type"                 content-type
-                   "Access-Control-Allow-Origin"  "*"
-                   "Access-Control-Allow-Methods" "GET, POST, OPTIONS"
-                   "Access-Control-Allow-Headers" "Content-Type, Accept"}
-         :body    (if (string? formatted-body)
-                    formatted-body
-                    (json/write-str formatted-body))})
-      (catch TimeoutException e
-        {:status  408
-         :headers {"Content-Type" "application/json"}
-         :body    (json/write-str {:error   "Query timeout"
-                                   :timeout sparql-timeout})}))))
-
 (defn sparql-options-handler
   "Handle CORS preflight requests."
   [_request]
@@ -331,24 +263,6 @@
              "Access-Control-Allow-Headers" "Content-Type, Accept"
              "Access-Control-Max-Age"       "86400"}
    :body    ""})
-
-(defn request-delegation-handler
-  [request]
-  (case (:request-method request)
-    :options (sparql-options-handler request)
-    (:get :post) (sparql-handler request)
-    {:status  405
-     :headers {"Allow" "GET, POST, OPTIONS"}
-     :body    "Method Not Allowed"}))
-
-;; Route definitions to be added to service
-(def sparql-route
-  [prefix/sparql-path
-   :any [#_content-negotiation-ic
-         #_explicit-params-ic
-         sparql-query-ic
-         request-delegation-handler]
-   :route-name ::sparql])
 
 (comment
   ;; Example usage for testing
@@ -375,7 +289,7 @@
             ?form ontolex:writtenRep ?word .
             FILTER(lang(?word) = 'da')
           } LIMIT 5")]
-    (:results (execute-sparql-query model query 10000 100)))
+    (execute-sparql-query model query 10000 100))
   ;; => [{?word #voc/lstr "komme noget til@da"} ...]
 
   #_.)

@@ -6,9 +6,11 @@
             [clojure.data.json :as json]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
+            [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
+            [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
@@ -227,9 +229,13 @@
                                 :escape-unicode false}))))
 
    "application/json"
-   (fn [data & _]
-     (json/write-str (->json-safe data) {:indent         true
-                                         :escape-unicode false}))
+   (fn [{:keys [sparql-result]
+         :as   data} & _]
+     (json/write-str (if sparql-result
+                       (sparql/format-select-results sparql-result :json)
+                       (->json-safe data))
+                     {:indent         true
+                      :escape-unicode false}))
 
    "application/transit+json"
    (fn [data & _]
@@ -357,6 +363,14 @@
       {"Content-Disposition"
        (str "attachment; filename=\"" filename extension "\"")})))
 
+(defn json-body-fn
+  "Combined body-fn that prefers JSON-LD over unspecified JSON when available."
+  [& args]
+  (let [json-ld-body (content-type->body-fn "application/ld+json")
+        json-body (content-type->body-fn "application/json")]
+    (or (apply json-ld-body args)
+        (apply json-body args))))
+
 (def response-body-ic
   "Generate a response containing the content body (if available)."
   {:name  ::response-body
@@ -367,8 +381,7 @@
                   ;; content-type is regular JSON too. In this case the response
                   ;; content-type doesn't get changed to JSON-LD, though.
                   body         (if (= content-type "application/json")
-                                 (or (content-type->body-fn "application/ld+json")
-                                     (content-type->body-fn "application/json"))
+                                 json-body-fn
                                  (content-type->body-fn content-type))
                   title        (get page-meta :title "DanNet")]
               (-> ctx
@@ -570,8 +583,8 @@
             (let [{:keys [format lang]} (:query-params request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the query-params-decoder handled this.
-                  format*         (when format (decode-query-part format))
-                  lang*           (when lang (decode-query-part lang))
+                  format'         (when format (decode-query-part format))
+                  lang'           (when lang (decode-query-part lang))
 
                   ;; Map layman's terms to proper MIME types
                   format->mime    {"json"    "application/json"
@@ -581,11 +594,11 @@
                                    "turtle"  "text/turtle"
                                    "ttl"     "text/turtle"  ; common alias
                                    "html"    "text/html"}
-                  content-type    (or (format->mime format*) format*)
+                  content-type    (get format->mime format' format')
                   lang->languages {"danish"  ["da"]
                                    "english" ["en"]}
-                  languages       (or (lang->languages lang*)
-                                      (when lang* [lang*]))]
+                  languages       (or (lang->languages lang')
+                                      (when lang' [lang']))]
 
               (cond-> ctx
                 content-type
@@ -756,6 +769,45 @@
          autocomplete-ic
          response-body-ic]
    :route-name ::autocomplete])
+
+(def sparql-validation-ic
+  "Pedestal interceptor for SPARQL query validation and parameter extraction."
+  {:name  ::sparql-validation
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [query timeout maxResults]} (:query-params request)
+                  raw-sparql (or query
+                                 (when (= (get-in request [:accept :field])
+                                          "application/sparql-query")
+                                   (:body request)))]
+              (if raw-sparql
+                (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
+                      query-obj   (sparql/validate-sparql-query sparql)
+                      timeout'    (if timeout
+                                    (Long/parseLong timeout)
+                                    sparql/default-timeout-ms)
+                      maxResults' (if maxResults
+                                    (Long/parseLong maxResults)
+                                    sparql/default-limit)]
+                  (assoc ctx
+                    :sparql-query query-obj
+                    :sparql-timeout timeout'
+                    :sparql-max-results maxResults')))))})
+
+(def sparql-execution-ic
+  {:name  ::sparql-execution
+   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results] :as ctx}]
+            (assoc ctx
+              :content (sparql/execute-sparql-query (:model @db) sparql-query sparql-timeout sparql-max-results)
+              :page-meta {:title "query-result"}))})
+
+(def sparql-route
+  [prefix/sparql-path
+   :any [content-negotiation-ic
+         explicit-params-ic
+         sparql-validation-ic
+         sparql-execution-ic
+         response-body-ic]
+   :route-name ::sparql])
 
 (def not-in-theme
   "Predicate for filtering colours with a certain HSV distance from theme."
