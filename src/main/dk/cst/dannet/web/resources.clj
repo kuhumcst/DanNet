@@ -272,54 +272,68 @@
     x))
 
 ;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
-(defn redirect
+(def redirect-ic
   "Get a redirect response that works for both HTTP redirects and for the API
-  based on some `x` to redirect to and the requested `content-type`.
+  based on keys set in the the context:
+
+    :redirect        - (symbolic) location to redirect to
+    :redirect-params - query-params to used when redirecting
+    :replace         - (symbolic) location which replaces the current state
+
+
+  NOTE: The alternative `replace` location arg may be provided to tell the
+        client to replace the state in history rather than adding a new entry.
+        This is needed when automatically redirecting to an alt entity,
+        as the back button will otherwise break for the user.
+
+  ----
 
   Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
   manually, so a somewhat hacky solution is required to make it work. By setting
   a custom header and adding some redirect logic on the client-side, the client
-  knows when to redirect from an API call.
+  knows when to redirect from an API call."
+  {:name  ::redirect
+   :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
+            (let [{:keys [lang format]} redirect-params
+                  content-type (or (get-in request [:accept :field])
+                                   "application/json")
+                  location     (redirect-location (or redirect replace))
+                  ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
+                  api-location (if (or lang format)
+                                 (cond
+                                   (and lang format)
+                                   (str location "?lang=" lang "&format=" format)
 
-  NOTE: An optional `replace-state` arg may be provided to tell the client SPA
-  to replace the state in history rather than adding a new entry. This is needed
-  when automatically redirecting to an alt entity, since the back button will
-  otherwise break for the user."
-  [x content-type & [replace-state {:keys [format lang] :as query-params}]]
-  (let [location     (redirect-location x)
-        ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
-        api-location (if (or lang format)
-                       (cond
-                         (and lang format)
-                         (str location "?lang=" lang "&format=" format)
+                                   lang
+                                   (str location "?lang=" lang)
 
-                         lang
-                         (str location "?lang=" lang)
+                                   format
+                                   (str location "?format=" format))
+                                 location)]
+              (if location
+                (assoc ctx
+                  :response (case content-type
+                              "text/html"
+                              {:status  303
+                               :headers {"Location" location}}
 
-                         format
-                         (str location "?format=" format))
-                       location)]
-    (case content-type
-      "text/html"
-      {:status  303
-       :headers {"Location" location}}
+                              ;; Custom header hack for SPA client-side redirect handling
+                              ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
+                              ;; e.g. https://github.com/lambdaisland/fetch/issues/24
+                              "application/transit+json"
+                              {:status  200
+                               :headers (x-headers {:redirect location
+                                                    :replace  (if replace "T" "F")})
+                               :body    "{}"}
 
-      ;; Custom header hack for SPA client-side redirect handling
-      ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
-      ;; e.g. https://github.com/lambdaisland/fetch/issues/24
-      "application/transit+json"
-      {:status  200
-       :headers (x-headers {:redirect location
-                            :replace  (if replace-state "T" "F")})
-       :body    "{}"}
+                              ;; Simple redirect for JSON - let HTTP client follow the redirect
+                              "application/json"
+                              {:status  303
+                               :headers {"Location" api-location}}
 
-      ;; Simple redirect for JSON - let HTTP client follow the redirect
-      "application/json"
-      {:status  303
-       :headers {"Location" api-location}}
-
-      ;; else
-      nil)))
+                              ;; else
+                              nil))
+                ctx)))})
 
 (defn remove-internal-params
   [query-string]
@@ -353,17 +367,7 @@
 
                             :else
                             {:status 200
-                             :body   (body content page-meta)}
-                            #_(let [alt (alt-resource qname)]
-                                (cond
-                                  (and alt (not-empty (q/entity g alt)))
-                                  (redirect alt content-type :replace)
-
-                                  (keyword? subject*)
-                                  (redirect (prefix/kw->uri subject*) content-type)
-
-                                  (string? subject*)
-                                  (redirect (prefix/rdf-resource->uri subject*) content-type)))))
+                             :body   (body content page-meta)}))
                   (update-in [:response :headers] merge
                              (cond-> (assoc (x-headers page-meta)
                                        "Content-Type" content-type
@@ -416,24 +420,17 @@
                             :subject   subject*
                             :entity    entity}
                   :page-meta {:title qname
-                              :page  "entity"}))
-              #_(-> ctx
-                    (update :response merge
-                            (if (not-empty entity)
-                              {:status 200
-                               :body   (body data page-meta)}
+                              :page  "entity"})
+                (let [alt (alt-resource qname)]
+                  (cond
+                    (and alt (not-empty (q/entity g alt)))
+                    (assoc ctx :replace alt)
 
-                              ;; TODO: handle redirects in a separate interceptor?
-                              (let [alt (alt-resource qname)]
-                                (cond
-                                  (and alt (not-empty (q/entity g alt)))
-                                  (redirect alt content-type :replace)
+                    (keyword? subject*)
+                    (assoc ctx :redirect (prefix/kw->uri subject*))
 
-                                  (keyword? subject*)
-                                  (redirect (prefix/kw->uri subject*) content-type)
-
-                                  (string? subject*)
-                                  (redirect (prefix/rdf-resource->uri subject*) content-type))))))))})
+                    (string? subject*)
+                    (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
 
 (defn look-up*
   [g lemma]
@@ -454,31 +451,35 @@
   relevant redirect is performed instead."
   {:name  ::search
    :enter (fn [{:keys [request] :as ctx}]
-            (let [content-type (get-in request [:accept :field] "application/json")
-                  query-params (:query-params request)
+            (let [query-params (:query-params request)
                   languages    (request->languages request)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   lemma        (-> request
                                    (get-in [:query-params :lemma])
                                    (decode-query-part))]
-
-              ;; TODO: look at redirects again -- put in interceptor?
               (cond
                 (prefix/rdf-resource? lemma)
-                (assoc ctx :response (redirect lemma content-type nil query-params))
+                (assoc ctx
+                  :redirect lemma
+                  :redirect-params query-params)
 
                 (and (string? lemma) (re-find #"^https?://" lemma))
-                (assoc ctx :response (redirect (prefix/uri->rdf-resource lemma) content-type nil query-params))
+                (assoc ctx
+                  :redirect (prefix/uri->rdf-resource lemma)
+                  :redirect-params query-params)
 
                 (prefix/qname? lemma)
-                (assoc ctx :response (redirect (prefix/qname->kw lemma) content-type nil query-params))
+                (assoc ctx
+                  :redirect (prefix/qname->kw lemma)
+                  :redirect-params query-params)
 
                 :else
                 (let [results (look-up* (:graph @db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
-                      :response (redirect (ffirst results) content-type :replace query-params))
+                      :redirect (ffirst results)
+                      :redirect-params query-params)
                     (assoc ctx
                       :content {:languages      languages
                                 :lemma          lemma
@@ -583,6 +584,7 @@
          language-negotiation-ic
          explicit-params-ic
          (->entity-ic :prefix prefix)
+         redirect-ic
          content-body-ic]
    :route-name (keyword (str *ns*) (str prefix "-entity"))])
 
@@ -593,6 +595,7 @@
          language-negotiation-ic
          explicit-params-ic
          (->entity-ic)
+         redirect-ic
          content-body-ic]
    :route-name ::external-entity])
 
@@ -602,6 +605,7 @@
          language-negotiation-ic
          explicit-params-ic
          (->entity-ic)
+         redirect-ic
          content-body-ic]
    :route-name ::unknown-external-entity])
 
@@ -613,6 +617,7 @@
            language-negotiation-ic
            explicit-params-ic
            (->entity-ic :subject (prefix/uri->rdf-resource uri))
+           redirect-ic
            content-body-ic]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
@@ -622,6 +627,7 @@
          language-negotiation-ic
          explicit-params-ic
          search-ic
+         redirect-ic
          content-body-ic]
    :route-name ::search])
 
