@@ -1542,7 +1542,7 @@ def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dic
 
     Args:
         query: SPARQL SELECT query string (prefixes will be automatically added)
-        timeout: Query timeout in milliseconds (default: 5000, max: 5000)
+        timeout: Query timeout in milliseconds (default: 5000, max: 10000)
         max_results: Maximum number of results to return (default: 100, max: 100)
 
     Returns:

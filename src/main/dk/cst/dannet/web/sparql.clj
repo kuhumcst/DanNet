@@ -23,7 +23,7 @@
 ;; TODO: clean up this namespace
 
 ;; Configuration constants
-(def ^:const max-timeout 5000)
+(def ^:const max-timeout 10000)
 (def ^:const max-limit 100)
 (def ^:const max-query-length 5000)
 

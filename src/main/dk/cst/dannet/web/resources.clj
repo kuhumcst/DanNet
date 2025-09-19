@@ -807,6 +807,7 @@
               :content (sparql/execute-sparql-query (:model @db) sparql-query sparql-timeout sparql-max-results)
               :page-meta {:title "query-result"}))})
 
+;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route
   [prefix/sparql-path
    :any [content-negotiation-ic
