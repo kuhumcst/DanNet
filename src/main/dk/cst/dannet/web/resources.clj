@@ -788,11 +788,13 @@
                 (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
                       query-obj   (sparql/validate-sparql-query sparql)
                       timeout'    (if timeout
-                                    (Long/parseLong timeout)
-                                    sparql/default-timeout-ms)
+                                    (min (Long/parseLong timeout)
+                                         sparql/max-timeout)
+                                    sparql/max-timeout)
                       maxResults' (if maxResults
-                                    (Long/parseLong maxResults)
-                                    sparql/default-limit)]
+                                    (min (Long/parseLong maxResults)
+                                         sparql/max-limit)
+                                    sparql/max-limit)]
                   (assoc ctx
                     :sparql-query query-obj
                     :sparql-timeout timeout'

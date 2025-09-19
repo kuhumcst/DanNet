@@ -7,11 +7,13 @@
             [dk.cst.dannet.prefix :as prefix]
             [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr])
-  (:import [org.apache.jena.query Query QueryFactory QueryExecutionFactory
+  (:import [java.util.concurrent TimeUnit]
+           [org.apache.jena.query Query QueryExecution QueryFactory QueryExecutionFactory
                                   ResultSet]
            [org.apache.jena.rdf.model Model RDFNode]
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
+           [org.apache.jena.sparql.exec QueryExec]
            [org.apache.jena.update UpdateFactory]
            [java.io ByteArrayOutputStream]))
 
@@ -21,8 +23,8 @@
 ;; TODO: clean up this namespace
 
 ;; Configuration constants
-(def ^:const default-timeout-ms 5000)
-(def ^:const default-limit 100)
+(def ^:const max-timeout 5000)
+(def ^:const max-limit 100)
 (def ^:const max-query-length 5000)
 
 ;; Content type mappings for W3C SPARQL Protocol compliance
@@ -86,7 +88,7 @@
 
 (defn limit-results!
   "Apply result limit to SELECT queries to prevent resource exhaustion."
-  [query-obj max-results]
+  [^Query query-obj max-results]
   (when (and (.isSelectType query-obj)
              (or (nil? (.getLimit query-obj))
                  (> (.getLimit query-obj) max-results)))
@@ -198,7 +200,8 @@
                     (let [query (-> query-obj
                                     (apply-timeout timeout) ; TODO: this is currently noop
                                     (limit-results! max-results))
-                          qexec (QueryExecutionFactory/create query-obj model)]
+                          qexec (doto ^QueryExecution (QueryExecutionFactory/create query-obj model)
+                                  (.setTimeout ^Long timeout TimeUnit/MILLISECONDS))]
                       (try
                         (cond
                           (.isSelectType query)

@@ -1445,7 +1445,7 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Dict[str, Any]:
+def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dict[str, Any]:
     """
     Execute a SPARQL SELECT query against the DanNet triplestore.
 
@@ -1542,8 +1542,8 @@ def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Di
 
     Args:
         query: SPARQL SELECT query string (prefixes will be automatically added)
-        timeout: Query timeout in milliseconds (default: 30000)
-        max_results: Maximum number of results to return (default: 100)
+        timeout: Query timeout in milliseconds (default: 5000, max: 5000)
+        max_results: Maximum number of results to return (default: 100, max: 100)
 
     Returns:
         Dict containing SPARQL results in standard JSON format:
@@ -1599,7 +1599,7 @@ def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Di
         }
         
         # Add optional parameters if they differ from defaults
-        if timeout != 30000:
+        if timeout != 5000:
             request_params["timeout"] = str(timeout)
         if max_results != 100:
             request_params["maxResults"] = str(max_results)
