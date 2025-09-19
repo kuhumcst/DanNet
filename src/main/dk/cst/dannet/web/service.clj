@@ -6,7 +6,6 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
-            [dk.cst.dannet.web.sparql :as sparql]
             [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])

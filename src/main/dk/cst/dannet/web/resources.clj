@@ -228,6 +228,15 @@
                (json/write-str {:indent         true
                                 :escape-unicode false}))))
 
+   ;; https://www.w3.org/TR/sparql11-results-json/
+   "application/sparql-results+json"
+   (fn [{:keys [sparql-result]
+         :as   data} & _]
+     (when sparql-result
+       (json/write-str (sparql/format-select-results sparql-result :json)
+                       {:indent         true
+                        :escape-unicode false})))
+
    "application/json"
    (fn [{:keys [sparql-result]
          :as   data} & _]
@@ -364,11 +373,14 @@
        (str "attachment; filename=\"" filename extension "\"")})))
 
 (defn json-body-fn
-  "Combined body-fn that prefers JSON-LD over unspecified JSON when available."
+  "Combined body-fn that prefers specific types of JSON-LD over unspecified JSON
+  when they are available."
   [& args]
-  (let [json-ld-body (content-type->body-fn "application/ld+json")
-        json-body (content-type->body-fn "application/json")]
+  (let [json-ld-body             (content-type->body-fn "application/ld+json")
+        json-sparql-results-body (content-type->body-fn "application/sparql-results+json")
+        json-body                (content-type->body-fn "application/json")]
     (or (apply json-ld-body args)
+        (apply json-sparql-results-body args)
         (apply json-body args))))
 
 (def response-body-ic
@@ -775,10 +787,7 @@
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [query timeout maxResults]} (:query-params request)
-                  raw-sparql (or query
-                                 (when (= (get-in request [:accept :field])
-                                          "application/sparql-query")
-                                   (:body request)))]
+                  raw-sparql (or query (:body request))]
               (if raw-sparql
                 (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
                       query-obj   (sparql/validate-sparql-query sparql)

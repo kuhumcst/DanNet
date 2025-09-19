@@ -279,17 +279,19 @@
   (let [db    @dk.cst.dannet.web.resources/db
         model (:model db)
         query (validate-sparql-query "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 5")]
-    (execute-sparql-query model query 10000 100))
+    (-> (execute-sparql-query model query 10000 100)
+        (dk.cst.dannet.web.resources/json-body-fn)))
 
   ;; Test simple Danish word query - variables become symbols
   (let [db    @dk.cst.dannet.web.resources/db
         model (:model db)
         query (validate-sparql-query "
-          SELECT ?word WHERE { 
+          SELECT ?word WHERE {
             ?form ontolex:writtenRep ?word .
             FILTER(lang(?word) = 'da')
           } LIMIT 5")]
-    (execute-sparql-query model query 10000 100))
+    (-> (execute-sparql-query model query 10000 100)
+        (dk.cst.dannet.web.resources/json-body-fn)))
   ;; => [{?word #voc/lstr "komme noget til@da"} ...]
 
   #_.)
