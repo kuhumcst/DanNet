@@ -233,16 +233,12 @@
    (fn [{:keys [sparql-result]
          :as   data} & _]
      (when sparql-result
-       (json/write-str (sparql/format-select-results sparql-result :json)
-                       {:indent         true
-                        :escape-unicode false})))
+       (sparql/format-select-results sparql-result :json)))
 
    "application/json"
    (fn [{:keys [sparql-result]
          :as   data} & _]
-     (json/write-str (if sparql-result
-                       (sparql/format-select-results sparql-result :json)
-                       (->json-safe data))
+     (json/write-str (->json-safe data)
                      {:indent         true
                       :escape-unicode false}))
 
