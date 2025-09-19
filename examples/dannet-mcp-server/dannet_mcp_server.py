@@ -139,12 +139,12 @@ DanNet follows OntoLex-Lemon + Global WordNet standards where:
 - Synsets represent units of meaning shared by synonymous words
 - Rich semantic network with 10+ major relation categories, 70+ specific types
 
-RDF PRESENTATION GUIDELINES:
-When presenting DanNet data, use standard Turtle/SPARQL namespace notation (ns:identifier) 
-rather than internal :ns/identifier format. Present relations with human-readable labels 
-when available from schema vocabularies. Use Danish labels in Danish contexts, English 
-labels in English contexts. For relations without defined labels, convert identifiers to 
-readable strings (e.g., "mero_part" → "meronym part", "holo_member" → "holonym member").
+RDF STORAGE PATTERNS:
+DanNet uses sophisticated RDF structures for complex data:
+- Ontological types (dns:ontologicalType) are stored as RDF Bags with numbered properties (rdf:_0, rdf:_1, etc.)
+- Word connections use ontolex:isEvokedBy pointing to word entities, not direct labels
+- Synset labels contain quoted word forms with DDO notation (e.g., "{\"hund\", \"køter\"}")
+- Some properties may be stored as blank nodes requiring multi-step queries
 
 QUICK START WORKFLOW:
 1. Check resources for context:
@@ -1498,11 +1498,17 @@ def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Di
       ?hypernym rdfs:label ?label .
     }
 
-    # Find words with specific ontological types:
+    # Find synsets with ontological types (note: stored as RDF Bags with blank nodes):
+    SELECT ?synset ?label ?type WHERE {
+      ?synset dns:ontologicalType ?typeNode .
+      ?typeNode rdf:_0 ?type .
+      ?synset rdfs:label ?label .
+    }
+
+    # Find words linked to synsets:
     SELECT ?word ?synset WHERE {
-      ?synset dns:ontologicalType ?type .
-      FILTER(CONTAINS(STR(?type), "Animal"))
-      ?synset ontolex:isEvokedBy/rdfs:label ?word .
+      ?synset ontolex:isEvokedBy ?entry .
+      ?entry rdfs:label ?word .
     }
 
     # Explore semantic relationships:
