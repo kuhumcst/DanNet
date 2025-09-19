@@ -1444,6 +1444,155 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
+@mcp.tool()
+def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Dict[str, Any]:
+    """
+    Execute a SPARQL SELECT query against the DanNet triplestore.
+
+    This tool provides direct access to DanNet's RDF data through SPARQL queries.
+    The query is automatically prepended with common namespace prefix declarations,
+    so you can use short prefixes instead of full URIs in your queries.
+
+    KNOWN PREFIXES (automatically declared):
+    - rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+    - rdfs: http://www.w3.org/2000/01/rdf-schema#
+    - owl: http://www.w3.org/2002/07/owl#
+    - wn: https://globalwordnet.github.io/schemas/wn#
+    - ontolex: http://www.w3.org/ns/lemon/ontolex#
+    - skos: http://www.w3.org/2004/02/skos/core#
+    - lexinfo: http://www.lexinfo.net/ontology/3.0/lexinfo#
+    - marl: http://www.gsi.upm.es/ontologies/marl/ns#
+    - olia: http://purl.org/olia/olia.owl#
+    - dcat: http://www.w3.org/ns/dcat#
+    - vann: http://purl.org/vocab/vann/
+    - foaf: http://xmlns.com/foaf/0.1/
+    - dc: http://purl.org/dc/terms/
+    - dc11: http://purl.org/dc/elements/1.1/
+    - cc: http://creativecommons.org/ns#
+    - ili: http://globalwordnet.org/ili/
+    - lime: http://www.w3.org/ns/lemon/lime#
+    - schema: http://schema.org/
+    - synsem: http://www.w3.org/ns/lemon/synsem#
+    - enl: https://en-word.net/lemma/
+    - en: https://en-word.net/id/
+    - enold: http://wordnet-rdf.princeton.edu/id/
+    - cor: https://ordregister.dk/id/
+    - dds: https://wordnet.dk/sentiment/
+    - dn: https://wordnet.dk/dannet/data/
+    - dnc: https://wordnet.dk/dannet/concepts/
+    - dns: https://wordnet.dk/dannet/schema/
+    - tr: https://wordnet.dk/dannet/translations/
+
+    COMMON QUERY PATTERNS:
+
+    # Find all synsets for a word:
+    SELECT ?synset ?definition WHERE {
+      ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .
+      ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
+      ?synset skos:definition ?definition .
+    }
+
+    # Find hypernyms (broader concepts):
+    SELECT ?hypernym ?label WHERE {
+      dn:synset-3047 wn:hypernym ?hypernym .
+      ?hypernym rdfs:label ?label .
+    }
+
+    # Find words with specific ontological types:
+    SELECT ?word ?synset WHERE {
+      ?synset dns:ontologicalType ?type .
+      FILTER(CONTAINS(STR(?type), "Animal"))
+      ?synset ontolex:isEvokedBy/rdfs:label ?word .
+    }
+
+    # Explore semantic relationships:
+    SELECT ?relation ?target ?label WHERE {
+      dn:synset-3047 ?relation ?target .
+      FILTER(STRSTARTS(STR(?relation), "https://globalwordnet.github.io/schemas/wn#"))
+      OPTIONAL { ?target rdfs:label ?label }
+    }
+
+    Args:
+        query: SPARQL SELECT query string (prefixes will be automatically added)
+        timeout: Query timeout in milliseconds (default: 30000)
+        max_results: Maximum number of results to return (default: 100)
+
+    Returns:
+        Dict containing SPARQL results in standard JSON format:
+        - head: Query metadata with variable names
+        - results: Bindings array with variable-value mappings
+        Each value includes type (uri/literal) and language information when applicable
+
+    Example Usage:
+        # Simple entity lookup
+        result = sparql_query("SELECT ?s ?p ?o WHERE { dn:synset-3047 ?p ?o } LIMIT 10")
+        
+        # Complex semantic query
+        result = sparql_query('''
+            SELECT ?word ?synset ?hypernym ?hyperlabel WHERE {
+              ?entry ontolex:canonicalForm/ontolex:writtenRep ?word .
+              FILTER(REGEX(?word, "^bil"))
+              ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
+              ?synset wn:hypernym ?hypernym .
+              ?hypernym rdfs:label ?hyperlabel .
+            } LIMIT 20
+        ''')
+
+    Note: Only SELECT queries are supported. The query is validated before execution.
+    """
+    try:
+        # Make the SPARQL request using proper URL encoding
+        client = get_client()
+        
+        request_params = {
+            "query": query,
+            "format": "json"
+        }
+        
+        # Add optional parameters if they differ from defaults
+        if timeout != 30000:
+            request_params["timeout"] = str(timeout)
+        if max_results != 100:
+            request_params["maxResults"] = str(max_results)
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.debug(f"Making SPARQL request with params {request_params}")
+                response = client.client.get(f"{client.base_url}/dannet/sparql", 
+                                           params=request_params, 
+                                           follow_redirects=True)
+                response.raise_for_status()
+                return response.json()
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 400:
+                    # Query validation or syntax error
+                    error_text = e.response.text
+                    if "Query parsing failed" in error_text or "QueryParseException" in error_text:
+                        raise DanNetError(f"SPARQL syntax error in query: {error_text}")
+                    else:
+                        raise DanNetError(f"Invalid SPARQL query: {error_text}")
+                elif e.response.status_code == 404:
+                    raise DanNetError("SPARQL endpoint not found - check server configuration")
+                elif e.response.status_code == 429:
+                    if attempt < MAX_RETRIES - 1:
+                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
+                        continue
+                    raise DanNetError("Rate limit exceeded for SPARQL endpoint")
+                else:
+                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
+            except Exception as e:
+                if attempt < MAX_RETRIES - 1:
+                    logger.warning(f"SPARQL request failed, retrying... (attempt {attempt + 1}): {e}")
+                    continue
+                raise DanNetError(f"SPARQL request failed: {e}")
+
+        raise DanNetError("Max retries exceeded for SPARQL query")
+
+    except Exception as e:
+        raise RuntimeError(f"SPARQL query failed: {e}")
+
+
 @mcp.resource("dannet://ontological-types")
 def get_ontological_types_schema() -> str:
     """
