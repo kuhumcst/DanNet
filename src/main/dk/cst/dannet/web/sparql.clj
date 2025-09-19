@@ -17,11 +17,11 @@
 
 
 
+;; TODO: some queries seem to run quite slow, I guess they are not really limited?
 ;; TODO: clean up this namespace
-;; TODO: return the result-set as the content body and convert it in the response-body-ic
 
 ;; Configuration constants
-(def ^:const default-timeout-ms 10000)
+(def ^:const default-timeout-ms 5000)
 (def ^:const default-limit 100)
 (def ^:const max-query-length 5000)
 

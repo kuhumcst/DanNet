@@ -1498,24 +1498,46 @@ def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Di
       ?hypernym rdfs:label ?label .
     }
 
-    # Find synsets with ontological types (note: stored as RDF Bags with blank nodes):
+    # Find functional relations (DanNet-specific "used for" patterns):
+    SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
+      ?tool dns:usedFor ?purpose .
+      ?tool rdfs:label ?toolLabel .
+      ?purpose rdfs:label ?purposeLabel .
+    }
+
+    # Discover thematic role patterns (agents of actions):
+    SELECT ?action ?actionLabel ?agent ?agentLabel WHERE {
+      ?action wn:involved_agent ?agent .
+      ?action rdfs:label ?actionLabel .
+      ?agent rdfs:label ?agentLabel .
+    }
+
+    # Find co-occurrence patterns (systematic co-occurrences):
+    SELECT ?concept ?conceptLabel ?coAgent ?coAgentLabel WHERE {
+      ?concept wn:co_agent_instrument ?coAgent .
+      ?concept rdfs:label ?conceptLabel .
+      ?coAgent rdfs:label ?coAgentLabel .
+    }
+
+    # Explore cross-cutting categories (orthogonal hypernyms):
+    SELECT ?specific ?specificLabel ?ortho ?orthoLabel WHERE {
+      ?specific dns:orthogonalHypernym ?ortho .
+      ?specific rdfs:label ?specificLabel .
+      ?ortho rdfs:label ?orthoLabel .
+    }
+
+    # Find synsets with ontological types (stored as RDF Bags):
     SELECT ?synset ?label ?type WHERE {
       ?synset dns:ontologicalType ?typeNode .
       ?typeNode rdf:_0 ?type .
       ?synset rdfs:label ?label .
     }
 
-    # Find words linked to synsets:
-    SELECT ?word ?synset WHERE {
-      ?synset ontolex:isEvokedBy ?entry .
-      ?entry rdfs:label ?word .
-    }
-
-    # Explore semantic relationships:
-    SELECT ?relation ?target ?label WHERE {
-      dn:synset-3047 ?relation ?target .
-      FILTER(STRSTARTS(STR(?relation), "https://globalwordnet.github.io/schemas/wn#"))
-      OPTIONAL { ?target rdfs:label ?label }
+    # Explore causality chains:
+    SELECT ?cause ?causeLabel ?effect ?effectLabel WHERE {
+      ?cause wn:causes ?effect .
+      ?cause rdfs:label ?causeLabel .
+      ?effect rdfs:label ?effectLabel .
     }
 
     Args:
@@ -1529,19 +1551,40 @@ def sparql_query(query: str, timeout: int = 30000, max_results: int = 100) -> Di
         - results: Bindings array with variable-value mappings
         Each value includes type (uri/literal) and language information when applicable
 
+    FASCINATING RELATIONSHIP EXAMPLES FROM DANNET:
+    
+    Functional Relations (dns:usedFor):
+    - {idrætshal; sportshal} used for {idræt; sport} (sports hall used for sports)
+    - {faldskærm; skærm} used for {idræt; sport} (parachute used for sports)
+    - {sportstøj} used for {idræt; sport} (sportswear used for sports)
+    
+    Thematic Roles (wn:involved_agent):
+    - {kommunikere} typically involves agent {presseattaché} (communication involves press attaché)
+    - {skrive} typically involves agent {informationsmedarbejder} (writing involves information worker)
+    
+    Co-occurrence Patterns (wn:co_agent_instrument):
+    - {krig} co-occurs with agent-instrument {våben} (war systematically co-occurs with weapons)
+    - {verdenskrig} co-occurs with agent-instrument {våben} (world war co-occurs with weapons)
+    
+    Cross-cutting Categories (dns:orthogonalHypernym):
+    - {fiskefartøj} has orthogonal hypernym {fartøj} (fishing vessel has cross-cutting category vessel)
+    - {handelsfartøj} has orthogonal hypernym {fartøj} (merchant vessel has cross-cutting category vessel)
+    
+    These examples show how DanNet captures not just taxonomic relationships but also 
+    functional, instrumental, and systematic co-occurrence patterns in Danish language and culture.
+
     Example Usage:
         # Simple entity lookup
         result = sparql_query("SELECT ?s ?p ?o WHERE { dn:synset-3047 ?p ?o } LIMIT 10")
         
-        # Complex semantic query
+        # Complex semantic query exploring functional relations
         result = sparql_query('''
-            SELECT ?word ?synset ?hypernym ?hyperlabel WHERE {
-              ?entry ontolex:canonicalForm/ontolex:writtenRep ?word .
-              FILTER(REGEX(?word, "^bil"))
-              ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
-              ?synset wn:hypernym ?hypernym .
-              ?hypernym rdfs:label ?hyperlabel .
-            } LIMIT 20
+            SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
+              ?tool dns:usedFor ?purpose .
+              ?tool rdfs:label ?toolLabel .
+              ?purpose rdfs:label ?purposeLabel .
+              FILTER(CONTAINS(?purposeLabel, "sport"))
+            }
         ''')
 
     Note: Only SELECT queries are supported. The query is validated before execution.
