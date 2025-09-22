@@ -44,6 +44,82 @@ class DanNetError(Exception):
     pass
 
 
+def with_retry(entity_not_found_msg=None):
+    """
+    Decorator that adds retry logic with exponential backoff for HTTP requests.
+    
+    
+    Features:
+    - Exponential backoff for rate limiting (starts at 0.5s, doubles each retry)
+    - Intelligent error classification (permanent vs. retryable errors)
+    - Customizable error messages for different contexts
+    - Consistent logging across all retry operations
+    
+    Args:
+        entity_not_found_msg: Custom function to generate 404 error message (optional)
+    
+    Error handling:
+    - 404, 400: Immediate failure (permanent errors)
+    - 429: Retry with exponential backoff (0.5s, 1s, 2s...)  
+    - Network errors: Retry with exponential backoff
+    
+    Usage:
+        @with_retry()
+        def make_request(self, url, params):
+            response = self.client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+    """
+    import functools
+    import time
+    
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(MAX_RETRIES):
+                try:
+                    return func(*args, **kwargs)
+                    
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 404:
+                        # 404 errors are permanent - don't retry, but provide context
+                        if entity_not_found_msg and callable(entity_not_found_msg):
+                            error_msg = entity_not_found_msg(*args, **kwargs)
+                        else:
+                            # Default behavior for _make_request
+                            if hasattr(args[0], '__self__') and len(args) > 1:
+                                endpoint = args[1]  # Second argument for _make_request
+                                error_msg = f"Resource not found: {endpoint}"
+                            else:
+                                error_msg = "Resource not found"
+                        raise DanNetError(error_msg)
+                    elif e.response.status_code == 429:
+                        # Rate limiting - retry with backoff
+                        if attempt < MAX_RETRIES - 1:
+                            backoff_time = 0.5 * (2 ** attempt)  # Exponential backoff
+                            logger.warning(f"Rate limited, retrying in {backoff_time:.1f}s... (attempt {attempt + 1})")
+                            time.sleep(backoff_time)
+                            continue
+                        raise DanNetError("Rate limit exceeded")
+                    else:
+                        # Other HTTP errors are permanent - don't retry  
+                        raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
+                        
+                except Exception as e:
+                    # Network/connection errors - retry with backoff
+                    if attempt < MAX_RETRIES - 1:
+                        backoff_time = 0.5 * (2 ** attempt)  # Exponential backoff
+                        logger.warning(f"Request failed, retrying in {backoff_time:.1f}s... (attempt {attempt + 1}): {e}")
+                        time.sleep(backoff_time)
+                        continue
+                    raise DanNetError(f"Request failed: {e}")
+                    
+            raise DanNetError("Max retries exceeded")
+            
+        return wrapper
+    return decorator
+
+
 class SearchResult(BaseModel):
     """Search result from DanNet"""
     word: str = Field(description="The word form")
@@ -65,6 +141,7 @@ class DanNetClient:
         self.base_url = base_url.rstrip('/')
         self.client = httpx.Client(timeout=TIMEOUT)
 
+    @with_retry()
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make HTTP request to DanNet API"""
         url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
@@ -73,32 +150,97 @@ class DanNetClient:
         request_params = params or {}
         request_params["format"] = "json"
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.debug(f"Making request to {url} with params {request_params}")
-                # Note: allow_redirects=True handles automatic redirects for single search results
-                response = self.client.get(url, params=request_params, follow_redirects=True)
-                response.raise_for_status()
+        logger.debug(f"Making request to {url} with params {request_params}")
+        # Note: allow_redirects=True handles automatic redirects for single search results
+        response = self.client.get(url, params=request_params, follow_redirects=True)
+        response.raise_for_status()
 
-                return response.json()
+        return response.json()
 
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 404:
-                    raise DanNetError(f"Resource not found: {endpoint}")
-                elif e.response.status_code == 429:
-                    if attempt < MAX_RETRIES - 1:
-                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
-                        continue
-                    raise DanNetError("Rate limit exceeded")
-                else:
-                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
-            except Exception as e:
-                if attempt < MAX_RETRIES - 1:
-                    logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
-                    continue
-                raise DanNetError(f"Request failed: {e}")
+    @with_retry()  
+    def _make_entity_request(self, url: str, params: Dict) -> Dict:
+        """Make HTTP request for entity data with retry logic"""
+        logger.debug(f"Making request to {url} with params {params}")
+        response = self.client.get(url, params=params, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
 
-        raise DanNetError("Max retries exceeded")
+
+def _entity_not_found_error(identifier: str, namespace: str = "dn") -> str:
+    """Generate entity-specific 404 error message"""
+    return f"Entity not found: {namespace}/{identifier}"
+
+
+@with_retry(entity_not_found_msg=lambda identifier, namespace="dn": _entity_not_found_error(identifier, namespace))
+def _make_entity_request_standalone(client: DanNetClient, url: str, params: Dict) -> Dict:
+    """Standalone entity request function for get_entity_info"""
+    logger.debug(f"Making request to {url} with params {params}")
+    response = client.client.get(url, params=params, follow_redirects=True)
+    response.raise_for_status()
+    return response.json()
+
+
+def _sparql_error_handler(query: str, **kwargs) -> str:
+    """Generate SPARQL-specific error messages"""
+    return "SPARQL endpoint not found - check server configuration"
+
+
+@with_retry(entity_not_found_msg=lambda query, **kwargs: _sparql_error_handler(query, **kwargs))
+def _make_sparql_request(client: DanNetClient, url: str, params: Dict) -> Dict:
+    """Standalone SPARQL request function with custom error handling"""
+    logger.debug(f"Making SPARQL request with params {params}")
+    response = client.client.get(url, params=params, follow_redirects=True)
+    
+    # Handle SPARQL-specific HTTP errors
+    if response.status_code == 400:
+        error_text = response.text
+        if "Query parsing failed" in error_text or "QueryParseException" in error_text:
+            raise DanNetError(f"SPARQL syntax error in query: {error_text}")
+        else:
+            raise DanNetError(f"Invalid SPARQL query: {error_text}")
+    elif response.status_code == 404:
+        raise DanNetError("SPARQL endpoint not found - check server configuration")
+    
+    response.raise_for_status()
+    return response.json()
+
+
+class DanNetClient:
+    """HTTP client for DanNet API with format negotiation support"""
+
+    def __init__(self, base_url: str = REMOTE_URL):
+        """
+        Initialize DanNet client.
+
+        Args:
+            base_url: DanNet service URL
+        """
+        self.base_url = base_url.rstrip('/')
+        self.client = httpx.Client(timeout=TIMEOUT)
+
+    @with_retry()
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+        """Make HTTP request to DanNet API"""
+        url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
+
+        # Add format=json parameter since DanNet doesn't support Accept header
+        request_params = params or {}
+        request_params["format"] = "json"
+
+        logger.debug(f"Making request to {url} with params {request_params}")
+        # Note: allow_redirects=True handles automatic redirects for single search results
+        response = self.client.get(url, params=request_params, follow_redirects=True)
+        response.raise_for_status()
+
+        return response.json()
+
+    @with_retry()  
+    def _make_entity_request(self, url: str, params: Dict) -> Dict:
+        """Make HTTP request for entity data with retry logic"""
+        logger.debug(f"Making request to {url} with params {params}")
+        response = self.client.get(url, params=params, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
 
     def search(self, query: str, language: str = "da") -> Dict:
         """Search DanNet for words and synsets"""
@@ -613,29 +755,8 @@ def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
         # Use same request pattern as get_resource but with custom path
         request_params = {"format": "json"}
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.debug(f"Making request to {url} with params {request_params}")
-                response = client.client.get(url, params=request_params, follow_redirects=True)
-                response.raise_for_status()
-                data = response.json()
-                break
-
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 404:
-                    raise DanNetError(f"Entity not found: {namespace}/{identifier}")
-                elif e.response.status_code == 429:
-                    if attempt < MAX_RETRIES - 1:
-                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
-                        continue
-                    raise DanNetError("Rate limit exceeded")
-                else:
-                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
-            except Exception as e:
-                if attempt < MAX_RETRIES - 1:
-                    logger.warning(f"Request failed, retrying... (attempt {attempt + 1}): {e}")
-                    continue
-                raise DanNetError(f"Request failed: {e}")
+        # Use the standalone retry-enabled function
+        data = _make_entity_request_standalone(client, url, request_params)
 
         # Check for valid JSON-LD response
         if not data:
@@ -1616,39 +1737,8 @@ def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dic
         if max_results != 100:
             request_params["maxResults"] = str(max_results)
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.debug(f"Making SPARQL request with params {request_params}")
-                response = client.client.get(f"{client.base_url}/dannet/sparql", 
-                                           params=request_params, 
-                                           follow_redirects=True)
-                response.raise_for_status()
-                return response.json()
-
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 400:
-                    # Query validation or syntax error
-                    error_text = e.response.text
-                    if "Query parsing failed" in error_text or "QueryParseException" in error_text:
-                        raise DanNetError(f"SPARQL syntax error in query: {error_text}")
-                    else:
-                        raise DanNetError(f"Invalid SPARQL query: {error_text}")
-                elif e.response.status_code == 404:
-                    raise DanNetError("SPARQL endpoint not found - check server configuration")
-                elif e.response.status_code == 429:
-                    if attempt < MAX_RETRIES - 1:
-                        logger.warning(f"Rate limited, retrying... (attempt {attempt + 1})")
-                        continue
-                    raise DanNetError("Rate limit exceeded for SPARQL endpoint")
-                else:
-                    raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
-            except Exception as e:
-                if attempt < MAX_RETRIES - 1:
-                    logger.warning(f"SPARQL request failed, retrying... (attempt {attempt + 1}): {e}")
-                    continue
-                raise DanNetError(f"SPARQL request failed: {e}")
-
-        raise DanNetError("Max retries exceeded for SPARQL query")
+        # Use the standalone retry-enabled function
+        return _make_sparql_request(client, f"{client.base_url}/dannet/sparql", request_params)
 
     except Exception as e:
         raise RuntimeError(f"SPARQL query failed: {e}")
