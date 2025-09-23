@@ -196,8 +196,81 @@
         :name word
         :sub sub))))
 
+
+
 (def radial-limit
   48)
+
+
+
+(defn- add-theme-spacers
+  "Insert transparent spacer nodes between theme groups for visual separation."
+  [themed-children]
+  (let [theme-groups  (group-by :theme themed-children)
+        sorted-themes (sort-by first theme-groups)
+        spacer-node   {:name "" :theme nil :spacer true :title "" :href nil}]
+    (->> sorted-themes
+         (mapcat (fn [[_theme nodes]]
+                   (concat nodes [spacer-node]))))))
+
+(defn- calculate-dynamic-sizing
+  "Calculate dynamic font sizes and text limits for `node-count`, `width`, and `radius`.
+  
+  Returns map with :size-factor, :font-size, :subject-font-size, :tspan-font-size,
+  :subject-limits [limit cutoff], and :regular-limits [limit cutoff]."
+  [node-count width radius]
+  (let [;; Node density: fewer nodes allow bigger text
+        density-factor (max 0.7 (min 1.3 (/ 20 (max node-count 8))))
+        ;; Screen space: bigger screens allow proportionally bigger text
+        space-factor   (max 0.8 (min 1.5 (/ width 600)))
+        ;; Radius scaling: maintain proportion with diagram size
+        radius-factor  (max 0.9 (min 1.1 (/ radius 120)))
+        ;; Combined scaling with base adjustment
+        size-factor    (* density-factor space-factor radius-factor 1.05)
+        font-size      (* 14 size-factor)]
+    {:size-factor       size-factor
+     :font-size         font-size
+     :subject-font-size (* font-size 2.2)
+     :tspan-font-size   (* font-size 0.75)
+     :subject-limits    [(int (* 30 size-factor)) (int (* 28 size-factor))]
+     :regular-limits    [(int (* 18 size-factor)) (int (* 16 size-factor))]}))
+
+(defn- create-radial-gradient
+  "Add radial gradient definition for subject label background."
+  [svg]
+  (let [defs     (-> svg (.append "defs"))
+        gradient (-> defs
+                     (.append "radialGradient")
+                     (.attr "id" "subjectBackground")
+                     (.attr "cx" "50%")
+                     (.attr "cy" "50%")
+                     (.attr "r" "50%"))]
+    (-> gradient (.append "stop") (.attr "offset" "0%")
+        (.attr "stop-color" "white") (.attr "stop-opacity" "0.9"))
+    (-> gradient (.append "stop") (.attr "offset" "70%")
+        (.attr "stop-color" "white") (.attr "stop-opacity" "0.4"))
+    (-> gradient (.append "stop") (.attr "offset" "100%")
+        (.attr "stop-color" "white") (.attr "stop-opacity" "0"))))
+
+(defn- render-node-fill [d]
+  "Determine fill color for nodes, handling spacers and themes."
+  (cond
+    (.-spacer (.-data d)) "transparent"
+    (.-theme (.-data d)) (.-theme (.-data d))
+    (.-subject (.-data d)) "transparent"
+    :else "#333"))
+
+(defn- render-text-content [d subject-limits regular-limits]
+  "Generate text content for labels, handling spacers and truncation."
+  (if (.-spacer (.-data d))
+    ""
+    (let [s (.-name (.-data d))
+          [limit cutoff] (if (.-subject (.-data d))
+                           subject-limits
+                           regular-limits)]
+      (if (> (count s) limit)
+        (str (subs s 0 cutoff) shared/omitted)
+        s))))
 
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
@@ -207,88 +280,101 @@
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
-    (let [width     (content-width (.-parentElement node))
-          height    width
+    (let [width           (content-width (.-parentElement node))
+          height          width
 
-          subject   (->> (shared/sense-labels shared/synset-sep label)
-                         (shared/canonical)
-                         (map remove-subscript)
-                         (remove #{shared/omitted})
-                         (set)                              ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
-                         (sort-by count)
-                         (str/join ", "))
-          k->label' (comp
-                      #_clean-text
-                      (partial i18n/select-label languages)
-                      k->label)
-          entity'   (->> (shared/weight-sort-fn synset-weights)
-                         (update-vals (select-keys entity (keys shared/synset-rel-theme)))
-                         (shared/top-n-vals radial-limit))
+          subject         (->> (shared/sense-labels shared/synset-sep label)
+                               (shared/canonical)
+                               (map remove-subscript)
+                               (remove #{shared/omitted})
+                               (set)                        ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
+                               (sort-by count)
+                               (str/join ", "))
+          ;; TODO: need to use prefix:identifier when label is unavailable, e.g. ILI synsets
+          k->label'       (comp
+                            #_clean-text
+                            (partial i18n/select-label languages)
+                            k->label)
+          entity'         (->> (shared/weight-sort-fn synset-weights)
+                               (update-vals (select-keys entity (keys shared/synset-rel-theme)))
+                               (shared/top-n-vals radial-limit))
 
-          data      (clj->js
-                      {:name     subject
-                       :title    subject
-                       :subject  true
-                       :children (mapcat
-                                   (fn [[k synsets]]
-                                     (let [theme (get shared/synset-rel-theme k)]
-                                       (->> (for [synset synsets]
-                                              (let [label (k->label' synset)]
-                                                {:name  label
-                                                 :theme theme
-                                                 :href  (prefix/resolve-href synset)
-                                                 :title (labels-only label)
-                                                 #_#_:children []}))
-                                            (mapcat by-sense-label)
-                                            (group-by :theme)
-                                            ;; Since we split by labels, a new
-                                            ;; map is created to ensure we are
-                                            ;; within the limit.
-                                            (shared/top-n-vals radial-limit)
-                                            (vals)
-                                            (apply concat)
-                                            (sort-by :name))))
+          ;; Transform entity data into radial tree format with category spacers
+          children-with-spacers
+                          (->> entity'
+                               (mapcat (fn [[k synsets]]
+                                         (let [theme (get shared/synset-rel-theme k)]
+                                           (->> synsets
+                                                (map (fn [synset]
+                                                       (let [label (k->label' synset)]
+                                                         {:name  label :theme theme
+                                                          :href  (prefix/resolve-href synset)
+                                                          :title (labels-only label)})))
+                                                (mapcat by-sense-label)
+                                                (group-by :theme)
+                                                (shared/top-n-vals radial-limit)
+                                                vals (apply concat) (sort-by :name)
+                                                (map-indexed (fn [n m] (assoc m :n n)))))))
+                               (add-theme-spacers))
 
-                                   entity')})
+          data            (clj->js
+                            {:name     subject
+                             :title    subject
+                             :subject  true
+                             :children children-with-spacers})
 
-          ;; Specify the chart’s dimensions.
-          cx        (* 0.5 width)
-          cy        (* 0.5 height)
-          radius    (/ (min width height) 3.2)              ; overall size
+          ;; Specify the chart's dimensions.
+          cx              (* 0.5 width)
+          cy              (* 0.5 height)
+          ;; More aggressive padding - use more of the available space
+          diagram-padding (max 16 (min 28 (* width 0.04)))  ; 4% of width, clamped between 16-28px
+          radius          (- (/ (min width height)
+                                js/Math.PI)
+                             diagram-padding)               ; overall size
 
-          ; Create a radial tree layout. The layout’s first dimension (x)
+          ; Create a radial tree layout. The layout's first dimension (x)
           ; is the angle, while the second (y) is the radius.
-          tree      (-> (.tree d3)
-                        (.size #js [(* 2 js/Math.PI) radius])
-                        (.separation (fn [a b]
-                                       (/ (if (= (.-parent a) (.-parent b))
-                                            1
-                                            2)
-                                          (.-depth a)))))
+          tree            (-> (.tree d3)
+                              (.size #js [(* 2 js/Math.PI) radius])
+                              (.separation (fn [a b]
+                                             (/ (if (= (.-parent a) (.-parent b))
+                                                  1
+                                                  2)
+                                                (.-depth a)))))
 
           ;; Sort the tree and apply the layout.
-          root      (-> (.hierarchy d3 data)
-                        #_(.sort (fn [a b]
-                                   (.ascending
-                                     d3 (.-name (.-data a)) (.-name (.-data b)))))
-                        (tree))
+          root            (-> (.hierarchy d3 data)
+                              #_(.sort (fn [a b]
+                                         (.ascending
+                                           d3 (.-name (.-data a)) (.-name (.-data b)))))
+                              (tree))
+
+          ;; Calculate dynamic sizing factors for fonts and text limits
+          node-count      (.-length (.descendants root))
+          sizing          (calculate-dynamic-sizing node-count width radius)
+          {:keys [size-factor font-size subject-font-size tspan-font-size
+                  subject-limits regular-limits]} sizing
 
           ;; Creates the SVG container.
-          svg       (-> d3
-                        (.select node)
-                        (.append "svg")
-                        (.attr "class" "radial-tree-diagram__svg")
-                        #_(.create d3 "svg")
-                        (.attr "width" width)
-                        (.attr "height" height)
-                        (.attr "viewBox" #js [(- cx) (- cy) width height]))
+          svg             (-> d3
+                              (.select node)
+                              (.append "svg")
+                              (.attr "class" "radial-tree-diagram__svg")
+                              (.attr "width" width)
+                              (.attr "height" height)
+                              (.attr "viewBox" #js [(- cx) (- cy) width height])
+                              (.style "--radial-font-size" (str font-size "px"))
+                              (.style "--radial-subject-font-size" (str subject-font-size "px"))
+                              (.style "--radial-tspan-font-size" (str tspan-font-size "px")))
+
+          _               (create-radial-gradient svg)
 
           ;; Add mouseover text (in lieu of a title attribute)
-          add-title (fn [d3]
-                      (-> d3
-                          (.append "title")
-                          (.text (fn [d] (.-title (.-data d)))))
-                      d3)]
+          add-title       (fn [d3]
+                            (-> d3
+                                (.append "title")
+                                (.text (fn [d] (.-title (.-data d)))))
+                            d3)]
       ;; Append links.
       (-> svg
           (.append "g")
@@ -303,9 +389,22 @@
                          (.angle (fn [d] (.-x d)))
                          (.radius (fn [d] (.-y d)))))
           (.attr "stroke" (fn [d]
-                            (if-let [color ^js/String (.-theme (.-data (.-target d)))]
-                              color
-                              "#333"))))
+                            (if (.-spacer (.-data (.-target d)))
+                              "transparent"                 ; Hide spacer links
+                              (if-let [color ^js/String (.-theme (.-data (.-target d)))]
+                                color
+                                "#333")))))
+
+      ;; Add radial gradient background to fade out the line congestion in center
+      ;; Positioned after links but before nodes/labels for proper layering
+      (let [bg-radius (* radius 0.75)]                      ; 75% of diagram radius - nearly to the nodes but not covering labels
+        (-> svg
+            (.append "circle")
+            (.attr "class" "subject-background")
+            (.attr "cx" 0)                                  ; Center of diagram where lines congregate
+            (.attr "cy" 0)                                  ; Center of diagram where lines congregate
+            (.attr "r" bg-radius)
+            (.attr "fill" "url(#subjectBackground)")))
 
       ;; Append nodes.
       (-> svg
@@ -317,12 +416,7 @@
           (.attr "transform" (fn [d]
                                (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90)
                                     ") translate(" (.-y d) ",0)")))
-          (.attr "fill" (fn [d]
-                          (if-let [color ^js/String (.-theme (.-data d))]
-                            color
-                            (if (.-subject (.-data d))
-                              "transparent"
-                              "#333"))))
+          (.attr "fill" render-node-fill)                   ; Default color
           (.attr "r" 5))
 
       ;; Append labels.
@@ -340,7 +434,7 @@
                              "radial-item radial-item__subject")))
           (.attr "transform" (fn [d]
                                (if (.-subject (.-data d))
-                                 (str "translate(0,-18) ")
+                                 (str "translate(0,-4) ")
                                  (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ")"
                                       "translate(" (.-y d) ",0) "
                                       "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ")"))))
@@ -348,9 +442,12 @@
           (.attr "x" (fn [d]
                        (if (.-subject (.-data d))
                          0
-                         (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
-                           12
-                           -12))))
+                         ;; The distance between - optimized for available space
+                         (let [base-dist  12                ; Reduced from 16 to save space
+                               label-dist (* base-dist size-factor)]
+                           (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
+                             label-dist
+                             (- label-dist))))))
           (.attr "text-anchor" (fn [d]
                                  (if (.-subject (.-data d))
                                    "middle"
@@ -358,21 +455,32 @@
                                      "start"
                                      "end"))))
           (.attr "paint-order" "stroke")
+          (.attr "font-size" (fn [d]
+                               ;; Use larger font for subject (center) label
+                               (if (.-subject (.-data d))
+                                 (str subject-font-size "px")
+                                 (str font-size "px"))))
           #_(.attr "stroke" "#333")
           ;; TODO: colour the labels using the theme colours? or inverted colours?
           (.attr "data-theme" (fn [d]
                                 (if-let [theme ^js/String (.-theme (.-data d))]
                                   theme
                                   "#333")))
-          (.attr "fill" "#333")
+          (.attr "fill" (fn [d]
+                          (if (.-spacer (.-data d))
+                            "transparent"                   ; Hide spacer labels
+                            "#333")))
           (.text (fn [d]
-                   (let [s (.-name (.-data d))
-                         [limit cutoff] (if (.-subject (.-data d))
-                                          [30 28]
-                                          [18 16])]
-                     (if (> (count s) limit)
-                       (str (subs s 0 cutoff) shared/omitted)
-                       s))))
+                   (if (.-spacer (.-data d))
+                     ""                                     ; Empty text for spacers
+                     (let [s (.-name (.-data d))
+                           ;; Use dynamic limits based on node count
+                           [limit cutoff] (if (.-subject (.-data d))
+                                            subject-limits
+                                            regular-limits)]
+                       (if (> (count s) limit)
+                         (str (subs s 0 cutoff) shared/omitted)
+                         s)))))
           (.on "click" (fn [_ d]
                          (when (.-href (.-data d))
                            (reset! shared/post-navigate {:scroll :diagram})
@@ -383,11 +491,13 @@
 
           (.append "tspan")
           (.attr "class" "sense-paragraph")
-          (.attr "dy" "4px")
+          (.attr "dy" "6px")
+          (.attr "dx" "4px")
+          (.attr "font-size" (str tspan-font-size "px"))    ; Dynamic tspan font size
           (.text (fn [d]
                    (when (<= (+ (count (.-name (.-data d)))
                                 (count (.-sub (.-data d))))
-                             16)
+                             (* 12 size-factor))            ; Updated to match new base-dist
                      (.-sub (.-data d))))))
 
       (.node svg))))

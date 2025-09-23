@@ -1014,8 +1014,9 @@ svg.radial-tree-diagram__svg {
     max-height: calc(100vh - 24px);
 }
 
+/* More targeted transitions - only animate colors, not font sizes */
 .radial-tree-diagram * {
-    transition: all .2s;
+    transition: fill 0.2s, stroke 0.2s, opacity 0.2s;
 }
 
 ul.radial-tree-legend {
@@ -1029,6 +1030,42 @@ ul.radial-tree-legend {
 
     font-variant: small-caps;
     font-size: 14px;
+}
+
+@media only screen and (max-width: 900px) {
+    .radial-tree {
+        flex-direction: column;
+    }
+    .radial-tree-diagram {
+        border-right: none;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    ul.radial-tree-legend {
+        columns: 2;
+    }
+    /* Ensure text doesn't get too big on medium screens */
+    .radial-item {
+        font-size: var(--radial-font-size, clamp(10px, 2vw, 16px));
+    }
+    .radial-item__subject {
+        font-size: var(--radial-font-size, clamp(14px, 3vw, 24px));
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    ul.radial-tree-legend {
+        columns: 1;
+    }
+    /* More aggressive text scaling on small screens */
+    .radial-item {
+        font-size: var(--radial-font-size, clamp(8px, 1.5vw, 12px));
+    }
+    .radial-item__subject {
+        font-size: var(--radial-font-size, clamp(12px, 2.5vw, 18px));
+    }
+    tspan.sense-paragraph {
+        font-size: var(--radial-tspan-font-size, clamp(7px, 1.2vw, 10px));
+    }
 }
 
 ul.radial-tree-legend label {
@@ -1088,7 +1125,8 @@ ul.radial-tree-legend > li:focus-within {
 }
 
 .radial-item {
-    font-size: 16px;
+    /* Use CSS custom property set by JavaScript, with responsive fallbacks */
+    font-size: var(--radial-font-size, clamp(12px, 2.5vw, 20px));
     text-underline-offset: 2px;
 }
 
@@ -1100,14 +1138,17 @@ ul.radial-tree-legend > li:focus-within {
     text-decoration: underline;
     cursor: pointer;
 }
+
 .radial-item__subject {
     /* Make the subject label easier to read in busy diagrams. */
     filter: drop-shadow(2px 4px 2px white);
-    font-size: 32px;
+    /* Subject is typically larger than regular items */
+    font-size: var(--radial-subject-font-size, clamp(18px, 5vw, 40px));
 }
 
 tspan.sense-paragraph {
-    font-size: 12px;
+    /* Use CSS custom property set by JavaScript, with responsive fallback */
+    font-size: var(--radial-tspan-font-size, clamp(10px, 2vw, 14px));
     fill: #AAA;
 }
 

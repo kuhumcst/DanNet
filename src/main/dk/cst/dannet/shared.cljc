@@ -88,7 +88,7 @@
   (atom {:languages default-languages
          :search    {:completion {}
                      :s          ""}
-         :section   {section/semantic-title {:display {:selected "table"}}}
+         :section   {section/semantic-title {:display {:selected "radial"}}}
          :details?  nil}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
