@@ -761,12 +761,18 @@
                                        :value k}
                               v]))))]]
              (case (get-in opts [:section title :display :selected])
-               "radial" [:div.radial-tree {:key (str (hash subentity))}
-                         #?(:cljs (viz/radial-tree
-                                    (assoc opts :label label)
-                                    subentity)
-                            :clj  [:div.radial-tree-diagram])
-                         (radial-tree-legend opts subentity)]
+               "radial" [:<>
+                         [:div.radial-tree {:key (str (hash subentity))}
+                          #?(:cljs (viz/radial-tree
+                                     (assoc opts :label label)
+                                     subentity)
+                             :clj  [:div.radial-tree-diagram])
+                          (radial-tree-legend opts subentity)]
+                         [:p.note
+                          [:strong "! "]
+                          (i18n/da-en languages
+                            "Data kan være udeladt; se tabellen for alle detaljer."
+                            "Data may be omitted; view table for full details.")]]
                (attr-val-table (assoc opts :inherited inherited) subentity))]
             (attr-val-table (assoc opts :inherited inherited) subentity))]))
      [:section.notes

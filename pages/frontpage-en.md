@@ -1,6 +1,6 @@
 # ![DanNet](/images/dannet-logo-black.svg)
 
-DanNet is a  [WordNet][WordNet] for the Danish language co-created by [Dansk Sprog- og Litteraturselskab][DSL] and the [Centre for Language Technology][CST] (KU). You can **query DanNet** using the search field in the upper left corner of the page.
+DanNet is a  [WordNet][WordNet] for the Danish language co-created by the [Centre for Language Technology][CST] (UCPH) and [Dansk Sprog- og Litteraturselskab][DSL]. You can **query DanNet** using the search field in the upper left corner of the page.
 
 * [About DanNet][about] — here you can also find links to our datasets.
 * [Project page][projectpage] — journal articles and other relevant published works.
