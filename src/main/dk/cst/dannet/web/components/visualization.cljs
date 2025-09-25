@@ -201,17 +201,33 @@
 (def radial-limit
   48)
 
-
+(def spacer-node
+  {:name "" :theme nil :spacer true :title "" :href nil})
 
 (defn- add-theme-spacers
   "Insert transparent spacer nodes between theme groups for visual separation."
   [themed-children]
   (let [theme-groups  (group-by :theme themed-children)
-        sorted-themes (sort-by first theme-groups)
-        spacer-node   {:name "" :theme nil :spacer true :title "" :href nil}]
+        sorted-themes (sort-by first theme-groups)]
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
-                   (concat nodes [spacer-node]))))))
+                   (concat nodes [spacer-node])))
+
+         ;; The final one isn't need as we'll add some with add-middle-spacers.
+         (butlast))))
+
+(def big-spacer
+  [spacer-node spacer-node spacer-node spacer-node])
+
+(defn- add-middle-spacers
+  [nodes]
+  (let [mid-point (quot (count nodes) 2)
+        [right left] (split-at mid-point nodes)]
+    (concat big-spacer
+            right
+            big-spacer big-spacer
+            left
+            big-spacer)))
 
 (defn- calculate-dynamic-sizing
   "Calculate dynamic font sizes and text limits for `node-count`, `width`, and `radius`.
@@ -317,7 +333,8 @@
                                                 (shared/top-n-vals radial-limit)
                                                 vals (apply concat) (sort-by :name)
                                                 (map-indexed (fn [n m] (assoc m :n n)))))))
-                               (add-theme-spacers))
+                               (add-theme-spacers)
+                               (add-middle-spacers))
 
           data            (clj->js
                             {:name     subject
@@ -438,9 +455,27 @@
           (.attr "transform" (fn [d]
                                (if (.-subject (.-data d))
                                  (str "translate(0,-4) ")
-                                 (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ")"
+
+
+                                 ;; Rotate the labels to stand perpendicular to centre.
+                                 (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ") "
+
+                                      ;; Move labels from the centre to the circumference.
                                       "translate(" (.-y d) ",0) "
-                                      "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ")"))))
+
+                                      ;; Flip labels on the left, so that they go on the outside of the circle
+                                      "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
+
+                                      ;; Rotate the labels ever so slightly to make them more legible.
+                                      ;; The most vertical ones are rotated the most.
+                                      "rotate(" (if (< (.-x d) js/Math.PI)
+                                                  (* (- (* js/Math.PI 0.5)
+                                                        (.-x d))
+                                                     20)
+                                                  (* (- (* js/Math.PI 1.5)
+                                                        (.-x d))
+                                                     20))
+                                      ")"))))
           (.attr "dy" "0.31em")
           (.attr "x" (fn [d]
                        (if (.-subject (.-data d))
