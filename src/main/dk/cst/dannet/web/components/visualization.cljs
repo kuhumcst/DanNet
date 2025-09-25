@@ -192,7 +192,7 @@
 
 
 (def radial-limit
-  48)
+  42)
 
 (def spacer-node
   {:name "" :theme nil :spacer true :title "" :href nil})

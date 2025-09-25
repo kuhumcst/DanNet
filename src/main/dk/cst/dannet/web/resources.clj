@@ -838,6 +838,12 @@
                      :wn/has_domain_topic
                      :dns/orthogonalHypernym
                      :dns/orthogonalHyponym]
+        other-rels  [:wn/ili
+                     :dns/linkedConcept                     ; inverse of wn:ili
+                     :wn/eq_synonym
+                     :dns/eqHyponym
+                     :dns/eqHypernym
+                     :dns/eqSimilar]
         fixed-theme (zipmap fixed-rels (map col/css shared/theme))
         colors      (->> (concat cat/cat20 cat/cat20b cat/cat20c)
                          (map col/int24)
@@ -845,7 +851,8 @@
                          (map col/as-css))
         rels        (->> (q/run (:graph @db) op/synset-relation-types)
                          (map '?rel)
-                         (remove (set fixed-rels)))
+                         (remove (set fixed-rels))
+                         (remove (set other-rels)))
         num-colours (count colors)
         num-rels    (count rels)]
     (when (> (count rels) (count colors))
