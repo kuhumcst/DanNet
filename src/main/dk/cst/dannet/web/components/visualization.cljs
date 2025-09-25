@@ -254,23 +254,25 @@
 
 (defn- render-node-fill [d]
   "Determine fill color for nodes, handling spacers and themes."
-  (cond
-    (.-spacer (.-data d)) "transparent"
-    (.-theme (.-data d)) (.-theme (.-data d))
-    (.-subject (.-data d)) "transparent"
-    :else "#333"))
+  (let [data ^js (.-data d)]
+    (cond
+      (.-spacer data) "transparent"
+      (.-theme data) (.-theme data)
+      (.-subject data) "transparent"
+      :else "#333")))
 
 (defn- render-text-content [d subject-limits regular-limits]
   "Generate text content for labels, handling spacers and truncation."
-  (if (.-spacer (.-data d))
-    ""
-    (let [s (.-name (.-data d))
-          [limit cutoff] (if (.-subject (.-data d))
-                           subject-limits
-                           regular-limits)]
-      (if (> (count s) limit)
-        (str (subs s 0 cutoff) shared/omitted)
-        s))))
+  (let [data ^js (.-data d)]
+    (if (.-spacer data)
+      ""
+      (let [s (.-name data)
+            [limit cutoff] (if (.-subject data)
+                             subject-limits
+                             regular-limits)]
+        (if (> (count s) limit)
+          (str (subs s 0 cutoff) shared/omitted)
+          s)))))
 
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
@@ -389,11 +391,12 @@
                          (.angle (fn [d] (.-x d)))
                          (.radius (fn [d] (.-y d)))))
           (.attr "stroke" (fn [d]
-                            (if (.-spacer (.-data (.-target d)))
-                              "transparent"                 ; Hide spacer links
-                              (if-let [color ^js/String (.-theme (.-data (.-target d)))]
-                                color
-                                "#333")))))
+                            (let [target-data ^js (.-data (.-target d))]
+                              (if (.-spacer target-data)
+                                "transparent"               ; Hide spacer links
+                                (if-let [color ^js/String (.-theme target-data)]
+                                  color
+                                  "#333"))))))
 
       ;; Add radial gradient background to fade out the line congestion in center
       ;; Positioned after links but before nodes/labels for proper layering
@@ -467,20 +470,22 @@
                                   theme
                                   "#333")))
           (.attr "fill" (fn [d]
-                          (if (.-spacer (.-data d))
-                            "transparent"                   ; Hide spacer labels
-                            "#333")))
+                          (let [data ^js (.-data d)]
+                            (if (.-spacer data)
+                              "transparent"                 ; Hide spacer labels
+                              "#333"))))
           (.text (fn [d]
-                   (if (.-spacer (.-data d))
-                     ""                                     ; Empty text for spacers
-                     (let [s (.-name (.-data d))
-                           ;; Use dynamic limits based on node count
-                           [limit cutoff] (if (.-subject (.-data d))
-                                            subject-limits
-                                            regular-limits)]
-                       (if (> (count s) limit)
-                         (str (subs s 0 cutoff) shared/omitted)
-                         s)))))
+                   (let [data ^js (.-data d)]
+                     (if (.-spacer data)
+                       ""                                   ; Empty text for spacers
+                       (let [s (.-name data)
+                             ;; Use dynamic limits based on node count
+                             [limit cutoff] (if (.-subject data)
+                                              subject-limits
+                                              regular-limits)]
+                         (if (> (count s) limit)
+                           (str (subs s 0 cutoff) shared/omitted)
+                           s))))))
           (.on "click" (fn [_ d]
                          (when (.-href (.-data d))
                            (reset! shared/post-navigate {:scroll :diagram})
