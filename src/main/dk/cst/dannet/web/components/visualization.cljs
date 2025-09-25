@@ -204,23 +204,31 @@
         sorted-themes (sort-by first theme-groups)]
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
-                   (concat nodes [spacer-node])))
+                   (concat nodes [spacer-node spacer-node])))
 
-         ;; The final one isn't need as we'll add some with add-middle-spacers.
-         (butlast))))
-
-(def big-spacer
-  [spacer-node spacer-node spacer-node spacer-node])
+         ;; The final space isn't need as we'll always add space at the top of
+         ;; diagram with 'add-middle-spacers'.
+         (drop-last 2))))
 
 (defn- add-middle-spacers
   [nodes]
   (let [mid-point (quot (count nodes) 2)
-        [right left] (split-at mid-point nodes)]
-    (concat big-spacer
+        [right left] (split-at mid-point nodes)
+
+        ;; Always apply exactly 6 spacer nodes at the bottom by checking if a
+        ;; section split occurs next to it, possibly subtracting it.
+        middle    (if (or (= (last right) spacer-node)
+                          (= (first left) spacer-node))
+                    [spacer-node spacer-node
+                     spacer-node spacer-node]
+                    [spacer-node spacer-node
+                     spacer-node spacer-node
+                     spacer-node spacer-node])]
+    (concat [spacer-node spacer-node spacer-node]
             right
-            big-spacer big-spacer
+            middle
             left
-            big-spacer)))
+            [spacer-node spacer-node spacer-node])))
 
 (defn- calculate-dynamic-sizing
   "Calculate dynamic font sizes and text limits for `node-count`, `width`, and
