@@ -29,16 +29,9 @@
 (def label-section
   #"_([^; ,]+)")
 
-(defn clean-subscript
-  [s]
-  (str/replace (str s) label-section " $1"))
-
 (defn remove-subscript
   [s]
   (str/replace (str s) label-section ""))
-
-(def clean-label
-  (comp clean-subscript remove-parens))
 
 (def labels-only
   (comp remove-subscript remove-parens))
@@ -230,6 +223,29 @@
             left
             [spacer-node spacer-node spacer-node])))
 
+(defn- prepare-radial-children
+  "Transform entity data into radial tree format with themed spacers."
+  [entity' k->label']
+  (->> entity'
+       (mapcat (fn [[k synsets]]
+                 (let [theme (get shared/synset-rel-theme k)]
+                   (->> synsets
+                        (map (fn [synset]
+                               ;; Use prefix:identifier if label is n/a
+                               (let [label (or (k->label' synset)
+                                               (prefix/kw->qname synset))]
+                                 {:name  label
+                                  :theme theme
+                                  :href  (prefix/resolve-href synset)
+                                  :title (labels-only label)})))
+                        (mapcat by-sense-label)
+                        (group-by :theme)
+                        (shared/top-n-vals radial-limit)
+                        vals (apply concat) (sort-by :name)
+                        (map-indexed (fn [n m] (assoc m :n n)))))))
+       (add-theme-spacers)
+       (add-middle-spacers)))
+
 (defn- calculate-dynamic-sizing
   "Calculate dynamic font sizes and text limits for `node-count`, `width`, and
   `radius`."
@@ -246,8 +262,8 @@
     {:size-factor       size-factor
      :font-size         font-size
      :subject-font-size (* font-size 2.2)
-     :tspan-font-size   (* font-size 0.75)
-     :subject-limits    [(int (* 30 size-factor)) (int (* 28 size-factor))]
+     :tspan-font-size   (* font-size 0.5)
+     :subject-limits    [(int (* 20 size-factor)) (int (* 28 size-factor))]
      :regular-limits    [(int (* 18 size-factor)) (int (* 16 size-factor))]}))
 
 (defn- create-radial-gradient
@@ -302,25 +318,7 @@
                                (shared/top-n-vals radial-limit))
 
           ;; Transform entity data into radial tree format with category spacers
-          children        (->> entity'
-                               (mapcat (fn [[k synsets]]
-                                         (let [theme (get shared/synset-rel-theme k)]
-                                           (->> synsets
-                                                (map (fn [synset]
-                                                       ;; Use prefix:identifier if label is n/a
-                                                       (let [label (or (k->label' synset)
-                                                                       (prefix/kw->qname synset))]
-                                                         {:name  label
-                                                          :theme theme
-                                                          :href  (prefix/resolve-href synset)
-                                                          :title (labels-only label)})))
-                                                (mapcat by-sense-label)
-                                                (group-by :theme)
-                                                (shared/top-n-vals radial-limit)
-                                                vals (apply concat) (sort-by :name)
-                                                (map-indexed (fn [n m] (assoc m :n n)))))))
-                               (add-theme-spacers)
-                               (add-middle-spacers))
+          children        (prepare-radial-children entity' k->label')
 
           data            (clj->js
                             {:name     subject
@@ -517,8 +515,8 @@
 
           (.append "tspan")
           (.attr "class" "sense-paragraph")
-          (.attr "dy" "6px")
-          (.attr "dx" "4px")
+          (.attr "dy" (str (/ tspan-font-size 4) "px"))
+          (.attr "dx" (str (/ tspan-font-size 3) "px"))
           (.attr "font-size" (str tspan-font-size "px"))    ; Dynamic tspan font size
           (.text (fn [d]
                    (when (<= (+ (count (.-name (.-data d)))
