@@ -45,6 +45,8 @@
                      :dns/eqHyponym
                      :dns/eqHypernym
                      :dns/eqSimilar
+                     :dns/crossPoSHyponym
+                     :dns/crossPoSHypernym
                      :dns/orthogonalHyponym
                      :dns/orthogonalHypernym} first))]
    [ontolex-title
