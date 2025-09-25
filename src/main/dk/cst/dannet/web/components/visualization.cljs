@@ -285,7 +285,7 @@
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
     (let [width           (content-width (.-parentElement node))
-          height          width
+          height          (* width 0.85)
 
           subject         (->> (shared/sense-labels shared/synset-sep label)
                                (shared/canonical)
