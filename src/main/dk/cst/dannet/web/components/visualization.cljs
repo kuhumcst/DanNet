@@ -22,13 +22,6 @@
   []
   (first (swap! colours rest)))
 
-;; TODO: figure out how to include subscript
-(defn clean-text
-  [s]
-  (-> (str s)
-      (str/replace #"\{|\}" "")
-      #_(str/replace #"_[^; ]+" "")))
-
 (defn remove-parens
   [s]
   (str/replace (str s) #"\{|\}" ""))
@@ -230,14 +223,12 @@
             big-spacer)))
 
 (defn- calculate-dynamic-sizing
-  "Calculate dynamic font sizes and text limits for `node-count`, `width`, and `radius`.
-  
-  Returns map with :size-factor, :font-size, :subject-font-size, :tspan-font-size,
-  :subject-limits [limit cutoff], and :regular-limits [limit cutoff]."
+  "Calculate dynamic font sizes and text limits for `node-count`, `width`, and
+  `radius`."
   [node-count width radius]
-  (let [;; Node density: fewer nodes allow bigger text
+  (let [;; fewer nodes -> bigger text
         density-factor (max 0.7 (min 1.3 (/ 20 (max node-count 8))))
-        ;; Screen space: bigger screens allow proportionally bigger text
+        ;; bigger screens -> bigger text
         space-factor   (max 0.8 (min 1.5 (/ width 600)))
         ;; Radius scaling: maintain proportion with diagram size
         radius-factor  (max 0.9 (min 1.1 (/ radius 120)))
@@ -277,19 +268,6 @@
       (.-subject data) "transparent"
       :else "#333")))
 
-(defn- render-text-content [d subject-limits regular-limits]
-  "Generate text content for labels, handling spacers and truncation."
-  (let [data ^js (.-data d)]
-    (if (.-spacer data)
-      ""
-      (let [s (.-name data)
-            [limit cutoff] (if (.-subject data)
-                             subject-limits
-                             regular-limits)]
-        (if (> (count s) limit)
-          (str (subs s 0 cutoff) shared/omitted)
-          s)))))
-
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
@@ -308,9 +286,7 @@
                                (set)                        ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
                                (sort-by count)
                                (str/join ", "))
-          ;; TODO: need to use prefix:identifier when label is unavailable, e.g. ILI synsets
           k->label'       (comp
-                            #_clean-text
                             (partial i18n/select-label languages)
                             k->label)
           entity'         (->> (shared/weight-sort-fn synset-weights)
@@ -318,14 +294,16 @@
                                (shared/top-n-vals radial-limit))
 
           ;; Transform entity data into radial tree format with category spacers
-          children-with-spacers
-                          (->> entity'
+          children        (->> entity'
                                (mapcat (fn [[k synsets]]
                                          (let [theme (get shared/synset-rel-theme k)]
                                            (->> synsets
                                                 (map (fn [synset]
-                                                       (let [label (k->label' synset)]
-                                                         {:name  label :theme theme
+                                                       ;; Use prefix:identifier if label is n/a
+                                                       (let [label (or (k->label' synset)
+                                                                       (prefix/kw->qname synset))]
+                                                         {:name  label
+                                                          :theme theme
                                                           :href  (prefix/resolve-href synset)
                                                           :title (labels-only label)})))
                                                 (mapcat by-sense-label)
@@ -340,11 +318,12 @@
                             {:name     subject
                              :title    subject
                              :subject  true
-                             :children children-with-spacers})
+                             :children children})
 
           ;; Specify the chart's dimensions.
           cx              (* 0.5 width)
           cy              (* 0.5 height)
+
           ;; More aggressive padding - use more of the available space
           diagram-padding (max 16 (min 28 (* width 0.04)))  ; 4% of width, clamped between 16-28px
           radius          (- (/ (min width height)
@@ -417,12 +396,13 @@
 
       ;; Add radial gradient background to fade out the line congestion in center
       ;; Positioned after links but before nodes/labels for proper layering
-      (let [bg-radius (* radius 0.75)]                      ; 75% of diagram radius - nearly to the nodes but not covering labels
+      ;; 75% of diagram radius - nearly to the nodes but not covering labels
+      (let [bg-radius (* radius 0.75)]
         (-> svg
             (.append "circle")
             (.attr "class" "subject-background")
-            (.attr "cx" 0)                                  ; Center of diagram where lines congregate
-            (.attr "cy" 0)                                  ; Center of diagram where lines congregate
+            (.attr "cx" 0)
+            (.attr "cy" 0)
             (.attr "r" bg-radius)
             (.attr "fill" "url(#subjectBackground)")))
 
@@ -498,8 +478,6 @@
                                (if (.-subject (.-data d))
                                  (str subject-font-size "px")
                                  (str font-size "px"))))
-          #_(.attr "stroke" "#333")
-          ;; TODO: colour the labels using the theme colours? or inverted colours?
           (.attr "data-theme" (fn [d]
                                 (if-let [theme ^js/String (.-theme (.-data d))]
                                   theme

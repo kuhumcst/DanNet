@@ -30,10 +30,12 @@
          :wn/example
          :vann/preferredNamespacePrefix
          :dc/description
-         :dcat/downloadURL]]
+         :dcat/downloadURL
+         :wn/ili]]
    [semantic-title
     (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
                                                :wn/definition
+                                               :wn/ili
                                                :wn/lexfile
                                                :wn/example})
              (comp #{:dns/usedFor

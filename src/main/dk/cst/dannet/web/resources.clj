@@ -853,7 +853,8 @@
                            num-colours " colors for " num-rels " rels")
                       {:colors colors
                        :rels   rels})))
-    (update-vals (merge fixed-theme (zipmap rels colors)) deref)))
+    (into (sorted-map)
+          (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
 
 (comment
   ;; Generate the theme used for e.g. radial diagrams
