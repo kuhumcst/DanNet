@@ -7,8 +7,8 @@
 (defmulti primary-sections :rdf/type)
 
 (def ontolex-title
-  #{(->LangStr "Ontolex units" "en")
-    (->LangStr "Ontolex-enheder" "da")})
+  #{(->LangStr "Lexical structure" "en")
+    (->LangStr "Leksikalsk struktur" "da")})
 
 (def semantic-title
   #{(->LangStr "Semantic relations" "en")
@@ -31,6 +31,8 @@
          :wn/definition
          :rdfs/comment
          :lexinfo/senseExample
+         :lexinfo/frequency
+         :lexinfo/usageNote
          :wn/example
          :vann/preferredNamespacePrefix
          :dc/description

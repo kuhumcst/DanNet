@@ -113,7 +113,7 @@
 
      ;; TODO: match is too broad, should be limited somewhat
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
-         (= (:rdf/type entity) #{:ontolex/LexicalSense}))
+         (= (:rdf/type entity) :ontolex/LexicalSense))
      (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
        [:<> word [:sub sub] mwe])
 
