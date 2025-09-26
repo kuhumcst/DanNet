@@ -188,7 +188,7 @@
         :sub sub))))
 
 (def radial-limit
-  42)
+  56)
 
 (def spacer-node
   {:name "" :theme nil :spacer true :title "" :href nil})
@@ -258,7 +258,7 @@
   (let [;; fewer nodes -> bigger text
         density-factor (max 0.7 (min 1.3 (/ 20 (max node-count 8))))
         ;; bigger screens -> bigger text
-        space-factor   (max 0.8 (min 1.5 (/ width 600)))
+        space-factor   (max 0.8 (min 1.6 (/ width 600)))
         ;; Radius scaling: maintain proportion with diagram size
         radius-factor  (max 0.9 (min 1.1 (/ radius 120)))
         ;; Combined scaling with base adjustment
@@ -267,9 +267,9 @@
     {:size-factor       size-factor
      :font-size         font-size
      :subject-font-size (* font-size 2.2)
-     :tspan-font-size   (* font-size 0.5)
+     :tspan-font-size   (* font-size 0.67)
      :subject-limits    [(int (* 20 size-factor)) (int (* 28 size-factor))]
-     :regular-limits    [(int (* 18 size-factor)) (int (* 16 size-factor))]}))
+     :regular-limits    [(int (* 16 size-factor)) (int (* 12 size-factor))]}))
 
 (defn- create-radial-gradient
   "Add radial gradient definition for subject label background."
@@ -336,9 +336,8 @@
           cy         (* 0.5 height)
 
           ;; More aggressive padding - use more of the available space
-          radius     (- (/ (max width height)
-                           js/Math.PI)
-                        12)
+          radius     (/ (min width height)
+                        js/Math.PI)
 
           ; Create a radial tree layout. The layout's first dimension (x)
           ; is the angle, while the second (y) is the radius.
@@ -446,18 +445,18 @@
                                (if (.-subject (.-data d))
                                  (str "translate(0,-4) ")
 
-
                                  ;; Rotate the labels to stand perpendicular to centre.
                                  (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ") "
 
                                       ;; Move labels from the centre to the circumference.
-                                      "translate(" (.-y d) ",0) "
+                                      "translate(" (+ (.-y d) 2) ",0) "
 
                                       ;; Flip labels on the left, so that they go on the outside of the circle
                                       "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
 
-                                      ;; Rotate the labels ever so slightly to make them more legible.
-                                      ;; The most vertical ones are rotated the most.
+                                      ;; Rotate the label ever so slightly to make the angle more legible.
+                                      ;; The most vertical ones are rotated the most, while the ones that
+                                      ;; are horisontal are not rotated at all.
                                       "rotate(" (if (< (.-x d) js/Math.PI)
                                                   (* (- (* js/Math.PI 0.5)
                                                         (.-x d))
@@ -519,13 +518,13 @@
 
           (.append "tspan")
           (.attr "class" "sense-paragraph")
-          (.attr "dy" (str (/ tspan-font-size 4) "px"))
-          (.attr "dx" (str (/ tspan-font-size 3) "px"))
-          (.attr "font-size" (str tspan-font-size "px"))    ; Dynamic tspan font size
+          (.attr "dy" (str (/ tspan-font-size 5) "px"))
+          (.attr "dx" (str (/ tspan-font-size 4) "px"))
+          (.attr "font-size" (str tspan-font-size "px"))
           (.text (fn [d]
                    (when (<= (+ (count (.-name (.-data d)))
                                 (count (.-sub (.-data d))))
-                             (* 12 size-factor))            ; Updated to match new base-dist
+                             (* 12 size-factor))
                      (.-sub (.-data d))))))
 
       (.node svg))))
