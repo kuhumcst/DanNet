@@ -176,13 +176,16 @@
   [{:keys [name] :as m}]
   (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
                                         (shared/canonical)
-                                        (map #(re-matches shared/sense-label %)))]
+                                        ;; limit to top label for each synset
+                                        (take 1)
+                                        (map #(re-matches shared/sense-label %)))
+
+        ;; Allow phrases to appear too, not just the core word in the phrase.
+        :let [name (str/replace s (str "_" sub) "")]]
     (when-not (= s shared/omitted)
       (assoc m
-        :name word
+        :name name
         :sub sub))))
-
-
 
 (def radial-limit
   42)
@@ -225,14 +228,14 @@
 
 (defn- prepare-radial-children
   "Transform entity data into radial tree format with themed spacers."
-  [entity' k->label']
-  (->> entity'
+  [entity k->label]
+  (->> entity
        (mapcat (fn [[k synsets]]
                  (let [theme (get shared/synset-rel-theme k)]
                    (->> synsets
                         (map (fn [synset]
                                ;; Use prefix:identifier if label is n/a
-                               (let [label (or (k->label' synset)
+                               (let [label (or (k->label synset)
                                                (prefix/kw->qname synset))]
                                  {:name  label
                                   :theme theme
@@ -241,7 +244,9 @@
                         (mapcat by-sense-label)
                         (group-by :theme)
                         (shared/top-n-vals radial-limit)
-                        vals (apply concat) (sort-by :name)
+                        (vals)
+                        (apply concat)
+                        (sort-by :name)
                         (map-indexed (fn [n m] (assoc m :n n)))))))
        (add-theme-spacers)
        (add-middle-spacers)))
