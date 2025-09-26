@@ -262,8 +262,8 @@
         ;; Radius scaling: maintain proportion with diagram size
         radius-factor  (max 0.9 (min 1.1 (/ radius 120)))
         ;; Combined scaling with base adjustment
-        size-factor    (* density-factor space-factor radius-factor 1.05)
-        font-size      (* 14 size-factor)]
+        size-factor    (* density-factor space-factor radius-factor)
+        font-size      (* 16 size-factor)]
     {:size-factor       size-factor
      :font-size         font-size
      :subject-font-size (* font-size 2.2)
@@ -305,85 +305,84 @@
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
-    (let [width           (content-width (.-parentElement node))
-          height          (* width 0.85)
+    (let [width      (content-width (.-parentElement node))
+          height     (* width 0.85)
 
-          subject         (->> (shared/sense-labels shared/synset-sep label)
-                               (shared/canonical)
-                               (map remove-subscript)
-                               (remove #{shared/omitted})
-                               (set)                        ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
-                               (sort-by count)
-                               (str/join ", "))
-          k->label'       (comp
-                            (partial i18n/select-label languages)
-                            k->label)
-          entity'         (->> (shared/weight-sort-fn synset-weights)
-                               (update-vals (select-keys entity (keys shared/synset-rel-theme)))
-                               (shared/top-n-vals radial-limit))
+          subject    (->> (shared/sense-labels shared/synset-sep label)
+                          (shared/canonical)
+                          (map remove-subscript)
+                          (remove #{shared/omitted})
+                          (set)                             ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
+                          (sort-by count)
+                          (str/join ", "))
+          k->label'  (comp
+                       (partial i18n/select-label languages)
+                       k->label)
+          entity'    (->> (shared/weight-sort-fn synset-weights)
+                          (update-vals (select-keys entity (keys shared/synset-rel-theme)))
+                          (shared/top-n-vals radial-limit))
 
           ;; Transform entity data into radial tree format with category spacers
-          children        (prepare-radial-children entity' k->label')
+          children   (prepare-radial-children entity' k->label')
 
-          data            (clj->js
-                            {:name     subject
-                             :title    subject
-                             :subject  true
-                             :children children})
+          data       (clj->js
+                       {:name     subject
+                        :title    subject
+                        :subject  true
+                        :children children})
 
           ;; Specify the chart's dimensions.
-          cx              (* 0.5 width)
-          cy              (* 0.5 height)
+          cx         (* 0.5 width)
+          cy         (* 0.5 height)
 
           ;; More aggressive padding - use more of the available space
-          diagram-padding (max 16 (min 28 (* width 0.04)))  ; 4% of width, clamped between 16-28px
-          radius          (- (/ (min width height)
-                                js/Math.PI)
-                             diagram-padding)               ; overall size
+          radius     (- (/ (max width height)
+                           js/Math.PI)
+                        12)
 
           ; Create a radial tree layout. The layout's first dimension (x)
           ; is the angle, while the second (y) is the radius.
-          tree            (-> (.tree d3)
-                              (.size #js [(* 2 js/Math.PI) radius])
-                              (.separation (fn [a b]
-                                             (/ (if (= (.-parent a) (.-parent b))
-                                                  1
-                                                  2)
-                                                (.-depth a)))))
+          tree       (-> (.tree d3)
+                         (.size #js [(* 2 js/Math.PI) radius])
+                         (.separation (fn [a b]
+                                        (/ (if (= (.-parent a) (.-parent b))
+                                             1
+                                             2)
+                                           (.-depth a)))))
 
           ;; Sort the tree and apply the layout.
-          root            (-> (.hierarchy d3 data)
-                              #_(.sort (fn [a b]
-                                         (.ascending
-                                           d3 (.-name (.-data a)) (.-name (.-data b)))))
-                              (tree))
+          root       (-> (.hierarchy d3 data)
+                         #_(.sort (fn [a b]
+                                    (.ascending
+                                      d3 (.-name (.-data a)) (.-name (.-data b)))))
+                         (tree))
 
           ;; Calculate dynamic sizing factors for fonts and text limits
-          node-count      (.-length (.descendants root))
-          sizing          (calculate-dynamic-sizing node-count width radius)
+          node-count (.-length (.descendants root))
+          sizing     (calculate-dynamic-sizing node-count width radius)
           {:keys [size-factor font-size subject-font-size tspan-font-size
                   subject-limits regular-limits]} sizing
 
           ;; Creates the SVG container.
-          svg             (-> d3
-                              (.select node)
-                              (.append "svg")
-                              (.attr "class" "radial-tree-diagram__svg")
-                              (.attr "width" width)
-                              (.attr "height" height)
-                              (.attr "viewBox" #js [(- cx) (- cy) width height])
-                              (.style "--radial-font-size" (str font-size "px"))
-                              (.style "--radial-subject-font-size" (str subject-font-size "px"))
-                              (.style "--radial-tspan-font-size" (str tspan-font-size "px")))
+          svg        (-> d3
+                         (.select node)
+                         (.append "svg")
+                         (.attr "class" "radial-tree-diagram__svg")
+                         (.attr "width" width)
+                         (.attr "height" height)
+                         (.attr "viewBox" #js [(- cx) (- cy) width height])
+                         (.style "--radial-font-size" (str font-size "px"))
+                         (.style "--radial-subject-font-size" (str subject-font-size "px"))
+                         (.style "--radial-tspan-font-size" (str tspan-font-size "px")))
 
-          _               (create-radial-gradient svg)
+          _          (create-radial-gradient svg)
 
           ;; Add mouseover text (in lieu of a title attribute)
-          add-title       (fn [d3]
-                            (-> d3
-                                (.append "title")
-                                (.text (fn [d] (.-title (.-data d)))))
-                            d3)]
+          add-title  (fn [d3]
+                       (-> d3
+                           (.append "title")
+                           (.text (fn [d] (.-title (.-data d)))))
+                       d3)]
       ;; Append links.
       (-> svg
           (.append "g")
@@ -428,7 +427,7 @@
                                (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90)
                                     ") translate(" (.-y d) ",0)")))
           (.attr "fill" render-node-fill)                   ; Default color
-          (.attr "r" 5))
+          (.attr "r" (/ radius 55)))
 
       ;; Append labels.
       (-> svg

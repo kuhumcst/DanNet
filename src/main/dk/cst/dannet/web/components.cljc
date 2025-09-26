@@ -771,7 +771,7 @@
                          [:p.note
                           [:strong "! "]
                           (i18n/da-en languages
-                            "Data kan være udeladt; se tabellen for alle detaljer."
+                            "Data kan være udeladt; se tabellen for samtlige detaljer."
                             "Data may be omitted; view table for full details.")]]
                (attr-val-table (assoc opts :inherited inherited) subentity))]
             (attr-val-table (assoc opts :inherited inherited) subentity))]))
