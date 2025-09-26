@@ -243,6 +243,7 @@
                                   :title (labels-only label)})))
                         (mapcat by-sense-label)
                         (group-by :theme)
+                        ;; TODO: group categories/themes in order (matching legend)
                         (shared/top-n-vals radial-limit)
                         (vals)
                         (apply concat)

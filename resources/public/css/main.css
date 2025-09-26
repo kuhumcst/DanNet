@@ -1080,7 +1080,7 @@ ul.radial-tree-legend label {
     padding: 6px 4px 6px 28px;
 }
 
-ul.radial-tree-legend input[type=checkbox] {
+ul.radial-tree-legend input[type=radio] {
     position: absolute;
     opacity: 0;
     cursor: pointer;
@@ -1103,7 +1103,8 @@ ul.radial-tree-legend input[type=checkbox] {
     background-color: #eee;
 }
 
-ul.radial-tree-legend input:not(:checked) ~ .radial-tree-legend__bullet {
+/* When ANY radio is checked, make unchecked ones appear inactive */
+ul.radial-tree-legend:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
     transform: scale(0.33);
     opacity: 0.33;
 }
