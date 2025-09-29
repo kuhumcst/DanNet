@@ -34,8 +34,8 @@ rdfs:Literal rdfs:label "litteral"@da .
 rdfs:Literal rdfs:comment "Klassen af datalogiske 'litteraler', eksempelvis tekststrenge og heltal."@da .
 rdfs:DataType rdfs:label "datatype"@da .
 rdfs:DataType rdfs:comment "Klassen af RDF-datatyper."@da .
-rdfs:langString rdfs:label "sprog-tagged tekst."@da .
-rdfs:langString rdfs:comment "Datatypen for sprog-tagged tekst."@da .
+rdfs:langString rdfs:label "sprogannoteret tekst"@da .
+rdfs:langString rdfs:comment "Datatypen for sprogannoteret tekst."@da .
 rdfs:Resource rdfs:label "ressource"@da .
 rdfs:Resource rdfs:comment "Klasseressourcen, alting."@da .
 
@@ -109,9 +109,9 @@ ontolex:writtenRep rdfs:label "skriftlig repræsentation"@da .
 ontolex:writtenRep rdfs:comment "Den skriftlige repræsentation angiver den måde ordformen skrives på."@da .
 
 ontolex:Word rdfs:label "ord"@da .
-ontolex:Word rdfs:comment "Et ord et et leksikalsk opslagsord der består af kun ét ord."@da .
+ontolex:Word rdfs:comment "Et ord er et leksikalsk opslagsord der består af kun ét ord."@da .
 ontolex:MultiWordExpression rdfs:label "flerords-udtryk"@da .
-ontolex:MultiWordExpression rdfs:comment "Et flerords-udtryk et et leksikalsk opslagsord der består af to eller flere ord."@da .
+ontolex:MultiWordExpression rdfs:comment "Et flerords-udtryk er et leksikalsk opslagsord der består af to eller flere ord."@da .
 ontolex:Affix rdfs:label "affix"@da .
 ontolex:Affix rdfs:comment "Et affix er et leksikalsk opslagsord, der består af et morfem (suffix, præfix, infix, circumfix) der sættes på ordstammen for at danne et nyt ord."@da .
 ontolex:Form rdfs:label "ordform"@da .
@@ -122,3 +122,116 @@ ontolex:LexicalSense rdfs:label "leksikalsk betydning"@da .
 ontolex:LexicalSense rdfs:comment "En leksikalsk betydning repræsenterer betydningen af et leksikalsk opslagsord, forstået som refererende til det tilsvarende ontologiske element. En leksikalsk betydning repræsenterer dermed en tingsliggørelse af parret bestående af ét bestemt leksikalsk opslagsord og den unikke ontologiske enhed der refereres til. En forbindelse mellem et leksikalsk opslagsord og en ontologisk enhed via et leksikalsk betydningsobjekt medfører, at det leksikalske opslagsord kan bruges som reference til den pågældende ontologiske enhed."@da .
 ontolex:LexicalConcept rdfs:label "leksikalsk begreb"@da .
 ontolex:LexicalConcept rdfs:comment "Et leksikalsk begreb repræsenterer en mental abstraktion, et begreb eller en tankeenhed, der omfatter ét eller flere leksikalske opslagsord."@da .
+
+# WordNet semantic relations
+
+wn:hypernym rdfs:label "overbegreb"@da .
+wn:hypernym rdfs:comment "En relation mellem to begreber hvor begreb A er en type af begreb B."@da .
+
+wn:hyponym rdfs:label "underbegreb"@da .
+wn:hyponym rdfs:comment "En relation mellem to begreber hvor begreb B er en type af begreb A."@da .
+
+wn:instance_hypernym rdfs:label "instans-overbegreb"@da .
+wn:instance_hypernym rdfs:comment "En relation mellem to begreber hvor begreb B er en type af begreb A, og hvor B er en terminalknude i hierarkiet."@da .
+
+wn:instance_hyponym rdfs:label "instans-underbegreb"@da .
+wn:instance_hyponym rdfs:comment "En relation mellem to begreber hvor begreb A er en type af begreb B, og hvor B er en terminalknude i hierarkiet."@da .
+
+wn:holonym rdfs:label "del af"@da .
+wn:holonym rdfs:comment "En relation mellem to begreber hvor begreb A er en del af begreb B."@da .
+
+wn:meronym rdfs:label "har del"@da .
+wn:meronym rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som en del."@da .
+
+wn:holo_part rdfs:label "bestanddel af"@da .
+wn:holo_part rdfs:comment "En relation mellem to begreber hvor begreb A er en bestanddel af begreb B (B er helheden)."@da .
+
+wn:mero_part rdfs:label "har bestanddel"@da .
+wn:mero_part rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som bestanddel (A er helheden)."@da .
+
+wn:holo_member rdfs:label "medlem af"@da .
+wn:holo_member rdfs:comment "En relation mellem to begreber hvor begreb A er et medlem/element af begreb B (B er helheden)."@da .
+
+wn:mero_member rdfs:label "har medlem"@da .
+wn:mero_member rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som medlem/element (A er helheden)."@da .
+
+wn:holo_substance rdfs:label "materiale i"@da .
+wn:holo_substance rdfs:comment "En relation mellem to begreber hvor begreb A er et materiale i begreb B (B er helheden)."@da .
+
+wn:mero_substance rdfs:label "har materiale"@da .
+wn:mero_substance rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som materiale (A er helheden)."@da .
+
+wn:holo_location rdfs:label "omfatter sted"@da .
+wn:holo_location rdfs:comment "En relation mellem to begreber hvor begreb B er et sted beliggende i begreb A (A er det større sted)."@da .
+
+wn:mero_location rdfs:label "beliggende i"@da .
+wn:mero_location rdfs:comment "En relation mellem to begreber hvor begreb A er et sted beliggende i begreb B (B er det større sted)."@da .
+
+wn:agent rdfs:label "aktør i"@da .
+wn:agent rdfs:comment "En relation mellem to begreber hvor begreb A er typisk den aktør der udfører handlingen udtrykt af begreb B."@da .
+
+wn:involved_agent rdfs:label "har aktør"@da .
+wn:involved_agent rdfs:comment "En relation mellem to begreber hvor handlingen udtrykt af begreb A typisk involverer begreb B som aktør."@da .
+
+wn:patient rdfs:label "berørt af"@da .
+wn:patient rdfs:comment "En relation mellem to begreber hvor begreb A typisk påvirkes af handlingen udtrykt af begreb B."@da .
+
+wn:involved_patient rdfs:label "berører"@da .
+wn:involved_patient rdfs:comment "En relation mellem to begreber hvor handlingen udtrykt af begreb A typisk påvirker begreb B."@da .
+
+wn:result rdfs:label "resultat af"@da .
+wn:result rdfs:comment "En relation mellem to begreber hvor begreb A er resultatet af begreb B."@da .
+
+wn:involved_result rdfs:label "har resultat"@da .
+wn:involved_result rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som resultat."@da .
+
+wn:co_agent_instrument rdfs:label "medagens-instrument"@da .
+wn:co_agent_instrument rdfs:comment "En relation mellem to begreber hvor agensen A bruger instrumentet B i en bestemt handling."@da .
+
+wn:co_instrument_agent rdfs:label "instrument-medagens"@da .
+wn:co_instrument_agent rdfs:comment "En relation mellem to begreber hvor instrumentet A bruges af agensen B til en bestemt handling."@da .
+
+wn:causes rdfs:label "forårsager"@da .
+wn:causes rdfs:comment "En relation mellem to begreber hvor begreb A forårsager begreb B."@da .
+
+wn:is_caused_by rdfs:label "forårsages af"@da .
+wn:is_caused_by rdfs:comment "En relation mellem to begreber hvor begreb A forårsages af begreb B."@da .
+
+wn:entails rdfs:label "indebærer"@da .
+wn:entails rdfs:comment "En relation mellem to begreber hvor begreb A indebærer begreb B som en nødvendig følge."@da .
+
+wn:is_entailed_by rdfs:label "indebæres af"@da .
+wn:is_entailed_by rdfs:comment "En relation mellem to begreber hvor begreb A indebæres af begreb B som en nødvendig følge."@da .
+
+wn:domain_topic rdfs:label "tilhører emneområde"@da .
+wn:domain_topic rdfs:comment "En relation mellem to begreber hvor begreb A tilhører det videnskabelige emneområde B."@da .
+
+wn:has_domain_topic rdfs:label "er emneområde for"@da .
+wn:has_domain_topic rdfs:comment "En relation mellem to begreber hvor emneområdet A omfatter begreb B."@da .
+
+wn:domain_region rdfs:label "tilhører domæneområde"@da .
+wn:domain_region rdfs:comment "En relation mellem to begreber hvor begreb A tilhører det geografiske/kulturelle domæneområde B."@da .
+
+wn:has_domain_region rdfs:label "er domæneområde for"@da .
+wn:has_domain_region rdfs:comment "En relation mellem to begreber hvor domæneområdet A omfatter begreb B."@da .
+
+wn:similar rdfs:label "lignende"@da .
+wn:similar rdfs:comment "En relation mellem to begreber hvor begreb A og begreb B er tæt beslægtede i betydning, men ikke er i samme synset."@da .
+
+wn:antonym rdfs:label "antonym"@da .
+wn:antonym rdfs:comment "Indikerer at de to termer har modsatte betydninger."@da .
+
+wn:attribute rdfs:label "egenskab"@da .
+wn:attribute rdfs:comment "En relation mellem nominale og adjektiviske begreber hvor begreb A er en egenskab af begreb B."@da .
+
+wn:also rdfs:label "se også"@da .
+wn:also rdfs:comment "En relation der giver yderligere information af en ikke-specificeret type."@da .
+
+wn:other rdfs:label "andet"@da .
+wn:other rdfs:comment "En ikke-specificeret relationstype (normalt angivet ved 'dc:type')."@da .
+
+wn:exemplifies rdfs:label "er eksempel på"@da .
+wn:exemplifies rdfs:comment "En relation mellem to begreber hvor begreb A er et eksempel på typen B."@da .
+
+wn:is_exemplified_by rdfs:label "har eksempel"@da .
+wn:is_exemplified_by rdfs:comment "En relation mellem to begreber hvor typen A har begreb B som eksempel."@da .

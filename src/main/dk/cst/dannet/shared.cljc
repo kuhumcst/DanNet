@@ -3,6 +3,7 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.math :as math]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.section :as section]
             [reitit.impl :refer [form-decode]]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -396,4 +397,8 @@
   (take 10 (map double (iterate log-inc 1)))
   (take 100 (map double (iterate log-inc 1)))
   (take 1000 (map double (iterate log-inc 1)))
+
+  ;; Print out the list of relations in use in Turtle/SPARQL style.
+  (doseq [qname (sort (map prefix/kw->qname (keys synset-rel-theme)))]
+    (println qname))
   #_.)
