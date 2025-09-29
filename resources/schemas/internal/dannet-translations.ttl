@@ -131,11 +131,11 @@ wn:hypernym rdfs:comment "En relation mellem to begreber hvor begreb A er en typ
 wn:hyponym rdfs:label "underbegreb"@da .
 wn:hyponym rdfs:comment "En relation mellem to begreber hvor begreb B er en type af begreb A."@da .
 
-wn:instance_hypernym rdfs:label "instans-overbegreb"@da .
-wn:instance_hypernym rdfs:comment "En relation mellem to begreber hvor begreb B er en type af begreb A, og hvor B er en terminalknude i hierarkiet."@da .
+wn:instance_hypernym rdfs:label "er instans af"@da .
+wn:instance_hypernym rdfs:comment "En relation mellem to begreber hvor begreb A er en specifik instans af type B, og hvor A er en terminalknude i hierarkiet."@da .
 
-wn:instance_hyponym rdfs:label "instans-underbegreb"@da .
-wn:instance_hyponym rdfs:comment "En relation mellem to begreber hvor begreb A er en type af begreb B, og hvor B er en terminalknude i hierarkiet."@da .
+wn:instance_hyponym rdfs:label "har instans"@da .
+wn:instance_hyponym rdfs:comment "En relation mellem to begreber hvor type A har begreb B som en specifik instans, og hvor B er en terminalknude i hierarkiet."@da .
 
 wn:holonym rdfs:label "del af"@da .
 wn:holonym rdfs:comment "En relation mellem to begreber hvor begreb A er en del af begreb B."@da .
@@ -158,7 +158,7 @@ wn:mero_member rdfs:comment "En relation mellem to begreber hvor begreb A har be
 wn:holo_substance rdfs:label "materiale i"@da .
 wn:holo_substance rdfs:comment "En relation mellem to begreber hvor begreb A er et materiale i begreb B (B er helheden)."@da .
 
-wn:mero_substance rdfs:label "har materiale"@da .
+wn:mero_substance rdfs:label "består af"@da .
 wn:mero_substance rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som materiale (A er helheden)."@da .
 
 wn:holo_location rdfs:label "omfatter sted"@da .
@@ -185,11 +185,11 @@ wn:result rdfs:comment "En relation mellem to begreber hvor begreb A er resultat
 wn:involved_result rdfs:label "har resultat"@da .
 wn:involved_result rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som resultat."@da .
 
-wn:co_agent_instrument rdfs:label "medagens-instrument"@da .
-wn:co_agent_instrument rdfs:comment "En relation mellem to begreber hvor agensen A bruger instrumentet B i en bestemt handling."@da .
+wn:co_agent_instrument rdfs:label "bruger"@da .
+wn:co_agent_instrument rdfs:comment "En relation mellem to begreber hvor begreb A bruger begreb B som instrument."@da .
 
-wn:co_instrument_agent rdfs:label "instrument-medagens"@da .
-wn:co_instrument_agent rdfs:comment "En relation mellem to begreber hvor instrumentet A bruges af agensen B til en bestemt handling."@da .
+wn:co_instrument_agent rdfs:label "bruges af"@da .
+wn:co_instrument_agent rdfs:comment "En relation mellem to begreber hvor begreb A bruges af begreb B som instrument."@da .
 
 wn:causes rdfs:label "forårsager"@da .
 wn:causes rdfs:comment "En relation mellem to begreber hvor begreb A forårsager begreb B."@da .
@@ -203,17 +203,17 @@ wn:entails rdfs:comment "En relation mellem to begreber hvor begreb A indebærer
 wn:is_entailed_by rdfs:label "indebæres af"@da .
 wn:is_entailed_by rdfs:comment "En relation mellem to begreber hvor begreb A indebæres af begreb B som en nødvendig følge."@da .
 
-wn:domain_topic rdfs:label "tilhører emneområde"@da .
-wn:domain_topic rdfs:comment "En relation mellem to begreber hvor begreb A tilhører det videnskabelige emneområde B."@da .
+wn:domain_topic rdfs:label "tilhører domæne"@da .
+wn:domain_topic rdfs:comment "En relation mellem to begreber hvor begreb A tilhører det videnskabelige domæne/emneområde B."@da .
 
-wn:has_domain_topic rdfs:label "er emneområde for"@da .
-wn:has_domain_topic rdfs:comment "En relation mellem to begreber hvor emneområdet A omfatter begreb B."@da .
+wn:has_domain_topic rdfs:label "er domæne for"@da .
+wn:has_domain_topic rdfs:comment "En relation mellem to begreber hvor domænet/emneområdet A omfatter begreb B."@da .
 
-wn:domain_region rdfs:label "tilhører domæneområde"@da .
-wn:domain_region rdfs:comment "En relation mellem to begreber hvor begreb A tilhører det geografiske/kulturelle domæneområde B."@da .
+wn:domain_region rdfs:label "tilhører region"@da .
+wn:domain_region rdfs:comment "En relation mellem to begreber hvor begreb A tilhører den geografiske/kulturelle region B."@da .
 
-wn:has_domain_region rdfs:label "er domæneområde for"@da .
-wn:has_domain_region rdfs:comment "En relation mellem to begreber hvor domæneområdet A omfatter begreb B."@da .
+wn:has_domain_region rdfs:label "er region for"@da .
+wn:has_domain_region rdfs:comment "En relation mellem to begreber hvor regionen A omfatter begreb B."@da .
 
 wn:similar rdfs:label "lignende"@da .
 wn:similar rdfs:comment "En relation mellem to begreber hvor begreb A og begreb B er tæt beslægtede i betydning, men ikke er i samme synset."@da .
@@ -221,8 +221,8 @@ wn:similar rdfs:comment "En relation mellem to begreber hvor begreb A og begreb 
 wn:antonym rdfs:label "antonym"@da .
 wn:antonym rdfs:comment "Indikerer at de to termer har modsatte betydninger."@da .
 
-wn:attribute rdfs:label "egenskab"@da .
-wn:attribute rdfs:comment "En relation mellem nominale og adjektiviske begreber hvor begreb A er en egenskab af begreb B."@da .
+wn:attribute rdfs:label "manifestation af"@da .
+wn:attribute rdfs:comment "En relation mellem adjektiviske og nominale begreber hvor begreb A er en manifestation af den kvalitet eller dimension som begreb B repræsenterer."@da .
 
 wn:also rdfs:label "se også"@da .
 wn:also rdfs:comment "En relation der giver yderligere information af en ikke-specificeret type."@da .
