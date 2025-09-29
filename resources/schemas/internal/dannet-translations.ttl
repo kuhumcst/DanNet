@@ -161,11 +161,11 @@ wn:holo_substance rdfs:comment "En relation mellem to begreber hvor begreb A er 
 wn:mero_substance rdfs:label "består af"@da .
 wn:mero_substance rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som materiale (A er helheden)."@da .
 
-wn:holo_location rdfs:label "omfatter sted"@da .
-wn:holo_location rdfs:comment "En relation mellem to begreber hvor begreb B er et sted beliggende i begreb A (A er det større sted)."@da .
+wn:mero_location rdfs:label "omfatter sted"@da .
+wn:mero_location rdfs:comment "En relation mellem to begreber hvor begreb B er et sted beliggende i begreb A (A er det større sted)."@da .
 
-wn:mero_location rdfs:label "beliggende i"@da .
-wn:mero_location rdfs:comment "En relation mellem to begreber hvor begreb A er et sted beliggende i begreb B (B er det større sted)."@da .
+wn:holo_location rdfs:label "beliggende i"@da .
+wn:holo_location rdfs:comment "En relation mellem to begreber hvor begreb A er et sted beliggende i begreb B (B er det større sted)."@da .
 
 wn:agent rdfs:label "aktør i"@da .
 wn:agent rdfs:comment "En relation mellem to begreber hvor begreb A er typisk den aktør der udfører handlingen udtrykt af begreb B."@da .
