@@ -643,19 +643,19 @@
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
   [state {:keys [languages k->label] :as opts} subentity]
   (let [selected (::selected state)]
-    [:<>
-     [:ul.radial-tree-legend
-      (for [k (keys subentity)]
-        (when-let [theme (get shared/synset-rel-theme k)]
-          (let [label        (i18n/select-label languages (k->label k))
-                is-selected? (= @selected theme)]
-            [:li {:key k}
-             [:label {:lang (i18n/lang label)} (str label)
-              [:input {:type     "radio"
-                       :name     "radial-tree-filter"
-                       :value    theme
-                       :checked  is-selected?
-                       :on-click (fn [e]
+    [:ul.radial-tree-legend
+     (for [k (keys subentity)]
+       (when-let [theme (get shared/synset-rel-theme k)]
+         (let [label        (i18n/select-label languages (k->label k))
+               is-selected? (= @selected theme)]
+           [:li {:key k}
+            [:label {:lang (i18n/lang label)} (str label)
+             [:input {:type      "radio"
+                      :name      "radial-tree-filter"
+                      :value     theme
+                      :checked   is-selected?
+                      :read-only true
+                      :on-click  (fn [e]
                                    (let [new-selection (if is-selected? nil theme)
                                          diagram       (get-diagram e)]
                                      (reset! selected new-selection)
@@ -669,8 +669,8 @@
                                          (if show?
                                            (apply-classes el (disj classes "radial-item__de-emphasized"))
                                            (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
-              [:span {:class "radial-tree-legend__bullet"
-                      :style {:background theme}}]]])))]]))
+             [:span {:class "radial-tree-legend__bullet"
+                     :style {:background theme}}]]])))]))
 
 (rum/defc entity-page
   [{:keys [href languages comments subject inferred entity k->label details?] :as opts}]
