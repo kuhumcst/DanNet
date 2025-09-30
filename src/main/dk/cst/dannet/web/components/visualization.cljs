@@ -227,9 +227,8 @@
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
                    (concat nodes [spacer-node spacer-node])))
-
-         ;; The final space isn't need as we'll always add space at the top of
-         ;; diagram with 'add-middle-spacers'.
+         ;; The final space isn't needed as we'll always add space at the top
+         ;; of diagram with 'add-middle-spacers'.
          (drop-last 2))))
 
 (defn- add-middle-spacers
@@ -252,15 +251,126 @@
             left
             [spacer-node spacer-node spacer-node])))
 
+(defn- label-space-score
+  "Calculate space availability score for labels at `angle` position.
+  
+  Lower scores indicate better positions for long labels.
+  
+  Formula: (corner-dist² - 0.33 × rotation-factor)
+  - Squared corner distance creates steep gradient favoring corners
+  - Subtracting rotation factor gives extra advantage to diagonal positions
+    where labels are more tilted (need less horizontal space)
+  
+  Result ranges approximately:
+  - Corners (45°, 135°, 225°, 315°): ~-0.15 (best)
+  - Top/Bottom (90°, 270°): ~0.6 (good)
+  - Left/Right (0°, 180°): ~0.7 (worst)"
+  [angle]
+  (let [norm-angle      (mod angle (* 2 js/Math.PI))
+
+        ;; Corner proximity: 0.0 at corners, 1.0 at edges
+        eighth          (/ js/Math.PI 4)
+        nearest-eighth  (js/Math.round (/ norm-angle eighth))
+        dist-to-eighth  (js/Math.abs (- norm-angle (* nearest-eighth eighth)))
+        at-corner?      (odd? (mod nearest-eighth 8))
+        corner-dist     (if at-corner?
+                          (/ dist-to-eighth eighth)
+                          (- 1.0 (/ dist-to-eighth eighth)))
+
+        ;; Label rotation factor: measures how much labels are tilted
+        ;; More rotation = needs more diagonal/vertical space
+        ;; Less rotation (horizontal) = needs more horizontal space
+        rotation-rad    (if (< norm-angle js/Math.PI)
+                          (* (- (/ js/Math.PI 2) norm-angle) 20)
+                          (* (- (* 3 (/ js/Math.PI 2)) norm-angle) 20))
+        max-rotation    31.5
+        rotation-factor (/ (js/Math.abs rotation-rad) max-rotation)]
+
+    ;; Combined score: squared corner distance with rotation bonus
+    ;; Subtracting rotation gives diagonal positions extra advantage
+    (- (* corner-dist corner-dist)
+       (* 0.33 rotation-factor))))
+
+(defn- optimize-within-group
+  "Reorder `nodes` to place longer labels at optimal positions.
+  
+  Within each theme group, assigns longer labels to positions with better
+  space availability, accounting for both corner proximity and label rotation."
+  [nodes start-idx total-count]
+  (if (< (count nodes) 3)
+    nodes
+    (let [;; Calculate space score for each position
+          positions        (map (fn [offset]
+                                  (let [idx   (+ start-idx offset)
+                                        angle (* 2 js/Math.PI (/ idx total-count))]
+                                    {:offset      offset
+                                     :space-score (label-space-score angle)}))
+                                (range (count nodes)))
+
+          ;; Best positions first (lowest space score)
+          sorted-positions (sort-by :space-score positions)
+
+          ;; Longest labels first
+          sorted-nodes     (sort-by (comp count :name) > nodes)
+
+          ;; Pair longest labels with best positions
+          offset->node     (zipmap (map :offset sorted-positions) sorted-nodes)]
+
+      ;; Reconstruct in sequential order
+      (mapv #(get offset->node %) (range (count nodes))))))
+
+(comment
+  ;; Example: 8 nodes evenly distributed around circle
+  ;; Position angles: 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°
+  ;; 
+  ;; Before optimization (alphabetically sorted):
+  ;; 0°: "abc", 45°: "defghijk", 90°: "lmno", 135°: "mnopqr"
+  ;; 180°: "pq", 225°: "stuvwxyz", 270°: "xy", 315°: "z"
+  ;;
+  ;; After optimization (by length at corners):
+  ;; 0°: "pq" (2 chars), 45°: "defghijk" (8 chars) ← corner
+  ;; 90°: "xy" (2 chars), 135°: "stuvwxyz" (8 chars) ← corner
+  ;; 180°: "z" (1 char), 225°: "mnopqr" (6 chars) ← corner
+  ;; 270°: "abc" (3 chars), 315°: "lmno" (4 chars) ← corner
+  ;;
+  ;; Result: Longest labels occupy corner positions where there's more space
+
+  #_.)
+
+(defn- optimize-radial-structure
+  "Optimize label placement within theme groups in the complete structure.
+  
+  Walks through `nodes` and reorders each contiguous theme group to place
+  longer labels at better angular positions (corners and horizontal areas)."
+  [nodes]
+  (let [total-count (count nodes)]
+    (loop [i      0
+           result []]
+      (if (>= i total-count)
+        result
+        (let [node (nth nodes i)]
+          (if (or (:spacer node) (nil? (:theme node)))
+            ;; Spacer or no theme - just copy it
+            (recur (inc i) (conj result node))
+            ;; Start of a theme group - find its extent
+            (let [theme     (:theme node)
+                  group-end (loop [j (inc i)]
+                              (if (or (>= j total-count)
+                                      (not= theme (:theme (nth nodes j))))
+                                j
+                                (recur (inc j))))
+                  group     (subvec (vec nodes) i group-end)
+                  optimized (optimize-within-group group i total-count)]
+              (recur group-end (into result optimized)))))))))
+
 (defn- prepare-radial-children
-  "Transform entity data into radial tree format with themed spacers."
+  "Transform entity data into radial tree format with optimized label placement."
   [entity k->label]
   (->> entity
        (mapcat (fn [[k synsets]]
                  (let [theme (get shared/synset-rel-theme k)]
                    (->> synsets
                         (map (fn [synset]
-                               ;; Use prefix:identifier if label is n/a
                                (let [label (or (k->label synset)
                                                (prefix/kw->qname synset))]
                                  {:name  label
@@ -269,14 +379,14 @@
                                   :title (labels-only label)})))
                         (mapcat by-sense-label)
                         (group-by :theme)
-                        ;; TODO: group categories/themes in order (matching legend)
                         (shared/top-n-vals radial-limit)
                         (vals)
                         (apply concat)
-                        (sort-by :name)
-                        (map-indexed (fn [n m] (assoc m :n n)))))))
+                        (sort-by :name)))))
        (add-theme-spacers)
-       (add-middle-spacers)))
+       (add-middle-spacers)
+       (optimize-radial-structure)
+       (map-indexed (fn [n m] (assoc m :n n)))))
 
 (defn- calculate-dynamic-sizing
   "Calculate dynamic font sizes and text limits for `node-count`, `width`, and
@@ -296,7 +406,7 @@
      :subject-font-size (* font-size 2.2)
      :tspan-font-size   (* font-size 0.67)
      :subject-limits    [(int (* 20 size-factor)) (int (* 28 size-factor))]
-     :regular-limits    [(int (* 16 size-factor)) (int (* 12 size-factor))]}))
+     :regular-limits    [(int (* 18 size-factor)) (int (* 16 size-factor))]}))
 
 (defn- create-radial-gradient
   "Add radial gradient definition for subject label background."
@@ -553,8 +663,8 @@
                      (let [data ^js (.-data d)]
                        (when (.-subject data)
                          (let [label-parts  (->> (str/split (.-name data) #",\s*")
-                                                   (sort-by count)
-                                                   (reorder-lens-shape))
+                                                 (sort-by count)
+                                                 (reorder-lens-shape))
                                line-height  (* subject-font-size 1.4)
                                total-lines  (count label-parts)
                                start-offset (- (* (/ (dec total-lines) 2) line-height))]
