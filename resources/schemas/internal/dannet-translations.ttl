@@ -125,10 +125,10 @@ ontolex:LexicalConcept rdfs:comment "Et leksikalsk begreb repræsenterer en ment
 
 # WordNet semantic relations
 
-wn:hypernym rdfs:label "overbegreb"@da .
+wn:hypernym rdfs:label "har overbegreb"@da .
 wn:hypernym rdfs:comment "En relation mellem to begreber hvor begreb A er en type af begreb B."@da .
 
-wn:hyponym rdfs:label "underbegreb"@da .
+wn:hyponym rdfs:label "har underbegreb"@da .
 wn:hyponym rdfs:comment "En relation mellem to begreber hvor begreb B er en type af begreb A."@da .
 
 wn:instance_hypernym rdfs:label "er instans af"@da .
@@ -155,29 +155,17 @@ wn:holo_member rdfs:comment "En relation mellem to begreber hvor begreb A er et 
 wn:mero_member rdfs:label "har medlem"@da .
 wn:mero_member rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som medlem/element (A er helheden)."@da .
 
-wn:holo_substance rdfs:label "materiale i"@da .
+wn:holo_substance rdfs:label "indgår i"@da .
 wn:holo_substance rdfs:comment "En relation mellem to begreber hvor begreb A er et materiale i begreb B (B er helheden)."@da .
 
 wn:mero_substance rdfs:label "består af"@da .
 wn:mero_substance rdfs:comment "En relation mellem to begreber hvor begreb A har begreb B som materiale (A er helheden)."@da .
 
-wn:mero_location rdfs:label "omfatter sted"@da .
+wn:mero_location rdfs:label "kan rumme"@da .
 wn:mero_location rdfs:comment "En relation mellem to begreber hvor begreb B er et sted beliggende i begreb A (A er det større sted)."@da .
 
 wn:holo_location rdfs:label "beliggende i"@da .
 wn:holo_location rdfs:comment "En relation mellem to begreber hvor begreb A er et sted beliggende i begreb B (B er det større sted)."@da .
-
-wn:agent rdfs:label "aktør i"@da .
-wn:agent rdfs:comment "En relation mellem to begreber hvor begreb A er typisk den aktør der udfører handlingen udtrykt af begreb B."@da .
-
-wn:involved_agent rdfs:label "har aktør"@da .
-wn:involved_agent rdfs:comment "En relation mellem to begreber hvor handlingen udtrykt af begreb A typisk involverer begreb B som aktør."@da .
-
-wn:patient rdfs:label "berørt af"@da .
-wn:patient rdfs:comment "En relation mellem to begreber hvor begreb A typisk påvirkes af handlingen udtrykt af begreb B."@da .
-
-wn:involved_patient rdfs:label "berører"@da .
-wn:involved_patient rdfs:comment "En relation mellem to begreber hvor handlingen udtrykt af begreb A typisk påvirker begreb B."@da .
 
 wn:result rdfs:label "resultat af"@da .
 wn:result rdfs:comment "En relation mellem to begreber hvor begreb A er resultatet af begreb B."@da .
@@ -200,7 +188,7 @@ wn:is_caused_by rdfs:comment "En relation mellem to begreber hvor begreb A forå
 wn:entails rdfs:label "indebærer"@da .
 wn:entails rdfs:comment "En relation mellem to begreber hvor begreb A indebærer begreb B som en nødvendig følge."@da .
 
-wn:is_entailed_by rdfs:label "indebæres af"@da .
+wn:is_entailed_by rdfs:label "skyldes"@da .
 wn:is_entailed_by rdfs:comment "En relation mellem to begreber hvor begreb A indebæres af begreb B som en nødvendig følge."@da .
 
 wn:domain_topic rdfs:label "tilhører domæne"@da .
@@ -215,7 +203,7 @@ wn:domain_region rdfs:comment "En relation mellem to begreber hvor begreb A tilh
 wn:has_domain_region rdfs:label "er region for"@da .
 wn:has_domain_region rdfs:comment "En relation mellem to begreber hvor regionen A omfatter begreb B."@da .
 
-wn:similar rdfs:label "lignende"@da .
+wn:similar rdfs:label "nær-synonym"@da .
 wn:similar rdfs:comment "En relation mellem to begreber hvor begreb A og begreb B er tæt beslægtede i betydning, men ikke er i samme synset."@da .
 
 wn:antonym rdfs:label "antonym"@da .
@@ -235,3 +223,6 @@ wn:exemplifies rdfs:comment "En relation mellem to begreber hvor begreb A er et 
 
 wn:is_exemplified_by rdfs:label "har eksempel"@da .
 wn:is_exemplified_by rdfs:comment "En relation mellem to begreber hvor typen A har begreb B som eksempel."@da .
+
+wn:eq_synonym rdfs:label "ækvivalent begreb"@da .
+wn:eq_synonym rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er synonymt med subjektet."@da .

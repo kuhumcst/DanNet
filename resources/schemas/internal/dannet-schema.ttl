@@ -38,21 +38,24 @@
 
 # NOTE: the format of :eq_hypernym and :eq_hyponym is a copy of wn:eq_synonym
 :eqHypernym a wn:SynsetRelType ;
-  rdfs:label "eq hypernym"@en ;
+  rdfs:label "equivalent hypernym"@en ;
+  rdfs:label "ækvivalent overbegreb"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is a hypernym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hypernym af subjektet."@da ;
   owl:inverseOf :eqHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqHyponym a wn:SynsetRelType ;
-  rdfs:label "eq hyponym"@en ;
+  rdfs:label "equivalent hyponym"@en ;
+  rdfs:label "ækvivalent underbegreb"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is a hyponym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
   owl:inverseOf :eqHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqSimilar a wn:SynsetRelType ;
-  rdfs:label "eq similar"@en ;
+  rdfs:label "equivalent near synonym"@en ;
+  rdfs:label "equivalent nær-synonym"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is similar to the subject, though not synonymous."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet minder om subjektet men dog ikke er et synonym."@da ;
   owl:inverseOf :eqSimilar ;
@@ -164,7 +167,7 @@
   rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
   rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "orthogonal hypernym"@en ;
-  rdfs:label "ortogonalt hyperonym"@da ;
+  rdfs:label "ortogonalt overbegreb"@da ;
   owl:inverseOf :orthogonalHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -174,7 +177,7 @@
   rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
   rdfs:comment "Hyponymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "orthogonal hyponym"@en ;
-  rdfs:label "ortogonalt hyponym"@da ;
+  rdfs:label "ortogonalt underbegreb"@da ;
   owl:inverseOf :orthogonalHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
