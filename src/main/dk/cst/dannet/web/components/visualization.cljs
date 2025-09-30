@@ -36,6 +36,32 @@
 (def labels-only
   (comp remove-subscript remove-parens))
 
+(defn- reorder-lens-shape
+  "Reorder `labels` (sorted by length) into lens shape for circular diagrams.
+  Places shortest labels at top and bottom, longest in the middle. This creates
+  better visual balance in radial layouts where labels are centered above the
+  diagram's center point."
+  [labels]
+  (let [n (count labels)]
+    (loop [remaining labels
+           result    (vec (repeat n nil))
+           left      0
+           right     (dec n)
+           from-left true]
+      (if (empty? remaining)
+        result
+        (if from-left
+          (recur (rest remaining)
+                 (assoc result left (first remaining))
+                 (inc left)
+                 right
+                 false)
+          (recur (rest remaining)
+                 (assoc result right (first remaining))
+                 left
+                 (dec right)
+                 true))))))
+
 (defn take-top
   [n weights]
   (->> (sort-by second weights)
@@ -506,9 +532,13 @@
                              [limit cutoff] (if (.-subject data)
                                               subject-limits
                                               regular-limits)]
-                         (if (> (count s) limit)
-                           (str (subs s 0 cutoff) shared/omitted)
-                           s))))))
+                         ;; For subject (center) labels, we'll handle multi-line in tspan
+                         ;; For regular labels, display as single line
+                         (if (.-subject data)
+                           ""                               ; Empty for subject, handled by tspans below
+                           (if (> (count s) limit)
+                             (str (subs s 0 cutoff) shared/omitted)
+                             s)))))))
           (.on "click" (fn [_ d]
                          (when (.-href (.-data d))
                            (reset! shared/post-navigate {:scroll :diagram})
@@ -516,6 +546,28 @@
 
           ;; Adding mouseover text (in lieu of a title attribute)
           (add-title)
+
+          ;; Split center labels into multiple lines at commas
+          (.each (fn [d]
+                   (this-as this-elem
+                     (let [data ^js (.-data d)]
+                       (when (.-subject data)
+                         (let [label-parts  (->> (str/split (.-name data) #",\s*")
+                                                   (sort-by count)
+                                                   (reorder-lens-shape))
+                               line-height  (* subject-font-size 1.4)
+                               total-lines  (count label-parts)
+                               start-offset (- (* (/ (dec total-lines) 2) line-height))]
+                           (doseq [[idx part] (map-indexed vector label-parts)]
+                             (-> (d3/select this-elem)
+                                 (.append "tspan")
+                                 (.attr "x" 0)
+                                 (.attr "dy" (if (zero? idx)
+                                               (str start-offset "px")
+                                               (str line-height "px")))
+                                 (.attr "text-anchor" "middle")
+                                 (.text (str (str/trim part)
+                                             (when (< idx (dec total-lines)) ",")))))))))))
 
           (.append "tspan")
           (.attr "class" "sense-paragraph")
