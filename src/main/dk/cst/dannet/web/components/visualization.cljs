@@ -241,9 +241,9 @@
 
 (defn- add-theme-spacers
   "Insert transparent spacer nodes between theme groups for visual separation."
-  [themed-children]
-  (let [theme-groups  (group-by :theme themed-children)
-        sorted-themes (sort-by first theme-groups)]
+  [sort-keyfn themed-children]
+  (let [theme-groups  (group-by :relation themed-children)
+        sorted-themes (sort-by sort-keyfn theme-groups)]
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
                    (concat nodes [spacer-node spacer-node])))
@@ -376,18 +376,26 @@
                         (map (fn [synset]
                                (let [label (or (k->label synset)
                                                (prefix/kw->qname synset))]
-                                 {:name  label
-                                  :theme theme
-                                  :href  (prefix/resolve-href synset)
-                                  :title (labels-only label)})))
+                                 {:name     label
+                                  :theme    theme
+                                  :relation k
+                                  :href     (prefix/resolve-href synset)
+                                  :title    (labels-only label)})))
                         (mapcat by-sense-label)
-                        (group-by :theme)
+                        (group-by :relation)
+
+                        ;; Always select values from every relation type.
                         (shared/top-n-vals radial-limit)
                         (vals)
-                        (apply concat)
-                        (sort-by :name)))))
-       (add-theme-spacers)
+                        (apply concat)))))
+
+       ;; Sorting into (and of) groups happens here!
+       (add-theme-spacers (comp str k->label first))
        (add-middle-spacers)
+
+       ;; Labels are sorted internally within the groups based on label size.
+       ;; The bigger labels are positioned towards the corners of the diagram
+       ;; where space is more freely available.
        (optimize-radial-structure)
        (map-indexed (fn [n m] (assoc m :n n)))))
 
