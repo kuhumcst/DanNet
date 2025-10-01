@@ -12,13 +12,6 @@
 (def colours
   (atom (cycle shared/theme)))
 
-;; Display constants
-(def ^:private cloud-max-size 36)
-(def ^:private cloud-min-size-ratio 0.33)
-(def ^:private radial-gradient-radius-ratio 0.75)
-(def ^:private node-radius-divisor 55)
-(def ^:private label-distance-base 12)
-
 ;; Character width categories for glyph-aware text measurement
 (def ^:private narrow-chars
   #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
@@ -171,14 +164,21 @@
 (defn build-cloud!
   [state {:keys [cloud-limit] :as opts} synsets node]
   (when (and node (not= @state [cloud-limit synsets]))
-    ;; Always start by clearing the old contents.
+    ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
     (let [width  (content-width (.-parentElement node))
           words  (prepare-synset-cloud opts synsets)
+
+          ;; Height scales with word count (6px per word) within certain bounds:
+          ;;   - Minimum 128px ensures that small clouds are readable.
+          ;;   - Max prevents excessive vertical scrolling for large clouds.
           height (min
                    (max (* (count words) 6) 128)
                    width)
+
+          ;; Draw callback invoked after layout computation finishes.
+          ;; Receives positioned word data with x/y coordinates and sizes.
           draw   (fn [words]
                    (-> d3
 
@@ -188,6 +188,7 @@
                        (.attr "width" width)
                        (.attr "height" height)
                        (.append "g")
+                       ;; Center group in SVG: words are positioned relative to (0,0)
                        (.attr "transform" (str "translate(" (/ width 2)
                                                "," (/ height 2) ")"))
 
@@ -218,14 +219,15 @@
                        (.append "title")
                        (.text (fn [d] (.-title d)))))
 
-          ;; The cloud layout itself is created using d3-cloud.
+          ;; The d3-cloud layout conf computes word positions to avoid overlaps.
           layout (-> (cloud)
                      (.size #js [width height])
                      (.words (clj->js words))
-                     (.padding 8)
-                     (.rotate (fn [] 0))
-                     (.font "Georgia")
+                     (.padding 8)                           ; prevent visual crowding
+                     (.rotate (fn [] 0))                    ; keep labels horizontal for readability
+                     (.font "Georgia")                      ; matches CSS styling
                      (.fontSize (fn [d] (.-size d)))
+                     ;; Trigger draw when layout computation completes
                      (.on "end" draw))]
       (.start layout))
     (reset! state [cloud-limit synsets])))
@@ -332,7 +334,7 @@
     ;; Combined score: squared corner distance with rotation bonus
     ;; Subtracting rotation gives diagonal positions extra advantage
     (- (* corner-dist corner-dist)
-       (* 0.33 rotation-factor))))
+       (* 0.8 rotation-factor))))
 
 (defn- optimize-within-group
   "Reorder `nodes` to place longer labels at optimal positions.
@@ -471,7 +473,7 @@
 (defn build-radial!
   [state {:keys [label languages k->label synset-weights] :as opts} entity node]
   (when node
-    ;; Always start by clearing the old contents.
+    ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
     (let [width      (content-width (.-parentElement node))
@@ -500,11 +502,12 @@
                         :subject  true
                         :children children})
 
-          ;; Specify the chart's dimensions.
+          ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
+          ;; allows equal radius in all directions regardless of aspect ratio
           cx         (* 0.5 width)
           cy         (* 0.5 height)
 
-          ;; More aggressive padding - use more of the available space
+          ;; Utilize diagonal space while keeping labels within viewport bounds.
           radius     (/ (min width height)
                         js/Math.PI)
 
@@ -518,11 +521,8 @@
                                              2)
                                            (.-depth a)))))
 
-          ;; Sort the tree and apply the layout.
+          ;; Apply the layout.
           root       (-> (.hierarchy d3 data)
-                         #_(.sort (fn [a b]
-                                    (.ascending
-                                      d3 (.-name (.-data a)) (.-name (.-data b)))))
                          (tree))
 
           ;; Calculate dynamic sizing factors for fonts and text limits
@@ -538,6 +538,9 @@
                          (.attr "class" "radial-tree-diagram__svg")
                          (.attr "width" width)
                          (.attr "height" height)
+                         ;; viewBox: defines coordinate system centered at (0,0)
+                         ;; [minX minY width height] where (-cx, -cy) shifts origin to center
+                         ;; This allows positive/negative coords radiating from center
                          (.attr "viewBox" #js [(- cx) (- cy) width height])
                          (.style "--radial-font-size" (str font-size "px"))
                          (.style "--radial-subject-font-size" (str subject-font-size "px"))
@@ -551,6 +554,7 @@
                            (.append "title")
                            (.text (fn [d] (.-title (.-data d)))))
                        d3)]
+
       ;; Append links.
       (-> svg
           (.append "g")
@@ -610,26 +614,38 @@
                            (if (.-href (.-data d))
                              "radial-item"
                              "radial-item radial-item__subject")))
+          ;; LABEL ROTATION LOGIC (most complex part of the function):
+          ;; For subject (center): simple vertical offset, no rotation
+          ;; For other labels: 4-stage transformation.
           (.attr "transform" (fn [d]
                                (if (.-subject (.-data d))
+                                 ;; Center label: just offset upward slightly
                                  (str "translate(0,-4) ")
 
-                                 ;; Rotate the labels to stand perpendicular to centre.
+                                 ;; Stage 1: Rotate label to point outward from center
+                                 ;; angle in radians → degrees, subtract 90° so 0° points up
                                  (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ") "
 
-                                      ;; Move labels from the centre to the circumference.
+                                      ;; Stage 2: Move label from center to circumference
+                                      ;; +2px padding beyond node position for breathing room
                                       "translate(" (+ (.-y d) 2) ",0) "
 
-                                      ;; Flip labels on the left, so that they go on the outside of the circle
+                                      ;; Stage 3: Flip labels on left half to read left-to-right
+                                      ;; x >= π means left half of circle → rotate 180°
                                       "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
 
-                                      ;; Rotate the label ever so slightly to make the angle more legible.
-                                      ;; The most vertical ones are rotated the most, while the ones that
-                                      ;; are horisontal are not rotated at all.
+                                      ;; Stage 4: Subtle tilt adjustment for better legibility
+                                      ;; - Vertical labels (x near π/2 or 3π/2): rotate more
+                                      ;; - Horizontal labels (x near 0 or π): no rotation
+                                      ;; - Factor of 20 controls maximum tilt angle (~31.5°)
+                                      ;; This makes diagonal labels easier to read by reducing
+                                      ;; extreme perpendicular angles
                                       "rotate(" (if (< (.-x d) js/Math.PI)
+                                                  ;; Top half: rotate proportional to distance from π/2
                                                   (* (- (* js/Math.PI 0.5)
                                                         (.-x d))
                                                      20)
+                                                  ;; Bottom half: rotate proportional to distance from 3π/2
                                                   (* (- (* js/Math.PI 1.5)
                                                         (.-x d))
                                                      20))
@@ -638,8 +654,8 @@
           (.attr "x" (fn [d]
                        (if (.-subject (.-data d))
                          0
-                         ;; The distance between - optimized for available space
-                         (let [base-dist  12                ; Reduced from 16 to save space
+                         ;; Label distance from node: scales with size factor.
+                         (let [base-dist  12
                                label-dist (* base-dist size-factor)]
                            (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
                              label-dist
