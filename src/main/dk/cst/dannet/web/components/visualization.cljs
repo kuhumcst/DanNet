@@ -12,7 +12,23 @@
 (def colours
   (atom (cycle shared/theme)))
 
+;; Display constants
+(def ^:private cloud-max-size 36)
+(def ^:private cloud-min-size-ratio 0.33)
+(def ^:private radial-gradient-radius-ratio 0.75)
+(def ^:private node-radius-divisor 55)
+(def ^:private label-distance-base 12)
+
+;; Character width categories for glyph-aware text measurement
+(def ^:private narrow-chars
+  #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
+
+(def ^:private wide-chars
+  #{\m \w \M \W \æ \Æ \@ \%})
+
 (defn next-colour
+  "Uses a stateful atom to cycle through shared/theme colors, ensuring each
+  subsequent call returns a different color for visual distinction."
   []
   (first (swap! colours rest)))
 
@@ -24,33 +40,31 @@
   #"_([^; ,]+)")
 
 (defn remove-subscript
+  "Remove DDO sense subscripts from label `s`.
+  
+  DDO labels include subscripts like _1§1 to identify specific senses.
+  This function removes everything from underscore through the subscript
+  portion, leaving only the base word form."
   [s]
   (str/replace (str s) label-section ""))
 
 (def labels-only
+  "Composed fn that removes both DDO subscripts and synset braces."
   (comp remove-subscript remove-parens))
 
 (defn- glyph-width
-  "Estimate the visual width of `s` based on character widths."
+  "Estimate the approximate visual width of `s` based on character widths.
+  Uses char-specific width factors to better account for narrow/wide chars."
   [s]
   (reduce + (map (fn [ch]
                    (cond
-                     ;; Narrow characters
-                     (#{\f \i \l \I \j \r \t \1
-                        \. \, \: \; \! \| \' \`} ch) 0.45
-
-                     ;; Wide characters
-                     (#{\m \w \M \W \æ \Æ \@ \%} ch) 1.4
-
-                     ;; Everything else
+                     (narrow-chars ch) 0.45
+                     (wide-chars ch) 1.4
                      :else 1.0))
                  s)))
 
 (defn length-penalty
-  "Calculate a new size with a penalty based on the visual width of `label`.
-
-  Uses glyph-aware width calculation rather than simple character count to
-  better account for narrow characters (i, l) vs wide characters (m, w)."
+  "Calculate a new size with a penalty based on the visual width of `label`."
   [label size]
   (/ size (max 1 (math/log10 (glyph-width label)))))
 
@@ -81,6 +95,8 @@
                  true))))))
 
 (defn take-top
+  "Select the top `n` entries from `weights` by value (descending).
+  Used to limit visualizations to the most significant items."
   [n weights]
   (->> (sort-by second weights)
        (reverse)
@@ -131,7 +147,10 @@
          (reverse))))
 
 (defn content-width
-  "Get the width of a `node`, excluding its padding and border."
+  "Get the width of a `node`, excluding its padding and border.
+  
+  Uses getComputedStyle to account for CSS padding, returning only the
+  actual content area width available for rendering visualizations."
   [node]
   (let [style (js/window.getComputedStyle node)]
     (- (.-clientWidth node)
@@ -217,6 +236,8 @@
          :ref #(build-cloud! (::synsets state) opts synsets %)}])
 
 (defn by-sense-label
+  "Extract individual word labels from synset names in map `m`;
+  limits to the top canonical label for each synset to avoid duplicates."
   [{:keys [name] :as m}]
   (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
                                         (shared/canonical)
@@ -240,9 +261,10 @@
   {:name "" :theme nil :spacer true :title "" :href nil})
 
 (defn- add-theme-spacers
-  "Insert transparent spacer nodes between theme groups for visual separation."
-  [sort-keyfn themed-children]
-  (let [theme-groups  (group-by :relation themed-children)
+  "Group/sort `nodes` by relation using `sort-keyfn` and insert transparent
+  spacer nodes between these groups for visual separation."
+  [sort-keyfn nodes]
+  (let [theme-groups  (group-by :relation nodes)
         sorted-themes (sort-by sort-keyfn theme-groups)]
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
@@ -252,6 +274,7 @@
          (drop-last 2))))
 
 (defn- add-middle-spacers
+  "Add spacer nodes at top, bottom, and between left/right halves of `nodes`."
   [nodes]
   (let [mid-point (quot (count nodes) 2)
         [right left] (split-at mid-point nodes)
@@ -433,8 +456,9 @@
     (-> gradient (.append "stop") (.attr "offset" "100%")
         (.attr "stop-color" "white") (.attr "stop-opacity" "0"))))
 
-(defn- render-node-fill [d]
-  "Determine fill color for nodes, handling spacers and themes."
+(defn- render-node-fill
+  "Determine fill color for radial tree node `d`."
+  [d]
   (let [data ^js (.-data d)]
     (cond
       (.-spacer data) "transparent"
