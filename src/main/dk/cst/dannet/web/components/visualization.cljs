@@ -61,31 +61,33 @@
   [label size]
   (/ size (max 1 (math/log10 (glyph-width label)))))
 
-(defn- reorder-lens-shape
+;; NOTE: memoized for performance.
+(def reorder-lens-shape
   "Reorder `labels` (sorted by length) into lens shape for circular diagrams.
   Places shortest labels at top and bottom, longest in the middle. This creates
   better visual balance in radial layouts where labels are centered above the
   diagram's center point."
-  [labels]
-  (let [n (count labels)]
-    (loop [remaining labels
-           result    (vec (repeat n nil))
-           left      0
-           right     (dec n)
-           from-left true]
-      (if (empty? remaining)
-        result
-        (if from-left
-          (recur (rest remaining)
-                 (assoc result left (first remaining))
-                 (inc left)
-                 right
-                 false)
-          (recur (rest remaining)
-                 (assoc result right (first remaining))
-                 left
-                 (dec right)
-                 true))))))
+  (memoize
+    (fn [labels]
+      (let [n (count labels)]
+        (loop [remaining labels
+               result    (transient (vec (repeat n nil)))
+               left      0
+               right     (dec n)
+               from-left true]
+          (if (empty? remaining)
+            (persistent! result)
+            (if from-left
+              (recur (rest remaining)
+                     (assoc! result left (first remaining))
+                     (inc left)
+                     right
+                     false)
+              (recur (rest remaining)
+                     (assoc! result right (first remaining))
+                     left
+                     (dec right)
+                     true))))))))
 
 (defn take-top
   "Select the top `n` entries from `weights` by value (descending).
@@ -151,7 +153,8 @@
        (js/parseFloat (.-paddingRight style)))))
 
 ;; TODO: fix, doesn't seem to add extra width to text when used
-(defn- add-sub
+(defn- append-subscript-tspan
+  "Append a subscript tspan element to D3 `text` selection."
   [text]
   (-> text
       (.append "tspan")
@@ -213,7 +216,7 @@
                                       (shared/navigate-to (.-href d))))
 
                        ;; Insert subscript paragraph, returning parent text
-                       #_(add-sub)
+                       #_(append-subscript-tspan)
 
                        ;; Adding mouseover text (in lieu of a title attribute)
                        (.append "title")
@@ -237,24 +240,26 @@
   [:div {:key (str (hash synsets) "-" cloud-limit)
          :ref #(build-cloud! (::synsets state) opts synsets %)}])
 
-(defn by-sense-label
+;; NOTE: memoized for performance.
+(def expand-sense-labels
   "Extract individual word labels from synset names in map `m`;
   limits to the top canonical label for each synset to avoid duplicates."
-  [{:keys [name] :as m}]
-  (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
-                                        (shared/canonical)
-                                        ;; limit to top label for each synset
-                                        (take 1)
-                                        (map #(re-matches shared/sense-label %)))
+  (memoize
+    (fn [{:keys [name] :as m}]
+      (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
+                                            (shared/canonical)
+                                            ;; limit to top label for each synset
+                                            (take 1)
+                                            (map #(re-matches shared/sense-label %)))
 
-        ;; Allow phrases to appear too, not just the core word in the phrase.
-        :let [name' (if s
-                      (str/replace s (str "_" sub) "")
-                      name)]]
-    (when-not (= s shared/omitted)
-      (assoc m
-        :name name'
-        :sub sub))))
+            ;; Allow phrases to appear too, not just the core word in the phrase.
+            :let [name' (if s
+                          (str/replace s (str "_" sub) "")
+                          name)]]
+        (when-not (= s shared/omitted)
+          (assoc m
+            :name name'
+            :sub sub))))))
 
 (def radial-limit
   56)
@@ -262,7 +267,7 @@
 (def spacer-node
   {:name "" :theme nil :spacer true :title "" :href nil})
 
-(defn- add-theme-spacers
+(defn- insert-theme-spacers
   "Group/sort `nodes` by relation using `sort-keyfn` and insert transparent
   spacer nodes between these groups for visual separation."
   [sort-keyfn nodes]
@@ -272,10 +277,10 @@
          (mapcat (fn [[_theme nodes]]
                    (concat nodes [spacer-node spacer-node])))
          ;; The final space isn't needed as we'll always add space at the top
-         ;; of diagram with 'add-middle-spacers'.
+         ;; of diagram with 'insert-vertical-spacers'.
          (drop-last 2))))
 
-(defn- add-middle-spacers
+(defn- insert-vertical-spacers
   "Add spacer nodes at top, bottom, and between left/right halves of `nodes`."
   [nodes]
   (let [mid-point (quot (count nodes) 2)
@@ -406,17 +411,16 @@
                                   :relation k
                                   :href     (prefix/resolve-href synset)
                                   :title    (labels-only label)})))
-                        (mapcat by-sense-label)
+                        (mapcat expand-sense-labels)
                         (group-by :relation)
 
                         ;; Always select values from every relation type.
                         (shared/top-n-vals radial-limit)
-                        (vals)
-                        (apply concat)))))
+                        (mapcat val)))))
 
        ;; Sorting into (and of) groups happens here!
-       (add-theme-spacers (comp str k->label first))
-       (add-middle-spacers)
+       (insert-theme-spacers (comp str k->label first))
+       (insert-vertical-spacers)
 
        ;; Labels are sorted internally within the groups based on label size.
        ;; The bigger labels are positioned towards the corners of the diagram
@@ -458,7 +462,7 @@
     (-> gradient (.append "stop") (.attr "offset" "100%")
         (.attr "stop-color" "white") (.attr "stop-opacity" "0"))))
 
-(defn- render-node-fill
+(defn- node-fill-color
   "Determine fill color for radial tree node `d`."
   [d]
   (let [data ^js (.-data d)]
@@ -468,9 +472,257 @@
       (.-subject data) "transparent"
       :else "#333")))
 
+(defn- prepare-radial-data
+  "Transform entity data into radial tree format for visualization.
+  
+  Takes `label` (synset label string), `entity` (relation map), `k->label`
+  (keyword to label fn), and `synset-weights` (weight map). Returns a map
+  with `:data` (hierarchical data structure), `:root` (D3 tree root), and
+  `:subject` (formatted subject string)."
+  [label entity k->label synset-weights]
+  (let [subject  (->> (shared/sense-labels shared/synset-sep label)
+                      (shared/canonical)
+                      (map remove-subscript)
+                      (remove #{shared/omitted})
+                      (set)
+                      (sort-by glyph-width)
+                      (str/join ", "))
+        entity'  (->> (shared/weight-sort-fn synset-weights)
+                      (update-vals (select-keys entity (keys shared/synset-rel-theme)))
+                      (shared/top-n-vals radial-limit))
+        children (prepare-radial-children entity' k->label)
+        data     (clj->js
+                   {:name     subject
+                    :title    subject
+                    :subject  true
+                    :children children})]
+    {:data    data
+     :subject subject}))
+
+(defn- create-radial-svg
+  "Create and configure the base SVG container for radial tree.
+  
+  Takes `node` (DOM node), `width`, `height`, `cx` (center x), `cy` (center y),
+  and `sizing` map with font sizes. Returns the configured SVG selection."
+  [node width height cx cy sizing]
+  (let [{:keys [font-size subject-font-size tspan-font-size]} sizing]
+    (-> d3
+        (.select node)
+        (.append "svg")
+        (.attr "class" "radial-tree-diagram__svg")
+        (.attr "width" width)
+        (.attr "height" height)
+        ;; viewBox: defines coordinate system centered at (0,0)
+        ;; [minX minY width height] where (-cx, -cy) shifts origin to center
+        ;; This allows positive/negative coords radiating from center
+        (.attr "viewBox" #js [(- cx) (- cy) width height])
+        (.style "--radial-font-size" (str font-size "px"))
+        (.style "--radial-subject-font-size" (str subject-font-size "px"))
+        (.style "--radial-tspan-font-size" (str tspan-font-size "px")))))
+
+(defn- render-radial-links
+  "Render connection paths between nodes in the radial tree.
+  
+  Takes `svg` (SVG selection) and `root` (D3 hierarchy root). Appends link
+  paths with appropriate styling based on node theme."
+  [svg root]
+  (-> svg
+      (.append "g")
+      (.attr "class" "radial-tree-links")
+      (.attr "fill" "none")
+      (.attr "stroke-opacity" "1")
+      (.attr "stroke-width" "1")
+      (.selectAll)
+      (.data (.links root))
+      (.join "path")
+      (.attr "d" (-> (.linkRadial d3)
+                     (.angle (fn [d] (.-x d)))
+                     (.radius (fn [d] (.-y d)))))
+      (.attr "stroke" (fn [d]
+                        (let [target-data ^js (.-data (.-target d))]
+                          (if (.-spacer target-data)
+                            "transparent"
+                            (if-let [color ^js/String (.-theme target-data)]
+                              color
+                              "#333")))))))
+
+(defn- render-radial-nodes
+  "Render node circles in the radial tree.
+  
+  Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `radius`
+  (diagram radius). Appends circle elements positioned and colored according
+  to their role (subject, theme, spacer)."
+  [svg root radius]
+  (-> svg
+      (.append "g")
+      (.attr "class" "radial-tree-nodes")
+      (.selectAll)
+      (.data (.descendants root))
+      (.join "circle")
+      (.attr "transform" (fn [d]
+                           (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90)
+                                ") translate(" (.-y d) ",0)")))
+      (.attr "fill" node-fill-color)
+      (.attr "r" (/ radius 55))))
+
+(defn- render-radial-labels
+  "Render text labels with rotation and positioning in the radial tree.
+  
+  Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `sizing` map
+  with font sizes and limits. Handles complex label rotation, multi-line
+  subject labels, and subscript rendering."
+  [svg root sizing]
+  (let [{:keys [size-factor font-size subject-font-size tspan-font-size
+                subject-limits regular-limits]} sizing
+        add-title (fn [d3]
+                    (-> d3
+                        (.append "title")
+                        (.text (fn [d] (.-title (.-data d)))))
+                    d3)]
+    (-> svg
+        (.append "g")
+        (.attr "class" "radial-tree-labels")
+        (.attr "stroke-linejoin" "round")
+        (.attr "stroke-width" "0.1px")
+        (.selectAll)
+        (.data (.descendants root))
+        (.join "text")
+        (.attr "class" (fn [d]
+                         (if (.-href (.-data d))
+                           "radial-item"
+                           "radial-item radial-item__subject")))
+
+        ;; LABEL ROTATION LOGIC (most complex part of the function):
+        ;; For subject (center): simple vertical offset, no rotation
+        ;; For other labels: 4-stage transformation.
+        (.attr "transform" (fn [d]
+                             (if (.-subject (.-data d))
+                               ;; Center label: just offset upward slightly
+                               (str "translate(0,-4) ")
+
+                               ;; Stage 1: Rotate label to point outward from center
+                               ;; angle in radians → degrees, subtract 90° so 0° points up
+                               (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ") "
+
+                                    ;; Stage 2: Move label from center to circumference
+                                    ;; +2px padding beyond node position for breathing room
+                                    "translate(" (+ (.-y d) 2) ",0) "
+
+                                    ;; Stage 3: Flip labels on left half to read left-to-right
+                                    ;; x >= π means left half of circle → rotate 180°
+                                    "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
+
+                                    ;; Stage 4: Subtle tilt adjustment for better legibility
+                                    ;; - Vertical labels (x near π/2 or 3π/2): rotate more
+                                    ;; - Horizontal labels (x near 0 or π): no rotation
+                                    ;; - Factor of 20 controls maximum tilt angle (~31.5°)
+                                    ;; This makes diagonal labels easier to read by reducing
+                                    ;; extreme perpendicular angles
+                                    "rotate(" (if (< (.-x d) js/Math.PI)
+                                                ;; Top half: rotate proportional to distance from π/2
+                                                (* (- (* js/Math.PI 0.5)
+                                                      (.-x d))
+                                                   20)
+                                                ;; Bottom half: rotate proportional to distance from 3π/2
+                                                (* (- (* js/Math.PI 1.5)
+                                                      (.-x d))
+                                                   20))
+                                    ")"))))
+        (.attr "dy" "0.31em")
+        (.attr "x" (fn [d]
+                     (if (.-subject (.-data d))
+                       0
+                       ;; Label distance from node: scales with size factor.
+                       (let [base-dist  12
+                             label-dist (* base-dist size-factor)]
+                         (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
+                           label-dist
+                           (- label-dist))))))
+        (.attr "text-anchor" (fn [d]
+                               (if (.-subject (.-data d))
+                                 "middle"
+                                 (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
+                                   "start"
+                                   "end"))))
+        (.attr "paint-order" "stroke")
+        (.attr "font-size" (fn [d]
+                             ;; Use larger font for subject (center) label
+                             (if (.-subject (.-data d))
+                               (str subject-font-size "px")
+                               (str font-size "px"))))
+        (.attr "data-theme" (fn [d]
+                              (if-let [theme ^js/String (.-theme (.-data d))]
+                                theme
+                                "#333")))
+        (.attr "fill" (fn [d]
+                        (let [data ^js (.-data d)]
+                          (if (.-spacer data)
+                            "transparent"
+                            "#333"))))
+        (.text (fn [d]
+                 (let [data ^js (.-data d)]
+                   (if (.-spacer data)
+                     ""
+                     (let [s (.-name data)
+                           [limit cutoff] (if (.-subject data)
+                                            subject-limits
+                                            regular-limits)]
+                       ;; For subject (center) labels, we'll handle multi-line in tspan
+                       ;; For regular labels, display as single line
+                       (if (.-subject data)
+                         ""
+                         (if (and (string? s) (> (count s) limit))
+                           (str (subs s 0 cutoff) shared/omitted)
+                           s)))))))
+        (.on "click" (fn [_ d]
+                       (when (.-href (.-data d))
+                         (reset! shared/post-navigate {:scroll :diagram})
+                         (shared/navigate-to (.-href (.-data d))))))
+
+        ;; Adding mouseover text (in lieu of a title attribute)
+        (add-title)
+
+        ;; Split center labels into multiple lines at commas
+        (.each (fn [d]
+                 (this-as this-elem
+                   (let [data ^js (.-data d)]
+                     (when (.-subject data)
+                       (let [label-parts  (->> (str/split (.-name data) #",\s*")
+                                               (sort-by count)
+                                               (reorder-lens-shape))
+                             line-height  (* subject-font-size 1.4)
+                             total-lines  (count label-parts)
+                             start-offset (- (* (/ (dec total-lines) 2) line-height))]
+                         (doseq [[idx part] (map-indexed vector label-parts)]
+                           (-> (d3/select this-elem)
+                               (.append "tspan")
+                               (.attr "x" 0)
+                               (.attr "dy" (if (zero? idx)
+                                             (str start-offset "px")
+                                             (str line-height "px")))
+                               (.attr "text-anchor" "middle")
+                               (.text (str (str/trim part)
+                                           (when (< idx (dec total-lines)) ",")))))))))))
+
+        (.append "tspan")
+        (.attr "class" "sense-paragraph")
+        (.attr "dy" (str (/ tspan-font-size 5) "px"))
+        (.attr "dx" (str (/ tspan-font-size 4) "px"))
+        (.attr "font-size" (str tspan-font-size "px"))
+        (.text (fn [d]
+                 (when (<= (+ (count (str (.-name (.-data d))))
+                              (count (.-sub (.-data d))))
+                           (* 12 size-factor))
+                   (.-sub (.-data d))))))))
+
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
+  "Build and render a radial tree diagram in `node` from `entity`.
+  
+  Orchestrates the complete radial tree visualization: prepares data,
+  creates SVG container, and renders links, nodes, and labels with
+  optimized positioning and rotation."
   [state {:keys [label languages k->label synset-weights] :as opts} entity node]
   (when node
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
@@ -479,28 +731,12 @@
     (let [width      (content-width (.-parentElement node))
           height     width
 
-          subject    (->> (shared/sense-labels shared/synset-sep label)
-                          (shared/canonical)
-                          (map remove-subscript)
-                          (remove #{shared/omitted})
-                          (set)                             ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
-                          (sort-by glyph-width)
-                          (str/join ", "))
+          ;; Prepare hierarchical data structure
           k->label'  (comp
                        (partial i18n/select-label languages)
                        k->label)
-          entity'    (->> (shared/weight-sort-fn synset-weights)
-                          (update-vals (select-keys entity (keys shared/synset-rel-theme)))
-                          (shared/top-n-vals radial-limit))
-
-          ;; Transform entity data into radial tree format with category spacers
-          children   (prepare-radial-children entity' k->label')
-
-          data       (clj->js
-                       {:name     subject
-                        :title    subject
-                        :subject  true
-                        :children children})
+          prep-data  (prepare-radial-data label entity k->label' synset-weights)
+          {:keys [data subject]} prep-data
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
           ;; allows equal radius in all directions regardless of aspect ratio
@@ -511,8 +747,8 @@
           radius     (/ (min width height)
                         js/Math.PI)
 
-          ; Create a radial tree layout. The layout's first dimension (x)
-          ; is the angle, while the second (y) is the radius.
+          ;; Create a radial tree layout. The layout's first dimension (x)
+          ;; is the angle, while the second (y) is the radius.
           tree       (-> (.tree d3)
                          (.size #js [(* 2 js/Math.PI) radius])
                          (.separation (fn [a b]
@@ -528,53 +764,15 @@
           ;; Calculate dynamic sizing factors for fonts and text limits
           node-count (.-length (.descendants root))
           sizing     (calculate-dynamic-sizing node-count width radius)
-          {:keys [size-factor font-size subject-font-size tspan-font-size
-                  subject-limits regular-limits]} sizing
 
-          ;; Creates the SVG container.
-          svg        (-> d3
-                         (.select node)
-                         (.append "svg")
-                         (.attr "class" "radial-tree-diagram__svg")
-                         (.attr "width" width)
-                         (.attr "height" height)
-                         ;; viewBox: defines coordinate system centered at (0,0)
-                         ;; [minX minY width height] where (-cx, -cy) shifts origin to center
-                         ;; This allows positive/negative coords radiating from center
-                         (.attr "viewBox" #js [(- cx) (- cy) width height])
-                         (.style "--radial-font-size" (str font-size "px"))
-                         (.style "--radial-subject-font-size" (str subject-font-size "px"))
-                         (.style "--radial-tspan-font-size" (str tspan-font-size "px")))
+          ;; Create the SVG container
+          svg        (create-radial-svg node width height cx cy sizing)]
 
-          _          (create-radial-gradient svg)
+      ;; Add gradient definition
+      (create-radial-gradient svg)
 
-          ;; Add mouseover text (in lieu of a title attribute)
-          add-title  (fn [d3]
-                       (-> d3
-                           (.append "title")
-                           (.text (fn [d] (.-title (.-data d)))))
-                       d3)]
-
-      ;; Append links.
-      (-> svg
-          (.append "g")
-          (.attr "class" "radial-tree-links")
-          (.attr "fill" "none")
-          (.attr "stroke-opacity" "1")
-          (.attr "stroke-width" "1")
-          (.selectAll)
-          (.data (.links root))
-          (.join "path")
-          (.attr "d" (-> (.linkRadial d3)
-                         (.angle (fn [d] (.-x d)))
-                         (.radius (fn [d] (.-y d)))))
-          (.attr "stroke" (fn [d]
-                            (let [target-data ^js (.-data (.-target d))]
-                              (if (.-spacer target-data)
-                                "transparent"               ; Hide spacer links
-                                (if-let [color ^js/String (.-theme target-data)]
-                                  color
-                                  "#333"))))))
+      ;; Render all visual elements in layering order
+      (render-radial-links svg root)
 
       ;; Add radial gradient background to fade out the line congestion in center
       ;; Positioned after links but before nodes/labels for proper layering
@@ -588,155 +786,8 @@
             (.attr "r" bg-radius)
             (.attr "fill" "url(#subjectBackground)")))
 
-      ;; Append nodes.
-      (-> svg
-          (.append "g")
-          (.attr "class" "radial-tree-nodes")
-          (.selectAll)
-          (.data (.descendants root))
-          (.join "circle")
-          (.attr "transform" (fn [d]
-                               (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90)
-                                    ") translate(" (.-y d) ",0)")))
-          (.attr "fill" render-node-fill)                   ; Default color
-          (.attr "r" (/ radius 55)))
-
-      ;; Append labels.
-      (-> svg
-          (.append "g")
-          (.attr "class" "radial-tree-labels")
-          (.attr "stroke-linejoin" "round")
-          (.attr "stroke-width" "0.1px")                    ;TODO: better way to get min stroke font?
-          (.selectAll)
-          (.data (.descendants root))
-          (.join "text")
-          (.attr "class" (fn [d]
-                           (if (.-href (.-data d))
-                             "radial-item"
-                             "radial-item radial-item__subject")))
-          ;; LABEL ROTATION LOGIC (most complex part of the function):
-          ;; For subject (center): simple vertical offset, no rotation
-          ;; For other labels: 4-stage transformation.
-          (.attr "transform" (fn [d]
-                               (if (.-subject (.-data d))
-                                 ;; Center label: just offset upward slightly
-                                 (str "translate(0,-4) ")
-
-                                 ;; Stage 1: Rotate label to point outward from center
-                                 ;; angle in radians → degrees, subtract 90° so 0° points up
-                                 (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90) ") "
-
-                                      ;; Stage 2: Move label from center to circumference
-                                      ;; +2px padding beyond node position for breathing room
-                                      "translate(" (+ (.-y d) 2) ",0) "
-
-                                      ;; Stage 3: Flip labels on left half to read left-to-right
-                                      ;; x >= π means left half of circle → rotate 180°
-                                      "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
-
-                                      ;; Stage 4: Subtle tilt adjustment for better legibility
-                                      ;; - Vertical labels (x near π/2 or 3π/2): rotate more
-                                      ;; - Horizontal labels (x near 0 or π): no rotation
-                                      ;; - Factor of 20 controls maximum tilt angle (~31.5°)
-                                      ;; This makes diagonal labels easier to read by reducing
-                                      ;; extreme perpendicular angles
-                                      "rotate(" (if (< (.-x d) js/Math.PI)
-                                                  ;; Top half: rotate proportional to distance from π/2
-                                                  (* (- (* js/Math.PI 0.5)
-                                                        (.-x d))
-                                                     20)
-                                                  ;; Bottom half: rotate proportional to distance from 3π/2
-                                                  (* (- (* js/Math.PI 1.5)
-                                                        (.-x d))
-                                                     20))
-                                      ")"))))
-          (.attr "dy" "0.31em")
-          (.attr "x" (fn [d]
-                       (if (.-subject (.-data d))
-                         0
-                         ;; Label distance from node: scales with size factor.
-                         (let [base-dist  12
-                               label-dist (* base-dist size-factor)]
-                           (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
-                             label-dist
-                             (- label-dist))))))
-          (.attr "text-anchor" (fn [d]
-                                 (if (.-subject (.-data d))
-                                   "middle"
-                                   (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
-                                     "start"
-                                     "end"))))
-          (.attr "paint-order" "stroke")
-          (.attr "font-size" (fn [d]
-                               ;; Use larger font for subject (center) label
-                               (if (.-subject (.-data d))
-                                 (str subject-font-size "px")
-                                 (str font-size "px"))))
-          (.attr "data-theme" (fn [d]
-                                (if-let [theme ^js/String (.-theme (.-data d))]
-                                  theme
-                                  "#333")))
-          (.attr "fill" (fn [d]
-                          (let [data ^js (.-data d)]
-                            (if (.-spacer data)
-                              "transparent"                 ; Hide spacer labels
-                              "#333"))))
-          (.text (fn [d]
-                   (let [data ^js (.-data d)]
-                     (if (.-spacer data)
-                       ""                                   ; Empty text for spacers
-                       (let [s (.-name data)
-                             ;; Use dynamic limits based on node count
-                             [limit cutoff] (if (.-subject data)
-                                              subject-limits
-                                              regular-limits)]
-                         ;; For subject (center) labels, we'll handle multi-line in tspan
-                         ;; For regular labels, display as single line
-                         (if (.-subject data)
-                           ""                               ; Empty for subject, handled by tspans below
-                           (if (and (string? s) (> (count s) limit))
-                             (str (subs s 0 cutoff) shared/omitted)
-                             s)))))))
-          (.on "click" (fn [_ d]
-                         (when (.-href (.-data d))
-                           (reset! shared/post-navigate {:scroll :diagram})
-                           (shared/navigate-to (.-href (.-data d))))))
-
-          ;; Adding mouseover text (in lieu of a title attribute)
-          (add-title)
-
-          ;; Split center labels into multiple lines at commas
-          (.each (fn [d]
-                   (this-as this-elem
-                     (let [data ^js (.-data d)]
-                       (when (.-subject data)
-                         (let [label-parts  (->> (str/split (.-name data) #",\s*")
-                                                 (sort-by count)
-                                                 (reorder-lens-shape))
-                               line-height  (* subject-font-size 1.4)
-                               total-lines  (count label-parts)
-                               start-offset (- (* (/ (dec total-lines) 2) line-height))]
-                           (doseq [[idx part] (map-indexed vector label-parts)]
-                             (-> (d3/select this-elem)
-                                 (.append "tspan")
-                                 (.attr "x" 0)
-                                 (.attr "dy" (if (zero? idx)
-                                               (str start-offset "px")
-                                               (str line-height "px")))
-                                 (.attr "text-anchor" "middle")
-                                 (.text (str (str/trim part)
-                                             (when (< idx (dec total-lines)) ",")))))))))))
-
-          (.append "tspan")
-          (.attr "class" "sense-paragraph")
-          (.attr "dy" (str (/ tspan-font-size 5) "px"))
-          (.attr "dx" (str (/ tspan-font-size 4) "px"))
-          (.attr "font-size" (str tspan-font-size "px"))
-          (.text (fn [d]
-                   (when (<= (+ (count (str (.-name (.-data d))))
-                                (count (.-sub (.-data d))))
-                             (* 12 size-factor))
-                     (.-sub (.-data d))))))
+      (render-radial-nodes svg root radius)
+      (render-radial-labels svg root sizing)
 
       (.node svg))))
 
