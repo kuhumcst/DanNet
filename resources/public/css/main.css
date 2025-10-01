@@ -534,7 +534,7 @@ section.notes {
 
 p.subheading {
     text-align: center;
-    font-size: 14px;
+    font-size: 18px;
     margin: 0 0 24px 0;
     padding: 0;
     color: #666;
@@ -1180,7 +1180,7 @@ select.display-options {
     background-size: 14px;
     border: none;
     padding: 0 0 0 16px;
-    font-size: 12px;
+    font-size: 14px;
 
     color: black;
     cursor: pointer;

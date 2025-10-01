@@ -166,8 +166,8 @@
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hypernyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
   rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
-  rdfs:label "orthogonal hypernym"@en ;
-  rdfs:label "ortogonalt overbegreb"@da ;
+  rdfs:label "ortho-hypernym"@en ;
+  rdfs:label "orto-overbegreb"@da ;
   owl:inverseOf :orthogonalHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -176,8 +176,8 @@
   rdfs:range ontolex:LexicalConcept ;
   rdfs:comment "Hyponyms that are orthogonal to the taxonomy; see <https://cst.ku.dk/projekter/dannet>."@en ;
   rdfs:comment "Hyponymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
-  rdfs:label "orthogonal hyponym"@en ;
-  rdfs:label "ortogonalt underbegreb"@da ;
+  rdfs:label "ortho-hyponym"@en ;
+  rdfs:label "orto-underbegreb"@da ;
   owl:inverseOf :orthogonalHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 

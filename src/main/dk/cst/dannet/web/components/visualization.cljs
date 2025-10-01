@@ -319,24 +319,6 @@
       ;; Reconstruct in sequential order
       (mapv #(get offset->node %) (range (count nodes))))))
 
-(comment
-  ;; Example: 8 nodes evenly distributed around circle
-  ;; Position angles: 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°
-  ;; 
-  ;; Before optimization (alphabetically sorted):
-  ;; 0°: "abc", 45°: "defghijk", 90°: "lmno", 135°: "mnopqr"
-  ;; 180°: "pq", 225°: "stuvwxyz", 270°: "xy", 315°: "z"
-  ;;
-  ;; After optimization (by length at corners):
-  ;; 0°: "pq" (2 chars), 45°: "defghijk" (8 chars) ← corner
-  ;; 90°: "xy" (2 chars), 135°: "stuvwxyz" (8 chars) ← corner
-  ;; 180°: "z" (1 char), 225°: "mnopqr" (6 chars) ← corner
-  ;; 270°: "abc" (3 chars), 315°: "lmno" (4 chars) ← corner
-  ;;
-  ;; Result: Longest labels occupy corner positions where there's more space
-
-  #_.)
-
 (defn- optimize-radial-structure
   "Optimize label placement within theme groups in the complete structure.
   
@@ -393,20 +375,17 @@
   `radius`."
   [node-count width radius]
   (let [;; fewer nodes -> bigger text
-        density-factor (max 0.7 (min 1.3 (/ 20 (max node-count 8))))
-        ;; bigger screens -> bigger text
-        space-factor   (max 0.8 (min 1.6 (/ width 600)))
-        ;; Radius scaling: maintain proportion with diagram size
-        radius-factor  (max 0.9 (min 1.1 (/ radius 120)))
-        ;; Combined scaling with base adjustment
-        size-factor    (* density-factor space-factor radius-factor)
-        font-size      (* 16 size-factor)]
-    {:size-factor       size-factor
+        density   (max 0.7 (min 1.3 (/ 20 (max node-count 8)))) ; fewer nodes -> bigger text
+        space     (max 0.8 (min 1.6 (/ width 600)))         ; bigger screens -> bigger text
+        radius    (max 0.9 (min 1.1 (/ radius 120)))        ; maintain proportion with diagram size
+        size      (* density space radius)                  ; Combined scaling with base adjustment
+        font-size (* 16 size)]
+    {:size-factor       size
      :font-size         font-size
-     :subject-font-size (* font-size 2.2)
+     :subject-font-size (* radial-limit space radius 0.5)
      :tspan-font-size   (* font-size 0.67)
-     :subject-limits    [(int (* 20 size-factor)) (int (* 28 size-factor))]
-     :regular-limits    [(int (* 18 size-factor)) (int (* 16 size-factor))]}))
+     :subject-limits    [(int (* 20 size)) (int (* 24 size))]
+     :regular-limits    [(int (* 18 size)) (int (* 16 size))]}))
 
 (defn- create-radial-gradient
   "Add radial gradient definition for subject label background."
@@ -437,13 +416,13 @@
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
-  [state {:keys [label languages k->label synset-weights subject] :as opts} entity node]
+  [state {:keys [label languages k->label synset-weights] :as opts} entity node]
   (when node
     ;; Always start by clearing the old contents.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
     (let [width      (content-width (.-parentElement node))
-          height     (* width 0.85)
+          height     width
 
           subject    (->> (shared/sense-labels shared/synset-sep label)
                           (shared/canonical)

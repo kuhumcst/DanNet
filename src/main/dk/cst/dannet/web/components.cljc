@@ -404,19 +404,36 @@
 (def expandable-coll-cutoff
   4)
 
+(defn display-cloud?
+  [{:keys [synset-weights] :as opts} v]
+  (and (coll? v)
+       (> (count v) expandable-coll-cutoff)
+
+       ;; TODO: use known synset rels instead...?
+       ;; To guard against the possibility of the first synset having no weight.
+       ;; This might happen in cases where the cache doesn't match the db 100%.
+       (or (get synset-weights (first v))
+           (get synset-weights (second v)))))
+
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
   [{:keys [synset-weights display-opt] :as opts} coll]
-  (case display-opt
-    "cloud" #?(:cljs (viz/word-cloud
-                       (assoc opts :cloud-limit word-cloud-limit)
-                       (filter synset-weights coll))
-               :clj  [:div])
-    "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
-                   :clj  [:div])
-    (if (<= (count coll) expandable-coll-cutoff)
-      [:ol (list-cell-coll-items opts coll)]
-      (expandable-coll opts coll))))
+  (let [display-opt' (or display-opt
+                         ;; Display the limited, radial cloud by default for
+                         ;; large colls and use tables for everything else.
+                         (when (and (display-cloud? opts coll)
+                                    (> (count coll) word-cloud-limit))
+                           "cloud"))]
+    (case display-opt'
+      "cloud" #?(:cljs (viz/word-cloud
+                         (assoc opts :cloud-limit word-cloud-limit)
+                         (filter synset-weights coll))
+                 :clj  [:div])
+      "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
+                     :clj  [:div])
+      (if (<= (count coll) expandable-coll-cutoff)
+        [:ol (list-cell-coll-items opts coll)]
+        (expandable-coll opts coll)))))
 
 (rum/defc list-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
@@ -448,17 +465,6 @@
    :inheritance (i18n/da-en languages
                   "helt eller delvist  nedarvet fra hypernym"
                   "fully or partially inherited from hypernym")})
-
-(defn display-cloud?
-  [{:keys [synset-weights] :as opts} v]
-  (and (coll? v)
-       (> (count v) expandable-coll-cutoff)
-
-       ;; TODO: use known synset rels instead...?
-       ;; To guard against the possibility of the first synset having no weight.
-       ;; This might happen in cases where the cache doesn't match the db 100%.
-       (or (get synset-weights (first v))
-           (get synset-weights (second v)))))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
                             "A table which lists attributes and corresponding values of an RDF resource."
@@ -495,7 +501,8 @@
 
           ;; Longer lists of synsets can be displayed as a word cloud.
           (when (display-cloud? opts v)
-            (let [value  (or display-opt "")
+            ;; Default to word clouds for longer collections.
+            (let [value  (or display-opt "cloud")
                   size   (count v)
                   change (fn [e]
                            (swap! display-opts assoc-in [subject k]
