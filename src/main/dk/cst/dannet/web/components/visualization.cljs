@@ -9,12 +9,6 @@
             ["d3" :as d3]
             ["d3-cloud" :as cloud]))
 
-(defn length-penalty
-  "Calculate a new size with a penalty based on the size of the `label` and the
-  true `size` of the word to make longer words fit the cloud a bit better."
-  [label size]
-  (/ size (max 1 (math/log10 (count label)))))
-
 (def colours
   (atom (cycle shared/theme)))
 
@@ -35,6 +29,30 @@
 
 (def labels-only
   (comp remove-subscript remove-parens))
+
+(defn- glyph-width
+  "Estimate the visual width of `s` based on character widths."
+  [s]
+  (reduce + (map (fn [ch]
+                   (cond
+                     ;; Narrow characters
+                     (#{\f \i \l \I \j \r \t \1
+                        \. \, \: \; \! \| \' \`} ch) 0.45
+
+                     ;; Wide characters
+                     (#{\m \w \M \W \æ \Æ \@ \%} ch) 1.4
+
+                     ;; Everything else
+                     :else 1.0))
+                 s)))
+
+(defn length-penalty
+  "Calculate a new size with a penalty based on the visual width of `label`.
+
+  Uses glyph-aware width calculation rather than simple character count to
+  better account for narrow characters (i, l) vs wide characters (m, w)."
+  [label size]
+  (/ size (max 1 (math/log10 (glyph-width label)))))
 
 (defn- reorder-lens-shape
   "Reorder `labels` (sorted by length) into lens shape for circular diagrams.
@@ -207,10 +225,12 @@
                                         (map #(re-matches shared/sense-label %)))
 
         ;; Allow phrases to appear too, not just the core word in the phrase.
-        :let [name (str/replace s (str "_" sub) "")]]
+        :let [name' (if s
+                      (str/replace s (str "_" sub) "")
+                      name)]]
     (when-not (= s shared/omitted)
       (assoc m
-        :name name
+        :name name'
         :sub sub))))
 
 (def radial-limit
@@ -295,7 +315,8 @@
   "Reorder `nodes` to place longer labels at optimal positions.
   
   Within each theme group, assigns longer labels to positions with better
-  space availability, accounting for both corner proximity and label rotation."
+  space availability, accounting for both corner proximity and label rotation.
+  Uses glyph-aware width for more accurate label size estimation."
   [nodes start-idx total-count]
   (if (< (count nodes) 3)
     nodes
@@ -310,8 +331,8 @@
           ;; Best positions first (lowest space score)
           sorted-positions (sort-by :space-score positions)
 
-          ;; Longest labels first
-          sorted-nodes     (sort-by (comp count :name) > nodes)
+          ;; Longest labels first (by glyph width, not character count)
+          sorted-nodes     (sort-by (comp glyph-width :name) > nodes)
 
           ;; Pair longest labels with best positions
           offset->node     (zipmap (map :offset sorted-positions) sorted-nodes)]
@@ -429,7 +450,7 @@
                           (map remove-subscript)
                           (remove #{shared/omitted})
                           (set)                             ; fixes e.g. http://localhost:3456/dannet/data/synset-2500
-                          (sort-by count)
+                          (sort-by glyph-width)
                           (str/join ", "))
           k->label'  (comp
                        (partial i18n/select-label languages)
@@ -625,7 +646,7 @@
                          ;; For regular labels, display as single line
                          (if (.-subject data)
                            ""                               ; Empty for subject, handled by tspans below
-                           (if (> (count s) limit)
+                           (if (and (string? s) (> (count s) limit))
                              (str (subs s 0 cutoff) shared/omitted)
                              s)))))))
           (.on "click" (fn [_ d]
@@ -664,7 +685,7 @@
           (.attr "dx" (str (/ tspan-font-size 4) "px"))
           (.attr "font-size" (str tspan-font-size "px"))
           (.text (fn [d]
-                   (when (<= (+ (count (.-name (.-data d)))
+                   (when (<= (+ (count (str (.-name (.-data d))))
                                 (count (.-sub (.-data d))))
                              (* 12 size-factor))
                      (.-sub (.-data d))))))
