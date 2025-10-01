@@ -46,15 +46,14 @@
   (comp remove-subscript remove-parens))
 
 (defn- glyph-width
-  "Estimate the approximate visual width of `s` based on character widths.
-  Uses char-specific width factors to better account for narrow/wide chars."
+  "Estimate the approximate visual width of `s` based on character widths."
   [s]
   (reduce + (map (fn [ch]
                    (cond
                      (narrow-chars ch) 0.45
                      (wide-chars ch) 1.4
                      :else 1.0))
-                 s)))
+                 (str s))))
 
 (defn length-penalty
   "Calculate a new size with a penalty based on the visual width of `label`."
