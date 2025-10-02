@@ -545,6 +545,20 @@
                               color
                               "#333")))))))
 
+(defn balanced-tilt
+  "Calculate rotation value for balanced tilt of `d` based on a `tilt-factor`.
+  This adjusts the tilt of the vertically pointing nodes to be more horizontal."
+  [d tilt-factor]
+  (if (< (.-x d) js/Math.PI)
+    ;; Top half: rotate proportional to distance from π/2
+    (* (- (* js/Math.PI 0.5)
+          (.-x d))
+       tilt-factor)
+    ;; Bottom half: rotate proportional to distance from 3π/2
+    (* (- (* js/Math.PI 1.5)
+          (.-x d))
+       tilt-factor)))
+
 (defn- render-radial-nodes
   "Render node circles in the radial tree.
   
@@ -557,12 +571,21 @@
       (.attr "class" "radial-tree-nodes")
       (.selectAll)
       (.data (.descendants root))
-      (.join "circle")
+      (.join "path")
       (.attr "transform" (fn [d]
                            (str "rotate(" (- (/ (* (.-x d) 180) js/Math.PI) 90)
-                                ") translate(" (.-y d) ",0)")))
+                                ") translate(" (.-y d) ",0)"
+                                "rotate(" (balanced-tilt d 16) ")")))
       (.attr "fill" node-fill-color)
-      (.attr "r" (/ radius 55))))
+      ;; Create arrowhead pointing radially outward (right in local coords = outward after transform)
+      (.attr "d" (fn [_]
+                   (let [size   (/ radius 40)
+                         height (* size 2.2)                ; Arrow length (pointing outward)
+                         base   (* size 1.5)]               ; Arrow base width
+                     (str "M 0," (- (/ base 2))             ; Start at bottom of base
+                          " L " height ",0"                 ; Draw to point
+                          " L 0," (/ base 2)                ; Draw to top of base
+                          " Z"))))))
 
 (defn- render-radial-labels
   "Render text labels with rotation and positioning in the radial tree.
@@ -617,22 +640,13 @@
                                     ;; - Factor of 20 controls maximum tilt angle (~31.5°)
                                     ;; This makes diagonal labels easier to read by reducing
                                     ;; extreme perpendicular angles
-                                    "rotate(" (if (< (.-x d) js/Math.PI)
-                                                ;; Top half: rotate proportional to distance from π/2
-                                                (* (- (* js/Math.PI 0.5)
-                                                      (.-x d))
-                                                   20)
-                                                ;; Bottom half: rotate proportional to distance from 3π/2
-                                                (* (- (* js/Math.PI 1.5)
-                                                      (.-x d))
-                                                   20))
-                                    ")"))))
+                                    "rotate(" (balanced-tilt d 20) ")"))))
         (.attr "dy" "0.31em")
         (.attr "x" (fn [d]
                      (if (.-subject (.-data d))
                        0
                        ;; Label distance from node: scales with size factor.
-                       (let [base-dist  12
+                       (let [base-dist  20
                              label-dist (* base-dist size-factor)]
                          (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
                            label-dist
