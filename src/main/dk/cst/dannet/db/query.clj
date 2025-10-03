@@ -108,8 +108,8 @@
        (with-out-str)
        (spit synset-indegrees-file)))
 
-(def synset-indegrees
-  "Mapping of synset-id->indegree for the synset resources."
+;; Mapping of synset-id->indegree for the synset resources.
+(defonce synset-indegrees
   (delay
     (try
       (->> (slurp synset-indegrees-file)
@@ -121,13 +121,14 @@
 (defn synset-weights
   "Return a mapping of synset-id->weight for synset IDs found in `coll`."
   [coll]
-  (let [weights (atom {})]
+  (let [indegrees @synset-indegrees
+        weights   (volatile! (transient {}))]
     (clojure.walk/postwalk
       (fn [x]
-        (when-let [v (and (keyword? x) (get @synset-indegrees x))]
-          (swap! weights assoc x v)))
+        (when-let [v (and (keyword? x) (get indegrees x))]
+          (vswap! weights assoc! x v)))
       coll)
-    @weights))
+    (persistent! @weights)))
 
 (defn other-entities
   "Restructure the `expanded-entity-result` as a mapping from resource->entity,
