@@ -324,25 +324,44 @@
     (conj coll v)))
 
 (defn top-n-vals
-  "Select `n` vals in `m` by picking the first of every vals iteratively."
+  "Select `n` vals in `m` by picking the first of every val iteratively.
+   Round-robins through keys, taking one value from each in turn."
   [n m]
-  (let [ks (keys m)]
-    ;; The m should already be sorted by key alphabetically at this point.
-    ;; TODO: don't use cycle, a bit inefficient since we check many empty rels
-    (loop [[rel & rels] (cycle ks)
-           i       n
-           entity' m
-           ret     {}]
-      ;; We want to make sure to quit when we run out of data.
-      (if (or (zero? i) (empty? entity'))
-        ret
-        (if-let [synset (first (get entity' rel))]
-          (recur rels (dec i)
-                 (update entity' rel rest)
-                 (update ret rel vec-conj synset))
-          (recur rels i
-                 (dissoc entity' rel)
-                 ret))))))
+  (let [ks    (vec (keys m))
+        total (count ks)]
+    (loop [i         0
+           remaining n
+           source    (transient m)
+           result    (transient {})
+           exhausted 0]
+      (let [k       (nth ks i)
+            vs      (get source k)
+            v       (first vs)
+            rest-vs (rest vs)]
+        (cond
+          ;; Exit conditions
+          (or (zero? remaining) (= exhausted total))
+          (persistent! result)
+
+          ;; Key exhausted -> skip to next
+          (not vs)
+          (recur (rem (inc i) total) remaining source result exhausted)
+
+          ;; Key has more values -> keep it
+          (seq rest-vs)
+          (recur (rem (inc i) total)
+                 (dec remaining)
+                 (assoc! source k rest-vs)
+                 (assoc! result k (vec-conj (get result k) v))
+                 exhausted)
+
+          ;; Last value for key -> remove key
+          :else
+          (recur (rem (inc i) total)
+                 (dec remaining)
+                 (dissoc! source k)
+                 (assoc! result k (vec-conj (get result k) v))
+                 (inc exhausted)))))))
 
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via
