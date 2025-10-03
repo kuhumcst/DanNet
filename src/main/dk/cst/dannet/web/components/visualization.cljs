@@ -101,6 +101,7 @@
   "Prepare `synsets` for word cloud display using the provided info in `opts`."
   [{:keys [k->label cloud-limit synset-weights] :as opts} synsets]
   (let [max-size  36
+        ;; TODO: get rid of synset weights here
         weights   (select-keys synset-weights synsets)
         weights'  (shared/cloud-normalize
                     (if cloud-limit
@@ -478,7 +479,7 @@
   (keyword to label fn), and `synset-weights` (weight map). Returns a map
   with `:data` (hierarchical data structure), `:root` (D3 tree root), and
   `:subject` (formatted subject string)."
-  [label entity k->label synset-weights]
+  [label entity k->label]
   (let [subject  (->> (shared/sense-labels shared/synset-sep label)
                       (shared/canonical)
                       (map remove-subscript)
@@ -486,8 +487,8 @@
                       (set)
                       (sort-by glyph-width)
                       (str/join ", "))
-        entity'  (->> (shared/weight-sort-fn synset-weights)
-                      (update-vals (select-keys entity (keys shared/synset-rel-theme)))
+        entity'  (->> (keys shared/synset-rel-theme)
+                      (select-keys entity)
                       (shared/top-n-vals radial-limit))
         children (prepare-radial-children entity' k->label)
         data     (clj->js
@@ -736,7 +737,7 @@
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
-  [state {:keys [label languages k->label synset-weights] :as opts} entity node]
+  [state {:keys [label languages k->label] :as opts} entity node]
   (when node
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild node)]
@@ -748,7 +749,7 @@
           k->label'  (comp
                        (partial i18n/select-label languages)
                        k->label)
-          prep-data  (prepare-radial-data label entity k->label' synset-weights)
+          prep-data  (prepare-radial-data label entity k->label')
           {:keys [data subject]} prep-data
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox

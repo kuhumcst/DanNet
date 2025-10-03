@@ -312,11 +312,6 @@
       [(str (i18n/select-label languages (get k->label k)))
        (str item)])))
 
-(defn weight-sort-fn
-  [weights]
-  (fn [x]
-    (sort-by #(get weights % 0) > (setify x))))
-
 (defn vec-conj
   [coll v]
   (if (nil? coll)
@@ -336,8 +331,11 @@
            exhausted 0]
       (let [k       (nth ks i)
             vs      (get source k)
-            v       (first vs)
-            rest-vs (rest vs)]
+            v       (if (coll? vs)                          ; one val vs. coll
+                      (first vs)
+                      vs)
+            rest-vs (when (coll? vs)                        ; one val vs. coll
+                      (rest vs))]
         (cond
           ;; Exit conditions
           (or (zero? remaining) (= exhausted total))

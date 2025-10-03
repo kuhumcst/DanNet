@@ -3,6 +3,7 @@
   (:require [clojure.edn :as edn]
             [clojure.walk :as walk]
             [arachne.aristotle.query :as q]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db.query.operation :as op])
   (:import [org.apache.jena.reasoner BaseInfGraph]
@@ -143,11 +144,29 @@
                 ?olr (assoc ?o {?olr #{?ol}}))))
        (apply merge-with (partial merge-with into))))
 
+(defn weighted-relations
+  "Sort synset relation collections in `entity` by their weights.
+
+  Uses synset-rel-theme keys to identify relevant relations and synset-indegrees
+  for weights. Returns entity with sorted collections (highest weight first)."
+  [entity]
+  (let [indegrees     @synset-indegrees
+        synset-rel-ks (set (keys shared/synset-rel-theme))]
+    (persistent!
+      (reduce-kv (fn [m k v]
+                   (assoc! m k
+                           (if (and (synset-rel-ks k) (coll? v))
+                             (sort-by #(get indegrees % 0) > v)
+                             v)))
+                 (transient {})
+                 entity))))
+
 (defn expanded-entity
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
   (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
     (with-meta (->> (basic-entity result)
+                    (weighted-relations)
                     (attach-blank-entities g subject))
                (cond-> {:entities       (other-entities result)
                         ;; TODO: make more performant?
