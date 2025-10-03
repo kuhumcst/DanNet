@@ -35,8 +35,11 @@
 (defn- basic-entity
   "Get entity from `entity-query-result`."
   [entity-query-result]
-  (->> (map (comp (partial apply hash-map) (juxt '?p '?o)) entity-query-result)
-       (apply merge-with set-merge)))
+  (persistent!
+    (reduce (fn [m {:syms [?p ?o]}]
+              (assoc! m ?p (set-merge (get m ?p) ?o)))
+            (transient {})
+            entity-query-result)))
 
 (defn find-raw
   "Return the raw entity query result for `subject` in `g` (no inference)."
