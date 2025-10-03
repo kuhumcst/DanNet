@@ -80,18 +80,17 @@
 (defn attach-blank-entities
   "Replace blank resources in `entity` of `subject` in `g` with entity maps."
   [g subject entity]
-  (let [predicate (atom nil)]
+  (let [predicate (volatile! nil)]
     (walk/prewalk
-      (fn [x] (cond
-                (vector? x)
-                (do (reset! predicate (first x)) x)
+      (fn [x]
+        (cond
+          (vector? x)
+          (do (vreset! predicate (first x)) x)
 
-                ;; In order to avoid infinite recursive walks, entity maps are
-                ;; hidden in metadata rather than directly replacing symbols.
-                (symbol? x)
-                (with-meta x (blank-entity g subject @predicate x))
+          (symbol? x)
+          (with-meta x (blank-entity g subject @predicate x))
 
-                :else x))
+          :else x))
       entity)))
 
 (def synset-indegrees-file
