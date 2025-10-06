@@ -72,8 +72,10 @@
   [g subject predicate blank-object]
   (when (and subject predicate)
     (->> (entity g blank-object)
-         (map (fn [[?p ?o]] {?p #{?o}}))
-         (apply merge-with into))))
+         ;; TODO: why is this transformation necessary?
+         (reduce (fn [acc [?p ?o]]
+                   (update acc ?p (fnil conj #{}) ?o))
+                 {}))))
 
 ;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
 ;; resort to this hack.
