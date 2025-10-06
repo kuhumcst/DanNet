@@ -45,17 +45,17 @@
 (defn find-raw
   "Return the raw entity query result for `subject` in `g` (no inference)."
   [^FBRuleInfGraph g subject]
-  (->> [(.getSchemaGraph g) (.getRawGraph g)]
-       (pmap #(run % op/entity {'?s subject}))
-       (apply concat)))
+  (let [query-graph (fn [graph] (run graph op/entity {'?s subject}))
+        triple-keys (fn [result] (select-keys result '[?s ?p ?o]))
+        xf          (comp (mapcat query-graph) (map triple-keys))]
+    (into #{} xf [(.getSchemaGraph g) (.getRawGraph g)])))
 
 (defn inferred-entity
-  "Determine inferred parts of entity described by `result` given `raw-result`."
+  "Determine inferred parts of `result` given `raw-result` triples."
   [result raw-result]
-  (let [raw-result (set raw-result)]
-    (->> result
-         (filter #(not (get raw-result (select-keys % '[?s ?p ?o]))))
-         (basic-entity))))
+  (let [triple-keys (fn [item] (select-keys item '[?s ?p ?o]))
+        in-raw?     (fn [item] (contains? raw-result (triple-keys item)))]
+    (basic-entity (remove in-raw? result))))
 
 (defn entity
   "Return the entity description of `subject` in Graph `g`.
