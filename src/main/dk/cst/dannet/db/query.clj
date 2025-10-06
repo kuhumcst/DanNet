@@ -129,16 +129,30 @@
       coll)
     (persistent! @weights)))
 
+(defn- assoc-resource-label!
+  "Conj `label-value` into the set at (get-in acc [resource label-type])."
+  [acc resource label-type label-value]
+  (let [resource-labels (get acc resource {})
+        label-set       (get resource-labels label-type #{})
+        updated-labels  (assoc resource-labels
+                          label-type (conj label-set label-value))]
+    (assoc! acc resource updated-labels)))
+
 (defn other-entities
   "Restructure the `expanded-entity-result` as a mapping from resource->entity,
-  not including the subject entity itself."
+  not including the subject resource itself, e.g:
+
+    {resource {label-type #{label-values}}}"
   [expanded-entity-result]
-  (->> expanded-entity-result
-       (map (fn [{:syms [?p ?o ?pl ?plr ?ol ?olr]}]
-              (cond-> {}
-                ?plr (assoc ?p {?plr #{?pl}})
-                ?olr (assoc ?o {?olr #{?ol}}))))
-       (apply merge-with (partial merge-with into))))
+  (when (seq expanded-entity-result)
+    (persistent!
+      (reduce
+        (fn [acc {:syms [?p ?o ?pl ?plr ?ol ?olr]}]
+          (cond-> acc
+            ?plr (assoc-resource-label! ?p ?plr ?pl)
+            ?olr (assoc-resource-label! ?o ?olr ?ol)))
+        (transient {})
+        expanded-entity-result))))
 
 (defn weighted-relations
   "Sort synset relation collections in `entity` by their weights.
