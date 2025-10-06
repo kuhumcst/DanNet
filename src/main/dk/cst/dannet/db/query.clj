@@ -119,18 +119,6 @@
       (catch Exception _
         nil))))
 
-(defn synset-weights
-  "Return a mapping of synset-id->weight for synset IDs found in `coll`."
-  [coll]
-  (let [indegrees @synset-indegrees
-        weights   (volatile! (transient {}))]
-    (clojure.walk/postwalk
-      (fn [x]
-        (when-let [v (and (keyword? x) (get indegrees x))]
-          (vswap! weights assoc! x v)))
-      coll)
-    (persistent! @weights)))
-
 (defn- assoc-resource-label!
   "Conj `label-value` into the set at (get-in acc [resource label-type])."
   [acc resource label-type label-value]
@@ -180,11 +168,9 @@
     (with-meta (->> (basic-entity result)
                     (weighted-relations)
                     (attach-blank-entities g subject))
-               (cond-> {:entities       (other-entities result)
-                        ;; TODO: make more performant?
-                        :synset-weights (synset-weights result)
+               (cond-> {:entities (other-entities result)
                         ;; TODO: is it necessary to attach subject?
-                        :subject        subject}
+                        :subject  subject}
                  (instance? BaseInfGraph g)
                  (assoc :inferred (inferred-entity result (find-raw g subject)))))
     (with-meta {} {:subject subject})))

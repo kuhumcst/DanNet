@@ -100,7 +100,7 @@
        (into (sorted-map))))
 
 (def non-rdf-ks
-  #{:subject :inferred :languages :entities :synset-weights})
+  #{:subject :inferred :languages :entities})
 
 ;; TODO: take lang into account
 ;; TODO: use k->label from search results to populate @graph

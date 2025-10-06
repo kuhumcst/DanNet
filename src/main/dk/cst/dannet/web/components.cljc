@@ -360,14 +360,6 @@
          [:summary ""]))
      (when @open content)]))
 
-(defn weight-sort
-  "Sort `synsets` by `weights` (synset->weight mapping)."
-  [weights synsets]
-  (->> (select-keys weights synsets)
-       (sort-by second)
-       (map first)
-       (reverse)))
-
 (defn ol-class
   [amount]
   (cond
@@ -393,31 +385,25 @@
         (list-cell-coll-items opts rest-coll)])]))
 
 (defn expandable-coll
-  [{:keys [synset-weights] :as opts} coll]
+  [opts coll]
   ;; Special behaviour for synset/LexicalConcept
   ;; TODO: top 3 synsets by weight are still sorted alphabetically, change?
-  (if (get synset-weights (first coll))
-    (let [synsets (take 3 (weight-sort synset-weights coll))]
-      (expandable-coll* opts synsets (remove (set synsets) coll)))
-    (expandable-coll* opts (take 3 coll) (drop 3 coll))))
+  (expandable-coll* opts (take 3 coll) (drop 3 coll)))
 
 (def expandable-coll-cutoff
   4)
 
 (defn display-cloud?
-  [{:keys [synset-weights] :as opts} v]
+  [{:keys [attr-key] :as opts} v]
   (and (coll? v)
        (> (count v) expandable-coll-cutoff)
-
-       ;; TODO: use known synset rels instead...?
-       ;; To guard against the possibility of the first synset having no weight.
-       ;; This might happen in cases where the cache doesn't match the db 100%.
-       (or (get synset-weights (first v))
-           (get synset-weights (second v)))))
+       ;; A word cloud is only relevant in cases where the content has been
+       ;; presorted by weight, e.g. synset relations currently in use in DanNet.
+       (get shared/synset-rel-theme attr-key)))
 
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
-  [{:keys [synset-weights display-opt] :as opts} coll]
+  [{:keys [display-opt] :as opts} coll]
   (let [display-opt' (or display-opt
                          ;; Display the limited, radial cloud by default for
                          ;; large colls and use tables for everything else.
@@ -426,10 +412,9 @@
                            "cloud"))]
     (case display-opt'
       "cloud" #?(:cljs (viz/word-cloud
-                         (assoc opts :cloud-limit word-cloud-limit)
-                         (filter synset-weights coll))
+                         (assoc opts :cloud-limit word-cloud-limit) coll)
                  :clj  [:div])
-      "max-cloud" #?(:cljs (viz/word-cloud opts (filter synset-weights coll))
+      "max-cloud" #?(:cljs (viz/word-cloud opts coll)
                      :clj  [:div])
       (if (<= (count coll) expandable-coll-cutoff)
         [:ol (list-cell-coll-items opts coll)]
@@ -1115,7 +1100,6 @@
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
         comments       (translate-comments languages')
-        synset-weights (:synset-weights (meta entity))
         details?       (or (get state' :details?)
                            (get opts :details?))
         entity-label*  (partial entity-label (if details?
@@ -1126,8 +1110,7 @@
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
                          :comments comments
-                         :k->label (update-vals entities' entity-label*)
-                         :synset-weights synset-weights)
+                         :k->label (update-vals entities' entity-label*))
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix

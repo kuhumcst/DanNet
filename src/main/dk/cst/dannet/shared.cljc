@@ -244,45 +244,36 @@
   (+ n (max 1 (math/log n))))
 
 (defn cloud-normalize
-  "Normalize a map of `weights` to fit a word cloud. The output is meant to
-  display well across a wide range of differently sized word clouds.
-
-  The actual weights are *ONLY* used for sorting! New, artificial weights are
-  created by incrementing from 1 using a relative logarithmic increment and then
-  fitting these values into the range 0...1.
-
-  Furthermore, an artificial highlight is used for the values which lie above
-  a certain threshold. This highlight is applied as bonus constant applied to
-  the weights above the threshold. This simulates the effect of outliers."
-  [weights]
-  ;; Note that in this implementation, the incrementing sizes are randomly
-  ;; assigned to synsets of the same weight. I did experiment with grouping
-  ;; by weight first, assigning the same size to synsets of the same weight
-  ;; before incrementing the size, but this creates much worse clouds,
-  ;; despite being closer to the source data. ~sg
-  (let [artificial-weights (->> (sort-by second weights)
-                                (map (fn [n [k _]]
-                                       [k n])
-                                     (iterate log-inc 1)))
-        low                (second (first artificial-weights))
-        high               (second (last artificial-weights))
+  "Normalize an ordered collection of `synsets` to fit a word cloud.
+  
+  The synsets should already be sorted by weight (highest first). Creates
+  artificial weights by incrementing from 1 using a relative logarithmic
+  increment, then normalizes these values into the range 0...1.
+  
+  For clouds with more than 30 items, applies highlighting to top synsets
+  above a threshold. This simulates the effect of outliers by adding a bonus
+  constant to weights above the threshold."
+  [synsets]
+  (let [weights-kvs        (map vector (reverse synsets) (iterate log-inc 1))
+        low                (second (first weights-kvs))
+        high               (second (last weights-kvs))
         span               (- high low)
-
-        ;; Highlight threshold & bonus are only used for bigger clouds.
-        [threshold bonus] (if (> (count weights) 30)
-                            [(- high (math/sqrt span))
-                             (/ span 2)]
+        [threshold bonus] (if (> (count synsets) 30)
+                            [(- high (math/sqrt span)) (/ span 2)]
                             [high 0])
-        min-max-normalize' #(min-max-normalize (+ span bonus) low %)
-        highlight          (atom #{})]
-    (with-meta
-      (into {} (for [[k v] artificial-weights]
-                 [k (min-max-normalize' (if (> v threshold)
-                                          (do
-                                            (swap! highlight conj k)
-                                            (+ v bonus))
-                                          v))]))
-      {:highlight @highlight})))
+        min-max-normalize' #(min-max-normalize (+ span bonus) low %)]
+    ;; Build both result map and highlight set in single pass using reduce
+    (let [[result highlight]
+          (reduce (fn [[m hl] [k v]]
+                    (if (> v threshold)
+                      [(assoc! m k (min-max-normalize' (+ v bonus)))
+                       (conj! hl k)]
+                      [(assoc! m k (min-max-normalize' v))
+                       hl]))
+                  [(transient {}) (transient #{})]
+                  weights-kvs)]
+      (with-meta (persistent! result)
+                 {:highlight (persistent! highlight)}))))
 
 (defn x-header
   "Get the custom `header` in the HTTP `headers`.

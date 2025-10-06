@@ -88,36 +88,28 @@
                      (dec right)
                      true))))))))
 
-(defn take-top
-  "Select the top `n` entries from `weights` by value (descending).
-  Used to limit visualizations to the most significant items."
-  [n weights]
-  (->> (sort-by second weights)
-       (reverse)
-       (take n)
-       (into {})))
-
 (defn prepare-synset-cloud
-  "Prepare `synsets` for word cloud display using the provided info in `opts`."
-  [{:keys [k->label cloud-limit synset-weights] :as opts} synsets]
+  "Prepare `synsets` for word cloud display using info in `opts`.
+  
+  The `synsets` collection should already be sorted by weight (highest first).
+  If `:cloud-limit` is specified in `opts`, only the top N synsets are used."
+  [{:keys [k->label cloud-limit] :as opts} synsets]
   (let [max-size  36
-        ;; TODO: get rid of synset weights here
-        weights   (select-keys synset-weights synsets)
-        weights'  (shared/cloud-normalize
-                    (if cloud-limit
-                      (take-top cloud-limit weights)
-                      weights))
-        n         (count weights')
+        synsets'  (if cloud-limit
+                    (take cloud-limit synsets)
+                    synsets)
+        weights   (shared/cloud-normalize synsets')
+        n         (count weights)
         min-size  (min 0.33 (/ 10 n))
-        highlight (:highlight (meta weights'))
+        highlight (:highlight (meta weights))
         k->s      (fn [k]
                     ;; TODO: remove 'first' hack? relies on monolingual labels
                     (str (or (first (get k->label k))
                              (when (keyword? k)
                                (prefix/kw->qname k)))))]
-    (->> synsets
+    (->> synsets'
          (mapcat (fn [k]
-                   (when-let [weight (get weights' k)]
+                   (when-let [weight (get weights k)]
                      (let [s      (remove-parens (k->s k))
                            labels (shared/sense-labels "; " s)
                            n      (count labels)
@@ -473,12 +465,7 @@
       :else "#333")))
 
 (defn- prepare-radial-data
-  "Transform entity data into radial tree format for visualization.
-  
-  Takes `label` (synset label string), `entity` (relation map), `k->label`
-  (keyword to label fn), and `synset-weights` (weight map). Returns a map
-  with `:data` (hierarchical data structure), `:root` (D3 tree root), and
-  `:subject` (formatted subject string)."
+  "Transform entity data into radial tree format for visualization."
   [label entity k->label]
   (let [subject  (->> (shared/sense-labels shared/synset-sep label)
                       (shared/canonical)
