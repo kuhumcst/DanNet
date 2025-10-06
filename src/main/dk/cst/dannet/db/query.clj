@@ -63,11 +63,7 @@
   For inference graphs, includes metadata with inferred vs. raw triples."
   [g subject]
   (if-let [result (not-empty (run g op/entity {'?s subject}))]
-    (with-meta
-      (basic-entity result)
-      (cond-> {:subject subject}
-        (instance? BaseInfGraph g)
-        (assoc :inferred (inferred-entity result (find-raw g subject)))))
+    (with-meta (basic-entity result) {:subject subject})
     (with-meta {} {:subject subject})))
 
 ;; TODO: what about blank-expanded-entity?
