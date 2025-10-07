@@ -481,10 +481,10 @@
             [:span.marker {:title (:inheritance comments)} "†"])
           (prefix-elem prefix)]
          [:td.attr-name
-          (anchor-elem k opts)
+          (anchor-elem k opts+attr-key)
 
           ;; Longer lists of synsets can be displayed as a word cloud.
-          (when (display-cloud? opts v)
+          (when (display-cloud? opts+attr-key v)
             ;; Default to word clouds for longer collections.
             (let [value  (or display-opt "cloud")
                   size   (count v)
