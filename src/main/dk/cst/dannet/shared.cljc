@@ -295,7 +295,7 @@
                (.pushState js/window.history nil "" (rfh/-href history url)))
              (rfh/-on-navigate history url))))
 
-(defn label-sortkey-fn
+(defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
   Returns vectors so that identical labels are sorted by keywords secondly."
   [{:keys [languages k->label] :as opts}]
@@ -303,6 +303,21 @@
     (let [k (if (map-entry? item) (first item) item)]
       [(str (i18n/select-label languages (get k->label k)))
        (str item)])))
+
+(def label-sortkey-fn
+  #?(:clj  (memo/lru label-sortkey-fn* :lru/threshold 1000)
+     :cljs (memoize label-sortkey-fn*)))
+
+(defn sort-by-label-with-keys
+  "Sort `coll` by labels and return items with pre-computed sort keys.
+  
+  Uses the Schwartzian transform pattern to compute each sort key once.
+  Returns a sequence of maps with `:item` and `:sort-key` keys."
+  [opts coll]
+  (let [keyfn (label-sortkey-fn opts)]
+    (->> coll
+         (map (fn [item] {:item item :sort-key (keyfn item)}))
+         (sort-by :sort-key))))
 
 ;; NOTE: cannot use fnil as we're limited to assoc! using transients.
 (defn vec-conj

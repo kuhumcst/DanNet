@@ -341,9 +341,8 @@
 
 (rum/defc list-cell-coll-items
   [opts coll]
-  (let [sort-key (shared/label-sortkey-fn opts)]
-    (for [item (sort-by sort-key coll)]
-      (rum/with-key (list-item opts item) (sort-key item)))))
+  (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
+    (rum/with-key (list-item opts item) sort-key)))
 
 ;; A Rum-controlled version of the <details> element which only renders content
 ;; if the containing <details> element is open. This circumvents the default
@@ -719,8 +718,7 @@
                        :key   rdf-uri}
            (break-up-uri rdf-uri)]))]
      (for [[title ks] (section/page-sections entity)]
-       (when-let [subentity (-> (ordered-subentity opts ks entity)
-                                (not-empty))]
+       (when-let [subentity (ordered-subentity opts ks entity)]
          [:section {:key (or title :no-title)}
           (when title
             [:h2 (str (i18n/select-label languages title))])
