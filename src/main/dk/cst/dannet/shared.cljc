@@ -177,6 +177,7 @@
   (when x
     (if (set? x) x #{x})))
 
+;; TODO: memoize
 (defn sense-labels
   "Split a `synset` label into sense labels. Work for both old and new formats."
   [sep label]

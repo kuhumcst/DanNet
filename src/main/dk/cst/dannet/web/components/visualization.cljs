@@ -48,12 +48,13 @@
 (defn- glyph-width
   "Estimate the approximate visual width of `s` based on character widths."
   [s]
-  (reduce + (map (fn [ch]
-                   (cond
+  (reduce (fn [acc ch]
+            (+ acc (cond
                      (narrow-chars ch) 0.45
                      (wide-chars ch) 1.4
-                     :else 1.0))
-                 (str s))))
+                     :else 1.0)))
+          0
+          (str s)))
 
 (defn length-penalty
   "Calculate a new size with a penalty based on the visual width of `label`."
@@ -130,8 +131,7 @@
          (remove nil?)
 
          ;; Favour the largest weights in case all words can't fit!
-         (sort-by :size)
-         (reverse))))
+         (sort-by :size >))))
 
 (defn content-width
   "Get the width of a `node`, excluding its padding and border.
