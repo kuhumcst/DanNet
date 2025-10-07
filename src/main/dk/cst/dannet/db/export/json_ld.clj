@@ -4,6 +4,7 @@
   Transforms entity maps with namespaced keywords into JSON-LD structure
   with proper @context and @id mappings."
   (:require [clojure.walk :as walk]
+            [dk.cst.dannet.shared :as shared]
             [flatland.ordered.map :as fop]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
@@ -58,7 +59,7 @@
     {"@value" (.getLexicalValue v)
      "@type"  (str (.getDatatypeURI v))}
 
-    (set? v)
+    (shared/multi-valued? v)
     (if (= (count v) 1)
       (transform-value (first v))
       (->> v

@@ -303,6 +303,7 @@
       [(str (i18n/select-label languages (get k->label k)))
        (str item)])))
 
+;; NOTE: cannot use fnil as we're limited to assoc! using transients.
 (defn vec-conj
   [coll v]
   (if (nil? coll)
@@ -351,6 +352,15 @@
                  (dissoc! source k)
                  (assoc! result k (vec-conj (get result k) v))
                  (inc exhausted)))))))
+
+(defn multi-valued?
+  "Return true if `v` is either a (pre-sorted) vector or a set.
+
+  This is used to allow for/signal that collection values can come pre-sorted.
+  Ordinarily, multi-valued properties in RDF will always observe set semantics."
+  [v]
+  (and (coll? v)
+       (not (map? v))))
 
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via

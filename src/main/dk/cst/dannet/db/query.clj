@@ -15,6 +15,7 @@
   (txn/transact g
     (apply q/run g remaining-args)))
 
+;; TODO: replace with fnil in all places where update is used anyway
 (defn set-merge
   "Helper function for merge-with in 'entity-label-mapping'."
   [v1 v2]
@@ -66,6 +67,7 @@
     (with-meta (basic-entity result) {:subject subject})
     (with-meta {} {:subject subject})))
 
+;; TODO: can it use basic-entity instead of entity?
 ;; TODO: what about blank-expanded-entity?
 (defn blank-entity
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."

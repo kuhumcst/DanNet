@@ -451,13 +451,6 @@
                   "helt eller delvist  nedarvet fra hypernym"
                   "fully or partially inherited from hypernym")})
 
-(defn coll-val?
-  "Return true if `v` is a non-map coll, i.e. either a (sorted) collection or a
-  set. Used to allow for vals to come pre-sorted from the backend."
-  [v]
-  (and (coll? v)
-       (not (map? v))))
-
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
                             "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [subject languages inherited inferred comments] :as opts} subentity]
@@ -528,8 +521,8 @@
                     "word cloud"])])))]
          (cond
            ;; NOTE: this used to only test using `set?`, but as we return both
-           ;;       sets and sorted lists now, we need to test this instead.
-           (coll-val? v)
+           ;;       sets and sorted colls now, we need to test this instead.
+           (shared/multi-valued? v)
            (cond
              (= 1 (count v))
              (let [v* (first v)]

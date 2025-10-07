@@ -2,7 +2,7 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.pprint :refer [pprint print-table]]
+            [clojure.pprint :refer [pprint]]
             [clojure.data.json :as json]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
@@ -97,17 +97,6 @@
                         (assoc-in [:headers "Cache-Control"] one-day-cache)
                         (assoc-in [:headers "Content-Disposition"] cd))))]
     ["/export/:type/:prefix" :get handler :route-name ::export]))
-
-;; TODO: needs some work
-(defn ascii-table
-  [entity]
-  (with-out-str
-    (print-table
-      (for [[k v] (sort-by first entity)]
-        {:predicate (prefix/kw->qname k)
-         :object    (if (set? v)
-                      (str "{ " (first (sort v)) " , ... }")
-                      v)}))))
 
 (defn html-page
   "A full HTML page ready to be hydrated. Needs a `title` and `content`."
