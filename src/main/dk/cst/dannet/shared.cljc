@@ -426,6 +426,28 @@
    :wn/result              "#98df8a"
    :wn/similar             "#bcbd22"})
 
+(def synset-rel-theme-tint
+  "Tinted (15% opacity) rgba versions of synset-rel-theme colors."
+  (into {}
+        (map (fn [[k hex]]
+               (let [hex (if (str/starts-with? hex "#")
+                           (subs hex 1)
+                           hex)
+                     ;; Expand 3-char hex shorthand to 6 chars (e.g. "666" -> "666666")
+                     hex (if (= 3 (count hex))
+                           (str (nth hex 0) (nth hex 0)
+                                (nth hex 1) (nth hex 1)
+                                (nth hex 2) (nth hex 2))
+                           hex)
+                     r   #?(:clj  (Integer/parseInt (subs hex 0 2) 16)
+                            :cljs (js/parseInt (subs hex 0 2) 16))
+                     g   #?(:clj  (Integer/parseInt (subs hex 2 4) 16)
+                            :cljs (js/parseInt (subs hex 2 4) 16))
+                     b   #?(:clj  (Integer/parseInt (subs hex 4 6) 16)
+                            :cljs (js/parseInt (subs hex 4 6) 16))]
+                 [k (str "rgba(" r ", " g ", " b ", 0.15)")]))
+             synset-rel-theme)))
+
 (comment
   ;; Testing out relative weights
   (take 10 (map double (iterate log-inc 1)))
