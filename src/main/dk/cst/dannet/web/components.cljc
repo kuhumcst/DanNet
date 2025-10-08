@@ -403,11 +403,12 @@
 (rum/defc list-cell-coll
   "A list of ordered content; hidden by default when there are too many items."
   [{:keys [display-opt] :as opts} coll]
-  (let [display-opt' (or display-opt
+  (let [coll-count   (count coll)
+        display-opt' (or display-opt
                          ;; Display the limited, radial cloud by default for
                          ;; large colls and use tables for everything else.
                          (when (and (display-cloud? opts coll)
-                                    (> (count coll) word-cloud-limit))
+                                    (> coll-count word-cloud-limit))
                            "cloud"))]
     (case display-opt'
       "cloud" #?(:cljs (viz/word-cloud
@@ -415,7 +416,7 @@
                  :clj  [:div])
       "max-cloud" #?(:cljs (viz/word-cloud opts coll)
                      :clj  [:div])
-      (if (<= (count coll) expandable-coll-cutoff)
+      (if (<= coll-count expandable-coll-cutoff)
         [:ol (list-cell-coll-items opts coll)]
         (expandable-coll opts coll)))))
 
@@ -459,7 +460,8 @@
         display-opt   (get-in @display-opts [subject k])
         opts+attr-key (assoc opts
                         :attr-key k
-                        :display-opt display-opt)]
+                        :display-opt display-opt)
+        v-count       (if (coll? v) (count v) 0)]
     [:tr (cond-> {:key (str k)}
            inferred? (update :class conj "inferred")
            inherited? (update :class conj "inherited"))
@@ -477,7 +479,6 @@
       (when (display-cloud? opts+attr-key v)
         ;; Default to word clouds for longer collections.
         (let [value  (or display-opt "cloud")
-              size   (count v)
               change (fn [e]
                        (swap! display-opts assoc-in [subject k]
                               (.-value (.-target e))))]
@@ -487,12 +488,12 @@
                                       :on-change change}
              [:option {:value ""}
               "liste"]
-             (if (> size word-cloud-limit)
+             (if (> v-count word-cloud-limit)
                [:<>
                 [:option {:value "cloud"}
                  (str "ordsky (top)")]
                 [:option {:value "max-cloud"}
-                 (str "ordsky (" size ")")]]
+                 (str "ordsky (" v-count ")")]]
                [:option {:value "max-cloud"}
                 "ordsky"])]
             [:select.display-options {:title     "Display options"
@@ -500,12 +501,12 @@
                                       :on-change change}
              [:option {:value ""}
               "list"]
-             (if (> (count v) word-cloud-limit)
+             (if (> v-count word-cloud-limit)
                [:<>
                 [:option {:value "cloud"}
                  (str "word cloud (top)")]
                 [:option {:value "max-cloud"}
-                 (str "word cloud (" size ")")]]
+                 (str "word cloud (" v-count ")")]]
                [:option {:value "max-cloud"}
                 "word cloud"])])))]
      (cond
