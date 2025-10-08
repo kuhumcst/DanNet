@@ -450,9 +450,96 @@
                   "helt eller delvist  nedarvet fra hypernym"
                   "fully or partially inherited from hypernym")})
 
+(rum/defc attr-val-row < rum/reactive
+  "A single row in the attribute-value table. Only re-renders when its specific display option changes."
+  [{:keys [subject languages comments] :as opts} k v display-opts inherited? inferred?]
+  (let [prefix        (if (keyword? k)
+                        (symbol (namespace k))
+                        k)
+        display-opt   (get-in @display-opts [subject k])
+        opts+attr-key (assoc opts
+                        :attr-key k
+                        :display-opt display-opt)]
+    [:tr (cond-> {:key (str k)}
+           inferred? (update :class conj "inferred")
+           inherited? (update :class conj "inherited"))
+     [:td.attr-prefix
+      ;; TODO: link to definition below?
+      (when inferred?
+        [:span.marker {:title (:inference comments)} "∴"])
+      (when inherited?
+        [:span.marker {:title (:inheritance comments)} "†"])
+      (prefix-elem prefix)]
+     [:td.attr-name
+      (anchor-elem k opts+attr-key)
+
+      ;; Longer lists of synsets can be displayed as a word cloud.
+      (when (display-cloud? opts+attr-key v)
+        ;; Default to word clouds for longer collections.
+        (let [value  (or display-opt "cloud")
+              size   (count v)
+              change (fn [e]
+                       (swap! display-opts assoc-in [subject k]
+                              (.-value (.-target e))))]
+          (i18n/da-en languages
+            [:select.display-options {:title     "Visningsmuligheder"
+                                      :value     value
+                                      :on-change change}
+             [:option {:value ""}
+              "liste"]
+             (if (> size word-cloud-limit)
+               [:<>
+                [:option {:value "cloud"}
+                 (str "ordsky (top)")]
+                [:option {:value "max-cloud"}
+                 (str "ordsky (" size ")")]]
+               [:option {:value "max-cloud"}
+                "ordsky"])]
+            [:select.display-options {:title     "Display options"
+                                      :value     value
+                                      :on-change change}
+             [:option {:value ""}
+              "list"]
+             (if (> (count v) word-cloud-limit)
+               [:<>
+                [:option {:value "cloud"}
+                 (str "word cloud (top)")]
+                [:option {:value "max-cloud"}
+                 (str "word cloud (" size ")")]]
+               [:option {:value "max-cloud"}
+                "word cloud"])])))]
+     (cond
+       ;; NOTE: this used to only test using `set?`, but as we return both
+       ;;       sets and sorted colls now, we need to test this instead.
+       (shared/multi-valued? v)
+       (cond
+         (= 1 (count v))
+         (let [v* (first v)]
+           (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
+                                                   (meta v*)
+                                                   v*))
+                         v))
+
+         (every? i18n/rdf-string? v)
+         (str-list-cell opts+attr-key v)
+
+         ;; TODO: use sublist for identical labels
+         :else
+         (list-cell opts+attr-key v))
+
+       (keyword? v)
+       (rum/with-key (val-cell opts+attr-key v) v)
+
+       (symbol? v)
+       (rum/with-key (val-cell opts+attr-key (meta v)) v)
+
+       :else
+       [:td {:lang (i18n/lang v) :key v}
+        (transform-val v opts+attr-key)])]))
+
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
                             "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [subject languages inherited inferred comments] :as opts} subentity]
+  [state {:keys [inherited inferred] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table {:class "attr-val"}
      [:colgroup
@@ -460,92 +547,11 @@
       [:col]                                                ; attr local name
       [:col]]
      [:tbody
-      (for [[k v] subentity
-            :let [prefix        (if (keyword? k)
-                                  (symbol (namespace k))
-                                  k)
-                  inherited?    (get inherited k)
-                  inferred?     (get inferred k)
-                  display-opt   (get-in @display-opts [subject k])
-                  opts+attr-key (assoc opts
-                                  :attr-key k
-                                  :display-opt display-opt)]]
-        [:tr (cond-> {:key (str k)}
-               inferred? (update :class conj "inferred")
-               inherited? (update :class conj "inherited"))
-         [:td.attr-prefix
-          ;; TODO: link to definition below?
-          (when inferred?
-            [:span.marker {:title (:inference comments)} "∴"])
-          (when inherited?
-            [:span.marker {:title (:inheritance comments)} "†"])
-          (prefix-elem prefix)]
-         [:td.attr-name
-          (anchor-elem k opts+attr-key)
-
-          ;; Longer lists of synsets can be displayed as a word cloud.
-          (when (display-cloud? opts+attr-key v)
-            ;; Default to word clouds for longer collections.
-            (let [value  (or display-opt "cloud")
-                  size   (count v)
-                  change (fn [e]
-                           (swap! display-opts assoc-in [subject k]
-                                  (.-value (.-target e))))]
-              (i18n/da-en languages
-                [:select.display-options {:title     "Visningsmuligheder"
-                                          :value     value
-                                          :on-change change}
-                 [:option {:value ""}
-                  "liste"]
-                 (if (> size word-cloud-limit)
-                   [:<>
-                    [:option {:value "cloud"}
-                     (str "ordsky (top)")]
-                    [:option {:value "max-cloud"}
-                     (str "ordsky (" size ")")]]
-                   [:option {:value "max-cloud"}
-                    "ordsky"])]
-                [:select.display-options {:title     "Display options"
-                                          :value     value
-                                          :on-change change}
-                 [:option {:value ""}
-                  "list"]
-                 (if (> (count v) word-cloud-limit)
-                   [:<>
-                    [:option {:value "cloud"}
-                     (str "word cloud (top)")]
-                    [:option {:value "max-cloud"}
-                     (str "word cloud (" size ")")]]
-                   [:option {:value "max-cloud"}
-                    "word cloud"])])))]
-         (cond
-           ;; NOTE: this used to only test using `set?`, but as we return both
-           ;;       sets and sorted colls now, we need to test this instead.
-           (shared/multi-valued? v)
-           (cond
-             (= 1 (count v))
-             (let [v* (first v)]
-               (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
-                                                       (meta v*)
-                                                       v*))
-                             v))
-
-             (every? i18n/rdf-string? v)
-             (str-list-cell opts+attr-key v)
-
-             ;; TODO: use sublist for identical labels
-             :else
-             (list-cell opts+attr-key v))
-
-           (keyword? v)
-           (rum/with-key (val-cell opts+attr-key v) v)
-
-           (symbol? v)
-           (rum/with-key (val-cell opts+attr-key (meta v)) v)
-
-           :else
-           [:td {:lang (i18n/lang v) :key v}
-            (transform-val v opts+attr-key)])])]]))
+      (for [[k v] subentity]
+        (rum/with-key (attr-val-row opts k v display-opts
+                                    (get inherited k)
+                                    (get inferred k))
+                      k))]]))
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
