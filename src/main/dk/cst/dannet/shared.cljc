@@ -177,14 +177,17 @@
   (when x
     (if (set? x) x #{x})))
 
-;; TODO: memoize
-(defn sense-labels
+(defn sense-labels*
   "Split a `synset` label into sense labels. Work for both old and new formats."
   [sep label]
   (->> (str/split label sep)
        (into [] (comp
                   (remove empty?)
                   (map str/trim)))))
+
+(def sense-labels
+  #?(:clj  (memo/lru sense-labels* :lru/threshold 2000)
+     :cljs (memoize sense-labels*)))
 
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
