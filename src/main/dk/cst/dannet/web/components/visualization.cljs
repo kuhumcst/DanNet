@@ -392,23 +392,25 @@
   "Transform entity data into radial tree format with optimized label placement."
   [entity k->label]
   (->> entity
-       (mapcat (fn [[k synsets]]
-                 (let [theme (get shared/synset-rel-theme k)]
-                   (->> synsets
-                        (map (fn [synset]
-                               (let [label (or (k->label synset)
-                                               (prefix/kw->qname synset))]
-                                 {:name     label
-                                  :theme    theme
-                                  :relation k
-                                  :href     (prefix/resolve-href synset)
-                                  :title    (labels-only label)})))
-                        (mapcat expand-sense-labels)
-                        (group-by :relation)
+       (into []
+             (mapcat (fn [[k synsets]]
+                       (let [theme (get shared/synset-rel-theme k)
+                             xf    (comp (map (fn [synset]
+                                                (let [label (or (k->label synset)
+                                                                (prefix/kw->qname synset))]
+                                                  {:name     label
+                                                   :theme    theme
+                                                   :relation k
+                                                   :href     (prefix/resolve-href synset)
+                                                   :title    (labels-only label)})))
+                                         (mapcat expand-sense-labels))]
+                         (->> synsets
+                              (into [] xf)
+                              (group-by :relation)
 
-                        ;; Always select values from every relation type.
-                        (shared/top-n-vals radial-limit)
-                        (mapcat val)))))
+                              ;; Always select values from every relation type.
+                              (shared/top-n-vals radial-limit)
+                              (mapcat val))))))
 
        ;; Sorting into (and of) groups happens here!
        (insert-theme-spacers (comp str k->label first))
