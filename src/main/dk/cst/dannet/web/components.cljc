@@ -837,17 +837,18 @@
 
 (rum/defc option
   [v on-key-down]
-  [:li {:role        "option"
-        :tab-index   "-1"
-        :on-key-down on-key-down
-        :id          (search-completion-item-id v)
-        :on-click    (fn [_]
+  (let [handle-click (fn [_]
                        #?(:cljs (let [form  (js/document.getElementById "search-form")
                                       input (js/document.getElementById "search-input")]
                                   (set! (.-value input) v)
                                   (submit-form form (str "lemma=" v)))
-                          :clj  nil))}
-   v])
+                          :clj  nil))]
+    [:li {:role        "option"
+          :tab-index   "-1"
+          :on-key-down on-key-down
+          :id          (search-completion-item-id v)
+          :on-click    handle-click}
+     v]))
 
 ;; TODO: language localisation
 (rum/defc search-form
@@ -868,7 +869,13 @@
                          (js/document.getElementById "search-completion")
                          {"Escape" (fn [e]
                                      (.preventDefault e)
-                                     (js/document.activeElement.blur))}))]
+                                     (js/document.activeElement.blur))}))
+        handle-input-focus  (fn [e] (select-text e))
+        handle-input-click  (fn [e] (.stopPropagation e))   ; don't close overlay
+        handle-input-touch  (fn [e] (.focus (.-target e)))  ; consistent focus on mobile
+        handle-submit-click (fn [e] (.stopPropagation e))   ; don't close overlay
+        handle-submit-touch (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form")))) ; needed on mobile
+        ]
     [:form {:role      "search"
             :id        "search-form"
             :action    prefix/search-path
@@ -890,16 +897,16 @@
                                         "skriv noget..."
                                         "write something...")
                :on-key-down           on-key-down
-               :on-focus              (fn [e] (select-text e))
-               :on-click              (fn [e] (.stopPropagation e)) ; don't close overlay
-               :on-touch-start        (fn [e] (.focus (.-target e))) ; consistent focus on mobile
+               :on-focus              handle-input-focus
+               :on-click              handle-input-click
+               :on-touch-start        handle-input-touch
                :on-change             update-search-suggestions
                :auto-complete         "off"
                :default-value         (or lemma "")}]
       [:input {:type           "submit"
                :tab-index      "-1"
-               :on-click       (fn [e] (.stopPropagation e)) ; don't close overlay)
-               :on-touch-start (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form")))) ; needed on mobile
+               :on-click       handle-submit-click
+               :on-touch-start handle-submit-touch
                :title          (str submit-label)
                :value          (str submit-label)}]]
      [:ul {:role      "listbox"
@@ -1037,22 +1044,23 @@
 
 (rum/defc language-select < rum/reactive
   [languages]
-  [:select.language
-   {:title     "Language preference"
-    :value     (str (first languages))
-    :on-change (fn [e]
-                 #?(:cljs (let [v   (-> (.-target e)
-                                        (.-value)
-                                        (not-empty)
-                                        (i18n/lang-prefs))
-                                url "/cookies"]
-                            (swap! shared/state assoc :languages v)
-                            (.then (shared/api url {:method :put
-                                                    :body   {:languages v}})
-                                   (shared/clear-fetch url)))))}
-   [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
-   [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
-   [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]])
+  (let [change-language (fn [e]
+                          #?(:cljs (let [v   (-> (.-target e)
+                                                 (.-value)
+                                                 (not-empty)
+                                                 (i18n/lang-prefs))
+                                         url "/cookies"]
+                                     (swap! shared/state assoc :languages v)
+                                     (.then (shared/api url {:method :put
+                                                             :body   {:languages v}})
+                                            (shared/clear-fetch url)))))]
+    [:select.language
+     {:title     "Language preference"
+      :value     (str (first languages))
+      :on-change change-language}
+     [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
+     [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
+     [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
 (rum/defc loader
   []
@@ -1105,7 +1113,10 @@
         [prefix _ _] (resolve-names opts')
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
-                                          symbol))]
+                                          symbol))
+        toggle-details (fn [e]
+                         (.preventDefault e)
+                         (swap! shared/state update :details? not))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")
@@ -1124,9 +1135,7 @@
                                :title    (if details?
                                            "Show fewer details"
                                            "Show more details")
-                               :on-click (fn [e]
-                                           (.preventDefault e)
-                                           (swap! shared/state update :details? not))}]]
+                               :on-click toggle-details}]]
      [:div#content {:class #?(:clj  ""
                               :cljs (if (and *hydrated*
                                              (not-empty (:fetch opts')))
