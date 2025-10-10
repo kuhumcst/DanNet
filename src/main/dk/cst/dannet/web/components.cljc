@@ -7,10 +7,10 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
-            [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [nextjournal.markdown :as md]
             [nextjournal.markdown.transform :as md.transform]
+            [dk.cst.dannet.web.components.rdf :as rdf]
             #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])
             #?(:clj [better-cond.core :refer [cond]])
             #?(:cljs [dk.cst.aria.combobox :as combobox])
@@ -40,25 +40,6 @@
 (def rdf-resource-re
   #"^<(.+)>$")
 
-(defn break-up-uri
-  "Place word break opportunities into a potentially long `uri`."
-  [uri]
-  (into [:<>] (for [part (re-seq #"[^\./]+|[\./]+" uri)]
-                (if (re-matches #"[^\./]+" part)
-                  [:<> part [:wbr]]
-                  part))))
-
-(rum/defc rdf-uri-hyperlink
-  "Display URIs in RDF <resource> style or using a label when available."
-  [uri {:keys [languages k->label attr-key] :as opts}]
-  (let [labels (get k->label (prefix/uri->rdf-resource uri))
-        label  (i18n/select-label languages labels)
-        path   (prefix/uri->internal-path uri)]
-    (if (and label
-             (not (= attr-key :foaf/homepage)))             ; special behaviour
-      [:a {:href path} (str label)]
-      [:a.rdf-uri {:href path} (break-up-uri uri)])))
-
 (declare prefix-elem)
 (declare anchor-elem)
 
@@ -82,7 +63,7 @@
      :when-let [s (not-empty (str/trim (str v)))]
 
      (= attr-key :vann/preferredNamespacePrefix)
-     (prefix-elem (symbol s) {:independent-prefix true})
+     (rdf/prefix-elem (symbol s) {:independent-prefix true})
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
      (re-matches #"\{.+\}" s)
@@ -108,7 +89,7 @@
       [:div.set__right-bracket]]
 
      rdf-resource
-     (rdf-uri-hyperlink uri opts)
+     (rdf/rdf-uri-hyperlink uri opts)
 
      ;; TODO: match is too broad, should be limited somewhat
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
@@ -117,7 +98,7 @@
        [:<> word [:sub sub] mwe])
 
      (re-matches #"https?://[^\s]+" s)
-     (break-up-uri s)
+     (rdf/break-up-uri s)
 
      (re-find #"\n" s)
      (into [:<>] (interpose [:br] (str/split s #"\n")))
@@ -127,7 +108,7 @@
    (transform-val s nil)))
 
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
-(rum/defc anchor-elem
+(rum/defc entity-link
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
   [resource {:keys [languages k->label class] :as opts}]
   (if (keyword? resource)
@@ -164,14 +145,14 @@
                               (assoc-in [:k->label resource] inherited-label)
                               (assoc :class (get prefix/prefix->class prefix)))]
       [:div.qname
-       (prefix-elem (or prefix (symbol (namespace resource))) opts')
-       (anchor-elem resource opts')])
+       (rdf/prefix-elem (or prefix (symbol (namespace resource))) opts')
+       (entity-link resource opts')])
 
     ;; The generic case just displays the prefix badge + the hyperlink.
     :else
     [:div.qname
-     (prefix-elem (symbol (namespace resource)) opts)
-     (anchor-elem resource opts)]))
+     (rdf/prefix-elem (symbol (namespace resource)) opts)
+     (entity-link resource opts)]))
 
 (defn transform-val-coll
   "Performs convenient transformations of `coll` informed by `opts`."
@@ -187,55 +168,8 @@
         [:<> {:key v}
          (when-not (= fv v)
            " + ")
-         (prefix-elem prefix opts)
-         (anchor-elem v opts)]))))
-
-(defn- local-entity-prefix?
-  "Is this `prefix` the same as the local entity in `opts`?"
-  [prefix {:keys [attr-key entity] :as opts}]
-  (or (and (keyword? attr-key)
-           (= prefix (-> attr-key namespace symbol)))
-      (and (keyword? (:subject (meta entity)))
-           (= prefix (-> entity meta :subject namespace symbol)))))
-
-;; TODO: don't hide when `details?` is true?
-(defn- hide-prefix?
-  "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key details?] :as opts}]
-  (or (= :rdf/about attr-key)
-      ;; TODO: don't hardcode ontologicalType (get from input config instead)
-      (= :dns/ontologicalType attr-key)
-      (and (not= :dns/inherited attr-key)                   ; special case
-           (local-entity-prefix? prefix opts))))
-
-(rum/defc prefix-elem
-  "Visual representation of a `prefix` based on its associated symbol.
-
-  If context `opts` are provided, the `prefix` is assumed to be in the value
-  column and will potentially be hidden according to the provided context."
-  ([prefix]
-   (prefix-elem prefix nil))
-  ([prefix {:keys [independent-prefix] :as opts}]
-   (cond
-     (symbol? prefix)
-     [:span.prefix {:title (prefix/prefix->uri prefix)
-                    :class [(prefix/prefix->class prefix)
-                            (if independent-prefix
-                              "independent"
-                              (when (hide-prefix? prefix opts)
-                                "hidden"))]}
-      (str prefix) [:span.prefix__sep ":"]]
-
-     (string? prefix)
-     [:span.prefix {:title (prefix/guess-ns prefix)
-                    :class "unknown"}
-      "???"])))
-
-(defn numbered?
-  [x]
-  (and (keyword? x)
-       (= "rdf" (namespace x))
-       (str/starts-with? (name x) "_")))
+         (rdf/prefix-elem prefix opts)
+         (entity-link v opts)]))))
 
 (declare attr-val-table)
 
@@ -274,13 +208,13 @@
        (when (and (every? keyword? resources)
                   (apply = (map namespace resources)))
          (let [prefix (symbol (namespace (first resources)))]
-           (prefix-elem prefix opts)))
+           (rdf/prefix-elem prefix opts)))
        [:div.set__left-bracket]
        (into [:div.set__content]
              (->> (sort ns->resources)
                   (vals)
                   (apply concat)
-                  (map #(anchor-elem % opts))
+                  (map #(entity-link % opts))
                   (interpose [:span.subtle " • "])))
        [:div.set__right-bracket]])
 
@@ -296,7 +230,7 @@
     (if (empty? (name v))
       ;; Handle cases such as :rdfs/ which have been keywordised by Aristotle.
       [:td
-       (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
+       (rdf/rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
       [:td.attr-combo                                       ; fixes alignment
        (rdf-resource-hyperlink v opts)])
 
@@ -457,9 +391,9 @@
         [:span.marker {:title (:inference comments)} "∴"])
       (when inherited?
         [:span.marker {:title (:inheritance comments)} "†"])
-      (prefix-elem prefix)]
+      (rdf/prefix-elem prefix)]
      [:td.attr-name
-      (anchor-elem k opts+attr-key)
+      (entity-link k opts+attr-key)
 
       ;; Longer lists of synsets can be displayed as a word cloud.
       (when (display-cloud? opts+attr-key v)
@@ -626,7 +560,7 @@
     [:article
      [:header
       [:h1
-       (prefix-elem prefix)
+       (rdf/prefix-elem prefix)
        [:span {:title (if label
                         (prefix/kw->qname label-key)
                         (if uri-only?
@@ -640,7 +574,7 @@
             [:a.rdf-uri {:href  rdf-uri
                          :title (i18n/select-label languages a-titles)
                          :key   rdf-uri}
-             (break-up-uri rdf-uri)]
+             (rdf/break-up-uri rdf-uri)]
             local-name))]
        (when label-lang
          [:sup label-lang])]
@@ -650,13 +584,13 @@
                        :title (i18n/select-label languages a-titles)
                        :label (i18n/select-label languages a-titles)}
            [:span.rdf-uri__prefix {:key uri-prefix}
-            (break-up-uri uri-prefix)]
+            (rdf/break-up-uri uri-prefix)]
            [:span.rdf-uri__name {:key local-name}
-            (break-up-uri local-name)]]
+            (rdf/break-up-uri local-name)]]
           [:a.rdf-uri {:href  rdf-uri
                        :title (i18n/select-label languages a-titles)
                        :key   rdf-uri}
-           (break-up-uri rdf-uri)]))]
+           (rdf/break-up-uri rdf-uri)]))]
      (for [[title ks] (section/page-sections entity)]
        (when-let [subentity (ordered-subentity opts ks entity)]
          [:section {:key (or title :no-title)}
