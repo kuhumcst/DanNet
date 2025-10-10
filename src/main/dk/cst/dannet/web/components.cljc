@@ -34,6 +34,9 @@
   "Arbitrary limit on word cloud size for performance and display reasons."
   150)
 
+(def expandable-coll-cutoff
+  4)
+
 (def rdf-resource-re
   #"^<(.+)>$")
 
@@ -59,15 +62,11 @@
 (declare prefix-elem)
 (declare anchor-elem)
 
-(defn rdf-datatype?
-  [x]
-  (and (map? x) (:value x) (:uri x)))
-
 (defn transform-val
   "Performs convenient transformations of `v`, optionally informed by `opts`."
   ([v {:keys [attr-key entity] :as opts}]
    (cond
-     (rdf-datatype? v)
+     (shared/rdf-datatype? v)
      (let [{:keys [uri value]} v]
        [:span {:title    uri
                :datatype uri}
@@ -174,17 +173,12 @@
      (prefix-elem (symbol (namespace resource)) opts)
      (anchor-elem resource opts)]))
 
-(defn- named?
-  [x]
-  #?(:cljs (implements? INamed x)
-     :clj  (instance? Named x)))
-
 (defn transform-val-coll
   "Performs convenient transformations of `coll` informed by `opts`."
   [coll {:keys [attr-key] :as opts}]
   (cond
     (and (= :dns/ontologicalType attr-key)
-         (every? #(and (named? %)
+         (every? #(and (qualified-ident? %)
                        (= "dnc" (namespace %))) coll))
     (let [vs     (sort-by name coll)
           fv     (first vs)
@@ -196,7 +190,7 @@
          (prefix-elem prefix opts)
          (anchor-elem v opts)]))))
 
-(defn local-entity-prefix?
+(defn- local-entity-prefix?
   "Is this `prefix` the same as the local entity in `opts`?"
   [prefix {:keys [attr-key entity] :as opts}]
   (or (and (keyword? attr-key)
@@ -249,7 +243,7 @@
   "Display a blank resource in either a specialised way or as an inline table."
   [{:keys [languages] :as opts} x]
   (cond
-    (rdf-datatype? x)
+    (shared/rdf-datatype? x)
     (transform-val x)
 
     (= (keys x) [:rdf/value])
@@ -268,7 +262,7 @@
 
     (contains? (:rdf/type x) :rdf/Bag)
     (let [ns->resources (-> (->> (dissoc x :rdf/type)
-                                 (filter (comp numbered? first))
+                                 (filter (comp shared/member-property? first))
                                  (mapcat second)
                                  (group-by namespace))
                             (update-vals sort)
@@ -369,8 +363,13 @@
 
 (defn- expandable-coll*
   [{:keys [languages] :as opts} summary-coll rest-coll]
-  (let [total (+ (count summary-coll) (count rest-coll))
-        c     (ol-class total)]
+  (let [total-amount (+ (count summary-coll)
+                        (count rest-coll))
+        c            (condp > total-amount
+                       100 "two-digits"
+                       1000 "three-digits"
+                       10000 "four-digits"
+                       100000 "five-digits")]
     [:<>
      [:ol {:class c}
       (list-cell-coll-items opts summary-coll)]
@@ -388,9 +387,6 @@
   ;; Special behaviour for synset/LexicalConcept
   ;; TODO: top 3 synsets by weight are still sorted alphabetically, change?
   (expandable-coll* opts (take 3 coll) (drop 3 coll)))
-
-(def expandable-coll-cutoff
-  4)
 
 (defn display-cloud?
   [{:keys [attr-key] :as opts} v]
@@ -440,16 +436,6 @@
                 :lang (i18n/lang s*)}
            (transform-val s* opts)])]]
       [:td {:lang (i18n/lang s) :key coll} (transform-val s opts)])))
-
-;; TODO: maybe just inline these instead?
-(defn translate-comments
-  [languages]
-  {:inference   (i18n/da-en languages
-                  "helt eller delvist logisk udledt"
-                  "fully or partially logically inferred")
-   :inheritance (i18n/da-en languages
-                  "helt eller delvist  nedarvet fra hypernym"
-                  "fully or partially inherited from hypernym")})
 
 (rum/defc attr-val-row < rum/reactive
   "A single row in the attribute-value table. Only re-renders when its specific display option changes."
@@ -568,65 +554,11 @@
             (sort-by (shared/label-sortkey-fn opts)
                      (filter ks entity))))))
 
-(defn- resolve-names
-  [{:keys [subject] :as opts}]
-  (when subject
-    (if (keyword? subject)
-      [(symbol (namespace subject))
-       (name subject)
-       (voc/uri-for subject)]
-      (let [local-name (str/replace subject #"<|>" "")]
-        [nil
-         local-name
-         local-name]))))
-
-(def label-keys
-  [:dns/shortLabel
-   :rdfs/label
-   :dc/title
-   :dc11/title
-   :foaf/name
-   #_:skos/definition                                       ; wn:ili Concepts
-   :ontolex/writtenRep])
-
-(def long-label-keys
-  [:rdfs/label
-   :dns/shortLabel
-   :dc/title
-   :dc11/title
-   :foaf/name
-   #_:skos/definition
-   :ontolex/writtenRep])
-
-(def short-label-keys
-  [:dns/shortLabel
-   :rdfs/label
-   :dc/title
-   :dc11/title
-   :foaf/name
-   #_:skos/definition
-   :ontolex/writtenRep])
-
-(defn entity->label-key
-  "Return :rdfs/label or another appropriate key for labeling `entity`."
-  ([entity]
-   (entity->label-key entity label-keys))
-  ([entity ks]
-   (loop [[candidate & candidates] ks]
-     (if (get entity candidate)
-       candidate
-       (when candidates
-         (recur candidates))))))
-
-(defn entity-label
-  [ks entity]
-  (get entity (entity->label-key entity ks)))
-
-(defn elem-classes
+(defn- elem-classes
   [el]
   (set (str/split (.getAttribute el "class") #" ")))
 
-(defn apply-classes
+(defn- apply-classes
   [el classes]
   (.setAttribute el "class" (str/join " " classes)))
 
@@ -673,14 +605,15 @@
                      :style {:background theme}}]]])))]))
 
 (rum/defc entity-page
-  [{:keys [href languages comments subject inferred entity k->label details?] :as opts}]
-  (let [[prefix local-name rdf-uri] (resolve-names opts)
+  [{:keys [subject href languages comments subject inferred entity k->label details?]
+    :as   opts}]
+  (let [[prefix local-name rdf-uri] (shared/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
         ;; detailed label (usually rsfs:label).
         label-key     (if (and details? (get (:rdf/type entity)
                                              :ontolex/LexicalConcept))
                         :rdfs/label
-                        (entity->label-key entity))
+                        (shared/find-label-key entity))
         select-label* (partial i18n/select-label languages)
         label         (select-label* (k->label subject))
         label-lang    (i18n/lang label)
@@ -881,8 +814,8 @@
         handle-input-click  (fn [e] (.stopPropagation e))   ; don't close overlay
         handle-input-touch  (fn [e] (.focus (.-target e)))  ; consistent focus on mobile
         handle-submit-click (fn [e] (.stopPropagation e))   ; don't close overlay
-        handle-submit-touch (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form")))) ; needed on mobile
-        ]
+        handle-submit-touch (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form"))))] ; needed on mobile
+
     [:form {:role      "search"
             :id        "search-form"
             :action    prefix/search-path
@@ -1105,19 +1038,24 @@
         state' #?(:clj (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
-        comments       (translate-comments languages')
+        comments       {:inference
+                        (i18n/da-en languages'
+                          "helt eller delvist logisk udledt"
+                          "fully or partially logically inferred")
+                        :inheritance
+                        (i18n/da-en languages'
+                          "helt eller delvist  nedarvet fra hypernym"
+                          "fully or partially inherited from hypernym")}
         details?       (or (get state' :details?)
                            (get opts :details?))
-        entity-label*  (partial entity-label (if details?
-                                               long-label-keys
-                                               short-label-keys))
+        entity-label*  (shared/->entity-label-fn details?)
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
                          :comments comments
                          :k->label (update-vals entities' entity-label*))
-        [prefix _ _] (resolve-names opts')
+        [prefix _ _] (shared/parse-rdf-term subject)
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
                                           symbol))

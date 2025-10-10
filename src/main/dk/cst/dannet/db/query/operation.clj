@@ -3,7 +3,7 @@
   (:require [clojure.string :as str]
             [arachne.aristotle.query :as q]
             [ont-app.vocabulary.core :as voc]
-            [dk.cst.dannet.web.components :as com]
+            [dk.cst.dannet.shared :as shared]
 
             ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix :as prefix]))
@@ -16,7 +16,7 @@
     '[:bgp [?s ?p ?o]]))
 
 (def expanded-entity
-  (let [label-rels (str/join " " (map prefix/kw->qname com/label-keys))]
+  (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))]
     (sparql
       "SELECT ?s ?p ?o ?pl ?ol ?plr ?olr
        WHERE {

@@ -3,9 +3,10 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.math :as math]
+            [reitit.impl :refer [form-decode]]
+            [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.section :as section]
-            [reitit.impl :refer [form-decode]]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [reitit.frontend.history :as rfh])
@@ -380,6 +381,77 @@
   [v]
   (and (coll? v)
        (not (map? v))))
+
+(defn rdf-datatype?
+  "Is `x` an RDF datatype represented as a map?"
+  [x]
+  (and (map? x) (:value x) (:uri x)))
+
+(defn member-property?
+  "Returns true if `x` is an RDF container membership property, e.g. :rdf/_1,
+  :rdf/_2 and so on."
+  [x]
+  (and (keyword? x)
+       (= "rdf" (namespace x))
+       (str/starts-with? (name x) "_")))
+
+(defn parse-rdf-term
+  "Parses an RDF `term` into [prefix local-name uri] for display/processing."
+  [term]
+  (when term
+    (if (keyword? term)
+      [(symbol (namespace term))
+       (name term)
+       (voc/uri-for term)]
+      (let [uri (str/replace term #"<|>" "")]
+        [nil uri uri]))))
+
+(def label-keys-full
+  "RDF properties checked for labels, preferring full/detailed labels first."
+  [:rdfs/label
+   :dns/shortLabel
+   :dc/title
+   :dc11/title
+   :foaf/name
+   #_:skos/definition
+   :ontolex/writtenRep])
+
+(def label-keys-short
+  "RDF properties checked for labels, preferring abbreviated labels first."
+  [:dns/shortLabel
+   :rdfs/label
+   :dc/title
+   :dc11/title
+   :foaf/name
+   #_:skos/definition
+   :ontolex/writtenRep])
+
+(defn find-label-key
+  "Returns the first key from `ks` that exists in `entity`, or nil."
+  ([entity]
+   (find-label-key entity label-keys-short))
+  ([entity ks]
+   (loop [[candidate & candidates] ks]
+     (if (get entity candidate)
+       candidate
+       (when candidates
+         (recur candidates))))))
+
+(defn get-entity-label
+  "Returns the label value from `entity` using the first available property in
+  the coll of `ks`."
+  [ks entity]
+  (when-let [k (find-label-key entity ks)]
+    (get entity k)))
+
+(defn ->entity-label-fn
+  "Returns a function that extracts labels from entities.
+  If `prefer-full?` is true, prefers rdfs:label over dns:shortLabel."
+  [prefer-full?]
+  (let [label-keys (if prefer-full?
+                     label-keys-full
+                     label-keys-short)]
+    #(get-entity-label label-keys %)))
 
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via
