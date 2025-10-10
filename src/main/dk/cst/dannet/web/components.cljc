@@ -8,21 +8,11 @@
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
             [ont-app.vocabulary.lstr :as lstr]
-            [nextjournal.markdown :as md]
-            [nextjournal.markdown.transform :as md.transform]
             [dk.cst.dannet.web.components.rdf :as rdf]
             [dk.cst.dannet.web.components.search :as search]
             [dk.cst.dannet.web.components.table :as table]
-            #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])
-            #?(:clj [better-cond.core :refer [cond]])
-            #?(:cljs [dk.cst.aria.combobox :as combobox])
-            #?(:cljs [reagent.cookies :as cookie])
-            #?(:cljs [lambdaisland.uri :as uri])
-            #?(:cljs [reitit.frontend.history :as rfh])
-            #?(:cljs [reitit.frontend.easy :as rfe]))
-  #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
-  (:refer-clojure :exclude [cond])
-  #?(:clj (:import [clojure.lang Named])))
+            [dk.cst.dannet.web.components.markdown :as mdc]
+            #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
@@ -233,45 +223,16 @@
                                              entity)
                        k))))])
 
-(def md->hiccup
-  (memoize
-    (partial md/->hiccup
-             (assoc md.transform/default-hiccup-renderers
-               ;; Clerk likes to ignore alt text and produce <figure> tags,
-               ;; so we need to intercept the regular image rendering to produce
-               ;; accessible images.
-               :image (fn [{:as ctx ::keys [parent]}
-                           {:as node :keys [attrs content]}]
-                        (let [alt (-> (filter (comp #{:text} :type) content)
-                                      (first)
-                                      (get :text))]
-                          [:img (assoc attrs :alt alt)]))))))
-
-(defn hiccup->title*
-  "Find the title string located in the first :h1 element in `hiccup`."
-  [hiccup]
-  (->> (tree-seq vector? rest hiccup)
-       (reduce (fn [_ x]
-                 (when (= :h1 (first x))
-                   (let [node (last x)]
-                     (reduced (if (= :img (first node))
-                                (:alt (second node))
-                                node)))))
-               nil)))
-
-(def hiccup->title
-  (memoize hiccup->title*))
-
 (rum/defc markdown-page < rum/reactive
   [{:keys [languages content] :as opts}]
   (let [ls     (i18n/select-label languages content)
         lang   (lstr/lang ls)
         md     (str ls)
-        hiccup (md->hiccup md)]
-    #?(:cljs (when-let [title (hiccup->title hiccup)]
+        hiccup (mdc/md->hiccup md)]
+    #?(:cljs (when-let [title (mdc/hiccup->title hiccup)]
                (set! js/document.title title)))
     [:article.document {:lang lang}
-     (md->hiccup md)]))
+     hiccup]))
 
 ;; TODO: find better solution? string keys + indirection reduce discoverability
 (def pages
@@ -448,8 +409,3 @@
        (page-component opts')]
       [:hr]
       (page-footer opts')]]))
-
-(comment
-  (hiccup->title* (md/->hiccup (slurp "pages/about-da.md")))
-  (hiccup->title* nil)
-  #_.)
