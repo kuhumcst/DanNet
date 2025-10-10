@@ -4,7 +4,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.components.rdf :as rdf]
-            #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])))
+            [dk.cst.dannet.web.components.visualization :as viz]))
 
 (def word-cloud-limit
   "Arbitrary limit on word cloud size for performance and display reasons."
@@ -36,8 +36,8 @@
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
     (i18n/da-en languages
-                [:td.omitted "(detaljer udeladt)"]
-                [:td.omitted "(details omitted)"])
+      [:td.omitted "(detaljer udeladt)"]
+      [:td.omitted "(details omitted)"])
 
     :else
     (let [s (i18n/select-str languages v)]
@@ -98,8 +98,8 @@
      (react-details
        [:summary
         (i18n/da-en languages
-                    (str (count rest-coll) " flere")
-                    (str (count rest-coll) " more"))]
+          (str (count rest-coll) " flere")
+          (str (count rest-coll) " more"))]
        [:ol {:class c
              :start 4}
         (list-cell-coll-items opts rest-coll)])]))
@@ -191,32 +191,32 @@
                        (swap! display-opts assoc-in [subject k]
                               (.-value (.-target e))))]
           (i18n/da-en languages
-                      [:select.display-options {:title     "Visningsmuligheder"
-                                                :value     value
-                                                :on-change change}
-                       [:option {:value ""}
-                        "liste"]
-                       (if (> v-count word-cloud-limit)
-                         [:<>
-                          [:option {:value "cloud"}
-                           (str "ordsky (top)")]
-                          [:option {:value "max-cloud"}
-                           (str "ordsky (" v-count ")")]]
-                         [:option {:value "max-cloud"}
-                          "ordsky"])]
-                      [:select.display-options {:title     "Display options"
-                                                :value     value
-                                                :on-change change}
-                       [:option {:value ""}
-                        "list"]
-                       (if (> v-count word-cloud-limit)
-                         [:<>
-                          [:option {:value "cloud"}
-                           (str "word cloud (top)")]
-                          [:option {:value "max-cloud"}
-                           (str "word cloud (" v-count ")")]]
-                         [:option {:value "max-cloud"}
-                          "word cloud"])])))]
+            [:select.display-options {:title     "Visningsmuligheder"
+                                      :value     value
+                                      :on-change change}
+             [:option {:value ""}
+              "liste"]
+             (if (> v-count word-cloud-limit)
+               [:<>
+                [:option {:value "cloud"}
+                 (str "ordsky (top)")]
+                [:option {:value "max-cloud"}
+                 (str "ordsky (" v-count ")")]]
+               [:option {:value "max-cloud"}
+                "ordsky"])]
+            [:select.display-options {:title     "Display options"
+                                      :value     value
+                                      :on-change change}
+             [:option {:value ""}
+              "list"]
+             (if (> v-count word-cloud-limit)
+               [:<>
+                [:option {:value "cloud"}
+                 (str "word cloud (top)")]
+                [:option {:value "max-cloud"}
+                 (str "word cloud (" v-count ")")]]
+               [:option {:value "max-cloud"}
+                "word cloud"])])))]
      (cond
        ;; NOTE: this used to only test using `set?`, but as we return both
        ;;       sets and sorted colls now, we need to test this instead.

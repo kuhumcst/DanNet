@@ -1,11 +1,10 @@
-(ns dk.cst.dannet.web.components.visualization
-  "Visualisation components and associated functions; frontend only!"
+(ns dk.cst.dannet.web.d3
+  "D3-related functions for visualisation support; frontend only!"
   (:require [clojure.math :as math]
             [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
-            [rum.core :as rum]
             ["d3" :as d3]
             ["d3-cloud" :as cloud]))
 
@@ -34,7 +33,7 @@
 
 (defn remove-subscript
   "Remove DDO sense subscripts from label `s`.
-  
+
   DDO labels include subscripts like _1§1 to identify specific senses.
   This function removes everything from underscore through the subscript
   portion, leaving only the base word form."
@@ -91,7 +90,7 @@
 
 (defn prepare-synset-cloud
   "Prepare `synsets` for word cloud display using info in `opts`.
-  
+
   The `synsets` collection should already be sorted by weight (highest first).
   If `:cloud-limit` is specified in `opts`, only the top N synsets are used."
   [{:keys [k->label cloud-limit] :as opts} synsets]
@@ -135,7 +134,7 @@
 
 (defn content-width
   "Get the width of a `node`, excluding its padding and border.
-  
+
   Uses getComputedStyle to account for CSS padding, returning only the
   actual content area width available for rendering visualizations."
   [node]
@@ -227,11 +226,6 @@
       (.start layout))
     (reset! state [cloud-limit synsets])))
 
-(rum/defcs word-cloud < (rum/local nil ::synsets)
-  [state {:keys [cloud-limit] :as opts} synsets]
-  [:div {:key (str (hash synsets) "-" cloud-limit)
-         :ref #(build-cloud! (::synsets state) opts synsets %)}])
-
 ;; NOTE: memoized for performance.
 (def expand-sense-labels
   "Extract individual word labels from synset names in map `m`;
@@ -295,14 +289,14 @@
 
 (defn- label-space-score
   "Calculate space availability score for labels at `angle` position.
-  
+
   Lower scores indicate better positions for long labels.
-  
+
   Formula: (corner-dist² - 0.33 × rotation-factor)
   - Squared corner distance creates steep gradient favoring corners
   - Subtracting rotation factor gives extra advantage to diagonal positions
     where labels are more tilted (need less horizontal space)
-  
+
   Result ranges approximately:
   - Corners (45°, 135°, 225°, 315°): ~-0.15 (best)
   - Top/Bottom (90°, 270°): ~0.6 (good)
@@ -335,7 +329,7 @@
 
 (defn- optimize-within-group
   "Reorder `nodes` to place longer labels at optimal positions.
-  
+
   Within each theme group, assigns longer labels to positions with better
   space availability, accounting for both corner proximity and label rotation.
   Uses glyph-aware width for more accurate label size estimation."
@@ -364,7 +358,7 @@
 
 (defn- optimize-radial-structure
   "Optimize label placement within theme groups in the complete structure.
-  
+
   Walks through `nodes` and reorders each contiguous theme group to place
   longer labels at better angular positions (corners and horizontal areas)."
   [nodes]
@@ -490,7 +484,7 @@
 
 (defn- create-radial-svg
   "Create and configure the base SVG container for radial tree.
-  
+
   Takes `node` (DOM node), `width`, `height`, `cx` (center x), `cy` (center y),
   and `sizing` map with font sizes. Returns the configured SVG selection."
   [node width height cx cy sizing]
@@ -511,7 +505,7 @@
 
 (defn- render-radial-links
   "Render connection paths between nodes in the radial tree.
-  
+
   Takes `svg` (SVG selection) and `root` (D3 hierarchy root). Appends link
   paths with appropriate styling based on node theme."
   [svg root]
@@ -551,7 +545,7 @@
 
 (defn- render-radial-nodes
   "Render node circles in the radial tree.
-  
+
   Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `radius`
   (diagram radius). Appends circle elements positioned and colored according
   to their role (subject, theme, spacer)."
@@ -579,7 +573,7 @@
 
 (defn- render-radial-labels
   "Render text labels with rotation and positioning in the radial tree.
-  
+
   Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `sizing` map
   with font sizes and limits. Handles complex label rotation, multi-line
   subject labels, and subscript rendering."
@@ -722,7 +716,7 @@
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
   "Build and render a radial tree diagram in `node` from `entity`.
-  
+
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
@@ -793,16 +787,3 @@
       (render-radial-labels svg root sizing)
 
       (.node svg))))
-
-
-(rum/defcs radial-tree < (rum/local nil ::subentity)
-  [state {:keys [languages k->label] :as opts} subentity]
-  [:div.radial-tree-diagram
-   {:ref (fn [el]
-           (let [{:keys [scroll]} @shared/post-navigate]
-             (when el
-               (build-radial! (::subentity state) opts subentity el)
-               (when (= scroll :diagram)
-                 (if (.-scrollIntoViewIfNeeded el)
-                   (.scrollIntoViewIfNeeded (.-parentElement el))
-                   (.scrollIntoView (.-parentElement el)))))))}])

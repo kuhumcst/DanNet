@@ -12,7 +12,7 @@
             [dk.cst.dannet.web.components.search :as search]
             [dk.cst.dannet.web.components.table :as table]
             [dk.cst.dannet.web.components.markdown :as mdc]
-            #?(:cljs [dk.cst.dannet.web.components.visualization :as viz])))
+            [dk.cst.dannet.web.components.visualization :as viz]))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
@@ -35,56 +35,6 @@
                  (remove nil?))
             (sort-by (shared/label-sortkey-fn opts)
                      (filter ks entity))))))
-
-(defn- elem-classes
-  [el]
-  (set (str/split (.getAttribute el "class") #" ")))
-
-(defn- apply-classes
-  [el classes]
-  (.setAttribute el "class" (str/join " " classes)))
-
-(def radial-tree-selector
-  ".radial-tree-nodes [fill],
-  .radial-tree-links [stroke],
-  .radial-tree-labels [data-theme]")
-
-(defn- get-diagram
-  [e]
-  (.-previousSibling (.-parentElement (.-parentElement (.-parentElement (.-target e))))))
-
-;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
-(rum/defcs radial-tree-legend < (rum/local nil ::selected)
-  [state {:keys [languages k->label] :as opts} subentity]
-  (let [selected (::selected state)]
-    [:ul.radial-tree-legend
-     (for [k (keys subentity)]
-       (when-let [theme (get shared/synset-rel-theme k)]
-         (let [label        (i18n/select-label languages (k->label k))
-               is-selected? (= @selected theme)]
-           [:li {:key k}
-            [:label {:lang (i18n/lang label)} (str label)
-             [:input {:type      "radio"
-                      :name      "radial-tree-filter"
-                      :value     theme
-                      :checked   is-selected?
-                      :read-only true
-                      :on-click  (fn [e]
-                                   (let [new-selection (if is-selected? nil theme)
-                                         diagram       (get-diagram e)]
-                                     (reset! selected new-selection)
-                                     (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                       (let [classes (elem-classes el)
-                                             show?   (or (nil? new-selection)
-                                                         (= new-selection (.getAttribute el "stroke"))
-                                                         (= new-selection (.getAttribute el "fill"))
-                                                         (= new-selection (.getAttribute el "data-theme"))
-                                                         (get classes "radial-item__subject"))]
-                                         (if show?
-                                           (apply-classes el (disj classes "radial-item__de-emphasized"))
-                                           (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
-             [:span {:class "radial-tree-legend__bullet"
-                     :style {:background theme}}]]])))]))
 
 (rum/defc entity-page
   [{:keys [subject href languages comments inferred entity k->label details?]
@@ -169,7 +119,7 @@
                                      (assoc opts :label label)
                                      subentity)
                              :clj  [:div.radial-tree-diagram])
-                          (radial-tree-legend opts subentity)]
+                          (viz/radial-tree-legend opts subentity)]
                          [:p.note
                           [:strong "! "]
                           (i18n/da-en languages
