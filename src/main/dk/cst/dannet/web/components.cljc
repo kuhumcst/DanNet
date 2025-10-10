@@ -38,189 +38,7 @@
 (def expandable-coll-cutoff
   4)
 
-(def rdf-resource-re
-  #"^<(.+)>$")
-
-(declare prefix-elem)
-(declare anchor-elem)
-
-(defn transform-val
-  "Performs convenient transformations of `v`, optionally informed by `opts`."
-  ([v {:keys [attr-key entity] :as opts}]
-   (cond
-     (shared/rdf-datatype? v)
-     (let [{:keys [uri value]} v]
-       [:span {:title    uri
-               :datatype uri}
-        value])
-
-     ;; Transformations of non-strings
-     ;; TODO: properly implement date parsing
-     (inst? v)
-     (let [s (str v)]
-       [:time {:date-time s} s])
-
-     ;; Transformations of strings ONLY from here on
-     :when-let [s (not-empty (str/trim (str v)))]
-
-     (= attr-key :vann/preferredNamespacePrefix)
-     (rdf/prefix-elem (symbol s) {:independent-prefix true})
-
-     :let [[rdf-resource uri] (re-find rdf-resource-re s)]
-     (re-matches #"\{.+\}" s)
-     [:div.set
-      [:div.set__left-bracket]
-      (into [:div.set__content]
-            (interpose
-              [:span.subtle " • "]                          ; semicolon->bullet
-              (for [label (shared/sense-labels shared/synset-sep s)]
-                (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
-                  [:<>
-                   (if (= word shared/omitted)
-                     [:span.subtle word]
-                     word)
-                   ;; Correct for the rare case of comma an affixed comma.
-                   ;; e.g. http://localhost:3456/dannet/data/synset-7290
-                   (when sub
-                     (if (str/ends-with? sub ",")
-                       [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
-                       [:sub sub]))
-                   mwe]
-                  label))))
-      [:div.set__right-bracket]]
-
-     rdf-resource
-     (rdf/rdf-uri-hyperlink uri opts)
-
-     ;; TODO: match is too broad, should be limited somewhat
-     (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
-         (= (:rdf/type entity) :ontolex/LexicalSense))
-     (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word [:sub sub] mwe])
-
-     (re-matches #"https?://[^\s]+" s)
-     (rdf/break-up-uri s)
-
-     (re-find #"\n" s)
-     (into [:<>] (interpose [:br] (str/split s #"\n")))
-
-     :else s))
-  ([s]
-   (transform-val s nil)))
-
-;; TODO: figure out how to prevent line break for lang tag similar to h1
-(rum/defc entity-link
-  "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label class] :as opts}]
-  (if (keyword? resource)
-    (let [labels (get k->label resource)
-          label  (i18n/select-label languages labels)
-          prefix (symbol (namespace resource))]
-      [:a {:href  (prefix/resolve-href resource)
-           :title (str prefix ":" (name resource))
-           :lang  (i18n/lang label)
-           :class (or class (get prefix/prefix->class prefix "unknown"))}
-       (or (transform-val label opts)
-           (name resource))])
-    ;; RDF predicates represented as IRIs Since the namespace is unknown,
-    ;; we likely have no label data either and do not bother to fetch it.
-    ;; See 'rdf-uri-hyperlink' for how objects are represented!
-    (let [local-name (prefix/guess-local-name resource)]
-      [:a {:href  (prefix/resource-path resource)
-           :title local-name
-           :class "unknown"}
-       local-name])))
-
-;; See also 'rdf-uri-hyperlink'.
-(rum/defc rdf-resource-hyperlink
-  "A stylised RDF `resource` hyperlink, stylised according to `opts`."
-  [resource {:keys [attr-key k->label] :as opts}]
-  (cond
-    ;; Label and text colour are modified to fit the inherited relation.
-    (= attr-key :dns/inherited)
-    (let [inherited       (some->> (get k->label resource) first (prefix/qname->kw))
-          inherited-label (get k->label inherited)
-          prefix          (when inherited
-                            (symbol (namespace inherited)))
-          opts'           (-> opts
-                              (assoc-in [:k->label resource] inherited-label)
-                              (assoc :class (get prefix/prefix->class prefix)))]
-      [:div.qname
-       (rdf/prefix-elem (or prefix (symbol (namespace resource))) opts')
-       (entity-link resource opts')])
-
-    ;; The generic case just displays the prefix badge + the hyperlink.
-    :else
-    [:div.qname
-     (rdf/prefix-elem (symbol (namespace resource)) opts)
-     (entity-link resource opts)]))
-
-(defn transform-val-coll
-  "Performs convenient transformations of `coll` informed by `opts`."
-  [coll {:keys [attr-key] :as opts}]
-  (cond
-    (and (= :dns/ontologicalType attr-key)
-         (every? #(and (qualified-ident? %)
-                       (= "dnc" (namespace %))) coll))
-    (let [vs     (sort-by name coll)
-          fv     (first vs)
-          prefix (symbol (namespace fv))]
-      (for [v vs]
-        [:<> {:key v}
-         (when-not (= fv v)
-           " + ")
-         (rdf/prefix-elem prefix opts)
-         (entity-link v opts)]))))
-
 (declare attr-val-table)
-
-(rum/defc blank-resource
-  "Display a blank resource in either a specialised way or as an inline table."
-  [{:keys [languages] :as opts} x]
-  (cond
-    (shared/rdf-datatype? x)
-    (transform-val x)
-
-    (= (keys x) [:rdf/value])
-    (let [x (i18n/select-str languages (:rdf/value x))]
-      (if (coll? x)
-        (into [:<>] (for [s x]
-                      [:section.text {:lang (i18n/lang s)} (str s)]))
-        [:section.text {:lang (i18n/lang x)} (str x)]))
-
-    ;; Special handling of DanNet sentiment data.
-    (and (= (keys x) [:marl/hasPolarity :marl/polarityValue])
-         (keyword? (first (:marl/hasPolarity x))))
-    [:<>
-     (rdf-resource-hyperlink (first (:marl/hasPolarity x)) opts)
-     " (" (first (:marl/polarityValue x)) ")"]
-
-    (contains? (:rdf/type x) :rdf/Bag)
-    (let [ns->resources (-> (->> (dissoc x :rdf/type)
-                                 (filter (comp shared/member-property? first))
-                                 (mapcat second)
-                                 (group-by namespace))
-                            (update-vals sort)
-                            (update-keys symbol))
-          resources     (->> (sort ns->resources)
-                             (vals)
-                             (apply concat))]
-      [:div.set
-       (when (and (every? keyword? resources)
-                  (apply = (map namespace resources)))
-         (let [prefix (symbol (namespace (first resources)))]
-           (rdf/prefix-elem prefix opts)))
-       [:div.set__left-bracket]
-       (into [:div.set__content]
-             (->> (sort ns->resources)
-                  (vals)
-                  (apply concat)
-                  (map #(entity-link % opts))
-                  (interpose [:span.subtle " • "])))
-       [:div.set__right-bracket]])
-
-    :else
-    (attr-val-table opts x)))
 
 (rum/defc val-cell
   "A table cell of an 'attr-val-table' containing a single `v`. The single value
@@ -233,11 +51,12 @@
       [:td
        (rdf/rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
       [:td.attr-combo                                       ; fixes alignment
-       (rdf-resource-hyperlink v opts)])
+       (rdf/rdf-resource-hyperlink v opts)])
 
     ;; Using blank resource data included as a metadata map.
     (map? v)
-    [:td (blank-resource opts v)]
+    [:td (or (rdf/blank-resource opts v)
+             (attr-val-table opts v))]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -247,26 +66,27 @@
 
     :else
     (let [s (i18n/select-str languages v)]
-      [:td {:lang (i18n/lang s)} (transform-val s opts)])))
+      [:td {:lang (i18n/lang s)} (rdf/transform-val s opts)])))
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."
   [opts item]
   (cond
     (keyword? item)
-    [:li (rdf-resource-hyperlink item opts)]
+    [:li (rdf/rdf-resource-hyperlink item opts)]
 
     ;; Currently not including these as they seem to
     ;; be entirely garbage temp data, e.g. check out
     ;; http://0.0.0.0:3456/dannet/2022/external/ontolex/LexicalSense
     (symbol? item)
-    (if (not-empty (meta item))
-      [:li (blank-resource opts (meta item))]
+    (if-let [m (not-empty (meta item))]
+      [:li (or (rdf/blank-resource opts m)
+               (attr-val-table opts m))]
       [:li.omitted (str item)])
 
     :else
     [:li {:lang (i18n/lang item)}
-     (transform-val item opts)]))
+     (rdf/transform-val item opts)]))
 
 (rum/defc list-cell-coll-items
   [opts coll]
@@ -355,7 +175,7 @@
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
   [opts coll]
   [:td
-   (if-let [transformed-coll (transform-val-coll coll opts)]
+   (if-let [transformed-coll (rdf/transform-val-coll coll opts)]
      transformed-coll
      (list-cell-coll opts coll))])
 
@@ -369,8 +189,8 @@
         (for [s* (sort-by str s)]
           [:li {:key  s*
                 :lang (i18n/lang s*)}
-           (transform-val s* opts)])]]
-      [:td {:lang (i18n/lang s) :key coll} (transform-val s opts)])))
+           (rdf/transform-val s* opts)])]]
+      [:td {:lang (i18n/lang s) :key coll} (rdf/transform-val s opts)])))
 
 (rum/defc attr-val-row < rum/reactive
   "A single row in the attribute-value table. Only re-renders when its specific display option changes."
@@ -394,7 +214,7 @@
         [:span.marker {:title (:inheritance comments)} "†"])
       (rdf/prefix-elem prefix)]
      [:td.attr-name
-      (entity-link k opts+attr-key)
+      (rdf/entity-link k opts+attr-key)
 
       ;; Longer lists of synsets can be displayed as a word cloud.
       (when (display-cloud? opts+attr-key v)
@@ -457,7 +277,7 @@
 
        :else
        [:td {:lang (i18n/lang v) :key v}
-        (transform-val v opts+attr-key)])]))
+        (rdf/transform-val v opts+attr-key)])]))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
                             "A table which lists attributes and corresponding values of an RDF resource."
@@ -570,7 +390,7 @@
                :key   subject
                :lang  label-lang}
         (if label
-          (transform-val label opts)
+          (rdf/transform-val label opts)
           (if uri-only?
             [:a.rdf-uri {:href  rdf-uri
                          :title (i18n/select-label languages a-titles)
