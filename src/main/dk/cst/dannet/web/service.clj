@@ -87,7 +87,8 @@
         ;; Extending default interceptors here.
         (http/default-interceptors)
         ;; TODO: consider route-differentiated rate limits instead
-        (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic)
+        (cond->
+          (not shared/development?) (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic))
         (update ::http/interceptors #(cons %2 %1) trailing-slash)
         (update ::http/interceptors conj middleware/cookies)
 
