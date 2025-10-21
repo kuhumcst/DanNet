@@ -47,13 +47,13 @@
       (and (not= :dns/inherited attr-key)                   ; special case
            (local-entity-prefix? prefix opts))))
 
-(rum/defc prefix-elem
+(rum/defc prefix-badge
   "Visual representation of a `prefix` based on its associated symbol.
 
   If context `opts` are provided, the `prefix` is assumed to be in the value
   column and will potentially be hidden according to the provided context."
   ([prefix]
-   (prefix-elem prefix nil))
+   (prefix-badge prefix nil))
   ([prefix {:keys [independent-prefix] :as opts}]
    (cond
      (symbol? prefix)
@@ -93,7 +93,7 @@
      :when-let [s (not-empty (str/trim (str v)))]
 
      (= attr-key :vann/preferredNamespacePrefix)
-     (prefix-elem (symbol s) {:independent-prefix true})
+     (prefix-badge (symbol s) {:independent-prefix true})
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
      (re-matches #"\{.+\}" s)
@@ -175,13 +175,13 @@
                               (assoc-in [:k->label resource] inherited-label)
                               (assoc :class (get prefix/prefix->class prefix)))]
       [:div.qname
-       (prefix-elem (or prefix (symbol (namespace resource))) opts')
+       (prefix-badge (or prefix (symbol (namespace resource))) opts')
        (entity-link resource opts')])
 
     ;; The generic case just displays the prefix badge + the hyperlink.
     :else
     [:div.qname
-     (prefix-elem (symbol (namespace resource)) opts)
+     (prefix-badge (symbol (namespace resource)) opts)
      (entity-link resource opts)]))
 
 (defn transform-val-coll
@@ -198,7 +198,7 @@
         [:<> {:key v}
          (when-not (= fv v)
            " + ")
-         (prefix-elem prefix opts)
+         (prefix-badge prefix opts)
          (entity-link v opts)]))))
 
 (rum/defc blank-resource
@@ -236,7 +236,7 @@
        (when (and (every? keyword? resources)
                   (apply = (map namespace resources)))
          (let [prefix (symbol (namespace (first resources)))]
-           (prefix-elem prefix opts)))
+           (prefix-badge prefix opts)))
        [:div.set__left-bracket]
        (into [:div.set__content]
              (->> (sort ns->resources)

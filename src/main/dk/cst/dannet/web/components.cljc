@@ -57,7 +57,7 @@
     [:article
      [:header
       [:h1
-       (rdf/prefix-elem prefix)
+       (rdf/prefix-badge prefix)
        [:span {:title (if label
                         (prefix/kw->qname label-key)
                         (if uri-only?

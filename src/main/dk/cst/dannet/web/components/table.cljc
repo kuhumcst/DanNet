@@ -1,4 +1,5 @@
 (ns dk.cst.dannet.web.components.table
+  "Table rendering functions for RDF data."
   (:require [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -10,12 +11,12 @@
   "Arbitrary limit on word cloud size for performance and display reasons."
   150)
 
-(def expandable-coll-cutoff
+(def expandable-list-cutoff
   4)
 
 (declare attr-val-table)
 
-(rum/defc val-cell
+(rum/defc value-cell
   "A table cell of an 'attr-val-table' containing a single `v`. The single value
   can either be a literal or an inlined table (i.e. a blank RDF node)."
   [{:keys [languages] :as opts} v]
@@ -63,7 +64,7 @@
     [:li {:lang (i18n/lang item)}
      (rdf/transform-val item opts)]))
 
-(rum/defc list-cell-coll-items
+(rum/defc render-list-items
   [opts coll]
   (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
     (rum/with-key (list-item opts item) sort-key)))
@@ -72,7 +73,7 @@
 ;; if the containing <details> element is open. This circumvents the default
 ;; behaviour which is to prerender the content in the DOM, but keep it hidden.
 ;; Some of the more well-connected synsets take AGES to load without this fix!
-(rum/defcs react-details < (rum/local false ::open)
+(rum/defcs reactive-details < (rum/local false ::open)
   [state summary content]
   (let [open (::open state)]
     [:details {:on-toggle #(swap! open not)
@@ -83,7 +84,7 @@
          [:summary ""]))
      (when @open content)]))
 
-(defn- expandable-coll*
+(defn- expandable-list*
   [{:keys [languages] :as opts} summary-coll rest-coll]
   (let [total-amount (+ (count summary-coll)
                         (count rest-coll))
@@ -94,31 +95,29 @@
                        100000 "five-digits")]
     [:<>
      [:ol {:class c}
-      (list-cell-coll-items opts summary-coll)]
-     (react-details
+      (render-list-items opts summary-coll)]
+     (reactive-details
        [:summary
         (i18n/da-en languages
           (str (count rest-coll) " flere")
           (str (count rest-coll) " more"))]
        [:ol {:class c
              :start 4}
-        (list-cell-coll-items opts rest-coll)])]))
+        (render-list-items opts rest-coll)])]))
 
-(defn expandable-coll
+(defn expandable-list
   [opts coll]
-  ;; Special behaviour for synset/LexicalConcept
-  ;; TODO: top 3 synsets by weight are still sorted alphabetically, change?
-  (expandable-coll* opts (take 3 coll) (drop 3 coll)))
+  (expandable-list* opts (take 3 coll) (drop 3 coll)))
 
 (defn display-cloud?
   [{:keys [attr-key] :as opts} v]
   (and (coll? v)
-       (> (count v) expandable-coll-cutoff)
+       (> (count v) expandable-list-cutoff)
        ;; A word cloud is only relevant in cases where the content has been
        ;; presorted by weight, e.g. synset relations currently in use in DanNet.
        (get shared/synset-rel-theme attr-key)))
 
-(rum/defc list-cell-coll
+(rum/defc list-cell
   "A list of ordered content; hidden by default when there are too many items."
   [{:keys [display-opt] :as opts} coll]
   (let [coll-count   (count coll)
@@ -134,19 +133,19 @@
                  :clj  [:div])
       "max-cloud" #?(:cljs (viz/word-cloud opts coll)
                      :clj  [:div])
-      (if (<= coll-count expandable-coll-cutoff)
-        [:ol (list-cell-coll-items opts coll)]
-        (expandable-coll opts coll)))))
+      (if (<= coll-count expandable-list-cutoff)
+        [:ol (render-list-items opts coll)]
+        (expandable-list opts coll)))))
 
-(rum/defc list-cell
+(rum/defc multi-value-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
   [opts coll]
   [:td
    (if-let [transformed-coll (rdf/transform-val-coll coll opts)]
      transformed-coll
-     (list-cell-coll opts coll))])
+     (list-cell opts coll))])
 
-(rum/defc str-list-cell
+(rum/defc string-list-cell
   "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
   [{:keys [languages] :as opts} coll]
   (let [s (i18n/select-str languages coll)]
@@ -160,7 +159,7 @@
       [:td {:lang (i18n/lang s) :key coll} (rdf/transform-val s opts)])))
 
 (rum/defc attr-val-row < rum/reactive
-                         "A single row in the attribute-value table. Only re-renders when its specific display option changes."
+   "A single row in the attribute-value table. Only re-renders when its specific display option changes."
   [{:keys [subject languages comments] :as opts} k v display-opts inherited? inferred?]
   (let [prefix        (if (keyword? k)
                         (symbol (namespace k))
@@ -179,7 +178,7 @@
         [:span.marker {:title (:inference comments)} "∴"])
       (when inherited?
         [:span.marker {:title (:inheritance comments)} "†"])
-      (rdf/prefix-elem prefix)]
+      (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
 
@@ -224,30 +223,30 @@
        (cond
          (= 1 (count v))
          (let [v* (first v)]
-           (rum/with-key (val-cell opts+attr-key (if (symbol? v*)
-                                                   (meta v*)
-                                                   v*))
+           (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
+                                                     (meta v*)
+                                                     v*))
                          v))
 
          (every? i18n/rdf-string? v)
-         (str-list-cell opts+attr-key v)
+         (string-list-cell opts+attr-key v)
 
          ;; TODO: use sublist for identical labels
          :else
-         (list-cell opts+attr-key v))
+         (multi-value-cell opts+attr-key v))
 
        (keyword? v)
-       (rum/with-key (val-cell opts+attr-key v) v)
+       (rum/with-key (value-cell opts+attr-key v) v)
 
        (symbol? v)
-       (rum/with-key (val-cell opts+attr-key (meta v)) v)
+       (rum/with-key (value-cell opts+attr-key (meta v)) v)
 
        :else
        [:td {:lang (i18n/lang v) :key v}
         (rdf/transform-val v opts+attr-key)])]))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
-                            "A table which lists attributes and corresponding values of an RDF resource."
+  "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [inherited inferred] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table {:class "attr-val"}
