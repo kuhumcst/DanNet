@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.components
   "Shared frontend/backend Rum components."
-  (:require [clojure.string :as str]
-            [flatland.ordered.map :as fop]
+  (:require [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -173,7 +172,7 @@
                                              entity)
                        k))))])
 
-(rum/defc markdown-page < rum/reactive
+(rum/defc markdown-page
   [{:keys [languages content] :as opts}]
   (let [ls     (i18n/select-label languages content)
         lang   (lstr/lang ls)
@@ -250,7 +249,7 @@
         "Det Danske Sprog- og Litteraturselskab"]
        "."]])])
 
-(rum/defc language-select < rum/reactive
+(rum/defc language-select
   [languages]
   (let [change-language (fn [e]
                           #?(:cljs (let [v   (-> (.-target e)
