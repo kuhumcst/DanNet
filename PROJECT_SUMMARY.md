@@ -6,7 +6,7 @@ DanNet is a comprehensive WordNet implementation for the Danish language, built 
 The system includes:
 - A full RDF triplestore implementation using Apache Jena
 - A web application (https://wordnet.dk) with both server-side and client-side rendering
-- Multiple export formats (RDF/Turtle, CSV, WN-LMF XML)
+- Multiple export formats (RDF/Turtle, CSV, WN-LMF XML, JSON-LD)
 - Bootstrap system for versioning and data migrations
 - Rich query capabilities via SPARQL and Clojure DSL
 
@@ -18,23 +18,24 @@ The system includes:
 - Automatic transaction management for persistent stores
 - OWL inference support for deriving implicit relationships
 
-### Query System (`dk.cst.dannet.query`)
+### Query System (`dk.cst.dannet.db.query`)
 - Multiple query methods: SPARQL, SPARQL Algebra, Aristotle DSL
 - Entity expansion and blank node resolution
 - Weighted synset algorithms for semantic similarity
 
 ### Web Application
-- **Backend** (`dk.cst.dannet.web.service`): Pedestal-based HTTP service
+- **Backend** (`dk.cst.dannet.web.service`): Pedestal-based HTTP service with SPARQL endpoint
 - **Frontend** (`dk.cst.dannet.web.client`): ClojureScript SPA with Rum components
 - Progressive enhancement: works with or without JavaScript
 - Content negotiation for multiple data formats (HTML, JSON, RDF, etc.)
 - Internationalization support (Danish/English)
+- Rate limiting for API endpoints
 
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap`)
 - Loads previous RDF releases from `./bootstrap` directory
 - Applies version migrations and schema updates
 - Generates new releases with full data validation
-- Exports to multiple formats (RDF, CSV, WN-LMF)
+- Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD)
 
 ## File Structure
 
@@ -44,19 +45,19 @@ src/main/dk/cst/dannet/
 ├── db.clj                     # Core database operations, model management
 ├── db/
 │   ├── bootstrap.clj          # Release bootstrapping and migration
-│   ├── bootstrap/supersenses.clj # Supersense taxonomy integration
 │   ├── export/
 │   │   ├── csv.clj           # CSV/CSVW export functionality
 │   │   ├── rdf.clj           # RDF/Turtle export
-│   │   └── wn_lmf.clj        # WN-LMF XML export
-│   └── search.clj            # Text search and indexing
-├── query.clj                  # Main query interface and navigation
-├── query/
-│   ├── operation.clj         # Query operations and transformations
-│   └── operation/llm.clj     # LLM-specific query operations
-├── transaction.clj            # Transaction management utilities
+│   │   ├── wn_lmf.clj        # WN-LMF XML export
+│   │   └── json_ld.clj       # JSON-LD export
+│   ├── query.clj             # Main query interface and navigation
+│   ├── query/
+│   │   └── operation.clj     # Query operations and transformations
+│   ├── search.clj            # Text search and indexing
+│   └── transaction.clj       # Transaction management utilities
 ├── hash.clj                   # Content hashing and caching
-└── prefix.cljc               # RDF namespace prefix management
+├── prefix.cljc               # RDF namespace prefix management
+└── shared.cljc               # Shared utilities between CLJ/CLJS
 ```
 
 ### Web Application
@@ -64,13 +65,19 @@ src/main/dk/cst/dannet/
 src/main/dk/cst/dannet/web/
 ├── service.clj               # Pedestal HTTP service and routing
 ├── resources.clj             # Resource handlers and content negotiation
-├── client.cljs              # ClojureScript SPA entry point
-├── components.cljc          # Shared Rum UI components
+├── rate_limit.clj            # Rate limiting functionality
+├── sparql.clj                # SPARQL endpoint
+├── client.cljs               # ClojureScript SPA entry point
+├── d3.cljs                   # D3 visualization components
+├── components.cljc           # Core Rum UI components
 ├── components/
-│   └── visualization.cljs   # Graph visualization components
-├── section.cljc             # Page sections and layouts
-├── i18n.cljc               # Internationalization strings
-└── shared.cljc             # Shared utilities between CLJ/CLJS
+│   ├── visualization.cljc    # Shared graph visualization components
+│   ├── search.cljc           # Search form components
+│   ├── table.cljc            # Table components
+│   ├── markdown.cljc         # Markdown rendering components
+│   └── rdf.cljc              # RDF display components
+├── section.cljc              # Page sections and layouts
+└── i18n.cljc                 # Internationalization strings
 ```
 
 ### Resources & Schemas
@@ -170,7 +177,7 @@ npx shadow-cljs compile test
 - `dk.cst.dannet.*` - Core database and query functionality
 - `dk.cst.dannet.db.*` - Database operations and exports
 - `dk.cst.dannet.web.*` - Web application components
-- `dk.cst.dannet.query.*` - Query operations and transformations
+- `dk.cst.dannet.web.components.*` - Modular UI components
 
 ### Transaction Handling
 - Automatic transaction wrapping for TDB operations
@@ -190,7 +197,7 @@ npx shadow-cljs compile test
 3. Register in bootstrap process
 
 ### Custom Query Operations
-1. Add operation in `dk.cst.dannet.query.operation/`
+1. Add operation in `dk.cst.dannet.db.query.operation/`
 2. Implement transformation function
 3. Register with query processor
 
@@ -198,6 +205,11 @@ npx shadow-cljs compile test
 1. Add handler in `dk.cst.dannet.web.resources`
 2. Register route in `dk.cst.dannet.web.service/routes`
 3. Implement content negotiation if needed
+
+### Adding UI Components
+1. Create namespace in `dk.cst.dannet.web.components/`
+2. Implement Rum components with shared utilities
+3. Import in `dk.cst.dannet.web.components` or relevant sections
 
 ### Schema Extensions
 1. Add definitions to `resources/schemas/internal/dannet-schema.ttl`
@@ -230,7 +242,7 @@ WHERE {
 
 ### Clojure Query Example
 ```clojure
-(require '[dk.cst.dannet.query :as q])
+(require '[dk.cst.dannet.db.query :as q])
 
 ;; Find all senses of "kage"
 (q/run graph
@@ -245,9 +257,10 @@ WHERE {
 
 - **TDB2** recommended for production (better performance, required transactions)
 - Inference can be expensive - use `InfGraph` judiciously
-- Memoization used for expensive computations (synset weights)
+- Memoization used for expensive computations (synset weights, sense labels)
 - Client-side caching via Transit+JSON for SPA mode
 - Batch operations preferred in bootstrap process
+- Component modularization improves rendering performance
 
 ## Related Documentation
 
