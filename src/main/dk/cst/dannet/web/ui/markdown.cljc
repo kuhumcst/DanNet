@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.components.markdown
+(ns dk.cst.dannet.web.ui.markdown
   (:require [nextjournal.markdown :as md]
             [nextjournal.markdown.transform :as md.transform]))
 

@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.components.rdf
+(ns dk.cst.dannet.web.ui.rdf
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]

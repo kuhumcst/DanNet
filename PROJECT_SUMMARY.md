@@ -69,13 +69,15 @@ src/main/dk/cst/dannet/web/
 ├── sparql.clj                # SPARQL endpoint
 ├── client.cljs               # ClojureScript SPA entry point
 ├── d3.cljs                   # D3 visualization components
-├── components.cljc           # Core Rum UI components
-├── components/
+├── ui.cljc                   # Core Rum UI components
+├── ui/
 │   ├── visualization.cljc    # Shared graph visualization components
 │   ├── search.cljc           # Search form components
 │   ├── table.cljc            # Table components
 │   ├── markdown.cljc         # Markdown rendering components
-│   └── rdf.cljc              # RDF display components
+│   ├── rdf.cljc              # RDF display components
+│   ├── entity.cljc           # Entity display components
+│   └── page.cljc             # Page layout components
 ├── section.cljc              # Page sections and layouts
 └── i18n.cljc                 # Internationalization strings
 ```
@@ -177,7 +179,7 @@ npx shadow-cljs compile test
 - `dk.cst.dannet.*` - Core database and query functionality
 - `dk.cst.dannet.db.*` - Database operations and exports
 - `dk.cst.dannet.web.*` - Web application components
-- `dk.cst.dannet.web.components.*` - Modular UI components
+- `dk.cst.dannet.web.ui.*` - Modular UI components
 
 ### Transaction Handling
 - Automatic transaction wrapping for TDB operations
@@ -207,9 +209,9 @@ npx shadow-cljs compile test
 3. Implement content negotiation if needed
 
 ### Adding UI Components
-1. Create namespace in `dk.cst.dannet.web.components/`
+1. Create namespace in `dk.cst.dannet.web.ui/`
 2. Implement Rum components with shared utilities
-3. Import in `dk.cst.dannet.web.components` or relevant sections
+3. Import in `dk.cst.dannet.web.ui` or relevant sections
 
 ### Schema Extensions
 1. Add definitions to `resources/schemas/internal/dannet-schema.ttl`

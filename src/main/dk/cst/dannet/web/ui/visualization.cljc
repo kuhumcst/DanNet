@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.components.visualization
+(ns dk.cst.dannet.web.ui.visualization
   "Visualisation components and associated functions; frontend only!"
   (:require [clojure.string :as str]
             [rum.core :as rum]

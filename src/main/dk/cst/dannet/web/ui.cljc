@@ -1,73 +1,16 @@
-(ns dk.cst.dannet.web.components
-  "Shared frontend/backend Rum components."
+(ns dk.cst.dannet.web.ui
+  "The core Rum components for displaying a DanNet page."
   (:require [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [ont-app.vocabulary.lstr :as lstr]
-            [dk.cst.dannet.web.components.entity :as entity]
-            [dk.cst.dannet.web.components.search :as search]
-            [dk.cst.dannet.web.components.table :as table]
-            [dk.cst.dannet.web.components.markdown :as mdc]))
-
-;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
-;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
-;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
-;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
+            [dk.cst.dannet.web.ui.page :as page]
+            [dk.cst.dannet.web.ui.search :as search]))
 
 ;; Track hydration state to distinguish between first and subsequent renders.
+;; The initial render will happen server-side, whilst subsequent re-renders all
+;; happen locally in the browser.
 (defonce ^:dynamic *hydrated* false)
-
-(rum/defc entity-page
-  [{:keys [entity k->label]
-    :as   opts}]
-  ;; TODO: could this transformation be moved to the backend?
-  (let [inherited (->> (shared/setify (:dns/inherited entity))
-                       (map (comp prefix/qname->kw first k->label))
-                       (set))
-        opts'     (assoc opts :inherited inherited)]
-    [:article
-     (entity/entity-header opts')
-     (entity/entity-content opts')
-     (entity/entity-notes opts')]))
-
-(rum/defc search-page
-  [{:keys [languages lemma search-results details?] :as opts}]
-  [:article.search
-   [:header
-    [:h1 (str "\"" lemma "\"")]]
-   (if (empty? search-results)
-     [:p (i18n/da-en languages
-           "Ingen resultater kunne findes for dette lemma."
-           "No results could be found for this lemma.")]
-     (for [[k entity] search-results]
-       (let [{:keys [k->label short-label]} (meta entity)
-             k->label' (if (and (not details?) short-label)
-                         (assoc k->label
-                           k short-label)
-                         k->label)]
-         (rum/with-key (table/attr-val-table {:languages languages
-                                              :k->label  k->label'}
-                                             entity)
-                       k))))])
-
-(rum/defc markdown-page
-  [{:keys [languages content] :as opts}]
-  (let [ls     (i18n/select-label languages content)
-        lang   (lstr/lang ls)
-        md     (str ls)
-        hiccup (mdc/md->hiccup md)]
-    #?(:cljs (when-let [title (mdc/hiccup->title hiccup)]
-               (set! js/document.title title)))
-    [:article.document {:lang lang}
-     hiccup]))
-
-;; TODO: find better solution? string keys + indirection reduce discoverability
-(def pages
-  "Mapping from page data metadata :page key to the relevant Rum component."
-  {"entity"   entity-page
-   "search"   search-page
-   "markdown" markdown-page})
 
 (rum/defc page-footer
   [{:keys [languages] :as opts}]
@@ -177,7 +120,7 @@
 
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities] :as opts}]
-  (let [page-component (or (get pages page)
+  (let [page-component (or (get page/pages page)
                            (throw (ex-info
                                     (str "No component for page: " page)
                                     opts)))

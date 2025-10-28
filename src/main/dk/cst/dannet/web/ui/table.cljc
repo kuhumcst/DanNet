@@ -1,11 +1,11 @@
-(ns dk.cst.dannet.web.components.table
+(ns dk.cst.dannet.web.ui.table
   "Table rendering functions for RDF data."
   (:require [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.components.rdf :as rdf]
-            [dk.cst.dannet.web.components.visualization :as viz]))
+            [dk.cst.dannet.web.ui.rdf :as rdf]
+            [dk.cst.dannet.web.ui.visualization :as viz]))
 
 (def word-cloud-limit
   "Arbitrary limit on word cloud size for performance and display reasons."

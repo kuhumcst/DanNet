@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.components.search
+(ns dk.cst.dannet.web.ui.search
   (:require [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]

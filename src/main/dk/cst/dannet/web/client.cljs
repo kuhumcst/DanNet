@@ -5,7 +5,7 @@
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
             [reitit.frontend.history :as rfh]
-            [dk.cst.dannet.web.components :as com]
+            [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.shared :as shared])
   (:import [goog Uri]))
 
@@ -101,7 +101,7 @@
                     headers        (:headers %)
                     page           (shared/x-header headers :page)
                     body           (not-empty (:body %))
-                    page-component (com/page-shell page body)
+                    page-component (ui/page-shell page body)
                     page-title     (shared/x-header headers :title)]
                 (set! js/document.title page-title)
                 (reset! location {:path    path
@@ -120,8 +120,8 @@
                 ;; This is basically a way to get avoid a mismatching state when
                 ;; hydrating the DOM tree. Certain things must only be rendered
                 ;; after the app has been hydrated, e.g. a loading indicator.
-                (when-not com/*hydrated*
-                  (set! com/*hydrated* true))
+                (when-not ui/*hydrated*
+                  (set! ui/*hydrated* true))
 
                 ;; NOTE: this reset will run *after* refs are resolved!
                 (reset! shared/post-navigate nil))))))
@@ -136,7 +136,7 @@
 (defn ^:dev/after-load render
   []
   (let [{:keys [data headers]} @location
-        page-component (com/page-shell (shared/x-header headers :page) data)]
+        page-component (ui/page-shell (shared/x-header headers :page) data)]
     (set-up-navigation!)                                    ; keep up-to-date
     (rum/mount page-component @root)))
 
@@ -147,7 +147,7 @@
     (.then (shared/api entry-url)
            #(let [data           (:body %)
                   page           (shared/x-header (:headers %) :page)
-                  page-component (com/page-shell page data)]
+                  page-component (ui/page-shell page data)]
               (shared/clear-fetch entry-url)
               (reset! root (rum/hydrate page-component app))
               (set-up-navigation!)))))

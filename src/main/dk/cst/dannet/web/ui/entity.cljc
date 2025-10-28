@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.components.entity
+(ns dk.cst.dannet.web.ui.entity
   "Rendering of the RDF resources in DanNet."
   (:require [flatland.ordered.map :as fop]
             [rum.core :as rum]
@@ -6,9 +6,9 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
-            [dk.cst.dannet.web.components.rdf :as rdf]
-            [dk.cst.dannet.web.components.table :as table]
-            [dk.cst.dannet.web.components.visualization :as viz]))
+            [dk.cst.dannet.web.ui.rdf :as rdf]
+            [dk.cst.dannet.web.ui.table :as table]
+            [dk.cst.dannet.web.ui.visualization :as viz]))
 
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and

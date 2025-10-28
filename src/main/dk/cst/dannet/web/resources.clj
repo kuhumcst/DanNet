@@ -20,7 +20,7 @@
             [thi.ng.color.presets.categories :as cat]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.components :as com]
+            [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
@@ -188,7 +188,7 @@
      (html-page
        title
        languages
-       (com/page-shell page data)))
+       (ui/page-shell page data)))
 
    "text/turtle"
    (fn [{:keys [entity href]} & _]
@@ -255,7 +255,7 @@
 (defn x-headers
   "Encode `page-meta` for a given page as custom HTTP headers.
 
-  See also: dk.cst.dannet.web.components/x-header"
+  See also: dk.cst.dannet.web.ui/x-header"
   [page-meta]
   (update-keys page-meta (fn [k] (str "X-" (str/capitalize (name k))))))
 
