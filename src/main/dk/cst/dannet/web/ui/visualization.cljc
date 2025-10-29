@@ -7,24 +7,23 @@
             #?(:cljs [dk.cst.dannet.web.d3 :as d3])))
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
-  [state {:keys [cloud-limit] :as opts} synsets]
+  [state synsets {:keys [cloud-limit] :as opts}]
   [:div {:key (str (hash synsets) "-" cloud-limit)
          :ref #?(:clj  nil
                  :cljs #(d3/build-cloud! (::synsets state) opts synsets %))}])
 
-(rum/defcs radial-tree < (rum/local nil ::subentity)
-  [state {:keys [languages k->label] :as opts} subentity]
+(rum/defc radial-tree-diagram
+  [subentity opts]
   [:div.radial-tree-diagram
    {:ref #?(:clj  nil
-            :cljs (fn [el]
+            :cljs (fn [elem]
                     (let [{:keys [scroll]} @shared/post-navigate]
-                      (when el
-                        (d3/build-radial! (::subentity state) opts subentity el)
+                      (when elem
+                        (d3/build-radial! subentity elem opts)
                         (when (= scroll :diagram)
-                          (if (.-scrollIntoViewIfNeeded el)
-                            (.scrollIntoViewIfNeeded (.-parentElement el))
-                            (.scrollIntoView (.-parentElement el))))))))}])
-
+                          (if (.-scrollIntoViewIfNeeded elem)
+                            (.scrollIntoViewIfNeeded (.-parentElement elem))
+                            (.scrollIntoView (.-parentElement elem))))))))}])
 
 (defn- elem-classes
   [el]
@@ -39,13 +38,14 @@
   .radial-tree-links [stroke],
   .radial-tree-labels [data-theme]")
 
+;; TODO: make this less hacky
 (defn- get-diagram
   [e]
   (.-previousSibling (.-parentElement (.-parentElement (.-parentElement (.-target e))))))
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
-  [state {:keys [languages k->label] :as opts} subentity]
+  [state subentity {:keys [languages k->label] :as opts}]
   (let [selected (::selected state)]
     [:ul.radial-tree-legend
      (for [k (keys subentity)]
@@ -75,3 +75,9 @@
                                            (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
              [:span {:class "radial-tree-legend__bullet"
                      :style {:background theme}}]]])))]))
+
+(rum/defc radial-tree
+  [subentity opts]
+  [:div.radial-tree {:key (str (hash subentity))}
+   (radial-tree-diagram subentity opts)
+   (radial-tree-legend subentity opts)])

@@ -123,24 +123,7 @@
                             :value k}
                    v]))))]])
 
-(rum/defc radial-tree
-  [subentity {:keys [subject languages k->label]
-              :as   opts}]
-  (let [select-label* (partial i18n/select-label languages)
-        label         (select-label* (k->label subject))]
-    [:<>
-     [:div.radial-tree {:key (str (hash subentity))}
-      #?(:cljs (viz/radial-tree
-                 (assoc opts :label label)
-                 subentity)
-         :clj  [:div.radial-tree-diagram])
-      (viz/radial-tree-legend opts subentity)]
-     [:p.note
-      [:strong "! "]
-      (i18n/da-en languages
-        "Data kan være udeladt; se tabellen for samtlige detaljer."
-        "Data may be omitted; view table for full details.")]]))
-
+;; TODO: this implementation a bit of a hack -- surely there is a better way?
 (defn semantic-relations?
   [subentity]
   (not-empty (select-keys shared/synset-rel-theme (keys subentity))))
@@ -154,7 +137,13 @@
      [:<>
       (display-mode-selector title opts)
       (case (get-in opts [:section title :display :selected])
-        "radial" (radial-tree subentity opts)
+        "radial" [:<>
+                  (viz/radial-tree subentity opts)
+                  [:p.note
+                   [:strong "! "]
+                   (i18n/da-en languages
+                     "Data kan være udeladt; se tabellen for samtlige detaljer."
+                     "Data may be omitted; view table for full details.")]]
         (table/attr-val-table opts subentity))]
      (table/attr-val-table opts subentity))])
 

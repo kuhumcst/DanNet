@@ -232,11 +232,11 @@
   limits to the top canonical label for each synset to avoid duplicates."
   (memoize
     (fn [{:keys [name] :as m}]
-      (for [[s word rest-of-s sub mwe] (->> (shared/sense-labels shared/synset-sep name)
-                                            (shared/canonical)
-                                            ;; limit to top label for each synset
-                                            (take 1)
-                                            (map #(re-matches shared/sense-label %)))
+      (for [[s _ _ sub _] (->> (shared/sense-labels shared/synset-sep name)
+                               (shared/canonical)
+                               ;; limit to top label for each synset
+                               (take 1)
+                               (map #(re-matches shared/sense-label %)))
 
             ;; Allow phrases to appear too, not just the core word in the phrase.
             :let [name' (if s
@@ -462,8 +462,9 @@
 
 (defn- prepare-radial-data
   "Transform entity data into radial tree format for visualization."
-  [label entity k->label]
-  (let [subject  (->> (shared/sense-labels shared/synset-sep label)
+  [subject entity k->label]
+  (let [label    (->> (k->label subject)
+                      (shared/sense-labels shared/synset-sep)
                       (shared/canonical)
                       (map remove-subscript)
                       (remove #{shared/omitted})
@@ -475,12 +476,11 @@
                       (shared/top-n-vals radial-limit))
         children (prepare-radial-children entity' k->label)
         data     (clj->js
-                   {:name     subject
-                    :title    subject
+                   {:name     label
+                    :title    label
                     :subject  true
                     :children children})]
-    {:data    data
-     :subject subject}))
+    data))
 
 (defn- create-radial-svg
   "Create and configure the base SVG container for radial tree.
@@ -712,28 +712,31 @@
                            (* 12 size-factor))
                    (.-sub (.-data d))))))))
 
+(defn ->localised-labeler
+  [{:keys [languages k->label] :as opts}]
+  (fn [k]
+    (some->> (k->label k)
+             (i18n/select-label languages))))
+
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
-  "Build and render a radial tree diagram in `node` from `entity`.
+  "Build and render a radial tree diagram in `elem` from `entity`.
 
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
-  [state {:keys [label languages k->label] :as opts} entity node]
-  (when node
+  [entity elem {:keys [subject] :as opts}]
+  (when elem
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
-    (when-let [existing-svg (.-firstChild node)]
+    (when-let [existing-svg (.-firstChild elem)]
       (.remove existing-svg))
-    (let [width      (content-width (.-parentElement node))
+    (let [width      (content-width (.-parentElement elem))
           height     width
 
           ;; Prepare hierarchical data structure
-          k->label'  (comp
-                       (partial i18n/select-label languages)
-                       k->label)
-          prep-data  (prepare-radial-data label entity k->label')
-          {:keys [data subject]} prep-data
+          k->label'  (->localised-labeler opts)
+          data       (prepare-radial-data subject entity k->label')
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
           ;; allows equal radius in all directions regardless of aspect ratio
@@ -763,7 +766,7 @@
           sizing     (calculate-dynamic-sizing node-count width radius)
 
           ;; Create the SVG container
-          svg        (create-radial-svg node width height cx cy sizing)]
+          svg        (create-radial-svg elem width height cx cy sizing)]
 
       ;; Add gradient definition
       (create-radial-gradient svg)

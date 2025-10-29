@@ -128,8 +128,7 @@
                                     (> coll-count word-cloud-limit))
                            "cloud"))]
     (case display-opt'
-      "cloud" #?(:cljs (viz/word-cloud
-                         (assoc opts :cloud-limit word-cloud-limit) coll)
+      "cloud" #?(:cljs (viz/word-cloud coll (assoc opts :cloud-limit word-cloud-limit))
                  :clj  [:div])
       "max-cloud" #?(:cljs (viz/word-cloud opts coll)
                      :clj  [:div])
