@@ -3,6 +3,7 @@
   (:require [clojure.core.async :as async]
             [clojure.string :as str]
             [io.pedestal.http :as http]
+            [io.pedestal.http.cors :as cors]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
             [dk.cst.dannet.web.resources :as res]
@@ -93,8 +94,13 @@
         (update ::http/interceptors conj middleware/cookies)
 
         ;; Make sure we can communicate with the Shadow CLJS app during dev.
+        ;; The CORS interceptor handles preflight OPTIONS requests and adds CORS
+        ;; headers. This is required for shadow-cljs dev server (port 7777) to
+        ;; make cross-origin requests to this backend (port 3456).
         (cond->
-          shared/development? (assoc ::http/allowed-origins (constantly true))))))
+          shared/development? (update ::http/interceptors 
+                                      #(cons (cors/allow-origin {:allowed-origins (constantly true)
+                                                                 :creds true}) %))))))
 
 (defn start []
   (let [service-map (->service-map @conf)]
