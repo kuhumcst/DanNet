@@ -138,7 +138,7 @@
       (display-mode-selector title opts)
       (case (get-in opts [:section title :display :selected])
         "radial" [:<>
-                  (viz/radial-tree subentity opts)
+                  (viz/expanded-radial subentity opts)
                   [:p.note
                    [:strong "! "]
                    (i18n/da-en languages
@@ -146,6 +146,13 @@
                      "Data may be omitted; view table for full details.")]]
         (table/attr-val-table opts subentity))]
      (table/attr-val-table opts subentity))])
+
+(rum/defc full-screen-content
+  [{:keys [entity]
+    :as   opts}]
+  (viz/expanded-radial
+    (ordered-subentity opts section/semantic-rels? entity)
+    opts))
 
 (rum/defc entity-content
   [{:keys [entity]

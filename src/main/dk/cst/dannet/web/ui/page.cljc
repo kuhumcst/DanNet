@@ -20,11 +20,15 @@
   (let [inherited (->> (shared/setify (:dns/inherited entity))
                        (map (comp prefix/qname->kw first k->label))
                        (set))
-        opts'     (assoc opts :inherited inherited)]
-    [:article
-     (entity/entity-header opts')
-     (entity/entity-content opts')
-     (entity/entity-notes opts')]))
+        opts'     (assoc opts :inherited inherited)
+        {:keys [full-screen?]} @shared/state]
+    (if full-screen?
+      [:article
+       (entity/full-screen-content opts')]
+      [:article
+       (entity/entity-header opts')
+       (entity/entity-content opts')
+       (entity/entity-notes opts')])))
 
 (rum/defc search
   [{:keys [languages lemma search-results details?] :as opts}]
@@ -56,10 +60,3 @@
                (set! js/document.title title)))
     [:article.document {:lang lang}
      hiccup]))
-
-;; TODO: find better solution? string keys + indirection reduce discoverability
-(def pages
-  "Mapping from page data metadata :page key to the relevant Rum component."
-  {"entity"   entity
-   "search"   search
-   "markdown" markdown})

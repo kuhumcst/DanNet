@@ -18,6 +18,21 @@
   #{(->LangStr "Cross-lingual relations" "en")
     (->LangStr "Tværsproglige relationer" "da")})
 
+(def semantic-rels?
+  (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
+                                             :wn/definition
+                                             :wn/ili
+                                             :wn/eq_synonym
+                                             :wn/lexfile
+                                             :wn/example})
+           (comp #{:dns/usedFor
+                   :dns/usedForObject
+                   :dns/nearAntonym
+                   :dns/crossPoSHyponym
+                   :dns/crossPoSHypernym
+                   :dns/orthogonalHyponym
+                   :dns/orthogonalHypernym} first)))
+
 (defmethod primary-sections :default
   [entity]
   [[nil [:rdf/type
@@ -37,20 +52,7 @@
          :vann/preferredNamespacePrefix
          :dc/description
          :dcat/downloadURL]]
-   [semantic-title
-    (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
-                                               :wn/definition
-                                               :wn/ili
-                                               :wn/eq_synonym
-                                               :wn/lexfile
-                                               :wn/example})
-             (comp #{:dns/usedFor
-                     :dns/usedForObject
-                     :dns/nearAntonym
-                     :dns/crossPoSHyponym
-                     :dns/crossPoSHypernym
-                     :dns/orthogonalHyponym
-                     :dns/orthogonalHypernym} first))]
+   [semantic-title semantic-rels?]
    [cross-lingual-title
     [:wn/ili
      :dns/linkedConcept                                     ; inverse of wn:ili

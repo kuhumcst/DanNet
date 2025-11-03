@@ -87,11 +87,12 @@
 
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
-  (atom {:languages default-languages
-         :search    {:completion {}
-                     :s          ""}
-         :section   {section/semantic-title {:display {:selected "radial"}}}
-         :details?  nil}))
+  (atom {:languages    default-languages
+         :search       {:completion {}
+                        :s          ""}
+         :full-screen? false
+         :section      {section/semantic-title {:display {:selected "radial"}}}
+         :details?     nil}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
 (defonce post-navigate
@@ -501,7 +502,16 @@
    :wn/result              "#98df8a"
    :wn/similar             "#bcbd22"})
 
+(defn lexfile->pos
+  [lexfile]
+  (when-let [[_ label] (and (string? lexfile)
+                            (re-matches #"(\w+)\.\w+" lexfile))]
+    label))
+
 (comment
+  (lexfile->pos "noun.location")
+  (lexfile->pos "adv.all")
+
   ;; Testing out relative weights
   (take 10 (map double (iterate log-inc 1)))
   (take 100 (map double (iterate log-inc 1)))

@@ -81,3 +81,68 @@
   [:div.radial-tree {:key (str (hash subentity))}
    (radial-tree-diagram subentity opts)
    (radial-tree-legend subentity opts)])
+
+(rum/defc pos-label
+  [{:keys [languages entity] :as opts}]
+  (let [lexfile (:wn/lexfile entity)
+        pos     (shared/lexfile->pos lexfile)]
+    [:strong {:title lexfile}
+     (i18n/da-en languages
+       (get {"noun" "substantiv"
+             "adj"  "adjektiv"
+             "adv"  "adverbium"
+             "verb" "verbum"} pos)
+       (get {"noun" "noun"
+             "adj"  "adjective"
+             "adv"  "adverb"
+             "verb" "verb"} pos))]))
+
+(defn debounced-rerender-mixin
+  "Debounced rerender on resize events to prevent excessive diagram repaints."
+  [debounce-millis]
+  {:did-mount
+   (fn [state]
+     #?(:cljs
+        (let [comp     (:rum/react-component state)
+              rerender (atom nil)
+              ;; The observer resets the scheduled rerender on each resize.
+              observer (js/ResizeObserver.
+                         (fn []
+                           (js/clearTimeout @rerender)
+                           (reset! rerender
+                                   (js/setTimeout
+                                     #(rum/request-render comp)
+                                     debounce-millis))))]
+          (.observe observer (rum/dom-node state))
+          (assoc state ::observer observer ::rerender rerender))
+        :clj state))
+
+   :will-unmount
+   (fn [state]
+     #?(:cljs
+        (do
+          (js/clearTimeout @(::rerender state))
+          ;; The observer is explicitly disconnected to prevent memory leaks.
+          (when-let [observer (::observer state)]
+            (.disconnect observer))
+          (dissoc state ::observer ::rerender))
+        :clj state))})
+
+(rum/defc expanded-radial < (debounced-rerender-mixin 200)
+  [subentity {:keys [languages entity] :as opts}]
+  (let [toggle (fn [_]
+                 #?(:cljs (swap! shared/state update :full-screen? not)))
+        {:keys [full-screen?]} @shared/state]
+    [:div.synset-radial-container {:key (str (hash subentity))}
+     ;; TODO: consider whether to only show the header in full-screen
+     [:div.synset-radial__header
+      [:strong.pos-label (pos-label opts)]
+      [:span.synset-radial__definition
+       (str (i18n/select-label languages (:skos/definition entity)))]
+      [:button.icon {:class    (if full-screen?
+                                 "minimize"
+                                 "maximize")
+                     :on-click toggle}]]
+     (radial-tree subentity opts)
+     ;; TODO: add content to footer
+     [:div.synset-radial__footer]]))

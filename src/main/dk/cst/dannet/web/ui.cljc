@@ -118,15 +118,44 @@
       "detaljeniveau"
       "level of detail")]])
 
+(rum/defc normal-content
+  [page-component opts]
+  [:div#content {:class #?(:clj  ""
+                           :cljs (if (and *hydrated*
+                                          (not-empty (:fetch opts)))
+                                   "fetching"
+                                   ""))}
+   (loader)
+   [:main
+    (page-component opts)]
+   [:hr]
+   (page-footer opts)])
+
+(rum/defc full-screen-content
+  [page-component opts]
+  [:div#content.full-screen {:class #?(:clj  ""
+                                       :cljs (if (and *hydrated*
+                                                      (not-empty (:fetch opts)))
+                                               "fetching"
+                                               ""))}
+   (loader)
+   [:main
+    (page-component opts)]])
+
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities] :as opts}]
-  (let [page-component (or (get page/pages page)
+  ;; TODO: better solution? string keys + indirection reduce discoverability
+  (let [page-component (or (get {"entity"   page/entity
+                                 "search"   page/search
+                                 "markdown" page/markdown}
+                                page)
                            (throw (ex-info
                                     (str "No component for page: " page)
                                     opts)))
         state' #?(:clj (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
+        full-screen?   (:full-screen? state')
         comments       {:inference
                         (i18n/da-en languages'
                           "helt eller delvist logisk udledt"
@@ -153,9 +182,12 @@
                          (swap! shared/state update :details? not))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix" (prefix/prefix->class (if (= page "markdown")
-                                                     'dn
-                                                     prefix'))]}
+     [:nav {:class ["prefix"
+                    (if full-screen?
+                      "full-screen"
+                      (prefix/prefix->class (if (= page "markdown")
+                                              'dn
+                                              prefix')))]}
       (help-arrows page opts')
       (search/search-form opts')
       [:a.title {:title (i18n/da-en languages
@@ -170,13 +202,6 @@
                                            "Show fewer details"
                                            "Show more details")
                                :on-click toggle-details}]]
-     [:div#content {:class #?(:clj  ""
-                              :cljs (if (and *hydrated*
-                                             (not-empty (:fetch opts')))
-                                      "fetching"
-                                      ""))}
-      (loader)
-      [:main
-       (page-component opts')]
-      [:hr]
-      (page-footer opts')]]))
+     (if full-screen?
+       (full-screen-content page-component opts')
+       (normal-content page-component opts'))]))

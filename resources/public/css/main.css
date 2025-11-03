@@ -1,5 +1,4 @@
 * {
-    color: #000;
     hyphens: auto;
 }
 
@@ -196,6 +195,12 @@ html, body {
     justify-content: space-between;
 }
 
+#content.full-screen {
+    padding: 0;
+    height: 100vh;
+    background: white;
+}
+
 main {
     display: flex;
     flex-direction: row;
@@ -247,7 +252,7 @@ article.document li > a:first-child {
 }
 
 nav {
-    transition: background 0.66s;
+    transition: background 0.33s;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -346,6 +351,20 @@ nav button.synset-details.toggled {
 button.synset-details:hover {
     opacity: 1;
     transform: scale(110%);
+}
+
+nav.full-screen {
+    background: white;
+    box-shadow: none;
+    border-right: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Darken the icons in the nav bar in full-screen mode. */
+nav.full-screen a.title,
+nav.full-screen select.language,
+nav.full-screen button.synset-details {
+    filter: invert(1);
+    opacity: 0.75;
 }
 
 form[role=search] {
@@ -483,6 +502,12 @@ form[role=search]:focus-within ul li {
 form[role=search]:focus-within ul li:hover,
 form[role=search]:focus-within ul li:focus {
     background: rgba(255,255,255,0.25);
+}
+
+/* Darken the search icon in full-screen mode. */
+nav.full-screen form[role=search]:not(:focus-within) {
+    filter: invert(1);
+    opacity: 0.75;
 }
 
 article {
@@ -994,23 +1019,118 @@ li::marker {
     font-size: 12px;
 }
 
-.radial-tree {
-    display: flex;
-    background: white;
+.synset-radial-container {
     padding: 12px;
+
+    background: white;
     border: 1px solid rgba(0,0,0,0.5);
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
+}
+
+#content.full-screen .synset-radial-container {
+    border: none;
+    box-shadow: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 42px; /* Matches nav bar width. */
+    display: flex;
+    flex-direction: column;
+}
+
+#content.full-screen .radial-tree {
+    flex-grow: 1;
+}
+
+#content.full-screen > main > article {
+    max-width: none;
+    width: fit-content;
+    flex-grow: 1;
+}
+
+.synset-radial-container .synset-radial__header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding: 0 0 12px 0;
+}
+
+.synset-radial-container .synset-radial__header > * + * {
+    margin-left: 12px;
+}
+
+.synset-radial-container .synset-radial__footer {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding: 12px 0 0 0;
+
+    /* TODO: temporarily fixed height, possibly remove. */
+    height: 45px;
+}
+
+#content:not(.full-screen) .synset-radial__footer {
+    display: none;
+}
+
+
+strong.pos-label {
+    /* TODO: colour by PoS tag. */
+    color:  #55f;
+    font-variant: small-caps;
+    padding: 4px 12px 4px 0;
+    border-right: 1px solid rgba(0,0,0,0.1);
+}
+
+.synset-radial-container .synset-radial__definition {
+    margin-right: auto;
+}
+
+.icon {
+    height: 32px;
+    width: 32px;
+    padding: 12px;
+    background-color: white;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 2px;
+}
+
+.icon:hover {
+    border-color: #333;
+}
+
+.icon.maximize {
+    background: url("/images/maximize.svg") center no-repeat;
+    background-size: 20px 20px;
+}
+
+.icon.minimize {
+    background: url("/images/minimize.svg") center no-repeat;
+    background-size: 20px 20px;
+}
+
+.radial-tree {
+    display: flex;
+    height: 100%;
 }
 
 .radial-tree-diagram {
     flex-grow: 1; /* Fix width in Safari. */
     border-right: 1px solid rgba(0,0,0,0.1);
+    text-align: center;
+    height: 100%;
 }
 
-svg.radial-tree-diagram__svg {
-    width: 100%;
-    height: auto;
-    max-height: calc(100vh - 24px);
+#content:not(.full-screen) svg.radial-tree-diagram__svg {
+    max-height: auto;
+    height: 100%;
+}
+
+#content.full-screen svg.radial-tree-diagram__svg {
+    /* Calculated based on the other fixed values. */
+    max-height: calc(100vh - 90px - 36px);
+
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1032,7 +1152,7 @@ ul.radial-tree-legend {
     font-size: 14px;
 }
 
-@media only screen and (max-width: 900px) {
+@media only screen and (max-width: 1000px) {
     .radial-tree {
         flex-direction: column;
     }
@@ -1041,30 +1161,28 @@ ul.radial-tree-legend {
         border-bottom: 1px solid rgba(0,0,0,0.1);
     }
     ul.radial-tree-legend {
+        columns: 3;
+    }
+    /* TODO: FIX - this works OK for 4 rows, but not for 5
+             Possible solution: set a CSS class on the legend based on the
+             amount of relations it contains and use this to vary the height of
+             the diagram.
+     */
+    #content.full-screen svg.radial-tree-diagram__svg {
+        /* Approximated. */
+        max-height: calc(100vh - 300px);
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    ul.radial-tree-legend {
         columns: 2;
-    }
-    /* Ensure text doesn't get too big on medium screens */
-    .radial-item {
-        font-size: var(--radial-font-size, clamp(10px, 2vw, 16px));
-    }
-    .radial-item__subject {
-        font-size: var(--radial-font-size, clamp(14px, 3vw, 24px));
     }
 }
 
 @media only screen and (max-width: 500px) {
     ul.radial-tree-legend {
         columns: 1;
-    }
-    /* More aggressive text scaling on small screens */
-    .radial-item {
-        font-size: var(--radial-font-size, clamp(8px, 1.5vw, 12px));
-    }
-    .radial-item__subject {
-        font-size: var(--radial-font-size, clamp(12px, 2.5vw, 18px));
-    }
-    tspan.sense-paragraph {
-        font-size: var(--radial-tspan-font-size, clamp(7px, 1.2vw, 10px));
     }
 }
 
@@ -1126,8 +1244,7 @@ ul.radial-tree-legend > li:focus-within {
 }
 
 .radial-item {
-    /* Use CSS custom property set by JavaScript, with responsive fallbacks */
-    font-size: var(--radial-font-size, clamp(12px, 2.5vw, 20px));
+    font-size: 14px;
     text-underline-offset: 2px;
 }
 
@@ -1143,13 +1260,12 @@ ul.radial-tree-legend > li:focus-within {
 .radial-item__subject {
     /* Make the subject label easier to read in busy diagrams. */
     filter: drop-shadow(2px 4px 2px white);
-    /* Subject is typically larger than regular items */
-    font-size: var(--radial-subject-font-size, clamp(18px, 5vw, 40px));
+    font-size: 32px;
 }
 
 tspan.sense-paragraph {
     /* Use CSS custom property set by JavaScript, with responsive fallback */
-    font-size: var(--radial-tspan-font-size, clamp(10px, 2vw, 14px));
+    font-size: 10px;
     fill: #AAA;
 }
 

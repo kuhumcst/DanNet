@@ -416,23 +416,6 @@
        (optimize-radial-structure)
        (map-indexed (fn [n m] (assoc m :n n)))))
 
-(defn- calculate-dynamic-sizing
-  "Calculate dynamic font sizes and text limits for `node-count`, `width`, and
-  `radius`."
-  [node-count width radius]
-  (let [;; fewer nodes -> bigger text
-        density   (max 0.7 (min 1.3 (/ 20 (max node-count 8)))) ; fewer nodes -> bigger text
-        space     (max 0.8 (min 1.6 (/ width 600)))         ; bigger screens -> bigger text
-        radius    (max 0.9 (min 1.1 (/ radius 120)))        ; maintain proportion with diagram size
-        size      (* density space radius)                  ; Combined scaling with base adjustment
-        font-size (* 16 size)]
-    {:size-factor       size
-     :font-size         font-size
-     :subject-font-size (* radial-limit space radius 0.5)
-     :tspan-font-size   (* font-size 0.67)
-     :subject-limits    [(int (* 20 size)) (int (* 24 size))]
-     :regular-limits    [(int (* 18 size)) (int (* 16 size))]}))
-
 (defn- create-radial-gradient
   "Add radial gradient definition for subject label background."
   [svg]
@@ -487,21 +470,15 @@
 
   Takes `node` (DOM node), `width`, `height`, `cx` (center x), `cy` (center y),
   and `sizing` map with font sizes. Returns the configured SVG selection."
-  [node width height cx cy sizing]
-  (let [{:keys [font-size subject-font-size tspan-font-size]} sizing]
-    (-> d3
-        (.select node)
-        (.append "svg")
-        (.attr "class" "radial-tree-diagram__svg")
-        (.attr "width" width)
-        (.attr "height" height)
-        ;; viewBox: defines coordinate system centered at (0,0)
-        ;; [minX minY width height] where (-cx, -cy) shifts origin to center
-        ;; This allows positive/negative coords radiating from center
-        (.attr "viewBox" #js [(- cx) (- cy) width height])
-        (.style "--radial-font-size" (str font-size "px"))
-        (.style "--radial-subject-font-size" (str subject-font-size "px"))
-        (.style "--radial-tspan-font-size" (str tspan-font-size "px")))))
+  [node width height cx cy]
+  (-> d3
+      (.select node)
+      (.append "svg")
+      (.attr "class" "radial-tree-diagram__svg")
+      ;; viewBox: defines coordinate system centered at (0,0)
+      ;; [minX minY width height] where (-cx, -cy) shifts origin to center
+      ;; This allows positive/negative coords radiating from center
+      (.attr "viewBox" #js [(- cx) (- cy) width height])))
 
 (defn- render-radial-links
   "Render connection paths between nodes in the radial tree.
@@ -577,10 +554,8 @@
   Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `sizing` map
   with font sizes and limits. Handles complex label rotation, multi-line
   subject labels, and subscript rendering."
-  [svg root sizing]
-  (let [{:keys [size-factor font-size subject-font-size tspan-font-size
-                subject-limits regular-limits]} sizing
-        add-title (fn [d3]
+  [svg root]
+  (let [add-title (fn [d3]
                     (-> d3
                         (.append "title")
                         (.text (fn [d] (.-title (.-data d)))))
@@ -631,7 +606,7 @@
                        0
                        ;; Label distance from node: scales with size factor.
                        (let [base-dist  20
-                             label-dist (* base-dist size-factor)]
+                             label-dist base-dist]
                          (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
                            label-dist
                            (- label-dist))))))
@@ -642,11 +617,6 @@
                                    "start"
                                    "end"))))
         (.attr "paint-order" "stroke")
-        (.attr "font-size" (fn [d]
-                             ;; Use larger font for subject (center) label
-                             (if (.-subject (.-data d))
-                               (str subject-font-size "px")
-                               (str font-size "px"))))
         (.attr "data-theme" (fn [d]
                               (if-let [theme ^js/String (.-theme (.-data d))]
                                 theme
@@ -662,8 +632,8 @@
                      ""
                      (let [s (.-name data)
                            [limit cutoff] (if (.-subject data)
-                                            subject-limits
-                                            regular-limits)]
+                                            [20 24]
+                                            [20 18])]
                        ;; For subject (center) labels, we'll handle multi-line in tspan
                        ;; For regular labels, display as single line
                        (if (.-subject data)
@@ -687,7 +657,7 @@
                        (let [label-parts  (->> (str/split (.-name data) #",\s*")
                                                (sort-by count)
                                                (reorder-lens-shape))
-                             line-height  (* subject-font-size 1.4)
+                             line-height  (* 32 1.4)
                              total-lines  (count label-parts)
                              start-offset (- (* (/ (dec total-lines) 2) line-height))]
                          (doseq [[idx part] (map-indexed vector label-parts)]
@@ -703,13 +673,12 @@
 
         (.append "tspan")
         (.attr "class" "sense-paragraph")
-        (.attr "dy" (str (/ tspan-font-size 5) "px"))
-        (.attr "dx" (str (/ tspan-font-size 4) "px"))
-        (.attr "font-size" (str tspan-font-size "px"))
+        (.attr "dy" (str 2 "px"))
+        (.attr "dx" (str (/ 10 4) "px"))
         (.text (fn [d]
                  (when (<= (+ (count (str (.-name (.-data d))))
                               (count (.-sub (.-data d))))
-                           (* 12 size-factor))
+                           12)
                    (.-sub (.-data d))))))))
 
 (defn ->localised-labeler
@@ -718,6 +687,8 @@
     (some->> (k->label k)
              (i18n/select-label languages))))
 
+;; TODO: apply response resizing of various elements in CSS, e.g. label sizes
+;;       or padding, and possibly radial radius too
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn build-radial!
@@ -731,42 +702,38 @@
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild elem)]
       (.remove existing-svg))
-    (let [width      (content-width (.-parentElement elem))
-          height     width
+    (let [width     800
+          height    800
 
           ;; Prepare hierarchical data structure
-          k->label'  (->localised-labeler opts)
-          data       (prepare-radial-data subject entity k->label')
+          k->label' (->localised-labeler opts)
+          data      (prepare-radial-data subject entity k->label')
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
           ;; allows equal radius in all directions regardless of aspect ratio
-          cx         (* 0.5 width)
-          cy         (* 0.5 height)
+          cx        (* 0.5 width)
+          cy        (* 0.5 height)
 
           ;; Utilize diagonal space while keeping labels within viewport bounds.
-          radius     (/ (min width height)
-                        js/Math.PI)
+          radius    (/ (min width height)
+                       js/Math.PI)
 
           ;; Create a radial tree layout. The layout's first dimension (x)
           ;; is the angle, while the second (y) is the radius.
-          tree       (-> (.tree d3)
-                         (.size #js [(* 2 js/Math.PI) radius])
-                         (.separation (fn [a b]
-                                        (/ (if (= (.-parent a) (.-parent b))
-                                             1
-                                             2)
-                                           (.-depth a)))))
+          tree      (-> (.tree d3)
+                        (.size #js [(* 2 js/Math.PI) radius])
+                        (.separation (fn [a b]
+                                       (/ (if (= (.-parent a) (.-parent b))
+                                            1
+                                            2)
+                                          (.-depth a)))))
 
           ;; Apply the layout.
-          root       (-> (.hierarchy d3 data)
-                         (tree))
-
-          ;; Calculate dynamic sizing factors for fonts and text limits
-          node-count (.-length (.descendants root))
-          sizing     (calculate-dynamic-sizing node-count width radius)
+          root      (-> (.hierarchy d3 data)
+                        (tree))
 
           ;; Create the SVG container
-          svg        (create-radial-svg elem width height cx cy sizing)]
+          svg       (create-radial-svg elem width height cx cy)]
 
       ;; Add gradient definition
       (create-radial-gradient svg)
@@ -787,6 +754,6 @@
             (.attr "fill" "url(#subjectBackground)")))
 
       (render-radial-nodes svg root radius)
-      (render-radial-labels svg root sizing)
+      (render-radial-labels svg root)
 
       (.node svg))))
