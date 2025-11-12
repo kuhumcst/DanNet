@@ -107,11 +107,17 @@
                 (reset! location {:path    path
                                   :headers headers
                                   :data    body})
-                ;; A hack to handle scroll to for diagrams specifically.
-                ;; Otherwise, we scroll to the cached Y position (if available).
-                (when-not (= scroll :diagram)
+                ;; Handle scroll behaviour for embedded radial diagrams.
+                ;; Since we can navigate by clicking the labels of the diagram,
+                ;; we don't want to scroll away from the diagram when clicking
+                ;; these, as that creates quite a frustrating user experience.
+                ;; In every other case, we scroll to the cached Y position
+                ;; (when available); this will usually be the top of the page.
+                (when-not (and (= scroll :diagram)
+                               (not (:full-screen? @shared/state)))
                   (when-let [url (shared/response->url %)]
                     (update-scroll-state! url)))
+
                 ;; Ensure that the search overlay closes when clicking 'back'.
                 (js/document.activeElement.blur)
                 (rum/mount page-component @root)

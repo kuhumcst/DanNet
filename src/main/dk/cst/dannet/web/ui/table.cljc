@@ -130,7 +130,7 @@
     (case display-opt'
       "cloud" #?(:cljs (viz/word-cloud coll (assoc opts :cloud-limit word-cloud-limit))
                  :clj  [:div])
-      "max-cloud" #?(:cljs (viz/word-cloud opts coll)
+      "max-cloud" #?(:cljs (viz/word-cloud coll opts)
                      :clj  [:div])
       (if (<= coll-count expandable-list-cutoff)
         [:ol (render-list-items opts coll)]

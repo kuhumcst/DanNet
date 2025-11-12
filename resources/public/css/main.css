@@ -170,12 +170,6 @@ html, body {
     border: 1px solid #AAA;
 }
 
-@media only screen and (min-width: 180ch) {
-    .help-overlay {
-        opacity: 1;
-    }
-}
-
 .help-overlay__item::before {
     content: "⭠";
     font-size: 24px;
@@ -197,8 +191,11 @@ html, body {
 
 #content.full-screen {
     padding: 0;
-    height: 100vh;
     background: white;
+}
+
+#content.full-screen hr {
+    border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 main {
@@ -525,6 +522,8 @@ header, footer {
 hr {
     border: none;
     border-top: 1px solid rgba(0,0,0,0.2);
+
+    /* TODO: figure out why this breaks in full-screen */
     width: 100%;
     margin: 12px 0;
     align-self: flex-end;
@@ -830,44 +829,6 @@ table.attr-val {
     width: 100%;
 }
 
-/* Mobile view (minimalist) */
-@media only screen and (max-width: 700px) {
-    td.attr-prefix > *,
-    :not(h1) > span.prefix:not(.independent),
-    p.note.desktop-only {
-        display: none;
-    }
-    td.attr-name {
-        text-transform: capitalize;
-
-    }
-    td.attr-name::first-letter {
-        font-weight: bold;
-    }
-    td.attr-name > [lang]:not(footer, h1 span, article)::after {
-        content: "";
-    }
-    td {
-        font-size: 14px;
-    }
-    header > .rdf-uri,
-    table.attr-val table.attr-val td {
-         font-size: 12px;
-    }
-    table.attr-val  table.attr-val col:nth-child(2) {
-         min-width: 10ch;
-    }
-    h1 {
-        font-size: 24px;
-    }
-    h2 {
-        font-size: 18px;
-    }
-    #content {
-        padding: 8px;
-    }
-}
-
 table.attr-val table.attr-val {
     border: 1px solid rgba(0,0,0,0.2);
     box-shadow: 0 0 4px rgba(0,0,0,0.1);
@@ -1030,11 +991,6 @@ li::marker {
 #content.full-screen .synset-radial-container {
     border: none;
     box-shadow: none;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    left: 42px; /* Matches nav bar width. */
     display: flex;
     flex-direction: column;
 }
@@ -1119,18 +1075,21 @@ strong.pos-label {
     flex-grow: 1; /* Fix width in Safari. */
     border-right: 1px solid rgba(0,0,0,0.1);
     text-align: center;
-    height: 100%;
+
+    /* Always make sure the diagram to is fully visible. */
+    /* TODO: decide on final limits */
+    max-height: calc(92vh - 45px - 24px);
 }
 
-#content:not(.full-screen) svg.radial-tree-diagram__svg {
-    max-height: auto;
-    height: 100%;
+svg.radial-tree-diagram__svg {
+    max-height: calc(92vh - 45px - 24px);
 }
 
+#content.full-screen .radial-tree-diagram,
 #content.full-screen svg.radial-tree-diagram__svg {
-    /* Calculated based on the other fixed values. */
-    max-height: calc(100vh - 90px - 36px);
-
+    /* Always make sure the diagram to is fully visible. */
+    /* TODO: decide on final limits */
+    max-height: calc(96vh - 45px - 24px);
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1152,39 +1111,6 @@ ul.radial-tree-legend {
     font-size: 14px;
 }
 
-@media only screen and (max-width: 1000px) {
-    .radial-tree {
-        flex-direction: column;
-    }
-    .radial-tree-diagram {
-        border-right: none;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
-    }
-    ul.radial-tree-legend {
-        columns: 3;
-    }
-    /* TODO: FIX - this works OK for 4 rows, but not for 5
-             Possible solution: set a CSS class on the legend based on the
-             amount of relations it contains and use this to vary the height of
-             the diagram.
-     */
-    #content.full-screen svg.radial-tree-diagram__svg {
-        /* Approximated. */
-        max-height: calc(100vh - 300px);
-    }
-}
-
-@media only screen and (max-width: 750px) {
-    ul.radial-tree-legend {
-        columns: 2;
-    }
-}
-
-@media only screen and (max-width: 500px) {
-    ul.radial-tree-legend {
-        columns: 1;
-    }
-}
 
 ul.radial-tree-legend label {
     display: block;
@@ -1244,8 +1170,9 @@ ul.radial-tree-legend > li:focus-within {
 }
 
 .radial-item {
-    font-size: 14px;
-    text-underline-offset: 2px;
+    text-underline-offset: 0.25ch;
+    transition: font-size 0.2s;
+    font-size: 16px;
 }
 
 .radial-item__de-emphasized {
@@ -1259,8 +1186,10 @@ ul.radial-tree-legend > li:focus-within {
 
 .radial-item__subject {
     /* Make the subject label easier to read in busy diagrams. */
-    filter: drop-shadow(2px 4px 2px white);
-    font-size: 32px;
+    filter: drop-shadow(0 0.3ch 0.2ch white);
+
+    transition: font-size 0.2s;
+    font-size: 40px;
 }
 
 tspan.sense-paragraph {
@@ -1310,4 +1239,85 @@ select.display-options:hover {
 
 * + select.display-options {
     margin-top: 8px;
+}
+
+/* ===========================================
+   MEDIA QUERIES ALL GO HERE AT THE EVERY END.
+   =========================================== */
+
+@media only screen and (min-width: 180ch) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+@media only screen and (max-width: 1000px) {
+    .radial-tree {
+        flex-direction: column;
+    }
+    .radial-tree-diagram {
+        border-right: none;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    ul.radial-tree-legend {
+        columns: 3;
+    }
+}
+
+/* Mobile view (minimalist) */
+@media only screen and (max-width: 700px) {
+    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+        content: "";
+    }
+    td {
+        font-size: 14px;
+    }
+    header > .rdf-uri,
+    table.attr-val table.attr-val td {
+         font-size: 12px;
+    }
+    table.attr-val  table.attr-val col:nth-child(2) {
+         min-width: 10ch;
+    }
+    h1 {
+        font-size: 24px;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    #content {
+        padding: 8px;
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    ul.radial-tree-legend {
+        columns: 2;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .radial-item:not(.radial-item__subject) {
+        font-size: 18px;
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    p.note.desktop-only,
+    td.attr-prefix > *,
+    :not(h1) > span.prefix:not(.independent) {
+        display: none;
+    }
+    table.attr-val col:nth-child(2) {
+         min-width: 10ch;
+    }
+    .synset-radial-container {
+        font-size: 14px;
+    }
+    ul.radial-tree-legend {
+        columns: 1;
+    }
+    .radial-item:not(.radial-item__subject) {
+            font-size: 20px;
+        }
 }

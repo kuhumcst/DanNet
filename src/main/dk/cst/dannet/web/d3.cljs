@@ -49,8 +49,8 @@
   [s]
   (reduce (fn [acc ch]
             (+ acc (cond
-                     (narrow-chars ch) 0.45
-                     (wide-chars ch) 1.4
+                     (narrow-chars ch) 0.67
+                     (wide-chars ch) 1.33
                      :else 1.0)))
           0
           (str s)))
@@ -541,7 +541,7 @@
       ;; Create arrowhead pointing radially outward (right in local coords = outward after transform)
       (.attr "d" (fn [_]
                    (let [size   (/ radius 40)
-                         height (* size 2.2)                ; Arrow length (pointing outward)
+                         height (* size 2)                  ; Arrow length (pointing outward)
                          base   (* size 1.5)]               ; Arrow base width
                      (str "M 0," (- (/ base 2))             ; Start at bottom of base
                           " L " height ",0"                 ; Draw to point
@@ -605,8 +605,7 @@
                      (if (.-subject (.-data d))
                        0
                        ;; Label distance from node: scales with size factor.
-                       (let [base-dist  20
-                             label-dist base-dist]
+                       (let [label-dist 20]
                          (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
                            label-dist
                            (- label-dist))))))
@@ -649,6 +648,9 @@
         ;; Adding mouseover text (in lieu of a title attribute)
         (add-title)
 
+        ;; TODO: also split at appropriate point(s) if the string is too long,
+        ;;       e.g. http://localhost:7777/dannet/data/synset-74795
+        ;;       (should not include the comma, though, obviously)
         ;; Split center labels into multiple lines at commas
         (.each (fn [d]
                  (this-as this-elem
@@ -657,7 +659,7 @@
                        (let [label-parts  (->> (str/split (.-name data) #",\s*")
                                                (sort-by count)
                                                (reorder-lens-shape))
-                             line-height  (* 32 1.4)
+                             line-height  56
                              total-lines  (count label-parts)
                              start-offset (- (* (/ (dec total-lines) 2) line-height))]
                          (doseq [[idx part] (map-indexed vector label-parts)]

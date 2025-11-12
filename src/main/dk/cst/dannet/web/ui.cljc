@@ -4,6 +4,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.ui.search :as search]))
 
@@ -118,30 +119,6 @@
       "detaljeniveau"
       "level of detail")]])
 
-(rum/defc normal-content
-  [page-component opts]
-  [:div#content {:class #?(:clj  ""
-                           :cljs (if (and *hydrated*
-                                          (not-empty (:fetch opts)))
-                                   "fetching"
-                                   ""))}
-   (loader)
-   [:main
-    (page-component opts)]
-   [:hr]
-   (page-footer opts)])
-
-(rum/defc full-screen-content
-  [page-component opts]
-  [:div#content.full-screen {:class #?(:clj  ""
-                                       :cljs (if (and *hydrated*
-                                                      (not-empty (:fetch opts)))
-                                               "fetching"
-                                               ""))}
-   (loader)
-   [:main
-    (page-component opts)]])
-
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
@@ -155,7 +132,6 @@
         state' #?(:clj (assoc @shared/state :languages languages)
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
-        full-screen?   (:full-screen? state')
         comments       {:inference
                         (i18n/da-en languages'
                           "helt eller delvist logisk udledt"
@@ -169,8 +145,11 @@
         entity-label*  (shared/->entity-label-fn details?)
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)
+        synset?        (some section/semantic-rels? entity)
+        full-diagram?  (and synset? (:full-screen? state'))
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
+                         :synset? synset?
                          :comments comments
                          :k->label (update-vals entities' entity-label*))
         [prefix _ _] (shared/parse-rdf-term subject)
@@ -183,7 +162,7 @@
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav {:class ["prefix"
-                    (if full-screen?
+                    (if full-diagram?
                       "full-screen"
                       (prefix/prefix->class (if (= page "markdown")
                                               'dn
@@ -202,6 +181,15 @@
                                            "Show fewer details"
                                            "Show more details")
                                :on-click toggle-details}]]
-     (if full-screen?
-       (full-screen-content page-component opts')
-       (normal-content page-component opts'))]))
+     [:div#content {:class [(when full-diagram?
+                              "full-screen")
+                            #?(:clj  ""
+                               :cljs (if (and *hydrated*
+                                              (not-empty (:fetch opts)))
+                                       "fetching"
+                                       ""))]}
+      (loader)
+      [:main
+       (page-component opts')]
+      [:hr]
+      (page-footer opts)]]))

@@ -80,10 +80,10 @@
 (def ui
   "UI descriptions which shouldn't be configurable by the client."
   {:section {section/semantic-title
-             {:display {:options {"table"  ["tabel"
-                                            "table"]
-                                  "radial" ["diagram"
-                                            "diagram"]}}}}})
+             {:display {:options {"table"  ["\uD83D\uDDC4\uFE0F tabel"
+                                            "\uD83D\uDDC4\uFE0F table"]
+                                  "radial" ["\uD83D\uDCCA diagram"
+                                            "\uD83D\uDCCA diagram"]}}}}})
 
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state

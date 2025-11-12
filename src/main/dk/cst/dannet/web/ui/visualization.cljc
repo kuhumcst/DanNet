@@ -17,13 +17,8 @@
   [:div.radial-tree-diagram
    {:ref #?(:clj  nil
             :cljs (fn [elem]
-                    (let [{:keys [scroll]} @shared/post-navigate]
-                      (when elem
-                        (d3/build-radial! subentity elem opts)
-                        (when (= scroll :diagram)
-                          (if (.-scrollIntoViewIfNeeded elem)
-                            (.scrollIntoViewIfNeeded (.-parentElement elem))
-                            (.scrollIntoView (.-parentElement elem))))))))}])
+                    (when elem
+                      (d3/build-radial! subentity elem opts))))}])
 
 (defn- elem-classes
   [el]
@@ -131,7 +126,11 @@
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
   [subentity {:keys [languages entity] :as opts}]
   (let [toggle (fn [_]
-                 #?(:cljs (swap! shared/state update :full-screen? not)))
+                 #?(:cljs (do
+                            (swap! shared/state update :full-screen? not)
+                            ;; Scrolling to the top simulates a page change.
+                            (some-> (js/document.getElementById "content")
+                                    (.scroll #js {:top 0})))))
         {:keys [full-screen?]} @shared/state]
     [:div.synset-radial-container {:key (str (hash subentity))}
      ;; TODO: consider whether to only show the header in full-screen

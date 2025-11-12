@@ -14,7 +14,7 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 (rum/defc entity
-  [{:keys [entity k->label]
+  [{:keys [entity k->label synset?]
     :as   opts}]
   ;; TODO: could this transformation be moved to the backend?
   (let [inherited (->> (shared/setify (:dns/inherited entity))
@@ -22,7 +22,7 @@
                        (set))
         opts'     (assoc opts :inherited inherited)
         {:keys [full-screen?]} @shared/state]
-    (if full-screen?
+    (if (and synset? full-screen?)
       [:article
        (entity/full-screen-content opts')]
       [:article
