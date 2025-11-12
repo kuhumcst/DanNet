@@ -1,6 +1,13 @@
 (ns user
   (:import [java.net HttpURLConnection URL]))
 
+;; TROUBLESHOOTING REACT HYDRATION ERRORS:
+;; If you experience hydration mismatches (e.g. server renders in English
+;; client in Danish), then it's likely due to stale cookies on localhost:3456.
+;; The language widget sets cookies on localhost:7777 (shadow-cljs), but old
+;; cookies may exist on localhost:3456 (backend). These are separate cookies!
+;; 
+;; To fix: clear cookies for localhost:3456 in your browser's developer tools.
 (defn shadow-handler
   "Handler used by shadow-cljs to orient itself on page load.
   Note that the backend web service must be running on http://0.0.0.0:3456!"
@@ -14,8 +21,8 @@
         ;; causing React hydration mismatches.
         conn (doto ^HttpURLConnection (.openConnection url)
                (.setRequestMethod "GET")
-               (.setRequestProperty "Accept-Language" accept-language)
-               (.setRequestProperty "Cookie" cookie))]
+               (.setRequestProperty "Accept-Language" (or accept-language ""))
+               (.setRequestProperty "Cookie" (or cookie "")))]
     {:status  200
      :headers {"Content-Type" "text/html"}
      ;; NOTE: this used to be just (slurp url), but it had to be changed to
