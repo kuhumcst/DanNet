@@ -16,6 +16,7 @@
 (rum/defc page-footer
   [{:keys [languages] :as opts}]
   [:footer
+   [:hr]
    (i18n/da-en languages
      [:<>
       [:p {:lang "da"}
@@ -191,5 +192,4 @@
       (loader)
       [:main
        (page-component opts')]
-      [:hr]
       (page-footer opts)]]))

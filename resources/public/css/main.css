@@ -522,11 +522,7 @@ header, footer {
 hr {
     border: none;
     border-top: 1px solid rgba(0,0,0,0.2);
-
-    /* TODO: figure out why this breaks in full-screen */
     width: 100%;
-    margin: 12px 0;
-    align-self: flex-end;
 }
 
 footer p {
@@ -719,6 +715,10 @@ h1 sup {
 
 header {
     margin-bottom: 32px;
+}
+
+#content.full-screen footer {
+    padding: 0 12px;
 }
 
 h1 {
