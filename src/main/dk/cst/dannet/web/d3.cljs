@@ -269,6 +269,14 @@
          ;; Final spacers removed; balanced spacers handle edges
          (drop-last 2))))
 
+(defn- rotate-for-bottom-placement
+  "Rotate `nodes` by a half turn when there are only two nodes."
+  [nodes]
+  (if (<= (count nodes) 2)
+    (let [half (quot (count nodes) 2)]
+      (concat (drop half nodes) (take half nodes)))
+    nodes))
+
 (defn- insert-balanced-spacers
   "Insert spacers to balance empty space around the diagram for `nodes`.
   
@@ -428,6 +436,9 @@
 
        ;; Sorting into (and of) groups happens here!
        (insert-theme-spacers (comp str k->label first))
+       
+       ;; Rotate for better placement with few nodes
+       (rotate-for-bottom-placement)
 
        ;; Insert spacers to balance empty space around the diagram
        (insert-balanced-spacers)
