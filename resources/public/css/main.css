@@ -1083,6 +1083,10 @@ strong.pos-label {
 
 svg.radial-tree-diagram__svg {
     max-height: calc(92vh - 45px - 24px);
+
+    /*  The viewBow keeps the diagram the same, but additional width allows for
+        certain long labels to avoid clipping. */
+    width: 100%;
 }
 
 #content.full-screen .radial-tree-diagram,
