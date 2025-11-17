@@ -44,7 +44,7 @@
   "Composed fn that removes both DDO subscripts and synset braces."
   (comp remove-subscript remove-parens))
 
-(defn- glyph-width
+(defn- glyph-width*
   "Estimate the approximate visual width of `s` based on character widths."
   [s]
   (reduce (fn [acc ch]
@@ -54,6 +54,9 @@
                      :else 1.0)))
           0
           (str s)))
+
+(def glyph-width
+  (memoize glyph-width*))
 
 (defn length-penalty
   "Calculate a new size with a penalty based on the visual width of `label`."
@@ -254,38 +257,55 @@
   {:name "" :theme nil :spacer true :title "" :href nil})
 
 (defn- insert-theme-spacers
-  "Group/sort `nodes` by relation using `sort-keyfn` and insert transparent
-  spacer nodes between these groups for visual separation."
+  "Group/sort `nodes` by relation using `sort-keyfn`, insert spacers between.
+  
+  Adds transparent spacer nodes between relation groups for visual separation."
   [sort-keyfn nodes]
   (let [theme-groups  (group-by :relation nodes)
         sorted-themes (sort-by sort-keyfn theme-groups)]
     (->> sorted-themes
          (mapcat (fn [[_theme nodes]]
                    (concat nodes [spacer-node spacer-node])))
-         ;; The final space isn't needed as we'll always add space at the top
-         ;; of diagram with 'insert-vertical-spacers'.
+         ;; Final spacers removed; balanced spacers handle edges
          (drop-last 2))))
 
-(defn- insert-vertical-spacers
-  "Add spacer nodes at top, bottom, and between left/right halves of `nodes`."
+(defn- insert-balanced-spacers
+  "Insert spacers to balance empty space around the diagram for `nodes`.
+  
+  Distributes spacers equal to radial-limit minus current node count
+  across four corner positions. Nodes are arranged in a circle starting
+  from top, with spacers inserted at:
+  - Top: split between start/end (wrapping around circle) - always minimum 3
+  - Right: 1/4 mark - only when excess capacity
+  - Bottom: 1/2 mark - always minimum 3
+  - Left: 3/4 mark - only when excess capacity"
   [nodes]
-  (let [mid-point (quot (count nodes) 2)
-        [right left] (split-at mid-point nodes)
+  (let [node-count      (count nodes)
+        spacers-needed  (max 0 (- radial-limit node-count))
+        spacers-per-pos (quot spacers-needed 4)
 
-        ;; Always apply exactly 6 spacer nodes at the bottom by checking if a
-        ;; section split occurs next to it, possibly subtracting it.
-        middle    (if (or (= (last right) spacer-node)
-                          (= (first left) spacer-node))
-                    [spacer-node spacer-node
-                     spacer-node spacer-node]
-                    [spacer-node spacer-node
-                     spacer-node spacer-node
-                     spacer-node spacer-node])]
-    (concat [spacer-node spacer-node spacer-node]
-            right
-            middle
-            left
-            [spacer-node spacer-node spacer-node])))
+        ;; Top/bottom always get minimum 3 spacers for visual separation
+        ;; Left/right only get spacers when there's excess capacity
+        top-spacers     (+ 3 spacers-per-pos)
+        side-spacers    spacers-per-pos
+        bottom-spacers  (+ 3 spacers-per-pos)
+        top-start       (quot top-spacers 2)
+        top-end         (- top-spacers top-start)
+
+        ;; Corner position indices
+        quarter         (quot node-count 4)
+        half            (quot node-count 2)
+        three-q         (quot (* 3 node-count) 4)]
+
+    (concat (repeat top-start spacer-node)                  ; top
+            (take quarter nodes)                            ; top-right corner
+            (repeat side-spacers spacer-node)               ; right
+            (take (- half quarter) (drop quarter nodes))    ; bottom-right corner
+            (repeat bottom-spacers spacer-node)             ; bottom
+            (take (- three-q half) (drop half nodes))       ; bottom-left corner
+            (repeat side-spacers spacer-node)               ; left
+            (drop three-q nodes)                            ; top-left corner
+            (repeat top-end spacer-node))))
 
 (defn- label-space-score
   "Calculate space availability score for labels at `angle` position.
@@ -408,7 +428,9 @@
 
        ;; Sorting into (and of) groups happens here!
        (insert-theme-spacers (comp str k->label first))
-       (insert-vertical-spacers)
+
+       ;; Insert spacers to balance empty space around the diagram
+       (insert-balanced-spacers)
 
        ;; Labels are sorted internally within the groups based on label size.
        ;; The bigger labels are positioned towards the corners of the diagram
