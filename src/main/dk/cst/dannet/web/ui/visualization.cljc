@@ -124,21 +124,20 @@
         :clj state))})
 
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
-  [subentity {:keys [languages entity] :as opts}]
-  (let [toggle (fn [_]
-                 #?(:cljs (do
-                            (swap! shared/state update :full-screen? not)
-                            ;; Scrolling to the top simulates a page change.
-                            (some-> (js/document.getElementById "content")
-                                    (.scroll #js {:top 0})))))
-        {:keys [full-screen?]} @shared/state]
+  [subentity {:keys [languages entity full-screen] :as opts}]
+  (let [toggle       (fn [_]
+                       #?(:cljs (do
+                                  (shared/update-cookie! :full-screen not)
+                                  ;; Scrolling to the top simulates a page change.
+                                  (some-> (js/document.getElementById "content")
+                                          (.scroll #js {:top 0})))))]
     [:div.synset-radial-container {:key (str (hash subentity))}
      ;; TODO: consider whether to only show the header in full-screen
      [:div.synset-radial__header
       [:strong.pos-label (pos-label opts)]
       [:span.synset-radial__definition
        (str (i18n/select-label languages (:skos/definition entity)))]
-      [:button.icon {:class    (if full-screen?
+      [:button.icon {:class    (if full-screen
                                  "minimize"
                                  "maximize")
                      :on-click toggle}]]

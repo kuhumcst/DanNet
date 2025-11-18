@@ -373,6 +373,10 @@
         (apply json-sparql-results-body args)
         (apply json-body args))))
 
+(defn with-cookies
+  [request data]
+  (assoc data :full-screen (shared/get-cookie request :full-screen)))
+
 (def response-body-ic
   "Generate a response containing the content body (if available)."
   {:name  ::response-body
@@ -399,7 +403,7 @@
 
                             :else
                             {:status 200
-                             :body   (body content page-meta)}))
+                             :body   (body (with-cookies request content) page-meta)}))
                   (update-in [:response :headers] merge
                              (-> (assoc (x-headers page-meta)
                                    "Content-Type" content-type

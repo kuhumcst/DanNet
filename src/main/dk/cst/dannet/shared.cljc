@@ -77,6 +77,10 @@
                (edn/read-string js/negotiatedLanguages)
                ["en" nil "da"]))))
 
+(def default-full-screen
+  #?(:clj  false
+     :cljs (boolean (get-cookie :full-screen))))
+
 (def ui
   "UI descriptions which shouldn't be configurable by the client."
   {:section {section/semantic-title
@@ -87,12 +91,12 @@
 
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
-  (atom {:languages    default-languages
-         :search       {:completion {}
-                        :s          ""}
-         :full-screen? false
-         :section      {section/semantic-title {:display {:selected "radial"}}}
-         :details?     nil}))
+  (atom {:languages   default-languages
+         :search      {:completion {}
+                       :s          ""}
+         :full-screen default-full-screen
+         :section     {section/semantic-title {:display {:selected "radial"}}}
+         :details?    nil}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
 (defonce post-navigate
@@ -172,7 +176,17 @@
 
      (defn response->url
        [response]
-       (-> response meta :lambdaisland.fetch/request (j/get :url)))))
+       (-> response meta :lambdaisland.fetch/request (j/get :url)))
+
+     (defn update-cookie!
+       "Apply `f` to cookie at key `k`, storing the result in the client state."
+       [k f]
+       (let [url "/cookies"
+             v   (get (swap! state update k f) k)]
+         (.then (api url {:method :put
+                          :body   {k v}})
+                (clear-fetch url))
+         v))))
 
 (defn setify
   [x]

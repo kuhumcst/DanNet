@@ -114,7 +114,7 @@
                 ;; In every other case, we scroll to the cached Y position
                 ;; (when available); this will usually be the top of the page.
                 (when-not (and (= scroll :diagram)
-                               (not (:full-screen? @shared/state)))
+                               (not (:full-screen @shared/state)))
                   (when-let [url (shared/response->url %)]
                     (update-scroll-state! url)))
 

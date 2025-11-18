@@ -76,15 +76,11 @@
 (rum/defc language-select
   [languages]
   (let [change-language (fn [e]
-                          #?(:cljs (let [v   (-> (.-target e)
-                                                 (.-value)
-                                                 (not-empty)
-                                                 (i18n/lang-prefs))
-                                         url "/cookies"]
-                                     (swap! shared/state assoc :languages v)
-                                     (.then (shared/api url {:method :put
-                                                             :body   {:languages v}})
-                                            (shared/clear-fetch url)))))]
+                          #?(:cljs (let [v (-> (.-target e)
+                                               (.-value)
+                                               (not-empty)
+                                               (i18n/lang-prefs))]
+                                     (shared/update-cookie! :languages (constantly v)))))]
     [:select.language
      {:title     "Language preference"
       :value     (str (first languages))
@@ -121,7 +117,7 @@
       "level of detail")]])
 
 (rum/defc page-shell < rum/reactive
-  [page {:keys [entity subject languages entities] :as opts}]
+  [page {:keys [entity subject languages entities full-screen] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
   (let [page-component (or (get {"entity"   page/entity
                                  "search"   page/search
@@ -130,7 +126,11 @@
                            (throw (ex-info
                                     (str "No component for page: " page)
                                     opts)))
-        state' #?(:clj (assoc @shared/state :languages languages)
+        ;; The backend also needs access to user-specific state to be able to
+        ;; subsequently hydrate the HTML on the client-side with no errors.
+        state' #?(:clj (assoc @shared/state
+                         :languages languages
+                         :full-screen full-screen)
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
         comments       {:inference
@@ -147,7 +147,7 @@
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)
         synset?        (some section/semantic-rels? entity)
-        full-diagram?  (and synset? (:full-screen? state'))
+        full-diagram?  (and synset? (:full-screen state'))
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
                          :synset? synset?
