@@ -27,12 +27,11 @@
       [:td
        (rdf/rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
       [:td.attr-combo                                       ; fixes alignment
-       (rdf/rdf-resource-hyperlink v opts)])
+       (rdf/resource-hyperlink v opts)])
 
     ;; Using blank resource data included as a metadata map.
     (map? v)
-    [:td (or (rdf/blank-resource opts v)
-             (attr-val-table opts v))]
+    [:td (rdf/blank-resource opts v attr-val-table)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -43,71 +42,6 @@
     :else
     (let [s (i18n/select-str languages v)]
       [:td {:lang (i18n/lang s)} (rdf/transform-val s opts)])))
-
-(rum/defc list-item
-  "A list item element of a 'list-cell'."
-  [opts item]
-  (cond
-    (keyword? item)
-    [:li (rdf/rdf-resource-hyperlink item opts)]
-
-    ;; Currently not including these as they seem to
-    ;; be entirely garbage temp data, e.g. check out
-    ;; http://0.0.0.0:3456/dannet/2022/external/ontolex/LexicalSense
-    (symbol? item)
-    (if-let [m (not-empty (meta item))]
-      [:li (or (rdf/blank-resource opts m)
-               (attr-val-table opts m))]
-      [:li.omitted (str item)])
-
-    :else
-    [:li {:lang (i18n/lang item)}
-     (rdf/transform-val item opts)]))
-
-(rum/defc render-list-items
-  [opts coll]
-  (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
-    (rum/with-key (list-item opts item) sort-key)))
-
-;; A Rum-controlled version of the <details> element which only renders content
-;; if the containing <details> element is open. This circumvents the default
-;; behaviour which is to prerender the content in the DOM, but keep it hidden.
-;; Some of the more well-connected synsets take AGES to load without this fix!
-(rum/defcs reactive-details < (rum/local false ::open)
-  [state summary content]
-  (let [open (::open state)]
-    [:details {:on-toggle #(swap! open not)
-               :open      @open}
-     (when summary
-       (if (not @open)
-         summary
-         [:summary ""]))
-     (when @open content)]))
-
-(defn- expandable-list*
-  [{:keys [languages] :as opts} summary-coll rest-coll]
-  (let [total-amount (+ (count summary-coll)
-                        (count rest-coll))
-        c            (condp > total-amount
-                       100 "two-digits"
-                       1000 "three-digits"
-                       10000 "four-digits"
-                       100000 "five-digits")]
-    [:<>
-     [:ol {:class c}
-      (render-list-items opts summary-coll)]
-     (reactive-details
-       [:summary
-        (i18n/da-en languages
-          (str (count rest-coll) " flere")
-          (str (count rest-coll) " more"))]
-       [:ol {:class c
-             :start 4}
-        (render-list-items opts rest-coll)])]))
-
-(defn expandable-list
-  [opts coll]
-  (expandable-list* opts (take 3 coll) (drop 3 coll)))
 
 (defn display-cloud?
   [{:keys [attr-key] :as opts} v]
@@ -132,17 +66,14 @@
                  :clj  [:div])
       "max-cloud" #?(:cljs (viz/word-cloud coll opts)
                      :clj  [:div])
-      (if (<= coll-count expandable-list-cutoff)
-        [:ol (render-list-items opts coll)]
-        (expandable-list opts coll)))))
+      (rdf/list-items opts coll))))
 
 (rum/defc multi-value-cell
   "A table cell of an 'attr-val-table' containing multiple values in `coll`."
   [opts coll]
-  [:td
-   (if-let [transformed-coll (rdf/transform-val-coll coll opts)]
-     transformed-coll
-     (list-cell opts coll))])
+  (if-let [transformed-coll (rdf/transform-val-coll coll opts)]
+    transformed-coll
+    (list-cell opts coll)))
 
 (rum/defc string-list-cell
   "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
@@ -172,7 +103,6 @@
            inferred? (update :class conj "inferred")
            inherited? (update :class conj "inherited"))
      [:td.attr-prefix
-      ;; TODO: link to definition below?
       (when inferred?
         [:span.marker {:title (:inference comments)} "∴"])
       (when inherited?
@@ -230,9 +160,8 @@
          (every? i18n/rdf-string? v)
          (string-list-cell opts+attr-key v)
 
-         ;; TODO: use sublist for identical labels
          :else
-         (multi-value-cell opts+attr-key v))
+         [:td (multi-value-cell opts+attr-key v)])
 
        (keyword? v)
        (rum/with-key (value-cell opts+attr-key v) v)
@@ -255,7 +184,8 @@
       [:col]]
      [:tbody
       (for [[k v] subentity]
-        (rum/with-key (attr-val-row opts k v display-opts
+        (rum/with-key (attr-val-row (assoc opts :table-component attr-val-table)
+                                    k v display-opts
                                     (get inherited k)
                                     (get inferred k))
                       k))]]))

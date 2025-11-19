@@ -518,13 +518,19 @@
 
 (defn lexfile->pos
   [lexfile]
-  (when-let [[_ label] (and (string? lexfile)
-                            (re-matches #"(\w+)\.\w+" lexfile))]
-    label))
+  (cond
+    (string? lexfile)
+    (when-let [[_ label] (re-matches #"(\w+)\.\w+" lexfile)]
+      label)
+
+    ;; We need to account for the odd fact that a few synsets have two lexfiles.
+    (coll? lexfile)
+    (lexfile->pos (first lexfile))))
 
 (comment
   (lexfile->pos "noun.location")
   (lexfile->pos "adv.all")
+  (lexfile->pos ["noun.location" "noun.person"])
 
   ;; Testing out relative weights
   (take 10 (map double (iterate log-inc 1)))

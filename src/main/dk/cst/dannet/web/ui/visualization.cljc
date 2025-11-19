@@ -4,6 +4,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.rdf :as rdf]
             #?(:cljs [dk.cst.dannet.web.d3 :as d3])))
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
@@ -33,47 +34,64 @@
   .radial-tree-links [stroke],
   .radial-tree-labels [data-theme]")
 
-;; TODO: make this less hacky
 (defn- get-diagram
-  [e]
-  (.-previousSibling (.-parentElement (.-parentElement (.-parentElement (.-target e))))))
+  []
+  #?(:cljs (js/document.querySelector ".radial-tree-diagram")))
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
   [state subentity {:keys [languages k->label] :as opts}]
   (let [selected (::selected state)]
-    [:ul.radial-tree-legend
-     (for [k (keys subentity)]
-       (when-let [theme (get shared/synset-rel-theme k)]
-         (let [label        (i18n/select-label languages (k->label k))
-               is-selected? (= @selected theme)]
-           [:li {:key k}
-            [:label {:lang (i18n/lang label)} (str label)
-             [:input {:type      "radio"
-                      :name      "radial-tree-filter"
-                      :value     theme
-                      :checked   is-selected?
-                      :read-only true
-                      :on-click  (fn [e]
-                                   (let [new-selection (if is-selected? nil theme)
-                                         diagram       (get-diagram e)]
-                                     (reset! selected new-selection)
-                                     (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                       (let [classes (elem-classes el)
-                                             show?   (or (nil? new-selection)
-                                                         (= new-selection (.getAttribute el "stroke"))
-                                                         (= new-selection (.getAttribute el "fill"))
-                                                         (= new-selection (.getAttribute el "data-theme"))
-                                                         (get classes "radial-item__subject"))]
-                                         (if show?
-                                           (apply-classes el (disj classes "radial-item__de-emphasized"))
-                                           (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
-             [:span {:class "radial-tree-legend__bullet"
-                     :style {:background theme}}]]])))]))
+    [:div.radial-tree-legend-container
+     [:ul.radial-tree-legend
+      (for [k (keys subentity)]
+        (when-let [theme (get shared/synset-rel-theme k)]
+          (let [label        (i18n/select-label languages (k->label k))
+                is-selected? (= @selected theme)]
+            [:li {:key k}
+             [:label {:lang (i18n/lang label)} (str label)
+              [:input {:type      "radio"
+                       :name      "radial-tree-filter"
+                       :value     theme
+                       :checked   is-selected?
+                       :read-only true
+                       :on-click  (fn [_]
+                                    (let [new-selection (if is-selected? nil theme)
+                                          diagram       (get-diagram)]
+                                      (reset! selected new-selection)
+                                      (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+                                        (let [classes (elem-classes el)
+                                              show?   (or (nil? new-selection)
+                                                          (= new-selection (.getAttribute el "stroke"))
+                                                          (= new-selection (.getAttribute el "fill"))
+                                                          (= new-selection (.getAttribute el "data-theme"))
+                                                          (get classes "radial-item__subject"))]
+                                          (if show?
+                                            (apply-classes el (disj classes "radial-item__de-emphasized"))
+                                            (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
+              [:span {:class "radial-tree-legend__bullet"
+                      :style {:background theme}}]]])))]]))
 
 (rum/defc radial-tree
-  [subentity opts]
+  [subentity {:keys [entity languages full-screen] :as opts}]
   [:div.radial-tree {:key (str (hash subentity))}
+   (when full-screen
+     [:div.synset-radial__metadata
+      [:dl
+       [:dt (i18n/da-en languages
+              "Ontologisk type"
+              "Ontological type")]
+       [:dd (rdf/blank-resource
+              (assoc opts :attr-key :dns/ontologicalType)
+              (meta (:dns/ontologicalType entity)))]
+       [:dt (i18n/da-en languages
+              "Tilknyttede ord"
+              "Associated words")]
+       [:dd (let [v     (:ontolex/lexicalizedSense entity)
+                  opts' (assoc opts :attr-key :ontolex/lexicalizedSense)]
+              (if (coll? v)
+                (rdf/list-items opts' v)
+                (rdf/resource-hyperlink v opts')))]]])
    (radial-tree-diagram subentity opts)
    (radial-tree-legend subentity opts)])
 
@@ -125,12 +143,12 @@
 
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
   [subentity {:keys [languages entity full-screen] :as opts}]
-  (let [toggle       (fn [_]
-                       #?(:cljs (do
-                                  (shared/update-cookie! :full-screen not)
-                                  ;; Scrolling to the top simulates a page change.
-                                  (some-> (js/document.getElementById "content")
-                                          (.scroll #js {:top 0})))))]
+  (let [toggle (fn [_]
+                 #?(:cljs (do
+                            (shared/update-cookie! :full-screen not)
+                            ;; Scrolling to the top simulates a page change.
+                            (some-> (js/document.getElementById "content")
+                                    (.scroll #js {:top 0})))))]
     [:div.synset-radial-container {:key (str (hash subentity))}
      ;; TODO: consider whether to only show the header in full-screen
      [:div.synset-radial__header
@@ -141,6 +159,4 @@
                                  "minimize"
                                  "maximize")
                      :on-click toggle}]]
-     (radial-tree subentity opts)
-     ;; TODO: add content to footer
-     [:div.synset-radial__footer]]))
+     (radial-tree subentity opts)]))

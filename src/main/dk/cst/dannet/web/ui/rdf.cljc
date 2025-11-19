@@ -8,6 +8,8 @@
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
 
+(def expandable-list-cutoff
+  4)
 
 (defn break-up-uri
   "Place word break opportunities into a potentially long `uri`."
@@ -161,7 +163,7 @@
        local-name])))
 
 ;; See also 'rdf-uri-hyperlink'.
-(rum/defc rdf-resource-hyperlink
+(rum/defc resource-hyperlink
   "A stylised RDF `resource` hyperlink, stylised according to `opts`."
   [resource {:keys [attr-key k->label] :as opts}]
   (cond
@@ -203,7 +205,7 @@
 
 (rum/defc blank-resource
   "Display a blank resource in either a specialised way or as an inline table."
-  [{:keys [languages] :as opts} x]
+  [{:keys [languages table-component] :as opts} x]
   (cond
     (shared/rdf-datatype? x)
     (transform-val x)
@@ -219,7 +221,7 @@
     (and (= (keys x) [:marl/hasPolarity :marl/polarityValue])
          (keyword? (first (:marl/hasPolarity x))))
     [:<>
-     (rdf-resource-hyperlink (first (:marl/hasPolarity x)) opts)
+     (resource-hyperlink (first (:marl/hasPolarity x)) opts)
      " (" (first (:marl/polarityValue x)) ")"]
 
     (contains? (:rdf/type x) :rdf/Bag)
@@ -244,4 +246,76 @@
                   (apply concat)
                   (map #(entity-link % opts))
                   (interpose [:span.subtle " • "])))
-       [:div.set__right-bracket]])))
+       [:div.set__right-bracket]])
+
+    ;; An optional fallback table component with the same function signature.
+    ;; It's passed via dependency injection to avoid cyclic ns dependencies.
+    (and (map? x) table-component)
+    (table-component opts x)))
+
+(rum/defc list-item
+  "A list item element of a 'list-cell'."
+  [opts item]
+  (cond
+    (keyword? item)
+    [:li (resource-hyperlink item opts)]
+
+    (symbol? item)
+    (if-let [m (not-empty (meta item))]
+      [:li (blank-resource opts m)]
+      [:li.omitted (str item)])
+
+    :else
+    [:li {:lang (i18n/lang item)}
+     (transform-val item opts)]))
+
+(rum/defc render-list-items
+  [opts coll]
+  (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
+    (rum/with-key (list-item opts item) sort-key)))
+
+;; A Rum-controlled version of the <details> element which only renders content
+;; if the containing <details> element is open. This circumvents the default
+;; behaviour which is to prerender the content in the DOM, but keep it hidden.
+;; Some of the more well-connected synsets take AGES to load without this fix!
+(rum/defcs reactive-details < (rum/local false ::open)
+  [state summary content]
+  (let [open (::open state)]
+    [:details {:on-toggle #(swap! open not)
+               :open      @open}
+     (when summary
+       (if (not @open)
+         summary
+         [:summary ""]))
+     (when @open content)]))
+
+(defn- expandable-list*
+  [{:keys [languages] :as opts} summary-coll rest-coll]
+  (let [total-amount (+ (count summary-coll)
+                        (count rest-coll))
+        c            (condp > total-amount
+                       100 "two-digits"
+                       1000 "three-digits"
+                       10000 "four-digits"
+                       100000 "five-digits")]
+    [:<>
+     [:ol {:class c}
+      (render-list-items opts summary-coll)]
+     (reactive-details
+       [:summary
+        (i18n/da-en languages
+          (str (count rest-coll) " flere")
+          (str (count rest-coll) " more"))]
+       [:ol {:class c
+             :start 4}
+        (render-list-items opts rest-coll)])]))
+
+(defn expandable-list
+  [opts coll]
+  (expandable-list* opts (take 3 coll) (drop 3 coll)))
+
+(rum/defc list-items
+  [opts coll]
+  (if (<= (count coll) expandable-list-cutoff)
+    [:ol (render-list-items opts coll)]
+    (expandable-list opts coll)))

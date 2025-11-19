@@ -523,6 +523,7 @@ hr {
     border: none;
     border-top: 1px solid rgba(0,0,0,0.2);
     width: 100%;
+    margin: 0 0 24px 0;
 }
 
 footer p {
@@ -581,6 +582,11 @@ p.note strong {
     font-size: 24px;
     color: #333;
     vertical-align: middle;
+}
+
+.set__content {
+    text-align: center;
+    line-height: 1.5;
 }
 
 div.set__left-bracket {
@@ -717,8 +723,36 @@ header {
     margin-bottom: 32px;
 }
 
-#content.full-screen footer {
-    padding: 0 12px;
+footer {
+    padding: 12px;
+    margin-top: 12px;
+}
+
+dl {
+    margin: 0;
+    padding: 0px;
+}
+
+dt {
+    font-size: 20px;
+    font-weight: normal;
+    text-align: center;
+    padding: 12px 12px 0 12px;
+    margin: 0;
+    letter-spacing: 0.2ch;
+    font-variant: small-caps;
+    word-break: normal;
+}
+
+dd {
+    margin: 12px 0;
+    padding: 0 12px 12px 12px;
+    font-size: 14px;
+}
+
+dd + dt {
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-top: 24px;
 }
 
 h1 {
@@ -981,7 +1015,9 @@ li::marker {
 }
 
 .synset-radial-container {
+    transition: font-size 0.2s;
     padding: 12px;
+    height: 100%;
 
     background: white;
     border: 1px solid rgba(0,0,0,0.5);
@@ -1010,23 +1046,23 @@ li::marker {
     align-items: center;
     border-bottom: 1px solid rgba(0,0,0,0.1);
     padding: 0 0 12px 0;
+    margin-bottom: 12px;
 }
 
 .synset-radial-container .synset-radial__header > * + * {
     margin-left: 12px;
 }
 
-.synset-radial-container .synset-radial__footer {
+.synset-radial-container .synset-radial__metadata {
     display: flex;
     align-items: center;
-    border-top: 1px solid rgba(0,0,0,0.1);
-    padding: 12px 0 0 0;
-
-    /* TODO: temporarily fixed height, possibly remove. */
-    height: 45px;
+    border-right: 1px solid rgba(0,0,0,0.1);
+    margin: 0;
+    padding-right: 12px;
+    max-width: 20vw;
 }
 
-#content:not(.full-screen) .synset-radial__footer {
+#content:not(.full-screen) .synset-radial__metadata {
     display: none;
 }
 
@@ -1068,13 +1104,14 @@ strong.pos-label {
 
 .radial-tree {
     display: flex;
+    align-items: stretch;
     height: 100%;
 }
 
 .radial-tree-diagram {
     flex-grow: 1; /* Fix width in Safari. */
-    border-right: 1px solid rgba(0,0,0,0.1);
     text-align: center;
+    display: flex;
 
     /* Always make sure the diagram to is fully visible. */
     /* TODO: decide on final limits */
@@ -1093,7 +1130,7 @@ svg.radial-tree-diagram__svg {
 #content.full-screen svg.radial-tree-diagram__svg {
     /* Always make sure the diagram to is fully visible. */
     /* TODO: decide on final limits */
-    max-height: calc(96vh - 45px - 24px);
+    max-height: calc(100vh - 45px - 24px);
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1101,15 +1138,17 @@ svg.radial-tree-diagram__svg {
     transition: fill 0.2s, stroke 0.2s, opacity 0.2s;
 }
 
+.radial-tree-legend-container {
+    display: flex;
+    border-left: 1px solid rgba(0,0,0,0.1);
+}
+
 ul.radial-tree-legend {
     min-width: fit-content;
     align-self: center;
 
     list-style: none;
-    margin-left: 0;
-    padding: 12px 0 12px 12px;
-
-    border-radius: 2px;
+    padding: 24px 12px;
 
     font-variant: small-caps;
     font-size: 14px;
@@ -1255,16 +1294,50 @@ select.display-options:hover {
     }
 }
 
-@media only screen and (max-width: 1000px) {
+@media only screen and (max-width: 1200px) {
     .radial-tree {
         flex-direction: column;
+        align-items: stretch;
     }
-    .radial-tree-diagram {
-        border-right: none;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
+    .radial-tree-legend-container {
+        border-left: none;
+        border-top: 1px solid rgba(0,0,0,0.1);
     }
     ul.radial-tree-legend {
         columns: 3;
+        margin: 0 auto;
+    }
+    #content.full-screen .synset-radial__metadata {
+        order: 3;
+        border-right: none;
+        border-top: 1px solid rgba(0,0,0,0.1);
+
+
+        /* TODO: why isn't it expanding?? */
+        max-width: none;
+        margin: 0;
+        padding: 24px 0 0 0;
+    }
+    #content.full-screen .synset-radial__metadata dl {
+        margin: 0 auto;
+        columns: 2;
+        column-gap: 48px;
+        column-rule: 1px solid rgba(0,0,0,0.1);
+        border-top: none;
+    }
+    #content.full-screen .synset-radial__metadata dt {
+        border-top: none;
+        margin-top: 0px;
+    }
+    #content.full-screen .synset-radial__metadata dd {
+        margin-bottom: 0px;
+    }
+    dd + dt {
+        padding-top: 12px;
+    }
+    #content.full-screen .radial-tree-diagram,
+    #content.full-screen svg.radial-tree-diagram__svg {
+        max-height: calc(88vh - 45px - 24px);
     }
 }
 
@@ -1295,8 +1368,23 @@ select.display-options:hover {
 }
 
 @media only screen and (max-width: 750px) {
+    .synset-radial-container {
+        font-size: 14px;
+    }
     ul.radial-tree-legend {
         columns: 2;
+    }
+    #content.full-screen .synset-radial__metadata dl {
+        columns: 1;
+    }
+    #content.full-screen .synset-radial__metadata dt {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+    #content.full-screen .synset-radial__metadata dt:not(:first-child) {
+        border-top: 1px solid rgba(0,0,0,0.1);
+        margin-top: 12px;
+        padding-top: 24px;
     }
 }
 
@@ -1315,13 +1403,10 @@ select.display-options:hover {
     table.attr-val col:nth-child(2) {
          min-width: 10ch;
     }
-    .synset-radial-container {
-        font-size: 14px;
-    }
     ul.radial-tree-legend {
         columns: 1;
     }
     .radial-item:not(.radial-item__subject) {
-            font-size: 20px;
-        }
+        font-size: 20px;
+    }
 }
