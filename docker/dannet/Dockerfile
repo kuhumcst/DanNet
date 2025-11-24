@@ -36,7 +36,7 @@ RUN npm install
 
 # Fetch backend dependencies
 COPY ./deps.edn /etc/dannet/deps.edn
-RUN clojure -A:backend:build -Spath
+RUN clojure -A:build -Spath
 
 # Fetch frontend dependencies
 COPY ./shadow-cljs.edn /etc/dannet/shadow-cljs.edn
