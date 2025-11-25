@@ -2,6 +2,7 @@
   "Functions for querying an Apache Jena graph."
   (:require [clojure.edn :as edn]
             [clojure.walk :as walk]
+            [clojure.core.memoize :as memo]
             [arachne.aristotle.query :as q]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn]
@@ -189,7 +190,50 @@
            (update-vals #(apply merge-with set-merge %))
            (vals))))
 
+(defn synset-examples
+  "Return usage examples from all senses of `synset-kw` in `g`."
+  [g synset-kw]
+  (let [synset    (entity g synset-kw)
+        sense-kws (shared/setify (:ontolex/lexicalizedSense synset))]
+    (->> sense-kws
+         (keep (fn [sense-kw]
+                 (let [sense   (entity g sense-kw)
+                       example (:lexinfo/senseExample sense)]
+                   (when example
+                     {:ontolex/lexicalizedSense sense-kw
+                      :rdfs/label               (str (:rdfs/label sense))
+                      :lexinfo/senseExample     (str example)}))))
+         (vec))))
+
+(declare hypernym-ancestry)
+
+(defn hypernym-ancestry*
+  "Implementation for `hypernym-ancestry`. Use that function instead."
+  [g synset-kw]
+  (let [e         (entity g synset-kw)
+        hypernyms (shared/setify (:wn/hypernym e))]
+    (when (seq hypernyms)
+      (mapv (fn [h]
+              (let [h-entity    (entity g h)
+                    label       (:rdfs/label h-entity)
+                    short-label (:dns/shortLabel h-entity)]
+                (cond-> {:wn/hypernym h
+                         :rdfs/label  (str label)
+                         :ancestors   (hypernym-ancestry g h)}
+                  (and short-label (not= label short-label))
+                  (assoc :dns/shortLabel (str short-label)))))
+            hypernyms))))
+
+(def hypernym-ancestry
+  "Return the hypernym ancestry tree for `synset-kw` in `g`.
+  
+  Handles multiple hypernyms, returning a vector where each entry has
+  `:synset`, `:label`, and `:ancestors`. Results are LRU-cached (1000
+  entries) since ancestry chains are shared across many synsets."
+  (memo/lru hypernym-ancestry* :lru/threshold 1000))
+
 (comment
-  (entity (:graph @dk.cst.dannet.web.resources/db)
-          :dn/synset-1771)
+  (entity (:graph @dk.cst.dannet.web.resources/db) :dn/synset-1771)
+  (synset-examples (:graph @dk.cst.dannet.web.resources/db) :dn/synset-3047)
+  (hypernym-ancestry (:graph @dk.cst.dannet.web.resources/db) :dn/synset-3047)
   #_.)

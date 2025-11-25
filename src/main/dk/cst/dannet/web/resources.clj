@@ -431,7 +431,7 @@
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
                   ;; TODO: just always expand?
-                  entity       (if (get #{"application/transit+json"
+                  entity*      (if (get #{"application/transit+json"
                                           "text/html"
 
                                           ;; MCP server needs it too
@@ -440,6 +440,15 @@
                                         content-type)
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
+                  ;; Augment DanNet synsets with ancestry and examples
+                  dn-synset?   (and (= :ontolex/LexicalConcept (:rdf/type entity*))
+                                    (keyword? subject*)
+                                    (= "dn" (namespace subject*)))
+                  entity       (if dn-synset?
+                                 (assoc entity*
+                                   :dns/hypernym-ancestry (q/hypernym-ancestry g subject*)
+                                   :dns/examples (q/synset-examples g subject*))
+                                 entity*)
                   languages    (request->languages request)
                   qs           (remove-internal-params (:query-string request))
                   qname        (if (keyword? subject*)
