@@ -412,6 +412,13 @@
                                  ;; Add filename extensions when needed.
                                  (merge (with-file-ext title content-type)))))))})
 
+(def ^:private expand-content-types
+  "Content types that receive expanded entity data with relation labels."
+  #{"application/transit+json"
+    "text/html"
+    "application/ld+json"
+    "application/json"})
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -425,46 +432,29 @@
                                            static-params)
                   content-type (or (get-in request [:accept :field])
                                    "application/json")
+                  g            (:graph @db)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  g            (:graph @db)
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
-                  ;; TODO: just always expand?
-                  entity*      (if (get #{"application/transit+json"
-                                          "text/html"
-
-                                          ;; MCP server needs it too
-                                          "application/ld+json"
-                                          "application/json"}
-                                        content-type)
-                                 (q/expanded-entity g subject*)
-                                 (q/entity g subject*))
-                  ;; Augment DanNet synsets with ancestry and examples
-                  dn-synset?   (and (= :ontolex/LexicalConcept (:rdf/type entity*))
-                                    (keyword? subject*)
-                                    (= "dn" (namespace subject*)))
-                  entity       (if dn-synset?
-                                 (assoc entity*
-                                   :dns/hypernym-ancestry (q/hypernym-ancestry g subject*)
-                                   :dns/examples (q/synset-examples g subject*))
-                                 entity*)
                   languages    (request->languages request)
                   qs           (remove-internal-params (:query-string request))
                   qname        (if (keyword? subject*)
                                  (prefix/kw->qname subject*)
-                                 subject*)]
+                                 subject*)
+                  entity       (if (expand-content-types content-type)
+                                 (q/expanded-entity g subject*)
+                                 (q/entity g subject*))]
               (if (not-empty entity)
                 (assoc ctx
-                  :content {:languages languages
-                            :href      (str (:uri request)
-                                            (when (not-empty qs)
-                                              (str "?" qs)))
-                            :entities  (dissoc (-> entity meta :entities)
-                                               subject*)
-                            :inferred  (-> entity meta :inferred)
-                            :subject   subject*
-                            :entity    entity}
+                  :content (-> (meta entity)
+                               (update :entities dissoc subject*)
+                               (assoc :languages languages
+                                      :href (str (:uri request)
+                                                 (when (not-empty qs)
+                                                   (str "?" qs)))
+                                      :subject subject*
+                                      :entity entity))
                   :page-meta {:title qname
                               :page  "entity"})
                 (let [alt (alt-resource qname)]

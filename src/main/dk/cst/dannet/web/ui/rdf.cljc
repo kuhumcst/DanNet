@@ -9,7 +9,7 @@
   (:refer-clojure :exclude [cond]))
 
 (def expandable-list-cutoff
-  4)
+  8)
 
 (defn break-up-uri
   "Place word break opportunities into a potentially long `uri`."
@@ -203,29 +203,29 @@
          (prefix-badge prefix opts)
          (entity-link v opts)]))))
 
-(rum/defc blank-resource
-  "Display a blank resource in either a specialised way or as an inline table."
-  [{:keys [languages table-component] :as opts} x]
+(defn blank-resource
+  "Display blank resource map `m` in a specialised way based on `opts`."
+  [{:keys [languages table-component] :as opts} m]
   (cond
-    (shared/rdf-datatype? x)
-    (transform-val x)
+    (shared/rdf-datatype? m)
+    (transform-val m)
 
-    (= (keys x) [:rdf/value])
-    (let [x (i18n/select-str languages (:rdf/value x))]
+    (= (keys m) [:rdf/value])
+    (let [x (i18n/select-str languages (:rdf/value m))]
       (if (coll? x)
         (into [:<>] (for [s x]
                       [:section.text {:lang (i18n/lang s)} (str s)]))
         [:section.text {:lang (i18n/lang x)} (str x)]))
 
     ;; Special handling of DanNet sentiment data.
-    (and (= (keys x) [:marl/hasPolarity :marl/polarityValue])
-         (keyword? (first (:marl/hasPolarity x))))
+    (and (= (keys m) [:marl/hasPolarity :marl/polarityValue])
+         (keyword? (first (:marl/hasPolarity m))))
     [:<>
-     (resource-hyperlink (first (:marl/hasPolarity x)) opts)
-     " (" (first (:marl/polarityValue x)) ")"]
+     (resource-hyperlink (first (:marl/hasPolarity m)) opts)
+     " (" (first (:marl/polarityValue m)) ")"]
 
-    (contains? (:rdf/type x) :rdf/Bag)
-    (let [ns->resources (-> (->> (dissoc x :rdf/type)
+    (contains? (:rdf/type m) :rdf/Bag)
+    (let [ns->resources (-> (->> (dissoc m :rdf/type)
                                  (filter (comp shared/member-property? first))
                                  (mapcat second)
                                  (group-by namespace))
@@ -250,8 +250,8 @@
 
     ;; An optional fallback table component with the same function signature.
     ;; It's passed via dependency injection to avoid cyclic ns dependencies.
-    (and (map? x) table-component)
-    (table-component opts x)))
+    table-component
+    (table-component opts m)))
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."
@@ -319,3 +319,15 @@
   (if (<= (count coll) expandable-list-cutoff)
     [:ol (render-list-items opts coll)]
     (expandable-list opts coll)))
+
+(rum/defc resource
+  [opts x]
+  (cond
+    (map? x)
+    (blank-resource opts x)
+
+    (coll? x)
+    (list-items opts x)
+
+    (some? x)
+    (resource-hyperlink x opts)))

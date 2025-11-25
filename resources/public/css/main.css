@@ -431,13 +431,18 @@ form[role=search]:focus-within input[role=combobox] {
 }
 
 form[role=search] input[type=submit] {
-    opacity: 0;
     transition: transform 0.2s;
     letter-spacing: 2px;
+
+    /* Hide when not in use. */
+    position: absolute;
+    min-width: 0;
+    opacity: 0;
     color: transparent;
 }
 
 form[role=search]:focus-within input[type=submit] {
+    position: static;
     opacity: 1;
     transition: color 0.2s;
     min-width: 64px;
@@ -736,7 +741,6 @@ dl {
 dt {
     font-size: 20px;
     font-weight: normal;
-    text-align: center;
     padding: 12px 12px 0 12px;
     margin: 0;
     letter-spacing: 0.2ch;
@@ -745,14 +749,13 @@ dt {
 }
 
 dd {
-    margin: 12px 0;
-    padding: 0 12px 12px 12px;
+    margin: 12px 0 24px 0;
+    padding: 8px 12px 12px 12px;
     font-size: 14px;
 }
 
 dd + dt {
-    border-top: 1px solid rgba(0,0,0,0.1);
-    padding-top: 24px;
+    padding-top: 12px;
 }
 
 h1 {
@@ -1002,7 +1005,7 @@ ol.five-digits  + details > summary {
 }
 
 li {
-    padding-bottom: 12px;
+    padding-bottom: 2ch;
 }
 
 li:last-of-type {
@@ -1049,10 +1052,6 @@ li::marker {
     margin-bottom: 12px;
 }
 
-.synset-radial-container .synset-radial__header > * + * {
-    margin-left: 12px;
-}
-
 .synset-radial-container .synset-radial__metadata {
     display: flex;
     align-items: center;
@@ -1062,21 +1061,27 @@ li::marker {
     max-width: 20vw;
 }
 
-#content:not(.full-screen) .synset-radial__metadata {
+#content:not(.full-screen) .synset-radial__metadata,
+#content:not(.full-screen) .synset-radial__footer {
     display: none;
 }
 
+.synset-radial-container .synset-radial__footer {
+    border-top: 1px solid rgba(0,0,0,0.1);
+    margin-top: 12px;
+    padding-top: 24px;
+}
 
 strong.pos-label {
-    /* TODO: colour by PoS tag. */
-    color:  #55f;
+    color: #333;
     font-variant: small-caps;
     padding: 4px 12px 4px 0;
+    margin-right: 12px;
     border-right: 1px solid rgba(0,0,0,0.1);
 }
 
 .synset-radial-container .synset-radial__definition {
-    margin-right: auto;
+    margin: 0 auto;
 }
 
 .icon {
@@ -1114,7 +1119,6 @@ strong.pos-label {
     display: flex;
 
     /* Always make sure the diagram to is fully visible. */
-    /* TODO: decide on final limits */
     max-height: calc(92vh - 45px - 24px);
 }
 
@@ -1129,8 +1133,7 @@ svg.radial-tree-diagram__svg {
 #content.full-screen .radial-tree-diagram,
 #content.full-screen svg.radial-tree-diagram__svg {
     /* Always make sure the diagram to is fully visible. */
-    /* TODO: decide on final limits */
-    max-height: calc(100vh - 45px - 24px);
+    max-height: calc(100vh - 104px);
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1294,6 +1297,27 @@ select.display-options:hover {
     }
 }
 
+@media only screen and (min-width: 1200px) {
+    /* Hide "fake" footer items until diagram view turns into single column view. */
+    #content.full-screen .synset-radial__metadata .synset-radial__footer-item {
+        display: none;
+    }
+    /* Make the fonts a bit bigger. */
+    #content.full-screen  ul.radial-tree-legend,
+    #content.full-screen  .synset-radial-container,
+    #content.full-screen  .synset-radial-container dd {
+        font-size: 18px;
+    }
+    #content.full-screen .radial-tree-legend__bullet {
+        width: 14px;
+        height: 14px;
+        top: 10px;
+    }
+    #content.full-screen ul.radial-tree-legend label {
+        padding-left: 32px;
+    }
+}
+
 @media only screen and (max-width: 1200px) {
     .radial-tree {
         flex-direction: column;
@@ -1312,32 +1336,18 @@ select.display-options:hover {
         border-right: none;
         border-top: 1px solid rgba(0,0,0,0.1);
 
-
         /* TODO: why isn't it expanding?? */
         max-width: none;
         margin: 0;
         padding: 24px 0 0 0;
     }
-    #content.full-screen .synset-radial__metadata dl {
-        margin: 0 auto;
-        columns: 2;
-        column-gap: 48px;
-        column-rule: 1px solid rgba(0,0,0,0.1);
-        border-top: none;
-    }
-    #content.full-screen .synset-radial__metadata dt {
-        border-top: none;
-        margin-top: 0px;
-    }
-    #content.full-screen .synset-radial__metadata dd {
-        margin-bottom: 0px;
-    }
-    dd + dt {
-        padding-top: 12px;
-    }
     #content.full-screen .radial-tree-diagram,
     #content.full-screen svg.radial-tree-diagram__svg {
         max-height: calc(88vh - 45px - 24px);
+    }
+    /* Remove real footer items once the metadata column becomes the footer. */
+    #content.full-screen .synset-radial-container .synset-radial__footer {
+        display: none;
     }
 }
 
@@ -1373,18 +1383,6 @@ select.display-options:hover {
     }
     ul.radial-tree-legend {
         columns: 2;
-    }
-    #content.full-screen .synset-radial__metadata dl {
-        columns: 1;
-    }
-    #content.full-screen .synset-radial__metadata dt {
-        padding-left: 24px;
-        padding-right: 24px;
-    }
-    #content.full-screen .synset-radial__metadata dt:not(:first-child) {
-        border-top: 1px solid rgba(0,0,0,0.1);
-        margin-top: 12px;
-        padding-top: 24px;
     }
 }
 

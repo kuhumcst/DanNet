@@ -75,13 +75,15 @@
           (rdf/break-up-uri rdf-uri)]))]))
 
 (rum/defc entity-notes
-  [{:keys [href languages comments inferred inherited]
+  [{:keys [href languages comments inferred inherited supplemented]
     :as   opts}]
   [:section.notes
    (when (not-empty inferred)
      [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
    (when (not-empty inherited)
      [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
+   (when (not-empty supplemented)
+     [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
    [:p.note
     [:strong "↓ "]
     (i18n/da-en languages

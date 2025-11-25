@@ -72,26 +72,39 @@
               [:span {:class "radial-tree-legend__bullet"
                       :style {:background theme}}]]])))]]))
 
+;; TODO: use a heuristic for high-lighting the relevant word
+(rum/defc sense-examples
+  [{:keys [entity languages] :as opts}]
+  (when-let [v (:lexinfo/senseExample entity)]
+    [:<>
+     [:dt.synset-radial__footer-item
+      (i18n/da-en languages
+        "Eksempler"
+        "Examples")]
+     [:dd.synset-radial__footer-item
+      (rdf/resource (assoc opts :attr-key :lexinfo/senseExample) v)]]))
+
 (rum/defc radial-tree
   [subentity {:keys [entity languages full-screen] :as opts}]
   [:div.radial-tree {:key (str (hash subentity))}
    (when full-screen
-     [:div.synset-radial__metadata
-      [:dl
-       [:dt (i18n/da-en languages
-              "Ontologisk type"
-              "Ontological type")]
-       [:dd (rdf/blank-resource
-              (assoc opts :attr-key :dns/ontologicalType)
-              (meta (:dns/ontologicalType entity)))]
-       [:dt (i18n/da-en languages
-              "Tilknyttede ord"
-              "Associated words")]
-       [:dd (let [v     (:ontolex/lexicalizedSense entity)
-                  opts' (assoc opts :attr-key :ontolex/lexicalizedSense)]
-              (if (coll? v)
-                (rdf/list-items opts' v)
-                (rdf/resource-hyperlink v opts')))]]])
+     [:<>
+      [:div.synset-radial__metadata
+       [:dl
+        [:dt (i18n/da-en languages
+               "Ontologisk type"
+               "Ontological type")]
+        [:dd
+         (if-let [v (meta (:dns/ontologicalType entity))]
+           (rdf/resource (assoc opts :attr-key :dns/ontologicalType) v)
+           "–")]
+        [:dt (i18n/da-en languages
+               "Tilknyttede ord"
+               "Associated words")]
+        [:dd (rdf/resource
+               (assoc opts :attr-key :ontolex/lexicalizedSense)
+               (:ontolex/lexicalizedSense entity))]
+        (sense-examples opts)]]])
    (radial-tree-diagram subentity opts)
    (radial-tree-legend subentity opts)])
 
@@ -141,6 +154,7 @@
           (dissoc state ::observer ::rerender))
         :clj state))})
 
+;; TODO: display ancestry and examples in full-screen mode
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
   [subentity {:keys [languages entity full-screen] :as opts}]
   (let [toggle (fn [_]
@@ -152,11 +166,16 @@
     [:div.synset-radial-container {:key (str (hash subentity))}
      ;; TODO: consider whether to only show the header in full-screen
      [:div.synset-radial__header
-      [:strong.pos-label (pos-label opts)]
       [:span.synset-radial__definition
+       [:strong.pos-label (pos-label opts)]
        (str (i18n/select-label languages (:skos/definition entity)))]
       [:button.icon {:class    (if full-screen
                                  "minimize"
                                  "maximize")
                      :on-click toggle}]]
-     (radial-tree subentity opts)]))
+     (radial-tree subentity opts)
+     (let [{:keys [lexinfo/senseExample]} entity]
+       (when senseExample
+         [:div.synset-radial__footer
+          [:dl
+           (sense-examples opts)]]))]))

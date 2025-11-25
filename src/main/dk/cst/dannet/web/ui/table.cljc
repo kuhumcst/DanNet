@@ -31,7 +31,7 @@
 
     ;; Using blank resource data included as a metadata map.
     (map? v)
-    [:td (rdf/blank-resource opts v attr-val-table)]
+    [:td (rdf/blank-resource (assoc opts :table-component attr-val-table) v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -89,10 +89,11 @@
       [:td {:lang (i18n/lang s) :key coll} (rdf/transform-val s opts)])))
 
 (rum/defc attr-val-row < rum/reactive
-   "A single row in the attribute-value table. Only re-renders when its specific display option changes."
-  [{:keys [subject languages comments] :as opts} k v display-opts inherited? inferred?]
+  "A single row in the attribute-value table. Only re-renders when its specific
+  display option changes."
+  [{:keys [subject languages comments] :as opts} k v display-opts inherited? inferred? supplemented?]
   (let [prefix        (if (keyword? k)
-                        (symbol (namespace k))
+                        (some-> (namespace k) symbol)
                         k)
         display-opt   (get-in @display-opts [subject k])
         opts+attr-key (assoc opts
@@ -101,12 +102,15 @@
         v-count       (if (coll? v) (count v) 0)]
     [:tr (cond-> {:key (str k)}
            inferred? (update :class conj "inferred")
-           inherited? (update :class conj "inherited"))
+           inherited? (update :class conj "inherited")
+           supplemented? (update :class conj "supplemented"))
      [:td.attr-prefix
       (when inferred?
         [:span.marker {:title (:inference comments)} "∴"])
       (when inherited?
         [:span.marker {:title (:inheritance comments)} "†"])
+      (when supplemented?
+        [:span.marker {:title (:supplemented comments)} "↪"])
       (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
@@ -175,7 +179,7 @@
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [inherited inferred] :as opts} subentity]
+  [state {:keys [inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table {:class "attr-val"}
      [:colgroup
@@ -187,5 +191,6 @@
         (rum/with-key (attr-val-row (assoc opts :table-component attr-val-table)
                                     k v display-opts
                                     (get inherited k)
-                                    (get inferred k))
+                                    (get inferred k)
+                                    (get supplemented k))
                       k))]]))

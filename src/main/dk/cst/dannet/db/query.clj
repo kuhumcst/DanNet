@@ -164,46 +164,25 @@
                  (transient {})
                  entity))))
 
-(defn expanded-entity
-  "Return the expanded entity description of `subject` in Graph `g`."
-  [g subject]
-  (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
-    (with-meta (->> (basic-entity result)
-                    (weighted-relations)
-                    (attach-blank-entities g subject))
-               (cond-> {:entities (other-entities result)
-                        ;; TODO: is it necessary to attach subject?
-                        :subject  subject}
-                 (instance? BaseInfGraph g)
-                 (assoc :inferred (inferred-entity result (find-raw g subject)))))
-    (with-meta {} {:subject subject})))
-
-(defn table-query
-  "Run query `q` in `g`, transposing the results as rows of `ks`.
-
-  Any one-to-many relationships in the result values are represented as set
-  values contained in the resulting table rows. This is the main difference
-  from the built-in vector transposition in 'arachne.aristotle.query/run'."
-  [g ks q]
-  (map (fn [m] (mapv m ks))
-       (-> (group-by #(get % (first ks)) (run g q))
-           (update-vals #(apply merge-with set-merge %))
-           (vals))))
+(defn- dn-synset?
+  "Return true if `entity` for `subject` is a DanNet synset."
+  [entity subject]
+  (and (= :ontolex/LexicalConcept (:rdf/type entity))
+       (keyword? subject)
+       (= "dn" (namespace subject))))
 
 (defn synset-examples
-  "Return usage examples from all senses of `synset-kw` in `g`."
+  "Return usage examples for `synset-kw` in `g` as a set of LangStr values.
+  Gathers examples from all senses of the synset."
   [g synset-kw]
   (let [synset    (entity g synset-kw)
         sense-kws (shared/setify (:ontolex/lexicalizedSense synset))]
     (->> sense-kws
          (keep (fn [sense-kw]
-                 (let [sense   (entity g sense-kw)
-                       example (:lexinfo/senseExample sense)]
-                   (when example
-                     {:ontolex/lexicalizedSense sense-kw
-                      :rdfs/label               (str (:rdfs/label sense))
-                      :lexinfo/senseExample     (str example)}))))
-         (vec))))
+                 (let [sense (entity g sense-kw)]
+                   (:lexinfo/senseExample sense))))
+         (set)
+         (not-empty))))
 
 (declare hypernym-ancestry)
 
@@ -226,11 +205,62 @@
 
 (def hypernym-ancestry
   "Return the hypernym ancestry tree for `synset-kw` in `g`.
-  
+
   Handles multiple hypernyms, returning a vector where each entry has
-  `:synset`, `:label`, and `:ancestors`. Results are LRU-cached (1000
-  entries) since ancestry chains are shared across many synsets."
+  `:wn/hypernym`, `:rdfs/label`, and `:ancestors`. Results are LRU-cached
+  (1000 entries) since ancestry chains are shared across many synsets."
   (memo/lru hypernym-ancestry* :lru/threshold 1000))
+
+(defn supplement-synset
+  "Supplement `synset` for `subject` in `g` with examples from its senses.
+  Returns synset with `:lexinfo/senseExample` added and metadata updated with
+  `:supplemented`, `:ancestry`, and additional `:entities` labels."
+  [g synset subject]
+  (let [examples     (synset-examples g subject)
+        ancestry     (hypernym-ancestry g subject)
+        synset'      (cond-> synset
+                       examples (assoc :lexinfo/senseExample examples))
+        entities*    (-> synset meta :entities)
+        entities     (if (and examples
+                              (not (contains? entities* :lexinfo/senseExample)))
+                       (let [rel-entity (entity g :lexinfo/senseExample)]
+                         (assoc entities* :lexinfo/senseExample
+                                          (select-keys rel-entity [:rdfs/label])))
+                       entities*)
+        supplemented (when examples
+                       #{:lexinfo/senseExample})]
+    (vary-meta synset' merge
+               {:entities     entities
+                :supplemented supplemented
+                :ancestry     ancestry})))
+
+(defn expanded-entity
+  "Return the expanded entity description of `subject` in Graph `g`."
+  [g subject]
+  (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
+    (let [entity* (with-meta (->> (basic-entity result)
+                                  (weighted-relations)
+                                  (attach-blank-entities g subject))
+                             (cond-> {:entities (other-entities result)
+                                      :subject  subject}
+                               (instance? BaseInfGraph g)
+                               (assoc :inferred (inferred-entity result (find-raw g subject)))))]
+      (if (dn-synset? entity* subject)
+        (supplement-synset g entity* subject)
+        entity*))
+    (with-meta {} {:subject subject})))
+
+(defn table-query
+  "Run query `q` in `g`, transposing the results as rows of `ks`.
+
+  Any one-to-many relationships in the result values are represented as set
+  values contained in the resulting table rows. This is the main difference
+  from the built-in vector transposition in 'arachne.aristotle.query/run'."
+  [g ks q]
+  (map (fn [m] (mapv m ks))
+       (-> (group-by #(get % (first ks)) (run g q))
+           (update-vals #(apply merge-with set-merge %))
+           (vals))))
 
 (comment
   (entity (:graph @dk.cst.dannet.web.resources/db) :dn/synset-1771)

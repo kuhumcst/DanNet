@@ -140,7 +140,11 @@
                         :inheritance
                         (i18n/da-en languages'
                           "helt eller delvist  nedarvet fra hypernym"
-                          "fully or partially inherited from hypernym")}
+                          "fully or partially inherited from hypernym")
+                        :supplemented
+                        (i18n/da-en languages'
+                          "suppleret fra andre ressourcer"
+                          "supplemented from other resources")}
         details?       (or (get state' :details?)
                            (get opts :details?))
         entity-label*  (shared/->entity-label-fn details?)
@@ -168,7 +172,8 @@
                       (prefix/prefix->class (if (= page "markdown")
                                               'dn
                                               prefix')))]}
-      (help-arrows page opts')
+      (when-not full-diagram?
+        (help-arrows page opts'))
       (search/search-form opts')
       [:a.title {:title (i18n/da-en languages
                           "Gå til forsiden"

@@ -57,8 +57,8 @@
   [languages x]
   (if (coll? x)
     (let [lang->strs (group-by lang x)
-          ret        (loop [[head & tail] languages]
-                       (when head
+          ret        (loop [[head & tail :as remaining] languages]
+                       (when (seq remaining)
                          (or (get lang->strs head)
                              (recur tail))))
           strs       (or ret (get lang->strs nil))]
