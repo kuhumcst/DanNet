@@ -73,7 +73,7 @@
                       :style {:background theme}}]]])))]]))
 
 ;; TODO: use a heuristic for high-lighting the relevant word
-(rum/defc sense-examples
+(rum/defc examples-dt+dd
   [{:keys [entity languages] :as opts}]
   (when-let [v (:lexinfo/senseExample entity)]
     [:<>
@@ -83,6 +83,19 @@
         "Examples")]
      [:dd.synset-radial__footer-item
       (rdf/resource (assoc opts :attr-key :lexinfo/senseExample) v)]]))
+
+(rum/defc ancestry-dt+dd
+  [{:keys [languages entity details?] :as opts}]
+  (let [label       (str (:rdfs/label entity))
+        short-label (some-> (:dns/shortLabel entity) str)
+        subj-label  (if details? label (or short-label label))]
+    [:<>
+     [:dt.synset-radial__footer-item
+      (i18n/da-en languages
+        "Overbegreber"
+        "Hypernyms")]
+     [:dd.synset-radial__footer-item
+      (rdf/hypernym-chain (assoc opts :subject-label subj-label))]]))
 
 (rum/defc radial-tree
   [subentity {:keys [entity languages full-screen] :as opts}]
@@ -104,7 +117,8 @@
         [:dd (rdf/resource
                (assoc opts :attr-key :ontolex/lexicalizedSense)
                (:ontolex/lexicalizedSense entity))]
-        (sense-examples opts)]]])
+        (examples-dt+dd opts)
+        (ancestry-dt+dd opts)]]])
    (radial-tree-diagram subentity opts)
    (radial-tree-legend subentity opts)])
 
@@ -156,7 +170,7 @@
 
 ;; TODO: display ancestry and examples in full-screen mode
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
-  [subentity {:keys [languages entity full-screen] :as opts}]
+  [subentity {:keys [languages entity full-screen ancestry] :as opts}]
   (let [toggle (fn [_]
                  #?(:cljs (do
                             (shared/update-cookie! :full-screen not)
@@ -175,7 +189,10 @@
                      :on-click toggle}]]
      (radial-tree subentity opts)
      (let [{:keys [lexinfo/senseExample]} entity]
-       (when senseExample
+       (when (or senseExample ancestry)
          [:div.synset-radial__footer
           [:dl
-           (sense-examples opts)]]))]))
+           (when senseExample
+             (examples-dt+dd opts))
+           (when ancestry
+             (ancestry-dt+dd opts))]]))]))

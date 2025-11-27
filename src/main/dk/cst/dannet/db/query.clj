@@ -190,7 +190,8 @@
   "Implementation for `hypernym-ancestry`. Use that function instead."
   [g synset-kw]
   (let [e         (entity g synset-kw)
-        hypernyms (shared/setify (:wn/hypernym e))]
+        hypernyms (or (not-empty (shared/setify (:wn/hypernym e)))
+                      (shared/setify (:dns/orthogonalHypernym e)))]
     (when (seq hypernyms)
       (mapv (fn [h]
               (let [h-entity    (entity g h)
