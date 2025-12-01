@@ -6,6 +6,8 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
+            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
+               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.visualization :as viz]))
@@ -140,7 +142,7 @@
       (display-mode-selector title opts)
       (case (get-in opts [:section title :display :selected])
         "radial" [:<>
-                  (viz/expanded-radial subentity opts)
+                  (error/try-render (viz/expanded-radial subentity opts))
                   [:p.note
                    [:strong "! "]
                    (i18n/da-en languages
@@ -152,9 +154,10 @@
 (rum/defc full-screen-content
   [{:keys [entity]
     :as   opts}]
-  (viz/expanded-radial
-    (ordered-subentity opts section/semantic-rels? entity)
-    opts))
+  (error/try-render
+    (viz/expanded-radial
+      (ordered-subentity opts section/semantic-rels? entity)
+      opts)))
 
 (rum/defc entity-content
   [{:keys [entity]

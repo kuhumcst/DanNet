@@ -595,7 +595,10 @@ p.note strong {
 
 .set__content {
     text-align: center;
-    line-height: 1.5;
+    /* TODO: figure out a way to make ontotype big sets work better
+             that doesn't rely on line-height being higher than 1
+    */
+    line-height: 1;
 }
 
 div.set__left-bracket {
@@ -1033,7 +1036,7 @@ ol.five-digits  + details > summary {
 }
 
 li {
-    padding-bottom: 2ch;
+    padding-bottom: 1.5ch;
 }
 
 li:last-of-type {
@@ -1500,4 +1503,11 @@ details.render-error[open] {
 
 details.render-error > summary {
     font-size: inherit;
+}
+
+/* Inline render error (red squiggly underline) */
+span.render-error {
+    text-decoration: underline wavy red;
+    text-underline-offset: 5px;
+    cursor: help;
 }

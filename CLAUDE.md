@@ -7,3 +7,4 @@
   - Don't go on a longer tangent trying to analyze an unexpected error yourself (unless it is trivial to do so).
 - Generally, you will need explicit permission from me to restart the web service we're developing.
   - Again, try to test newly developed fixes/functionality in an isolated way using the REPL.
+- After editing CLJ or CLJC files, reload the affected namespaces using `(require '[namespace] :reload)` so the changes take effect in the running REPL.

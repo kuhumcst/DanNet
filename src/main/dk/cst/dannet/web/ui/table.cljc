@@ -4,6 +4,8 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
+               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
@@ -62,9 +64,10 @@
                                     (> coll-count word-cloud-limit))
                            "cloud"))]
     (case display-opt'
-      "cloud" #?(:cljs (viz/word-cloud coll (assoc opts :cloud-limit word-cloud-limit))
+      "cloud" #?(:cljs (error/try-render
+                         (viz/word-cloud coll (assoc opts :cloud-limit word-cloud-limit)))
                  :clj  [:div])
-      "max-cloud" #?(:cljs (viz/word-cloud coll opts)
+      "max-cloud" #?(:cljs (error/try-render (viz/word-cloud coll opts))
                      :clj  [:div])
       (rdf/list-items opts coll))))
 
@@ -149,33 +152,34 @@
                  (str "word cloud (" v-count ")")]]
                [:option {:value "max-cloud"}
                 "word cloud"])])))]
-     (cond
-       ;; NOTE: this used to only test using `set?`, but as we return both
-       ;;       sets and sorted colls now, we need to test this instead.
-       (shared/multi-valued? v)
+     (error/try-render
        (cond
-         (= 1 (count v))
-         (let [v* (first v)]
-           (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
-                                                     (meta v*)
-                                                     v*))
-                         v))
+         ;; NOTE: this used to only test using `set?`, but as we return both
+         ;;       sets and sorted colls now, we need to test this instead.
+         (shared/multi-valued? v)
+         (cond
+           (= 1 (count v))
+           (let [v* (first v)]
+             (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
+                                                       (meta v*)
+                                                       v*))
+                           v))
 
-         (every? i18n/rdf-string? v)
-         (string-list-cell opts+attr-key v)
+           (every? i18n/rdf-string? v)
+           (string-list-cell opts+attr-key v)
+
+           :else
+           [:td (multi-value-cell opts+attr-key v)])
+
+         (keyword? v)
+         (rum/with-key (value-cell opts+attr-key v) v)
+
+         (symbol? v)
+         (rum/with-key (value-cell opts+attr-key (meta v)) v)
 
          :else
-         [:td (multi-value-cell opts+attr-key v)])
-
-       (keyword? v)
-       (rum/with-key (value-cell opts+attr-key v) v)
-
-       (symbol? v)
-       (rum/with-key (value-cell opts+attr-key (meta v)) v)
-
-       :else
-       [:td {:lang (i18n/lang v) :key v}
-        (rdf/transform-val v opts+attr-key)])]))
+         [:td {:lang (i18n/lang v) :key v}
+          (rdf/transform-val v opts+attr-key)]))]))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."

@@ -198,5 +198,5 @@
                                        ""))]}
       (loader)
       [:main
-       (error/with-fallback (page-component opts'))]
+       (error/try-render (page-component opts') (page/error opts'))]
       (page-footer opts)]]))

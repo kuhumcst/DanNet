@@ -4,6 +4,8 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
+               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:clj [better-cond.core :refer [cond]]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
@@ -60,14 +62,14 @@
    (cond
      (symbol? prefix)
      (let [prefix-str (str prefix)
-           long?      (> (count prefix-str) 4)]
+           long?      (> (count prefix-str) 4)
+           classes    (cond-> [(prefix/prefix->class prefix)]
+                        long? (conj "truncatable")
+                        independent-prefix (conj "independent")
+                        (and (not independent-prefix)
+                             (hide-prefix? prefix opts)) (conj "hidden"))]
        [:span.prefix (cond-> {:title (prefix/prefix->uri prefix)
-                              :class [(prefix/prefix->class prefix)
-                                      (when long? "truncatable")
-                                      (if independent-prefix
-                                        "independent"
-                                        (when (hide-prefix? prefix opts)
-                                          "hidden"))]}
+                              :class classes}
                        long? (assoc :tab-index 0))
         prefix-str [:span.prefix__sep ":"]])
 
@@ -79,8 +81,8 @@
 (def rdf-resource-re
   #"^<(.+)>$")
 
-(defn transform-val
-  "Performs convenient transformations of `v`, optionally informed by `opts`."
+(defn- transform-val*
+  "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
    (cond
      (shared/rdf-datatype? v)
@@ -142,7 +144,19 @@
 
      :else s))
   ([s]
-   (transform-val s nil)))
+   (transform-val* s nil)))
+
+(defn transform-val
+  "Performs convenient transformations of `v`, optionally informed by `opts`.
+  
+  Returns nil for nil/empty input to allow fallback via 'or'."
+  ([v opts]
+   (when (some? v)
+     (error/try-render-with [e v opts]
+       (transform-val* v opts)
+       [:span.render-error {:title (ex-message e)} (str v)])))
+  ([v]
+   (transform-val v nil)))
 
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
@@ -277,7 +291,7 @@
 (rum/defc render-list-items
   [opts coll]
   (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
-    (rum/with-key (list-item opts item) sort-key)))
+    (rum/with-key (error/try-render (list-item opts item)) sort-key)))
 
 ;; A Rum-controlled version of the <details> element which only renders content
 ;; if the containing <details> element is open. This circumvents the default

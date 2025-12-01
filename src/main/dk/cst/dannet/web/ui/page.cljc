@@ -17,10 +17,10 @@
   [{:keys [entity k->label synset? full-screen]
     :as   opts}]
   ;; TODO: could this transformation be moved to the backend?
-  (let [inherited    (->> (shared/setify (:dns/inherited entity))
-                          (map (comp prefix/qname->kw first k->label))
-                          (set))
-        opts'        (assoc opts :inherited inherited)]
+  (let [inherited (->> (shared/setify (:dns/inherited entity))
+                       (map (comp prefix/qname->kw first k->label))
+                       (set))
+        opts'     (assoc opts :inherited inherited)]
     (if (and synset? full-screen)
       [:article
        (entity/full-screen-content opts')]
@@ -59,3 +59,28 @@
                (set! js/document.title title)))
     [:article.document {:lang lang}
      hiccup]))
+
+(rum/defc error
+  "User-friendly error page shown when a page component fails to render."
+  [{:keys [languages] :as opts}]
+  (i18n/da-en languages
+    [:article.document {:lang "da"}
+     [:h1 "Noget gik galt"]
+     [:p "Der opstod en fejl under indlæsning af denne side."]
+     [:ul
+      [:li [:a {:href "javascript:location.reload()"} "Genindlæs siden"]
+       " – det kan løse midlertidige problemer."]
+      [:li [:a {:href (shared/page-href "frontpage")} "Gå til forsiden"]
+       " – for at finde det du søger på en anden måde."]
+      [:li [:a {:href "mailto:simongray@hum.ku.dk"} "Rapportér fejlen"]
+       " – hvis problemet fortsætter."]]]
+    [:article.document {:lang "en"}
+     [:h1 "Something went wrong"]
+     [:p "An error occurred while loading this page."]
+     [:ul
+      [:li [:a {:href "javascript:location.reload()"} "Reload the page"]
+       " – this may fix temporary issues."]
+      [:li [:a {:href (shared/page-href "frontpage")} "Go to the front page"]
+       " – to find what you're looking for another way."]
+      [:li [:a {:href "mailto:simongray@hum.ku.dk"} "Report the issue"]
+       " – if the problem persists."]]]))
