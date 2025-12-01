@@ -655,6 +655,29 @@ span.prefix {
     padding-right: 4px; /* account for letter-spacing */
 }
 
+/* Truncatable prefix - shows ellipsis, expands on hover/focus */
+span.prefix.truncatable {
+    display: inline-block;
+    max-width: 5ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+    cursor: zoom-in;
+}
+
+span.prefix.truncatable:hover,
+span.prefix.truncatable:focus {
+    max-width: unset;
+    overflow: visible;
+    text-overflow: unset;
+}
+
+span.prefix.truncatable:focus {
+    outline: 2px solid #0066BB;
+    outline-offset: 1px;
+}
+
 span.prefix__sep {
     display: none;
 }
@@ -907,6 +930,7 @@ td.attr-prefix {
     padding-right: 0;
     text-align: right;
     width: 1px;
+    white-space: nowrap;
 }
 
 td.attr-name {

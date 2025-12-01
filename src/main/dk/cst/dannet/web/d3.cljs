@@ -11,13 +11,6 @@
 (def colours
   (atom (cycle shared/theme)))
 
-;; Character width categories for glyph-aware text measurement
-(def ^:private narrow-chars
-  #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
-
-(def ^:private wide-chars
-  #{\m \w \M \W \æ \Æ \@ \%})
-
 (defn next-colour
   "Uses a stateful atom to cycle through shared/theme colors, ensuring each
   subsequent call returns a different color for visual distinction."
@@ -44,24 +37,10 @@
   "Composed fn that removes both DDO subscripts and synset braces."
   (comp remove-subscript remove-parens))
 
-(defn- glyph-width*
-  "Estimate the approximate visual width of `s` based on character widths."
-  [s]
-  (reduce (fn [acc ch]
-            (+ acc (cond
-                     (narrow-chars ch) 0.67
-                     (wide-chars ch) 1.33
-                     :else 1.0)))
-          0
-          (str s)))
-
-(def glyph-width
-  (memoize glyph-width*))
-
 (defn length-penalty
   "Calculate a new size with a penalty based on the visual width of `label`."
   [label size]
-  (/ size (max 1 (math/log10 (glyph-width label)))))
+  (/ size (max 1 (math/log10 (shared/glyph-width label)))))
 
 ;; NOTE: memoized for performance.
 (def reorder-lens-shape
@@ -376,7 +355,7 @@
           sorted-positions (sort-by :space-score positions)
 
           ;; Longest labels first (by glyph width, not character count)
-          sorted-nodes     (sort-by (comp glyph-width :name) > nodes)
+          sorted-nodes     (sort-by (comp shared/glyph-width :name) > nodes)
 
           ;; Pair longest labels with best positions
           offset->node     (zipmap (map :offset sorted-positions) sorted-nodes)]
@@ -485,7 +464,7 @@
                       (map remove-subscript)
                       (remove #{shared/omitted})
                       (set)
-                      (sort-by glyph-width)
+                      (sort-by shared/glyph-width)
                       (str/join ", "))
         entity'  (->> (keys shared/synset-rel-theme)
                       (select-keys entity)

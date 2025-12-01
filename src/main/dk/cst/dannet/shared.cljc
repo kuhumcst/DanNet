@@ -12,7 +12,6 @@
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:clj [clojure.java.io :as io])
-            #?(:cljs [clojure.string :as str])
             #?(:cljs [cognitect.transit :as t])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.fetch :as fetch])
@@ -396,6 +395,27 @@
   [v]
   (and (coll? v)
        (not (map? v))))
+
+(def narrow-glyphs
+  #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
+
+(def wide-glyphs
+  #{\m \w \M \W \æ \Æ \@ \%})
+
+(defn- glyph-width*
+  "Estimate the approximate visual width of `s` based on character widths."
+  [s]
+  (reduce (fn [acc ch]
+            (+ acc (cond
+                     (narrow-glyphs ch) 0.67
+                     (wide-glyphs ch) 1.33
+                     :else 1.0)))
+          0
+          (str s)))
+
+(def glyph-width
+  #?(:clj  (memo/lru glyph-width* :lru/threshold 5000)
+     :cljs (memoize glyph-width*)))
 
 (defn rdf-datatype?
   "Is `x` an RDF datatype represented as a map?"

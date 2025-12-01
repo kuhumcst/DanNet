@@ -59,13 +59,17 @@
   ([prefix {:keys [independent-prefix] :as opts}]
    (cond
      (symbol? prefix)
-     [:span.prefix {:title (prefix/prefix->uri prefix)
-                    :class [(prefix/prefix->class prefix)
-                            (if independent-prefix
-                              "independent"
-                              (when (hide-prefix? prefix opts)
-                                "hidden"))]}
-      (str prefix) [:span.prefix__sep ":"]]
+     (let [prefix-str (str prefix)
+           long?      (> (count prefix-str) 4)]
+       [:span.prefix (cond-> {:title (prefix/prefix->uri prefix)
+                              :class [(prefix/prefix->class prefix)
+                                      (when long? "truncatable")
+                                      (if independent-prefix
+                                        "independent"
+                                        (when (hide-prefix? prefix opts)
+                                          "hidden"))]}
+                       long? (assoc :tab-index 0))
+        prefix-str [:span.prefix__sep ":"]])
 
      (string? prefix)
      [:span.prefix {:title (prefix/guess-ns prefix)
