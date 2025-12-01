@@ -5,6 +5,8 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
+            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
+               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.ui.search :as search]))
 
@@ -196,5 +198,5 @@
                                        ""))]}
       (loader)
       [:main
-       (page-component opts')]
+       (error/with-fallback (page-component opts'))]
       (page-footer opts)]]))

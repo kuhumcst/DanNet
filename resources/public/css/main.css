@@ -1482,3 +1482,22 @@ ul.hypernym-chain > li.subject::before {
 ul.hypernym-chain > li.subject {
     color: #333;
 }
+
+/* Error boundary fallback */
+details.render-error[open] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 10000;
+    padding: 1em;
+    margin: 0;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+details.render-error > summary {
+    font-size: inherit;
+}
