@@ -543,6 +543,10 @@ sub {
     display: inline-block; /* nullifies text-decoration: underline */
 }
 
+.set__word {
+    white-space: nowrap;
+}
+
 div.set {
     display: inline-flex;
     flex-basis: 100%;

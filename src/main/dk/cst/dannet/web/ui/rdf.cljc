@@ -107,15 +107,16 @@
               (for [label (shared/sense-labels shared/synset-sep s)]
                 (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
                   [:<>
-                   (if (= word shared/omitted)
-                     [:span.subtle word]
-                     word)
-                   ;; Correct for the rare case of comma an affixed comma.
-                   ;; e.g. http://localhost:3456/dannet/data/synset-7290
-                   (when sub
-                     (if (str/ends-with? sub ",")
-                       [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
-                       [:sub sub]))
+                   [:span.set__word
+                    (if (= word shared/omitted)
+                      [:span.subtle word]
+                      word)
+                    ;; Correct for the rare case of an affixed comma.
+                    ;; e.g. http://localhost:3456/dannet/data/synset-7290
+                    (when sub
+                      (if (str/ends-with? sub ",")
+                        [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
+                        [:sub sub]))]
                    mwe]
                   label))))
       [:div.set__right-bracket]]
