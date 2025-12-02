@@ -63,13 +63,14 @@
      (symbol? prefix)
      (let [prefix-str (str prefix)
            long?      (> (count prefix-str) 4)
-           classes    (cond-> [(prefix/prefix->class prefix)]
+           classes    (cond-> []
+                        (prefix/prefix->class prefix) (conj (prefix/prefix->class prefix))
                         long? (conj "truncatable")
                         independent-prefix (conj "independent")
                         (and (not independent-prefix)
                              (hide-prefix? prefix opts)) (conj "hidden"))]
-       [:span.prefix (cond-> {:title (prefix/prefix->uri prefix)
-                              :class classes}
+       [:span.prefix (cond-> {:title (prefix/prefix->uri prefix)}
+                       (seq classes) (assoc :class classes)
                        long? (assoc :tab-index 0))
         prefix-str [:span.prefix__sep ":"]])
 

@@ -5,6 +5,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.error :as error :include-macros true]
             ["d3" :as d3]
             ["d3-cloud" :as cloud]))
 
@@ -137,7 +138,7 @@
                (.-sub d))))
   text)
 
-(defn build-cloud!
+(defn- build-cloud!*
   [state {:keys [cloud-limit] :as opts} synsets node]
   (when (and node (not= @state [cloud-limit synsets]))
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
@@ -207,6 +208,13 @@
                      (.on "end" draw))]
       (.start layout))
     (reset! state [cloud-limit synsets])))
+
+(defn build-cloud!
+  [state opts synsets node]
+  ;; Uses try-static-render since this runs in a ref callback, outside React's
+  ;; render cycle where try-render and error boundaries can't catch errors.
+  (error/try-static-render node
+    (build-cloud!* state opts synsets node)))
 
 ;; NOTE: memoized for performance.
 (def expand-sense-labels
@@ -705,7 +713,7 @@
 ;;       or padding, and possibly radial radius too
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
-(defn build-radial!
+(defn- build-radial!*
   "Build and render a radial tree diagram in `elem` from `entity`.
 
   Orchestrates the complete radial tree visualization: prepares data,
@@ -771,3 +779,10 @@
       (render-radial-labels svg root)
 
       (.node svg))))
+
+(defn build-radial!
+  [entity elem {:keys [subject] :as opts}]
+  ;; Uses try-static-render since this runs in a ref callback, outside React's
+  ;; render cycle where try-render and error boundaries can't catch errors.
+  (error/try-static-render elem
+    (build-radial!* entity elem opts)))

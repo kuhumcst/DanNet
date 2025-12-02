@@ -108,3 +108,20 @@
                   :data  ~context-map}
                  "Render error caught")
          ~fallback))))
+
+(defmacro try-static-render
+  "Wrap `body` in try/catch, rendering fallback into `elem` on error.
+  
+  For imperative DOM code (e.g. ref callbacks) that runs outside React's
+  render cycle. Uses 'rum/render-static-markup' to render fallback hiccup
+  directly into the element. CLJS only.
+  
+  Example:
+    (try-static-render node
+      (build-visualization! data node))"
+  [elem & body]
+  `(try
+     ~@body
+     (catch :default e#
+       (set! (.-innerHTML ~elem)
+             (rum/render-static-markup (fallback-content e# nil))))))
