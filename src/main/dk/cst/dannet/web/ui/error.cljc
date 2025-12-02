@@ -4,6 +4,7 @@
   Provides two mechanisms for error handling:
     - React error boundaries (CLJS) via 'error-boundary-mixin'
     - try/catch wrappers (CLJ/CLJS) via 'try-render' and 'try-render-with'
+    - Imperative DOM error handling (CLJS only) via 'try-static-render'
   
   All caught errors are logged via Telemere."
   (:require [rum.core :as rum]
@@ -23,6 +24,15 @@
                          (assoc state ::error error))}
      :clj  {}))
 
+(defn default-fallback
+  "Default error fallback: expandable details with message and stack trace."
+  [e]
+  [:details.render-error
+   [:summary "⚠️ " (ex-message e)]
+   [:pre #?(:cljs (.-stack e)
+            :clj  (with-out-str
+                    (clojure.stacktrace/print-cause-trace e)))]])
+
 (rum/defcs error-boundary < error-boundary-mixin
   "Wrap `child` in a React error boundary, showing `fallback` on error.
 
@@ -30,11 +40,7 @@
   Prefer using 'try-render' macro instead. Only active on CLJS."
   [state child fallback]
   (if-let [error (::error state)]
-    (or fallback
-        [:details.render-error
-         [:summary "⚠️ " (ex-message error)]
-         [:pre #?(:cljs (.-stack error)
-                  :clj  nil)]])
+    (or fallback (default-fallback error))
     child))
 
 ;; TODO: find a way to preserve backend errors in the frontend after SSR,
@@ -48,12 +54,7 @@
   (t/log! {:level :error
            :error e}
           "Render error caught")
-  (or fallback
-      [:details.render-error
-       [:summary "⚠️ " (ex-message e)]
-       [:pre #?(:cljs (.-stack e)
-                :clj  (with-out-str
-                        (clojure.stacktrace/print-cause-trace e)))]]))
+  (or fallback (default-fallback e)))
 
 (defn- emit-try-catch
   "Emit try/catch for `body` with `error-sym` and `catch-body`.
@@ -66,8 +67,7 @@
 
 (defmacro try-render
   "Wrap `child` in try/catch, showing `fallback` on error.
-  
-  Logs error via Telemere. Uses 'fallback-content' for default fallback.
+
   Wraps in 'error-boundary' for consistent SSR/hydration and to catch
   React rendering errors on CLJS.
   
@@ -94,10 +94,10 @@
       (transform-val* v opts)
       [:span.render-error {:title (ex-message e)} (str v)])"
   [bindings child fallback]
-  (let [cljs?                       (:ns &env)
+  (let [cljs?       (:ns &env)
         [error-sym & context-syms] bindings
-        context-map                 (zipmap (map keyword context-syms)
-                                            context-syms)]
+        context-map (zipmap (map keyword context-syms)
+                            context-syms)]
     (emit-try-catch
       cljs?
       `(error-boundary ~child nil)
@@ -112,16 +112,22 @@
 (defmacro try-static-render
   "Wrap `body` in try/catch, rendering fallback into `elem` on error.
   
-  For imperative DOM code (e.g. ref callbacks) that runs outside React's
-  render cycle. Uses 'rum/render-static-markup' to render fallback hiccup
-  directly into the element. CLJS only.
+  This is used for imperative DOM code (e.g. ref callbacks) that runs *outside*
+  React's normal render cycle. It uses 'rum/render-static-markup' to render
+  the fallback hiccup directly into the element if needed.
   
-  Example:
-    (try-static-render node
-      (build-visualization! data node))"
+  Examples:
+    (try-static-render node (build-viz! node))
+    (try-static-render app (rum/mount component app) fallback-page)"
   [elem & body]
-  `(try
-     ~@body
-     (catch :default e#
-       (set! (.-innerHTML ~elem)
-             (rum/render-static-markup (fallback-content e# nil))))))
+  (let [cljs?    (:ns &env)
+        fallback (when (> (count body) 1) (last body))
+        body     (if fallback (butlast body) body)]
+    ;; CLJS: wrap in try/catch. CLJ: no-op, just execute body.
+    (if cljs?
+      `(try
+         ~@body
+         (catch :default e#
+           (set! (.-innerHTML ~elem)
+                 (rum/render-static-markup (fallback-content e# ~fallback)))))
+      `(do ~@body))))
