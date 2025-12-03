@@ -191,7 +191,7 @@
                               "full-screen")
                             #?(:clj  ""
                                :cljs (if (and *hydrated*
-                                              (not-empty (:fetch opts)))
+                                              (not-empty (:fetch state')))
                                        "fetching"
                                        ""))]}
       (loader)
