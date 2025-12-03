@@ -434,14 +434,12 @@ form[role=search] input[type=submit] {
     transition: transform 0.2s;
     letter-spacing: 2px;
 
-    /* Hide when not in use. */
-    position: absolute;
-    min-width: 0;
-    opacity: 0;
-    color: transparent;
+    /* Hide when not in use as it otherwise blocks user input. */
+    display: none;
 }
 
 form[role=search]:focus-within input[type=submit] {
+    display: revert; /* Unhide when search is active. */
     position: static;
     opacity: 1;
     transition: color 0.2s;
