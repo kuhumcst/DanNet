@@ -84,3 +84,24 @@
        " – to find what you're looking for another way."]
       [:li [:a {:href "mailto:simongray@hum.ku.dk"} "Report the issue"]
        " – if the problem persists."]]]))
+
+(rum/defc not-found
+  "User-friendly 404 page shown when a page type is unknown or missing."
+  [{:keys [languages] :as opts}]
+  (i18n/da-en languages
+    [:article.document {:lang "da"}
+     [:h1 "Siden blev ikke fundet"]
+     [:p "Den side, du leder efter, findes ikke eller er blevet flyttet."]
+     [:ul
+      [:li [:a {:href (shared/page-href "frontpage")} "Gå til forsiden"]
+       " – for at finde det du søger."]
+      [:li [:a {:href "javascript:history.back()"} "Gå tilbage"]
+       " – til den forrige side."]]]
+    [:article.document {:lang "en"}
+     [:h1 "Page not found"]
+     [:p "The page you're looking for doesn't exist or has been moved."]
+     [:ul
+      [:li [:a {:href (shared/page-href "frontpage")} "Go to the front page"]
+       " – to find what you're looking for."]
+      [:li [:a {:href "javascript:history.back()"} "Go back"]
+       " – to the previous page."]]]))

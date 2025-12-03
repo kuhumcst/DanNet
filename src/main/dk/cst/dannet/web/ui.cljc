@@ -121,13 +121,11 @@
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities full-screen] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
-  (let [page-component (or (get {"entity"   page/entity
-                                 "search"   page/search
-                                 "markdown" page/markdown}
-                                page)
-                           (throw (ex-info
-                                    (str "No component for page: " page)
-                                    opts)))
+  (let [page-component (get {"entity"   page/entity
+                             "search"   page/search
+                             "markdown" page/markdown}
+                            page
+                            page/not-found)
         ;; The backend also needs access to user-specific state to be able to
         ;; subsequently hydrate the HTML on the client-side with no errors.
         state' #?(:clj (assoc @shared/state

@@ -5,6 +5,7 @@
             [clojure.math :as math]
             [reitit.impl :refer [form-decode]]
             [ont-app.vocabulary.core :as voc]
+            [taoensso.telemere :as t]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -12,7 +13,7 @@
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:clj [clojure.java.io :as io])
-            #?(:cljs [cognitect.transit :as t])
+            #?(:cljs [cognitect.transit :as transit])
             #?(:cljs [reagent.cookies :as cookie])
             #?(:cljs [lambdaisland.fetch :as fetch])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -132,7 +133,7 @@
 
      ;; TODO: handle datetime more satisfyingly typewise and in the web UI
      (def reader
-       (t/reader :json {:handlers transit-read-handlers}))
+       (transit/reader :json {:handlers transit-read-handlers}))
 
      (defn clear-fetch
        "Clear a `url` from the ongoing fetch table (done after fetches)."
@@ -307,11 +308,18 @@
 
   Optionally, specify whether to `replace` the state in history."
   [url & [replace]]
-  #?(:cljs (let [history @rfe/history]
-             (if replace
-               (.replaceState js/window.history nil "" (rfh/-href history url))
-               (.pushState js/window.history nil "" (rfh/-href history url)))
-             (rfh/-on-navigate history url))))
+  #?(:cljs (if (not-empty url)
+             (let [history @rfe/history]
+               (if replace
+                 (.replaceState js/window.history nil "" (rfh/-href history url))
+                 (.pushState js/window.history nil "" (rfh/-href history url)))
+               (rfh/-on-navigate history url))
+             (t/log! {:level :warn
+                      :data  {:url      url
+                              :from     js/window.location.href
+                              :referrer js/document.referrer
+                              :stack    (.-stack (js/Error.))}}
+                     "navigate-to called with empty URL"))))
 
 (defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
