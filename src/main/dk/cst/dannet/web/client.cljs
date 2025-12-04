@@ -165,28 +165,32 @@
                   (set! ui/*hydrated* true))
 
                 ;; Fetch remaining semantic relation data truncated on initial request.
-                ;; Silently merges deferred values into the current entity.
+                ;; Failures are logged but don't disrupt the page - user still has partial data.
+                ;; TODO: this causes word clouds to re-render even when showing limited data.
+                ;;       Investigate whether we can skip re-mount or make it more granular.
+                ;; TODO: race condition - if user navigates away before deferred request completes,
+                ;;       the callback will still update location and re-mount with stale data.
+                ;;       Fix by checking path matches current location before merging, or cancel
+                ;;       the request on navigation.
                 (when has-deferred
-                  (.then (shared/api path {:query-params (assoc query-params
-                                                           :deferred true)})
-                         (fn [deferred-response]
-                           (shared/clear-fetch path)
-                           (when-let [deferred-body (:body deferred-response)]
-                             (let [merged-body (update body :entity
-                                                 (fn [entity]
-                                                   (merge-with
-                                                     (fn [old new]
-                                                       (if (and (coll? old)
-                                                                (coll? new))
-                                                         (into (vec old) new)
-                                                         new))
-                                                     entity
-                                                     (:entity deferred-body))))
-                                   new-component (ui/page-shell page merged-body)]
-                               (reset! location {:path    path
-                                                 :headers headers
-                                                 :data    merged-body})
-                               (mount-page! new-component))))))
+                  (-> (shared/api path {:query-params (assoc query-params
+                                                        :deferred true)})
+                      (.then (fn [deferred-response]
+                               (shared/clear-fetch path)
+                               (when-let [deferred-body (:body deferred-response)]
+                                 (let [merged-body   (update body :entity
+                                                      shared/merge-deferred-entity
+                                                      (:entity deferred-body))
+                                       new-component (ui/page-shell page merged-body)]
+                                   (reset! location {:path    path
+                                                     :headers headers
+                                                     :data    merged-body})
+                                   (mount-page! new-component)))))
+                      (.catch (fn [err]
+                                (t/log! {:level :warn
+                                         :error err
+                                         :data  {:path path}}
+                                        "Deferred fetch failed")))))
 
                 ;; NOTE: this reset will run *after* refs are resolved!
                 (reset! shared/post-navigate nil))))))

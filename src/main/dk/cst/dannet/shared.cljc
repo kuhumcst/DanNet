@@ -501,6 +501,17 @@
   Used for word cloud limits and deferred loading truncation."
   150)
 
+(defn merge-deferred-entity
+  "Merge `deferred` entity data into `entity`, concatenating collections.
+  Used by the client to combine truncated initial data with deferred remainder."
+  [entity deferred]
+  (merge-with (fn [old new]
+                (if (and (coll? old) (coll? new))
+                  (into old new)
+                  new))
+              entity
+              deferred))
+
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via
   `(generate-synset-rels-theme)` in the resources namespace."

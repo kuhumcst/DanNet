@@ -116,11 +116,9 @@
 
       ;; Longer lists of synsets can be displayed as a word cloud.
       (when (display-cloud? opts+attr-key v)
-        ;; Default to word clouds for longer collections.
+        ;; Default to word cloud only for collections exceeding the limit.
         (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
-              value          (or display-opt (if exceeds-limit?
-                                               "cloud"
-                                               "max-cloud"))
+              value          (or display-opt (when exceeds-limit? "cloud"))
               change         (fn [e]
                                (swap! display-opts assoc-in [subject k]
                                       (.-value (.-target e))))]

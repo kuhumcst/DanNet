@@ -9,9 +9,12 @@
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
   [state synsets {:keys [cloud-limit] :as opts}]
-  [:div {:key (str (hash synsets) "-" cloud-limit)
-         :ref #?(:clj  nil
-                 :cljs #(d3/build-cloud! (::synsets state) opts synsets %))}])
+  ;; Key on displayed items only, so deferred data doesn't trigger re-render
+  ;; when cloud-limit caps what's shown anyway.
+  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)]
+    [:div {:key (hash displayed)
+           :ref #?(:clj  nil
+                   :cljs #(d3/build-cloud! (::synsets state) opts synsets %))}]))
 
 (rum/defc radial-tree-diagram
   [subentity opts]

@@ -445,13 +445,14 @@
         (if (and (section/semantic-rels? [k])
                  (coll? v)
                  (> (count v) shared/semantic-relation-limit))
-          (do
+          ;; Use subvec for O(1) splitting when possible, avoiding full traversal.
+          (let [v'    (if (vector? v) v (vec v))
+                trunc (subvec v' 0 shared/semantic-relation-limit)
+                defer (subvec v' shared/semantic-relation-limit)]
             (vreset! has-deferred? true)
             (recur more
-                   (assoc! truncated k
-                           (vec (take shared/semantic-relation-limit v)))
-                   (assoc! deferred k
-                           (vec (drop shared/semantic-relation-limit v)))))
+                   (assoc! truncated k trunc)
+                   (assoc! deferred k defer)))
           (recur more
                  (assoc! truncated k v)
                  deferred))))))
@@ -490,6 +491,7 @@
                                  (q/entity g subject*))
                   ;; Apply truncation only for content types that support deferred loading
                   truncate?    (truncate-content-types content-type)
+                  deferred?    (and truncate? deferred)
                   {:keys [truncated deferred-entity has-deferred]}
                   (if (and truncate? (not-empty raw-entity))
                     (let [result (truncate-semantic-relations raw-entity)]
@@ -497,9 +499,15 @@
                        :deferred-entity (:deferred result)
                        :has-deferred    (:has-deferred result)})
                     {:truncated raw-entity :deferred-entity {} :has-deferred false})
-                  ;; Return truncated on initial request, deferred portion on deferred request
-                  entity       (if deferred deferred-entity truncated)]
-              (if (or (not-empty entity) deferred)
+                  ;; Return truncated on initial request, deferred portion on deferred request.
+                  ;; If there's nothing deferred (entity was small, or was re-fetched from
+                  ;; scratch), return the full entity to avoid an empty response.
+                  entity       (if deferred?
+                                 (if (not-empty deferred-entity)
+                                   deferred-entity
+                                   truncated)
+                                 truncated)]
+              (if (not-empty entity)
                 (assoc ctx
                   :content (-> (meta raw-entity)
                                (update :entities dissoc subject*)
@@ -511,7 +519,7 @@
                                       :entity entity))
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
-                               (and has-deferred (not deferred))
+                               (and has-deferred (not deferred?))
                                (assoc :has-deferred "true")))
                 (let [alt (alt-resource qname)]
                   (cond
