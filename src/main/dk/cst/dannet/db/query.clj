@@ -235,7 +235,7 @@
                 :supplemented supplemented
                 :ancestry     ancestry})))
 
-(defn expanded-entity
+(defn- expanded-entity*
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
   (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
@@ -250,6 +250,15 @@
         (supplement-synset g entity* subject)
         entity*))
     (with-meta {} {:subject subject})))
+
+;; Large synsets can have thousands of semantic relations (e.g. synset-2119 has
+;; 1165 hyponyms) which take ~3s to query from Jena. To improve perceived
+;; performance, the web layer truncates large entities on initial page load and
+;; fetches the remaining data via a second "deferred" request. Without caching,
+;; both requests would hit the database for the same entity. The cache ensures
+;; the deferred request completes in <1ms.
+(def expanded-entity
+  (memo/lru expanded-entity* :lru/threshold 500))
 
 (defn table-query
   "Run query `q` in `g`, transposing the results as rows of `ks`.
