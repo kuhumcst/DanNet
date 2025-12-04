@@ -413,12 +413,18 @@
                                  ;; Add filename extensions when needed.
                                  (merge (with-file-ext title content-type)))))))})
 
-(def ^:private expand-content-types
+(def expand-content-types
   "Content types that receive expanded entity data with relation labels."
   #{"application/transit+json"
     "text/html"
     "application/ld+json"
     "application/json"})
+
+(def truncate-content-types
+  "Content types that support deferred loading of large semantic relations.
+  Limited to browser-based content types where the client can fetch the rest."
+  #{"application/transit+json"
+    "text/html"})
 
 (defn- truncate-semantic-relations
   "Truncate semantic relation values in `entity`.
@@ -455,7 +461,7 @@
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
   within the path-params.
 
-  When the content-type supports expansion (Transit, HTML) and the entity has
+  When the content-type supports truncation (HTML, Transit) and the entity has
   large semantic relations, values are truncated to `semantic-relation-limit`.
   The remaining data can be fetched by adding `?deferred=true` to the request."
   [& {:keys [prefix subject] :as static-params}]
@@ -482,9 +488,10 @@
                   raw-entity   (if expand?
                                  (q/expanded-entity g subject*)
                                  (q/entity g subject*))
-                  ;; Apply truncation for expandable content types
+                  ;; Apply truncation only for content types that support deferred loading
+                  truncate?    (truncate-content-types content-type)
                   {:keys [truncated deferred-entity has-deferred]}
-                  (if (and expand? (not-empty raw-entity))
+                  (if (and truncate? (not-empty raw-entity))
                     (let [result (truncate-semantic-relations raw-entity)]
                       {:truncated       (:truncated result)
                        :deferred-entity (:deferred result)
