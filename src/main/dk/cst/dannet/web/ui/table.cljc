@@ -61,7 +61,7 @@
                          ;; Display the limited, radial cloud by default for
                          ;; large colls and use tables for everything else.
                          (when (and (display-cloud? opts coll)
-                                    (> coll-count word-cloud-limit))
+                                    (>= coll-count word-cloud-limit))
                            "cloud"))]
     (case display-opt'
       "cloud" #?(:cljs (error/try-render
@@ -121,17 +121,20 @@
       ;; Longer lists of synsets can be displayed as a word cloud.
       (when (display-cloud? opts+attr-key v)
         ;; Default to word clouds for longer collections.
-        (let [value  (or display-opt "cloud")
-              change (fn [e]
-                       (swap! display-opts assoc-in [subject k]
-                              (.-value (.-target e))))]
+        (let [exceeds-limit? (> v-count word-cloud-limit)
+              value          (or display-opt (if exceeds-limit?
+                                               "cloud"
+                                               "max-cloud"))
+              change         (fn [e]
+                               (swap! display-opts assoc-in [subject k]
+                                      (.-value (.-target e))))]
           (i18n/da-en languages
             [:select.display-options {:title     "Visningsmuligheder"
                                       :value     value
                                       :on-change change}
              [:option {:value ""}
               "liste"]
-             (if (> v-count word-cloud-limit)
+             (if exceeds-limit?
                [:<>
                 [:option {:value "cloud"}
                  (str "ordsky (top)")]
@@ -144,7 +147,7 @@
                                       :on-change change}
              [:option {:value ""}
               "list"]
-             (if (> v-count word-cloud-limit)
+             (if exceeds-limit?
                [:<>
                 [:option {:value "cloud"}
                  (str "word cloud (top)")]
