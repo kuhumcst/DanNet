@@ -20,6 +20,7 @@
             [thi.ng.color.presets.categories :as cat]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
@@ -419,17 +420,52 @@
     "application/ld+json"
     "application/json"})
 
+(defn- truncate-semantic-relations
+  "Truncate semantic relation values in `entity`.
+  
+  Returns a map with:
+    :truncated    - entity with values capped at the limit
+    :deferred     - entity containing only the overflow values  
+    :has-deferred - true if any relation exceeded the limit"
+  [entity]
+  (let [has-deferred? (volatile! false)]
+    (loop [[[k v] & more] (seq entity)
+           truncated (transient {})
+           deferred  (transient {})]
+      (if (nil? k)
+        {:truncated    (persistent! truncated)
+         :deferred     (persistent! deferred)
+         :has-deferred @has-deferred?}
+        (if (and (section/semantic-rels? [k])
+                 (coll? v)
+                 (> (count v) shared/semantic-relation-limit))
+          (do
+            (vreset! has-deferred? true)
+            (recur more
+                   (assoc! truncated k
+                           (vec (take shared/semantic-relation-limit v)))
+                   (assoc! deferred k
+                           (vec (drop shared/semantic-relation-limit v)))))
+          (recur more
+                 (assoc! truncated k v)
+                 deferred))))))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
-  within the path-params."
+  within the path-params.
+
+  When the content-type supports expansion (Transit, HTML) and the entity has
+  large semantic relations, values are truncated to `semantic-relation-limit`.
+  The remaining data can be fetched by adding `?deferred=true` to the request."
   [& {:keys [prefix subject] :as static-params}]
   {:name  ::entity
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [prefix
-                          subject]} (merge (:path-params request)
-                                           (:query-params request)
-                                           static-params)
+                          subject
+                          deferred]} (merge (:path-params request)
+                                            (:query-params request)
+                                            static-params)
                   content-type (or (get-in request [:accept :field])
                                    "application/json")
                   g            (:graph @db)
@@ -442,12 +478,23 @@
                   qname        (if (keyword? subject*)
                                  (prefix/kw->qname subject*)
                                  subject*)
-                  entity       (if (expand-content-types content-type)
+                  expand?      (expand-content-types content-type)
+                  raw-entity   (if expand?
                                  (q/expanded-entity g subject*)
-                                 (q/entity g subject*))]
-              (if (not-empty entity)
+                                 (q/entity g subject*))
+                  ;; Apply truncation for expandable content types
+                  {:keys [truncated deferred-entity has-deferred]}
+                  (if (and expand? (not-empty raw-entity))
+                    (let [result (truncate-semantic-relations raw-entity)]
+                      {:truncated       (:truncated result)
+                       :deferred-entity (:deferred result)
+                       :has-deferred    (:has-deferred result)})
+                    {:truncated raw-entity :deferred-entity {} :has-deferred false})
+                  ;; Return truncated on initial request, deferred portion on deferred request
+                  entity       (if deferred deferred-entity truncated)]
+              (if (or (not-empty entity) deferred)
                 (assoc ctx
-                  :content (-> (meta entity)
+                  :content (-> (meta raw-entity)
                                (update :entities dissoc subject*)
                                (assoc :languages languages
                                       :href (str (:uri request)
@@ -455,8 +502,10 @@
                                                    (str "?" qs)))
                                       :subject subject*
                                       :entity entity))
-                  :page-meta {:title qname
-                              :page  "entity"})
+                  :page-meta (cond-> {:title qname
+                                      :page  "entity"}
+                               (and has-deferred (not deferred))
+                               (assoc :has-deferred "true")))
                 (let [alt (alt-resource qname)]
                   (cond
                     (and alt (not-empty (q/entity g alt)))
@@ -467,6 +516,7 @@
 
                     (string? subject*)
                     (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
+
 
 (defn look-up*
   [g lemma]

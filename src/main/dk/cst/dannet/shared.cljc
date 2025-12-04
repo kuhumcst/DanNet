@@ -496,6 +496,11 @@
                      label-keys-short)]
     #(get-entity-label label-keys %)))
 
+(def semantic-relation-limit
+  "Maximum number of values to display per semantic relation.
+  Used for word cloud limits and deferred loading truncation."
+  150)
+
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via
   `(generate-synset-rels-theme)` in the resources namespace."

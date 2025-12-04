@@ -136,7 +136,8 @@
                     page           (shared/x-header headers :page)
                     body           (not-empty (:body %))
                     page-component (ui/page-shell page body)
-                    page-title     (shared/x-header headers :title)]
+                    page-title     (shared/x-header headers :title)
+                    has-deferred   (shared/x-header headers :has-deferred)]
                 (set! js/document.title page-title)
                 (reset! location {:path    path
                                   :headers headers
@@ -163,8 +164,33 @@
                 (when-not ui/*hydrated*
                   (set! ui/*hydrated* true))
 
+                ;; Fetch remaining semantic relation data truncated on initial request.
+                ;; Silently merges deferred values into the current entity.
+                (when has-deferred
+                  (.then (shared/api path {:query-params (assoc query-params
+                                                           :deferred true)})
+                         (fn [deferred-response]
+                           (shared/clear-fetch path)
+                           (when-let [deferred-body (:body deferred-response)]
+                             (let [merged-body (update body :entity
+                                                 (fn [entity]
+                                                   (merge-with
+                                                     (fn [old new]
+                                                       (if (and (coll? old)
+                                                                (coll? new))
+                                                         (into (vec old) new)
+                                                         new))
+                                                     entity
+                                                     (:entity deferred-body))))
+                                   new-component (ui/page-shell page merged-body)]
+                               (reset! location {:path    path
+                                                 :headers headers
+                                                 :data    merged-body})
+                               (mount-page! new-component))))))
+
                 ;; NOTE: this reset will run *after* refs are resolved!
                 (reset! shared/post-navigate nil))))))
+
 
 (defn set-up-navigation!
   []

@@ -91,12 +91,6 @@
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
-(rum/defc loader
-  []
-  [:div.loader
-   [:span.loader__element]
-   [:span.loader__element]
-   [:span.loader__element]])
 
 (rum/defc help-arrows
   [page {:keys [languages] :as opts}]
@@ -179,7 +173,8 @@
                           "Gå til forsiden"
                           "Go to the front page")
                  :href  (shared/page-href "frontpage")}
-       "DanNet"]
+       ;; Wrapped in spans for staggered loading animation (see main.css).
+       [:span "D"] [:span "a"] [:span "n"] [:span "N"] [:span "e"] [:span "t"]]
       (language-select languages')
       [:button.synset-details {:class    (when details?
                                            "toggled")
@@ -194,7 +189,6 @@
                                               (not-empty (:fetch state')))
                                        "fetching"
                                        ""))]}
-      (loader)
       [:main
        (error/try-render (page-component opts') (page/error opts'))]
       (page-footer opts)]]))

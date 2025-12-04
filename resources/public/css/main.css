@@ -2,50 +2,44 @@
     hyphens: auto;
 }
 
-/* Loading indicator based on https://codepen.io/petersonby/pen/gzxpdj */
-.loader {
-    pointer-events: none; /* Click-through allowed while loading. */
-    transition: all 0.33s;
-    transition-delay: 0.66s;
-    opacity: 0;
-    background-color: rgba(0,0,0,0.66);
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-    position: fixed;
-    top: 0; left: 0;
-    display: flex;
-    align-items: center;
-    align-content: center;
-    justify-content: center;
-    z-index: 100000;
-}
-
+/**
+ * Loading indicator - animates DanNet title letters when fetching.
+ * 
+ * The animation has a ~1s idle period before any visible pulse, ensuring
+ * quick fetches don't trigger the animation. Letter spacing also expands
+ * with a matching 1s transition delay.
+ */
 #content.fetching {
     cursor: progress;
 }
 
-#content.fetching .loader {
-    opacity: 1;
+nav a.title span {
+    display: inline-block;
+    color: white;
 }
 
-.loader__element {
-    border-radius: 100%;
-    border: 1vw solid #fff;
-    margin: calc(1vw*2);
+/* nav precedes #content in DOM, so :has(~) checks following sibling state */
+nav:has(~ #content.fetching) a.title {
+    letter-spacing: 8px;
 }
 
-.loader__element:nth-child(1) {
-    animation: preloader .6s ease-in-out alternate infinite;
+nav:has(~ #content.fetching) a.title span {
+    animation: title-pulse 1.6s ease-in-out infinite;
 }
-.loader__element:nth-child(2) {
-    animation: preloader .6s ease-in-out alternate .2s infinite;
-}
-.loader__element:nth-child(3) {
-    animation: preloader .6s ease-in-out alternate .4s infinite;
-}
-@keyframes preloader {
-    100% { transform: scale(2); }
+
+/* Staggered animation delays create a wave effect across the 6 letters */
+nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
+nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
+nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
+nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
+nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
+
+/* 62% of 1.6s = ~1s idle before pulse; matches letter-spacing transition delay.
+   The idle period also serves as the gap between pulses on repeat. */
+@keyframes title-pulse {
+    0%, 62% { transform: scale(1); }
+    75% { transform: scale(1.3); }
+    88%, 100% { transform: scale(1); }
 }
 
 
@@ -264,7 +258,8 @@ nav {
 }
 
 nav a.title {
-    transition: all 0.2s;
+    /* letter-spacing transition has 1s delay to match loading animation */
+    transition: all 0.2s, letter-spacing 0.3s ease-in-out 1s;
     color: white;
     opacity: 0.8;
     user-select: none;
@@ -277,6 +272,7 @@ nav a.title {
     font-variant: small-caps;
     justify-self: center;
     text-decoration: none;
+    letter-spacing: 4px;
 }
 
 nav a.title:hover {

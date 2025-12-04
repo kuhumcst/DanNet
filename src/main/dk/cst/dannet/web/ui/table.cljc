@@ -9,10 +9,6 @@
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
-(def word-cloud-limit
-  "Arbitrary limit on word cloud size for performance and display reasons."
-  150)
-
 (def expandable-list-cutoff
   4)
 
@@ -61,11 +57,11 @@
                          ;; Display the limited, radial cloud by default for
                          ;; large colls and use tables for everything else.
                          (when (and (display-cloud? opts coll)
-                                    (>= coll-count word-cloud-limit))
+                                    (>= coll-count shared/semantic-relation-limit))
                            "cloud"))]
     (case display-opt'
       "cloud" #?(:cljs (error/try-render
-                         (viz/word-cloud coll (assoc opts :cloud-limit word-cloud-limit)))
+                         (viz/word-cloud coll (assoc opts :cloud-limit shared/semantic-relation-limit)))
                  :clj  [:div])
       "max-cloud" #?(:cljs (error/try-render (viz/word-cloud coll opts))
                      :clj  [:div])
@@ -121,7 +117,7 @@
       ;; Longer lists of synsets can be displayed as a word cloud.
       (when (display-cloud? opts+attr-key v)
         ;; Default to word clouds for longer collections.
-        (let [exceeds-limit? (> v-count word-cloud-limit)
+        (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
               value          (or display-opt (if exceeds-limit?
                                                "cloud"
                                                "max-cloud"))
