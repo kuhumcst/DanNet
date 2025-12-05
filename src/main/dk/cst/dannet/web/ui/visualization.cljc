@@ -189,6 +189,9 @@
       [:button.icon {:class    (if full-screen
                                  "minimize"
                                  "maximize")
+                     :title    (if full-screen
+                                 (i18n/da-en languages "Minimér" "Minimize")
+                                 (i18n/da-en languages "Maksimér" "Maximize"))
                      :on-click toggle}]]
      (radial-tree subentity opts)
      (let [{:keys [lexinfo/senseExample]} entity]

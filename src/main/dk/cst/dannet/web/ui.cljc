@@ -84,7 +84,9 @@
                                                (i18n/lang-prefs))]
                                      (shared/update-cookie! :languages (constantly v)))))]
     [:select.language
-     {:title     "Language preference"
+     {:title     (i18n/da-en languages
+                   "Sprogpræference"
+                   "Language preference")
       :value     (str (first languages))
       :on-change change-language}
      [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
@@ -179,8 +181,12 @@
       [:button.synset-details {:class    (when details?
                                            "toggled")
                                :title    (if details?
-                                           "Show fewer details"
-                                           "Show more details")
+                                           (i18n/da-en languages'
+                                             "Vis færre detaljer"
+                                             "Show fewer details")
+                                           (i18n/da-en languages'
+                                             "Vis flere detaljer"
+                                             "Show more details"))
                                :on-click toggle-details}]]
      [:div#content {:class [(when full-diagram?
                               "full-screen")
