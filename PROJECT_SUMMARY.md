@@ -9,6 +9,7 @@ The system includes:
 - Multiple export formats (RDF/Turtle, CSV, WN-LMF XML, JSON-LD)
 - Bootstrap system for versioning and data migrations
 - Rich query capabilities via SPARQL and Clojure DSL
+- Interactive visualizations including radial tree diagrams and word clouds
 
 ## Key Architecture Components
 
@@ -30,6 +31,8 @@ The system includes:
 - Content negotiation for multiple data formats (HTML, JSON, RDF, etc.)
 - Internationalization support (Danish/English)
 - Rate limiting for API endpoints
+- Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
+- Full-screen visualization mode with persistent user preferences
 
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap`)
 - Loads previous RDF releases from `./bootstrap` directory
@@ -64,19 +67,20 @@ src/main/dk/cst/dannet/
 ```
 src/main/dk/cst/dannet/web/
 ├── service.clj               # Pedestal HTTP service and routing
-├── resources.clj             # Resource handlers and content negotiation
+├── resources.clj             # Resource handlers, content negotiation, entity truncation
 ├── rate_limit.clj            # Rate limiting functionality
 ├── sparql.clj                # SPARQL endpoint
 ├── client.cljs               # ClojureScript SPA entry point
-├── d3.cljs                   # D3 visualization components
+├── d3.cljs                   # D3 visualization components (radial trees)
 ├── ui.cljc                   # Core Rum UI components
 ├── ui/
-│   ├── visualization.cljc    # Shared graph visualization components
+│   ├── visualization.cljc    # Radial tree diagrams, word clouds, ancestry display
 │   ├── search.cljc           # Search form components
 │   ├── table.cljc            # Table components
 │   ├── markdown.cljc         # Markdown rendering components
 │   ├── rdf.cljc              # RDF display components
-│   ├── entity.cljc           # Entity display components
+│   ├── entity.cljc           # Entity display, full-screen mode
+│   ├── error.cljc            # Error boundaries and try-render macros
 │   └── page.cljc             # Page layout components
 ├── section.cljc              # Page sections and layouts
 └── i18n.cljc                 # Internationalization strings
@@ -115,8 +119,9 @@ resources/
 
 ### Utilities
 - **better-cond** (2.1.5): Enhanced conditional macros
-- **ham-fisted** (2.030): High-performance collections
+- **ham-fisted** (2.031): High-performance collections
 - **core.memoize** (1.1.266): Function memoization
+- **Telemere** (1.1.0): Logging and error reporting
 
 ## Development Workflow
 
@@ -187,9 +192,13 @@ npx shadow-cljs compile test
 - Read operations are implicitly transactional
 
 ### Error Handling
+- React error boundaries (CLJS) via `error-boundary-mixin` in `dk.cst.dannet.web.ui.error`
+- `try-render` and `try-render-with` macros for wrapping component renders
+- `try-static-render` for imperative DOM error handling
 - Database operations return nil on failure
 - Web handlers use Pedestal interceptors for error handling
 - Bootstrap validates data before committing changes
+- All caught errors logged via Telemere
 
 ## Extension Points
 
@@ -262,6 +271,7 @@ WHERE {
 - Memoization used for expensive computations (synset weights, sense labels)
 - Client-side caching via Transit+JSON for SPA mode
 - Batch operations preferred in bootstrap process
+- Deferred loading of large semantic relations - synsets with many hyponyms/hypernyms are truncated server-side; clients fetch the remainder on demand
 - Component modularization improves rendering performance
 
 ## Related Documentation
