@@ -34,11 +34,12 @@
 
 (defn- local-entity-prefix?
   "Is this `prefix` the same as the local entity in `opts`?"
-  [prefix {:keys [attr-key entity] :as opts}]
-  (or (and (keyword? attr-key)
-           (= prefix (-> attr-key namespace symbol)))
-      (and (keyword? (:subject (meta entity)))
-           (= prefix (-> entity meta :subject namespace symbol)))))
+  [prefix {:keys [attr-key entity subject] :as opts}]
+  (let [subj (or subject (:subject (meta entity)))]
+    (or (and (keyword? attr-key)
+             (= prefix (-> attr-key namespace symbol)))
+        (and (keyword? subj)
+             (= prefix (-> subj namespace symbol))))))
 
 
 ;; TODO: don't hide when `details?` is true?
