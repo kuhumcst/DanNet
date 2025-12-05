@@ -71,6 +71,11 @@
                      (dec right)
                      true))))))))
 
+(defn- displayed-synsets
+  "Returns the synsets that will actually be displayed, respecting cloud-limit."
+  [{:keys [cloud-limit]} synsets]
+  (if cloud-limit (take cloud-limit synsets) synsets))
+
 (defn prepare-synset-cloud
   "Prepare `synsets` for word cloud display using info in `opts`.
 
@@ -139,8 +144,8 @@
   text)
 
 (defn- build-cloud!*
-  [state {:keys [cloud-limit] :as opts} synsets node]
-  (when (and node (not= @state [cloud-limit synsets]))
+  [state {:keys [displayed] :as opts} synsets node]
+  (when (and node (not= @state displayed))
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
@@ -207,14 +212,19 @@
                      ;; Trigger draw when layout computation completes
                      (.on "end" draw))]
       (.start layout))
-    (reset! state [cloud-limit synsets])))
+    (reset! state displayed)))
 
 (defn build-cloud!
-  [state opts synsets node]
+  "Build word cloud in `node` from `synsets`, storing render state in `state`.
+  
+  Computes :displayed for build-cloud!* to use as cache key, ensuring
+  deferred synset data doesn't trigger unnecessary re-renders."
+  [state {:keys [cloud-limit] :as opts} synsets node]
   ;; Uses try-static-render since this runs in a ref callback, outside React's
   ;; render cycle where try-render and error boundaries can't catch errors.
-  (error/try-static-render node
-    (build-cloud!* state opts synsets node)))
+  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)]
+    (error/try-static-render node
+      (build-cloud!* state (assoc opts :displayed displayed) synsets node))))
 
 ;; NOTE: memoized for performance.
 (def expand-sense-labels
