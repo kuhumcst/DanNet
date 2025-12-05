@@ -111,8 +111,10 @@
                "Ontologisk type"
                "Ontological type")]
         [:dd
-         (if-let [v (meta (:dns/ontologicalType entity))]
-           (rdf/resource (assoc opts :attr-key :dns/ontologicalType) v)
+         (if-let [onto-types (some-> (:dns/ontologicalType entity)
+                                     meta
+                                     shared/bag->coll)]
+           (rdf/list-items (assoc opts :attr-key :dns/ontologicalType) onto-types)
            "–")]
         [:dt (i18n/da-en languages
                "Tilknyttede ord"

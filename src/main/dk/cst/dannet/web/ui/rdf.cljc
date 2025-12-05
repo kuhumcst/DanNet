@@ -244,29 +244,19 @@
      (resource-hyperlink (first (:marl/hasPolarity m)) opts)
      " (" (first (:marl/polarityValue m)) ")"]
 
-    (contains? (:rdf/type m) :rdf/Bag)
-    (let [ns->resources (-> (->> (dissoc m :rdf/type)
-                                 (filter (comp shared/member-property? first))
-                                 (mapcat second)
-                                 (group-by namespace))
-                            (update-vals sort)
-                            (update-keys symbol))
-          resources     (->> (sort ns->resources)
-                             (vals)
-                             (apply concat))]
-      [:div.set
-       (when (and (every? keyword? resources)
-                  (apply = (map namespace resources)))
-         (let [prefix (symbol (namespace (first resources)))]
-           (prefix-badge prefix opts)))
-       [:div.set__left-bracket]
-       (into [:div.set__content]
-             (->> (sort ns->resources)
-                  (vals)
-                  (apply concat)
-                  (map #(entity-link % opts))
-                  (interpose [:span.subtle " • "])))
-       [:div.set__right-bracket]])
+    :when-let [resources (shared/bag->coll m)]
+    resources
+    [:div.set
+     (when (and (every? keyword? resources)
+                (apply = (map namespace resources)))
+       (let [prefix (symbol (namespace (first resources)))]
+         (prefix-badge prefix opts)))
+     [:div.set__left-bracket]
+     (into [:div.set__content]
+           (->> resources
+                (map #(entity-link % opts))
+                (interpose [:span.subtle " • "])))
+     [:div.set__right-bracket]]
 
     ;; An optional fallback table component with the same function signature.
     ;; It's passed via dependency injection to avoid cyclic ns dependencies.
