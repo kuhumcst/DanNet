@@ -1107,6 +1107,8 @@ strong.pos-label {
 
 .synset-radial-container .synset-radial__definition {
     margin: 0 auto;
+    display: flex;
+    align-items: center;
 }
 
 .icon {
@@ -1399,6 +1401,21 @@ select.display-options:hover {
     }
     #content {
         padding: 8px;
+    }
+    .synset-radial-container .synset-radial__definition {
+        flex-direction: column;
+    }
+    strong.pos-label {
+        border-right: none;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        padding: 4px 4px 8px 0;
+        margin-right: 0;
+        margin-bottom: 8px;
+        align-self: flex-start;
+    }
+    .icon.maximize,
+    .icon.minimize {
+        align-self: flex-start;
     }
 }
 
