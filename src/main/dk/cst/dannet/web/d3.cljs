@@ -784,6 +784,7 @@
       ;; Positioned after links but before nodes/labels for proper layering
       ;; 75% of diagram radius - nearly to the nodes but not covering labels
       (let [bg-radius (* radius 0.75)]
+        ;; Visual gradient background
         (-> svg
             (.append "circle")
             (.attr "class" "subject-background")
@@ -794,6 +795,26 @@
 
       (render-radial-nodes svg root radius)
       (render-radial-labels svg root)
+
+      ;; Transparent clickable circle for toggling full-screen mode.
+      ;; Positioned last so it's on top, extending to where the nodes are.
+      (let [languages (:languages opts)]
+        (-> svg
+            (.append "circle")
+            (.attr "class" "toggle-full-screen")
+            (.attr "cx" 0)
+            (.attr "cy" 0)
+            (.attr "r" radius)
+            (.attr "fill" "transparent")
+            (.style "cursor" (if (:full-screen opts) "zoom-out" "zoom-in"))
+            (.on "click" (fn [_]
+                           (shared/update-cookie! :full-screen not)
+                           (some-> (js/document.getElementById "content")
+                                   (.scroll #js {:top 0}))))
+            (.append "title")
+            (.text (if (:full-screen opts)
+                     (i18n/da-en languages "Minimér" "Minimize")
+                     (i18n/da-en languages "Maksimér" "Maximize")))))
 
       (.node svg))))
 
