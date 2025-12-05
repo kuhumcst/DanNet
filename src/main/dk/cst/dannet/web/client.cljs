@@ -119,87 +119,99 @@
 
 (defn on-navigate
   [{:keys [path query-params] :as m}]
+  ;; Abort in-flight fetches from previous pages to prevent race conditions
+  ;; that cause queued pages to load unexpectedly in quick succession.
+  (shared/abort-stale-fetches)
+
+  ;; Record the target path. Callbacks later compare their closed-over path
+  ;; against (:path @location) to detect if they've become stale.
+  (swap! location assoc :path path)
+
+  ;; Fetch the page data.
   (.then (shared/api path {:query-params query-params})
-         ;; A hack for client redirects since we are not allowed to intercept
-         ;; any 30x status codes coming from the server from JS.
          #(do
-            ;; Always clear existing fetches for the same resource.
-            (shared/clear-fetch path)
-            (if-let [redirect-path (shared/x-header (:headers %) :redirect)]
-              ;; Further distinguish between internal/SPA and external redirects.
-              (if (str/starts-with? redirect-path "/")
-                (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
-                  (shared/navigate-to redirect-path replace?))
-                (js/window.location.replace redirect-path))
-              (let [{:keys [scroll]} @shared/post-navigate
-                    headers        (:headers %)
-                    page           (shared/x-header headers :page)
-                    body           (not-empty (:body %))
-                    page-component (ui/page-shell page body)
-                    page-title     (shared/x-header headers :title)
-                    has-deferred   (shared/x-header headers :has-deferred)]
-                (set! js/document.title page-title)
-                (reset! location {:path    path
-                                  :headers headers
-                                  :data    body})
-                ;; Handle scroll behaviour for embedded radial diagrams.
-                ;; Since we can navigate by clicking the labels of the diagram,
-                ;; we don't want to scroll away from the diagram when clicking
-                ;; these, as that creates quite a frustrating user experience.
-                ;; In every other case, we scroll to the cached Y position
-                ;; (when available); this will usually be the top of the page.
-                (when-not (and (= scroll :diagram)
-                               (not (:full-screen @shared/state)))
-                  (when-let [url (shared/response->url %)]
-                    (update-scroll-state! url)))
+            (shared/clear-current-fetch path)
 
-                ;; Ensure that the search overlay closes when clicking 'back'.
-                (js/document.activeElement.blur)
-                (mount-page! page-component)
+            ;; Check staleness. If user clicked multiple links quickly,
+            ;; this callback's `path` won't match the current target from step 2.
+            (when (= path (:path @location))
 
-                ;; Allow for certain behaviour to only occur after initial render.
-                ;; This is basically a way to get avoid a mismatching state when
-                ;; hydrating the DOM tree. Certain things must only be rendered
-                ;; after the app has been hydrated, e.g. a loading indicator.
-                (when-not ui/*hydrated*
-                  (set! ui/*hydrated* true))
+              ;; We cannot intercept 30x redirects from JS, so the server sends
+              ;; redirect info in a custom header instead.
+              (if-let [redirect-path (shared/x-header (:headers %) :redirect)]
+                ;; Further distinguish between internal and external redirects.
+                (if (str/starts-with? redirect-path "/")
+                  (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
+                    (shared/navigate-to redirect-path replace?))
+                  (js/window.location.replace redirect-path))
 
-                ;; Fetch remaining semantic relation data truncated on initial request.
-                ;; Failures are logged but don't disrupt the page - user still has partial data.
-                ;; TODO: this causes word clouds to re-render even when showing limited data.
-                ;;       Investigate whether we can skip re-mount or make it more granular.
-                (when has-deferred
-                  (-> (shared/api path {:query-params (assoc query-params
-                                                        :deferred true)})
-                      (.then (fn [deferred-response]
-                               (shared/clear-fetch path)
-                               ;; RACE CONDITION GUARD: The user may have navigated away while
-                               ;; this deferred request was in flight. If so, `@location` now
-                               ;; reflects a different page and we must NOT merge stale data
-                               ;; or remount - doing so would clobber the current page with
-                               ;; data from the previous one. We discard the response.
-                               (if (= path (:path @location))
-                                 (when-let [deferred-body (:body deferred-response)]
-                                   (let [merged-body   (update body :entity
-                                                               shared/merge-deferred-entity
-                                                               (:entity deferred-body))
-                                         new-component (ui/page-shell page merged-body)]
-                                     (reset! location {:path    path
-                                                       :headers headers
-                                                       :data    merged-body})
-                                     (mount-page! new-component)))
-                                 (t/log! {:level :warn
-                                          :data  {:expected-path path
-                                                  :actual-path   (:path @location)}}
-                                         "Discarded stale deferred response"))))
-                      (.catch (fn [err]
-                                (t/log! {:level :warn
-                                         :error err
-                                         :data  {:path path}}
-                                        "Deferred fetch failed")))))
+                ;; The normal (i.e. non-redirect) navigation flow follows below.
+                (let [{:keys [scroll]} @shared/post-navigate
+                      headers        (:headers %)
+                      page           (shared/x-header headers :page)
+                      body           (not-empty (:body %))
+                      page-component (ui/page-shell page body)
+                      page-title     (shared/x-header headers :title)
+                      has-deferred   (shared/x-header headers :has-deferred)]
+                  (set! js/document.title page-title)
+                  (reset! location {:path    path
+                                    :headers headers
+                                    :data    body})
+                  ;; Preserve scroll position for back/forward, but reset to top
+                  ;; for new navigations - except when clicking radial diagram
+                  ;; labels, where scrolling away is disorienting.
+                  (when-not (and (= scroll :diagram)
+                                 (not (:full-screen @shared/state)))
+                    (when-let [url (shared/response->url %)]
+                      (update-scroll-state! url)))
 
-                ;; NOTE: this reset will run *after* refs are resolved!
-                (reset! shared/post-navigate nil))))))
+                  ;; Ensure that the search overlay closes when clicking 'back'.
+                  (js/document.activeElement.blur)
+
+                  ;; The initial render of the new page occurs here.
+                  (mount-page! page-component)
+
+                  ;; Mark hydration complete so subsequent renders can show
+                  ;; client-only elements like loading indicators.
+                  (when-not ui/*hydrated*
+                    (set! ui/*hydrated* true))
+
+                  ;; Large Synset entities have truncated semantic relations on
+                  ;; initial load. Fetch the remainder and re-render when ready.
+                  ;; TODO: this causes word clouds to re-render every time.
+                  ;;       Investigate whether we can skip re-mount.
+                  (when has-deferred
+                    (-> (shared/api path {:query-params (assoc query-params
+                                                          :deferred true)})
+                        (.then (fn [deferred-response]
+                                 (shared/clear-current-fetch path)
+                                 ;; The user may have navigated away while
+                                 ;; this deferred request was in flight. If so,
+                                 ;; @location now reflects a different page an
+                                 ;; we must NOT merge stale data or remount,
+                                 ;; as doing so would clobber the current page
+                                 ;; with data from the previous one.
+                                 (if (= path (:path @location))
+                                   (when-let [deferred-body (:body deferred-response)]
+                                     (let [merged-body   (update body :entity
+                                                                 shared/merge-deferred-entity
+                                                                 (:entity deferred-body))
+                                           new-component (ui/page-shell page merged-body)]
+                                       (reset! location {:path    path
+                                                         :headers headers
+                                                         :data    merged-body})
+                                       (mount-page! new-component)))
+                                   (t/log! {:level :warn
+                                            :data  {:expected-path path
+                                                    :current-path  (:path @location)}}
+                                           "Discarded stale deferred response"))))
+                        (.catch (fn [err]
+                                  (t/log! {:level :warn
+                                           :error err
+                                           :data  {:path path}}
+                                          "Deferred fetch failed")))))
+
+                  (reset! shared/post-navigate nil)))))))
 
 
 (defn set-up-navigation!
@@ -224,6 +236,6 @@
            #(let [data           (:body %)
                   page           (shared/x-header (:headers %) :page)
                   page-component (ui/page-shell page data)]
-              (shared/clear-fetch entry-url)
+              (shared/clear-current-fetch entry-url)
               (mount-page! page-component)
               (set-up-navigation!)))))

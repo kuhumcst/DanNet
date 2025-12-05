@@ -53,7 +53,7 @@
              (when-not (get-in @shared/state path)
                (.then (shared/api autocomplete-url {:query-params {:s s'}})
                       #(do
-                         (shared/clear-fetch autocomplete-url)
+                         (shared/clear-current-fetch autocomplete-url)
                          (when-let [v (not-empty (:autocompletions (:body %)))]
                            (swap! shared/state assoc-in path v))))))))
 

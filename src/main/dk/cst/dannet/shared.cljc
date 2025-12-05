@@ -135,17 +135,25 @@
      (def reader
        (transit/reader :json {:handlers transit-read-handlers}))
 
-     (defn clear-fetch
-       "Clear a `url` from the ongoing fetch table (done after fetches)."
+     (defn clear-current-fetch
+       "Clear `url` from the ongoing fetch table (done after fetches complete)."
        [url]
        (swap! state update :fetch dissoc url))
 
-     (defn abort-fetch
+     (defn abort-current-fetch
        "Abort an ongoing fetch for `url`."
        [url]
        (when-let [controller (get-in @state [:fetch url])]
          (.abort controller)
-         (clear-fetch url)))
+         (clear-current-fetch url)))
+
+     (defn abort-stale-fetches
+       "Abort all in-flight fetches. Called on navigation to prevent stale data
+       from previous pages being processed after the user has moved on."
+       []
+       (doseq [[url controller] (:fetch @state)]
+         (.abort controller))
+       (swap! state assoc :fetch {}))
 
      ;; Currently lambdaisland/fetch silently loses query strings, so the
      ;; `from-query-string` is needed to keep the query string intact.
@@ -159,7 +167,7 @@
 
        ;; Cancel any existing fetches (ignoring nil state, i.e. the first run).
        (when-not (nil? (:fetch @state))
-         (abort-fetch url))
+         (abort-current-fetch url))
 
        (let [string-params (uri/query-string->map (:query (uri/uri url)))
              query-params' (assoc (merge string-params query-params)
@@ -185,7 +193,7 @@
              v   (get (swap! state update k f) k)]
          (.then (api url {:method :put
                           :body   {k v}})
-                (clear-fetch url))
+                (clear-current-fetch url))
          v))))
 
 (defn setify
