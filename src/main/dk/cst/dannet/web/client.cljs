@@ -168,24 +168,30 @@
                 ;; Failures are logged but don't disrupt the page - user still has partial data.
                 ;; TODO: this causes word clouds to re-render even when showing limited data.
                 ;;       Investigate whether we can skip re-mount or make it more granular.
-                ;; TODO: race condition - if user navigates away before deferred request completes,
-                ;;       the callback will still update location and re-mount with stale data.
-                ;;       Fix by checking path matches current location before merging, or cancel
-                ;;       the request on navigation.
                 (when has-deferred
                   (-> (shared/api path {:query-params (assoc query-params
                                                         :deferred true)})
                       (.then (fn [deferred-response]
                                (shared/clear-fetch path)
-                               (when-let [deferred-body (:body deferred-response)]
-                                 (let [merged-body   (update body :entity
-                                                      shared/merge-deferred-entity
-                                                      (:entity deferred-body))
-                                       new-component (ui/page-shell page merged-body)]
-                                   (reset! location {:path    path
-                                                     :headers headers
-                                                     :data    merged-body})
-                                   (mount-page! new-component)))))
+                               ;; RACE CONDITION GUARD: The user may have navigated away while
+                               ;; this deferred request was in flight. If so, `@location` now
+                               ;; reflects a different page and we must NOT merge stale data
+                               ;; or remount - doing so would clobber the current page with
+                               ;; data from the previous one. We discard the response.
+                               (if (= path (:path @location))
+                                 (when-let [deferred-body (:body deferred-response)]
+                                   (let [merged-body   (update body :entity
+                                                               shared/merge-deferred-entity
+                                                               (:entity deferred-body))
+                                         new-component (ui/page-shell page merged-body)]
+                                     (reset! location {:path    path
+                                                       :headers headers
+                                                       :data    merged-body})
+                                     (mount-page! new-component)))
+                                 (t/log! {:level :warn
+                                          :data  {:expected-path path
+                                                  :actual-path   (:path @location)}}
+                                         "Discarded stale deferred response"))))
                       (.catch (fn [err]
                                 (t/log! {:level :warn
                                          :error err
