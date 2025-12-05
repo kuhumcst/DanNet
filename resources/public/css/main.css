@@ -1417,6 +1417,27 @@ select.display-options:hover {
     .icon.minimize {
         align-self: flex-start;
     }
+
+    /* Turn the nav bar horizontal on mobile. */
+    .help-overlay {
+        display: none;
+    }
+    #app {
+        flex-direction: column;
+    }
+    nav {
+        flex-direction: row;
+        border: 1px solid transparent;
+        border-bottom: 1px solid rgba(0,0,0,0.5);
+    }
+    nav a.title {
+        writing-mode: initial;
+        text-orientation: initial;
+        margin: 0 auto;
+    }
+    nav select.language {
+        margin: 0 4px 0 -40px;
+    }
 }
 
 @media only screen and (max-width: 750px) {
