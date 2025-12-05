@@ -534,7 +534,11 @@
                             "transparent"
                             (if-let [color ^js/String (.-theme target-data)]
                               color
-                              "#333")))))))
+                              "#333")))))
+      (.attr "data-theme" (fn [d]
+                            (let [target-data ^js (.-data (.-target d))]
+                              (when-let [color ^js/String (.-theme target-data)]
+                                color))))))
 
 (defn balanced-tilt
   "Calculate rotation value for balanced tilt of `d` based on a `tilt-factor`.
@@ -568,6 +572,9 @@
                                 ") translate(" (.-y d) ",0)"
                                 "rotate(" (balanced-tilt d 16) ")")))
       (.attr "fill" node-fill-color)
+      (.attr "data-theme" (fn [d]
+                            (when-let [color ^js/String (.-theme (.-data d))]
+                              color)))
       ;; Create arrowhead pointing radially outward (right in local coords = outward after transform)
       (.attr "d" (fn [_]
                    (let [size   (/ radius 40)

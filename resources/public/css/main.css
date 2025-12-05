@@ -1247,7 +1247,7 @@ ul.radial-tree-legend > li:focus-within {
 }
 
 .radial-item__de-emphasized {
-    filter: opacity(0.1);
+    opacity: 0.1;
 }
 
 .radial-item:not(.radial-item__subject):hover {

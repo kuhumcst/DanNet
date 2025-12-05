@@ -26,15 +26,17 @@
 
 (defn- elem-classes
   [el]
-  (set (str/split (.getAttribute el "class") #" ")))
+  (if-let [class-attr (.getAttribute el "class")]
+    (set (str/split class-attr #" "))
+    #{}))
 
 (defn- apply-classes
   [el classes]
   (.setAttribute el "class" (str/join " " classes)))
 
 (def radial-tree-selector
-  ".radial-tree-nodes [fill],
-  .radial-tree-links [stroke],
+  ".radial-tree-nodes [data-theme],
+  .radial-tree-links [data-theme],
   .radial-tree-labels [data-theme]")
 
 (defn- get-diagram
@@ -65,8 +67,6 @@
                                       (doseq [el (.querySelectorAll diagram radial-tree-selector)]
                                         (let [classes (elem-classes el)
                                               show?   (or (nil? new-selection)
-                                                          (= new-selection (.getAttribute el "stroke"))
-                                                          (= new-selection (.getAttribute el "fill"))
                                                           (= new-selection (.getAttribute el "data-theme"))
                                                           (get classes "radial-item__subject"))]
                                           (if show?
