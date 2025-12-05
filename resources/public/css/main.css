@@ -1404,6 +1404,7 @@ select.display-options:hover {
     }
     .synset-radial-container .synset-radial__definition {
         flex-direction: column;
+        margin: 0 auto 0 0;
     }
     strong.pos-label {
         border-right: none;
