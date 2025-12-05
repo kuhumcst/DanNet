@@ -244,7 +244,7 @@
      (resource-hyperlink (first (:marl/hasPolarity m)) opts)
      " (" (first (:marl/polarityValue m)) ")"]
 
-    :when-let [resources (shared/bag->coll m)]
+    :let [resources (shared/bag->coll m)]
     resources
     [:div.set
      (when (and (every? keyword? resources)

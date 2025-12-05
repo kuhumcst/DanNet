@@ -447,17 +447,15 @@
        (str/starts-with? (name x) "_")))
 
 (defn bag->coll
-  "Extract member values from an RDF Bag map into a flat sorted collection.
-  Returns nil if `m` is not a Bag or has no members."
-  [m]
-  (let [rdf-type (:rdf/type m)]
-    (when (or (= :rdf/Bag rdf-type)
-              (contains? rdf-type :rdf/Bag))
-      (->> (dissoc m :rdf/type)
-           (filter (comp member-property? first))
-           (mapcat second)
-           sort
-           not-empty))))
+  "Extract member values from an RDF Bag map `m` into a flat sorted collection."
+  [{:keys [rdf/type] :as m}]
+  (when (or (= :rdf/Bag type)
+            (contains? type :rdf/Bag))
+    (->> (dissoc m :rdf/type)
+         (filter (comp member-property? first))
+         (mapcat second)
+         sort
+         not-empty)))
 
 (defn parse-rdf-term
   "Parses an RDF `term` into [prefix local-name uri] for display/processing."
