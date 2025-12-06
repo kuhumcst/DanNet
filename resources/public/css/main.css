@@ -1446,6 +1446,13 @@ select.display-options:hover {
     nav select.language {
         margin: 0 4px 0 -40px;
     }
+    /* Position search input below the nav bar to prevent iOS scroll issues */
+    form[role=search]:focus-within .search-form__top {
+        margin-top: 50px;
+    }
+    form[role=search]:focus-within {
+        background-position: 12px 62px;
+    }
 }
 
 @media only screen and (max-width: 750px) {
