@@ -35,6 +35,10 @@
              (.preventDefault e)
              (submit-form target))))
 
+(defn autofocus-ref
+  [node]
+  (when node (.focus node)))
+
 (defn select-text
   "Select text in the target that triggers `e` with a small delay to bypass
   browser's other text selection logic."
@@ -76,10 +80,14 @@
           :on-click    handle-click}
      v]))
 
-;; TODO: language localisation
-(rum/defc search-form
-  [{:keys [lemma search languages] :as opts}]
+(rum/defcs search-form < (rum/local false ::open)
+  [state {:keys [lemma search languages] :as opts}]
   (let [{:keys [completion s]} search
+        open                (::open state)
+        open?               @open
+        prevent-closing     (fn [e]
+                              (.preventDefault e)
+                              (.stopPropagation e))
         s'                  (shared/search-string s)
         completion-items    (get completion s')
         suggestions?        (boolean (not-empty completion-items))
@@ -96,48 +104,48 @@
                          {"Escape" (fn [e]
                                      (.preventDefault e)
                                      (js/document.activeElement.blur))}))
-        handle-input-focus  (fn [e] (select-text e))
-        handle-input-click  (fn [e] (.stopPropagation e))   ; don't close overlay
-        handle-input-touch  (fn [e] (.focus (.-target e)))  ; consistent focus on mobile
-        handle-submit-click (fn [e] (.stopPropagation e))   ; don't close overlay
-        handle-submit-touch (fn [_] #?(:cljs (submit-form (js/document.getElementById "search-form"))))] ; needed on mobile
-
+        toggle              (fn [e]
+                              (.preventDefault e)
+                              (.stopPropagation e)
+                              (swap! open not))]
     [:form {:role      "search"
+            :class     (if open? "search-active" "")
             :id        "search-form"
+            :title     (i18n/da-en languages
+                         "Søg efter synsets"
+                         "Search for synsets")
             :action    prefix/search-path
+            :on-click  toggle
             :on-submit on-submit
             :method    "get"}
-     [:div.search-form__top
-      [:input {:role                  "combobox"
-               :aria-expanded         suggestions?
-               :aria-controls         (str (when suggestions?
-                                             "search-completion"))
-               :aria-activedescendant (str (when suggestions?
-                                             "search-completion-selected"))
-               :id                    "search-input"
-               :name                  "lemma"
-               :title                 (i18n/da-en languages
-                                        "Søg efter synsets"
-                                        "Search for synsets")
-               :placeholder           (i18n/da-en languages
-                                        "skriv noget..."
-                                        "write something...")
-               :on-key-down           on-key-down
-               :on-focus              handle-input-focus
-               :on-click              handle-input-click
-               :on-touch-start        handle-input-touch
-               :on-change             update-search-suggestions
-               :auto-complete         "off"
-               :default-value         (or lemma "")}]
-      [:input {:type           "submit"
-               :tab-index      "-1"
-               :on-click       handle-submit-click
-               :on-touch-start handle-submit-touch
-               :title          (str submit-label)
-               :value          (str submit-label)}]]
-     [:ul {:role      "listbox"
-           :tab-index "-1"
-           :id        "search-completion"}
-      (when suggestions?
-        (for [v completion-items]
-          (rum/with-key (search-suggestion v on-key-down) v)))]]))
+     (when open?
+       [:<>
+        [:div.search-form__top
+         [:input {:role                  "combobox"
+                  :aria-expanded         suggestions?
+                  :aria-controls         (str (when suggestions?
+                                                "search-completion"))
+                  :aria-activedescendant (str (when suggestions?
+                                                "search-completion-selected"))
+                  :id                    "search-input"
+                  :name                  "lemma"
+                  :placeholder           (i18n/da-en languages
+                                           "skriv noget..."
+                                           "write something...")
+                  :on-key-down           on-key-down
+                  :ref                   autofocus-ref
+                  :on-focus              select-text
+                  :on-click              prevent-closing    ; should not bubble
+                  :on-change             update-search-suggestions
+                  :auto-complete         "off"
+                  :default-value         (or lemma "")}]
+         [:input {:type      "submit"
+                  :tab-index "-1"
+                  :title     (str submit-label)
+                  :value     (str submit-label)}]]
+        [:ul {:role      "listbox"
+              :tab-index "-1"
+              :id        "search-completion"}
+         (when suggestions?
+           (for [v completion-items]
+             (rum/with-key (search-suggestion v on-key-down) v)))]])]))
