@@ -407,7 +407,7 @@ form[role=search] input[role=combobox]:not(:focus)::placeholder {
 
 form[role=search] input[role=combobox] {
     user-select: none;
-    font-size: 12px;
+    font-size: 16px; /* >= 16px prevents iOS Safari from zooming on focus */
     color: white;
     border: none;
     border-radius: 2px;
