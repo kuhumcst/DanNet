@@ -424,6 +424,8 @@ form[role=search]:focus-within input[role=combobox] {
     color: #333;
     opacity: 0.9;
     padding: 2px 8px;
+    position: sticky;
+    top: 8px;
 }
 
 form[role=search] input[type=submit] {
