@@ -502,6 +502,11 @@ form[role=search]:focus-within ul li:focus {
     background: rgba(255,255,255,0.25);
 }
 
+/* Disable scrolling when search is focused (prevents iOS Firefox scroll issue) */
+nav:has(form[role=search]:focus-within) ~ #content {
+    overflow: hidden;
+}
+
 /* Darken the search icon in full-screen mode. */
 nav.full-screen form[role=search]:not(:focus-within) {
     filter: invert(1);
