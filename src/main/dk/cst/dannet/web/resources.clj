@@ -4,6 +4,7 @@
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
             [clojure.data.json :as json]
+            [clojure.core.memoize :as memo]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [dk.cst.dannet.web.sparql :as sparql]
@@ -812,16 +813,15 @@
         (println "Search trie finished!")
         trie))))
 
-(defn autocomplete*
-  "Return autocompletions for `s` found in the graph."
+(defn autocomplete
+  "Return auto-completions for `s` found in the graph."
   [s]
   (->> (trie/lookup @search-trie s)
        (remove (comp nil? second))                          ; remove partial
        (map second)                                         ; grab full words
-       (sort)))
+       (sort-by str/lower-case)))
 
-;; TODO: use core.memoize, limit memoization to some fixed N invocations
-(def autocomplete (memoize autocomplete*))
+(alter-var-root #'autocomplete #(memo/lu % :lu/threshold 500))
 
 (def autocomplete-ic
   {:name  ::autocomplete
@@ -967,7 +967,7 @@
   (count (q/run (:graph @db) op/unlabeled-senses))
 
   ;; Testing autocompletion
-  (autocomplete* "sar")
-  (autocomplete* "spo")
-  (autocomplete* "tran")
+  (autocomplete "sar")
+  (autocomplete "spo")
+  (autocomplete "tran")
   #_.)
