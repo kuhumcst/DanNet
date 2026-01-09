@@ -171,6 +171,12 @@
                   ;; The initial render of the new page occurs here.
                   (mount-page! page-component)
 
+                  ;; Re-enable scroll-to-id (SPAs tend to break this feature).
+                  (when-let [elem-with-id (some-> js/window.location.hash
+                                                  (not-empty)
+                                                  (js/document.querySelector))]
+                    (.scrollIntoView elem-with-id))
+
                   ;; Mark hydration complete so subsequent renders can show
                   ;; client-only elements like loading indicators.
                   (when-not ui/*hydrated*
