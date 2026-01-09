@@ -32,6 +32,7 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op])
   (:import [java.io ByteArrayOutputStream File]
+           [java.util Date]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]
@@ -100,6 +101,16 @@
                         (assoc-in [:headers "Content-Disposition"] cd))))]
     ["/export/:type/:prefix" :get handler :route-name ::export]))
 
+(def version-hash
+  "Unique versioning of the frontend app."
+  (abs (hash (Date.))))
+
+;; https://javascript.plainenglish.io/what-is-cache-busting-55366b3ac022
+(defn- cb
+  "Decorate the supplied `path` with a cache busting string."
+  [path]
+  (str path "?hash=" version-hash))
+
 (defn html-page
   "A full HTML page ready to be hydrated. Needs a `title` and `content`."
   [title languages content]
@@ -112,11 +123,7 @@
         [:meta {:charset "UTF-8"}]
         [:meta {:name    "viewport"
                 :content "width=device-width, initial-scale=1.0"}]
-        [:link {:rel "stylesheet" :href "/css/main.css?v=6"}]
-
-        ;; TODO: make this much more clean
-        ;; Disable animation when JS is unavailable, otherwise much too frequent!
-        [:noscript [:style {:type "text/css"} "body, body *, header h1 span, header p, header p em { animation: none;transition: background 0; }"]]
+        [:link {:rel "stylesheet" :href (cb "/css/main.css")}]
 
         ;; Favicon section
         [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
