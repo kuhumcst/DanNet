@@ -425,6 +425,7 @@
   "Content types that receive expanded entity data with relation labels."
   #{"application/transit+json"
     "text/html"
+    "text/turtle"
     "application/ld+json"
     "application/json"})
 

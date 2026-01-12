@@ -125,6 +125,30 @@
   XSDDateTime
   (serialize [x] (str "\"" x "\"^^xsd:dateTime")))
 
+(defn flatten-nested-sets
+  "Flatten nested sets in `entity` values. Converts #{#{a b}} to #{a b}."
+  [entity]
+  (walk/postwalk
+    (fn [x]
+      (if (and (set? x)
+               (= 1 (count x))
+               (set? (first x)))
+        (first x)
+        x))
+    entity))
+
+(defn collect-blank-nodes
+  "Collect symbols (blank node refs) with non-nil metadata from `entity`."
+  [entity]
+  (let [blanks (volatile! [])]
+    (walk/postwalk
+      (fn [x]
+        (when (and (symbol? x) (meta x))
+          (vswap! blanks conj [x (meta x)]))
+        x)
+      entity)
+    @blanks))
+
 (defn donatello-prefixes
   "Prepare prefixes in `entity` for Donatello TTL output."
   [entity]
@@ -138,14 +162,24 @@
          (select-keys donatello-prefixes-base))))
 
 (defn ttl-entity
-  "Get the equivalent TTL output for `entity`."
+  "Get the equivalent TTL output for `entity`, with blank nodes realized as
+  separate triple blocks below the main entity."
   [entity & [base]]
-  (with-open [sw (StringWriter.)]
-    (when base
-      (ttl/write-base! sw base))
-    (ttl/write-prefixes! sw (donatello-prefixes entity))
-    (ttl/write-triples! sw (:subject (meta entity)) entity)
-    (str sw)))
+  (let [entity*     (flatten-nested-sets entity)
+        blank-nodes (collect-blank-nodes entity*)
+        all-data    (cons entity* (map second blank-nodes))
+        prefixes    (reduce (fn [acc e]
+                              (merge acc (donatello-prefixes e)))
+                            {}
+                            all-data)]
+    (with-open [sw (StringWriter.)]
+      (when base
+        (ttl/write-base! sw base))
+      (ttl/write-prefixes! sw prefixes)
+      (ttl/write-triples! sw (:subject (meta entity)) entity*)
+      (doseq [[sym props] blank-nodes]
+        (ttl/write-triples! sw sym props))
+      (str sw))))
 
 (comment
   (def dataset (:dataset @dk.cst.dannet.web.resources/db))
