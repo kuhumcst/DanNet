@@ -120,7 +120,7 @@
   (serialize [x] (str "_:" (subs (str x) 1)))
 
   LangStr
-  (serialize[x] (str \" (print-escape (str x)) "\"@" (lstr/lang x)))
+  (serialize [x] (str \" (print-escape (str x)) "\"@" (lstr/lang x)))
 
   XSDDateTime
   (serialize [x] (str "\"" x "\"^^xsd:dateTime")))
@@ -161,17 +161,46 @@
          (map keyword)
          (select-keys donatello-prefixes-base))))
 
+(defn- label-entity-group
+  "Categorise a label entity as :relations, :synsets, or :other."
+  [[subject _]]
+  (let [ns (when (keyword? subject) (namespace subject))
+        n  (when (keyword? subject) (name subject))]
+    (cond
+      (or (and (= ns "dn") (str/starts-with? n "synset-"))
+          (str/starts-with? (or n "") "oewn-"))
+      :synsets
+
+      (and (= ns "dn")
+           (re-find #"^(word|sense|inherit)-" n))
+      :other
+
+      :else
+      :relations)))
+
+(defn- write-triple-group!
+  "Write `entities` as triples to `sw`, prefixed by a `comment`."
+  [sw comment entities]
+  (when (seq entities)
+    (.write sw (str "# " comment "\n"))
+    (.write sw (-> (with-out-str
+                     (doseq [[s p] entities]
+                       (ttl/write-triples! *out* s p)))
+                   (str/replace #"\n\n" "\n")))
+    (.write sw "\n")))
+
 (defn ttl-entity
-  "Get the equivalent TTL output for `entity`, with blank nodes realized as
-  separate triple blocks below the main entity."
+  "Get TTL output for `entity` with realised blank nodes and grouped labels."
   [entity & [base]]
-  (let [entity*     (flatten-nested-sets entity)
-        blank-nodes (collect-blank-nodes entity*)
-        all-data    (cons entity* (map second blank-nodes))
-        prefixes    (reduce (fn [acc e]
-                              (merge acc (donatello-prefixes e)))
-                            {}
-                            all-data)]
+  (let [entity*        (flatten-nested-sets entity)
+        blank-nodes    (collect-blank-nodes entity*)
+        label-entities (:entities (meta entity))
+        {:keys [relations synsets other]} (group-by label-entity-group label-entities)
+        all-data       (concat [entity*]
+                               (map second blank-nodes)
+                               (map second label-entities))
+        prefixes       (reduce #(merge %1 (donatello-prefixes %2))
+                               {} all-data)]
     (with-open [sw (StringWriter.)]
       (when base
         (ttl/write-base! sw base))
@@ -179,6 +208,9 @@
       (ttl/write-triples! sw (:subject (meta entity)) entity*)
       (doseq [[sym props] blank-nodes]
         (ttl/write-triples! sw sym props))
+      (write-triple-group! sw "Relation labels" relations)
+      (write-triple-group! sw "Synset labels" synsets)
+      (write-triple-group! sw "Other resource labels" other)
       (str sw))))
 
 (comment
