@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kuhumcst/dannet",
+  "description": "DanNet - Danish WordNet with rich lexical relationships and SPARQL access.",
+  "repository": {
+    "url": "https://github.com/kuhumcst/DanNet",
+    "source": "github"
+  },
+  "version": "1.0.2",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://wordnet.dk/mcp"
+    }
+  ]
+}

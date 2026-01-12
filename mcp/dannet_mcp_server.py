@@ -27,6 +27,7 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -273,6 +274,9 @@ dannet_client = None
 # Create FastMCP server with helpful instructions
 mcp = FastMCP(
     "DanNet",
+    transport_security=TransportSecuritySettings(
+        allowed_hosts=["localhost", "127.0.0.1", "wordnet.dk", "www.wordnet.dk"],
+    ),
     instructions="""DanNet MCP Server - Danish WordNet with rich semantic relationships
 
 SEMANTIC DATA MODEL:
@@ -2302,7 +2306,7 @@ Create a sense map that helps learners understand how one word form carries mult
 
 def main():
     """Main entry point with command line argument parsing"""
-    global dannet_client
+    global dannet_client, mcp
 
     parser = argparse.ArgumentParser(
         description="DanNet MCP Server - Access Danish WordNet data via MCP. Defaults to local server if available, otherwise uses remote server."
@@ -2321,6 +2325,23 @@ def main():
         "--debug",
         action="store_true",
         help="Enable debug logging"
+    )
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help="Run as HTTP server (streamable-http transport) instead of stdio"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="HTTP server port (default: 8000)"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="HTTP server host (default: 127.0.0.1, use 0.0.0.0 for remote access)"
     )
 
     args = parser.parse_args()
@@ -2354,8 +2375,14 @@ def main():
 
     logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
 
-    # Run the MCP server
-    mcp.run()
+    # Update MCP server settings for HTTP mode if requested
+    if args.http:
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        logger.info(f"Running in HTTP mode on {args.host}:{args.port}")
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

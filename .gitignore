@@ -5,6 +5,8 @@
 __pycache__
 venv*
 .venv
+mcp/.mcpregistry_github_token
+mcp/.mcpregistry_registry_token
 
 /resources/wordnet
 /resources/db/

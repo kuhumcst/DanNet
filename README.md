@@ -22,6 +22,23 @@ for synset in wn.synsets('kage'):
     print((synset.lexfile() or "?") + ": " + (synset.definition() or "?"))
 ```
 
+### Connect DanNet to a Large Language Model (LLM)
+DanNet provides **direct access** through popular AI tools such as Claude.
+
+Many of the popular AI tools provide connections to other sources of information
+through so-called _MCP servers_. You can think of these as a kind of plugin.
+DanNet is published in the MCP server registry as `io.github.kuhumcst/dannet`.
+The relevant MCP server URL is `https://wordnet.dk/mcp`.
+
+You use the MCP server URL to connect DanNet to your local LLM/AI client,
+e.g. in the case of Claude Desktop you need to go to
+`Settings > Connectors > Browse Connectors` and click `add a custom one`.
+Claude will ask for a fitting name (such as "DanNet") and the MCP server URL
+(this must be set to `https://wordnet.dk/mcp`).
+
+Once set up, you can ask Claude answers about the relations between different
+words in DanNet and get your answers straight from the source.
+
 ### Differences between dataset variants
 While every dataset variant includes every synset/sense/word, the CSV and WN-LMF variants do *not* include every single data point. In the case of CSV, this is a question of reduced ergonomics when converting from an open graph to fixed tables, while in the case of WN-LMF only the official GWA relations are allowed as per the standard (i.e. the proprietary DanNet relations described in the [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) are not included).
 

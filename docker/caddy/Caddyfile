@@ -14,5 +14,19 @@ wordnet.dk, localhost {
     rate_limit {remote.ip} 1200r/m
 
     encode gzip
-    reverse_proxy dannet:3456
+
+    # MCP Registry HTTP verification
+    handle /.well-known/mcp-registry-auth {
+        respond "v=MCPv1; k=ed25519; p=VRttGAV7g424WtABMMHdpZrCuhDR/zQrS+Ni+CGiBKs="
+    }
+
+    # Route MCP requests to the MCP server
+    handle /mcp* {
+        reverse_proxy mcp:8000
+    }
+
+    # Everything else goes to the DanNet web service
+    handle {
+        reverse_proxy dannet:3456
+    }
 }

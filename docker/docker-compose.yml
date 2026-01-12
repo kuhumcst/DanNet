@@ -24,3 +24,11 @@ services:
       - ${DANNET_EXPORT}:/etc/dannet/export
     ports:
       - "3456:3456"
+
+  mcp:
+    build:
+      context: ../
+      dockerfile: docker/mcp/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - dannet
