@@ -96,7 +96,7 @@
 :sentiment a owl:ObjectProperty ;
   rdfs:range marl:Opinion ;
   rdfs:label "sentiment"@en ;
-  rdfs:label "stemning"@da ;
+  rdfs:label "valør"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :Inheritance a owl:Class ;
