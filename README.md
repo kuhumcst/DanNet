@@ -95,7 +95,7 @@ DanNet can be connected to AI tools like Claude via MCP (Model Context Protocol)
 
 To connect in e.g. Claude Desktop: go to `Settings > Connectors > Browse Connectors`, click "add a custom one", enter a name (e.g., "DanNet") and the MCP server URL.
 
-![Claude Desktop setup](mcp/claude_desktop_custom_connector.png)
+![Claude Desktop setup](resources/public/images/claude_desktop_custom_connector.png)
 
 Once connected, you can query DanNet's semantic relations directly through Claude.
 
