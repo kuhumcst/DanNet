@@ -30,6 +30,8 @@ through so-called _MCP servers_. You can think of these as a kind of plugin.
 DanNet is published in the MCP server registry as `io.github.kuhumcst/dannet`.
 The relevant MCP server URL is `https://wordnet.dk/mcp`.
 
+![Claude Desktop setup](mcp/claude_desktop_custom_connector.png)
+
 You use the MCP server URL to connect DanNet to your local LLM/AI client,
 e.g. in the case of Claude Desktop you need to go to
 `Settings > Connectors > Browse Connectors` and click `add a custom one`.
