@@ -3,6 +3,7 @@
   (:require #?(:clj [arachne.aristotle.registry :as reg])
             [clojure.string :as str]
             [ont-app.vocabulary.core :as voc]
+            [dk.cst.dannet.shared :as shared]
             [reitit.impl :refer [url-encode]]))             ; CLJC url-encode
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
@@ -145,8 +146,11 @@
   [kw]
   (str/replace-first (subs (str kw) 1) #"/" ":"))
 
-(def kw->uri
-  voc/uri-for)
+(defn kw->uri
+  [kw]
+  (or (voc/uri-for kw)
+      (when (empty? (name kw))
+        (get-in schemas [(symbol (namespace kw)) :uri]))))
 
 (defn qname->kw
   [qname]
@@ -250,23 +254,6 @@
      "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia}
      "wordnet" #{'wn}}))
 
-(defn with-prefix
-  "Return predicate accepting keywords with `prefix` (`except` set of keywords).
-  The returned predicate function is used to filter keywords based on prefixes."
-  [prefix & {:keys [except]}]
-  (fn [[k v]]
-    (when (keyword? k)
-      (and (not (except k))
-           (= (namespace k) (name prefix))))))
-
-;; TODO: make it work for # too
-;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
-(defn remove-trailing-slash
-  [uri]
-  (if (= \/ (last uri))
-    (subs uri 0 (dec (count uri)))
-    uri))
-
 (def uri-parts
   "Splits a URI into [uri before-path protocol domain path]."
   #"((https?)://([^/]+))(.*)")
@@ -282,12 +269,26 @@
   [uri]
   (str "<" uri ">"))
 
+(defn kw->rdf-resource
+  [kw]
+  (some-> (kw->uri kw)
+          (uri->rdf-resource)))
+
 (defn rdf-resource?
   "Is `s` an RDF resource string?"
   [s]
   (and (string? s)
        (str/starts-with? s "<")
        (str/ends-with? s ">")))
+
+(defn normalize-rdf-resource
+  "Remove trailing separator from `rdf-resource`."
+  [rdf-resource]
+  (if (rdf-resource? rdf-resource)
+    (-> (rdf-resource->uri rdf-resource)
+        (shared/remove-trailing-separator)
+        (uri->rdf-resource))
+    rdf-resource))
 
 (defn qname?
   "Is `s` a QName?"

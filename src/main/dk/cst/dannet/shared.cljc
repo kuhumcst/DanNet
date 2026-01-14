@@ -6,7 +6,6 @@
             [reitit.impl :refer [form-decode]]
             [ont-app.vocabulary.core :as voc]
             [taoensso.telemere :as t]
-            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:cljs [reitit.frontend.easy :as rfe])
@@ -81,14 +80,6 @@
   #?(:clj  false
      :cljs (boolean (get-cookie :full-screen))))
 
-(def ui
-  "UI descriptions which shouldn't be configurable by the client."
-  {:section {section/semantic-title
-             {:display {:options {"table"  ["\uD83D\uDDC4\uFE0F tabel"
-                                            "\uD83D\uDDC4\uFE0F table"]
-                                  "radial" ["\uD83D\uDCCA diagram"
-                                            "\uD83D\uDCCA diagram"]}}}}})
-
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
   (atom {:languages   default-languages
@@ -122,6 +113,15 @@
   "Normalize search string `s`."
   [s]
   (some-> s str str/trim str/lower-case))
+
+;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
+(defn remove-trailing-separator
+  "Remove trailing separator (/ or #) from `uri`."
+  [uri]
+  (let [last-char (last uri)]
+    (if (or (= \/ last-char) (= \# last-char))
+      (subs uri 0 (dec (count uri)))
+      uri)))
 
 #?(:cljs
    (do
@@ -599,8 +599,4 @@
   (take 10 (map double (iterate log-inc 1)))
   (take 100 (map double (iterate log-inc 1)))
   (take 1000 (map double (iterate log-inc 1)))
-
-  ;; Print out the list of relations in use in Turtle/SPARQL style.
-  (doseq [qname (sort (map prefix/kw->qname (keys synset-rel-theme)))]
-    (println qname))
   #_.)

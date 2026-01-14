@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.section
   (:require #?(:clj [clojure.core.memoize :as memo])
-            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
-            [dk.cst.dannet.prefix :as prefix])
+            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
 (defmulti primary-sections :rdf/type)
@@ -18,13 +17,22 @@
   #{(->LangStr "Cross-lingual relations" "en")
     (->LangStr "Tværsproglige relationer" "da")})
 
+(defn with-prefix
+  "Return predicate accepting keywords with `prefix` (`except` set of keywords).
+  The returned predicate function is used to filter keywords based on prefixes."
+  [prefix & {:keys [except]}]
+  (fn [[k v]]
+    (when (keyword? k)
+      (and (not (except k))
+           (= (namespace k) (name prefix))))))
+
 (def semantic-rels?
-  (some-fn (prefix/with-prefix 'wn :except #{:wn/partOfSpeech
-                                             :wn/definition
-                                             :wn/ili
-                                             :wn/eq_synonym
-                                             :wn/lexfile
-                                             :wn/example})
+  (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech
+                                      :wn/definition
+                                      :wn/ili
+                                      :wn/eq_synonym
+                                      :wn/lexfile
+                                      :wn/example})
            (comp #{:dns/usedFor
                    :dns/usedForObject
                    :dns/nearAntonym

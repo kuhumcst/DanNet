@@ -599,6 +599,34 @@
                                            (str "Search: " lemma))
                                   :page  "search"}))))))})
 
+(defn find-catalog-resources
+  "Find known schemas and datasets referenced in the graph `g`."
+  [g]
+  (let [results         (->> (q/run g op/catalog-resources)
+                             (filter (comp (some-fn keyword? prefix/rdf-resource?) '?source))
+                             (remove (fn [{:syms [?source]}]
+                                       (when (string? ?source)
+                                         (str/includes? ?source "www.w3.org/TR/"))))
+                             (map (fn [{:syms [?source] :as m}]
+                                    (if (keyword? ?source)
+                                      (update m '?source prefix/kw->rdf-resource)
+                                      m))))
+        ;; Merge multiple labels for same source into nil/single/set
+        with-labels     (->> results
+                             (group-by '?source)
+                             (map (fn [[source entries]]
+                                    [source (reduce q/set-merge nil (keep '?label entries))]))
+                             (into {}))
+        ;; Collect normalized versions to identify duplicates
+        normalized-keys (set (map prefix/normalize-rdf-resource (keys with-labels)))]
+    ;; Remove entries with trailing separators when normalized version exists
+    (into {}
+          (remove (fn [[k _]]
+                    (let [normalized (prefix/normalize-rdf-resource k)]
+                      (and (not= k normalized)
+                           (contains? normalized-keys normalized)))))
+          with-labels)))
+
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
 
@@ -929,6 +957,8 @@
           (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
 
 (comment
+  (find-catalog-resources (:graph @db))
+
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 

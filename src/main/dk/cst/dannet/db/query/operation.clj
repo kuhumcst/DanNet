@@ -538,3 +538,40 @@
        ?w2 lexinfo:partOfSpeech ?pos2 .
        FILTER (?pos1 != ?pos2 )
      }"))
+
+(def catalog-resources
+  (sparql
+    "SELECT DISTINCT ?source ?label
+     WHERE {
+       {
+         # Nested subquery ensures DISTINCT is applied to catalog resources
+         # before the optional label lookup, improving query performance
+         SELECT DISTINCT ?source WHERE {
+           { ?s rdfs:isDefinedBy ?source }
+           UNION
+           { ?source vann:preferredNamespaceUri ?uri }
+           UNION
+           { ?source vann:preferredNamespacePrefix ?prefix }
+           UNION
+           { ?s skos:inScheme ?source }
+           UNION
+           { ?source owl:imports ?o }
+           UNION
+           { ?source a owl:Ontology }
+           UNION
+           { ?source a skos:ConceptScheme }
+           UNION
+           { ?source a dcat:Dataset }
+           FILTER (!isBlank(?source))
+         }
+       }
+       OPTIONAL {
+         ?source rdfs:label|
+                 <http://purl.org/dc/terms/title>|
+                 <http://purl.org/dc/elements/1.1/title>|
+                 foaf:name|
+                 skos:prefLabel|
+                 dcat:title
+                 ?label
+       }
+     }"))

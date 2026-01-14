@@ -107,6 +107,15 @@
          :download true}
      "JSON-LD"]]])
 
+;; TODO: reconsider the need for this
+(def ui-descriptions
+  "UI descriptions which shouldn't be configurable by the client."
+  {:section {section/semantic-title
+             {:display {:options {"table"  ["\uD83D\uDDC4\uFE0F tabel"
+                                            "\uD83D\uDDC4\uFE0F table"]
+                                  "radial" ["\uD83D\uDCCA diagram"
+                                            "\uD83D\uDCCA diagram"]}}}}})
+
 (rum/defc display-mode-selector
   [title {:keys [languages]
           :as   opts}]
@@ -118,7 +127,7 @@
                           (swap! shared/state assoc-in
                                  [:section title :display :selected]
                                  (.-value (.-target e))))}
-    (let [m (get-in shared/ui [:section title :display :options])]
+    (let [m (get-in ui-descriptions [:section title :display :options])]
       (->> (sort-by second (if (= "da" (first languages))
                              (update-vals m first)
                              (update-vals m second)))

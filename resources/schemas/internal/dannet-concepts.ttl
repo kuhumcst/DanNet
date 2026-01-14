@@ -205,4 +205,4 @@
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Vehicle a dns:EuroWordNetConcept ;
   rdfs:label "vehicle"@en ;
-  rdfs:isDefinedBy <http://www.wordnet.dk/dannet/concepts> .
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
