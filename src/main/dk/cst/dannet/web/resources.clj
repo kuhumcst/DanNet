@@ -750,7 +750,7 @@
 
 (defn prefix->dataset-entity-route
   [prefix]
-  (let [uri (-> prefix prefix/prefix->uri prefix/remove-trailing-slash)]
+  (let [uri (-> prefix prefix/prefix->uri shared/remove-trailing-separator)]
     [(prefix/uri->path uri)
      :get [content-negotiation-ic
            language-negotiation-ic
