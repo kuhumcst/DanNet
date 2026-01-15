@@ -76,16 +76,9 @@
 
 (rum/defc string-list-cell
   "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
-  [{:keys [languages] :as opts} coll]
-  (let [s (i18n/select-str languages coll)]
-    (if (coll? s)
-      [:td {:key coll}
-       [:ol
-        (for [s* (sort-by str s)]
-          [:li {:key  s*
-                :lang (i18n/lang s*)}
-           (rdf/transform-val s* opts)])]]
-      [:td {:lang (i18n/lang s) :key coll} (rdf/transform-val s opts)])))
+  [opts coll]
+  [:td {:key coll}
+   (rdf/transform-text opts coll)])
 
 (rum/defc attr-val-row < rum/reactive
   "A single row in the attribute-value table. Only re-renders when its specific
@@ -182,10 +175,10 @@
   "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)]
-    [:table {:class "attr-val"}
+    [:table.attr-val
      [:colgroup
-      [:col]                                                ; attr prefix
-      [:col]                                                ; attr local name
+      [:col]
+      [:col]
       [:col]]
      [:tbody
       (for [[k v] subentity]

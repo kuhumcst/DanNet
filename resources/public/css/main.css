@@ -575,6 +575,10 @@ section.notes {
     margin-top: 24px;
 }
 
+section.text {
+    line-height: 1.5;
+}
+
 p.subheading {
     text-align: center;
     font-size: 18px;

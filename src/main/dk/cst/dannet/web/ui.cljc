@@ -34,8 +34,8 @@
             :title "DanNet-versioner"}
         "Versioner"]
        " · "
-       [:a {:href  "/dannet/data"
-            :title "DanNet-metadata (RDF)"}
+       [:a {:href  "/dannet/metadata"
+            :title "DanNet-Metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "da"}
        "© 2023–2025, "
@@ -61,7 +61,7 @@
             :title "DanNet releases"}
         "Releases"]
        " · "
-       [:a {:href  "/dannet/data"
+       [:a {:href  "/dannet/metadata"
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "en"}
@@ -119,7 +119,8 @@
   ;; TODO: better solution? string keys + indirection reduce discoverability
   (let [page-component (get {"entity"   page/entity
                              "search"   page/search
-                             "markdown" page/markdown}
+                             "markdown" page/markdown
+                             "metadata" page/metadata}
                             page
                             page/not-found)
         ;; The backend also needs access to user-specific state to be able to

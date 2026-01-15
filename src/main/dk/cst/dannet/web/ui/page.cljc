@@ -7,6 +7,7 @@
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.table :as table]
+            [dk.cst.dannet.web.ui.catalog :as catalog]
             [dk.cst.dannet.web.ui.markdown :as mdc]))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
@@ -59,6 +60,29 @@
                (set! js/document.title title)))
     [:article.document {:lang lang}
      hiccup]))
+
+(rum/defc metadata
+  "Display the catalog of schemas and datasets referenced in the graph."
+  [{:keys [languages catalog] :as opts}]
+  (let [k->label       (catalog/k->label catalog)
+        ordered-groups (catalog/prepare-groups catalog opts)]
+    [:article.metadata
+     [:header
+      [:h1 "Metadata"]]
+     [:p.subheading (i18n/da-en languages
+                      "Dette er de primære skemaer og datasæt der bruges i DanNet."
+                      "These are the core schemas and datasets used in DanNet.")]
+     (if (empty? ordered-groups)
+       [:p (i18n/da-en languages
+             "Ingen ressourcer fundet."
+             "No resources found.")]
+       (for [[group-key title desc entries] ordered-groups]
+         [:section {:key (or group-key "other")}
+          [:h2 (if (string? title)
+                 title
+                 (i18n/da-en languages (:da title) (:en title)))]
+          [:p.subheading (i18n/da-en languages (:da desc) (:en desc))]
+          (catalog/table opts k->label entries)]))]))
 
 (rum/defc error
   "User-friendly error page shown when a page component fails to render."

@@ -337,6 +337,9 @@
 (def sparql-path
   (str (uri->path dannet-root) "sparql"))
 
+(def metadata-path
+  (str (uri->path dannet-root) "metadata"))
+
 (defn resource-path
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))

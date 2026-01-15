@@ -7,6 +7,7 @@
             [clojure.core.memoize :as memo]
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
+            [flatland.ordered.map :as ordered]
             [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
@@ -600,7 +601,9 @@
                                   :page  "search"}))))))})
 
 (defn find-catalog-resources
-  "Find known schemas and datasets referenced in the graph `g`."
+  "Find known schemas and datasets referenced in the graph `g`.
+  
+  Returns an ordered map of `{rdf-resource -> {:label ... :description ... :prefix ...}}`."
   [g]
   (let [results         (->> (q/run g op/catalog-resources)
                              (filter (comp (some-fn keyword? prefix/rdf-resource?) '?source))
@@ -611,21 +614,39 @@
                                     (if (keyword? ?source)
                                       (update m '?source prefix/kw->rdf-resource)
                                       m))))
-        ;; Merge multiple labels for same source into nil/single/set
-        with-labels     (->> results
-                             (group-by '?source)
-                             (map (fn [[source entries]]
-                                    [source (reduce q/set-merge nil (keep '?label entries))]))
-                             (into {}))
-        ;; Collect normalized versions to identify duplicates
-        normalized-keys (set (map prefix/normalize-rdf-resource (keys with-labels)))]
-    ;; Remove entries with trailing separators when normalized version exists
-    (into {}
-          (remove (fn [[k _]]
-                    (let [normalized (prefix/normalize-rdf-resource k)]
-                      (and (not= k normalized)
-                           (contains? normalized-keys normalized)))))
-          with-labels)))
+        ;; Collect unique sources, normalized to remove trailing separators
+        sources         (->> results
+                             (map '?source)
+                             (set))
+        normalized-keys (set (map prefix/normalize-rdf-resource sources))
+        ;; Remove entries with trailing separators when normalized version exists
+        unique-sources  (remove (fn [src]
+                                  (let [normalized (prefix/normalize-rdf-resource src)]
+                                    (and (not= src normalized)
+                                         (contains? normalized-keys normalized))))
+                                sources)]
+    ;; Fetch label, description, and prefix for each catalog resource
+    (->> unique-sources
+         (map (fn [rdf-resource]
+                (let [uri    (prefix/rdf-resource->uri rdf-resource)
+                      entity (q/entity g rdf-resource)
+                      label  (or (:dc11/title entity)
+                                 (:dc/title entity)
+                                 (:rdfs/label entity))
+                      desc   (reduce q/set-merge nil
+                                     (keep entity [:rdfs/comment
+                                                   :dc/description
+                                                   :dc11/description]))
+                      ;; Try to get prefix: from entity, from known schemas, or nil
+                      pfx    (or (:vann/preferredNamespacePrefix entity)
+                                 (prefix/uri->prefix uri)
+                                 (prefix/uri->prefix (str uri "#"))
+                                 (prefix/uri->prefix (str uri "/")))]
+                  [rdf-resource {:label       label
+                                 :description desc
+                                 :prefix      pfx}])))
+         (sort-by (comp str first))
+         (into (ordered/ordered-map)))))
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
@@ -875,6 +896,25 @@
          autocomplete-ic
          response-body-ic]
    :route-name ::autocomplete])
+
+(def metadata-ic
+  {:name  ::metadata
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [languages (request->languages request)]
+              (assoc ctx
+                :content {:languages languages
+                          :catalog   (find-catalog-resources (:graph @db))}
+                :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
+                            :page  "metadata"})))})
+
+(def metadata-route
+  [prefix/metadata-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         explicit-params-ic
+         metadata-ic
+         response-body-ic]
+   :route-name ::metadata])
 
 (def sparql-validation-ic
   "Pedestal interceptor for SPARQL query validation and parameter extraction."

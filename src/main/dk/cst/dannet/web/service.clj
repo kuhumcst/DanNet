@@ -29,6 +29,7 @@
       res/export-route
       res/schema-download-route
       res/sparql-route
+      res/metadata-route
 
       ;; Non-entity routes which support content-negotiation
       res/markdown-route

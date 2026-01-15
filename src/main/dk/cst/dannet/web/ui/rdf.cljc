@@ -7,6 +7,7 @@
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:clj [better-cond.core :refer [cond]]))
+  #?(:clj (:import [org.apache.jena.datatypes BaseDatatype$TypedValue]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
 
@@ -83,15 +84,26 @@
 (def rdf-resource-re
   #"^<(.+)>$")
 
+(defn- transform-rdf-datatype
+  "Render an RDF datatype value as a span with title/datatype attributes."
+  [{:keys [uri value]}]
+  [:span {:title    uri
+          :datatype uri}
+   value])
+
 (defn- transform-val*
   "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
    (cond
-     (shared/rdf-datatype? v)
-     (let [{:keys [uri value]} v]
-       [:span {:title    uri
-               :datatype uri}
-        value])
+     ;; RDF typed literals: TypedValue on backend, {:uri :value} map on frontend.
+     #?@(:clj
+         [(instance? BaseDatatype$TypedValue v)
+          (transform-rdf-datatype
+            {:uri   (.-datatypeURI ^BaseDatatype$TypedValue v)
+             :value (.-lexicalValue ^BaseDatatype$TypedValue v)})]
+         :cljs
+         [(shared/rdf-datatype? v)
+          (transform-rdf-datatype v)])
 
      ;; Transformations of non-strings
      ;; TODO: properly implement date parsing
@@ -132,7 +144,6 @@
      rdf-resource
      (rdf-uri-hyperlink uri opts)
 
-     ;; TODO: match is too broad, should be limited somewhat
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
          (= (:rdf/type entity) :ontolex/LexicalSense))
      (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
@@ -163,12 +174,12 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label class] :as opts}]
+  [resource {:keys [languages k->label class href] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
           label  (i18n/select-label languages labels)
           prefix (symbol (namespace resource))]
-      [:a {:href  (prefix/resolve-href resource)
+      [:a {:href  (or href (prefix/resolve-href resource))
            :title (str prefix ":" (name resource))
            :lang  (i18n/lang label)
            :class (or class (get prefix/prefix->class prefix "unknown"))}
@@ -178,7 +189,7 @@
     ;; we likely have no label data either and do not bother to fetch it.
     ;; See 'rdf-uri-hyperlink' for how objects are represented!
     (let [local-name (prefix/guess-local-name resource)]
-      [:a {:href  (prefix/resource-path resource)
+      [:a {:href  (or href (prefix/resource-path resource))
            :title local-name
            :class "unknown"}
        local-name])))
@@ -224,6 +235,19 @@
          (prefix-badge prefix opts)
          (entity-link v opts)]))))
 
+(defn transform-text
+  "Transform language-tagged text `x` with language selection and proper markup.
+  Single values render with :lang attribute, multiple values as a :ul list."
+  [{:keys [languages] :as opts} x]
+  (let [selected (i18n/select-str languages x)]
+    (if (coll? selected)
+      [:ul
+       (for [s selected]
+         [:li {:key (str s) :lang (i18n/lang s)}
+          (transform-val s opts)])]
+      [:span {:lang (i18n/lang selected)}
+       (transform-val selected opts)])))
+
 (defn blank-resource
   "Display blank resource map `m` in a specialised way based on `opts`."
   [{:keys [languages table-component] :as opts} m]
@@ -232,11 +256,7 @@
     (transform-val m)
 
     (= (keys m) [:rdf/value])
-    (let [x (i18n/select-str languages (:rdf/value m))]
-      (if (coll? x)
-        (into [:<>] (for [s x]
-                      [:section.text {:lang (i18n/lang s)} (str s)]))
-        [:section.text {:lang (i18n/lang x)} (str x)]))
+    (transform-text opts (:rdf/value m))
 
     ;; Special handling of DanNet sentiment data.
     (and (= (keys m) [:marl/hasPolarity :marl/polarityValue])
