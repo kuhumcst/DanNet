@@ -65,7 +65,7 @@
     (for [[rdf-resource {:keys [description prefix]}] entries
           :let [uri   (prefix/rdf-resource->uri rdf-resource)
                 path  (prefix/uri->internal-path uri)
-                opts' (assoc opts :k->label k->label :href path)
+                opts' (assoc opts :k->label k->label :link-href path)
                 kw    (when prefix (keyword (str prefix) ""))]]
       [:tr {:key rdf-resource}
        [:td.attr-prefix

@@ -433,7 +433,7 @@
 
        ;; Sorting into (and of) groups happens here!
        (insert-theme-spacers (comp str k->label first))
-       
+
        ;; Rotate for better placement with few nodes
        (rotate-for-bottom-placement)
 
@@ -474,26 +474,34 @@
       :else "#333")))
 
 (defn- prepare-radial-data
-  "Transform entity data into radial tree format for visualization."
-  [subject entity k->label]
-  (let [label    (->> (k->label subject)
-                      (shared/sense-labels shared/synset-sep)
-                      (shared/canonical)
-                      (map remove-subscript)
-                      (remove #{shared/omitted})
-                      (set)
-                      (sort-by shared/glyph-width)
-                      (str/join ", "))
-        entity'  (->> (keys shared/synset-rel-theme)
-                      (select-keys entity)
-                      (shared/top-n-vals radial-limit))
-        children (prepare-radial-children entity' k->label)
-        data     (clj->js
-                   {:name     label
-                    :title    label
-                    :subject  true
-                    :children children})]
-    data))
+  "Transform `subject` entity data into radial tree format for visualization."
+  [subject subentity full-entity k->label languages]
+  (let [label      (->> (k->label subject)
+                        (shared/sense-labels shared/synset-sep)
+                        (shared/canonical)
+                        (map remove-subscript)
+                        (remove #{shared/omitted})
+                        (set)
+                        (sort-by shared/glyph-width)
+                        (str/join ", "))
+        pos        (some-> full-entity :wn/lexfile shared/lexfile->pos)
+        pos-label  (when pos
+                     (i18n/da-en languages
+                       ({"noun" "subst." "adj" "adj." "adv" "adv." "verb" "v."} pos)
+                       ({"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."} pos)))
+        definition (some->> (:skos/definition full-entity)
+                            (i18n/select-label languages)
+                            str)
+        entity'    (->> (keys shared/synset-rel-theme)
+                        (select-keys subentity)
+                        (shared/top-n-vals radial-limit))
+        children   (prepare-radial-children entity' k->label)]
+    (clj->js {:name       label
+              :title      label
+              :pos        pos-label
+              :definition definition
+              :subject    true
+              :children   children})))
 
 (defn- create-radial-svg
   "Create and configure the base SVG container for radial tree.
@@ -616,7 +624,7 @@
         (.attr "transform" (fn [d]
                              (if (.-subject (.-data d))
                                ;; Center label: just offset upward slightly
-                               (str "translate(0,-4) ")
+                               "translate(0,-4) "
 
                                ;; Stage 1: Rotate label to point outward from center
                                ;; angle in radians → degrees, subtract 90° so 0° points up
@@ -641,7 +649,6 @@
         (.attr "x" (fn [d]
                      (if (.-subject (.-data d))
                        0
-                       ;; Label distance from node: scales with size factor.
                        (let [label-dist 20]
                          (if (= (< (.-x d) js/Math.PI) (not (.-children d)))
                            label-dist
@@ -654,66 +661,105 @@
                                    "end"))))
         (.attr "paint-order" "stroke")
         (.attr "data-theme" (fn [d]
-                              (if-let [theme ^js/String (.-theme (.-data d))]
-                                theme
-                                "#333")))
+                              (or (.-theme ^js (.-data d)) "#333")))
         (.attr "fill" (fn [d]
-                        (let [data ^js (.-data d)]
-                          (if (.-spacer data)
-                            "transparent"
-                            "#333"))))
+                        (if (.-spacer ^js (.-data d)) "transparent" "#333")))
         (.text (fn [d]
                  (let [data ^js (.-data d)]
-                   (if (.-spacer data)
-                     ""
-                     (let [s (.-name data)
-                           [limit cutoff] (if (.-subject data)
-                                            [20 24]
-                                            [20 18])]
-                       ;; For subject (center) labels, we'll handle multi-line in tspan
-                       ;; For regular labels, display as single line
-                       (if (.-subject data)
-                         ""
-                         (if (and (string? s) (> (count s) limit))
-                           (str (subs s 0 cutoff) shared/omitted)
-                           s)))))))
+                   (when-not (or (.-spacer data) (.-subject data))
+                     (let [s (.-name data)]
+                       (if (and (string? s) (> (count s) 20))
+                         (str (subs s 0 18) shared/omitted)
+                         s))))))
         (.on "click" (fn [_ d]
-                       (when (.-href (.-data d))
+                       (when-let [href (.-href (.-data d))]
                          (reset! shared/post-navigate {:scroll :diagram})
-                         (shared/navigate-to (.-href (.-data d))))))
-
-        ;; Adding mouseover text (in lieu of a title attribute)
+                         (shared/navigate-to href))))
         (add-title)
 
         ;; TODO: also split at appropriate point(s) if the string is too long,
         ;;       e.g. http://localhost:7777/dannet/data/synset-74795
         ;;       (should not include the comma, though, obviously)
-        ;; Split center labels into multiple lines at commas
+        ;; Split center labels into multiple lines at commas, with definition
         (.each (fn [d]
                  (this-as this-elem
                    (let [data ^js (.-data d)]
                      (when (.-subject data)
-                       (let [label-parts  (->> (str/split (.-name data) #",\s*")
-                                               (sort-by count)
-                                               (reorder-lens-shape))
-                             line-height  56
-                             total-lines  (count label-parts)
-                             start-offset (- (* (/ (dec total-lines) 2) line-height))]
+                       (let [definition    (.-definition data)
+                             pos-label     (.-pos data)
+                             label-parts   (let [parts (->> (str/split (.-name data) #",\s*")
+                                                            (sort-by count)
+                                                            (reorder-lens-shape))]
+                                             ;; Ensure 2+ labels for spacing with definition
+                                             (if (and definition (= 1 (count parts)))
+                                               (conj parts "")
+                                               parts))
+                             line-height   56
+                             def-height    24
+                             max-def-chars 35
+                             ;; Wrap definition text into multiple lines
+                             def-lines     (when definition
+                                             (reduce
+                                               (fn [lines word]
+                                                 (let [current (peek lines)]
+                                                   (if (> (+ (count current) 1 (count word))
+                                                          max-def-chars)
+                                                     (conj lines word)
+                                                     (conj (pop lines) (str current " " word)))))
+                                               [(first (str/split definition #"\s+"))]
+                                               (rest (str/split definition #"\s+"))))
+
+                             n-def-lines   (count def-lines)
+                             n-labels      (count label-parts)
+                             total-lines   (+ n-labels (or n-def-lines 0))
+                             mid-point     (quot n-labels 2)
+                             avg-height    (if definition
+                                             (/ (+ (* (dec n-labels) line-height)
+                                                   (* (dec n-def-lines) def-height))
+                                                (dec total-lines))
+                                             line-height)
+                             start-offset  (- (* (/ (dec total-lines) 2) avg-height))]
                          (doseq [[idx part] (map-indexed vector label-parts)]
+                           ;; Insert definition lines at mid-point
+                           (when (and definition (= idx mid-point))
+                             (doseq [[def-idx line] (map-indexed vector def-lines)]
+                               (let [first-line? (zero? def-idx)
+                                     dy          (cond
+                                                   (and first-line? (zero? idx))
+                                                   (+ start-offset 12)
+                                                   first-line? (+ def-height 12)
+                                                   :else def-height)
+                                     container   (-> (d3/select this-elem)
+                                                     (.append "tspan")
+                                                     (.attr "x" 0)
+                                                     (.attr "dy" (str dy "px"))
+                                                     (.attr "text-anchor" "middle")
+                                                     (.attr "font-size" "0.45em"))]
+                                 (when (and pos-label first-line?)
+                                   (-> container
+                                       (.append "tspan")
+                                       (.attr "class" "definition-pos")
+                                       (.attr "font-variant" "small-caps")
+                                       (.text (str pos-label " "))))
+                                 (-> container
+                                     (.append "tspan")
+                                     (.attr "class" "definition-text")
+                                     (.text line)))))
+                           ;; Render the label part
                            (-> (d3/select this-elem)
                                (.append "tspan")
                                (.attr "x" 0)
-                               (.attr "dy" (if (zero? idx)
-                                             (str start-offset "px")
-                                             (str line-height "px")))
+                               (.attr "dy" (str (if (zero? idx) start-offset line-height) "px"))
                                (.attr "text-anchor" "middle")
                                (.text (str (str/trim part)
-                                           (when (< idx (dec total-lines)) ",")))))))))))
+                                           (when (and (< idx (dec n-labels))
+                                                      (not (str/blank? (nth label-parts (inc idx)))))
+                                             ",")))))))))))
 
         (.append "tspan")
         (.attr "class" "sense-paragraph")
-        (.attr "dy" (str 2 "px"))
-        (.attr "dx" (str (/ 10 4) "px"))
+        (.attr "dy" "2px")
+        (.attr "dx" "2.5px")
         (.text (fn [d]
                  (when (<= (+ (count (str (.-name (.-data d))))
                               (count (.-sub (.-data d))))
@@ -736,7 +782,7 @@
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
-  [entity elem {:keys [subject] :as opts}]
+  [subentity elem {:keys [subject languages entity] :as opts}]
   (when elem
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild elem)]
@@ -746,7 +792,7 @@
 
           ;; Prepare hierarchical data structure
           k->label' (->localised-labeler opts)
-          data      (prepare-radial-data subject entity k->label')
+          data      (prepare-radial-data subject subentity entity k->label' languages)
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
           ;; allows equal radius in all directions regardless of aspect ratio

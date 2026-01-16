@@ -174,12 +174,12 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label class href] :as opts}]
+  [resource {:keys [languages k->label class link-href] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
           label  (i18n/select-label languages labels)
           prefix (symbol (namespace resource))]
-      [:a {:href  (or href (prefix/resolve-href resource))
+      [:a {:href  (or link-href (prefix/resolve-href resource))
            :title (str prefix ":" (name resource))
            :lang  (i18n/lang label)
            :class (or class (get prefix/prefix->class prefix "unknown"))}
@@ -189,7 +189,7 @@
     ;; we likely have no label data either and do not bother to fetch it.
     ;; See 'rdf-uri-hyperlink' for how objects are represented!
     (let [local-name (prefix/guess-local-name resource)]
-      [:a {:href  (or href (prefix/resource-path resource))
+      [:a {:href  (or link-href (prefix/resource-path resource))
            :title local-name
            :class "unknown"}
        local-name])))
