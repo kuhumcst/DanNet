@@ -180,8 +180,8 @@
     (->> sense-kws
          (keep (fn [sense-kw]
                  (let [sense (entity g sense-kw)]
-                   (:lexinfo/senseExample sense))))
-         (set)
+                   (shared/setify (:lexinfo/senseExample sense)))))
+         (reduce into #{})
          (not-empty))))
 
 (declare hypernym-ancestry)
