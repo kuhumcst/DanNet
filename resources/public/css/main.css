@@ -1198,12 +1198,21 @@ svg.radial-tree-diagram__svg {
 
 .radial-tree-legend-container {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
     border-left: 1px solid rgba(0,0,0,0.1);
+}
+
+.radial-tree-legend-container > button.icon {
+    align-self: flex-end;
+
+    /* Pull legend up by half of button height: */
+    margin-bottom: -16px;
 }
 
 ul.radial-tree-legend {
     min-width: fit-content;
-    align-self: center;
+    margin: auto 0;
 
     list-style: none;
     padding: 24px 12px;
@@ -1381,6 +1390,12 @@ select.display-options:hover {
     .radial-tree-legend-container {
         border-left: none;
         border-top: 1px solid rgba(0,0,0,0.1);
+
+        /* Place max/min icon below legend. */
+        flex-direction: column-reverse;
+    }
+    .radial-tree-legend-container > button.icon {
+        margin-bottom: 0;
     }
     ul.radial-tree-legend {
         columns: 3;

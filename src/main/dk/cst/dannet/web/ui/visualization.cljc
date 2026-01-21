@@ -45,9 +45,22 @@
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
-  [state subentity {:keys [languages k->label] :as opts}]
-  (let [selected (::selected state)]
+  [state subentity {:keys [full-screen languages k->label] :as opts}]
+  (let [selected (::selected state)
+        toggle   (fn [_]
+                   #?(:cljs (do
+                              (shared/update-cookie! :full-screen not)
+                              ;; Scrolling to the top simulates a page change.
+                              (some-> (js/document.getElementById "content")
+                                      (.scroll #js {:top 0})))))]
     [:div.radial-tree-legend-container
+     [:button.icon {:class    (if full-screen
+                                "minimize"
+                                "maximize")
+                    :title    (if full-screen
+                                (i18n/da-en languages "Minimér" "Minimize")
+                                (i18n/da-en languages "Maksimér" "Maximize"))
+                    :on-click toggle}]
      [:ul.radial-tree-legend
       (for [k (keys subentity)]
         (when-let [theme (get shared/synset-rel-theme k)]
@@ -176,31 +189,13 @@
 ;; TODO: display ancestry and examples in full-screen mode
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
   [subentity {:keys [languages entity full-screen ancestry] :as opts}]
-  (let [toggle (fn [_]
-                 #?(:cljs (do
-                            (shared/update-cookie! :full-screen not)
-                            ;; Scrolling to the top simulates a page change.
-                            (some-> (js/document.getElementById "content")
-                                    (.scroll #js {:top 0})))))]
-    [:div.synset-radial-container {:key (str (hash subentity))}
-     ;; TODO: consider whether to only show the header in full-screen
-     [:div.synset-radial__header
-      [:span.synset-radial__definition
-       [:strong.pos-label (pos-label opts)]
-       (str (i18n/select-label languages (:skos/definition entity)))]
-      [:button.icon {:class    (if full-screen
-                                 "minimize"
-                                 "maximize")
-                     :title    (if full-screen
-                                 (i18n/da-en languages "Minimér" "Minimize")
-                                 (i18n/da-en languages "Maksimér" "Maximize"))
-                     :on-click toggle}]]
-     (radial-tree subentity opts)
-     (let [{:keys [lexinfo/senseExample]} entity]
-       (when (or senseExample ancestry)
-         [:div.synset-radial__footer
-          [:dl
-           (when senseExample
-             (examples-dt+dd opts))
-           (when ancestry
-             (ancestry-dt+dd opts))]]))]))
+  [:div.synset-radial-container {:key (str (hash subentity))}
+   (radial-tree subentity opts)
+   (let [{:keys [lexinfo/senseExample]} entity]
+     (when (or senseExample ancestry)
+       [:div.synset-radial__footer
+        [:dl
+         (when senseExample
+           (examples-dt+dd opts))
+         (when ancestry
+           (ancestry-dt+dd opts))]]))])
