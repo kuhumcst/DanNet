@@ -97,6 +97,7 @@
         on-key-down #?(:clj nil :cljs
                        (combobox/keydown-handler
                          #(let [form (js/document.getElementById "search-form")]
+                            (reset! open false)
                             (submit-form form)
                             (js/document.activeElement.blur))
                          (js/document.getElementById "search-input")

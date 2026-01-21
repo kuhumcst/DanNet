@@ -2,6 +2,12 @@
     hyphens: auto;
 }
 
+:root {
+    --normal-border: 1px solid rgba(0,0,0,0.5);
+    --subtle-border: 1px solid rgba(0,0,0,0.2);
+    --very-subtle-border: 1px solid rgba(0,0,0,0.1);
+}
+
 /**
  * Loading indicator - animates DanNet title letters when fetching.
  * 
@@ -189,7 +195,7 @@ html, body {
 }
 
 #content.full-screen hr {
-    border-top: 1px solid rgba(0,0,0,0.1);
+    border-top: var(--subtle-border);
 }
 
 main {
@@ -247,13 +253,13 @@ nav {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 4px;
+    padding: 8px;
     background-color: #333;
     background: #333 url(/images/exclusive-paper.png);
     box-shadow:
         0 0 12px rgba(0,0,0,0.8);
     border: 1px solid transparent;
-    border-right: 1px solid rgba(0,0,0,0.5);
+    border-right: var(--normal-border);
     z-index: 1;
 }
 
@@ -349,7 +355,6 @@ button.synset-details:hover {
 nav.full-screen {
     background: white;
     box-shadow: none;
-    border-right: 1px solid rgba(0,0,0,0.1);
 }
 
 /* Darken the icons in the nav bar in full-screen mode. */
@@ -381,14 +386,20 @@ form[role=search].search-active {
     transition: background-color 0.3s;
     opacity: 1;
     background: rgba(0,0,0,0.66) url(/images/back.svg);
-    background-position: 12px 12px;
+    background-position: 12px 20px;
     background-repeat: no-repeat;
     background-size: 42px;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
-    height: 100%;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    position: fixed;
     width: 100%;
-    padding-top: 8px;
+    height: 100%;
+    margin: 0;
+    padding-top: 16px;
 }
 
 form[role=search]:not(.search-active) {
@@ -539,7 +550,7 @@ header, footer {
 
 hr {
     border: none;
-    border-top: 1px solid rgba(0,0,0,0.2);
+    border-top: var(--subtle-border);
     width: 100%;
     margin: 0 0 24px 0;
 }
@@ -851,7 +862,7 @@ h3 {
    font-size: 18px;
    font-weight: normal;
    text-align: left;
-   border-bottom: 1px solid rgba(0,0,0,0.1);
+   border-bottom: var(--subtle-border);
    margin: 36px 0 12px 0;
    padding: 0 0 4px 0;
    font-variant: small-caps;
@@ -913,13 +924,13 @@ main > article {
 table.attr-val {
     font-size: 16px;
     border-collapse: collapse;
-    border: 1px solid rgba(0,0,0,0.5);
+    border: var(--normal-border);
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
     width: 100%;
 }
 
 table.attr-val table.attr-val {
-    border: 1px solid rgba(0,0,0,0.2);
+    border: var(--very-subtle-border);
     box-shadow: 0 0 4px rgba(0,0,0,0.1);
 }
 
@@ -975,7 +986,7 @@ td.attr-name {
 
 tr + tr td.attr-prefix,
 tr + tr td.attr-name {
-    border-top: 1px solid rgba(0,0,0,0.1);
+    border-top: var(--very-subtle-border);
 }
 
 /* Used to hide prefixes. */
@@ -1025,7 +1036,7 @@ details summary:hover {
 }
 
 details[open] {
-    border-top: 1px solid rgba(0,0,0,0.1);
+    border-top: var(--very-subtle-border);
     padding-bottom: 12px;
 }
 
@@ -1076,7 +1087,7 @@ li::marker {
     height: 100%;
 
     background: white;
-    border: 1px solid rgba(0,0,0,0.5);
+    border: var(--normal-border);
     box-shadow: 0 0 12px rgba(0,0,0,0.3);
 }
 
@@ -1100,7 +1111,7 @@ li::marker {
 .synset-radial-container .synset-radial__header {
     display: flex;
     align-items: center;
-    border-bottom: 1px solid rgba(0,0,0,0.1);
+    border-bottom: var(--subtle-border);
     padding: 0 0 12px 0;
     margin-bottom: 12px;
 }
@@ -1108,7 +1119,7 @@ li::marker {
 .synset-radial-container .synset-radial__metadata {
     display: flex;
     align-items: center;
-    border-right: 1px solid rgba(0,0,0,0.1);
+    border-right: var(--subtle-border);
     margin: 0;
     padding-right: 12px;
     max-width: 20vw;
@@ -1120,7 +1131,7 @@ li::marker {
 }
 
 .synset-radial-container .synset-radial__footer {
-    border-top: 1px solid rgba(0,0,0,0.1);
+    border-top: var(--subtle-border);
     margin-top: 12px;
     padding-top: 24px;
 }
@@ -1130,7 +1141,7 @@ strong.pos-label {
     font-variant: small-caps;
     padding: 4px 12px 4px 0;
     margin-right: 12px;
-    border-right: 1px solid rgba(0,0,0,0.1);
+    border-right: var(--subtle-border);
 }
 
 .synset-radial-container .synset-radial__definition {
@@ -1144,7 +1155,7 @@ strong.pos-label {
     width: 32px;
     padding: 12px;
     background-color: white;
-    border: 1px solid rgba(0,0,0,0.1);
+    border: var(--subtle-border);
     border-radius: 2px;
 }
 
@@ -1174,11 +1185,11 @@ strong.pos-label {
     display: flex;
 
     /* Always make sure the diagram to is fully visible. */
-    max-height: calc(92vh - 45px - 24px);
+    max-height: calc(80vh - 24px);
 }
 
 svg.radial-tree-diagram__svg {
-    max-height: calc(92vh - 45px - 24px);
+    max-height: calc(80vh - 24px);
 
     /*  The viewBow keeps the diagram the same, but additional width allows for
         certain long labels to avoid clipping. */
@@ -1200,7 +1211,7 @@ svg.radial-tree-diagram__svg {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    border-left: 1px solid rgba(0,0,0,0.1);
+    border-left: var(--subtle-border);
 }
 
 .radial-tree-legend-container > button.icon {
@@ -1271,7 +1282,7 @@ ul.radial-tree-legend > li {
 }
 
 ul.radial-tree-legend > li:hover  {
-    border: 1px solid rgba(0,0,0,0.1);
+    border: var(--subtle-border);
     cursor: pointer;
 }
 
@@ -1389,7 +1400,7 @@ select.display-options:hover {
     }
     .radial-tree-legend-container {
         border-left: none;
-        border-top: 1px solid rgba(0,0,0,0.1);
+        border-top: var(--subtle-border);
 
         /* Place max/min icon below legend. */
         flex-direction: column-reverse;
@@ -1404,7 +1415,7 @@ select.display-options:hover {
     #content.full-screen .synset-radial__metadata {
         order: 3;
         border-right: none;
-        border-top: 1px solid rgba(0,0,0,0.1);
+        border-top: var(--subtle-border);
 
         /* TODO: why isn't it expanding?? */
         max-width: none;
@@ -1451,7 +1462,7 @@ select.display-options:hover {
     }
     strong.pos-label {
         border-right: none;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
+        border-bottom: var(--subtle-border);
         padding: 4px 4px 8px 0;
         margin-right: 0;
         margin-bottom: 8px;
@@ -1472,7 +1483,7 @@ select.display-options:hover {
     nav {
         flex-direction: row;
         border: 1px solid transparent;
-        border-bottom: 1px solid rgba(0,0,0,0.5);
+        border-bottom: var(--normal-border);
     }
     nav a.title {
         writing-mode: initial;
@@ -1481,13 +1492,6 @@ select.display-options:hover {
     }
     nav select.language {
         margin: 0 4px 0 -40px;
-    }
-    /* Position search input below the nav bar to prevent iOS scroll issues */
-    form[role=search].search-active .search-form__top {
-        margin-top: 50px;
-    }
-    form[role=search].search-active {
-        background-position: 12px 62px;
     }
 }
 

@@ -93,7 +93,7 @@
   [{:keys [entity languages] :as opts}]
   (when-let [v (:lexinfo/senseExample entity)]
     [:<>
-     [:dt.synset-radial__footer-item
+     [:dt.synset-radial__footer-item {:id "examples"}
       (i18n/da-en languages
         "Eksempler"
         "Examples")]
@@ -106,7 +106,7 @@
         short-label (some-> (:dns/shortLabel entity) str)
         subj-label  (if details? label (or short-label label))]
     [:<>
-     [:dt.synset-radial__footer-item
+     [:dt.synset-radial__footer-item {:id "ancestry"}
       (i18n/da-en languages
         "Overbegreber"
         "Hypernyms")]
@@ -130,8 +130,8 @@
            (rdf/list-items (assoc opts :attr-key :dns/ontologicalType) onto-types)
            "–")]
         [:dt (i18n/da-en languages
-               "Tilknyttede ord"
-               "Associated words")]
+               "Bestanddele"
+               "Constituents")]
         [:dd (rdf/resource
                (assoc opts :attr-key :ontolex/lexicalizedSense)
                (:ontolex/lexicalizedSense entity))]
@@ -139,21 +139,6 @@
         (ancestry-dt+dd opts)]]])
    (radial-tree-diagram subentity opts)
    (radial-tree-legend subentity opts)])
-
-(rum/defc pos-label
-  [{:keys [languages entity] :as opts}]
-  (let [lexfile (:wn/lexfile entity)
-        pos     (shared/lexfile->pos lexfile)]
-    [:strong {:title lexfile}
-     (i18n/da-en languages
-       (get {"noun" "substantiv"
-             "adj"  "adjektiv"
-             "adv"  "adverbium"
-             "verb" "verbum"} pos)
-       (get {"noun" "noun"
-             "adj"  "adjective"
-             "adv"  "adverb"
-             "verb" "verb"} pos))]))
 
 (defn debounced-rerender-mixin
   "Debounced rerender on resize events to prevent excessive diagram repaints."
@@ -188,7 +173,7 @@
 
 ;; TODO: display ancestry and examples in full-screen mode
 (rum/defc expanded-radial < (debounced-rerender-mixin 200)
-  [subentity {:keys [languages entity full-screen ancestry] :as opts}]
+  [subentity {:keys [entity ancestry] :as opts}]
   [:div.synset-radial-container {:key (str (hash subentity))}
    (radial-tree subentity opts)
    (let [{:keys [lexinfo/senseExample]} entity]
