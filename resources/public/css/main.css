@@ -802,7 +802,7 @@ dl {
 }
 
 dt {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: normal;
     padding: 12px 12px 0 12px;
     margin: 0;
@@ -1226,7 +1226,7 @@ ul.radial-tree-legend {
     margin: auto 0;
 
     list-style: none;
-    padding: 24px 12px;
+    padding: 12px;
 
     font-variant: small-caps;
     font-size: 14px;
@@ -1242,7 +1242,11 @@ ul.radial-tree-legend label {
     -ms-user-select: none;
     user-select: none;
 
-    padding: 6px 4px 6px 28px;
+    padding: 6px 0 6px 32px;
+}
+
+ul.radial-tree-legend li + li {
+    margin-top: 4px;
 }
 
 ul.radial-tree-legend input[type=radio] {
@@ -1254,8 +1258,8 @@ ul.radial-tree-legend input[type=radio] {
 }
 
 .radial-tree-legend__bullet {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 12px;
     margin-right: 1ch;
     display: inline-block;
@@ -1263,8 +1267,8 @@ ul.radial-tree-legend input[type=radio] {
     transition: all 0.2s;
 
     position: absolute;
-    top: 8px;
-    left: 6px;
+    top: 10px;
+    left: 12px;
     background-color: #eee;
 }
 
@@ -1381,15 +1385,19 @@ select.display-options:hover {
     #content.full-screen  ul.radial-tree-legend,
     #content.full-screen  .synset-radial-container,
     #content.full-screen  .synset-radial-container dd {
-        font-size: 18px;
+        font-size: 16px;
     }
     #content.full-screen .radial-tree-legend__bullet {
         width: 14px;
         height: 14px;
         top: 10px;
+        left: 8px;
     }
     #content.full-screen ul.radial-tree-legend label {
         padding-left: 32px;
+    }
+    #content.full-screen ul.radial-tree-legend li + li {
+        margin-top: 6px;
     }
 }
 
@@ -1404,6 +1412,7 @@ select.display-options:hover {
 
         /* Place max/min icon below legend. */
         flex-direction: column-reverse;
+        margin-bottom: 12px;
     }
     .radial-tree-legend-container > button.icon {
         margin-bottom: 0;
