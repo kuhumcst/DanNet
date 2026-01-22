@@ -459,7 +459,7 @@
     (-> gradient (.append "stop") (.attr "offset" "0%")
         (.attr "stop-color" "white") (.attr "stop-opacity" "0.9"))
     (-> gradient (.append "stop") (.attr "offset" "70%")
-        (.attr "stop-color" "white") (.attr "stop-opacity" "0.4"))
+        (.attr "stop-color" "white") (.attr "stop-opacity" "0.6"))
     (-> gradient (.append "stop") (.attr "offset" "100%")
         (.attr "stop-color" "white") (.attr "stop-opacity" "0"))))
 
@@ -487,7 +487,7 @@
         pos        (some-> full-entity :wn/lexfile shared/lexfile->pos)
         pos-label  (when pos
                      (i18n/da-en languages
-                       ({"noun" "subst." "adj" "adj." "adv" "adv." "verb" "v."} pos)
+                       ({"noun" "sb." "adj" "adj." "adv" "adv." "verb" "vb."} pos)
                        ({"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."} pos)))
         definition (some->> (:skos/definition full-entity)
                             (i18n/select-label languages)
@@ -593,6 +593,156 @@
                           " L 0," (/ base 2)                ; Draw to top of base
                           " Z"))))))
 
+(defn- wrap-at-bullets
+  "Wrap a bullet-separated string into lines that fit within max-width.
+  
+  Uses glyph-width estimation to determine line breaks. If an individual
+  segment exceeds max-width, it will be placed on its own line (no truncation).
+  Returns a vector of line strings."
+  [s max-width font-scale]
+  (let [segments (str/split s #"\s*•\s*")
+        sep      " • "]
+    (reduce
+      (fn [lines segment]
+        (let [current   (peek lines)
+              candidate (if (str/blank? current)
+                          segment
+                          (str current sep segment))
+              width     (* (shared/glyph-width candidate) font-scale)]
+          (if (or (str/blank? current)
+                  (<= width max-width))
+            (conj (pop lines) candidate)
+            (conj lines segment))))
+      [""]
+      segments)))
+
+(defn- render-subject-labels-horizontal
+  "Render subject labels in upper half, definition in lower half.
+  
+  Labels are distributed in an arc following circular bounds, with longest
+  labels at the bottom (widest part) and shortest at top (narrowest part)."
+  [this-elem data]
+  (let [definition    (.-definition data)
+        pos-label     (.-pos data)
+        label-parts   (->> (str/split (.-name data) #",\s*")
+                           (remove str/blank?))
+
+        ;; Circle geometry: viewBox is 800x800, radius ≈ 300
+        ;; Background gradient has radius 0.75 * main radius
+        bg-radius     225
+        font-size     18
+        line-height   48
+
+        ;; Sort by width, then distribute longest-first from bottom up
+        segments      (->> (str/split (str/join " • " label-parts) #"\s*•\s*")
+                           (sort-by shared/glyph-width))
+
+        ;; Reduce font size when many long labels exceed threshold
+        total-width   (reduce + (map shared/glyph-width segments))
+        small-font?   (> total-width 60)
+
+        ;; Calculate max width for a line at given y-position using circle equation
+        width-at-y    (fn [y]
+                        (let [y-abs     (js/Math.abs y)
+                              r-squared (* bg-radius bg-radius)
+                              y-squared (* y-abs y-abs)]
+                          (if (>= y-abs bg-radius)
+                            0
+                            (* 2 (js/Math.sqrt (- r-squared y-squared))))))
+
+        bottom-y      -5
+        max-lines     5
+
+        ;; Distribute segments across lines respecting circular bounds
+        wrapped-lines (loop [remaining (reverse segments)
+                             lines     []
+                             line-idx  0]
+                        (if (or (empty? remaining) (>= line-idx max-lines))
+                          lines
+                          (let [y-pos     (- bottom-y (* line-idx line-height))
+                                max-width (* (width-at-y y-pos) 0.85)
+                                current   (atom "")
+                                used      (atom 0)]
+                            (doseq [seg remaining]
+                              (let [candidate (if (str/blank? @current)
+                                                seg
+                                                (str @current " • " seg))
+                                    width     (* (shared/glyph-width candidate) font-size)]
+                                (when (<= width max-width)
+                                  (reset! current candidate)
+                                  (swap! used inc))))
+                            (if (zero? @used)
+                              (recur (rest remaining)
+                                     (conj lines (first remaining))
+                                     (inc line-idx))
+                              (recur (drop @used remaining)
+                                     (conj lines @current)
+                                     (inc line-idx))))))
+
+        n-lines       (count wrapped-lines)
+
+        ;; Definition positioning and wrapping
+        def-height    24
+        def-start-y   40
+        max-def-chars 35
+        def-lines     (when definition
+                        (reduce
+                          (fn [lines word]
+                            (let [current (peek lines)]
+                              (if (> (+ (count current) 1 (count word)) max-def-chars)
+                                (conj lines word)
+                                (conj (pop lines) (str current " " word)))))
+                          [(first (str/split definition #"\s+"))]
+                          (rest (str/split definition #"\s+"))))]
+
+    ;; Render label lines from bottom up
+    (doseq [[idx line] (map-indexed vector wrapped-lines)]
+      (when-not (str/blank? line)
+        (let [parts      (str/split line #"\s*•\s*")
+              line-tspan (-> (d3/select this-elem)
+                             (.append "tspan")
+                             (.attr "x" 0)
+                             (.attr "dy" (str (if (zero? idx)
+                                                bottom-y
+                                                (- line-height)) "px"))
+                             (.attr "text-anchor" "middle")
+                             (.attr "class" (when small-font? "subject-label-small")))]
+          (doseq [[part-idx part] (map-indexed vector parts)]
+            (when-not (zero? part-idx)
+              (-> line-tspan
+                  (.append "tspan")
+                  (.attr "class" "subject-label-separator")
+                  (.text " • ")))
+            (-> line-tspan
+                (.append "tspan")
+                (.text part))))))
+
+    ;; Render definition lines in lower half
+    (when def-lines
+      (doseq [[idx line] (map-indexed vector def-lines)]
+        (let [first-line? (zero? idx)
+              ;; Calculate relative offset from last label to definition position
+              ;; dy = target_pos - current_pos = def-start-y - (bottom-y - (n-1) * line-height)
+              dy          (if first-line?
+                            (+ def-start-y (- bottom-y) (* (dec n-lines) line-height))
+                            def-height)
+              container   (-> (d3/select this-elem)
+                              (.append "tspan")
+                              (.attr "x" 0)
+                              (.attr "dy" (str dy "px"))
+                              (.attr "text-anchor" "middle")
+                              (.attr "font-size" "0.45em"))]
+          (when (and pos-label first-line?)
+            (-> container
+                (.append "tspan")
+                (.attr "class" "definition-pos")
+                (.attr "font-variant" "small-caps")
+                (.text (str pos-label " | "))))
+          (-> container
+              (.append "tspan")
+              (.attr "class" "definition-text")
+              (.text line)))))))
+
 (defn- render-radial-labels
   "Render text labels with rotation and positioning in the radial tree.
 
@@ -677,84 +827,12 @@
                          (shared/navigate-to href))))
         (add-title)
 
-        ;; TODO: also split at appropriate point(s) if the string is too long,
-        ;;       e.g. http://localhost:7777/dannet/data/synset-74795
-        ;;       (should not include the comma, though, obviously)
-        ;; Split center labels into multiple lines at commas, with definition
+        ;; Render subject labels with horizontal layout
         (.each (fn [d]
                  (this-as this-elem
                    (let [data ^js (.-data d)]
                      (when (.-subject data)
-                       (let [definition    (.-definition data)
-                             pos-label     (.-pos data)
-                             label-parts   (let [parts (->> (str/split (.-name data) #",\s*")
-                                                            (sort-by count)
-                                                            (reorder-lens-shape))]
-                                             ;; Ensure 2+ labels for spacing with definition
-                                             (if (and definition (= 1 (count parts)))
-                                               (conj parts "")
-                                               parts))
-                             line-height   56
-                             def-height    24
-                             max-def-chars 35
-                             ;; Wrap definition text into multiple lines
-                             def-lines     (when definition
-                                             (reduce
-                                               (fn [lines word]
-                                                 (let [current (peek lines)]
-                                                   (if (> (+ (count current) 1 (count word))
-                                                          max-def-chars)
-                                                     (conj lines word)
-                                                     (conj (pop lines) (str current " " word)))))
-                                               [(first (str/split definition #"\s+"))]
-                                               (rest (str/split definition #"\s+"))))
-
-                             n-def-lines   (count def-lines)
-                             n-labels      (count label-parts)
-                             total-lines   (+ n-labels (or n-def-lines 0))
-                             mid-point     (quot n-labels 2)
-                             avg-height    (if definition
-                                             (/ (+ (* (dec n-labels) line-height)
-                                                   (* (dec n-def-lines) def-height))
-                                                (dec total-lines))
-                                             line-height)
-                             start-offset  (- (* (/ (dec total-lines) 2) avg-height))]
-                         (doseq [[idx part] (map-indexed vector label-parts)]
-                           ;; Insert definition lines at mid-point
-                           (when (and definition (= idx mid-point))
-                             (doseq [[def-idx line] (map-indexed vector def-lines)]
-                               (let [first-line? (zero? def-idx)
-                                     dy          (cond
-                                                   (and first-line? (zero? idx))
-                                                   (+ start-offset 12)
-                                                   first-line? (+ def-height 12)
-                                                   :else def-height)
-                                     container   (-> (d3/select this-elem)
-                                                     (.append "tspan")
-                                                     (.attr "x" 0)
-                                                     (.attr "dy" (str dy "px"))
-                                                     (.attr "text-anchor" "middle")
-                                                     (.attr "font-size" "0.45em"))]
-                                 (when (and pos-label first-line?)
-                                   (-> container
-                                       (.append "tspan")
-                                       (.attr "class" "definition-pos")
-                                       (.attr "font-variant" "small-caps")
-                                       (.text (str pos-label " "))))
-                                 (-> container
-                                     (.append "tspan")
-                                     (.attr "class" "definition-text")
-                                     (.text line)))))
-                           ;; Render the label part
-                           (-> (d3/select this-elem)
-                               (.append "tspan")
-                               (.attr "x" 0)
-                               (.attr "dy" (str (if (zero? idx) start-offset line-height) "px"))
-                               (.attr "text-anchor" "middle")
-                               (.text (str (str/trim part)
-                                           (when (and (< idx (dec n-labels))
-                                                      (not (str/blank? (nth label-parts (inc idx)))))
-                                             ",")))))))))))
+                       (render-subject-labels-horizontal this-elem data))))))
 
         (.append "tspan")
         (.attr "class" "sense-paragraph")
@@ -830,7 +908,6 @@
       ;; Positioned after links but before nodes/labels for proper layering
       ;; 75% of diagram radius - nearly to the nodes but not covering labels
       (let [bg-radius (* radius 0.75)]
-        ;; Visual gradient background
         (-> svg
             (.append "circle")
             (.attr "class" "subject-background")

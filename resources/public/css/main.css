@@ -1311,10 +1311,22 @@ ul.radial-tree-legend > li:focus-within {
 
 .radial-item__subject {
     /* Make the subject label easier to read in busy diagrams. */
-    filter: drop-shadow(0 0.3ch 0.2ch white);
+    stroke: white;
+    stroke-width: 6px;
+    paint-order: stroke fill;
 
     transition: font-size 0.2s;
     font-size: 40px;
+}
+
+/* Smaller font for subject labels when there are many long labels */
+tspan.subject-label-small {
+    font-size: 28px;
+}
+
+/* Subtle styling for bullet separators in subject labels */
+tspan.subject-label-separator {
+    opacity: 0.33;
 }
 
 tspan.sense-paragraph {
@@ -1611,7 +1623,6 @@ span.render-error {
 /* Definition styling in radial diagram */
 .definition-pos {
     fill: #333;
-    font-style: italic;
     font-weight: bold;
     stroke: white;
     stroke-width: 6px;
@@ -1620,7 +1631,6 @@ span.render-error {
 
 .definition-text {
     fill: #333;
-    font-style: italic;
     stroke: white;
     stroke-width: 6px;
     paint-order: stroke fill;
