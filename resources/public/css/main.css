@@ -3,9 +3,99 @@
 }
 
 :root {
-    --normal-border: 1px solid rgba(0,0,0,0.5);
-    --subtle-border: 1px solid rgba(0,0,0,0.2);
-    --very-subtle-border: 1px solid rgba(0,0,0,0.1);
+    /* ===========================================
+       COLOR PALETTE
+       =========================================== */
+    
+    /* Core neutrals */
+    --color-dark: #333;
+    --color-muted: #666;
+    --color-subtle: #999;
+    --color-faint: #AAA;
+    --color-bg-alt: #F2F2F2;
+    
+    /* Primary accent (links) */
+    --color-link: #0066BB;
+    --color-link-underline: #0066BB55;
+    --color-link-underline-hover: #0066BBFF;
+    
+    /* Namespace/prefix colors */
+    --color-dannet: #901a1e;
+    --color-w3c: #55f;
+    --color-meta: #019fa1;
+    --color-ontolex: #df7300;
+    --color-wordnet: #387111;
+    
+    /* ===========================================
+       OPACITY SCALE
+       =========================================== */
+    --opacity-interactive: 0.8;       /* Default state for clickable elements */
+    --opacity-interactive-hover: 1;   /* Hover state */
+    --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
+    --opacity-muted: 0.6;             /* Language tags, subscripts */
+    
+    /* ===========================================
+       BORDERS
+       =========================================== */
+    --border-opacity-normal: 0.5;
+    --border-opacity-subtle: 0.2;
+    --border-opacity-very-subtle: 0.1;
+    
+    --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-normal));
+    --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
+    --very-subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
+    
+    /* ===========================================
+       SHADOWS
+       =========================================== */
+    --shadow-card: 0 0 12px rgba(0,0,0,0.3);
+    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.1);
+    --shadow-nav: 0 0 12px rgba(0,0,0,0.8);
+    --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
+    
+    /* ===========================================
+       TYPOGRAPHY
+       =========================================== */
+    --font-family: Georgia, serif;
+    --letter-spacing-base: 0.2ch;
+    --line-height-prose: 1.5;
+    
+    /* Font size scale */
+    --font-size-xs: 12px;
+    --font-size-s: 14px;
+    --font-size-m: 16px;
+    --font-size-l: 24px;
+    --font-size-xl: 32px;
+    --font-size-xxl: 48px;
+    
+    /* ===========================================
+       SPACING
+       =========================================== */
+    --spacing-xs: 4px;
+    --spacing-s: 8px;
+    --spacing-m: 12px;
+    --spacing-l: 24px;
+    --spacing-xl: 32px;
+    --spacing-xxl: 48px;
+    
+    /* ===========================================
+       TRANSITIONS
+       =========================================== */
+    --transition-fast: 0.1s;
+    --transition-base: 0.2s;
+    --transition-slow: 0.33s;
+    
+    /* ===========================================
+       BACKGROUNDS
+       =========================================== */
+    --bg-texture: url(/images/exclusive-paper.png);
+    --bg-dark: var(--color-dark) var(--bg-texture);
+    
+    /* ===========================================
+       INTERACTIVE ELEMENT SIZING
+       =========================================== */
+    --icon-size: 32px;
+    --icon-size-s: 24px;
 }
 
 /**
