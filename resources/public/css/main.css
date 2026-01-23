@@ -1361,9 +1361,6 @@ ul.hypernym-chain {
 
 ul.hypernym-chain ul.hypernym-chain {
     padding-left: 1ch;
-}
-
-ul.hypernym-chain ul.hypernym-chain {
     margin: 0.8em 0;
 }
 
@@ -1375,7 +1372,6 @@ ul.hypernym-chain li::before {
     content: "↳";
     color: var(--color-dark);
     margin-right: 1ch;
-    font-size: 1em;
     vertical-align: middle;
 }
 
@@ -1389,13 +1385,13 @@ ul.hypernym-chain .set__content {
 }
 
 /* Subject item in hypernym chain - no arrow, styled as inactive */
+ul.hypernym-chain > li.subject {
+    color: var(--color-dark);
+}
+
 ul.hypernym-chain > li.subject::before {
     content: "";
     margin-right: 0;
-}
-
-ul.hypernym-chain > li.subject {
-    color: var(--color-dark);
 }
 
 
