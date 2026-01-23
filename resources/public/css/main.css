@@ -1163,18 +1163,19 @@ strong.pos-label {
     height: 100%;
 }
 
+.radial-tree-diagram,
+svg.radial-tree-diagram__svg {
+    /* Always make sure the diagram is fully visible. */
+    max-height: calc(80vh - 24px);
+}
+
 .radial-tree-diagram {
     flex-grow: 1; /* Fix width in Safari. */
     text-align: center;
     display: flex;
-
-    /* Always make sure the diagram to is fully visible. */
-    max-height: calc(80vh - 24px);
 }
 
 svg.radial-tree-diagram__svg {
-    max-height: calc(80vh - 24px);
-
     /*  The viewBox keeps the diagram the same, but additional width allows for
         certain long labels to avoid clipping. */
     width: 100%;
@@ -1221,11 +1222,7 @@ ul.radial-tree-legend label {
     display: block;
     position: relative;
     cursor: pointer;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
     user-select: none;
-
     padding: 6px 0 6px var(--spacing-xl);
 }
 
@@ -1299,8 +1296,6 @@ ul.radial-tree-legend > li:focus-within {
     stroke: white;
     stroke-width: 6px;
     paint-order: stroke fill;
-
-    transition: font-size var(--transition-base);
     font-size: 40px;
 }
 
@@ -1321,19 +1316,16 @@ tspan.sense-paragraph {
 }
 
 /* Definition styling in radial diagram */
-.definition-pos {
-    fill: var(--color-dark);
-    font-weight: bold;
-    stroke: white;
-    stroke-width: 6px;
-    paint-order: stroke fill;
-}
-
+.definition-pos,
 .definition-text {
     fill: var(--color-dark);
     stroke: white;
     stroke-width: 6px;
     paint-order: stroke fill;
+}
+
+.definition-pos {
+    font-weight: bold;
 }
 
 /* Word cloud items */
@@ -1343,7 +1335,7 @@ tspan.sense-paragraph {
 }
 
 .word-cloud-item__top {
-    /*TODO: currently unused, find some purpose*/
+    /* Reserved for potential future styling of top-ranked items */
 }
 
 /* Only reveal colours when hovering parent SVG container. */
