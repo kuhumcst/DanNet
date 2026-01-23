@@ -1601,6 +1601,15 @@ span.render-error {
     }
 }
 
+@media only screen and (max-width: 750px) {
+    .synset-radial-container {
+        font-size: var(--font-size-s);
+    }
+    ul.radial-tree-legend {
+        columns: 2;
+    }
+}
+
 /* Mobile view (minimalist) */
 @media only screen and (max-width: 700px) {
     td.attr-name > [lang]:not(footer, h1 span, article)::after {
@@ -1661,15 +1670,6 @@ span.render-error {
     }
     nav select.language {
         margin: 0 var(--spacing-xs) 0 -40px;
-    }
-}
-
-@media only screen and (max-width: 750px) {
-    .synset-radial-container {
-        font-size: var(--font-size-s);
-    }
-    ul.radial-tree-legend {
-        columns: 2;
     }
 }
 
