@@ -526,22 +526,21 @@ nav a.title {
     font-size: 21px;
     line-height: var(--icon-size); /* centre align */
     margin: auto 0 calc(-1 * var(--icon-size)) 0; /* account for fixed search element */
-    padding: 0;
     font-variant: small-caps;
     justify-self: center;
-    text-decoration: none;
     letter-spacing: 4px;
 }
 
-nav a.title:hover {
-    text-decoration: none;
+nav a.title:hover,
+nav select.language:hover,
+nav a.github:hover,
+nav button.synset-details:hover {
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
 }
 
 nav a.title span {
     display: inline-block;
-    color: white;
 }
 
 nav select.language {
@@ -565,11 +564,6 @@ nav select.language {
     background-position: center;
 }
 
-nav select.language:hover {
-    opacity: var(--opacity-interactive-hover);
-    transform: scale(110%);
-}
-
 nav a.github {
     transition: all var(--transition-base);
     background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
@@ -580,11 +574,6 @@ nav a.github {
     height: var(--icon-size-s);
     opacity: var(--opacity-interactive);
     padding: var(--spacing-xs);
-}
-
-a.github:hover {
-    opacity: var(--opacity-interactive-hover);
-    transform: scale(110%);
 }
 
 nav button.synset-details {
@@ -603,11 +592,6 @@ nav button.synset-details {
 
 nav button.synset-details.toggled {
     background-image: url("/images/plus.svg");
-}
-
-button.synset-details:hover {
-    opacity: var(--opacity-interactive-hover);
-    transform: scale(110%);
 }
 
 nav.full-screen {
