@@ -108,6 +108,7 @@
    BASE & RESET
    =========================================== */
 
+/* TODO: investigate scoping hyphens more narrowly (currently global for RDF labels in tables) */
 * {
     hyphens: auto;
 }
@@ -126,7 +127,6 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 100%;
 
     color: var(--color-dark);
     font-family: var(--font-family);
@@ -140,10 +140,10 @@ button {
 a {
     color: var(--color-link);
     text-decoration: none;
-    cursor: pointer;
 }
 
-/* TODO: fix this markup difference so 2-item selector isn't necessary. */
+/* TODO: div.set markup is inconsistent - sometimes inside <a>, sometimes not.
+   Unifying this would allow a simpler selector (see rdf.cljc). */
 a:hover,
 a:hover div.set > * {
     text-decoration: underline;
