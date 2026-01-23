@@ -636,34 +636,26 @@ nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; 
 form[role=search] {
     display: flex;
     flex-direction: column;
-    transition: all 0s;
     position: fixed;
     margin: -5px 0 0 -5px;
     padding: var(--spacing-xs);
     opacity: var(--opacity-interactive);
     width: var(--icon-size);
     min-height: var(--icon-size);
-    background: url(/images/search.svg);
-    background-repeat: no-repeat;
-    background-position: 5px 5px; /* 4px - margin */
-    background-size: var(--icon-size);
+    background: url(/images/search.svg) no-repeat 5px 5px / var(--icon-size);
     z-index: 99;
 }
 
 form[role=search].search-active {
     transition: background-color 0.3s;
     opacity: var(--opacity-interactive-hover);
-    background: rgba(0,0,0,0.66) url(/images/back.svg);
-    background-position: var(--spacing-m) 20px;
-    background-repeat: no-repeat;
-    background-size: 42px;
+    background: rgba(0,0,0,0.66) url(/images/back.svg) no-repeat var(--spacing-m) 20px / 42px;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    position: fixed;
     width: 100%;
     height: 100%;
     margin: 0;
@@ -739,11 +731,7 @@ form[role=search].search-active input[type=submit] {
     border: none;
     color: rgba(255,255,255,var(--opacity-decorative));
     cursor: pointer;
-    background-color: transparent;
-    background: url(/images/search.svg);
-    background-repeat: no-repeat;
-    background-position: center 2px;
-    background-size: 36px 36px;
+    background: url(/images/search.svg) no-repeat center 2px / 36px 36px;
 }
 
 form[role=search].search-active input[type=submit]:hover {
