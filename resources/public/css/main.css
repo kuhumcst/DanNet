@@ -1035,7 +1035,7 @@ header > .rdf-uri .rdf-uri__name {
 
 
 /* ===========================================
-   SYNSET SETS
+   SYNSETS
    =========================================== */
 
 .set__word {
@@ -1055,22 +1055,25 @@ div.set {
     line-height: 1;
 }
 
-div.set__left-bracket {
-    background: url(/images/set-left.svg) no-repeat left;
-    margin-right: 0.5ch;
-}
-
-div.set__right-bracket {
-    background: url(/images/set-right.svg) no-repeat right;
-    margin-left: 0.5ch;
-}
-
 div.set__left-bracket,
 div.set__right-bracket {
     min-width: 1ch;
     background-size: auto 100%;
+    background-repeat: no-repeat;
     opacity: 0.4;
     transition: all var(--transition-fast);
+}
+
+div.set__left-bracket {
+    background-image: url(/images/set-left.svg);
+    background-position: left;
+    margin-right: 0.5ch;
+}
+
+div.set__right-bracket {
+    background-image: url(/images/set-right.svg);
+    background-position: right;
+    margin-left: 0.5ch;
 }
 
 span.marker {
