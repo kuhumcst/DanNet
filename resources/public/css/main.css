@@ -1428,14 +1428,19 @@ span.subtle {
     border-color: var(--color-dark);
 }
 
-.icon.maximize {
-    background: url("/images/maximize.svg") center no-repeat;
+.icon.maximize,
+.icon.minimize {
+    background-position: center;
+    background-repeat: no-repeat;
     background-size: 20px 20px;
 }
 
+.icon.maximize {
+    background-image: url("/images/maximize.svg");
+}
+
 .icon.minimize {
-    background: url("/images/minimize.svg") center no-repeat;
-    background-size: 20px 20px;
+    background-image: url("/images/minimize.svg");
 }
 
 /* Display options dropdown */
