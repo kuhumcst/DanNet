@@ -159,6 +159,9 @@ p {
 }
 
 h1, h2, h3 {
+    font-weight: normal;
+    font-variant: small-caps;
+    letter-spacing: var(--letter-spacing-base);
     filter: drop-shadow(var(--shadow-heading));
 }
 
@@ -166,11 +169,7 @@ h1 {
     display: flex;
     justify-content: center;
     font-size: var(--font-size-xl);
-    font-weight: normal;
-    padding: 0;
     margin: var(--spacing-m) auto var(--spacing-l) auto;
-    letter-spacing: var(--letter-spacing-base);
-    font-variant: small-caps;
     word-break: normal;
 }
 
@@ -185,7 +184,6 @@ h1 sup {
     font-size: 60%;
     opacity: var(--opacity-muted);
     text-decoration: none;
-    font-variant: small-caps;
 }
 
 h1 img {
@@ -209,12 +207,8 @@ h1 span.prefix {
 
 h2 {
     font-size: var(--font-size-l);
-    font-weight: normal;
     text-align: center;
     margin: 36px 0 var(--spacing-m) 0;
-    padding: 0;
-    font-variant: small-caps;
-    letter-spacing: var(--letter-spacing-base);
 }
 
 h2::before {
@@ -229,13 +223,10 @@ h2::after {
 
 h3 {
     font-size: 18px;
-    font-weight: normal;
     text-align: left;
     border-bottom: var(--subtle-border);
     margin: 36px 0 var(--spacing-m) 0;
     padding: 0 0 var(--spacing-xs) 0;
-    font-variant: small-caps;
-    letter-spacing: var(--letter-spacing-base);
 }
 
 sub {
@@ -258,7 +249,7 @@ pre.viewer-code {
 /* Definition lists */
 dl {
     margin: 0;
-    padding: 0px;
+    padding: 0;
 }
 
 dt {
@@ -284,10 +275,6 @@ dd + dt {
 /* Ordered lists */
 ol {
     margin: 0;
-    padding-left: var(--spacing-xl);
-}
-
-ol.three-digits {
     padding-left: var(--spacing-xl);
 }
 
