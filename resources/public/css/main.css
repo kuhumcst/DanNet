@@ -372,7 +372,6 @@ summary + ol {
 
 main {
     display: flex;
-    flex-direction: row;
     justify-content: center;
     flex-grow: 1;
 }
@@ -450,7 +449,6 @@ footer {
 footer p {
     font-size: var(--font-size-s);
     margin: var(--spacing-m);
-    padding: 0;
 }
 
 hr {
@@ -472,7 +470,6 @@ p.subheading {
     text-align: center;
     font-size: 18px;
     margin: 0 0 var(--spacing-l) 0;
-    padding: 0;
     color: var(--color-muted);
 }
 
@@ -486,16 +483,11 @@ p.note {
     font-style: italic;
     font-size: var(--font-size-s);
     margin: var(--spacing-l) 0 0 0;
-    padding: 0;
     color: var(--color-muted);
 }
 
 p.note + p.note {
     margin-top: 0;
-}
-
-p.note:last-child {
-    margin-bottom: 0;
 }
 
 p.note strong {
