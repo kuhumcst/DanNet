@@ -90,39 +90,6 @@
     100% { opacity: 1; }
 }
 
-@keyframes clear-up {
-    0% { filter: blur(2px); }
-    100% { filter: none; }
-}
-
-@keyframes fall-down {
-    0% {
-        transform: scale(1.1);
-        filter: drop-shadow(0 16px 8px rgba(0,0,0,0.5));
-    }
-    100% {}
-}
-
-@keyframes slide-left {
-    0% { transform: translateX(12px); }
-    100% {}
-}
-
-@keyframes slide-right {
-    0% { transform: translateX(-12px); }
-    100% {}
-}
-
-@keyframes slide-down {
-    0% { transform: translateY(-6px); }
-    100% {}
-}
-
-@keyframes glow {
-    0% { filter: hue-rotate(30deg); }
-    100% {}
-}
-
 @keyframes point {
     from { transform: translateX(4px); }
     to { transform: translateX(0); }
