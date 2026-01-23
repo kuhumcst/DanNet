@@ -541,6 +541,7 @@ nav button.synset-details:hover {
 
 nav a.title span {
     display: inline-block;
+    color: inherit; /* Override namespace-specific colors */
 }
 
 nav select.language {
@@ -877,7 +878,6 @@ tr tr:nth-child(odd) {
 }
 
 span.prefix {
-    background-color: var(--color-dark);
     background: var(--bg-dark);
     font-variant: small-caps;
     color: rgba(255,255,255,var(--opacity-interactive));
@@ -970,10 +970,6 @@ span.prefix__sep {
 }
 
 /* Unknown namespace */
-span.unknown {
-    color: var(--color-subtle);
-}
-
 .prefix.unknown {
     background-color: white;
     border: 1px dashed var(--color-subtle);
@@ -997,26 +993,32 @@ header > .rdf-uri {
     font-style: italic;
 }
 
-header > .rdf-uri .rdf-uri__prefix {
+header > .rdf-uri .rdf-uri__prefix,
+header > .rdf-uri .rdf-uri__name {
     color: #006699;
+}
+
+header > .rdf-uri .rdf-uri__prefix {
     opacity: var(--opacity-muted);
 }
 
 header > .rdf-uri .rdf-uri__name {
-    color: #006699;
     font-weight: bold;
+}
+
+.rdf-uri::before,
+.rdf-uri::after {
+    opacity: 0.3;
 }
 
 .rdf-uri::before {
     content: "<";
     margin-right: 2px;
-    opacity: 0.3;
 }
 
 .rdf-uri::after {
     content: ">";
     margin-left: 2px;
-    opacity: 0.3;
 }
 
 /* Language tags */
