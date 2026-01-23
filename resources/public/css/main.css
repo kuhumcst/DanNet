@@ -1,11 +1,9 @@
-* {
-    hyphens: auto;
-}
+/* ===========================================
+   CSS VARIABLES (Design Tokens)
+   =========================================== */
 
 :root {
-    /* ===========================================
-       COLOR PALETTE
-       =========================================== */
+    /* COLOR PALETTE */
     
     /* Core neutrals */
     --color-dark: #333;
@@ -26,17 +24,13 @@
     --color-ontolex: #df7300;
     --color-wordnet: #387111;
     
-    /* ===========================================
-       OPACITY SCALE
-       =========================================== */
+    /* OPACITY SCALE */
     --opacity-interactive: 0.8;       /* Default state for clickable elements */
     --opacity-interactive-hover: 1;   /* Hover state */
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
     
-    /* ===========================================
-       BORDERS
-       =========================================== */
+    /* BORDERS */
     --border-opacity-normal: 0.5;
     --border-opacity-subtle: 0.2;
     --border-opacity-very-subtle: 0.1;
@@ -45,17 +39,13 @@
     --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
     --very-subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
     
-    /* ===========================================
-       SHADOWS
-       =========================================== */
+    /* SHADOWS */
     --shadow-card: 0 0 12px rgba(0,0,0,0.3);
     --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.1);
     --shadow-nav: 0 0 12px rgba(0,0,0,0.8);
     --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
     
-    /* ===========================================
-       TYPOGRAPHY
-       =========================================== */
+    /* TYPOGRAPHY */
     --font-family: Georgia, serif;
     --letter-spacing-base: 0.2ch;
     --line-height-prose: 1.5;
@@ -68,9 +58,7 @@
     --font-size-xl: 32px;
     --font-size-xxl: 48px;
     
-    /* ===========================================
-       SPACING
-       =========================================== */
+    /* SPACING */
     --spacing-xs: 4px;
     --spacing-s: 8px;
     --spacing-m: 12px;
@@ -78,60 +66,70 @@
     --spacing-xl: 32px;
     --spacing-xxl: 48px;
     
-    /* ===========================================
-       TRANSITIONS
-       =========================================== */
+    /* TRANSITIONS */
     --transition-fast: 0.1s;
     --transition-base: 0.2s;
     --transition-slow: 0.33s;
     
-    /* ===========================================
-       BACKGROUNDS
-       =========================================== */
+    /* BACKGROUNDS */
     --bg-texture: url(/images/exclusive-paper.png);
     --bg-dark: var(--color-dark) var(--bg-texture);
     
-    /* ===========================================
-       INTERACTIVE ELEMENT SIZING
-       =========================================== */
+    /* INTERACTIVE ELEMENT SIZING */
     --icon-size: 32px;
     --icon-size-s: 24px;
 }
 
-/**
- * Loading indicator - animates DanNet title letters when fetching.
- * 
- * The animation has a ~1s idle period before any visible pulse, ensuring
- * quick fetches don't trigger the animation. Letter spacing also expands
- * with a matching 1s transition delay.
- */
-#content.fetching {
-    cursor: progress;
+
+/* ===========================================
+   KEYFRAME ANIMATIONS
+   =========================================== */
+
+@keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
 }
 
-nav a.title span {
-    display: inline-block;
-    color: white;
+@keyframes clear-up {
+    0% { filter: blur(2px); }
+    100% { filter: none; }
 }
 
-/* nav precedes #content in DOM, so :has(~) checks following sibling state */
-nav:has(~ #content.fetching) a.title {
-    letter-spacing: 8px;
+@keyframes fall-down {
+    0% {
+        transform: scale(1.1);
+        filter: drop-shadow(0 16px 8px rgba(0,0,0,0.5));
+    }
+    100% {}
 }
 
-nav:has(~ #content.fetching) a.title span {
-    animation: title-pulse 1.6s ease-in-out infinite;
+@keyframes slide-left {
+    0% { transform: translateX(12px); }
+    100% {}
 }
 
-/* Staggered animation delays create a wave effect across the 6 letters */
-nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
-nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
-nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
-nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
-nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
+@keyframes slide-right {
+    0% { transform: translateX(-12px); }
+    100% {}
+}
 
-/* 62% of 1.6s = ~1s idle before pulse; matches letter-spacing transition delay.
-   The idle period also serves as the gap between pulses on repeat. */
+@keyframes slide-down {
+    0% { transform: translateY(-6px); }
+    100% {}
+}
+
+@keyframes glow {
+    0% { filter: hue-rotate(30deg); }
+    100% {}
+}
+
+@keyframes point {
+    from { transform: translateX(4px); }
+    to { transform: translateX(0); }
+}
+
+/* Loading indicator - title letters pulse when fetching.
+   62% of 1.6s = ~1s idle before pulse; matches letter-spacing transition delay. */
 @keyframes title-pulse {
     0%, 62% { transform: scale(1); }
     75% { transform: scale(1.3); }
@@ -139,72 +137,12 @@ nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; 
 }
 
 
-button {
-    cursor: pointer;
-}
+/* ===========================================
+   BASE & RESET
+   =========================================== */
 
-p {
-    line-height: var(--line-height-prose);
-}
-
-@keyframes fade-in {
-  0% {opacity:0}
-  100% {opacity:1}
-}
-
-@keyframes clear-up {
-  0% {filter: blur(2px);}
-  100% {filter: none;}
-}
-
-@keyframes fall-down {
-  0% {
-    transform: scale(1.1);
-    filter: drop-shadow(0 16px 8px rgba(0,0,0,0.5));
-    }
-  100% {}
-}
-
-@keyframes slide-left {
-  0% {transform: translateX(12px);}
-  100% {}
-}
-
-@keyframes slide-right {
-  0% {transform: translateX(-12px);}
-  100% {}
-}
-
-@keyframes slide-down {
-  0% {transform: translateY(-6px);}
-  100% {}
-}
-
-@keyframes glow {
-  0% {filter: hue-rotate(30deg);}
-  100% {}
-}
-
-a {
-    color: var(--color-link);
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* TODO: fix this markup difference so 2-item selector isn't necessary. */
-a:hover,
-a:hover div.set > * {
-    text-decoration: underline;
-}
-
-article.document a {
-    transition: all var(--transition-base);
-    text-decoration: underline;
-    text-decoration-color: var(--color-link-underline);
-}
-
-article.document a:hover {
-    text-decoration-color: var(--color-link-underline-hover);
+* {
+    hyphens: auto;
 }
 
 html, body {
@@ -228,44 +166,229 @@ html, body {
     letter-spacing: var(--letter-spacing-base);
 }
 
-@keyframes point {
-  from {
-    transform: translateX(4px);
-  }
-  to {
-    transform: translateX(0);
-  }
+button {
+    cursor: pointer;
 }
 
-.help-overlay {
-    opacity: 0;
-    transition: opacity 1s;
+a {
+    color: var(--color-link);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* TODO: fix this markup difference so 2-item selector isn't necessary. */
+a:hover,
+a:hover div.set > * {
+    text-decoration: underline;
+}
+
+
+/* ===========================================
+   TYPOGRAPHY
+   =========================================== */
+
+p {
+    line-height: var(--line-height-prose);
+}
+
+h1, h2, h3 {
+    filter: drop-shadow(var(--shadow-heading));
+}
+
+h1 {
+    display: flex;
+    justify-content: center;
+    font-size: var(--font-size-xl);
+    font-weight: normal;
+    padding: 0;
+    margin: var(--spacing-m) auto var(--spacing-l) auto;
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+    word-break: normal;
+}
+
+h1 sub {
+    font-size: 50%;
+}
+
+h1 sup {
     user-select: none;
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+    font-variant: small-caps;
 }
 
-.help-overlay__item {
-    position: absolute;
-    opacity: 0;
-    animation:
-        0.66s ease-in 5s forwards fade-in,
-        var(--transition-slow) ease-in infinite alternate point;
-    text-transform: uppercase;
-    left: 52px;
-    z-index: 66;
-    background: white;
-    font-size: var(--font-size-xs);
-    line-height: 1;
-    padding: 2px 6px 0 6px;
-    border-radius: 2px;
-    border: 1px solid var(--color-faint);
+h1 img {
+    width: clamp(80px, 33vw, 420px);
 }
 
-.help-overlay__item::before {
-    content: "⭠";
+h1 span.prefix {
+    align-self: center;
+    transition: background 0.66s;
+    background-color: var(--color-dark);
+    background: var(--bg-dark);
+    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0;
+    padding: 6px var(--spacing-m);
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,var(--opacity-decorative));
+    color: rgba(255,255,255,var(--opacity-interactive));
+
+    letter-spacing: 6px;
+    padding-right: 6px; /* account for letter-spacing */
+}
+
+h2 {
     font-size: var(--font-size-l);
-    vertical-align: middle;
-    margin-right: var(--spacing-s);
+    font-weight: normal;
+    text-align: center;
+    margin: 36px 0 var(--spacing-m) 0;
+    padding: 0;
+    font-variant: small-caps;
+    letter-spacing: var(--letter-spacing-base);
 }
+
+h2::before {
+    content: "⊱ ";
+    opacity: var(--opacity-decorative);
+}
+
+h2::after {
+    content: " ⊰";
+    opacity: var(--opacity-decorative);
+}
+
+h3 {
+    font-size: 18px;
+    font-weight: normal;
+    text-align: left;
+    border-bottom: var(--subtle-border);
+    margin: 36px 0 var(--spacing-m) 0;
+    padding: 0 0 var(--spacing-xs) 0;
+    font-variant: small-caps;
+    letter-spacing: var(--letter-spacing-base);
+}
+
+sub {
+    font-size: 70%;
+    opacity: var(--opacity-muted);
+    display: inline-block; /* nullifies text-decoration: underline */
+}
+
+code,
+pre.viewer-code {
+    background: rgba(0,0,0,0.1);
+    padding: var(--spacing-xs) 2px var(--spacing-xs) var(--spacing-xs); /* Right side accounts for word spacing. */
+    border-radius: 2px;
+}
+
+pre.viewer-code {
+    padding: var(--spacing-m);
+}
+
+/* Definition lists */
+dl {
+    margin: 0;
+    padding: 0px;
+}
+
+dt {
+    font-size: 18px;
+    font-weight: normal;
+    padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
+    margin: 0;
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+    word-break: normal;
+}
+
+dd {
+    margin: var(--spacing-m) 0 var(--spacing-l) 0;
+    padding: var(--spacing-s) var(--spacing-m) var(--spacing-m) var(--spacing-m);
+    font-size: var(--font-size-s);
+}
+
+dd + dt {
+    padding-top: var(--spacing-m);
+}
+
+/* Ordered lists */
+ol {
+    margin: 0;
+    padding-left: var(--spacing-xl);
+}
+
+ol.three-digits {
+    padding-left: var(--spacing-xl);
+}
+
+ol.three-digits + details > summary {
+    padding-left: var(--spacing-xl);
+}
+
+ol.four-digits {
+    padding-left: var(--spacing-xxl);
+}
+
+ol.four-digits + details > summary {
+    padding-left: var(--spacing-xxl);
+}
+
+ol.five-digits {
+    padding-left: 52px;
+}
+
+ol.five-digits + details > summary {
+    padding-left: 52px;
+}
+
+li {
+    padding-bottom: 1.5ch;
+}
+
+li:last-of-type {
+    padding-bottom: 0;
+}
+
+li::marker {
+    color: var(--color-subtle);
+    font-size: var(--font-size-xs);
+}
+
+/* Details/summary (collapsible sections) */
+details {
+    margin: var(--spacing-s) 0 0 0;
+    border-top: 1px solid transparent;
+}
+
+details summary {
+    cursor: pointer;
+    border-radius: 2px;
+    color: rgba(0,0,0,var(--opacity-interactive));
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
+}
+
+details summary:hover {
+    text-decoration: underline;
+    text-underline-offset: var(--spacing-xs);
+}
+
+details[open] {
+    border-top: var(--very-subtle-border);
+    padding-bottom: var(--spacing-m);
+}
+
+summary + ol {
+    margin-top: var(--spacing-m);
+}
+
+
+/* ===========================================
+   LAYOUT
+   =========================================== */
 
 #content {
     flex-grow: 1;
@@ -288,6 +411,11 @@ html, body {
     border-top: var(--subtle-border);
 }
 
+/* This essentially works like sharpening/emboss effect on non-white text. */
+#content *:not(.prefix) {
+    text-shadow: 1px 0px rgba(255,255,255,0.8);
+}
+
 main {
     display: flex;
     flex-direction: row;
@@ -295,17 +423,27 @@ main {
     flex-grow: 1;
 }
 
-article.search table.attr-val + table.attr-val {
-    margin-top: var(--spacing-xxl);
-    margin-bottom: var(--spacing-l);
+/* For table to inherit. */
+main > article {
+    width: 100%;
 }
 
+article {
+    max-width: 110ch;
+}
+
+article > section:last-child {
+    margin-bottom: var(--spacing-m);
+}
+
+/* Document-style articles (e.g. about page) */
 article.document {
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
     max-width: 90ch;
+    font-size: 18px;
 }
 
 article.document > div {
@@ -321,22 +459,101 @@ article.document p {
     margin: 1em 0 2em 0;
 }
 
-article.document {
-    font-size: 18px;
-}
-
 article.document li > a:first-child {
     font-weight: bold;
     text-transform: uppercase;
 }
 
-/* This essentially works like sharpening/emboss effect on non-white text. */
-#content *:not(.prefix) {
-    text-shadow: 1px 0px rgba(255,255,255,0.8);
+article.document a {
+    transition: all var(--transition-base);
+    text-decoration: underline;
+    text-decoration-color: var(--color-link-underline);
 }
-.prefix {
-    text-shadow: none;
+
+article.document a:hover {
+    text-decoration-color: var(--color-link-underline-hover);
 }
+
+/* Search results article */
+article.search table.attr-val + table.attr-val {
+    margin-top: var(--spacing-xxl);
+    margin-bottom: var(--spacing-l);
+}
+
+header, footer {
+    text-align: center;
+}
+
+header {
+    margin-bottom: var(--spacing-xl);
+}
+
+footer {
+    padding: var(--spacing-m);
+    margin-top: var(--spacing-m);
+}
+
+footer p {
+    font-size: var(--font-size-s);
+    margin: var(--spacing-m);
+    padding: 0;
+}
+
+hr {
+    border: none;
+    border-top: var(--subtle-border);
+    width: 100%;
+    margin: 0 0 var(--spacing-l) 0;
+}
+
+section.notes {
+    margin-top: var(--spacing-l);
+}
+
+section.text {
+    line-height: var(--line-height-prose);
+}
+
+p.subheading {
+    text-align: center;
+    font-size: 18px;
+    margin: 0 0 var(--spacing-l) 0;
+    padding: 0;
+    color: var(--color-muted);
+}
+
+p.subheading select {
+    font-size: 18px;
+    padding: 2px 6px;
+}
+
+p.note {
+    text-align: center;
+    font-style: italic;
+    font-size: var(--font-size-s);
+    margin: var(--spacing-l) 0 0 0;
+    padding: 0;
+    color: var(--color-muted);
+}
+
+p.note + p.note {
+    margin-top: 0;
+}
+
+p.note:last-child {
+    margin-bottom: 0;
+}
+
+p.note strong {
+    font-size: var(--font-size-l);
+    color: var(--color-dark);
+    vertical-align: middle;
+}
+
+
+/* ===========================================
+   NAVIGATION
+   =========================================== */
 
 nav {
     transition: background var(--transition-slow);
@@ -374,6 +591,11 @@ nav a.title:hover {
     text-decoration: none;
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
+}
+
+nav a.title span {
+    display: inline-block;
+    color: white;
 }
 
 nav select.language {
@@ -418,6 +640,7 @@ a.github:hover {
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
 }
+
 nav button.synset-details {
     transition: all var(--transition-base);
     border: none;
@@ -453,6 +676,32 @@ nav.full-screen button.synset-details {
     filter: invert(1);
     opacity: 0.75;
 }
+
+/* Loading indicator - animates title letters when fetching */
+#content.fetching {
+    cursor: progress;
+}
+
+/* nav precedes #content in DOM, so :has(~) checks following sibling state */
+nav:has(~ #content.fetching) a.title {
+    letter-spacing: 8px;
+}
+
+nav:has(~ #content.fetching) a.title span {
+    animation: title-pulse 1.6s ease-in-out infinite;
+}
+
+/* Staggered animation delays create a wave effect across the 6 letters */
+nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
+nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
+nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
+nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
+nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
+
+
+/* ===========================================
+   SEARCH
+   =========================================== */
 
 form[role=search] {
     display: flex;
@@ -568,7 +817,7 @@ form[role=search].search-active input[type=submit] {
 }
 
 form[role=search].search-active input[type=submit]:hover {
-     color: rgba(255,255,255,1);
+    color: rgba(255,255,255,1);
 }
 
 form[role=search] p {
@@ -625,145 +874,101 @@ nav.full-screen form[role=search]:not(.search-active) {
     opacity: 0.75;
 }
 
-article {
-    max-width: 110ch;
-}
 
-article > section:last-child {
-    margin-bottom: var(--spacing-m);
-}
+/* ===========================================
+   TABLES
+   =========================================== */
 
-header, footer {
-    text-align: center;
-}
-
-hr {
-    border: none;
-    border-top: var(--subtle-border);
+table.attr-val {
+    font-size: var(--font-size-m);
+    border-collapse: collapse;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card);
     width: 100%;
-    margin: 0 0 var(--spacing-l) 0;
-}
-
-footer p {
-    font-size: var(--font-size-s);
-    margin: var(--spacing-m);
-    padding: 0;
-}
-
-sub {
-    font-size: 70%;
-    opacity: var(--opacity-muted);
-    display: inline-block; /* nullifies text-decoration: underline */
-}
-
-.set__word {
-    white-space: nowrap;
-}
-
-div.set {
-    display: inline-flex;
-    flex-basis: 100%;
-}
-
-span.marker {
-    margin-right: var(--spacing-xs);
-    color: rgba(0,0,0,0.66);
-    cursor: help;
-}
-
-section.notes {
-    margin-top: var(--spacing-l);
-}
-
-section.text {
-    line-height: var(--line-height-prose);
-}
-
-p.subheading {
-    text-align: center;
-    font-size: 18px;
-    margin: 0 0 var(--spacing-l) 0;
-    padding: 0;
-    color: var(--color-muted);
-}
-
-p.subheading select {
-    font-size: 18px;
-    padding: 2px 6px;
-}
-
-p.note {
-    text-align: center;
-    font-style: italic;
-    font-size: var(--font-size-s);
-    margin: var(--spacing-l) 0 0 0;
-    padding: 0;
-    color: var(--color-muted);
-}
-
-p.note + p.note {
-    margin-top: 0;
-}
-
-p.note:last-child {
-    margin-bottom: 0;
-}
-
-p.note strong {
-    font-size: var(--font-size-l);
-    color: var(--color-dark);
-    vertical-align: middle;
-}
-
-.set__content {
-    text-align: center;
-    /* TODO: figure out a way to make ontotype big sets work better
-             that doesn't rely on line-height being higher than 1
-    */
-    line-height: 1;
-}
-
-div.set__left-bracket {
-    background: url(/images/set-left.svg) no-repeat left;
-    margin-right: 0.5ch;
-}
-
-div.set__right-bracket {
-    background: url(/images/set-right.svg) no-repeat right;
-    margin-left: 0.5ch;
-}
-
-div.set__left-bracket,
-div.set__right-bracket {
-    min-width: 1ch;
-    background-size: auto 100%;
-    opacity: 0.4;
-    transition: all var(--transition-fast);
-}
-span.subtle {
-    opacity: var(--opacity-decorative);
-}
-
-h1 sub {
-    font-size: 50%;
-}
-
-h1 img {
-    width: clamp(80px, 33vw, 420px);
-}
-
-.omitted {
-    color: var(--color-faint);
-    font-style: italic;
-
 }
 
 table.attr-val col:nth-child(2) {
-     min-width: 12ch;
+    min-width: 12ch;
 }
 
 table.attr-val col:nth-child(3) {
     width: 80ch;
+}
+
+table.attr-val table.attr-val {
+    border: var(--very-subtle-border);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+/* border resets for inner tables */
+table.attr-val table.attr-val td.attr-prefix,
+table.attr-val table.attr-val td.attr-name {
+    border-top: none;
+}
+
+table.attr-val table.attr-val td.attr-name {
+    border-right: none;
+}
+
+td {
+    padding: var(--spacing-m);
+    vertical-align: top;
+}
+
+td.prefix {
+    text-align: right;
+    padding-right: 0;
+    width: 1px;
+}
+
+td.prefix + td {
+    padding-left: 0;
+}
+
+td.attr-prefix {
+    padding-right: 0;
+    text-align: right;
+    width: 1px;
+    white-space: nowrap;
+}
+
+td.attr-name {
+    padding-left: 0;
+    border-right: 1px solid rgba(0,0,0,var(--opacity-decorative));
+}
+
+td.attr-prefix,
+td.attr-name {
+    background: var(--bg-texture);
+}
+
+tr + tr td.attr-prefix,
+tr + tr td.attr-name {
+    border-top: var(--very-subtle-border);
+}
+
+tr:nth-child(odd),
+tr tr:nth-child(even) {
+    background-color: white;
+}
+
+tr:nth-child(even),
+tr tr:nth-child(odd) {
+    background-color: var(--color-bg-alt);
+}
+
+/* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
+.attr-combo > span {
+    vertical-align: top;
+}
+
+
+/* ===========================================
+   RDF & PREFIXES
+   =========================================== */
+
+.prefix {
+    text-shadow: none;
 }
 
 span.prefix {
@@ -778,6 +983,11 @@ span.prefix {
 
     letter-spacing: 1px;
     padding-right: 4px; /* account for letter-spacing */
+}
+
+span.prefix + a,
+span.hidden + a {
+    display: inline-block;
 }
 
 /* Truncatable prefix - shows ellipsis, expands on hover/focus */
@@ -807,178 +1017,76 @@ span.prefix__sep {
     display: none;
 }
 
+/* Namespace-specific prefix colors */
+.prefix.dannet {
+    background-color: var(--color-dannet);
+}
+
+.prefix.w3c {
+    background-color: var(--color-w3c);
+}
+
+.prefix.meta {
+    background-color: var(--color-meta);
+}
+
+.prefix.ontolex {
+    background-color: var(--color-ontolex);
+}
+
+.prefix.wordnet {
+    background-color: var(--color-wordnet);
+}
+
+/* Namespace-specific text colors */
+.dannet,
+.dannet * {
+    color: var(--color-dannet);
+}
+
+.w3c,
+.w3c * {
+    color: var(--color-w3c);
+}
+
+.meta,
+.meta * {
+    color: var(--color-meta);
+}
+
+.ontolex,
+.ontolex * {
+    color: var(--color-ontolex);
+}
+
+.wordnet,
+.wordnet * {
+    color: var(--color-wordnet);
+}
+
+/* Unknown namespace */
 span.unknown {
     color: var(--color-subtle);
 }
+
 .prefix.unknown {
     background-color: white;
     border: 1px dashed var(--color-subtle);
     color: var(--color-subtle);
 }
 
-.prefix.dannet {
-    background-color: var(--color-dannet);
-}
-.prefix.w3c {
-    background-color: var(--color-w3c);
-}
-.prefix.meta {
-    background-color: var(--color-meta);
-}
-.prefix.ontolex {
-    background-color: var(--color-ontolex);
-}
-.prefix.wordnet {
-    background-color: var(--color-wordnet);
-}
-.dannet,
-.dannet * {
-    color: var(--color-dannet);
-}
-.w3c,
-.w3c * {
-    color: var(--color-w3c);
-}
-.meta,
-.meta * {
-    color: var(--color-meta);
-}
-.ontolex,
-.ontolex * {
-    color: var(--color-ontolex);
-}
-.wordnet,
-.wordnet * {
-    color: var(--color-wordnet);
-}
 .unknown {
     color: var(--color-dark);
 }
 
-[lang]:not(footer, footer *, h1 span, article)::after {
-    content: attr(lang);
-    margin-left: 0.4ch;
-    vertical-align: top;
-    font-size: 60%;
-    opacity: var(--opacity-muted);
-    text-decoration: none;
-    font-variant: small-caps;
-    display: inline-block; /* nullifies text-decoration: underline */
+/* QName display */
+.qname {
+    display: inline-flex;
+    /* TODO: doesn't center properly with multiline names + lang tag... */
+    align-items: center;
 }
 
-h1 sup {
-    user-select: none;
-    margin-left: 0.4ch;
-    vertical-align: top;
-    font-size: 60%;
-    opacity: var(--opacity-muted);
-    text-decoration: none;
-    font-variant: small-caps;
-}
-
-header {
-    margin-bottom: var(--spacing-xl);
-}
-
-footer {
-    padding: var(--spacing-m);
-    margin-top: var(--spacing-m);
-}
-
-dl {
-    margin: 0;
-    padding: 0px;
-}
-
-dt {
-    font-size: 18px;
-    font-weight: normal;
-    padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
-    margin: 0;
-    letter-spacing: var(--letter-spacing-base);
-    font-variant: small-caps;
-    word-break: normal;
-}
-
-dd {
-    margin: var(--spacing-m) 0 var(--spacing-l) 0;
-    padding: var(--spacing-s) var(--spacing-m) var(--spacing-m) var(--spacing-m);
-    font-size: var(--font-size-s);
-}
-
-dd + dt {
-    padding-top: var(--spacing-m);
-}
-
-h1 {
-    display: flex;
-    justify-content: center;
-    font-size: var(--font-size-xl);
-    font-weight: normal;
-    padding: 0;
-    margin: var(--spacing-m) auto var(--spacing-l) auto;
-    letter-spacing: var(--letter-spacing-base);
-    font-variant: small-caps;
-    word-break: normal;
-}
-
-h1 span.prefix {
-    align-self: center;
-    transition: background 0.66s;
-    background-color: var(--color-dark);
-    background: var(--bg-dark);
-    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0;
-    padding: 6px var(--spacing-m);
-    border-radius: 3px;
-    border: 1px solid rgba(0,0,0,var(--opacity-decorative));
-    color: rgba(255,255,255,var(--opacity-interactive));
-
-    letter-spacing: 6px;
-    padding-right: 6px; /* account for letter-spacing */
-}
-
-h2 {
-   font-size: var(--font-size-l);
-   font-weight: normal;
-   text-align: center;
-   margin: 36px 0 var(--spacing-m) 0;
-   padding: 0;
-   font-variant: small-caps;
-   letter-spacing: var(--letter-spacing-base);
-}
-
-h3 {
-   font-size: 18px;
-   font-weight: normal;
-   text-align: left;
-   border-bottom: var(--subtle-border);
-   margin: 36px 0 var(--spacing-m) 0;
-   padding: 0 0 var(--spacing-xs) 0;
-   font-variant: small-caps;
-   letter-spacing: var(--letter-spacing-base);
-}
-
-h2::before {
-    content: "⊱ ";
-    opacity: var(--opacity-decorative);
-}
-
-h2::after {
-    content: " ⊰";
-    opacity: var(--opacity-decorative);
-}
-
-code,
-pre.viewer-code {
-    background: rgba(0,0,0,0.1);
-    padding: var(--spacing-xs) 2px var(--spacing-xs) var(--spacing-xs); /* Right side accounts for word spacing. */
-    border-radius: 2px;
-}
-
-pre.viewer-code {
-    padding: var(--spacing-m);
-}
-
+/* RDF URI display */
 header > .rdf-uri {
     font-size: var(--font-size-s);
     font-style: italic;
@@ -988,6 +1096,7 @@ header > .rdf-uri .rdf-uri__prefix {
     color: #006699;
     opacity: var(--opacity-muted);
 }
+
 header > .rdf-uri .rdf-uri__name {
     color: #006699;
     font-weight: bold;
@@ -1005,170 +1114,68 @@ header > .rdf-uri .rdf-uri__name {
     opacity: 0.3;
 }
 
-/* For table to inherit. */
-main > article {
-    width: 100%;
-}
-
-table.attr-val {
-    font-size: var(--font-size-m);
-    border-collapse: collapse;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card);
-    width: 100%;
-}
-
-table.attr-val table.attr-val {
-    border: var(--very-subtle-border);
-    box-shadow: var(--shadow-card-subtle);
-}
-
-/* border resets for inner tables */
-table.attr-val table.attr-val td.attr-prefix,
-table.attr-val table.attr-val td.attr-name {
-     border-top:  none;
-}
-table.attr-val table.attr-val td.attr-name {
-     border-right: none;
-}
-
-td.prefix {
-    text-align: right;
-    padding-right: 0;
-    width: 1px;
-}
-
-td.prefix + td {
-    padding-left: 0;
-}
-
-h1, h2, h3 {
-    filter: drop-shadow(var(--shadow-heading));
-}
-
-td {
-    padding: var(--spacing-m);
+/* Language tags */
+[lang]:not(footer, footer *, h1 span, article)::after {
+    content: attr(lang);
+    margin-left: 0.4ch;
     vertical-align: top;
+    font-size: 60%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+    font-variant: small-caps;
+    display: inline-block; /* nullifies text-decoration: underline */
 }
 
-td.attr-prefix {
-    padding-right: 0;
-    text-align: right;
-    width: 1px;
+
+/* ===========================================
+   SYNSET SETS
+   =========================================== */
+
+.set__word {
     white-space: nowrap;
 }
 
-td.attr-name {
-    padding-left: 0;
-    border-right: 1px solid rgba(0,0,0,var(--opacity-decorative));
-}
-
-span.prefix + a,
-span.hidden + a {
-    display: inline-block;
-}
-
-td.attr-prefix,
-td.attr-name {
-    background: var(--bg-texture);
-}
-
-tr + tr td.attr-prefix,
-tr + tr td.attr-name {
-    border-top: var(--very-subtle-border);
-}
-
-/* Used to hide prefixes. */
-.hidden,
-.hidden * {
-    display: none;
-}
-
-/* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
-.attr-combo > span {
-    vertical-align: top;
-}
-
-.qname {
+div.set {
     display: inline-flex;
-
-    /* TODO: doesn't center properly with multiline names + lang tag... */
-    align-items: center;
+    flex-basis: 100%;
 }
 
-tr:nth-child(odd),
-tr tr:nth-child(even) {
-    background-color: white;
+.set__content {
+    text-align: center;
+    /* TODO: figure out a way to make ontotype big sets work better
+             that doesn't rely on line-height being higher than 1
+    */
+    line-height: 1;
 }
 
-tr:nth-child(even),
-tr tr:nth-child(odd) {
-    background-color: var(--color-bg-alt);
+div.set__left-bracket {
+    background: url(/images/set-left.svg) no-repeat left;
+    margin-right: 0.5ch;
 }
 
-details {
-    margin: var(--spacing-s) 0 0 0;
-    border-top: 1px solid transparent;
+div.set__right-bracket {
+    background: url(/images/set-right.svg) no-repeat right;
+    margin-left: 0.5ch;
 }
 
-details summary {
-    cursor: pointer;
-    border-radius: 2px;
-    color: rgba(0,0,0,var(--opacity-interactive));
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
+div.set__left-bracket,
+div.set__right-bracket {
+    min-width: 1ch;
+    background-size: auto 100%;
+    opacity: 0.4;
+    transition: all var(--transition-fast);
 }
 
-details summary:hover {
-    text-decoration: underline;
-    text-underline-offset: var(--spacing-xs);
+span.marker {
+    margin-right: var(--spacing-xs);
+    color: rgba(0,0,0,0.66);
+    cursor: help;
 }
 
-details[open] {
-    border-top: var(--very-subtle-border);
-    padding-bottom: var(--spacing-m);
-}
 
-ol {
-    margin: 0;
-    padding-left: var(--spacing-xl);
-}
-
-summary + ol {
-    margin-top: var(--spacing-m);
-}
-
-ol.three-digits {
-    padding-left: var(--spacing-xl);
-}
-ol.three-digits + details > summary {
-    padding-left: var(--spacing-xl);
-}
-ol.four-digits {
-    padding-left: var(--spacing-xxl);
-}
-ol.four-digits  + details > summary {
-    padding-left: var(--spacing-xxl);
-}
-ol.five-digits {
-    padding-left: 52px;
-}
-ol.five-digits  + details > summary {
-    padding-left: 52px;
-}
-
-li {
-    padding-bottom: 1.5ch;
-}
-
-li:last-of-type {
-    padding-bottom: 0;
-}
-
-li::marker {
-    color: var(--color-subtle);
-    font-size: var(--font-size-xs);
-}
+/* ===========================================
+   RADIAL DIAGRAM
+   =========================================== */
 
 .synset-radial-container {
     transition: font-size var(--transition-base);
@@ -1239,29 +1246,7 @@ strong.pos-label {
     align-items: center;
 }
 
-.icon {
-    height: var(--icon-size);
-    width: var(--icon-size);
-    padding: var(--spacing-m);
-    background-color: white;
-    border: var(--subtle-border);
-    border-radius: 2px;
-}
-
-.icon:hover {
-    border-color: var(--color-dark);
-}
-
-.icon.maximize {
-    background: url("/images/maximize.svg") center no-repeat;
-    background-size: 20px 20px;
-}
-
-.icon.minimize {
-    background: url("/images/minimize.svg") center no-repeat;
-    background-size: 20px 20px;
-}
-
+/* Radial tree layout */
 .radial-tree {
     display: flex;
     align-items: stretch;
@@ -1280,7 +1265,7 @@ strong.pos-label {
 svg.radial-tree-diagram__svg {
     max-height: calc(80vh - 24px);
 
-    /*  The viewBow keeps the diagram the same, but additional width allows for
+    /*  The viewBox keeps the diagram the same, but additional width allows for
         certain long labels to avoid clipping. */
     width: 100%;
 }
@@ -1296,6 +1281,7 @@ svg.radial-tree-diagram__svg {
     transition: fill var(--transition-base), stroke var(--transition-base), opacity var(--transition-base);
 }
 
+/* Radial tree legend */
 .radial-tree-legend-container {
     display: flex;
     flex-direction: column;
@@ -1320,7 +1306,6 @@ ul.radial-tree-legend {
     font-variant: small-caps;
     font-size: var(--font-size-s);
 }
-
 
 ul.radial-tree-legend label {
     display: block;
@@ -1374,7 +1359,7 @@ ul.radial-tree-legend > li {
     margin-bottom: 1px;
 }
 
-ul.radial-tree-legend > li:hover  {
+ul.radial-tree-legend > li:hover {
     border: var(--subtle-border);
     cursor: pointer;
 }
@@ -1383,6 +1368,7 @@ ul.radial-tree-legend > li:focus-within {
     border: 1px solid rgba(0,0,0,0.24);
 }
 
+/* Radial tree items (SVG text) */
 .radial-item {
     text-underline-offset: 0.25ch;
     transition: font-size var(--transition-base);
@@ -1424,6 +1410,23 @@ tspan.sense-paragraph {
     fill: var(--color-faint);
 }
 
+/* Definition styling in radial diagram */
+.definition-pos {
+    fill: var(--color-dark);
+    font-weight: bold;
+    stroke: white;
+    stroke-width: 6px;
+    paint-order: stroke fill;
+}
+
+.definition-text {
+    fill: var(--color-dark);
+    stroke: white;
+    stroke-width: 6px;
+    paint-order: stroke fill;
+}
+
+/* Word cloud items */
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
     transition: all var(--transition-base);
@@ -1443,6 +1446,101 @@ svg:hover .word-cloud-item {
     cursor: pointer;
 }
 
+
+/* ===========================================
+   HYPERNYM CHAIN
+   =========================================== */
+
+ul.hypernym-chain {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+ul.hypernym-chain ul.hypernym-chain {
+    padding-left: 1ch;
+}
+
+ul.hypernym-chain ul.hypernym-chain {
+    margin: 0.8em 0;
+}
+
+*:not(ul.hypernym-chain) > li > ul.hypernym-chain li:first-child {
+    margin-top: 0;
+}
+
+ul.hypernym-chain li::before {
+    content: "↳";
+    color: var(--color-dark);
+    margin-right: 1ch;
+    font-size: 1em;
+    vertical-align: middle;
+}
+
+ul.hypernym-chain .set__left-bracket,
+ul.hypernym-chain .set__right-bracket {
+    display: none;
+}
+
+ul.hypernym-chain .set__content {
+    text-align: left;
+}
+
+/* Subject item in hypernym chain - no arrow, styled as inactive */
+ul.hypernym-chain > li.subject::before {
+    content: "";
+    margin-right: 0;
+}
+
+ul.hypernym-chain > li.subject {
+    color: var(--color-dark);
+}
+
+
+/* ===========================================
+   UTILITIES & MISCELLANEOUS
+   =========================================== */
+
+/* Used to hide prefixes. */
+.hidden,
+.hidden * {
+    display: none;
+}
+
+.omitted {
+    color: var(--color-faint);
+    font-style: italic;
+}
+
+span.subtle {
+    opacity: var(--opacity-decorative);
+}
+
+/* Generic icon button */
+.icon {
+    height: var(--icon-size);
+    width: var(--icon-size);
+    padding: var(--spacing-m);
+    background-color: white;
+    border: var(--subtle-border);
+    border-radius: 2px;
+}
+
+.icon:hover {
+    border-color: var(--color-dark);
+}
+
+.icon.maximize {
+    background: url("/images/maximize.svg") center no-repeat;
+    background-size: 20px 20px;
+}
+
+.icon.minimize {
+    background: url("/images/minimize.svg") center no-repeat;
+    background-size: 20px 20px;
+}
+
+/* Display options dropdown */
 select.display-options {
     appearance: none;
     display: block;
@@ -1467,8 +1565,66 @@ select.display-options:hover {
     margin-top: var(--spacing-s);
 }
 
+/* Help overlay (shown on wide screens) */
+.help-overlay {
+    opacity: 0;
+    transition: opacity 1s;
+    user-select: none;
+}
+
+.help-overlay__item {
+    position: absolute;
+    opacity: 0;
+    animation:
+        0.66s ease-in 5s forwards fade-in,
+        var(--transition-slow) ease-in infinite alternate point;
+    text-transform: uppercase;
+    left: 52px;
+    z-index: 66;
+    background: white;
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    padding: 2px 6px 0 6px;
+    border-radius: 2px;
+    border: 1px solid var(--color-faint);
+}
+
+.help-overlay__item::before {
+    content: "⭠";
+    font-size: var(--font-size-l);
+    vertical-align: middle;
+    margin-right: var(--spacing-s);
+}
+
+/* Error boundary fallback */
+details.render-error[open] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 10000;
+    padding: 1em;
+    margin: 0;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+details.render-error > summary {
+    font-size: inherit;
+}
+
+/* Inline render error (red squiggly underline) */
+span.render-error {
+    text-decoration: underline wavy red;
+    text-underline-offset: 5px;
+    cursor: help;
+}
+
+
 /* ===========================================
-   MEDIA QUERIES ALL GO HERE AT THE EVERY END.
+   MEDIA QUERIES
    =========================================== */
 
 @media only screen and (min-width: 180ch) {
@@ -1483,9 +1639,9 @@ select.display-options:hover {
         display: none;
     }
     /* Make the fonts a bit bigger. */
-    #content.full-screen  ul.radial-tree-legend,
-    #content.full-screen  .synset-radial-container,
-    #content.full-screen  .synset-radial-container dd {
+    #content.full-screen ul.radial-tree-legend,
+    #content.full-screen .synset-radial-container,
+    #content.full-screen .synset-radial-container dd {
         font-size: var(--font-size-m);
     }
     #content.full-screen .radial-tree-legend__bullet {
@@ -1552,10 +1708,10 @@ select.display-options:hover {
     }
     header > .rdf-uri,
     table.attr-val table.attr-val td {
-         font-size: var(--font-size-xs);
+        font-size: var(--font-size-xs);
     }
-    table.attr-val  table.attr-val col:nth-child(2) {
-         min-width: 10ch;
+    table.attr-val table.attr-val col:nth-child(2) {
+        min-width: 10ch;
     }
     h1 {
         font-size: var(--font-size-l);
@@ -1627,7 +1783,7 @@ select.display-options:hover {
         display: none;
     }
     table.attr-val col:nth-child(2) {
-         min-width: 10ch;
+        min-width: 10ch;
     }
     ul.radial-tree-legend {
         columns: 1;
@@ -1635,92 +1791,4 @@ select.display-options:hover {
     .radial-item:not(.radial-item__subject) {
         font-size: 20px;
     }
-}
-
-/* Hypernym ancestry chain */
-ul.hypernym-chain {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-}
-
-ul.hypernym-chain ul.hypernym-chain {
-    padding-left: 1ch;
-}
-
-ul.hypernym-chain ul.hypernym-chain  {
-    margin: 0.8em 0;
-}
-
-*:not(ul.hypernym-chain) > li > ul.hypernym-chain li:first-child {
-    margin-top: 0;
-}
-
-ul.hypernym-chain li::before {
-    content: "↳";
-    color: var(--color-dark);
-    margin-right: 1ch;
-    font-size: 1em;
-    vertical-align: middle;
-}
-
-ul.hypernym-chain .set__left-bracket,
-ul.hypernym-chain .set__right-bracket {
-    display: none;
-}
-
-ul.hypernym-chain .set__content {
-    text-align: left;
-}
-
-/* Subject item in hypernym chain - no arrow, styled as inactive */
-ul.hypernym-chain > li.subject::before {
-    content: "";
-    margin-right: 0;
-}
-
-ul.hypernym-chain > li.subject {
-    color: var(--color-dark);
-}
-
-/* Error boundary fallback */
-details.render-error[open] {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: white;
-    z-index: 10000;
-    padding: 1em;
-    margin: 0;
-    overflow: auto;
-    box-sizing: border-box;
-}
-
-details.render-error > summary {
-    font-size: inherit;
-}
-
-/* Inline render error (red squiggly underline) */
-span.render-error {
-    text-decoration: underline wavy red;
-    text-underline-offset: 5px;
-    cursor: help;
-}
-
-/* Definition styling in radial diagram */
-.definition-pos {
-    fill: var(--color-dark);
-    font-weight: bold;
-    stroke: white;
-    stroke-width: 6px;
-    paint-order: stroke fill;
-}
-
-.definition-text {
-    fill: var(--color-dark);
-    stroke: white;
-    stroke-width: 6px;
-    paint-order: stroke fill;
 }
