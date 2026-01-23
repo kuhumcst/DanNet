@@ -818,29 +818,16 @@ table.attr-val table.attr-val {
     box-shadow: var(--shadow-card-subtle);
 }
 
-/* border resets for inner tables */
+/* Border resets for inner tables */
 table.attr-val table.attr-val td.attr-prefix,
 table.attr-val table.attr-val td.attr-name {
     border-top: none;
-}
-
-table.attr-val table.attr-val td.attr-name {
     border-right: none;
 }
 
 td {
     padding: var(--spacing-m);
     vertical-align: top;
-}
-
-td.prefix {
-    text-align: right;
-    padding-right: 0;
-    width: 1px;
-}
-
-td.prefix + td {
-    padding-left: 0;
 }
 
 td.attr-prefix {
