@@ -16,6 +16,7 @@
     --color-link: #0066BB;
     --color-link-underline: #0066BB55;
     --color-link-underline-hover: #0066BBFF;
+    --color-link-muted: #006699;  /* Darker blue for secondary links */
     
     /* Namespace/prefix colors */
     --color-dannet: #901a1e;
@@ -29,6 +30,7 @@
     --opacity-interactive-hover: 1;   /* Hover state */
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
+    --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
     
     /* BORDERS */
     --border-opacity-normal: 0.5;
@@ -54,9 +56,15 @@
     --font-size-xs: 12px;
     --font-size-s: 14px;
     --font-size-m: 16px;
+    --font-size-m-l: 18px;  /* Bridge between medium and large */
+    --font-size-m-xl: 20px; /* Another step toward large */
     --font-size-l: 24px;
     --font-size-xl: 32px;
     --font-size-xxl: 48px;
+    
+    /* CONTENT WIDTH */
+    --content-max-width: 110ch;        /* Main article content */
+    --content-max-width-narrow: 90ch;  /* Document-style articles */
     
     /* SPACING */
     --spacing-xs: 4px;
@@ -78,6 +86,19 @@
     /* INTERACTIVE ELEMENT SIZING */
     --icon-size: 32px;
     --icon-size-s: 24px;
+    
+    /* LAYOUT OFFSETS (for viewport calculations) */
+    --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
+    --layout-search-horizontal-offset: 84px;   /* Left padding + icon area in search */
+    --layout-fullscreen-header: 104px;         /* Header height in full-screen diagram mode */
+    --layout-responsive-offset: 45px;          /* Additional offset at responsive breakpoint */
+    
+    /* Z-INDEX SCALE */
+    --z-base: 1;
+    --z-error: 10;
+    --z-help: 66;
+    --z-search: 99;
+    --z-modal: 10000;
 }
 
 
@@ -108,8 +129,15 @@
    BASE & RESET
    =========================================== */
 
-/* TODO: investigate scoping hyphens more narrowly (currently global for RDF labels in tables) */
-* {
+/* Apply hyphenation to text-containing elements */
+p,
+h1, h2, h3,
+td, th,
+dt, dd,
+li,
+div.set__content,
+span.prefix,
+.qname {
     hyphens: auto;
 }
 
@@ -193,9 +221,8 @@ h1 img {
 h1 span.prefix {
     align-self: center;
     transition: background 0.66s;
-    background-color: var(--color-dark);
     background: var(--bg-dark);
-    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0;
+    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
     padding: 6px var(--spacing-m);
     border-radius: 3px;
     border: 1px solid rgba(0,0,0,var(--opacity-decorative));
@@ -208,7 +235,7 @@ h1 span.prefix {
 h2 {
     font-size: var(--font-size-l);
     text-align: center;
-    margin: 36px 0 var(--spacing-m) 0;
+    margin: var(--spacing-xl) 0 var(--spacing-m) 0;
 }
 
 h2::before {
@@ -222,17 +249,17 @@ h2::after {
 }
 
 h3 {
-    font-size: 18px;
+    font-size: var(--font-size-m-l);
     text-align: left;
     border-bottom: var(--subtle-border);
-    margin: 36px 0 var(--spacing-m) 0;
+    margin: var(--spacing-xl) 0 var(--spacing-m) 0;
     padding: 0 0 var(--spacing-xs) 0;
 }
 
 sub {
     font-size: 70%;
     opacity: var(--opacity-muted);
-    display: inline-block; /* nullifies text-decoration: underline */
+    text-decoration: none;
 }
 
 code,
@@ -253,7 +280,7 @@ dl {
 }
 
 dt {
-    font-size: 18px;
+    font-size: var(--font-size-m-l);
     font-weight: normal;
     padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
     margin: 0;
@@ -382,7 +409,7 @@ main > article {
 }
 
 article {
-    max-width: 110ch;
+    max-width: var(--content-max-width);
 }
 
 article > section:last-child {
@@ -395,8 +422,8 @@ article.document {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    max-width: 90ch;
-    font-size: 18px;
+    max-width: var(--content-max-width-narrow);
+    font-size: var(--font-size-m-l);
 }
 
 article.document > div {
@@ -418,7 +445,7 @@ article.document li > a:first-child {
 }
 
 article.document a {
-    transition: all var(--transition-base);
+    transition: text-decoration-color var(--transition-base);
     text-decoration: underline;
     text-decoration-color: var(--color-link-underline);
 }
@@ -468,13 +495,13 @@ section.text {
 
 p.subheading {
     text-align: center;
-    font-size: 18px;
+    font-size: var(--font-size-m-l);
     margin: 0 0 var(--spacing-l) 0;
     color: var(--color-muted);
 }
 
 p.subheading select {
-    font-size: 18px;
+    font-size: var(--font-size-m-l);
     padding: 2px 6px;
 }
 
@@ -507,23 +534,22 @@ nav {
     flex-direction: column;
     justify-content: space-between;
     padding: var(--spacing-s);
-    background-color: var(--color-dark);
     background: var(--bg-dark);
     box-shadow: var(--shadow-nav);
     border: 1px solid transparent;
     border-right: var(--normal-border);
-    z-index: 1;
+    z-index: var(--z-base);
 }
 
 nav a.title {
     /* letter-spacing transition has 1s delay to match loading animation */
-    transition: all var(--transition-base), letter-spacing 0.3s ease-in-out 1s;
+    transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing 0.3s ease-in-out 1s;
     color: white;
     opacity: var(--opacity-interactive);
     user-select: none;
     writing-mode: vertical-rl;
     text-orientation: sideways;
-    font-size: 21px;
+    font-size: var(--font-size-l);
     line-height: var(--icon-size); /* centre align */
     margin: auto 0 calc(-1 * var(--icon-size)) 0; /* account for fixed search element */
     font-variant: small-caps;
@@ -532,9 +558,13 @@ nav a.title {
 }
 
 nav a.title:hover,
+nav a.title:focus-visible,
 nav select.language:hover,
+nav select.language:focus-visible,
 nav a.github:hover,
-nav button.synset-details:hover {
+nav a.github:focus-visible,
+nav button.synset-details:hover,
+nav button.synset-details:focus-visible {
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
 }
@@ -548,17 +578,15 @@ nav select.language {
     /* Remove default styling */
     color: transparent;
     border: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
     appearance: none;
 
-    transition: all var(--transition-base);
+    transition: opacity var(--transition-base), transform var(--transition-base);
     opacity: var(--opacity-interactive);
     cursor: pointer;
-    margin: auto 0 var(--spacing-xs) 0;
+    margin: auto 0 var(--spacing-s) 0;
     width: var(--icon-size);
     height: var(--icon-size);
-    font-size: 20px;
+    font-size: var(--font-size-m-xl);
     background: transparent url(/images/globe.svg);
     background-size: 28px;
     background-repeat: no-repeat;
@@ -566,7 +594,7 @@ nav select.language {
 }
 
 nav a.github {
-    transition: all var(--transition-base);
+    transition: opacity var(--transition-base), transform var(--transition-base);
     background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
     background-size: var(--icon-size-s);
     background-repeat: no-repeat;
@@ -578,7 +606,7 @@ nav a.github {
 }
 
 nav button.synset-details {
-    transition: all var(--transition-base);
+    transition: opacity var(--transition-base), transform var(--transition-base);
     border: none;
     background: none;
     background-image: url("/images/minus.svg");
@@ -644,7 +672,7 @@ form[role=search] {
     width: var(--icon-size);
     min-height: var(--icon-size);
     background: url(/images/search.svg) no-repeat 5px 5px / var(--icon-size);
-    z-index: 99;
+    z-index: var(--z-search);
 }
 
 form[role=search].search-active {
@@ -696,7 +724,7 @@ form[role=search] input[role=combobox] {
     border: none;
     border-radius: 2px;
     width: var(--icon-size);
-    min-height: var(--icon-size);
+    min-height: var(--icon-size); /* Ensures clickable area matches search icon size */
     padding: 0;
     opacity: 0;
 }
@@ -708,7 +736,7 @@ form[role=search].search-active input[role=combobox] {
     color: var(--color-dark);
     opacity: 0.9;
     padding: 2px var(--spacing-s);
-    position: sticky;
+    position: sticky; /* Keeps search input visible at top when scrolling results */
     top: var(--spacing-s);
 }
 
@@ -753,7 +781,7 @@ form[role=search].search-active ul {
     animation: fade-in var(--transition-slow);
     margin: 0;
     /* almost 100 full screen of bottom padding (mobile keyboard fix) */
-    padding: var(--spacing-s) 0 calc(100vh - 96px) 52px;
+    padding: var(--spacing-s) 0 calc(100vh - var(--layout-search-mobile-offset)) 52px;
     overflow-y: auto;
 }
 
@@ -766,7 +794,7 @@ form[role=search].search-active ul li {
     color: white;
     cursor: pointer;
     list-style-type: none;
-    font-size: 20px;
+    font-size: var(--font-size-m-xl);
 
     overflow: hidden;
     white-space: nowrap;
@@ -774,12 +802,12 @@ form[role=search].search-active ul li {
 
     margin: 0 var(--spacing-xs);
     padding: var(--spacing-s);
-    width: calc(100% - 84px);
+    width: calc(100% - var(--layout-search-horizontal-offset));
 }
 
 form[role=search].search-active ul li:hover,
-form[role=search].search-active ul li:focus {
-    background: rgba(255,255,255,0.25);
+form[role=search].search-active ul li:focus-visible {
+    background: rgba(255,255,255,var(--opacity-overlay-light));
 }
 
 /* Disable scrolling when search is focused (prevents iOS Firefox scroll issue) */
@@ -913,7 +941,7 @@ span.prefix.truncatable:focus {
     text-overflow: unset;
 }
 
-span.prefix.truncatable:focus {
+span.prefix.truncatable:focus-visible {
     outline: 2px solid var(--color-link);
     outline-offset: 1px;
 }
@@ -995,7 +1023,7 @@ header > .rdf-uri {
 
 header > .rdf-uri .rdf-uri__prefix,
 header > .rdf-uri .rdf-uri__name {
-    color: #006699;
+    color: var(--color-link-muted);
 }
 
 header > .rdf-uri .rdf-uri__prefix {
@@ -1030,7 +1058,6 @@ header > .rdf-uri .rdf-uri__name {
     opacity: var(--opacity-muted);
     text-decoration: none;
     font-variant: small-caps;
-    display: inline-block; /* nullifies text-decoration: underline */
 }
 
 
@@ -1061,7 +1088,7 @@ div.set__right-bracket {
     background-size: auto 100%;
     background-repeat: no-repeat;
     opacity: 0.4;
-    transition: all var(--transition-fast);
+    transition: opacity var(--transition-fast);
 }
 
 div.set__left-bracket {
@@ -1078,7 +1105,7 @@ div.set__right-bracket {
 
 span.marker {
     margin-right: var(--spacing-xs);
-    color: rgba(0,0,0,0.66);
+    color: var(--color-muted);
     cursor: help;
 }
 
@@ -1166,7 +1193,7 @@ strong.pos-label {
 .radial-tree-diagram,
 svg.radial-tree-diagram__svg {
     /* Always make sure the diagram is fully visible. */
-    max-height: calc(80vh - 24px);
+    max-height: calc(80vh - var(--spacing-l));
 }
 
 .radial-tree-diagram {
@@ -1184,7 +1211,7 @@ svg.radial-tree-diagram__svg {
 #content.full-screen .radial-tree-diagram,
 #content.full-screen svg.radial-tree-diagram__svg {
     /* Always make sure the diagram to is fully visible. */
-    max-height: calc(100vh - 104px);
+    max-height: calc(100vh - var(--layout-fullscreen-header));
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1245,12 +1272,12 @@ ul.radial-tree-legend input[type=radio] {
     margin-right: 1ch;
     display: inline-block;
     align-self: center;
-    transition: all var(--transition-base);
+    transition: transform var(--transition-base), opacity var(--transition-base);
 
     position: absolute;
     top: 10px;
     left: var(--spacing-m);
-    background-color: #eee;
+    background-color: var(--color-bg-alt);
 }
 
 /* When ANY radio is checked, make unchecked ones appear inactive */
@@ -1309,8 +1336,8 @@ tspan.subject-label-separator {
     opacity: var(--opacity-decorative);
 }
 
+/* Sense paragraph subscripts in radial labels */
 tspan.sense-paragraph {
-    /* Use CSS custom property set by JavaScript, with responsive fallback */
     font-size: 10px;
     fill: var(--color-faint);
 }
@@ -1331,7 +1358,7 @@ tspan.sense-paragraph {
 /* Word cloud items */
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
-    transition: all var(--transition-base);
+    transition: filter var(--transition-base);
 }
 
 .word-cloud-item__top {
@@ -1424,7 +1451,8 @@ span.subtle {
     border-radius: 2px;
 }
 
-.icon:hover {
+.icon:hover,
+.icon:focus-visible {
     border-color: var(--color-dark);
 }
 
@@ -1459,7 +1487,8 @@ select.display-options {
     opacity: 0.5;
 }
 
-select.display-options:hover {
+select.display-options:hover,
+select.display-options:focus-visible {
     opacity: var(--opacity-interactive-hover);
     text-decoration: underline;
 }
@@ -1482,8 +1511,8 @@ select.display-options:hover {
         0.66s ease-in 5s forwards fade-in,
         var(--transition-slow) ease-in infinite alternate point;
     text-transform: uppercase;
-    left: 52px;
-    z-index: 66;
+    left: 58px;
+    z-index: var(--z-help);
     background: white;
     font-size: var(--font-size-xs);
     line-height: 1;
@@ -1507,7 +1536,7 @@ details.render-error[open] {
     width: 100%;
     height: 100%;
     background: white;
-    z-index: 10000;
+    z-index: var(--z-modal);
     padding: 1em;
     margin: 0;
     overflow: auto;
@@ -1593,7 +1622,7 @@ span.render-error {
     }
     #content.full-screen .radial-tree-diagram,
     #content.full-screen svg.radial-tree-diagram__svg {
-        max-height: calc(88vh - 45px - var(--spacing-l));
+        max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
     }
     /* Remove real footer items once the metadata column becomes the footer. */
     #content.full-screen .synset-radial-container .synset-radial__footer {
@@ -1629,7 +1658,7 @@ span.render-error {
         font-size: var(--font-size-l);
     }
     h2 {
-        font-size: 18px;
+        font-size: var(--font-size-m-l);
     }
     #content {
         padding: var(--spacing-s);
@@ -1669,13 +1698,13 @@ span.render-error {
         margin: 0 auto;
     }
     nav select.language {
-        margin: 0 var(--spacing-xs) 0 -40px;
+        margin: 0 var(--spacing-s) 0 -40px;
     }
 }
 
 @media only screen and (max-width: 600px) {
     .radial-item:not(.radial-item__subject) {
-        font-size: 18px;
+        font-size: var(--font-size-m-l);
     }
 }
 
@@ -1692,6 +1721,6 @@ span.render-error {
         columns: 1;
     }
     .radial-item:not(.radial-item__subject) {
-        font-size: 20px;
+        font-size: var(--font-size-m-xl);
     }
 }

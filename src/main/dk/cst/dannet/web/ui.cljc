@@ -98,17 +98,17 @@
   [page {:keys [languages] :as opts}]
   [:section.help-overlay {:aria-hidden true
                           :style       {:opacity (when (not= page "markdown") 0)}}
-   [:div.help-overlay__item {:style {:top   6
+   [:div.help-overlay__item {:style {:top   10
                                      :color "#df7300"}}
     (i18n/da-en languages
       "start søgning"
       "start search")]
-   [:div.help-overlay__item {:style {:bottom 44
+   [:div.help-overlay__item {:style {:bottom 50
                                      :color  "#55f"}}
     (i18n/da-en languages
       "skift sprog"
       "change language")]
-   [:div.help-overlay__item {:style {:bottom 6
+   [:div.help-overlay__item {:style {:bottom 10
                                      :color  "#019fa1"}}
     (i18n/da-en languages
       "detaljeniveau"
