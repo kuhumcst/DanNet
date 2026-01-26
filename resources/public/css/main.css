@@ -235,7 +235,7 @@ h1 span.prefix {
 h2 {
     font-size: var(--font-size-l);
     text-align: center;
-    margin: var(--spacing-xl) 0 var(--spacing-m) 0;
+    margin: var(--spacing-xxl) 0 var(--spacing-l) 0;
 }
 
 h2::before {
@@ -496,7 +496,7 @@ section.text {
 p.subheading {
     text-align: center;
     font-size: var(--font-size-m-l);
-    margin: 0 0 var(--spacing-l) 0;
+    margin: var(--spacing-l) 0;
     color: var(--color-muted);
 }
 
@@ -743,6 +743,7 @@ form[role=search].search-active input[role=combobox] {
 form[role=search] input[type=submit] {
     transition: transform var(--transition-base);
     letter-spacing: 2px;
+    margin: 0 var(--spacing-xs);
 
     /* Hide when not in use as it otherwise blocks user input. */
     display: none;
@@ -1654,15 +1655,6 @@ span.render-error {
     table.attr-val table.attr-val col:nth-child(2) {
         min-width: 10ch;
     }
-    h1 {
-        font-size: var(--font-size-l);
-    }
-    h2 {
-        font-size: var(--font-size-m-l);
-    }
-    #content {
-        padding: var(--spacing-s);
-    }
     .synset-radial-container .synset-radial__definition {
         flex-direction: column;
         margin: 0 auto 0 0;
@@ -1711,7 +1703,7 @@ span.render-error {
 @media only screen and (max-width: 500px) {
     p.note.desktop-only,
     td.attr-prefix > *,
-    :not(h1) > span.prefix:not(.independent) {
+    span.prefix:not(.independent) {
         display: none;
     }
     table.attr-val col:nth-child(2) {
