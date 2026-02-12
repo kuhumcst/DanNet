@@ -1556,11 +1556,7 @@ span.render-error {
    MEDIA QUERIES
    =========================================== */
 
-@media only screen and (min-width: 180ch) {
-    .help-overlay {
-        opacity: 1;
-    }
-}
+/* --- Large screens (min-width, ascending) --- */
 
 @media only screen and (min-width: 1200px) {
     /* Hide "fake" footer items until diagram view turns into single column view. */
@@ -1587,6 +1583,14 @@ span.render-error {
     }
 }
 
+@media only screen and (min-width: 1440px) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+/* --- Small screens (max-width, descending) --- */
+
 @media only screen and (max-width: 1200px) {
     .radial-tree {
         flex-direction: column;
@@ -1611,8 +1615,6 @@ span.render-error {
         order: 3;
         border-right: none;
         border-top: var(--subtle-border);
-
-        /* TODO: why isn't it expanding?? */
         max-width: none;
         margin: 0;
         padding: var(--spacing-l) 0 0 0;
