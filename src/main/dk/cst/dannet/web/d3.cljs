@@ -766,7 +766,7 @@
         (.attr "class" (fn [d]
                          (if (.-href (.-data d))
                            "radial-item"
-                           "radial-item radial-item__subject")))
+                           "radial-item radial-item--subject")))
 
         ;; LABEL ROTATION LOGIC (most complex part of the function):
         ;; For subject (center): simple vertical offset, no rotation

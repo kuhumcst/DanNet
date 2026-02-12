@@ -670,7 +670,7 @@ form[role=search] {
     padding: var(--spacing-xs);
     opacity: var(--opacity-interactive);
     width: var(--icon-size);
-    min-height: var(--icon-size);
+    min-height: var(--icon-size); /* Tap target matches search icon */
     background: url(/images/search.svg) no-repeat 5px 5px / var(--icon-size);
     z-index: var(--z-search);
 }
@@ -1310,16 +1310,16 @@ ul.radial-tree-legend > li:focus-within {
     font-size: var(--font-size-m);
 }
 
-.radial-item__de-emphasized {
+.radial-item--de-emphasized {
     opacity: 0.1;
 }
 
-.radial-item:not(.radial-item__subject):hover {
+.radial-item:not(.radial-item--subject):hover {
     text-decoration: underline;
     cursor: pointer;
 }
 
-.radial-item__subject {
+.radial-item--subject {
     /* Make the subject label easier to read in busy diagrams. */
     stroke: white;
     stroke-width: 6px;
@@ -1360,10 +1360,6 @@ tspan.sense-paragraph {
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
     transition: filter var(--transition-base);
-}
-
-.word-cloud-item__top {
-    /* Reserved for potential future styling of top-ranked items */
 }
 
 /* Only reveal colours when hovering parent SVG container. */
@@ -1695,7 +1691,7 @@ span.render-error {
 }
 
 @media only screen and (max-width: 600px) {
-    .radial-item:not(.radial-item__subject) {
+    .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-l);
     }
 }
@@ -1712,7 +1708,7 @@ span.render-error {
     ul.radial-tree-legend {
         columns: 1;
     }
-    .radial-item:not(.radial-item__subject) {
+    .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-xl);
     }
 }
