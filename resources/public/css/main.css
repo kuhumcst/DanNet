@@ -1050,7 +1050,7 @@ header > .rdf-uri .rdf-uri__name {
     margin-left: 2px;
 }
 
-/* Language tags */
+/* Language tags shown as superscript after lang-attributed elements. */
 [lang]:not(footer, footer *, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
