@@ -81,10 +81,10 @@
                                         (let [classes (elem-classes el)
                                               show?   (or (nil? new-selection)
                                                           (= new-selection (.getAttribute el "data-theme"))
-                                                          (get classes "radial-item__subject"))]
+                                                          (get classes "radial-item--subject"))]
                                           (if show?
-                                            (apply-classes el (disj classes "radial-item__de-emphasized"))
-                                            (apply-classes el (conj classes "radial-item__de-emphasized")))))))}]
+                                            (apply-classes el (disj classes "radial-item--de-emphasized"))
+                                            (apply-classes el (conj classes "radial-item--de-emphasized")))))))}]
               [:span {:class "radial-tree-legend__bullet"
                       :style {:background theme}}]]])))]]))
 

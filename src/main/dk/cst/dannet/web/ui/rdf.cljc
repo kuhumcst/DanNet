@@ -365,7 +365,7 @@
   is provided, prepends the subject as first item (not a hyperlink)."
   ([{:keys [ancestry subject-label] :as opts}]
    (if subject-label
-     [:ul.hypernym-chain
+     [:ul.hypernym-chain.hypernym-chain--root
       [:li.subject
        (transform-val subject-label opts)
        (hypernym-chain ancestry opts)]]

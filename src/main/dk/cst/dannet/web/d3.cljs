@@ -735,12 +735,12 @@
           (when (and pos-label first-line?)
             (-> container
                 (.append "tspan")
-                (.attr "class" "definition-pos")
+                (.attr "class" "definition-pos svg-text-outlined")
                 (.attr "font-variant" "small-caps")
                 (.text (str pos-label " | "))))
           (-> container
               (.append "tspan")
-              (.attr "class" "definition-text")
+              (.attr "class" "definition-text svg-text-outlined")
               (.text line)))))))
 
 (defn- render-radial-labels
@@ -766,7 +766,7 @@
         (.attr "class" (fn [d]
                          (if (.-href (.-data d))
                            "radial-item"
-                           "radial-item radial-item__subject")))
+                           "radial-item radial-item--subject svg-text-outlined")))
 
         ;; LABEL ROTATION LOGIC (most complex part of the function):
         ;; For subject (center): simple vertical offset, no rotation

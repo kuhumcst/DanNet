@@ -31,15 +31,18 @@
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
     --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
+    --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
     
     /* BORDERS */
     --border-opacity-normal: 0.5;
     --border-opacity-subtle: 0.2;
     --border-opacity-very-subtle: 0.1;
-    
+
     --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-normal));
     --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
     --very-subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
+
+    --border-radius-s: 2px;
     
     /* SHADOWS */
     --shadow-card: 0 0 12px rgba(0,0,0,0.3);
@@ -67,17 +70,21 @@
     --content-max-width-narrow: 90ch;  /* Document-style articles */
     
     /* SPACING */
+    --spacing-xxs: 2px;
     --spacing-xs: 4px;
     --spacing-s: 8px;
     --spacing-m: 12px;
+    --spacing-m-l: 16px;  /* TODO: Non-standard size - consider consolidating to --spacing-m or --spacing-l in future */
     --spacing-l: 24px;
     --spacing-xl: 32px;
     --spacing-xxl: 48px;
+    --spacing-prefix: 6px;
     
     /* TRANSITIONS */
     --transition-fast: 0.1s;
     --transition-base: 0.2s;
     --transition-slow: 0.33s;
+    --transition-slower: 0.66s;
     
     /* BACKGROUNDS */
     --bg-texture: url(/images/exclusive-paper.png);
@@ -85,7 +92,6 @@
     
     /* INTERACTIVE ELEMENT SIZING */
     --icon-size: 32px;
-    --icon-size-s: 24px;
     
     /* LAYOUT OFFSETS (for viewport calculations) */
     --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
@@ -220,16 +226,13 @@ h1 img {
 
 h1 span.prefix {
     align-self: center;
-    transition: background 0.66s;
-    background: var(--bg-dark);
+    transition: background var(--transition-slower);
     margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
-    padding: 6px var(--spacing-m);
+    padding: var(--spacing-prefix) var(--spacing-m);
     border-radius: 3px;
-    border: 1px solid rgba(0,0,0,var(--opacity-decorative));
-    color: rgba(255,255,255,var(--opacity-interactive));
 
-    letter-spacing: 6px;
-    padding-right: 6px; /* account for letter-spacing */
+    letter-spacing: var(--spacing-prefix);
+    padding-right: var(--spacing-prefix); /* account for letter-spacing */
 }
 
 h2 {
@@ -265,8 +268,8 @@ sub {
 code,
 pre.viewer-code {
     background: rgba(0,0,0,0.1);
-    padding: var(--spacing-xs) 2px var(--spacing-xs) var(--spacing-xs); /* Right side accounts for word spacing. */
-    border-radius: 2px;
+    padding: var(--spacing-xs) var(--spacing-xxs) var(--spacing-xs) var(--spacing-xs); /* Right side accounts for word spacing. */
+    border-radius: var(--border-radius-s);
 }
 
 pre.viewer-code {
@@ -346,7 +349,7 @@ details {
 
 details summary {
     cursor: pointer;
-    border-radius: 2px;
+    border-radius: var(--border-radius-s);
     color: rgba(0,0,0,var(--opacity-interactive));
     font-size: var(--font-size-xs);
     padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
@@ -364,6 +367,37 @@ details[open] {
 
 summary + ol {
     margin-top: var(--spacing-m);
+}
+
+/* Subheadings and notes */
+p.subheading {
+    text-align: center;
+    font-size: var(--font-size-m-l);
+    margin: var(--spacing-l) 0;
+    color: var(--color-muted);
+}
+
+p.subheading select {
+    font-size: var(--font-size-m-l);
+    padding: var(--spacing-xxs) var(--spacing-prefix);
+}
+
+p.note {
+    text-align: center;
+    font-style: italic;
+    font-size: var(--font-size-s);
+    margin: var(--spacing-l) 0 0 0;
+    color: var(--color-muted);
+}
+
+p.note + p.note {
+    margin-top: 0;
+}
+
+p.note strong {
+    font-size: var(--font-size-l);
+    color: var(--color-dark);
+    vertical-align: middle;
 }
 
 
@@ -427,7 +461,7 @@ article.document {
 }
 
 article.document > div {
-    padding: 16px;
+    padding: var(--spacing-m-l);
 }
 
 article.document h1 {
@@ -489,40 +523,6 @@ section.notes {
     margin-top: var(--spacing-l);
 }
 
-section.text {
-    line-height: var(--line-height-prose);
-}
-
-p.subheading {
-    text-align: center;
-    font-size: var(--font-size-m-l);
-    margin: var(--spacing-l) 0;
-    color: var(--color-muted);
-}
-
-p.subheading select {
-    font-size: var(--font-size-m-l);
-    padding: 2px 6px;
-}
-
-p.note {
-    text-align: center;
-    font-style: italic;
-    font-size: var(--font-size-s);
-    margin: var(--spacing-l) 0 0 0;
-    color: var(--color-muted);
-}
-
-p.note + p.note {
-    margin-top: 0;
-}
-
-p.note strong {
-    font-size: var(--font-size-l);
-    color: var(--color-dark);
-    vertical-align: middle;
-}
-
 
 /* ===========================================
    NAVIGATION
@@ -543,7 +543,7 @@ nav {
 
 nav a.title {
     /* letter-spacing transition has 1s delay to match loading animation */
-    transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing 0.3s ease-in-out 1s;
+    transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing var(--transition-slow) ease-in-out 1s;
     color: white;
     opacity: var(--opacity-interactive);
     user-select: none;
@@ -557,14 +557,18 @@ nav a.title {
     letter-spacing: 4px;
 }
 
+/* Shared styles for nav icons */
+nav .nav-icon {
+    transition: opacity var(--transition-base), transform var(--transition-base);
+    opacity: var(--opacity-interactive);
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
 nav a.title:hover,
 nav a.title:focus-visible,
-nav select.language:hover,
-nav select.language:focus-visible,
-nav a.github:hover,
-nav a.github:focus-visible,
-nav button.synset-details:hover,
-nav button.synset-details:focus-visible {
+nav .nav-icon:hover,
+nav .nav-icon:focus-visible {
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
 }
@@ -580,42 +584,23 @@ nav select.language {
     border: none;
     appearance: none;
 
-    transition: opacity var(--transition-base), transform var(--transition-base);
-    opacity: var(--opacity-interactive);
     cursor: pointer;
     margin: auto 0 var(--spacing-s) 0;
     width: var(--icon-size);
     height: var(--icon-size);
     font-size: var(--font-size-m-xl);
-    background: transparent url(/images/globe.svg);
-    background-size: 28px;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-nav a.github {
-    transition: opacity var(--transition-base), transform var(--transition-base);
-    background-image: url("/images/GitHub-Mark-Light-120px-plus.png");
-    background-size: var(--icon-size-s);
-    background-repeat: no-repeat;
-    background-position: center;
-    width: var(--icon-size-s);
-    height: var(--icon-size-s);
-    opacity: var(--opacity-interactive);
-    padding: var(--spacing-xs);
+    background-image: url(/images/globe.svg);
+    background-color: transparent;
+    background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
 }
 
 nav button.synset-details {
-    transition: opacity var(--transition-base), transform var(--transition-base);
     border: none;
-    background: none;
+    background-color: transparent;
     background-image: url("/images/minus.svg");
     background-size: 26px;
-    background-repeat: no-repeat;
-    background-position: center;
     width: var(--icon-size);
     height: var(--icon-size);
-    opacity: var(--opacity-interactive);
     padding: var(--spacing-xs);
 }
 
@@ -630,10 +615,9 @@ nav.full-screen {
 
 /* Darken the icons in the nav bar in full-screen mode. */
 nav.full-screen a.title,
-nav.full-screen select.language,
-nav.full-screen button.synset-details {
+nav.full-screen .nav-icon {
     filter: invert(1);
-    opacity: 0.75;
+    opacity: var(--opacity-fullscreen-icon);
 }
 
 /* Loading indicator - animates title letters when fetching */
@@ -670,13 +654,13 @@ form[role=search] {
     padding: var(--spacing-xs);
     opacity: var(--opacity-interactive);
     width: var(--icon-size);
-    min-height: var(--icon-size);
+    min-height: var(--icon-size); /* Tap target matches search icon */
     background: url(/images/search.svg) no-repeat 5px 5px / var(--icon-size);
     z-index: var(--z-search);
 }
 
 form[role=search].search-active {
-    transition: background-color 0.3s;
+    transition: background-color var(--transition-slow);
     opacity: var(--opacity-interactive-hover);
     background: rgba(0,0,0,0.66) url(/images/back.svg) no-repeat var(--spacing-m) 20px / 42px;
     backdrop-filter: blur(5px);
@@ -701,7 +685,7 @@ form[role=search]:not(.search-active):hover {
     transform: scale(110%);
 }
 
-.search-form__top {
+form[role=search]__top {
     display: flex;
 }
 
@@ -722,7 +706,7 @@ form[role=search] input[role=combobox] {
     font-size: var(--font-size-m); /* >= 16px prevents iOS Safari from zooming on focus */
     color: white;
     border: none;
-    border-radius: 2px;
+    border-radius: var(--border-radius-s);
     width: var(--icon-size);
     min-height: var(--icon-size); /* Ensures clickable area matches search icon size */
     padding: 0;
@@ -735,7 +719,7 @@ form[role=search].search-active input[role=combobox] {
     margin-left: 56px;
     color: var(--color-dark);
     opacity: 0.9;
-    padding: 2px var(--spacing-s);
+    padding: var(--spacing-xxs) var(--spacing-s);
     position: sticky; /* Keeps search input visible at top when scrolling results */
     top: var(--spacing-s);
 }
@@ -819,7 +803,7 @@ nav:has(form[role=search].search-active) ~ #content {
 /* Darken the search icon in full-screen mode. */
 nav.full-screen form[role=search]:not(.search-active) {
     filter: invert(1);
-    opacity: 0.75;
+    opacity: var(--opacity-fullscreen-icon);
 }
 
 
@@ -843,14 +827,14 @@ table.attr-val col:nth-child(3) {
     width: 80ch;
 }
 
-table.attr-val table.attr-val {
+.attr-val--nested {
     border: var(--very-subtle-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
 /* Border resets for inner tables */
-table.attr-val table.attr-val td.attr-prefix,
-table.attr-val table.attr-val td.attr-name {
+.attr-val--nested td.attr-prefix,
+.attr-val--nested td.attr-name {
     border-top: none;
     border-right: none;
 }
@@ -910,10 +894,10 @@ span.prefix {
     background: var(--bg-dark);
     font-variant: small-caps;
     color: rgba(255,255,255,var(--opacity-interactive));
-    border-radius: 2px;
+    border-radius: var(--border-radius-s);
     border: 1px solid rgba(0,0,0,var(--opacity-decorative));
-    padding: 2px 6px;
-    margin-right: 6px;
+    padding: var(--spacing-xxs) var(--spacing-prefix);
+    margin-right: var(--spacing-prefix);
 
     letter-spacing: 1px;
     padding-right: 4px; /* account for letter-spacing */
@@ -1050,7 +1034,7 @@ header > .rdf-uri .rdf-uri__name {
     margin-left: 2px;
 }
 
-/* Language tags */
+/* Language tags shown as superscript after lang-attributed elements. */
 [lang]:not(footer, footer *, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
@@ -1251,7 +1235,7 @@ ul.radial-tree-legend label {
     position: relative;
     cursor: pointer;
     user-select: none;
-    padding: 6px 0 6px var(--spacing-xl);
+    padding: var(--spacing-prefix) 0 var(--spacing-prefix) var(--spacing-xl);
 }
 
 ul.radial-tree-legend li + li {
@@ -1289,7 +1273,7 @@ ul.radial-tree-legend:has(input[type=radio]:checked) input[type=radio]:not(:chec
 
 ul.radial-tree-legend > li {
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: var(--border-radius-s);
     padding: 0;
     margin-bottom: 1px;
 }
@@ -1310,20 +1294,24 @@ ul.radial-tree-legend > li:focus-within {
     font-size: var(--font-size-m);
 }
 
-.radial-item__de-emphasized {
+.radial-item--de-emphasized {
     opacity: 0.1;
 }
 
-.radial-item:not(.radial-item__subject):hover {
+.radial-item:not(.radial-item--subject):hover {
     text-decoration: underline;
     cursor: pointer;
 }
 
-.radial-item__subject {
-    /* Make the subject label easier to read in busy diagrams. */
+/* Shared SVG text outline effect */
+.svg-text-outlined {
     stroke: white;
     stroke-width: 6px;
     paint-order: stroke fill;
+}
+
+.radial-item--subject {
+    /* Make the subject label easier to read in busy diagrams. */
     font-size: 40px;
 }
 
@@ -1347,9 +1335,6 @@ tspan.sense-paragraph {
 .definition-pos,
 .definition-text {
     fill: var(--color-dark);
-    stroke: white;
-    stroke-width: 6px;
-    paint-order: stroke fill;
 }
 
 .definition-pos {
@@ -1360,10 +1345,6 @@ tspan.sense-paragraph {
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
     transition: filter var(--transition-base);
-}
-
-.word-cloud-item__top {
-    /* Reserved for potential future styling of top-ranked items */
 }
 
 /* Only reveal colours when hovering parent SVG container. */
@@ -1392,7 +1373,7 @@ ul.hypernym-chain ul.hypernym-chain {
     margin: 0.8em 0;
 }
 
-*:not(ul.hypernym-chain) > li > ul.hypernym-chain li:first-child {
+.hypernym-chain--root li:first-child {
     margin-top: 0;
 }
 
@@ -1449,7 +1430,7 @@ span.subtle {
     padding: var(--spacing-m);
     background-color: white;
     border: var(--subtle-border);
-    border-radius: 2px;
+    border-radius: var(--border-radius-s);
 }
 
 .icon:hover,
@@ -1509,7 +1490,7 @@ select.display-options:focus-visible {
     position: absolute;
     opacity: 0;
     animation:
-        0.66s ease-in 5s forwards fade-in,
+        var(--transition-slower) ease-in 5s forwards fade-in,
         var(--transition-slow) ease-in infinite alternate point;
     text-transform: uppercase;
     left: 58px;
@@ -1517,8 +1498,8 @@ select.display-options:focus-visible {
     background: white;
     font-size: var(--font-size-xs);
     line-height: 1;
-    padding: 2px 6px 0 6px;
-    border-radius: 2px;
+    padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
+    border-radius: var(--border-radius-s);
     border: 1px solid var(--color-faint);
 }
 
@@ -1560,11 +1541,7 @@ span.render-error {
    MEDIA QUERIES
    =========================================== */
 
-@media only screen and (min-width: 180ch) {
-    .help-overlay {
-        opacity: 1;
-    }
-}
+/* --- Large screens (min-width, ascending) --- */
 
 @media only screen and (min-width: 1200px) {
     /* Hide "fake" footer items until diagram view turns into single column view. */
@@ -1587,9 +1564,17 @@ span.render-error {
         padding-left: var(--spacing-xl);
     }
     #content.full-screen ul.radial-tree-legend li + li {
-        margin-top: 6px;
+        margin-top: var(--spacing-prefix);
     }
 }
+
+@media only screen and (min-width: 1440px) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+/* --- Small screens (max-width, descending) --- */
 
 @media only screen and (max-width: 1200px) {
     .radial-tree {
@@ -1615,8 +1600,6 @@ span.render-error {
         order: 3;
         border-right: none;
         border-top: var(--subtle-border);
-
-        /* TODO: why isn't it expanding?? */
         max-width: none;
         margin: 0;
         padding: var(--spacing-l) 0 0 0;
@@ -1649,10 +1632,10 @@ span.render-error {
         font-size: var(--font-size-s);
     }
     header > .rdf-uri,
-    table.attr-val table.attr-val td {
+    .attr-val--nested td {
         font-size: var(--font-size-xs);
     }
-    table.attr-val table.attr-val col:nth-child(2) {
+    .attr-val--nested col:nth-child(2) {
         min-width: 10ch;
     }
     .synset-radial-container .synset-radial__definition {
@@ -1695,7 +1678,7 @@ span.render-error {
 }
 
 @media only screen and (max-width: 600px) {
-    .radial-item:not(.radial-item__subject) {
+    .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-l);
     }
 }
@@ -1712,7 +1695,7 @@ span.render-error {
     ul.radial-tree-legend {
         columns: 1;
     }
-    .radial-item:not(.radial-item__subject) {
+    .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-xl);
     }
 }

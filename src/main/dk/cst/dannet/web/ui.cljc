@@ -38,7 +38,7 @@
             :title "DanNet-Metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "da"}
-       "© 2023–2025, "
+       "© 2023–2026, "
        [:a {:href "https://cst.ku.dk"}
         "Center for Sprogteknologi"]
        " (" [:abbr {:title "Københavns Universitet"}
@@ -65,7 +65,7 @@
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
       [:p {:lang "en"}
-       "© 2023–2025, "
+       "© 2023–2026, "
        [:a {:href "https://cst.ku.dk/english"}
         "Centre for Language Technology"]
        " (" [:abbr {:title "University of Copenhagen"}
@@ -83,7 +83,7 @@
                                                (not-empty)
                                                (i18n/lang-prefs))]
                                      (shared/update-cookie! :languages (constantly v)))))]
-    [:select.language
+    [:select.language.nav-icon
      {:title     (i18n/da-en languages
                    "Sprogpræference"
                    "Language preference")
@@ -179,16 +179,16 @@
        ;; Wrapped in spans for staggered loading animation (see main.css).
        [:span "D"] [:span "a"] [:span "n"] [:span "N"] [:span "e"] [:span "t"]]
       (language-select languages')
-      [:button.synset-details {:class    (when details?
-                                           "toggled")
-                               :title    (if details?
-                                           (i18n/da-en languages'
-                                             "Vis færre detaljer"
-                                             "Show fewer details")
-                                           (i18n/da-en languages'
-                                             "Vis flere detaljer"
-                                             "Show more details"))
-                               :on-click toggle-details}]]
+      [:button.synset-details.nav-icon {:class    (when details?
+                                                    "toggled")
+                                        :title    (if details?
+                                                    (i18n/da-en languages'
+                                                      "Vis færre detaljer"
+                                                      "Show fewer details")
+                                                    (i18n/da-en languages'
+                                                      "Vis flere detaljer"
+                                                      "Show more details"))
+                                        :on-click toggle-details}]]
      [:div#content {:class [(when full-diagram?
                               "full-screen")
                             #?(:clj  ""

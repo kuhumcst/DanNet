@@ -175,7 +175,9 @@
   "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)]
-    [:table.attr-val
+    [:table.attr-val (cond-> {}
+                       ;; Mark nested tables with a class for simplified CSS selectors
+                       (:table-component opts) (assoc :class "attr-val--nested"))
      [:colgroup
       [:col]
       [:col]
