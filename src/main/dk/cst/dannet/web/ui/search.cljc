@@ -109,19 +109,17 @@
                               (.preventDefault e)
                               (.stopPropagation e)
                               (swap! open not))]
-    [:form {:role      "search"
-            :class     (if open? "search-active" "")
-            :id        "search-form"
-            :title     (i18n/da-en languages
-                         "Søg efter synsets"
-                         "Search for synsets")
-            :action    prefix/search-path
-            :on-click  toggle
-            :on-submit on-submit
-            :method    "get"}
+    [:search {:class    (if open? "search-active" "")
+              :on-click toggle}
      (when open?
        [:<>
-        [:div.search-form__top
+        [:form {:id        "search-form"
+                :title     (i18n/da-en languages
+                             "Søg efter synsets"
+                             "Search for synsets")
+                :action    prefix/search-path
+                :on-submit on-submit
+                :method    "get"}
          [:input {:role                  "combobox"
                   :aria-expanded         suggestions?
                   :aria-controls         (str (when suggestions?
@@ -144,9 +142,10 @@
                   :tab-index "-1"
                   :title     (str submit-label)
                   :value     (str submit-label)}]]
-        [:ul {:role      "listbox"
-              :tab-index "-1"
-              :id        "search-completion"}
-         (when suggestions?
-           (for [v completion-items]
-             (rum/with-key (search-suggestion v on-key-down) v)))]])]))
+        [:output {:aria-live "polite"}
+         [:ul {:role      "listbox"
+               :tab-index "-1"
+               :id        "search-completion"}
+          (when suggestions?
+            (for [v completion-items]
+              (rum/with-key (search-suggestion v on-key-down) v)))]]])]))

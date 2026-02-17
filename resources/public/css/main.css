@@ -645,7 +645,7 @@ nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; 
    SEARCH
    =========================================== */
 
-form[role=search] {
+search {
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -658,7 +658,7 @@ form[role=search] {
     z-index: var(--z-search);
 }
 
-form[role=search].search-active {
+search.search-active {
     transition: background-color var(--transition-slow);
     opacity: var(--opacity-interactive-hover);
     background: rgba(0,0,0,0.66) url(/images/back.svg) no-repeat var(--spacing-m) 20px / 42px;
@@ -674,33 +674,21 @@ form[role=search].search-active {
     padding-top: 16px;
 }
 
-form[role=search]:not(.search-active) {
+search:not(.search-active) {
     cursor: pointer;
     transition: transform var(--transition-base);
 }
 
-form[role=search]:not(.search-active):hover {
+search:not(.search-active):hover {
     opacity: var(--opacity-interactive-hover);
     transform: scale(110%);
 }
 
-form[role=search]__top {
+search form {
     display: flex;
 }
 
-form[role=search]:hover input[role=combobox] {
-    opacity: 0.5;
-}
-
-form[role=search] input[role=combobox]:not(:focus) {
-    color: transparent;
-}
-
-form[role=search] input[role=combobox]:not(:focus)::placeholder {
-    color: transparent;
-}
-
-form[role=search] input[role=combobox] {
+search input[role=combobox] {
     user-select: none;
     font-size: var(--font-size-m); /* >= 16px prevents iOS Safari from zooming on focus */
     color: white;
@@ -712,7 +700,7 @@ form[role=search] input[role=combobox] {
     opacity: 0;
 }
 
-form[role=search].search-active input[role=combobox] {
+search.search-active input[role=combobox] {
     flex-grow: 1;
     font-size: var(--font-size-xl);
     margin-left: 56px;
@@ -723,16 +711,13 @@ form[role=search].search-active input[role=combobox] {
     top: var(--spacing-s);
 }
 
-form[role=search] input[type=submit] {
+search input[type=submit] {
     transition: transform var(--transition-base);
     letter-spacing: 2px;
     margin: 0 var(--spacing-xs);
-
-    /* Hide when not in use as it otherwise blocks user input. */
-    display: none;
 }
 
-form[role=search].search-active input[type=submit] {
+search.search-active input[type=submit] {
     display: revert; /* Unhide when search is active. */
     position: static;
     opacity: var(--opacity-interactive-hover);
@@ -747,20 +732,11 @@ form[role=search].search-active input[type=submit] {
     background: url(/images/search.svg) no-repeat center 2px / 36px 36px;
 }
 
-form[role=search].search-active input[type=submit]:hover {
+search.search-active input[type=submit]:hover {
     color: rgba(255,255,255,1);
 }
 
-form[role=search] p {
-    display: none;
-}
-
-form[role=search] ul {
-    display: none;
-    cursor: default;
-}
-
-form[role=search].search-active ul {
+search.search-active ul {
     display: block;
     animation: fade-in var(--transition-slow);
     margin: 0;
@@ -770,11 +746,11 @@ form[role=search].search-active ul {
 }
 
 /* larger dismiss area when no options are available */
-form[role=search].search-active ul:empty {
+search.search-active ul:empty {
     padding-bottom: 0;
 }
 
-form[role=search].search-active ul li {
+search.search-active ul li {
     color: white;
     cursor: pointer;
     list-style-type: none;
@@ -789,18 +765,18 @@ form[role=search].search-active ul li {
     width: calc(100% - var(--layout-search-horizontal-offset));
 }
 
-form[role=search].search-active ul li:hover,
-form[role=search].search-active ul li:focus-visible {
+search.search-active ul li:hover,
+search.search-active ul li:focus-visible {
     background: rgba(255,255,255,var(--opacity-overlay-light));
 }
 
 /* Disable scrolling when search is focused (prevents iOS Firefox scroll issue) */
-nav:has(form[role=search].search-active) ~ #content {
+nav:has(search.search-active) ~ #content {
     overflow: hidden;
 }
 
 /* Darken the search icon in full-screen mode. */
-nav.full-screen form[role=search]:not(.search-active) {
+nav.full-screen search:not(.search-active) {
     filter: invert(1);
     opacity: var(--opacity-fullscreen-icon);
 }
