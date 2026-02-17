@@ -1,4 +1,4 @@
-(ns dk.cst.aria.combobox
+(ns dk.cst.dannet.web.ui.search.aria
   "Helpers for ARIA-compliant combobox keyboard navigation.
 
   ARIA reference:
@@ -47,17 +47,24 @@
   a keydown handler for both the combobox and the options in the listbox.
 
     * submit-fn: function to execute when submitting the search form.
-    * combox: HTML element for the combobox.
-    * listbox: HTML element for the listbox containing the options.
     * (optional) kmap: a mapping from keyboard keys to associated functions.
+
+  The combobox and listbox elements are resolved at invocation time using the
+  ARIA attributes on the target element.
 
   Note that the options should have onclick handlers roughly equivalent to the
   provided 'submit-fn' for this handler to work properly. Additionally, for
   proper ARIA-compliance, the correct ARIA roles and attributes should be set
   on the elements (see: https://w3c.github.io/aria/#combobox)."
-  [submit-fn combobox listbox & [kmap]]
+  [submit-fn & [kmap]]
   (fn [e]
-    (let [elem (.-target e)]
+    (let [elem     (.-target e)
+          combobox (if (.getAttribute elem "aria-controls")
+                     elem
+                     (js/document.getElementById "search-input"))
+          listbox  (some->> (.getAttribute combobox "aria-controls")
+                            (not-empty)
+                            (js/document.getElementById))]
       (if-let [action (get kmap (.-key e))]
         (action e)
         (when (supported-keys (.-key e))

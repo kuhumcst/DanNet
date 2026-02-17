@@ -5,7 +5,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:cljs [lambdaisland.uri :as uri])
-            #?(:cljs [dk.cst.aria.combobox :as combobox])))
+            #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`."
@@ -95,13 +95,11 @@
                                                [(lstr/->LangStr "Søg" "da")
                                                 (lstr/->LangStr "Search" "en")])
         on-key-down #?(:clj nil :cljs
-                       (combobox/keydown-handler
+                       (aria/keydown-handler
                          #(let [form (js/document.getElementById "search-form")]
                             (reset! open false)
                             (submit-form form)
                             (js/document.activeElement.blur))
-                         (js/document.getElementById "search-input")
-                         (js/document.getElementById "search-completion")
                          {"Escape" (fn [e]
                                      (.preventDefault e)
                                      (js/document.activeElement.blur))}))
@@ -137,7 +135,7 @@
                   :on-click              prevent-closing    ; should not bubble
                   :on-change             update-search-suggestions
                   :auto-complete         "off"
-                  :default-value         (or lemma "")}]
+                  :default-value         (or lemma s "")}]
          [:input {:type      "submit"
                   :tab-index "-1"
                   :title     (str submit-label)
