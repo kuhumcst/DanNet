@@ -74,7 +74,6 @@
     --spacing-xs: 4px;
     --spacing-s: 8px;
     --spacing-m: 12px;
-    --spacing-m-l: 16px;  /* TODO: Non-standard size - consider consolidating to --spacing-m or --spacing-l in future */
     --spacing-l: 24px;
     --spacing-xl: 32px;
     --spacing-xxl: 48px;
@@ -461,7 +460,7 @@ article.document {
 }
 
 article.document > div {
-    padding: var(--spacing-m-l);
+    padding: var(--spacing-m);
 }
 
 article.document h1 {
