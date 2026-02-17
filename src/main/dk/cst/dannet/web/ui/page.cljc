@@ -33,7 +33,7 @@
 (rum/defc search
   [{:keys [languages lemma search-results details?] :as opts}]
   [:article.search
-   [:header
+   [:header.page-header
     [:h1 (str "\"" lemma "\"")]]
    (if (empty? search-results)
      [:p (i18n/da-en languages
@@ -67,7 +67,7 @@
   (let [k->label       (catalog/k->label catalog)
         ordered-groups (catalog/prepare-groups catalog opts)]
     [:article.metadata
-     [:header
+     [:header.page-header
       [:h1 "Metadata"]]
      [:p.subheading (i18n/da-en languages
                       "Dette er de primære skemaer og datasæt der bruges i DanNet."

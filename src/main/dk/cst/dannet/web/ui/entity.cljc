@@ -42,7 +42,7 @@
         a-titles      [#voc/lstr "Visit this location directly@en"
                        #voc/lstr "Besøg denne lokation direkte@da"]
         uri-only?     (and (not label) (= local-name rdf-uri))]
-    [:header
+    [:header.page-header
      [:h1
       (rdf/prefix-badge prefix)
       [:span {:title (if label
@@ -79,7 +79,7 @@
 (rum/defc entity-notes
   [{:keys [href languages comments inferred inherited supplemented]
     :as   opts}]
-  [:section.notes
+  [:aside.notes
    (when (not-empty inferred)
      [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
    (when (not-empty inherited)
@@ -119,9 +119,9 @@
 (rum/defc display-mode-selector
   [title {:keys [languages]
           :as   opts}]
-  [:p.subheading (i18n/da-en languages
-                   "Vis som "
-                   "Display as ")
+  [:label.subheading (i18n/da-en languages
+                       "Vis som "
+                       "Display as ")
    [:select {:value     (get-in opts [:section title :display :selected])
              :on-change (fn [e]
                           (swap! shared/state assoc-in

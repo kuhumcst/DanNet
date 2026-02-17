@@ -119,9 +119,9 @@
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
      (re-matches #"\{.+\}" s)
-     [:div.set
-      [:div.set__left-bracket]
-      (into [:div.set__content]
+     [:span.set
+      [:span.set__left-bracket]
+      (into [:span.set__content]
             (interpose
               [:span.subtle " • "]                          ; semicolon->bullet
               (for [label (shared/sense-labels shared/synset-sep s)]
@@ -139,7 +139,7 @@
                         [:sub sub]))]
                    mwe]
                   label))))
-      [:div.set__right-bracket]]
+      [:span.set__right-bracket]]
 
      rdf-resource
      (rdf-uri-hyperlink uri opts)
@@ -214,13 +214,13 @@
           opts'           (-> opts
                               (assoc-in [:k->label resource] inherited-label)
                               (assoc :class (get prefix/prefix->class prefix)))]
-      [:div.qname
+      [:span.qname
        (prefix-badge (or prefix (symbol (namespace resource))) opts')
        (entity-link resource opts')])
 
     ;; The generic case just displays the prefix badge + the hyperlink.
     :else
-    [:div.qname
+    [:span.qname
      (prefix-badge (symbol (namespace resource)) opts)
      (entity-link resource opts)]))
 
@@ -273,17 +273,17 @@
 
     :let [resources (shared/bag->coll m)]
     resources
-    [:div.set
+    [:span.set
      (when (and (every? keyword? resources)
                 (apply = (map namespace resources)))
        (let [prefix (symbol (namespace (first resources)))]
          (prefix-badge prefix opts)))
-     [:div.set__left-bracket]
-     (into [:div.set__content]
+     [:span.set__left-bracket]
+     (into [:span.set__content]
            (->> resources
                 (map #(entity-link % opts))
                 (interpose [:span.subtle " • "])))
-     [:div.set__right-bracket]]
+     [:span.set__right-bracket]]
 
     ;; An optional fallback table component with the same function signature.
     ;; It's passed via dependency injection to avoid cyclic ns dependencies.

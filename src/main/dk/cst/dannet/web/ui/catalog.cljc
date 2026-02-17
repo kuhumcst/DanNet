@@ -58,9 +58,9 @@
   [{:keys [languages] :as opts} k->label entries]
   [:table.attr-val
    [:colgroup
-    [:col]
-    [:col]
-    [:col]]
+    [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
+    [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
+    [:col {:aria-label (i18n/da-en languages "Beskrivelse" "Description")}]]
    [:tbody
     (for [[rdf-resource {:keys [description prefix]}] entries
           :let [uri   (prefix/rdf-resource->uri rdf-resource)

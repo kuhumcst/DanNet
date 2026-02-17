@@ -140,7 +140,7 @@ h1, h2, h3,
 td, th,
 dt, dd,
 li,
-div.set__content,
+span.set__content,
 span.prefix,
 .qname {
     hyphens: auto;
@@ -175,10 +175,10 @@ a {
     text-decoration: none;
 }
 
-/* TODO: div.set markup is inconsistent - sometimes inside <a>, sometimes not.
+/* TODO: span.set markup is inconsistent - sometimes inside <a>, sometimes not.
    Unifying this would allow a simpler selector (see rdf.cljc). */
 a:hover,
-a:hover div.set > * {
+a:hover span.set > * {
     text-decoration: underline;
 }
 
@@ -369,14 +369,18 @@ summary + ol {
 }
 
 /* Subheadings and notes */
-p.subheading {
+.subheading {
     text-align: center;
     font-size: var(--font-size-m-l);
     margin: var(--spacing-l) 0;
     color: var(--color-muted);
 }
 
-p.subheading select {
+label.subheading {
+    display: block;
+}
+
+label.subheading select {
     font-size: var(--font-size-m-l);
     padding: var(--spacing-xxs) var(--spacing-prefix);
 }
@@ -493,20 +497,21 @@ article.search table.attr-val + table.attr-val {
     margin-bottom: var(--spacing-l);
 }
 
-header, footer {
+header.page-header,
+footer.page-footer {
     text-align: center;
 }
 
-header {
+header.page-header {
     margin-bottom: var(--spacing-xl);
 }
 
-footer {
+footer.page-footer {
     padding: var(--spacing-m);
     margin-top: var(--spacing-m);
 }
 
-footer p {
+footer.page-footer p {
     font-size: var(--font-size-s);
     margin: var(--spacing-m);
 }
@@ -518,8 +523,8 @@ hr {
     margin: 0 0 var(--spacing-l) 0;
 }
 
-section.notes {
-    margin-top: var(--spacing-l);
+aside.notes {
+    margin-top: var(--spacing-xl);
 }
 
 
@@ -1029,7 +1034,7 @@ header > .rdf-uri .rdf-uri__name {
     white-space: nowrap;
 }
 
-div.set {
+span.set {
     display: inline-flex;
     flex-basis: 100%;
 }
@@ -1042,8 +1047,8 @@ div.set {
     line-height: 1;
 }
 
-div.set__left-bracket,
-div.set__right-bracket {
+span.set__left-bracket,
+span.set__right-bracket {
     min-width: 1ch;
     background-size: auto 100%;
     background-repeat: no-repeat;
@@ -1051,13 +1056,13 @@ div.set__right-bracket {
     transition: opacity var(--transition-fast);
 }
 
-div.set__left-bracket {
+span.set__left-bracket {
     background-image: url(/images/set-left.svg);
     background-position: left;
     margin-right: 0.5ch;
 }
 
-div.set__right-bracket {
+span.set__right-bracket {
     background-image: url(/images/set-right.svg);
     background-position: right;
     margin-left: 0.5ch;
@@ -1109,7 +1114,7 @@ span.marker {
     margin-bottom: var(--spacing-m);
 }
 
-.synset-radial-container .synset-radial__metadata {
+.synset-radial-container aside.synset-radial__metadata {
     display: flex;
     align-items: center;
     border-right: var(--subtle-border);
@@ -1118,12 +1123,12 @@ span.marker {
     max-width: 20vw;
 }
 
-#content:not(.full-screen) .synset-radial__metadata,
-#content:not(.full-screen) .synset-radial__footer {
+#content:not(.full-screen) aside.synset-radial__metadata,
+#content:not(.full-screen) footer.synset-radial__footer {
     display: none;
 }
 
-.synset-radial-container .synset-radial__footer {
+.synset-radial-container footer.synset-radial__footer {
     border-top: var(--subtle-border);
     margin-top: var(--spacing-m);
     padding-top: var(--spacing-l);
@@ -1150,13 +1155,13 @@ strong.pos-label {
     height: 100%;
 }
 
-.radial-tree-diagram,
+figure.radial-tree-diagram,
 svg.radial-tree-diagram__svg {
     /* Always make sure the diagram is fully visible. */
     max-height: calc(80vh - var(--spacing-l));
 }
 
-.radial-tree-diagram {
+figure.radial-tree-diagram {
     flex-grow: 1; /* Fix width in Safari. */
     text-align: center;
     display: flex;
@@ -1168,44 +1173,47 @@ svg.radial-tree-diagram__svg {
     width: 100%;
 }
 
-#content.full-screen .radial-tree-diagram,
+#content.full-screen figure.radial-tree-diagram,
 #content.full-screen svg.radial-tree-diagram__svg {
     /* Always make sure the diagram to is fully visible. */
     max-height: calc(100vh - var(--layout-fullscreen-header));
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
-.radial-tree-diagram * {
+figure.radial-tree-diagram * {
     transition: fill var(--transition-base), stroke var(--transition-base), opacity var(--transition-base);
 }
 
 /* Radial tree legend */
-.radial-tree-legend-container {
+fieldset.radial-tree-legend {
     display: flex;
     flex-direction: column;
     justify-content: center;
+
+    /* reset fieldset vals*/
+    padding: 0;
+    margin: 0;
+    border: none;
+
     border-left: var(--subtle-border);
 }
 
-.radial-tree-legend-container > button.icon {
+fieldset.radial-tree-legend > button.icon {
     align-self: flex-end;
-
-    /* Pull legend up by half of button height: */
-    margin-bottom: -16px;
 }
 
-ul.radial-tree-legend {
+fieldset.radial-tree-legend ul {
     min-width: fit-content;
     margin: auto 0;
 
     list-style: none;
-    padding: var(--spacing-m);
+    padding: 0 0 0 var(--spacing-m);
 
     font-variant: small-caps;
     font-size: var(--font-size-s);
 }
 
-ul.radial-tree-legend label {
+fieldset.radial-tree-legend ul label {
     display: block;
     position: relative;
     cursor: pointer;
@@ -1213,11 +1221,11 @@ ul.radial-tree-legend label {
     padding: var(--spacing-prefix) 0 var(--spacing-prefix) var(--spacing-xl);
 }
 
-ul.radial-tree-legend li + li {
+fieldset.radial-tree-legend ul li + li {
     margin-top: var(--spacing-xs);
 }
 
-ul.radial-tree-legend input[type=radio] {
+fieldset.radial-tree-legend ul input[type=radio] {
     position: absolute;
     opacity: 0;
     cursor: pointer;
@@ -1241,24 +1249,24 @@ ul.radial-tree-legend input[type=radio] {
 }
 
 /* When ANY radio is checked, make unchecked ones appear inactive */
-ul.radial-tree-legend:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
+fieldset.radial-tree-legend ul:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
     transform: scale(var(--opacity-decorative));
     opacity: var(--opacity-decorative);
 }
 
-ul.radial-tree-legend > li {
+fieldset.radial-tree-legend ul > li {
     border: 1px solid transparent;
     border-radius: var(--border-radius-s);
     padding: 0;
     margin-bottom: 1px;
 }
 
-ul.radial-tree-legend > li:hover {
+fieldset.radial-tree-legend ul > li:hover {
     border: var(--subtle-border);
     cursor: pointer;
 }
 
-ul.radial-tree-legend > li:focus-within {
+fieldset.radial-tree-legend ul > li:focus-within {
     border: 1px solid rgba(0,0,0,0.24);
 }
 
@@ -1418,6 +1426,7 @@ span.subtle {
     background-position: center;
     background-repeat: no-repeat;
     background-size: 20px 20px;
+    margin-bottom: var(--spacing-m);
 }
 
 .icon.maximize {
@@ -1520,11 +1529,11 @@ span.render-error {
 
 @media only screen and (min-width: 1200px) {
     /* Hide "fake" footer items until diagram view turns into single column view. */
-    #content.full-screen .synset-radial__metadata .synset-radial__footer-item {
+    #content.full-screen aside.synset-radial__metadata .synset-radial__footer-item {
         display: none;
     }
     /* Make the fonts a bit bigger. */
-    #content.full-screen ul.radial-tree-legend,
+    #content.full-screen fieldset.radial-tree-legend ul,
     #content.full-screen .synset-radial-container,
     #content.full-screen .synset-radial-container dd {
         font-size: var(--font-size-m);
@@ -1535,10 +1544,10 @@ span.render-error {
         top: 10px;
         left: var(--spacing-s);
     }
-    #content.full-screen ul.radial-tree-legend label {
+    #content.full-screen fieldset.radial-tree-legend ul label {
         padding-left: var(--spacing-xl);
     }
-    #content.full-screen ul.radial-tree-legend li + li {
+    #content.full-screen fieldset.radial-tree-legend ul li + li {
         margin-top: var(--spacing-prefix);
     }
 }
@@ -1556,22 +1565,19 @@ span.render-error {
         flex-direction: column;
         align-items: stretch;
     }
-    .radial-tree-legend-container {
+    fieldset.radial-tree-legend {
         border-left: none;
         border-top: var(--subtle-border);
 
         /* Place max/min icon below legend. */
         flex-direction: column-reverse;
-        margin-bottom: var(--spacing-m);
     }
-    .radial-tree-legend-container > button.icon {
-        margin-bottom: 0;
-    }
-    ul.radial-tree-legend {
+    fieldset.radial-tree-legend ul {
         columns: 3;
-        margin: 0 auto;
+        margin: var(--spacing-m) auto 0 auto;
+        padding: 0;
     }
-    #content.full-screen .synset-radial__metadata {
+    #content.full-screen aside.synset-radial__metadata {
         order: 3;
         border-right: none;
         border-top: var(--subtle-border);
@@ -1579,12 +1585,12 @@ span.render-error {
         margin: 0;
         padding: var(--spacing-l) 0 0 0;
     }
-    #content.full-screen .radial-tree-diagram,
+    #content.full-screen figure.radial-tree-diagram,
     #content.full-screen svg.radial-tree-diagram__svg {
         max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
     }
     /* Remove real footer items once the metadata column becomes the footer. */
-    #content.full-screen .synset-radial-container .synset-radial__footer {
+    #content.full-screen .synset-radial-container footer.synset-radial__footer {
         display: none;
     }
 }
@@ -1593,7 +1599,7 @@ span.render-error {
     .synset-radial-container {
         font-size: var(--font-size-s);
     }
-    ul.radial-tree-legend {
+    fieldset.radial-tree-legend ul {
         columns: 2;
     }
 }
@@ -1667,7 +1673,7 @@ span.render-error {
     table.attr-val col:nth-child(2) {
         min-width: 10ch;
     }
-    ul.radial-tree-legend {
+    fieldset.radial-tree-legend ul {
         columns: 1;
     }
     .radial-item:not(.radial-item--subject) {

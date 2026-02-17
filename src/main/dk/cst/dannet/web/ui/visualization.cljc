@@ -18,7 +18,7 @@
 
 (rum/defc radial-tree-diagram
   [subentity opts]
-  [:div.radial-tree-diagram
+  [:figure.radial-tree-diagram
    {:ref #?(:clj  nil
             :cljs (fn [elem]
                     (when elem
@@ -53,7 +53,9 @@
                               ;; Scrolling to the top simulates a page change.
                               (some-> (js/document.getElementById "content")
                                       (.scroll #js {:top 0})))))]
-    [:div.radial-tree-legend-container
+    [:fieldset.radial-tree-legend {:aria-label (i18n/da-en languages
+                                                 "Filtrer relationstyper"
+                                                 "Filter relation types")}
      [:button.icon {:class    (if full-screen
                                 "minimize"
                                 "maximize")
@@ -118,7 +120,7 @@
   [:div.radial-tree {:key (str (hash subentity))}
    (when full-screen
      [:<>
-      [:div.synset-radial__metadata
+      [:aside.synset-radial__metadata
        [:dl
         [:dt (i18n/da-en languages
                "Ontologisk type"
@@ -178,7 +180,7 @@
    (radial-tree subentity opts)
    (let [{:keys [lexinfo/senseExample]} entity]
      (when (or senseExample ancestry)
-       [:div.synset-radial__footer
+       [:footer.synset-radial__footer
         [:dl
          (when senseExample
            (examples-dt+dd opts))

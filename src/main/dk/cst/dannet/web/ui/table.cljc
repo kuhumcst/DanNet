@@ -173,15 +173,15 @@
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [inherited inferred supplemented] :as opts} subentity]
+  [state {:keys [languages inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table.attr-val (cond-> {}
                        ;; Mark nested tables with a class for simplified CSS selectors
                        (:table-component opts) (assoc :class "attr-val--nested"))
      [:colgroup
-      [:col]
-      [:col]
-      [:col]]
+      [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
+      [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
+      [:col {:aria-label (i18n/da-en languages "Værdi" "Value")}]]
      [:tbody
       (for [[k v] subentity]
         (rum/with-key (attr-val-row (assoc opts :table-component attr-val-table)
