@@ -180,7 +180,12 @@
                                   (assoc opts
                                     :query-params query-params'))]
          (swap! state assoc-in [:fetch url] controller)
-         (fetch/request (normalize-url url) opts*)))
+         (-> (fetch/request (normalize-url url) opts*)
+             ;; Aborted fetches throw an AbortError. This is expected behaviour
+             ;; when looking up search suggestions, so we don't need to litter
+             ;; our console with these false positives.
+             (.catch #(when-not (= "AbortError" (.-name %))
+                        (throw %))))))
 
      (defn response->url
        [response]
