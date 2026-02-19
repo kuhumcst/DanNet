@@ -8,7 +8,8 @@
 (def sym->kw
   {'?synset     :dc/subject
    '?definition :skos/definition
-   '?ontoType   :dns/ontologicalType})
+   '?ontoType   :dns/ontologicalType
+   '?lexfile    :wn/lexfile})
 
 ;; TODO: optimize -- seems to just include every ontotype label on every request
 ;; TODO: does this memoization even accomplish anything?

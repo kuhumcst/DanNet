@@ -108,7 +108,7 @@
   "Look up synsets based on a `lemma`."
   [lemma]
   (sparql
-    "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType
+    "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType ?lexfile
      WHERE {
        ?form ontolex:writtenRep \"" lemma "\"@da .
        ?word ontolex:canonicalForm|ontolex:otherForm ?form ;
@@ -124,6 +124,9 @@
        }
        OPTIONAL {
          ?synset dns:ontologicalType ?ontoType .
+       }
+       OPTIONAL {
+         ?synset wn:lexfile ?lexfile .
        }
      }"))
 

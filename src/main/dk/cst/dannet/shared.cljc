@@ -595,6 +595,12 @@
     (coll? lexfile)
     (lexfile->pos (first lexfile))))
 
+(def pos-abbr-da
+  {"noun" "sb." "adj" "adj." "adv" "adv." "verb" "vb."})
+
+(def pos-abbr-en
+  {"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."})
+
 (comment
   (lexfile->pos "noun.location")
   (lexfile->pos "adv.all")

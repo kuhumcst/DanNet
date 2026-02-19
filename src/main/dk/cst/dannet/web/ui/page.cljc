@@ -1,12 +1,12 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
   (:require [rum.core :as rum]
+            [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [ont-app.vocabulary.lstr :as lstr]
+            [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
-            [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.catalog :as catalog]
             [dk.cst.dannet.web.ui.markdown :as mdc]))
 
@@ -31,25 +31,18 @@
        (entity/entity-notes opts')])))
 
 (rum/defc search
-  [{:keys [languages lemma search-results details?] :as opts}]
+  [{:keys [languages lemma search-results] :as opts}]
   [:article.search
    [:header.page-header
-    [:h1 (i18n/da-en languages "Søgeresultater" "Search results")]
+    [:h1 (i18n/da-en languages "Søgning" "Search results")]
     [:p.subheading
      (i18n/da-en languages
-       (str "Fandt "(count search-results) " synsets der matcher \"" lemma "\"")
+       (str "Fandt " (count search-results) " synsets der matcher \"" lemma "\"")
        (str "Found " (count search-results) " synsets matching \"" lemma "\""))]]
    (when-not (empty? search-results)
-     (for [[k entity] search-results]
-       (let [{:keys [k->label short-label]} (meta entity)
-             k->label' (if (and (not details?) short-label)
-                         (assoc k->label
-                           k short-label)
-                         k->label)]
-         (rum/with-key (table/attr-val-table {:languages languages
-                                              :k->label  k->label'}
-                                             entity)
-                       k))))])
+     [:dl.search-results
+      (for [[k entity] search-results]
+        (rum/with-key (search/result k entity opts) k))])])
 
 (rum/defc markdown
   [{:keys [languages content] :as opts}]

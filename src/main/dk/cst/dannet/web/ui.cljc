@@ -171,7 +171,7 @@
                                               prefix')))]}
       (when-not full-diagram?
         (help-arrows page opts'))
-      (search/search-form opts')
+      (search/form opts')
       [:a.title {:title (i18n/da-en languages'
                           "Gå til forsiden"
                           "Go to the front page")

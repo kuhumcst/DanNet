@@ -256,7 +256,7 @@
 
 (defn blank-resource
   "Display blank resource map `m` in a specialised way based on `opts`."
-  [{:keys [languages table-component] :as opts} m]
+  [{:keys [table-component] :as opts} m]
   (cond
     (shared/rdf-datatype? m)
     (transform-val m)

@@ -487,8 +487,8 @@
         pos        (some-> full-entity :wn/lexfile shared/lexfile->pos)
         pos-label  (when pos
                      (i18n/da-en languages
-                       ({"noun" "sb." "adj" "adj." "adv" "adv." "verb" "vb."} pos)
-                       ({"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."} pos)))
+                       (shared/pos-abbr-da pos)
+                       (shared/pos-abbr-en pos)))
         definition (some->> (:skos/definition full-entity)
                             (i18n/select-label languages)
                             str)

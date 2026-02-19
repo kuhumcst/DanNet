@@ -1,9 +1,12 @@
 (ns dk.cst.dannet.web.ui.search
-  (:require [rum.core :as rum]
+  (:require [dk.cst.dannet.web.ui.rdf :as rdf]
+            [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
+               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
 
@@ -45,7 +48,7 @@
   [e]
   #?(:cljs (js/setTimeout #(.select (.-target e)) 100)))
 
-(defn update-search-suggestions
+(defn update-suggestions
   "An :on-change handler for search suggestions. Each unknown string initiates
   a backend fetch for autocomplete results."
   [e]
@@ -61,11 +64,11 @@
                          (when-let [v (not-empty (:autocompletions (:body %)))]
                            (swap! shared/state assoc-in path v))))))))
 
-(defn search-completion-item-id
+(defn completion-item-id
   [v]
   (str "search-completion-item-" v))
 
-(rum/defc search-suggestion
+(rum/defc suggestion
   [v on-key-down]
   (let [handle-click (fn [_]
                        #?(:cljs (let [form  (js/document.getElementById "search-form")
@@ -76,11 +79,11 @@
     [:li {:role        "option"
           :tab-index   "-1"
           :on-key-down on-key-down
-          :id          (search-completion-item-id v)
+          :id          (completion-item-id v)
           :on-click    handle-click}
      v]))
 
-(rum/defcs search-form < (rum/local false ::open)
+(rum/defcs form < (rum/local false ::open)
   [state {:keys [lemma search languages] :as opts}]
   (let [{:keys [completion s]} search
         open                (::open state)
@@ -133,7 +136,7 @@
                   :ref                   autofocus-ref
                   :on-focus              select-text
                   :on-click              prevent-closing    ; should not bubble
-                  :on-change             update-search-suggestions
+                  :on-change             update-suggestions
                   :auto-complete         "off"
                   :default-value         (or lemma s "")}]
          [:input {:type      "submit"
@@ -146,4 +149,33 @@
                :id        "search-completion"}
           (when suggestions?
             (for [v completion-items]
-              (rum/with-key (search-suggestion v on-key-down) v)))]]])]))
+              (rum/with-key (suggestion v on-key-down) v)))]]])]))
+
+(rum/defc result
+  [k
+   {:keys [dc/subject skos/definition dns/ontologicalType wn/lexfile] :as entity}
+   {:keys [details? languages] :as opts}]
+  (let [{:keys [k->label short-label]} (meta entity)
+        opts' (assoc opts :k->label (if (and (not details?) short-label)
+                                      (assoc k->label
+                                        k short-label)
+                                      k->label))
+        pos   (some->> lexfile
+                       (shared/lexfile->pos)
+                       (get (i18n/da-en languages
+                              shared/pos-abbr-da
+                              shared/pos-abbr-en)))]
+    [:<>
+     [:dt (error/try-render
+            (rdf/entity-link subject opts') (str subject))]
+     [:dd
+      [:ul
+       [:li
+        (when pos
+          [:abbr.pos-label pos])
+        (error/try-render
+          (rdf/transform-val definition opts') (str definition))]
+       [:li
+        (error/try-render
+          (rdf/blank-resource (assoc opts' :attr-key :dns/ontologicalType)
+                              (meta ontologicalType)))]]]]))
