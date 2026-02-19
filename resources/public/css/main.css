@@ -94,7 +94,7 @@
     
     /* LAYOUT OFFSETS (for viewport calculations) */
     --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
-    --layout-search-horizontal-offset: 84px;   /* Left padding + icon area in search */
+    --layout-search-horizontal-offset: 92px;   /* Left padding + icon area in search */
     --layout-fullscreen-header: 104px;         /* Header height in full-screen diagram mode */
     --layout-responsive-offset: 45px;          /* Additional offset at responsive breakpoint */
     
@@ -741,6 +741,13 @@ search.search-active input[type=submit]:hover {
     color: rgba(255,255,255,1);
 }
 
+search.search-active output {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: var(--spacing-xxl); /* Avoid clipping final list element. */
+}
+
 search.search-active ul {
     display: block;
     animation: fade-in var(--transition-slow);
@@ -748,6 +755,7 @@ search.search-active ul {
     /* almost 100 full screen of bottom padding (mobile keyboard fix) */
     padding: var(--spacing-s) 0 calc(100vh - var(--layout-search-mobile-offset)) 52px;
     overflow-y: auto;
+    height: 100%;
 }
 
 /* larger dismiss area when no options are available */
