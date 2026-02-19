@@ -34,11 +34,12 @@
   [{:keys [languages lemma search-results details?] :as opts}]
   [:article.search
    [:header.page-header
-    [:h1 (str "\"" lemma "\"")]]
-   (if (empty? search-results)
-     [:p (i18n/da-en languages
-           "Ingen resultater kunne findes for dette lemma."
-           "No results could be found for this lemma.")]
+    [:h1 (i18n/da-en languages "Søgeresultater" "Search results")]
+    [:p.subheading
+     (i18n/da-en languages
+       (str "Fandt "(count search-results) " synsets der matcher \"" lemma "\"")
+       (str "Found " (count search-results) " synsets matching \"" lemma "\""))]]
+   (when-not (empty? search-results)
      (for [[k entity] search-results]
        (let [{:keys [k->label short-label]} (meta entity)
              k->label' (if (and (not details?) short-label)
