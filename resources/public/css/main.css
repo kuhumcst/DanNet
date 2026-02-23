@@ -323,10 +323,36 @@ dl.search-results a::after {
     display: none;
 }
 
-dl.search-results dd + dt {
+dl.search-results div {
+    cursor: pointer;
+    padding: var(--spacing-xl) var(--spacing-l);
+    transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+dl.search-results div + div {
     border-top: var(--very-subtle-border);
-    padding-top: var(--spacing-xxl);
-    margin-top: var(--spacing-xxl);
+}
+
+dl.search-results div:hover,
+dl.search-results div:focus-visible {
+    transform: scale(101%);
+    background-color: rgba(255, 255, 255, 0.66);
+}
+
+/* Reset dt/dd spacing — handled by the wrapping div. */
+dl.search-results dt {
+    padding: 0;
+    margin: 0;
+}
+
+/* Cancel global dd + dt rule inside result divs. */
+dl.search-results dd + dt {
+    padding-top: 0;
+}
+
+dl.search-results dd {
+    padding: 0;
+    margin: var(--spacing-m) 0 0 0; /* reset global dd margins */
 }
 
 dl.search-results dd ul {
@@ -343,11 +369,11 @@ dl.search-results dd ul {
     border-left: 6px solid var(--color-dannet);
 }
 
-dl.search-results dd:nth-of-type(5n+1) ul { border-left-color: var(--color-dannet); }
-dl.search-results dd:nth-of-type(5n+2) ul { border-left-color: var(--color-meta); }
-dl.search-results dd:nth-of-type(5n+3) ul { border-left-color: var(--color-ontolex); }
-dl.search-results dd:nth-of-type(5n+4) ul { border-left-color: var(--color-w3c); }
-dl.search-results dd:nth-of-type(5n+5) ul { border-left-color: var(--color-wordnet); }
+dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
+dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
+dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
+dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
+dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
 
 /* Ordered lists */
 ol {

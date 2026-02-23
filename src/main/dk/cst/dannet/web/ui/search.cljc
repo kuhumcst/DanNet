@@ -1,4 +1,5 @@
 (ns dk.cst.dannet.web.ui.search
+  "For handling search input and presenting search suggestions/results."
   (:require [dk.cst.dannet.web.ui.rdf :as rdf]
             [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
@@ -157,17 +158,33 @@
    {:keys [details? languages] :as opts}]
   (let [{:keys [k->label short-label]} (meta entity)
         opts' (assoc opts :k->label (if (and (not details?) short-label)
-                                      (assoc k->label
-                                        k short-label)
+                                      (assoc k->label k short-label)
                                       k->label))
         pos   (some->> lexfile
                        (shared/lexfile->pos)
                        (get (i18n/da-en languages
                               shared/pos-abbr-da
-                              shared/pos-abbr-en)))]
-    [:<>
-     [:dt (error/try-render
-            (rdf/entity-link subject opts') (str subject))]
+                              shared/pos-abbr-en)))
+        dt-id (str "result-" (name subject))
+        label (str (or (i18n/select-label languages (get k->label subject))
+                       subject))
+        href  (prefix/resolve-href subject)]
+    ;; NOTE: divs are actually allowed by the spec as grouping elements in a dl!
+    [:div {:role            "group"
+           :aria-labelledby dt-id
+           :tab-index       "0"
+           :title           (i18n/da-en languages
+                              (str "Gå til " label)
+                              (str "Go to " label))
+           :on-click        (fn [e]
+                              #?(:cljs (when-not (.closest (.-target e) "a")
+                                         (shared/navigate-to href))))
+           :on-key-down     (fn [e]
+                              #?(:cljs (when (= "Enter" (.-key e))
+                                         (shared/navigate-to href))))}
+     [:dt {:id dt-id}
+      (error/try-render
+        (rdf/entity-link subject opts') (str subject))]
      [:dd
       [:ul
        [:li
