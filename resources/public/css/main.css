@@ -893,14 +893,14 @@ table.attr-val col:nth-child(3) {
     width: 80ch;
 }
 
-.attr-val--nested {
-    border: var(--very-subtle-border);
+table.attr-val.attr-val--nested {
+    border: var(--subtle-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
 /* Border resets for inner tables */
-.attr-val--nested td.attr-prefix,
-.attr-val--nested td.attr-name {
+table.attr-val.attr-val--nested td.attr-prefix,
+table.attr-val.attr-val--nested td.attr-name {
     border-top: none;
     border-right: none;
 }
@@ -1704,10 +1704,10 @@ span.render-error {
         font-size: var(--font-size-s);
     }
     header > .rdf-uri,
-    .attr-val--nested td {
+    table.attr-val.attr-val--nested td {
         font-size: var(--font-size-xs);
     }
-    .attr-val--nested col:nth-child(2) {
+    table.attr-val.attr-val--nested col:nth-child(2) {
         min-width: 10ch;
     }
     .synset-radial-container .synset-radial__definition {
