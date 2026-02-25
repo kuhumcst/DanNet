@@ -56,7 +56,7 @@
          (rdf/transform-val label opts)
          (if uri-only?
            [:a.rdf-uri {:href  rdf-uri
-                        :title (i18n/select-label languages a-titles)
+                        :title (str (select-label* a-titles))
                         :key   rdf-uri}
             (rdf/break-up-uri rdf-uri)]
            local-name))]
@@ -65,14 +65,13 @@
      (when-not uri-only?
        (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
          [:a.rdf-uri {:href  rdf-uri
-                      :title (i18n/select-label languages a-titles)
-                      :label (i18n/select-label languages a-titles)}
+                      :title (str (select-label* a-titles))}
           [:span.rdf-uri__prefix {:key uri-prefix}
            (rdf/break-up-uri uri-prefix)]
           [:span.rdf-uri__name {:key local-name}
            (rdf/break-up-uri local-name)]]
          [:a.rdf-uri {:href  rdf-uri
-                      :title (i18n/select-label languages a-titles)
+                      :title (str (select-label* languages a-titles))
                       :key   rdf-uri}
           (rdf/break-up-uri rdf-uri)]))]))
 
@@ -136,29 +135,83 @@
                             :value k}
                    v]))))]])
 
-;; TODO: this implementation a bit of a hack -- surely there is a better way?
-(defn semantic-relations?
-  [subentity]
-  (not-empty (select-keys shared/synset-rel-theme (keys subentity))))
+(defn da-en-pos
+  [languages pos]
+  (get (i18n/da-en languages
+         shared/pos-abbr-da
+         shared/pos-abbr-en)
+       pos))
+
+(rum/defc synset-summary
+  [{:keys [wn/lexfile dns/ontologicalType] :as subentity}
+   {:keys [languages entity] :as opts}]
+  ;; The Danish and English WordNets differ in how they represent part-of-speech
+  ;; where the Danish WordNet takes the standard OntoLex approach, while the
+  ;; OEWN uses a custom relations
+  (let [pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
+                                          (some->> entity :wn/partOfSpeech name)))
+        ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
+        lexfile' (or lexfile (:dc/subject entity))]
+    [:ul.synset-summary
+     [:li
+      (when pos
+        [:abbr.pos-label {:title lexfile'}
+         pos])
+      (if-let [definition (:skos/definition subentity)]
+        (error/try-render
+          (rdf/transform-val definition opts)
+          (str definition))
+        (when-let [definition (:wn/definition subentity)]
+          (error/try-render
+            (rdf/blank-resource opts (meta definition)))))]
+     [:li
+      (error/try-render
+        (rdf/blank-resource (assoc opts :attr-key :dns/ontologicalType)
+                            (meta ontologicalType)))]]))
+
+(rum/defc synset-header-content
+  [subentity opts]
+  [:<>
+   (synset-summary subentity opts)])
+
+(rum/defc semantic-relations-content
+  [title subentity {:keys [languages] :as opts}]
+  [:<>
+   (display-mode-selector title opts)
+   (case (get-in opts [:section title :display :selected])
+     "radial" [:<>
+               (error/try-render (viz/expanded-radial subentity opts))
+               [:p.note
+                [:strong "! "]
+                (i18n/da-en languages
+                  "Data kan være udeladt; se tabellen for samtlige detaljer."
+                  "Data may be omitted; view table for full details.")]]
+     (table/attr-val-table opts subentity))])
+
+(rum/defc entity-section-content
+  [title subentity opts]
+  (cond
+    (= title section/semantic-title)
+    (semantic-relations-content title subentity opts)
+
+    (and (nil? title)
+         (shared/rdf= (:rdf/type subentity) :ontolex/LexicalConcept))
+    (synset-header-content subentity opts)
+
+    :else
+    (table/attr-val-table opts subentity)))
 
 (rum/defc entity-section
   [title subentity {:keys [languages] :as opts}]
-  [:section {:key (or title :no-title)}
-   (when title
-     [:h2 (str (i18n/select-label languages title))])
-   (if (semantic-relations? subentity)
-     [:<>
-      (display-mode-selector title opts)
-      (case (get-in opts [:section title :display :selected])
-        "radial" [:<>
-                  (error/try-render (viz/expanded-radial subentity opts))
-                  [:p.note
-                   [:strong "! "]
-                   (i18n/da-en languages
-                     "Data kan være udeladt; se tabellen for samtlige detaljer."
-                     "Data may be omitted; view table for full details.")]]
-        (table/attr-val-table opts subentity))]
-     (table/attr-val-table opts subentity))])
+  (if title
+    (let [title-id (str "section-title-" (shared/lstr-slug title))]
+      [:section.subentity {:key             title
+                           :aria-labelledby title-id}
+       [:h2 {:id title-id} (str (i18n/select-label languages title))]
+       (entity-section-content title subentity opts)])
+    [:section.subentity {:key        :no-title
+                         :aria-label "RDF resource summary"}
+     (entity-section-content title subentity opts)]))
 
 (rum/defc full-screen-content
   [{:keys [entity]

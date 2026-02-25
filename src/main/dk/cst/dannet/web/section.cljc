@@ -3,19 +3,19 @@
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
-(defmulti primary-sections :rdf/type)
+(defmulti defined-sections :rdf/type)
 
-(def ontolex-title
-  #{(->LangStr "Lexical structure" "en")
-    (->LangStr "Leksikalsk struktur" "da")})
+(def lexical-title
+  #{(->LangStr "Lexical context" "en")
+    (->LangStr "Leksikalsk kontekst" "da")})
 
 (def semantic-title
   #{(->LangStr "Semantic relations" "en")
     (->LangStr "Betydningsrelationer" "da")})
 
-(def cross-lingual-title
-  #{(->LangStr "Cross-lingual relations" "en")
-    (->LangStr "Tværsproglige relationer" "da")})
+(def cross-link-title
+  #{(->LangStr "External connections" "en")
+    (->LangStr "Eksterne forbindelser" "da")})
 
 (defn with-prefix
   "Return predicate accepting keywords with `prefix` (`except` set of keywords).
@@ -41,43 +41,66 @@
                    :dns/orthogonalHyponym
                    :dns/orthogonalHypernym} first)))
 
-(defmethod primary-sections :default
+(def top-section
+  [nil [:rdf/type
+        :skos/definition
+        :wn/definition
+        :dns/ontologicalType
+        :rdfs/comment
+        :vann/preferredNamespacePrefix
+        :dc/description
+        :dcat/downloadURL]])
+
+(def semantic-section
+  [semantic-title semantic-rels?])
+
+(def cross-link-section
+  [cross-link-title
+   [:owl/sameAs
+    :wn/ili
+    :dns/linkedConcept                                      ; inverse of wn:ili
+    :wn/eq_synonym
+    :dns/eqHyponym
+    :dns/eqHypernym
+    :dns/eqSimilar]])
+
+(def lexical-section
+  [lexical-title
+   [:wn/partOfSpeech
+    :wn/example
+    :lexinfo/partOfSpeech
+    :lexinfo/senseExample
+    :lexinfo/frequency
+    :lexinfo/usageNote
+    :dns/sentiment
+    :dns/gender
+    :ontolex/writtenRep
+    :ontolex/canonicalForm
+    :ontolex/otherForm
+    :ontolex/evokes
+    :ontolex/isEvokedBy
+    :ontolex/sense
+    :ontolex/isSenseOf
+    :ontolex/lexicalizedSense
+    :ontolex/isLexicalizedSenseOf]])
+
+(defmethod defined-sections :ontolex/LexicalConcept
   [entity]
-  [[nil [:rdf/type
-         :owl/sameAs
-         :lexinfo/partOfSpeech
-         :wn/partOfSpeech
-         :dns/sentiment
+  [[nil [:rdf/type                                          ; needed, not shown
          :skos/definition
-         :dns/ontologicalType
+         :wn/definition                                     ; used by OEWN
          :wn/lexfile
-         :wn/definition
-         :rdfs/comment
-         :lexinfo/senseExample
-         :lexinfo/frequency
-         :lexinfo/usageNote
-         :wn/example
-         :vann/preferredNamespacePrefix
-         :dc/description
-         :dcat/downloadURL]]
-   [semantic-title semantic-rels?]
-   [cross-lingual-title
-    [:wn/ili
-     :dns/linkedConcept                                     ; inverse of wn:ili
-     :wn/eq_synonym
-     :dns/eqHyponym
-     :dns/eqHypernym
-     :dns/eqSimilar]]
-   [ontolex-title
-    [:ontolex/writtenRep
-     :ontolex/canonicalForm
-     :ontolex/otherForm
-     :ontolex/evokes
-     :ontolex/isEvokedBy
-     :ontolex/sense
-     :ontolex/isSenseOf
-     :ontolex/lexicalizedSense
-     :ontolex/isLexicalizedSenseOf]]])
+         :dns/ontologicalType]]
+   semantic-section
+   lexical-section
+   cross-link-section])
+
+(defmethod defined-sections :default
+  [entity]
+  [top-section
+   semantic-section
+   lexical-section
+   cross-link-section])
 
 (defn add-other-section
   "Expand `sections` to include 'Other' (containing the remainder an entity)."
@@ -98,4 +121,4 @@
 (defn page-sections
   "Get page sections as a coll of [title ks] for the `entity`."
   [entity]
-  (add-other-section (primary-sections entity)))
+  (add-other-section (defined-sections entity)))

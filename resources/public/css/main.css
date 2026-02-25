@@ -202,7 +202,7 @@ h1 {
     display: flex;
     justify-content: center;
     font-size: var(--font-size-xl);
-    margin: var(--spacing-m) auto var(--spacing-l) auto;
+    margin: var(--spacing-m) auto var(--spacing-m) auto;
     word-break: normal;
 }
 
@@ -235,7 +235,7 @@ h1 span.prefix {
 }
 
 h2 {
-    font-size: var(--font-size-l);
+    font-size: var(--font-size-xl);
     text-align: center;
     margin: var(--spacing-xxl) 0 var(--spacing-l) 0;
 }
@@ -314,29 +314,22 @@ dl.search-results dt .set__content sub {
     font-size: var(--font-size-m);
 }
 
-/* Resets some for search results. */
-dl.search-results dt .set__left-bracket,
-dl.search-results dt .set__right-bracket,
-dl.search-results dd .set__left-bracket,
-dl.search-results dd .set__right-bracket,
-dl.search-results a::after {
-    display: none;
-}
-
 dl.search-results div {
+    transition: transform var(--transition-fast);
     cursor: pointer;
     padding: var(--spacing-xl) var(--spacing-l);
-    transition: transform var(--transition-fast), background-color var(--transition-fast);
+    background-color: rgba(255, 255, 255, 1);
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card);
 }
 
 dl.search-results div + div {
-    border-top: var(--very-subtle-border);
+    margin-top: var(--spacing-xxl);
 }
 
 dl.search-results div:hover,
 dl.search-results div:focus-visible {
-    transform: scale(101%);
-    background-color: rgba(255, 255, 255, 0.66);
+    transform: scale(102%);
 }
 
 /* Reset dt/dd spacing — handled by the wrapping div. */
@@ -352,21 +345,29 @@ dl.search-results dd + dt {
 
 dl.search-results dd {
     padding: 0;
-    margin: var(--spacing-m) 0 0 0; /* reset global dd margins */
+    margin: var(--spacing-l) 0 0 var(--spacing-m); /* reset global dd margins */
 }
 
-dl.search-results dd ul {
+ul.synset-summary {
     line-height: 1.5;
     list-style-type: none;
-    margin-left: var(--spacing-xl);
+    max-width: fit-content;
     padding:
         var(--spacing-xs)
         var(--spacing-xs)
         var(--spacing-xs)
         var(--spacing-l);
     font-size: var(--font-size-m);
-    margin-top: 0;
+    margin: 0;
     border-left: 6px solid var(--color-dannet);
+}
+
+section.subentity:has(ul.synset-summary) {
+    padding: var(--spacing-xl);
+    background-color: rgba(255, 255, 255, 1);
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card);
+    margin: 0 auto;
 }
 
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
@@ -374,6 +375,16 @@ dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-met
 dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
 dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
 dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
+
+/* Resets some for search results. */
+dl.search-results dt .set__left-bracket,
+dl.search-results dt .set__right-bracket,
+dl.search-results a::after,
+ul.synset-summary .set__left-bracket,
+ul.synset-summary .set__right-bracket,
+ul.synset-summary a::after {
+    display: none;
+}
 
 /* Ordered lists */
 ol {

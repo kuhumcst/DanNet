@@ -601,6 +601,24 @@
 (def pos-abbr-en
   {"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."})
 
+(defn rdf=
+  "An equals which also supports RDF open-ended semantics, i.e. `v` can  also be
+  a set or a vector containing `x`."
+  [v x]
+  (cond
+    (set? v) (get v x)
+    (coll? v) (get (set v) x)
+    :else (= v x)))
+
+;; See also: https://mathiasbynens.be/notes/html5-id-class
+(defn lstr-slug
+  "Turn a coll of `lstrs` into a slug that is HTML5 id compatible."
+  [lstrs]
+  (some-> (i18n/select-label [nil "en" "da"] lstrs)
+          (str)
+          (str/lower-case)
+          (str/replace #"\s+" "-")))
+
 (comment
   (lexfile->pos "noun.location")
   (lexfile->pos "adv.all")

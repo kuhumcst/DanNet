@@ -118,7 +118,7 @@
   (str
     "<!DOCTYPE html>\n"                                     ;; Avoid Quirks Mode
     (rum/render-static-markup
-      [:html
+      [:html {:prefix prefix/rdfa-prefixes}
        [:head
         [:title title]
         [:meta {:charset "UTF-8"}]

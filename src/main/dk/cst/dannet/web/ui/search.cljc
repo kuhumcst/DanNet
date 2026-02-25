@@ -6,6 +6,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.entity :as entity]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:cljs [lambdaisland.uri :as uri])
@@ -153,18 +154,11 @@
               (rum/with-key (suggestion v on-key-down) v)))]]])]))
 
 (rum/defc result
-  [k
-   {:keys [dc/subject skos/definition dns/ontologicalType wn/lexfile] :as entity}
-   {:keys [details? languages] :as opts}]
+  [k {:keys [dc/subject] :as entity} {:keys [details? languages] :as opts}]
   (let [{:keys [k->label short-label]} (meta entity)
         opts' (assoc opts :k->label (if (and (not details?) short-label)
                                       (assoc k->label k short-label)
                                       k->label))
-        pos   (some->> lexfile
-                       (shared/lexfile->pos)
-                       (get (i18n/da-en languages
-                              shared/pos-abbr-da
-                              shared/pos-abbr-en)))
         dt-id (str "result-" (name subject))
         label (str (or (i18n/select-label languages (get k->label subject))
                        subject))
@@ -186,13 +180,4 @@
       (error/try-render
         (rdf/entity-link subject opts') (str subject))]
      [:dd
-      [:ul
-       [:li
-        (when pos
-          [:abbr.pos-label pos])
-        (error/try-render
-          (rdf/transform-val definition opts') (str definition))]
-       [:li
-        (error/try-render
-          (rdf/blank-resource (assoc opts' :attr-key :dns/ontologicalType)
-                              (meta ontologicalType)))]]]]))
+      (entity/synset-summary entity opts')]]))

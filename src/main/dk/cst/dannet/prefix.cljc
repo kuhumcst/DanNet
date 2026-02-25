@@ -129,6 +129,12 @@
 (def prefixes
   (set (keys schemas)))
 
+(def rdfa-prefixes
+  (->> schemas
+       (map (fn [[k {:keys [uri]}]]
+              (str (name k) ": " uri)))
+       (str/join "\n")))
+
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
