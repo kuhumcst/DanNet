@@ -185,10 +185,13 @@
           opts'  (if (= resource attr-key)
                    (dissoc opts :attr-key)
                    opts)]
-      [:a {:href  (or link-href (prefix/resolve-href resource))
-           :title (str prefix ":" (name resource))
-           :lang  (i18n/lang label)
-           :class (or class (get prefix/prefix->class prefix "unknown"))}
+      [:a (cond-> {:href  (or link-href (prefix/resolve-href resource))
+                   :title (str prefix ":" (name resource))
+                   :lang  (i18n/lang label)
+                   :class (or class (get prefix/prefix->class prefix "unknown"))}
+            ;; Add RDFa :resource when rendering a value to complete the triple
+            ;; begun by the parent [:tr {:property ...}].
+             (not= resource attr-key) (assoc :resource (prefix/kw->uri resource)))
        (or (transform-val label opts')
            (name resource))])
     ;; RDF predicates represented as IRIs Since the namespace is unknown,

@@ -15,17 +15,20 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 (rum/defc entity
-  [{:keys [entity k->label synset? full-screen]
+  [{:keys [entity k->label synset? full-screen subject]
     :as   opts}]
   ;; TODO: could this transformation be moved to the backend?
   (let [inherited (->> (shared/setify (:dns/inherited entity))
                        (map (comp prefix/qname->kw first k->label))
                        (set))
-        opts'     (assoc opts :inherited inherited)]
+        opts'     (assoc opts :inherited inherited)
+        [_ _ rdf-uri] (shared/parse-rdf-term subject)
+        typeof    (prefix/rdfa-val (:rdf/type entity))]
     (if (and synset? full-screen)
       [:article
        (entity/full-screen-content opts')]
-      [:article
+      [:article (cond-> {:about rdf-uri}
+                  typeof (assoc :typeof typeof))
        (entity/entity-header opts')
        (entity/entity-content opts')
        (entity/entity-notes opts')])))

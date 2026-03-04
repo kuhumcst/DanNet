@@ -93,6 +93,7 @@
                         :display-opt display-opt)
         v-count       (if (coll? v) (count v) 0)]
     [:tr (cond-> {:key (str k)}
+           (keyword? k) (assoc :property (prefix/kw->qname k))
            inferred? (update :class conj "inferred")
            inherited? (update :class conj "inherited")
            supplemented? (update :class conj "supplemented"))
@@ -173,11 +174,15 @@
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [languages inherited inferred supplemented] :as opts} subentity]
+  [state {:keys [subject languages inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)]
     [:table.attr-val (cond-> {}
-                       ;; Mark nested tables with a class for simplified CSS selectors
-                       (:table-component opts) (assoc :class "attr-val--nested"))
+                       (:table-component opts)
+                       (assoc :class "attr-val--nested")
+
+                       ;; Add RDFa subject when available.
+                       (and subject (not (:table-component opts)))
+                       (assoc :about (prefix/kw->uri subject)))
      [:colgroup
       [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
       [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]

@@ -152,6 +152,16 @@
   [kw]
   (str/replace-first (subs (str kw) 1) #"/" ":"))
 
+(defn rdfa-val
+  "Convert an RDF value `v` (or collection of values) into a space-separated
+  string of qnames/CURIEs suitable for use in RDFa attributes."
+  [v]
+  (if (coll? v)
+    (some->> (keep kw->qname v)
+             (seq)
+             (str/join " "))
+    (kw->qname v)))
+
 (defn kw->uri
   [kw]
   (or (voc/uri-for kw)

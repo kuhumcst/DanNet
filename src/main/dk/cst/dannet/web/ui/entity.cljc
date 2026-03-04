@@ -45,13 +45,14 @@
     [:header.page-header
      [:h1
       (rdf/prefix-badge prefix)
-      [:span {:title (if label
-                       (prefix/kw->qname label-key)
-                       (if uri-only?
-                         rdf-uri
-                         (str prefix ":" local-name)))
-              :key   subject
-              :lang  label-lang}
+      [:span (cond-> {:title (if label
+                               (prefix/kw->qname label-key)
+                               (if uri-only?
+                                 rdf-uri
+                                 (str prefix ":" local-name)))
+                      :key   subject
+                      :lang  label-lang}
+               label (assoc :property (prefix/kw->qname label-key)))
        (if label
          (rdf/transform-val label opts)
          (if uri-only?
@@ -155,16 +156,20 @@
     [:ul.synset-summary
      [:li
       (when pos
-        [:abbr.pos-label {:title lexfile'}
+        [:abbr.pos-label (cond-> {:title lexfile'}
+                           lexfile' (assoc :property "wn:lexfile"
+                                           :content (str lexfile')))
          pos])
       (if-let [definition (:skos/definition subentity)]
-        (error/try-render
-          (rdf/transform-val definition opts)
-          (str definition))
+        [:span {:property "skos:definition"}
+         (error/try-render
+           (rdf/transform-val definition opts)
+           (str definition))]
         (when-let [definition (:wn/definition subentity)]
-          (error/try-render
-            (rdf/blank-resource opts (meta definition)))))]
-     [:li
+          [:span {:property "wn:definition"}
+           (error/try-render
+             (rdf/blank-resource opts (meta definition)))]))]
+     [:li {:property "dns:ontologicalType"}
       (error/try-render
         (rdf/blank-resource (assoc opts :attr-key :dns/ontologicalType)
                             (meta ontologicalType)))]]))
