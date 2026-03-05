@@ -164,7 +164,9 @@
 
 (defn kw->uri
   [kw]
-  (or (voc/uri-for kw)
+  (or (try
+        (voc/uri-for kw)
+        (catch #?(:clj Exception :cljs js/Error) _))
       (when (empty? (name kw))
         (get-in schemas [(symbol (namespace kw)) :uri]))))
 
