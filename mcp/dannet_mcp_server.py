@@ -1058,6 +1058,114 @@ SELECT DISTINCT ?lemma WHERE {{
         raise RuntimeError(f"Failed to find synonyms: {e}")
 
 
+@mcp.tool()
+def get_word_overview(word: str) -> List[Dict[str, Any]]:
+    """
+    Get a complete overview of all senses for a Danish word in a single call.
+
+    Replaces the common pattern of calling get_word_synsets → get_synset_info
+    per result → get_word_synonyms, collapsing 5-15 HTTP round-trips into one
+    SPARQL query.
+
+    Only returns synsets where the word is a primary lexical member (i.e. the
+    word itself has a direct sense in the synset), excluding multi-word
+    expressions that merely contain the word as a component.
+
+    Args:
+        word: The Danish word to look up
+
+    Returns:
+        List of dicts, one per synset, each containing:
+        - synset_id: Clean synset identifier (e.g. "synset-3047")
+        - label: Human-readable synset label
+        - definition: Synset definition (may be truncated with "…")
+        - ontological_types: List of dnc: type URIs
+        - synonyms: List of co-member lemmas (true synonyms only)
+        - hypernym: Dict with synset_id and label of the immediate broader concept, or null
+        - lexfile: WordNet lexicographer file name (e.g. "noun.animal"), or null if absent
+
+    Example:
+        overview = get_word_overview("hund")
+        # Returns list of 4 synsets, the first being:
+        # {"synset_id": "synset-3047",
+        #  "label": "{hund_1§1; køter_§1; vovhund_§1; vovse_§1}",
+        #  "definition": "pattedyr som har god lugtesans ...",
+        #  "ontological_types": ["dnc:Animal", "dnc:Object"],
+        #  "synonyms": ["køter", "vovhund", "vovse"],
+        #  "lexfile": "noun.animal"}
+
+        # Pass synset_id to get_synset_info() for full JSON-LD data on any result:
+        # full_data = get_synset_info(overview[0]["synset_id"])
+    """
+    try:
+        client = get_client()
+        query = f"""
+SELECT DISTINCT ?synset ?label ?definition ?ontType ?synonymLemma ?hypernym ?hypernymLabel ?lexfile WHERE {{
+  ?entry ontolex:canonicalForm/ontolex:writtenRep "{word}"@da .
+  ?sense ontolex:isSenseOf ?entry .
+  ?sense rdfs:label ?senseLabel .
+  FILTER(STRSTARTS(STR(?senseLabel), "{word}_"))
+  ?sense ontolex:isLexicalizedSenseOf ?synset .
+  ?synset rdfs:label ?label .
+  OPTIONAL {{ ?synset skos:definition ?definition }}
+  OPTIONAL {{ ?synset wn:lexfile ?lexfile }}
+  OPTIONAL {{
+    ?synset dns:ontologicalType ?typeNode .
+    ?typeNode ?pos ?ontType .
+    FILTER(STRSTARTS(STR(?pos), STR(rdf:_)))
+  }}
+  OPTIONAL {{
+    ?synset ontolex:isEvokedBy ?otherEntry .
+    ?otherEntry ontolex:canonicalForm/ontolex:writtenRep ?synonymLemma .
+    FILTER(?otherEntry != ?entry)
+    FILTER(?synonymLemma != "{word}"@da)
+    FILTER(!CONTAINS(STR(?synonymLemma), " "))
+  }}
+  OPTIONAL {{
+    ?synset wn:hypernym ?hypernym .
+    ?hypernym rdfs:label ?hypernymLabel .
+  }}
+}}
+"""
+        raw = _make_sparql_request(client, f"{client.base_url}/dannet/sparql",
+                                   {"query": query, "format": "json"})
+
+        # Group flat rows by synset URI
+        synsets: Dict[str, Dict] = {}
+        for b in raw.get("results", {}).get("bindings", []):
+            uri = b["synset"]["value"]
+            if uri not in synsets:
+                synset_id = uri.split("/")[-1]
+                synsets[uri] = {
+                    "synset_id": synset_id,
+                    "label": b["label"]["value"],
+                    "definition": b.get("definition", {}).get("value", ""),
+                    "ontological_types": [],
+                    "synonyms": [],
+                    "hypernym": None,
+                    "lexfile": b.get("lexfile", {}).get("value") or None,
+                }
+            entry = synsets[uri]
+            if ont := b.get("ontType"):
+                short = ont["value"].split("/")[-1]
+                t = f"dnc:{short}"
+                if t not in entry["ontological_types"]:
+                    entry["ontological_types"].append(t)
+            if syn := b.get("synonymLemma"):
+                if syn["value"] not in entry["synonyms"]:
+                    entry["synonyms"].append(syn["value"])
+            if entry["hypernym"] is None:
+                if (h := b.get("hypernym")) and (hl := b.get("hypernymLabel")):
+                    entry["hypernym"] = {
+                        "synset_id": h["value"].split("/")[-1],
+                        "label": hl["value"],
+                    }
+
+        return list(synsets.values())
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to get word overview: {e}")
+
 
 @mcp.tool()
 def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
