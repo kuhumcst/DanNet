@@ -21,6 +21,7 @@ import argparse
 import logging
 import json
 import os
+from functools import lru_cache
 from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urljoin
 
@@ -38,6 +39,13 @@ REMOTE_URL = "https://wordnet.dk"
 LOCAL_URL = "http://localhost:3456"
 TIMEOUT = 45.0
 MAX_RETRIES = 3
+
+# Session-scoped cache for get_resource calls; keyed on (base_url, resource_id).
+# A plain dict is sufficient — MCP server processes are short-lived and memory is not a concern.
+_resource_cache: Dict[tuple, Dict] = {}
+
+# Schema files never change between deployments, so cache them permanently for the process lifetime.
+_schema_cache: Dict[str, str] = {}
 
 
 class DanNetError(Exception):
@@ -248,8 +256,13 @@ class DanNetClient:
         return self._make_request("/dannet/search", {"lemma": query, "lang": language})
 
     def get_resource(self, resource_id: str) -> Dict:
-        """Get a specific resource (synset, word, etc.) by ID"""
-        return self._make_request(f"/dannet/data/{resource_id}")
+        """Get a specific resource (synset, word, etc.) by ID, with session-scoped LRU cache."""
+        cache_key = (self.base_url, resource_id)
+        if cache_key in _resource_cache:
+            return _resource_cache[cache_key]
+        result = self._make_request(f"/dannet/data/{resource_id}")
+        _resource_cache[cache_key] = result
+        return result
 
     def autocomplete(self, prefix: str) -> List[str]:
         """Get autocomplete suggestions for a word prefix"""
@@ -1170,6 +1183,7 @@ def switch_dannet_server(server: str) -> Dict[str, str]:
 
         # Create new client instance
         dannet_client = DanNetClient(new_url)
+        _resource_cache.clear()
 
         # Test the connection with a simple request
         try:
@@ -1247,6 +1261,28 @@ def get_current_dannet_server() -> Dict[str, str]:
         "server_url": current_url,
         "server_type": server_type,
         "status": status
+    }
+
+
+@mcp.tool()
+def get_cache_stats() -> Dict[str, Any]:
+    """
+    Return statistics about the session-scoped resource cache.
+
+    Useful for verifying that caching is working: call get_synset_info (or similar)
+    twice for the same ID and check that cache_size grows by 1 on the first call
+    but not on the second, and that cached_keys contains the expected IDs.
+
+    Returns:
+        Dict with:
+        - cache_size: Total number of cached entries
+        - cached_keys: List of (base_url, resource_id) pairs currently cached
+    """
+    return {
+        "cache_size": len(_resource_cache),
+        "cached_keys": [{"base_url": k[0], "resource_id": k[1]} for k in _resource_cache],
+        "schema_cache_size": len(_schema_cache),
+        "cached_schemas": list(_schema_cache.keys()),
     }
 
 
@@ -1803,10 +1839,13 @@ def get_schema_resource(prefix: str) -> str:
         dns_schema = get_schema_resource("dns")
     """
     try:
+        if prefix in _schema_cache:
+            return _schema_cache[prefix]
         client = get_client()
         response = client.client.get(f"{client.base_url}/schema/{prefix}")
         response.raise_for_status()
-        return response.text
+        _schema_cache[prefix] = response.text
+        return _schema_cache[prefix]
     except Exception as e:
         return f"Error accessing schema '{prefix}': {e}"
 
