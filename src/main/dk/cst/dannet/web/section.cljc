@@ -14,7 +14,7 @@
     (->LangStr "Betydningsrelationer" "da")})
 
 (def cross-link-title
-  #{(->LangStr "External connections" "en")
+  #{(->LangStr "External links" "en")
     (->LangStr "Eksterne forbindelser" "da")})
 
 (defn with-prefix

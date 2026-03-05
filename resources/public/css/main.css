@@ -362,6 +362,10 @@ ul.synset-summary {
     border-left: 6px solid var(--color-dannet);
 }
 
+ul.synset-summary> li:has(abbr.pos-label) {
+    display: flex;
+}
+
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-xl);
     background-color: rgba(255, 255, 255, 1);
@@ -389,35 +393,35 @@ ul.synset-summary a::after {
 /* Ordered lists */
 ol {
     margin: 0;
-    padding-left: var(--spacing-xl);
 }
 
+ol,
+ol.two-digits,
+ol.two-digits + details > summary {
+    padding-left: var(--spacing-l);
+}
+
+ol.three-digits,
 ol.three-digits + details > summary {
     padding-left: var(--spacing-xl);
 }
 
-ol.four-digits {
-    padding-left: var(--spacing-xxl);
-}
-
+ol.four-digits,
 ol.four-digits + details > summary {
     padding-left: var(--spacing-xxl);
 }
 
-ol.five-digits {
-    padding-left: 52px;
-}
-
+ol.five-digits,
 ol.five-digits + details > summary {
     padding-left: 52px;
 }
 
 li {
-    padding-bottom: 1.5ch;
+    padding: 0;
 }
 
-li:last-of-type {
-    padding-bottom: 0;
+li + li {
+    padding-top: 1.5ch;
 }
 
 li::marker {
@@ -1134,6 +1138,7 @@ header > .rdf-uri .rdf-uri__name {
 span.set {
     display: inline-flex;
     flex-basis: 100%;
+    vertical-align: bottom;
 }
 
 .set__content {
