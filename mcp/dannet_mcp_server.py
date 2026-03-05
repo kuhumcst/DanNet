@@ -1036,62 +1036,23 @@ def get_word_synonyms(word: str) -> str:
     to which meaning (polysemy is common in Danish).
     """
     try:
-        # Search for the word to find its synsets
-        search_results = get_word_synsets(word)
-        synonyms = set()
-
-        # Handle both return types from get_word_synsets
-        if isinstance(search_results, dict):
-            # Single synset result - convert to list format  
-            synset_id = search_results.get('synset_id')
-            if synset_id:
-                search_results = [SearchResult(
-                    word=word,
-                    synset_id=synset_id,
-                    label='',
-                    definition=''
-                )]
-            else:
-                return ""
-        
-        # Process each synset to find synonyms
-        for result in search_results:
-            if not (result.synset_id and result.word.lower() == word.lower()):
-                continue
-
-            # Get the full synset data
-            synset_data = get_synset_info(result.synset_id)
-
-            # Extract word IDs from ontolex:isEvokedBy (JSON-LD format)
-            evoked_by = synset_data.get('ontolex:isEvokedBy', [])
-            
-            # Normalize to list if single string
-            if isinstance(evoked_by, str):
-                evoked_by = [evoked_by]
-
-            # Process each word reference
-            for word_ref in evoked_by:
-                # Extract the word ID from the reference
-                word_id = parse_resource_id(word_ref)
-                
-                # Fetch the word entity
-                try:
-                    word_data = get_client().get_resource(word_id)
-                    if not word_data:
-                        continue
-                    
-                    # Extract the lemma from JSON-LD format
-                    label_data = word_data.get('rdfs:label', {})
-                    lemma = get_language_value(label_data)
-                    
-                    # Add to synonyms if it's not the input word
-                    if lemma and lemma.lower() != word.lower():
-                        synonyms.add(lemma)
-                        
-                except Exception:
-                    continue  # Skip words that can't be fetched
-
-        return ", ".join(sorted(list(synonyms)))
+        client = get_client()
+        query = f"""
+SELECT DISTINCT ?lemma WHERE {{
+  ?entry ontolex:canonicalForm/ontolex:writtenRep "{word}"@da .
+  ?sense ontolex:isSenseOf ?entry .
+  ?sense ontolex:isLexicalizedSenseOf ?synset .
+  ?synset ontolex:isEvokedBy ?otherEntry .
+  ?otherEntry ontolex:canonicalForm/ontolex:writtenRep ?lemma .
+  FILTER(?otherEntry != ?entry)
+  FILTER(?lemma != "{word}"@da)
+  FILTER(!CONTAINS(STR(?lemma), " "))
+}}
+"""
+        results = _make_sparql_request(client, f"{client.base_url}/dannet/sparql",
+                                       {"query": query, "format": "json"})
+        lemmas = [b["lemma"]["value"] for b in results.get("results", {}).get("bindings", [])]
+        return ", ".join(sorted(lemmas))
 
     except Exception as e:
         raise RuntimeError(f"Failed to find synonyms: {e}")
