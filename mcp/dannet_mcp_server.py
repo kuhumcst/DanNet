@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # Global configuration
 REMOTE_URL = "https://wordnet.dk"
 LOCAL_URL = "http://localhost:3456"
-TIMEOUT = 30.0
+TIMEOUT = 45.0
 MAX_RETRIES = 3
 
 
@@ -1570,7 +1570,7 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dict[str, Any]:
+def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distinct: bool = True) -> Dict[str, Any]:
     """
     Execute a SPARQL SELECT query against the DanNet triplestore.
 
@@ -1578,151 +1578,130 @@ def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dic
     The query is automatically prepended with common namespace prefix declarations,
     so you can use short prefixes instead of full URIs in your queries.
 
-    PERFORMANCE OPTIMIZATION WARNING:
-    Avoid queries that create cartesian products (cross joins) as they can cause timeouts.
-    Common problematic patterns include:
-    - Comparing all entities with labels containing word X to all entities with labels containing word Y
-    - Multiple unconnected graph patterns without shared variables (e.g., ?x a Type1. ?y a Type2.)
-    - Excessive OPTIONAL clauses that multiply result combinations
-    - Broad FILTER operations on string matching across large result sets
+    ============================================================
+    CRITICAL PERFORMANCE RULES (read before writing any query):
+    ============================================================
     
-    Instead, use specific entity URIs (e.g., dn:synset-2228), connect patterns with shared variables,
-    apply LIMIT clauses, and prefer VALUES lists over broad FILTER conditions. Start with targeted
-    queries on known entities, then explore their direct relationships using specific property paths.
+    1. ALWAYS start from a known entity URI or a word lookup — never scan the whole graph.
+       FAST: dn:synset-3047 wn:hypernym ?x .
+       SLOW: ?x wn:hypernym ?y .  (scans every synset)
+    
+    2. ALWAYS use DISTINCT for SELECT queries to avoid duplicate rows.
+    
+    3. NEVER use FILTER(CONTAINS(...)) on labels across the whole graph.
+       SLOW: ?s rdfs:label ?l . FILTER(CONTAINS(?l, "hund"))
+       FAST: Use get_word_synsets("hund") first, then query specific synset URIs.
+    
+    4. NEVER create cartesian products — every triple pattern must share a variable
+       with at least one other pattern.
+       SLOW: ?x a ontolex:LexicalConcept . ?y a ontolex:LexicalEntry . (cross join!)
+    
+    5. ALWAYS add LIMIT (even if max_results caps it server-side, explicit LIMIT
+       lets the query engine optimize).
+    
+    6. Use property paths for multi-hop traversals:
+       FAST: dn:synset-3047 wn:hypernym+ ?ancestor .  (transitive closure)
+       FAST: ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .  (path)
+    
+    7. Prefer VALUES over FILTER for matching multiple known entities:
+       FAST: VALUES ?synset { dn:synset-3047 dn:synset-3048 } ?synset rdfs:label ?l .
+       SLOW: ?synset rdfs:label ?l . FILTER(?synset = dn:synset-3047 || ?synset = dn:synset-3048)
+    
+    8. The triplestore contains BOTH DanNet (Danish, dn: namespace) AND the Open
+       English WordNet (en: namespace). Unanchored queries will scan both.
+       To restrict to Danish data, anchor on dn: URIs or use @da language tags.
 
-    KNOWN PREFIXES (automatically declared):
-    - rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
-    - rdfs: http://www.w3.org/2000/01/rdf-schema#
-    - owl: http://www.w3.org/2002/07/owl#
-    - wn: https://globalwordnet.github.io/schemas/wn#
-    - ontolex: http://www.w3.org/ns/lemon/ontolex#
-    - skos: http://www.w3.org/2004/02/skos/core#
-    - lexinfo: http://www.lexinfo.net/ontology/3.0/lexinfo#
-    - marl: http://www.gsi.upm.es/ontologies/marl/ns#
-    - olia: http://purl.org/olia/olia.owl#
-    - dcat: http://www.w3.org/ns/dcat#
-    - vann: http://purl.org/vocab/vann/
-    - foaf: http://xmlns.com/foaf/0.1/
-    - dc: http://purl.org/dc/terms/
-    - dc11: http://purl.org/dc/elements/1.1/
-    - cc: http://creativecommons.org/ns#
-    - ili: http://globalwordnet.org/ili/
-    - lime: http://www.w3.org/ns/lemon/lime#
-    - schema: http://schema.org/
-    - synsem: http://www.w3.org/ns/lemon/synsem#
-    - enl: https://en-word.net/lemma/
-    - en: https://en-word.net/id/
-    - enold: http://wordnet-rdf.princeton.edu/id/
-    - cor: https://ordregister.dk/id/
-    - dds: https://wordnet.dk/sentiment/
-    - dn: https://wordnet.dk/dannet/data/
-    - dnc: https://wordnet.dk/dannet/concepts/
-    - dns: https://wordnet.dk/dannet/schema/
-    - tr: https://wordnet.dk/dannet/translations/
+    ============================================
+    FAST QUERY TEMPLATES (copy and adapt these):
+    ============================================
 
-    COMMON QUERY PATTERNS:
-
-    # Find all synsets for a word:
-    SELECT ?synset ?definition WHERE {
-      ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .
+    # TEMPLATE 1: Find synsets for a Danish word (via word lookup)
+    SELECT DISTINCT ?synset ?label ?def WHERE {
+      ?entry ontolex:canonicalForm/ontolex:writtenRep "WORD"@da .
       ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
-      ?synset skos:definition ?definition .
+      ?synset rdfs:label ?label .
+      OPTIONAL { ?synset skos:definition ?def }
     }
 
-    # Find hypernyms (broader concepts):
-    SELECT ?hypernym ?label WHERE {
-      dn:synset-3047 wn:hypernym ?hypernym .
+    # TEMPLATE 2: Get all properties of a known synset
+    SELECT ?p ?o WHERE {
+      dn:synset-NNNN ?p ?o .
+    } LIMIT 50
+
+    # TEMPLATE 3: Find hypernyms (broader concepts) of a known synset
+    SELECT DISTINCT ?hypernym ?label WHERE {
+      dn:synset-NNNN wn:hypernym ?hypernym .
       ?hypernym rdfs:label ?label .
     }
 
-    # Find functional relations (DanNet-specific "used for" patterns):
-    SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
-      ?tool dns:usedFor ?purpose .
-      ?tool rdfs:label ?toolLabel .
-      ?purpose rdfs:label ?purposeLabel .
+    # TEMPLATE 4: Find hyponyms (narrower concepts) of a known synset
+    SELECT DISTINCT ?hyponym ?label WHERE {
+      ?hyponym wn:hypernym dn:synset-NNNN .
+      ?hyponym rdfs:label ?label .
     }
 
-    # Discover thematic role patterns (agents of actions):
-    SELECT ?action ?actionLabel ?agent ?agentLabel WHERE {
-      ?action wn:involved_agent ?agent .
-      ?action rdfs:label ?actionLabel .
-      ?agent rdfs:label ?agentLabel .
+    # TEMPLATE 5: Trace full hypernym chain (taxonomic ancestors)
+    SELECT DISTINCT ?ancestor ?label WHERE {
+      dn:synset-NNNN wn:hypernym+ ?ancestor .
+      ?ancestor rdfs:label ?label .
     }
 
-    # Find co-occurrence patterns (systematic co-occurrences):
-    SELECT ?concept ?conceptLabel ?coAgent ?coAgentLabel WHERE {
-      ?concept wn:co_agent_instrument ?coAgent .
-      ?concept rdfs:label ?conceptLabel .
-      ?coAgent rdfs:label ?coAgentLabel .
-    }
+    # TEMPLATE 6: Find all relationships OF a known synset
+    SELECT DISTINCT ?rel ?target ?targetLabel WHERE {
+      dn:synset-NNNN ?rel ?target .
+      ?target rdfs:label ?targetLabel .
+      FILTER(isURI(?target))
+    } LIMIT 50
 
-    # Explore cross-cutting categories (orthogonal hypernyms):
-    SELECT ?specific ?specificLabel ?ortho ?orthoLabel WHERE {
-      ?specific dns:orthogonalHypernym ?ortho .
-      ?specific rdfs:label ?specificLabel .
-      ?ortho rdfs:label ?orthoLabel .
-    }
+    # TEMPLATE 7: Find all relationships TO a known synset
+    SELECT DISTINCT ?source ?rel ?sourceLabel WHERE {
+      ?source ?rel dn:synset-NNNN .
+      ?source rdfs:label ?sourceLabel .
+      FILTER(isURI(?source))
+    } LIMIT 50
 
-    # Find synsets with ontological types (stored as RDF Bags):
-    SELECT ?synset ?label ?type WHERE {
-      ?synset dns:ontologicalType ?typeNode .
-      ?typeNode rdf:_0 ?type .
+    # TEMPLATE 8: Query multiple known synsets at once
+    SELECT DISTINCT ?synset ?label ?def WHERE {
+      VALUES ?synset { dn:synset-3047 dn:synset-3048 dn:synset-6524 }
       ?synset rdfs:label ?label .
+      OPTIONAL { ?synset skos:definition ?def }
     }
 
-    # Explore causality chains:
-    SELECT ?cause ?causeLabel ?effect ?effectLabel WHERE {
-      ?cause wn:causes ?effect .
-      ?cause rdfs:label ?causeLabel .
-      ?effect rdfs:label ?effectLabel .
+    # TEMPLATE 9: Find functional relations for a specific synset
+    SELECT DISTINCT ?rel ?target ?targetLabel WHERE {
+      dn:synset-NNNN ?rel ?target .
+      ?target rdfs:label ?targetLabel .
+      VALUES ?rel { dns:usedFor dns:usedForObject wn:agent wn:instrument wn:causes }
     }
+
+    # TEMPLATE 10: Find ontological type of a synset (stored as RDF Bag)
+    SELECT ?type WHERE {
+      dn:synset-NNNN dns:ontologicalType ?bag .
+      ?bag ?pos ?type .
+      FILTER(STRSTARTS(STR(?pos), STR(rdf:_)))
+    }
+
+    ============================================
+    KNOWN PREFIXES (automatically declared):
+    ============================================
+    dn: (DanNet data), dns: (DanNet schema), dnc: (DanNet concepts),
+    wn: (WordNet relations), ontolex: (lexical model), skos: (definitions),
+    rdfs: (labels), rdf: (types), owl: (ontology), lexinfo: (morphology),
+    marl: (sentiment), dc: (metadata), ili: (interlingual index),
+    en: (English WordNet), enl: (English lemmas), cor: (Danish register)
 
     Args:
         query: SPARQL SELECT query string (prefixes will be automatically added)
-        timeout: Query timeout in milliseconds (default: 5000, max: 10000)
+        timeout: Query timeout in milliseconds (default: 8000, max: 15000)
         max_results: Maximum number of results to return (default: 100, max: 100)
+        distinct: Auto-apply DISTINCT to SELECT queries (default: True).
+                  Set to False when you need duplicate rows, e.g. for frequency counts.
 
     Returns:
         Dict containing SPARQL results in standard JSON format:
         - head: Query metadata with variable names
         - results: Bindings array with variable-value mappings
         Each value includes type (uri/literal) and language information when applicable
-
-    FASCINATING RELATIONSHIP EXAMPLES FROM DANNET:
-    
-    Functional Relations (dns:usedFor):
-    - {idrætshal; sportshal} used for {idræt; sport} (sports hall used for sports)
-    - {faldskærm; skærm} used for {idræt; sport} (parachute used for sports)
-    - {sportstøj} used for {idræt; sport} (sportswear used for sports)
-    
-    Thematic Roles (wn:involved_agent):
-    - {kommunikere} typically involves agent {presseattaché} (communication involves press attaché)
-    - {skrive} typically involves agent {informationsmedarbejder} (writing involves information worker)
-    
-    Co-occurrence Patterns (wn:co_agent_instrument):
-    - {krig} co-occurs with agent-instrument {våben} (war systematically co-occurs with weapons)
-    - {verdenskrig} co-occurs with agent-instrument {våben} (world war co-occurs with weapons)
-    
-    Cross-cutting Categories (dns:orthogonalHypernym):
-    - {fiskefartøj} has orthogonal hypernym {fartøj} (fishing vessel has cross-cutting category vessel)
-    - {handelsfartøj} has orthogonal hypernym {fartøj} (merchant vessel has cross-cutting category vessel)
-    
-    These examples show how DanNet captures not just taxonomic relationships but also 
-    functional, instrumental, and systematic co-occurrence patterns in Danish language and culture.
-
-    Example Usage:
-        # Simple entity lookup
-        result = sparql_query("SELECT ?s ?p ?o WHERE { dn:synset-3047 ?p ?o } LIMIT 10")
-        
-        # Complex semantic query exploring functional relations
-        result = sparql_query('''
-            SELECT ?tool ?toolLabel ?purpose ?purposeLabel WHERE {
-              ?tool dns:usedFor ?purpose .
-              ?tool rdfs:label ?toolLabel .
-              ?purpose rdfs:label ?purposeLabel .
-              FILTER(CONTAINS(?purposeLabel, "sport"))
-            }
-        ''')
 
     Note: Only SELECT queries are supported. The query is validated before execution.
     """
@@ -1736,10 +1715,12 @@ def sparql_query(query: str, timeout: int = 5000, max_results: int = 100) -> Dic
         }
         
         # Add optional parameters if they differ from defaults
-        if timeout != 5000:
+        if timeout != 8000:
             request_params["timeout"] = str(timeout)
         if max_results != 100:
             request_params["maxResults"] = str(max_results)
+        if not distinct:
+            request_params["distinct"] = "false"
 
         # Use the standalone retry-enabled function
         return _make_sparql_request(client, f"{client.base_url}/dannet/sparql", request_params)

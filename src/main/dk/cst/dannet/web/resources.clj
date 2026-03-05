@@ -920,7 +920,7 @@
   "Pedestal interceptor for SPARQL query validation and parameter extraction."
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query timeout maxResults]} (:query-params request)
+            (let [{:keys [query timeout maxResults distinct]} (:query-params request)
                   raw-sparql (or query (:body request))]
               (if raw-sparql
                 (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
@@ -932,17 +932,20 @@
                       maxResults' (if maxResults
                                     (min (Long/parseLong maxResults)
                                          sparql/max-results-limit)
-                                    sparql/max-results-limit)]
+                                    sparql/max-results-limit)
+                      distinct?   (not= distinct "false")]
                   (assoc ctx
                     :sparql-query query-obj
                     :sparql-timeout timeout'
-                    :sparql-max-results maxResults')))))})
+                    :sparql-max-results maxResults'
+                    :sparql-distinct? distinct?)))))})
 
 (def sparql-execution-ic
   {:name  ::sparql-execution
-   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results] :as ctx}]
+   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results sparql-distinct?] :as ctx}]
             (assoc ctx
-              :content (sparql/execute (:model @db) sparql-query sparql-timeout sparql-max-results)
+              :content (sparql/execute (:model @db) sparql-query sparql-timeout sparql-max-results
+                                       :distinct? sparql-distinct?)
               :page-meta {:title "query-result"}))})        ; used as filename
 
 ;; TODO: should have a differentiated rate limit (more limited)

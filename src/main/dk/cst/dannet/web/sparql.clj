@@ -7,9 +7,11 @@
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.update UpdateFactory]))
 
-;; TODO: some queries seem to run quite slow, I guess they are not really limited?
+;; NOTE: DISTINCT is auto-applied to all SELECT queries to reduce duplicates and
+;; improve performance. The MCP server tool description also guides LLMs toward
+;; anchored, performant query patterns rather than full-graph scans.
 
-(def ^:const max-timeout 10000)
+(def ^:const max-timeout 15000)
 (def ^:const max-results-limit 100)
 (def ^:const max-query-length 5000)
 
@@ -51,6 +53,14 @@
                          :cause (.getMessage e)}
                         e))))))
 
+(defn ensure-distinct!
+  "Set DISTINCT on SELECT `query-obj` if not already set, reducing duplicate rows."
+  [^Query query-obj]
+  (when (and (.isSelectType query-obj)
+             (not (.isDistinct query-obj)))
+    (.setDistinct query-obj true))
+  query-obj)
+
 (defn limit-results!
   "Apply `results-limit` to SELECT `query-obj` to prevent resource exhaustion."
   [^Query query-obj results-limit]
@@ -77,10 +87,14 @@
 
 (defn execute
   "Execute validated SPARQL `query-obj` against `model` with safety constraints
-  by applying a query `timeout` and a `results-limit`."
-  [^Model model ^Query query-obj timeout results-limit]
+  by applying a query `timeout` and a `results-limit`. DISTINCT is also applied
+  to SELECT queries by default unless `distinct?` is false."
+  [^Model model ^Query query-obj timeout results-limit
+   & {:keys [distinct?] :or {distinct? true}}]
   (tx/transact-read model
-    (let [query (limit-results! query-obj results-limit)
+    (let [query (cond-> query-obj
+                  distinct? (ensure-distinct!)
+                  true (limit-results! results-limit))
           qexec (doto ^QueryExecution (QueryExecutionFactory/create query-obj model)
                   (.setTimeout ^Long timeout TimeUnit/MILLISECONDS))]
       (try
