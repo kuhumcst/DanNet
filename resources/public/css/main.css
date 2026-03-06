@@ -175,6 +175,24 @@ a {
     text-decoration: none;
 }
 
+/*  Dataset download links are styled with a prefixed icon.
+    a.rdf-uri is purposefully left out as it would clash with the established
+    use of < ... > to display these. */
+a[href^="/export/"]:not(.rdf-uri)::before {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    margin-right: 0.33em;
+
+    /* Inherit the colour of the text. */
+    background-color: currentColor;
+    mask-image: url('/images/download.svg');
+    mask-size: contain;
+    mask-repeat: no-repeat;
+}
+
 /* TODO: span.set markup is inconsistent - sometimes inside <a>, sometimes not.
    Unifying this would allow a simpler selector (see rdf.cljc). */
 a:hover,
