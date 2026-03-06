@@ -45,15 +45,15 @@
     --border-radius-s: 2px;
     
     /* SHADOWS */
-    --shadow-card: 0 0 12px rgba(0,0,0,0.3);
-    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.1);
-    --shadow-nav: 0 0 12px rgba(0,0,0,0.8);
+    --shadow-card: 0 0 12px rgba(0,0,0,0.33);
+    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.2);
+    --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
     --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
     
     /* TYPOGRAPHY */
     --font-family: Georgia, serif;
     --letter-spacing-base: 0.2ch;
-    --line-height-prose: 1.5;
+    --line-height-prose: 1.6;
     
     /* Font size scale */
     --font-size-xs: 12px;
@@ -178,7 +178,8 @@ a {
 /*  Dataset download links are styled with a prefixed icon.
     a.rdf-uri is purposefully left out as it would clash with the established
     use of < ... > to display these. */
-a[href^="/export/"]:not(.rdf-uri)::before {
+a[href^="/export/"]:not(.rdf-uri)::before,
+a[href^="/schema/"]:not(.rdf-uri)::before {
     content: '';
     display: inline-block;
     width: 1em;
@@ -282,15 +283,24 @@ sub {
     text-decoration: none;
 }
 
-code,
-pre.viewer-code {
+code {
     background: rgba(0,0,0,0.1);
-    padding: var(--spacing-xs) var(--spacing-xxs) var(--spacing-xs) var(--spacing-xs); /* Right side accounts for word spacing. */
+    color: black;
+    padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
+    font-size: 14px;
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: normal;
 }
 
-pre.viewer-code {
-    padding: var(--spacing-m);
+pre code {
+    padding: 0;
+    background: none;
+    color: white;
+}
+pre {
+    background: rgba(0,0,0,0.85);
+    padding: var(--spacing-s) var(--spacing-m);
 }
 
 /* Definition lists */
@@ -574,6 +584,57 @@ article.document > div {
     padding: var(--spacing-m);
 }
 
+article.document > div > ul:first-child {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+
+    list-style: none;
+    padding: var(--spacing-l) var(--spacing-m);
+    margin: 0 0 var(--spacing-xl) 0;
+    gap: var(--spacing-l);
+
+    border: var(--very-subtle-border);
+    background: var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+article.document > div > ul:first-child li {
+    padding: 0;
+}
+
+/* Cycle colours of the nav tabs above and lists of links. */
+article.document > div > ul:first-child > li:nth-of-type(5n+1) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1) {
+    color: var(--color-w3c);
+    text-decoration-color: var(--color-w3c);
+}
+article.document > div > ul:first-child > li:nth-of-type(5n+2) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+2) {
+    color: var(--color-meta);
+    text-decoration-color: var(--color-meta);
+}
+article.document > div > ul:first-child > li:nth-of-type(5n+3) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+3) {
+    color: var(--color-ontolex);
+    text-decoration-color: var(--color-ontolex);
+}
+article.document > div > ul:first-child > li:nth-of-type(5n+4) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+4) {
+    color: var(--color-dannet);
+    text-decoration-color: var(--color-dannet);
+}
+article.document > div > ul:first-child > li:nth-of-type(5n+5) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+5) {
+    color: var(--color-wordnet);
+    text-decoration-color: var(--color-wordnet);
+}
+
+/* Reset the cycle for single hyperlinks. */
+article.document > div > ul:not(:first-child) > li > a:first-of-type:last-of-type {
+    color: var(--color-link);
+}
+
 article.document h1 {
     font-size: var(--font-size-xxl);
     margin-bottom: var(--spacing-xl);
@@ -583,19 +644,64 @@ article.document p {
     margin: 1em 0 2em 0;
 }
 
-article.document li > a:first-child {
+article.document li > a {
     font-weight: bold;
-    text-transform: uppercase;
 }
 
 article.document a {
     transition: text-decoration-color var(--transition-base);
     text-decoration: underline;
     text-decoration-color: var(--color-link-underline);
+    text-underline-offset: var(--spacing-xs);
 }
 
 article.document a:hover {
     text-decoration-color: var(--color-link-underline-hover);
+}
+
+/* Styles affecting images in the root of the document. */
+article.document > div > img,
+article.document > div > p > a > img {
+    max-width: 80%;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card);
+
+    /* Centering */
+    display: block;
+    margin: 0 auto;
+}
+
+article.document ul {
+    line-height: var(--line-height-prose);
+    padding: 0 var(--spacing-xl);
+}
+
+article.document li {
+    padding: 0 0 0 var(--spacing-s);
+    margin: 0;
+}
+
+article.document li + li {
+    padding-top: var(--spacing-s);
+}
+
+article.document li strong:first-child,
+article.document li a:first-child {
+    text-transform: uppercase;
+    margin-right: var(--spacing-xs);
+}
+
+article.document blockquote { margin: 0;}
+article.document blockquote p {
+    padding: var(--spacing-l) var(--spacing-xl);
+    margin: var(--spacing-xl) 0;
+    border: var(--very-subtle-border);
+    background: var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+article.document blockquote > p > strong:first-child {
+    text-transform: uppercase;
 }
 
 article.search {
@@ -1598,9 +1704,8 @@ select.display-options:focus-visible {
 .help-overlay__item {
     position: absolute;
     opacity: 0;
-    animation:
-        var(--transition-slower) ease-in 5s forwards fade-in,
-        var(--transition-slow) ease-in infinite alternate point;
+    transition: opacity var(--transition-fast) ease-in;
+    animation: var(--transition-slow) ease-in infinite alternate point;
     text-transform: uppercase;
     left: 58px;
     z-index: var(--z-help);
@@ -1610,6 +1715,7 @@ select.display-options:focus-visible {
     padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
     border-radius: var(--border-radius-s);
     border: 1px solid var(--color-faint);
+    box-shadow: var(--shadow-card-subtle);
 }
 
 .help-overlay__item::before {
@@ -1617,6 +1723,10 @@ select.display-options:focus-visible {
     font-size: var(--font-size-l);
     vertical-align: middle;
     margin-right: var(--spacing-s);
+}
+
+nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
+    opacity: 1;
 }
 
 /* Error boundary fallback */
@@ -1772,6 +1882,10 @@ span.render-error {
     }
     nav select.language {
         margin: 0 var(--spacing-s) 0 -40px;
+    }
+    article.document > div > ul:first-child  {
+        gap: var(--spacing-m);
+        font-size: var(--font-size-s);
     }
 }
 

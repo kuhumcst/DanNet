@@ -8,7 +8,7 @@ The newer DanNet releases use the release date as the version number, formatted 
 * Duplicate forms have been removed.
 * Synset self-references have been removed.
 * The `wn:hypernym` relation for adjectives that go across part-of-speech boundaries have been replaced with the purpose-made `dns:crossPoSHypernym` which can be used to make something akin to hypernymic relations across different parts-of-speech.
-  * NOTE: other cross-PoS hypernyms have *not* been modified for this release, though they have been excluded from the WN-LMF format for now as these relations are technically invalid when marked as `wn:hypernym`.
+  * **NOTE:** other cross-PoS hypernyms have *not* been modified for this release, though they have been excluded from the WN-LMF format for now as these relations are technically invalid when marked as `wn:hypernym`.
 * Duplicate ILI links have been excluded from the WN-LMF format.
   * 1194 of the synsets in DanNet are linked to the same resources in the `CILI` which is not a valid use of the `wn:ili`  relation!
 * Inferred `wn:hyponym` links are now *included* in the WN-LMF format.

@@ -32,6 +32,6 @@
   (memoize hiccup->title*))
 
 (comment
-  (hiccup->title* (md/->hiccup (slurp "pages/about-da.md")))
+  (hiccup->title* (md/->hiccup (slurp "pages/downloads-da.md")))
   (hiccup->title* nil)
   #_.)

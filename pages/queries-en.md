@@ -9,7 +9,7 @@ DanNet can queried in a variety of ways. This plurality is intentional as explai
 
 Furthermore, by importing DanNet into another RDF-supporting database, the query language of this database may also be used to query DanNet, e.g. Neo4j's Cypher query language.
 
-> Note: when querying Apache Jena's persisted TDB rather than an in-memory graph, you will need to wrap the querying code inside transactions. The `dk.cst.dannet.db.query` namespace contains functionality to help with this aspect of using Apache Jena. Transactions are _always_ required for TDB 2, while they are only required for TDB 1 if at least one transaction has _already_ occurred!
+> **NOTE:** when querying Apache Jena's persisted TDB rather than an in-memory graph, you will need to wrap the querying code inside transactions. The `dk.cst.dannet.db.query` namespace contains functionality to help with this aspect of using Apache Jena. Transactions are _always_ required for TDB 2, while they are only required for TDB 1 if at least one transaction has _already_ occurred!
 
 SPARQL
 ------

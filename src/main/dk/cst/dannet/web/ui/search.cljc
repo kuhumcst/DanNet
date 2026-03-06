@@ -113,6 +113,10 @@
                               (.stopPropagation e)
                               (swap! open not))]
     [:search {:class    (if open? "search-active" "")
+              :title    (when-not open?
+                          (i18n/da-en languages
+                            "Søg efter synsets"
+                            "Search for synsets"))
               :on-click toggle}
      (when open?
        [:<>

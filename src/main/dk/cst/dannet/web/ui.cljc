@@ -36,7 +36,11 @@
        " · "
        [:a {:href  "/dannet/metadata"
             :title "DanNet-Metadata (RDF)"}
-        "Metadata"]]
+        "Metadata"]
+       " · "
+       [:a {:href  "/dannet/page/downloads"
+            :title "Downloads"}
+        "Downloads"]]
       [:p {:lang "da"}
        "© 2023–2026, "
        [:a {:href "https://cst.ku.dk"}
@@ -64,6 +68,10 @@
        [:a {:href  "/dannet/metadata"
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
+      " · "
+      [:a {:href  "/dannet/page/downloads"
+           :title "Downloads"}
+       "Downloads"]
       [:p {:lang "en"}
        "© 2023–2026, "
        [:a {:href "https://cst.ku.dk/english"}
@@ -85,8 +93,8 @@
                                      (shared/update-cookie! :languages (constantly v)))))]
     [:select.language.nav-icon
      {:title     (i18n/da-en languages
-                   "Sprogpræference"
-                   "Language preference")
+                   "Indstil sprogpræference"
+                   "Set language preference")
       :value     (str (first languages))
       :on-change change-language}
      [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
@@ -96,13 +104,17 @@
 
 (rum/defc help-arrows
   [page {:keys [languages] :as opts}]
-  [:section.help-overlay {:aria-hidden true
-                          :style       {:opacity (when (not= page "markdown") 0)}}
+  [:section.help-overlay {:aria-hidden true}
    [:div.help-overlay__item {:style {:top   10
                                      :color "#df7300"}}
     (i18n/da-en languages
       "start søgning"
       "start search")]
+   [:div.help-overlay__item {:style {:bottom "calc(50% + 8px)"
+                                     :color  "#901a1e"}}
+    (i18n/da-en languages
+      "til forsiden"
+      "to the frontpage")]
    [:div.help-overlay__item {:style {:bottom 50
                                      :color  "#55f"}}
     (i18n/da-en languages
@@ -169,8 +181,6 @@
                       (prefix/prefix->class (if (= page "markdown")
                                               'dn
                                               prefix')))]}
-      (when-not full-diagram?
-        (help-arrows page opts'))
       (search/form opts')
       [:a.title {:title (i18n/da-en languages'
                           "Gå til forsiden"
@@ -189,6 +199,8 @@
                                                       "Vis flere detaljer"
                                                       "Show more details"))
                                         :on-click toggle-details}]]
+     (when-not full-diagram?
+       (help-arrows page opts'))
      [:div#content {:class [(when full-diagram?
                               "full-screen")
                             #?(:clj  ""

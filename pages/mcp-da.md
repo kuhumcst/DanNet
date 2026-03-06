@@ -1,7 +1,7 @@
-# Brug DanNet med AI-værktøjer (beta)
+# Brug DanNet med AI-værktøjer
 DanNet kan forbindes direkte til AI-assistenter som [Claude][Claude], [ChatGPT][ChatGPT] og andre værktøjer, der understøtter [Model Context Protocol][MCP] (MCP). Dette giver dig mulighed for at forespørge danske ordbetydninger, semantiske relationer og sproglige data gennem naturlig samtale.
 
-> **Bemærk:** Denne funktion er i øjeblikket i beta. MCP-standarden er stadig under udvikling, og ikke alle AI-værktøjer understøtter den endnu.
+> **Bemærk:** MCP-standarden er stadig under udvikling, og ikke alle AI-værktøjer understøtter den endnu.
 
 ## Hvad er MCP?
 [Model Context Protocol][MCP] er en åben standard, der gør det muligt for AI-assistenter at forbinde til eksterne datakilder. Tænk på det som et plugin-system til AI-værktøjer. Når DanNet er forbundet via MCP, kan AI'en slå information op direkte i vores database i stedet for udelukkende at stole på sine træningsdata.
@@ -32,7 +32,7 @@ AI'en vil forespørge DanNet direkte og give dig svar baseret på vores leksikal
 ## Tekniske detaljer
 DanNet er registreret i MCP-serverregistret som `io.github.kuhumcst/dannet`. For udviklere, der er interesserede i implementeringen, se [MCP-serverens kildekode][MCP source] på Github.
 
-[Claude]: https://www.anthropic.com/claude "Claude fra Anthropic"
+[Claude]: https://claude.com/ "Claude fra Anthropic"
 [ChatGPT]: https://openai.com/chatgpt "ChatGPT fra OpenAI"
 [MCP]: https://modelcontextprotocol.io/ "Model Context Protocol"
 [Claude Desktop]: https://claude.ai/download "Download Claude Desktop"
