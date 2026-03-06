@@ -36,7 +36,11 @@
        " · "
        [:a {:href  "/dannet/metadata"
             :title "DanNet-Metadata (RDF)"}
-        "Metadata"]]
+        "Metadata"]
+       " · "
+       [:a {:href  "/dannet/page/downloads"
+            :title "Downloads"}
+        "Downloads"]]
       [:p {:lang "da"}
        "© 2023–2026, "
        [:a {:href "https://cst.ku.dk"}
@@ -64,6 +68,10 @@
        [:a {:href  "/dannet/metadata"
             :title "DanNet metadata (RDF)"}
         "Metadata"]]
+      " · "
+      [:a {:href  "/dannet/page/downloads"
+           :title "Downloads"}
+       "Downloads"]
       [:p {:lang "en"}
        "© 2023–2026, "
        [:a {:href "https://cst.ku.dk/english"}

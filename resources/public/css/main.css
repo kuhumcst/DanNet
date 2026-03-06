@@ -574,6 +574,25 @@ article.document > div {
     padding: var(--spacing-m);
 }
 
+article.document > div > ul:first-child {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+
+    list-style: none;
+    padding: var(--spacing-l) var(--spacing-m);
+    margin: 0 0 var(--spacing-xl) 0;
+    gap: var(--spacing-xl);
+
+    border: var(--very-subtle-border);
+    background: var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+article.document > div > ul:first-child li {
+    padding: 0;
+}
+
 article.document h1 {
     font-size: var(--font-size-xxl);
     margin-bottom: var(--spacing-xl);
@@ -583,9 +602,8 @@ article.document p {
     margin: 1em 0 2em 0;
 }
 
-article.document li > a:first-child {
+article.document li > a {
     font-weight: bold;
-    text-transform: uppercase;
 }
 
 article.document a {
