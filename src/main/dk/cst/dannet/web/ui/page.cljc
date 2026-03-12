@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
-  (:require [rum.core :as rum]
+  (:require [clojure.string :as str]
+            [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -126,3 +127,70 @@
        " – to find what you're looking for."]
       [:li [:a {:href "javascript:history.back()"} "Go back"]
        " – to the previous page."]]]))
+
+(defn- uri-cell
+  "Render a SPARQL result cell, linkifying http URI values."
+  [v]
+  (if (and v (str/starts-with? v "http"))
+    [:a {:href (prefix/uri->internal-path v)} v]
+    (or v [:span.sparql-unbound "—"])))
+
+(rum/defc sparql-results
+  "Render SPARQL SELECT results as a table, or ASK result as plain text."
+  [{:keys [sparql-type sparql-result languages] :as _opts}]
+  (case sparql-type
+    :select
+    (let [{:keys [vars rows]} sparql-result]
+      (if (empty? rows)
+        [:p.sparql-empty (i18n/da-en languages "Ingen resultater." "No results.")]
+        [:div.sparql-results
+         [:p.sparql-count
+          (i18n/da-en languages
+            (str (count rows) " resultater")
+            (str (count rows) " results"))]
+         [:table.sparql-table
+          [:thead [:tr (for [v vars] [:th {:key v} v])]]
+          [:tbody
+           (for [[i row] (map-indexed vector rows)]
+             [:tr {:key i}
+              (for [[j cell] (map-indexed vector row)]
+                [:td {:key j} (uri-cell cell)])])]]]))
+    :ask
+    [:p.sparql-ask-result
+     (i18n/da-en languages "Svar:" "Answer:")
+     " "
+     [:strong (str sparql-result)]]
+    [:p (i18n/da-en languages
+          "Forespørgselstype ikke understøttet."
+          "Query type not supported.")]))
+
+(def ^:private example-query
+  "SELECT ?word ?synset WHERE {
+  ?entry ontolex:canonicalForm/ontolex:writtenRep \"hund\"@da .
+  ?entry ontolex:sense ?sense .
+  ?sense ontolex:isLexicalizedSenseOf ?synset .
+  ?synset wn:definition/rdf:value ?word .
+}")
+
+(rum/defc sparql-editor
+  "SPARQL query editor page with optional inline results."
+  [{:keys [languages sparql-query-str sparql-type] :as opts}]
+  [:article.sparql-editor
+   [:header.page-header
+    [:h1 (i18n/da-en languages "SPARQL-forespørgsel" "SPARQL Query")]
+    [:p.subheading
+     (i18n/da-en languages
+       "Skriv en SPARQL-forespørgsel mod DanNet-grafen."
+       "Write a SPARQL query against the DanNet graph.")]]
+   [:form.sparql-form {:method "get" :action prefix/sparql-path}
+    [:textarea.sparql-textarea
+     {:name         "query"
+      :rows         12
+      :autocomplete "off"
+      :spellcheck   "false"}
+     (or sparql-query-str example-query)]
+    [:div.sparql-controls
+     [:button.sparql-submit {:type "submit"}
+      (i18n/da-en languages "Kør forespørgsel" "Run query")]]]
+   (when sparql-type
+     (sparql-results opts))])

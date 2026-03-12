@@ -41,7 +41,6 @@
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]))
 
-;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
 ;;       http://localhost:3456/dannet/data/synset-74520
 
@@ -921,7 +920,7 @@
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [query timeout maxResults distinct]} (:query-params request)
-                  raw-sparql (or query (:body request))]
+                  raw-sparql (or query (let [body (:body request)] (when (string? body) body)))]
               (if raw-sparql
                 (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
                       query-obj   (sparql/validate sparql)
@@ -940,21 +939,58 @@
                     :sparql-max-results maxResults'
                     :sparql-distinct? distinct?)))))})
 
+(def sparql-editor-ic
+  "Serves the SPARQL editor page when no query is present."
+  {:name  ::sparql-editor
+   :enter (fn [{:keys [request sparql-query] :as ctx}]
+            (if (nil? sparql-query)
+              (assoc ctx
+                :content {:languages (request->languages request)}
+                :page-meta {:title "SPARQL" :page "sparql-editor"})
+              ctx))})
+
 (def sparql-execution-ic
   {:name  ::sparql-execution
-   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results sparql-distinct?] :as ctx}]
-            (assoc ctx
-              :content (sparql/execute (:model @db) sparql-query sparql-timeout sparql-max-results
-                                       :distinct? sparql-distinct?)
-              :page-meta {:title "query-result"}))})        ; used as filename
+   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results sparql-distinct?
+                       request] :as ctx}]
+            (if sparql-query
+              (let [result       (sparql/execute (:model @db) sparql-query sparql-timeout
+                                                 sparql-max-results :distinct? sparql-distinct?)
+                    content-type (get-in request [:accept :field])
+                    raw-query    (get-in request [:query-params :query])
+                    ;; Pre-compute rows for HTML rendering; keep raw ResultSet for JSON.
+                    content      (if (= content-type "text/html")
+                                   (-> result
+                                       (update :sparql-result
+                                               #(if (instance? org.apache.jena.query.ResultSet %)
+                                                  (sparql/result-set->rows %)
+                                                  %))
+                                       (assoc :sparql-query-str raw-query
+                                              :languages (request->languages request)))
+                                   result)]
+                (assoc ctx
+                  :content content
+                  :page-meta {:title "query-result" :page "sparql"})) ; used as filename
+              ctx))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
+(def sparql-debug-ic
+  {:name  ::sparql-debug
+   :leave (fn [{:keys [content page-meta request] :as ctx}]
+            (println "SPARQL DEBUG content-type:" (get-in request [:accept :field]))
+            (println "SPARQL DEBUG page-meta:" (pr-str page-meta))
+            (println "SPARQL DEBUG content keys:" (pr-str (keys content)))
+            ctx)})
+
 (def sparql-route
   [prefix/sparql-path
    :any [content-negotiation-ic
+         language-negotiation-ic
          explicit-params-ic
          sparql-validation-ic
+         sparql-editor-ic
          sparql-execution-ic
+         sparql-debug-ic
          response-body-ic]
    :route-name ::sparql])
 

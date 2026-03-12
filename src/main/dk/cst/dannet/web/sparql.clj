@@ -3,7 +3,8 @@
   (:require [dk.cst.dannet.db.transaction :as tx]
             [ont-app.vocabulary.core :as voc])
   (:import [java.util.concurrent TimeUnit]
-           [org.apache.jena.query Query QueryExecution QueryFactory QueryExecutionFactory]
+           [org.apache.jena.query Query QueryExecution QueryFactory QueryExecutionFactory
+            QuerySolution ResultSet]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.update UpdateFactory]))
 
@@ -84,6 +85,23 @@
            "  <head></head>\n"
            "  <boolean>" result "</boolean>\n"
            "</sparql>\n")))
+
+(defn result-set->rows
+  "Convert a materialised Jena `ResultSet` into {:vars [...] :rows [[...] ...]}.
+  :vars is a vector of variable name strings.
+  :rows is a vector of row-vectors; each cell is a string node value or nil."
+  [^ResultSet result-set]
+  (let [vars (vec (.getResultVars result-set))
+        rows (loop [rows []]
+               (if (.hasNext result-set)
+                 (let [^QuerySolution qs (.nextSolution result-set)
+                       row (mapv (fn [v]
+                                   (when (.contains qs ^String v)
+                                     (str (.get qs ^String v))))
+                                 vars)]
+                   (recur (conj rows row)))
+                 rows))]
+    {:vars vars :rows rows}))
 
 (defn execute
   "Execute validated SPARQL `query-obj` against `model` with safety constraints

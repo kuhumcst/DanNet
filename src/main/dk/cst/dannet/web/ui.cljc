@@ -129,10 +129,12 @@
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities full-screen] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
-  (let [page-component (get {"entity"   page/entity
-                             "search"   page/search
-                             "markdown" page/markdown
-                             "metadata" page/metadata}
+  (let [page-component (get {"entity"        page/entity
+                             "search"        page/search
+                             "markdown"      page/markdown
+                             "metadata"      page/metadata
+                             "sparql"        page/sparql-editor
+                             "sparql-editor" page/sparql-editor}
                             page
                             page/not-found)
         ;; The backend also needs access to user-specific state to be able to
@@ -158,14 +160,14 @@
                            (get opts :details?))
         entity-label*  (shared/->entity-label-fn details?)
         ;; Rejoin entities with subject (split for performance reasons)
-        entities'      (assoc entities subject entity)
+        entities'      (when subject (assoc entities subject entity))
         synset?        (some section/semantic-rels? entity)
         full-diagram?  (and synset? (:full-screen state'))
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
                          :synset? synset?
                          :comments comments
-                         :k->label (update-vals entities' entity-label*))
+                         :k->label (update-vals (or entities' {}) entity-label*))
         [prefix _ _] (shared/parse-rdf-term subject)
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
