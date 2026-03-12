@@ -1,7 +1,7 @@
 # Downloads
 Du kan udforske DanNet direkte her på wordnet.dk, men du kan også downloade vores data som et **RDF**-datasæt eller i en lidt mere begrænset **CSV**-udgave. Vi tilbyder også DanNet som **WN-LMF**, klar til at blive brugt i software der understøtter dette format. Alle vores datasæt udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)-licensen:
 
-- [RDF-udgave][DanNet RDF] - fuldt datasæt (minus udledt data)
+- [RDF-udgave][DanNet RDF] - fuldt datasæt (pånær udledt data)
 - [CSV-udgave][DanNet CSV] - alternativt datasæt
 - [WN-LMF-udgave][DanNet WN-LMF] - alternativt datasæt, begrænset til WN-LMF relationer
 

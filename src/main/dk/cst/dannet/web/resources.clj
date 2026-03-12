@@ -8,11 +8,11 @@
             [cognitect.transit :as t]
             [com.wsscode.transito :as to]
             [flatland.ordered.map :as ordered]
+            [arachne.aristotle.graph :as graph]
             [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
-            [ont-app.vocabulary.core :as voc]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
@@ -31,15 +31,20 @@
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.db.query.operation :as op])
-  (:import [java.io ByteArrayOutputStream File]
+            [dk.cst.dannet.db.query.operation :as op]
+            [dk.cst.dannet.db.transaction :as tx])
+  (:import [clojure.lang ExceptionInfo]
+           [java.io ByteArrayOutputStream File]
            [java.util Date]
+           [java.util.concurrent TimeoutException]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]
            [org.apache.jena.query ResultSet]
            [org.apache.jena.riot ResultSetMgr]
-           [org.apache.jena.riot.resultset ResultSetLang]))
+           [org.apache.jena.riot.resultset ResultSetLang]
+           [org.apache.jena.sparql.engine.binding Binding]
+           [org.apache.jena.sparql.resultset ResultSetMem]))
 
 ;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
 ;; TODO: weird label edge cases:
@@ -178,10 +183,24 @@
   {:value (.-lexicalValue o)
    :uri   (.-datatypeURI o)})
 
+(defn handle-sparql-result
+  "Convert a `sparql-result` to a vector of Clojure maps using Aristotle's
+  'graph/data' for node conversion, matching the output format of 'q/run'."
+  [^ResultSet sparql-result]
+  (when sparql-result
+    (mapv (fn [qs]
+            (let [^Binding binding (.getBinding qs)]
+              (into {}
+                    (map (fn [var]
+                           [(graph/data var) (graph/data (.get binding var))])
+                         (iterator-seq (.vars binding))))))
+          (iterator-seq sparql-result))))
+
 (def transit-write-handlers
   {LangStr                 (t/write-handler "lstr" lstr->s)
    BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
-   XSDDateTime             (t/write-handler "datetime" str)})
+   XSDDateTime             (t/write-handler "datetime" str)
+   ResultSetMem            (t/write-handler "array" handle-sparql-result)})
 
 (defn with-comment
   [m comment]
@@ -193,12 +212,12 @@
 ;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
   {"text/html"
-   (fn [{:keys [languages] :as data} &
+   (fn [{:keys [languages sparql-result] :as data} &
         [{:keys [page title] :as opts}]]
      (html-page
        title
        languages
-       (ui/page-shell page data)))
+       (ui/page-shell page (update data :sparql-result handle-sparql-result))))
 
    "text/turtle"
    (fn [{:keys [entity href]} & _]
@@ -407,12 +426,12 @@
                             {:status  204
                              :headers {}}
 
-                            (empty? content)
+                            (and (empty? content) (empty? page-meta))
                             {:status  404
                              :headers {}}
 
                             :else
-                            {:status 200
+                            {:status (or (:response-status ctx) 200)
                              :body   (body (with-cookies request content) page-meta)}))
                   (update-in [:response :headers] merge
                              (-> (assoc (x-headers page-meta)
@@ -916,37 +935,151 @@
          response-body-ic]
    :route-name ::metadata])
 
+
 (def sparql-validation-ic
-  "Pedestal interceptor for SPARQL query validation and parameter extraction."
+  "Validate and parse SPARQL query parameters, placing results in a single
+  `:sparql` map on the ctx. On validation failure, short-circuits by setting
+  `:content`/`:page-meta`/`:response-status` directly so that response-body-ic
+  handles the error response normally.
+
+  Three code paths reach sparql-execution-ic downstream:
+    1. Valid query  -> :sparql has :query-obj, execution proceeds.
+    2. Invalid query -> :content/:page-meta already set (400), execution skips.
+    3. No query     -> :sparql has :input nil, editor page is rendered."
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query timeout maxResults distinct]} (:query-params request)
-                  raw-sparql (or query (:body request))]
+            (let [{:keys [query timeout maxResults distinct inference]} (:query-params request)
+                  raw-sparql (or query
+                                 (when (string? (:body request))
+                                   (:body request)))]
               (if raw-sparql
-                (let [sparql      (voc/prepend-prefix-declarations raw-sparql)
-                      query-obj   (sparql/validate sparql)
-                      timeout'    (if timeout
-                                    (min (Long/parseLong timeout)
-                                         sparql/max-timeout)
-                                    sparql/max-timeout)
-                      maxResults' (if maxResults
-                                    (min (Long/parseLong maxResults)
-                                         sparql/max-results-limit)
-                                    sparql/max-results-limit)
-                      distinct?   (not= distinct "false")]
-                  (assoc ctx
-                    :sparql-query query-obj
-                    :sparql-timeout timeout'
-                    :sparql-max-results maxResults'
-                    :sparql-distinct? distinct?)))))})
+                (try
+                  (let [query-obj   (sparql/validate raw-sparql)
+                        timeout'    (if timeout
+                                      (min (Long/parseLong timeout)
+                                           sparql/max-timeout)
+                                      sparql/max-timeout)
+                        maxResults' (if maxResults
+                                      (min (Long/parseLong maxResults)
+                                           sparql/max-results-limit)
+                                      sparql/max-results-limit)
+                        distinct?   (not= distinct "false")
+                        ;; Three-way: nil (auto), true (force), false (base only)
+                        inference?  (case inference
+                                     "true"  true
+                                     "false" false
+                                     nil)]
+                    (assoc ctx
+                      :sparql {:input       {:query raw-sparql}
+                               :query-obj   query-obj
+                               :timeout     timeout'
+                               :max-results maxResults'
+                               :distinct?   distinct?
+                               :inference?  inference?}))
+                  (catch ExceptionInfo e
+                    (let [{:keys [type cause max actual]} (ex-data e)
+                          languages (request->languages request)
+                          title     (i18n/da-en languages
+                                      "SPARQL-valideringsfejl"
+                                      "SPARQL validation error")]
+                      (assoc ctx
+                        :sparql {:input {:query raw-sparql}}
+                        :response-status 400
+                        :content (assoc {:languages languages
+                                         :input     {:query raw-sparql}}
+                                   :error (cond-> {:type    (name type)
+                                                   :message (ex-message e)}
+                                            cause (assoc :details cause)
+                                            max (assoc :max max)
+                                            actual (assoc :actual actual)))
+                        :page-meta {:title title
+                                    :page  "sparql"}))))
+                ctx)))})
+
+(defn- empty-select-result?
+  "Check if a SPARQL execute result is an empty SELECT result set."
+  [{:keys [sparql-type sparql-result]}]
+  (and (= sparql-type :select)
+       (instance? ResultSetMem sparql-result)
+       (zero? (.size ^ResultSetMem sparql-result))))
 
 (def sparql-execution-ic
+  "Execute the validated SPARQL query, or render the editor page if no query.
+  Skipped when sparql-validation-ic already set :content (validation error).
+
+  Model selection:
+    inference?=nil   Auto: try base model first, retry with inference if empty.
+    inference?=true  Force inference model (slower, may time out).
+    inference?=false Force base model only, no retry."
   {:name  ::sparql-execution
-   :enter (fn [{:keys [sparql-query sparql-timeout sparql-max-results sparql-distinct?] :as ctx}]
-            (assoc ctx
-              :content (sparql/execute (:model @db) sparql-query sparql-timeout sparql-max-results
-                                       :distinct? sparql-distinct?)
-              :page-meta {:title "query-result"}))})        ; used as filename
+   :enter (fn [{:keys [sparql] :as ctx}]
+            (let [{:keys [input query-obj timeout max-results
+                          distinct? inference?]} sparql
+                  run-query (fn [model executor]
+                              (try
+                                (tx/with-hard-timeout executor timeout
+                                  #(sparql/execute model
+                                                   query-obj timeout max-results
+                                                   :distinct? distinct?))
+                                (catch TimeoutException _
+                                  {:error {:type    "timeout"
+                                           :message (str "The query exceeded the timeout of "
+                                                         (/ timeout 1000) " seconds.")}})
+                                ;; Safety net: the hard timeout abandons the query
+                                ;; thread without interrupting it (to protect TDB2),
+                                ;; but unexpected exceptions from the InfModel or
+                                ;; Jena internals should still produce a clean error
+                                ;; response rather than a 500.
+                                (catch Exception e
+                                  {:error {:type    (.getSimpleName (class e))
+                                           :message (.getMessage e)}})))]
+              (cond
+                ;; Validation error - :content already set, pass through.
+                (:content ctx)
+                ctx
+
+                ;; Valid query - execute and return results.
+                query-obj
+                (let [{:keys [base-model model]} @db
+                      result
+                      (case inference?
+                        ;; Force inference model.
+                        true
+                        (assoc (run-query model tx/inference-query-executor)
+                          :inference? true)
+
+                        ;; Force base model, no retry.
+                        false
+                        (assoc (run-query base-model tx/query-executor)
+                          :inference? false)
+
+                        ;; Auto: try base, retry with inference if empty.
+                        (let [base-result (run-query base-model tx/query-executor)]
+                          (if (empty-select-result? base-result)
+                            (assoc (run-query model tx/inference-query-executor)
+                              :inference? true)
+                            (assoc base-result
+                              :inference? false))))]
+                  (if (:error result)
+                    ;; Use 504 (Gateway Timeout) rather than 408 (Request Timeout):
+                    ;; browsers auto-retry 408 responses per the HTTP spec, which
+                    ;; creates an infinite loop for queries that always time out.
+                    (assoc ctx
+                      :response-status 504
+                      :content (assoc result :input input)
+                      :page-meta {:title "SPARQL timeout"
+                                  :page  "sparql"})
+                    (assoc ctx
+                      :content (assoc result :input input)
+                      :page-meta {:title "SPARQL query result"
+                                  :page  "sparql"})))
+
+                ;; No query - render the SPARQL editor page.
+                :else
+                (assoc ctx
+                  :content {:input input}
+                  :page-meta {:title "SPARQL query editor"
+                              :page  "sparql"}))))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route

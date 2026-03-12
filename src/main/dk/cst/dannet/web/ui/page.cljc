@@ -1,13 +1,16 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
-  (:require [rum.core :as rum]
+  (:require [dk.cst.dannet.web.ui.error :as error]
+            [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
+            [dk.cst.dannet.web.ui.sparql :as sparql]
             [dk.cst.dannet.web.ui.markdown :as mdc]))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
@@ -80,6 +83,32 @@
                  (i18n/da-en languages (:da title) (:en title)))]
           [:p.subheading (i18n/da-en languages (:da desc) (:en desc))]
           (catalog/table opts k->label entries)]))]))
+
+(rum/defc sparql
+  "SPARQL query editor and results page."
+  [{:keys [languages inference?] :as opts}]
+  [:article.sparql
+   [:header.page-header
+    [:h1 (i18n/da-en languages
+           "SPARQL"
+           "SPARQL")]]
+   [:p.subheading
+    (i18n/da-en languages
+      "Søg i DanNet-databasen ("
+      "Search the DanNet database (")
+    [:a {:href "/dannet/page/sparql"
+         :title (i18n/da-en languages
+                  "SPARQL-guide"
+                  "SPARQL guide")}
+     (i18n/da-en languages
+       "få hjælp her"
+       "read tutorial")] ")"]
+   (sparql/editor opts)
+   (when inference?
+     [:p.note (i18n/da-en languages
+                "Brugte inferensgrafen"
+                "Used the inference graph")])
+   (sparql/output opts)])
 
 (rum/defc error
   "User-friendly error page shown when a page component fails to render."

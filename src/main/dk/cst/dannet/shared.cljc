@@ -126,10 +126,11 @@
 #?(:cljs
    (do
      (def transit-read-handlers
-       {"lstr"        lstr/read-LangStr
-        "rdfdatatype" identity
-        "f"           parse-double                          ; BigDecimal
-        "datetime"    identity})
+       {"lstr"         lstr/read-LangStr
+        "rdfdatatype"  identity
+        "f"            parse-double                         ; BigDecimal
+        "sparqlresult" identity
+        "datetime"     identity})
 
      ;; TODO: handle datetime more satisfyingly typewise and in the web UI
      (def reader

@@ -202,11 +202,20 @@ def _make_sparql_request(client: DanNetClient, url: str, params: Dict) -> Dict:
     
     # Handle SPARQL-specific HTTP errors
     if response.status_code == 400:
-        error_text = response.text
-        if "Query parsing failed" in error_text or "QueryParseException" in error_text:
-            raise DanNetError(f"SPARQL syntax error in query: {error_text}")
-        else:
-            raise DanNetError(f"Invalid SPARQL query: {error_text}")
+        try:
+            err = response.json()
+            msg = err.get("error", "Invalid SPARQL query")
+            details = err.get("details") or err.get("type")
+            raise DanNetError(f"{msg} ({details})" if details else msg)
+        except (ValueError, KeyError):
+            raise DanNetError(f"Invalid SPARQL query: {response.text}")
+    elif response.status_code == 504:
+        try:
+            err = response.json()
+            msg = err.get("error", {}).get("message", "Query timed out")
+            raise DanNetError(msg)
+        except (ValueError, KeyError):
+            raise DanNetError("SPARQL query timed out")
     elif response.status_code == 404:
         raise DanNetError("SPARQL endpoint not found - check server configuration")
     
@@ -1675,7 +1684,7 @@ def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distinct: bool = True) -> Dict[str, Any]:
+def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distinct: bool = True, inference: bool | None = None) -> Dict[str, Any]:
     """
     Execute a SPARQL SELECT query against the DanNet triplestore.
 
@@ -1801,6 +1810,12 @@ def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distin
         max_results: Maximum number of results to return (default: 100, max: 100)
         distinct: Auto-apply DISTINCT to SELECT queries (default: True).
                   Set to False when you need duplicate rows, e.g. for frequency counts.
+        inference: Control model selection for query execution (default: None).
+                   None = auto-detect: tries base model first, retries with inference
+                   if SELECT results are empty (best for most queries).
+                   True = force inference model: needed for inverse relations like
+                   wn:hyponym, wn:holonym, etc. that are derived by OWL reasoning.
+                   False = force base model only, no retry.
 
     Returns:
         Dict containing SPARQL results in standard JSON format:
@@ -1826,6 +1841,8 @@ def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distin
             request_params["maxResults"] = str(max_results)
         if not distinct:
             request_params["distinct"] = "false"
+        if inference is not None:
+            request_params["inference"] = "true" if inference else "false"
 
         # Use the standalone retry-enabled function
         return _make_sparql_request(client, f"{client.base_url}/dannet/sparql", request_params)
