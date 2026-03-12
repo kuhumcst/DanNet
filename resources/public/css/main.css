@@ -286,6 +286,7 @@ sub {
 code {
     background: rgba(0,0,0,0.1);
     color: black;
+    text-shadow: none !important;
     padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
     font-size: 14px;
@@ -294,6 +295,7 @@ code {
 }
 
 pre code {
+    text-shadow: none !important;
     padding: 0;
     background: none;
     color: white;
@@ -301,6 +303,12 @@ pre code {
 pre {
     background: rgba(0,0,0,0.85);
     padding: var(--spacing-s) var(--spacing-m);
+}
+
+pre.message {
+    color: black;
+    background: transparent;
+    padding: 0;
 }
 
 /* Definition lists */
@@ -724,8 +732,8 @@ header.page-header {
 }
 
 footer.page-footer {
-    padding: var(--spacing-xl) 0 var(--spacing-m) 0;
-    margin-top: var(--spacing-m);
+    padding: var(--spacing-l) 0 var(--spacing-m) 0;
+    margin-top: var(--spacing-s);
 }
 
 footer.page-footer p {
@@ -1746,6 +1754,7 @@ details.render-error[open] {
 
 details.render-error > summary {
     font-size: inherit;
+    padding: 0;
 }
 
 /* Inline render error (red squiggly underline) */

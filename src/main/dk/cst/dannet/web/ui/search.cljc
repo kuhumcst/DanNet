@@ -6,49 +6,12 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.entity :as entity]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
-
-(defn- form-elements->query-params
-  "Retrieve a map of query parameters from HTML `form-elements`."
-  [form-elements]
-  (into {} (for [form-element form-elements]
-             (when (not-empty (.-name form-element))
-               [(.-name form-element) (.-value form-element)]))))
-
-(defn submit-form
-  "Submit a form `target` element (optionally with a custom `query-string`)."
-  [target & [query-str]]
-  #?(:cljs (let [action    (.-action target)
-                 query-str (or query-str
-                               (-> (.-elements target)
-                                   (form-elements->query-params)
-                                   (uri/map->query-string)))
-                 url       (str action (when query-str
-                                         (str "?" query-str)))]
-             (js/document.activeElement.blur)
-             (shared/navigate-to url))))
-
-;; TODO: handle other methods (only handles GET for now)
-(defn on-submit
-  "Generic function handling form submit events in Rum components."
-  [e]
-  #?(:cljs (let [target (.-target e)]
-             (.preventDefault e)
-             (submit-form target))))
-
-(defn autofocus-ref
-  [node]
-  (when node (.focus node)))
-
-(defn select-text
-  "Select text in the target that triggers `e` with a small delay to bypass
-  browser's other text selection logic."
-  [e]
-  #?(:cljs (js/setTimeout #(.select (.-target e)) 100)))
 
 (defn update-suggestions
   "An :on-change handler for search suggestions. Each unknown string initiates
@@ -76,7 +39,7 @@
                        #?(:cljs (let [form  (js/document.getElementById "search-form")
                                       input (js/document.getElementById "search-input")]
                                   (set! (.-value input) v)
-                                  (submit-form form (str "lemma=" v)))
+                                  (form/submit-form form (str "lemma=" v)))
                           :clj  nil))]
     [:li {:role        "option"
           :tab-index   "-1"
@@ -103,7 +66,7 @@
                        (aria/keydown-handler
                          #(let [form (js/document.getElementById "search-form")]
                             (reset! open false)
-                            (submit-form form)
+                            (form/submit-form form)
                             (js/document.activeElement.blur))
                          {"Escape" (fn [e]
                                      (.preventDefault e)
@@ -125,7 +88,7 @@
                              "Søg efter synsets"
                              "Search for synsets")
                 :action    prefix/search-path
-                :on-submit on-submit
+                :on-submit form/on-submit
                 :method    "get"}
          [:input {:role                  "combobox"
                   :aria-expanded         suggestions?
@@ -139,8 +102,8 @@
                                            "skriv noget..."
                                            "write something...")
                   :on-key-down           on-key-down
-                  :ref                   autofocus-ref
-                  :on-focus              select-text
+                  :ref                   form/autofocus-ref
+                  :on-focus              form/select-text
                   :on-click              prevent-closing    ; should not bubble
                   :on-change             update-suggestions
                   :auto-complete         "off"

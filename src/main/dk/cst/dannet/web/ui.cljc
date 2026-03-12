@@ -77,7 +77,7 @@
        [:a {:href "https://cst.ku.dk/english"}
         "Centre for Language Technology"]
        " (" [:abbr {:title "University of Copenhagen"}
-             "KU"] ")"
+             "UCPH"] ")"
        " & "
        [:a {:lang "da" :href "https://dsl.dk/"}
         "Det Danske Sprog- og Litteraturselskab"]
@@ -132,7 +132,9 @@
   (let [page-component (get {"entity"   page/entity
                              "search"   page/search
                              "markdown" page/markdown
-                             "metadata" page/metadata}
+                             "metadata" page/metadata
+                             "sparql"   page/sparql
+                             "error"    page/error}
                             page
                             page/not-found)
         ;; The backend also needs access to user-specific state to be able to

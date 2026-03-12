@@ -25,13 +25,17 @@
      :clj  {}))
 
 (defn default-fallback
-  "Default error fallback: expandable details with message and stack trace."
-  [e]
-  [:details.render-error
-   [:summary "⚠️ " (ex-message e)]
-   [:pre #?(:cljs (.-stack e)
-            :clj  (with-out-str
-                    (clojure.stacktrace/print-cause-trace e)))]])
+  "Default error fallback for error `e` or an explicit `message` + `details`."
+  ([e]
+   [:details.render-error
+    [:summary "⚠️ " (ex-message e)]
+    [:pre.message #?(:cljs (.-stack e)
+                     :clj  (with-out-str
+                             (clojure.stacktrace/print-cause-trace e)))]])
+  ([message details]
+   [:details.render-error
+    [:summary "⚠️ " message]
+    [:pre.message details]]))
 
 (rum/defcs error-boundary < error-boundary-mixin
   "Wrap `child` in a React error boundary, showing `fallback` on error.

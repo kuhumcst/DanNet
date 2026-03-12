@@ -294,7 +294,10 @@
   "Construct a database map from an Apache Jena `dataset`.
 
   If `schema-uris` are provided, the returned model & graph contain inferences;
-  otherwise, the model/graph is of union of the models/graphs in the dataset."
+  otherwise, the model/graph is of union of the models/graphs in the dataset.
+
+  The base (non-inference) model is always available as :base-model for use by
+  the SPARQL endpoint, where inference is opt-in."
   [^Dataset dataset & [schema-uris]]
   (if schema-uris
     (let [schema    (db/->schema-model schema-uris)
@@ -302,14 +305,16 @@
           inf-model (ModelFactory/createInfModel reasoner schema model)
           inf-graph (.getGraph inf-model)]
       (println "Schema URIs found -- constructing inference model.")
-      {:dataset dataset
-       :model   inf-model
-       :graph   inf-graph})
+      {:dataset    dataset
+       :base-model model
+       :model      inf-model
+       :graph      inf-graph})
     (let [model (.getUnionModel dataset)
           graph (.getGraph model)]
-      {:dataset dataset
-       :model   model
-       :graph   graph})))
+      {:dataset    dataset
+       :base-model model
+       :model      model
+       :graph      graph})))
 
 (defn fetch-bootstrap-datasets!
   "Fetch DanNet dataset releases from GitHub and prepare them for bootstrapping.

@@ -3,7 +3,8 @@
   (:require [dk.cst.dannet.db.transaction :as tx]
             [ont-app.vocabulary.core :as voc])
   (:import [java.util.concurrent TimeUnit]
-           [org.apache.jena.query Query QueryExecution QueryFactory QueryExecutionFactory]
+           [org.apache.jena.query Query QueryCancelledException QueryExecution
+                                  QueryFactory QueryExecutionFactory]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.update UpdateFactory]))
 
@@ -65,7 +66,7 @@
   "Apply `results-limit` to SELECT `query-obj` to prevent resource exhaustion."
   [^Query query-obj results-limit]
   (when (and (.isSelectType query-obj)
-             (or (nil? (.getLimit query-obj))
+             (or (= (.getLimit query-obj) Query/NOLIMIT)
                  (> (.getLimit query-obj) results-limit)))
     (.setLimit query-obj results-limit))
   query-obj)
@@ -101,6 +102,8 @@
         (cond
           (.isSelectType query)
           {:sparql-type   :select
+           :result-vars   (mapv (fn [v] (symbol (str "?" v)))
+                                (.getResultVars query))
            :sparql-result (.materialise (.execSelect qexec))}
 
           (.isAskType query)
@@ -114,6 +117,11 @@
           (.isDescribeType query)
           {:sparql-type   :describe
            :sparql-result (.execDescribe qexec)})
+        ;; TODO: normalise very different structure of result vs. error maps
+        (catch QueryCancelledException _
+          {:error {:type    "timeout"
+                   :message (str "The query exceeded the timeout of "
+                                 (/ timeout 1000) " seconds.")}})
         (finally
           (.close qexec))))))
 

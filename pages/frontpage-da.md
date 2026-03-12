@@ -1,6 +1,6 @@
 # ![DanNet](/images/dannet-logo-black.svg)
 
-DanNet er et [WordNet][WordNet] for det **danske sprog** skabt i fællesskab af [Center for Sprogteknologi][CST] (KU) og [Dansk Sprog- og Litteraturselskab][DSL]. Du kan søge i den **aktuelle version** af DanNet ved at klikke på **søgeikonet** i øverste hjørne af siden.
+DanNet er et [WordNet][WordNet] for det **danske sprog** skabt i fællesskab af [Center for Sprogteknologi][CST] (KU) og [Dansk Sprog- og Litteraturselskab][DSL]. Du kan søge i DanNet ved at klikke på **søgeikonet** i øverste hjørne af siden _eller_ ved at skrive en [SPARQL][SPARQL]-forespørgsel.
 
 * **Introduktion:** [lægmand][intro-layman], [udvikler][intro-developer], [ontolog][intro-rdf] eller [lingvist][intro-linguist].
 * **Forskning:** universitetets [projektside][projectpage] indeholder alle relevante publikationer.
@@ -17,4 +17,5 @@ DanNet er et [WordNet][WordNet] for det **danske sprog** skabt i fællesskab af 
 [CST]: https://cst.ku.dk/ "Center for Sprogteknologi (Københavns Universitet)"
 [Carlsbergfondet]: https://www.carlsbergfondet.dk/da "Carlsbergfondet"
 [WordNet]: https://wordnet.princeton.edu/ "What is WordNet?"
-[downloads]: /dannet/page/downloads "Datasæt-downloads"
+[downloads]: /dannet/page/downloads "Datasæt-downlo~~~~ads"
+[SPARQL]: /dannet/sparql "SPARQL-forespørgsels-editor"

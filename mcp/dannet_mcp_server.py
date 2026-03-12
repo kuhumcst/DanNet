@@ -202,11 +202,20 @@ def _make_sparql_request(client: DanNetClient, url: str, params: Dict) -> Dict:
     
     # Handle SPARQL-specific HTTP errors
     if response.status_code == 400:
-        error_text = response.text
-        if "Query parsing failed" in error_text or "QueryParseException" in error_text:
-            raise DanNetError(f"SPARQL syntax error in query: {error_text}")
-        else:
-            raise DanNetError(f"Invalid SPARQL query: {error_text}")
+        try:
+            err = response.json()
+            msg = err.get("error", "Invalid SPARQL query")
+            details = err.get("details") or err.get("type")
+            raise DanNetError(f"{msg} ({details})" if details else msg)
+        except (ValueError, KeyError):
+            raise DanNetError(f"Invalid SPARQL query: {response.text}")
+    elif response.status_code == 408:
+        try:
+            err = response.json()
+            msg = err.get("error", {}).get("message", "Query timed out")
+            raise DanNetError(msg)
+        except (ValueError, KeyError):
+            raise DanNetError("SPARQL query timed out")
     elif response.status_code == 404:
         raise DanNetError("SPARQL endpoint not found - check server configuration")
     
