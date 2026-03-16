@@ -106,7 +106,7 @@
                  :forward (rest forward)))))))
 
 (defn- ignore-anchor-click?
-  "Adds a side-effect to any intercepted anchor clicks in reitit making sure
+  "Adds a side effect to any intercepted anchor clicks in reitit making sure
   that the scroll state always resets when intentionally clicking a link.
 
   Works in conjunction with 'update-scroll-state!' defined above."
@@ -118,6 +118,9 @@
     true))
 
 (defn on-navigate
+  "The core frontend function; gets called on every path change. This function
+  handles every single page render + all the subtleties related to that process.
+  It can be read top-to-bottom to get a clear sense of how the SPA works."
   [{:keys [path query-params] :as m}]
   ;; Abort in-flight fetches from previous pages to prevent race conditions
   ;; that cause queued pages to load unexpectedly in quick succession.
@@ -217,31 +220,22 @@
                                            :data  {:path path}}
                                           "Deferred fetch failed")))))
 
+                  ;; Reset special page change behaviour now that we're done.
                   (reset! shared/post-navigate nil)))))))
 
-
-(defn set-up-navigation!
+(defn init!
+  "Set up the Reitit router. This also starts the rendering loop by calling
+  'on-navigate', which handles everything related to rendering a frontend page."
   []
   (rfe/start! (rf/router routes)
               on-navigate
               {:use-fragment         false
                :ignore-anchor-click? ignore-anchor-click?}))
 
-(defn ^:dev/after-load render
-  []
+;; This function is only used by the shadow-cljs watch process!
+(defn ^:dev/after-load render []
   (let [{:keys [data headers]} @location
         page-component (ui/page-shell (shared/x-header headers :page) data)]
-    (set-up-navigation!)                                    ; keep up-to-date
+    ;; Call both again to ensure that we keep up-to-date with code changes
+    (init!)
     (mount-page! page-component)))
-
-(defn init!
-  "The entry point of the frontend app."
-  []
-  (let [entry-url (str js/window.location.pathname js/window.location.search)]
-    (.then (shared/api entry-url)
-           #(let [data           (:body %)
-                  page           (shared/x-header (:headers %) :page)
-                  page-component (ui/page-shell page data)]
-              (shared/clear-current-fetch entry-url)
-              (mount-page! page-component)
-              (set-up-navigation!)))))
