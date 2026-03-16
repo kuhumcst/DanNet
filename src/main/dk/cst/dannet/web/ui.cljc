@@ -16,14 +16,14 @@
 (defonce ^:dynamic *hydrated* false)
 
 (rum/defc page-footer
-  [{:keys [languages] :as opts}]
+  [languages]
   [:footer.page-footer
    [:hr]
    (i18n/da-en languages
      [:<>
       [:p {:lang "da"}
        [:a {:href  (shared/page-href "privacy")
-            :title "Privatlivspolitik"}
+            :titlex "Privatlivspolitik"}
         "Privatliv"]
        " · "
        [:a {:href  "https://www.was.digst.dk/wordnet-dk"
@@ -67,11 +67,11 @@
        " · "
        [:a {:href  "/dannet/metadata"
             :title "DanNet metadata (RDF)"}
-        "Metadata"]]
-      " · "
-      [:a {:href  "/dannet/page/downloads"
-           :title "Downloads"}
-       "Downloads"]
+        "Metadata"]
+       " · "
+       [:a {:href  "/dannet/page/downloads"
+            :title "Downloads"}
+        "Downloads"]]
       [:p {:lang "en"}
        "© 2023–2026, "
        [:a {:href "https://cst.ku.dk/english"}
@@ -210,4 +210,4 @@
                                        ""))]}
       [:main
        (error/try-render (page-component opts') (page/error opts'))]
-      (page-footer opts)]]))
+      (page-footer languages')]]))
