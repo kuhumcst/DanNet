@@ -5,6 +5,18 @@ By reading this guide you will learn how to use [SPARQL](https://www.w3.org/TR/s
 
 > **NOTE:** all examples in the guide run against the [DanNet SPARQL endpoint](/dannet/sparql). Keep in mind that this public version of DanNet has limits in place for both the size of the result sets _and_ the query run time. We also limit the number of concurrent requests that require inferencing to complete.
 
+## Quick overview
+
+**RDF** is the data format. All data in DanNet is stored as **triples**, i.e. simple statements of the form `subject predicate object`. For example: *synset-52 has-definition "sødt bagværk…"*. A collection of triples forms a graph.
+
+**SPARQL** is the query language for RDF graphs. You write a pattern of triples with **variables** (marked with `?`) and the database finds all matching triples. It's analogous to how SQL queries tables, except here you're querying a graph.
+
+**DanNet** organises its data around three key building blocks (words, senses, and synsets), following the structure of the original Princeton WordNet. These are formalised for RDF using the [OntoLex-Lemon](https://www.w3.org/2016/05/ontolex/) standard. The chain is: **Word → Sense → Synset**. A word can have multiple senses, and each sense points to a synset. Synsets are connected to each other through semantic relations.
+
+Every entity (words, senses, synsets) is identified by a **URI** (e.g. `https://wordnet.dk/dannet/data/synset-52`), and you can visit any of them in your browser. Properties like labels, definitions, and relations are all just triples pointing from one URI to another (or to a text value).
+
+With that in mind, the rest of this guide walks through RDF and SPARQL in detail, starting from scratch.
+
 ## 1. What is RDF?
 
 RDF (Resource Description Framework) is a way of representing knowledge as a graph. The DanNet database is an RDF graph. Where relational databases (e.g. using SQL) store data in rows and columns, RDF stores data as **triples**, i.e. statements of the form:
@@ -51,9 +63,9 @@ This describes four facts about the same subject. You can see this exact Turtle 
 
 DanNet follows the [OntoLex-Lemon](https://www.w3.org/2016/05/ontolex/) standard. The key building blocks are:
 
-- **LexicalEntry** (a word, e.g. "kage"): has a written form and a part of speech
-- **LexicalSense** (a word-meaning pairing): connects a word to a concept
-- **LexicalConcept / Synset** (a meaning): has a definition, and relates to other synsets
+- **Words** (*LexicalEntry*), e.g. "kage", with a written form and part of speech.
+- **Senses** (*LexicalSense*), a pairing of a word with a specific meaning.
+- **Synsets** (*LexicalConcept*), a meaning shared by one or more words, with a definition and relations to other synsets (hypernyms, hyponyms, etc.).
 
 The chain looks like this:
 
@@ -62,6 +74,7 @@ LexicalEntry (word)  →  LexicalSense  →  LexicalConcept (synset)
                                                 ↕
                                 other Synsets (hypernyms, hyponyms, etc.)
 ```
+> **NOTE:** while the formal OntoLex-Lemon terms (*LexicalEntry*, *LexicalSense*, *LexicalConcept*) appear in SPARQL queries, we will simply refer to these as **words**, **senses**, and **synsets** throughout this guide.
 
 ## 2. What is SPARQL?
 
@@ -151,12 +164,10 @@ The reverse question: what are the *kinds of* cake? We flip the pattern and look
 SELECT ?hyponym ?label WHERE {
   ?hyponym wn:hypernym dn:synset-52 .
   ?hyponym rdfs:label ?label .
-} LIMIT 10
+}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fhyponym%20%3Flabel%20WHERE%20%7B%20%3Fhyponym%20wn%3Ahypernym%20dn%3Asynset-52%20.%20%3Fhyponym%20rdfs%3Alabel%20%3Flabel%20.%20%7D%20LIMIT%2010)
-
-Note the [`LIMIT 10`](https://en.wikibooks.org/wiki/SPARQL/Modifiers). Always good practice when exploring, so you don't accidentally fetch thousands of results.
+[Run this query](/dannet/sparql?query=SELECT%20%3Fhyponym%20%3Flabel%20WHERE%20%7B%20%3Fhyponym%20wn%3Ahypernym%20dn%3Asynset-52%20.%20%3Fhyponym%20rdfs%3Alabel%20%3Flabel%20.%20%7D)
 
 ### Climbing the hierarchy with property paths
 
@@ -223,10 +234,10 @@ SELECT ?synset ?label ?definition WHERE {
   ?synset skos:definition ?definition .
   ?synset rdfs:label ?label .
   FILTER(CONTAINS(?definition, "pattedyr"))
-} LIMIT 10
+}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20FILTER(CONTAINS(%3Fdefinition%2C%20%22pattedyr%22))%20%7D%20LIMIT%2010)
+[Run this query](/dannet/sparql?query=SELECT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20FILTER(CONTAINS(%3Fdefinition%2C%20%22pattedyr%22))%20%7D)
 
 ### Language filtering
 
@@ -255,9 +266,9 @@ For more on the available [expressions and functions](https://en.wikibooks.org/w
 **Performance note:** `FILTER` with `CONTAINS` on large result sets can be slow. When possible, constrain results with triple patterns first, then filter.
 
 
-## 6. Aggregation: counting and grouping
+## 6. Aggregation: counting, grouping, and limiting
 
-The [modifiers](https://en.wikibooks.org/wiki/SPARQL/Modifiers) `GROUP BY`, `ORDER BY`, and `LIMIT` let you aggregate and sort results. See also the Wikibook chapter on [aggregate functions](https://en.wikibooks.org/wiki/SPARQL/Aggregate_functions).
+The [modifiers](https://en.wikibooks.org/wiki/SPARQL/Modifiers) `GROUP BY`, `ORDER BY`, `LIMIT`, and `OFFSET` let you aggregate, sort, and paginate results. See also the Wikibook chapter on [aggregate functions](https://en.wikibooks.org/wiki/SPARQL/Aggregate_functions).
 
 ### How many hyponyms does a concept have?
 
@@ -291,6 +302,26 @@ SELECT ?word ?senses WHERE {
 
 `GROUP BY` collects rows, `COUNT` aggregates them, `ORDER BY DESC(…)` sorts descending, and `LIMIT` caps the output. This query uses a [subquery](https://en.wikibooks.org/wiki/SPARQL/Subqueries) to perform the aggregation and limiting in one step, which is more efficient for large datasets.
 
+> **NOTE:** `ORDER BY` can be very expensive on large result sets, as it requires the database to sort all matching rows before returning any. Use it sparingly and prefer queries that constrain results with triple patterns first. When combined with `GROUP BY`, sorting a smaller aggregated result (as in the subquery above) is much cheaper than sorting the full result set.
+
+### LIMIT, OFFSET, and pagination
+
+`LIMIT` restricts the number of results returned and `OFFSET` skips a number of results from the start:
+
+```sparql
+SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 20 OFFSET 40
+```
+
+This would return 20 results, starting from the 41st match.
+
+In the DanNet SPARQL editor, you generally **don't need to write these yourself**. The editor has a built-in page size selector (10, 20, 50, or 100 results per page) and previous/next buttons that handle pagination automatically.
+
+Note that there is a hard limit of **100 results** per request. This cap applies regardless of whether you set your own `LIMIT`; writing `LIMIT 500` will still return at most 100 rows.
+
+If you *do* include `LIMIT` or `OFFSET` in your query, the editor respects them as-is and disables its own pagination controls. This is useful when you need precise control over the result window, for instance in a subquery like the one above that picks the top 10 most polysemous words. Here the `LIMIT 10` is an integral part of the query logic, not just a safety measure.
+
+For ordinary exploratory queries, leave `LIMIT` and `OFFSET` out and let the editor handle pagination.
+
 
 ## 7. DanNet-specific relations
 
@@ -306,22 +337,26 @@ SELECT DISTINCT ?thingLabel ?purposeLabel WHERE {
   ?thing rdfs:label ?thingLabel .
   ?purpose rdfs:label ?purposeLabel .
   FILTER(CONTAINS(?purposeLabel, "sport"))
-} LIMIT 10
+}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3FthingLabel%20%3FpurposeLabel%20WHERE%20%7B%20%3Fthing%20dns%3AusedFor%20%3Fpurpose%20.%20%3Fthing%20rdfs%3Alabel%20%3FthingLabel%20.%20%3Fpurpose%20rdfs%3Alabel%20%3FpurposeLabel%20.%20FILTER(CONTAINS(%3FpurposeLabel%2C%20%22sport%22))%20%7D%20LIMIT%2010)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3FthingLabel%20%3FpurposeLabel%20WHERE%20%7B%20%3Fthing%20dns%3AusedFor%20%3Fpurpose%20.%20%3Fthing%20rdfs%3Alabel%20%3FthingLabel%20.%20%3Fpurpose%20rdfs%3Alabel%20%3FpurposeLabel%20.%20FILTER(CONTAINS(%3FpurposeLabel%2C%20%22sport%22))%20%7D)
 
-### Thematic roles: who does what?
+### Register: finding slang words
+
+DanNet marks certain senses with a linguistic register. For instance, you can find quickly find words that have a sense marked as slang:
 
 ```sparql
-SELECT ?actionLabel ?agentLabel WHERE {
-  ?action wn:involved_agent ?agent .
-  ?action rdfs:label ?actionLabel .
-  ?agent rdfs:label ?agentLabel .
-} LIMIT 10
+SELECT DISTINCT ?slang WHERE {
+  ?sense lexinfo:register lexinfo:slangRegister .
+  ?word ontolex:sense ?sense ;
+        ontolex:canonicalForm/ontolex:writtenRep ?slang .
+}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3FactionLabel%20%3FagentLabel%20WHERE%20%7B%20%3Faction%20wn%3Ainvolved_agent%20%3Fagent%20.%20%3Faction%20rdfs%3Alabel%20%3FactionLabel%20.%20%3Fagent%20rdfs%3Alabel%20%3FagentLabel%20.%20%7D%20LIMIT%2010)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fslang%20WHERE%20%7B%20%3Fsense%20lexinfo%3Aregister%20lexinfo%3AslangRegister%20.%20%3Fword%20ontolex%3Asense%20%3Fsense%20%3B%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fslang%20.%20%7D)
+
+This is a good example of something that is hard to discover by just browsing the web interface.
 
 ### Cross-lingual links
 
@@ -342,8 +377,6 @@ The result URI `https://en-word.net/id/oewn-07644479-n` is a synset in the Engli
 
 ## 8. Practical tips
 
-**Start small.** When exploring, always use `LIMIT`. A query without `LIMIT` that matches thousands of results will be slow or time out.
-
 **Use `DISTINCT`.** Because a word can have multiple senses leading to the same synset (via different paths), you'll often get duplicate rows. `DISTINCT` cleans that up.
 
 **Explore a single entity first.** Before writing a general query, pick one entity and look at all its properties:
@@ -351,10 +384,10 @@ The result URI `https://en-word.net/id/oewn-07644479-n` is a synset in the Engli
 ```sparql
 SELECT ?prop ?value WHERE {
   dn:synset-52 ?prop ?value .
-} LIMIT 30
+}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Fprop+%3Fvalue+WHERE+{%0A++dn%3Asynset-52+%3Fprop+%3Fvalue+.%0A}+LIMIT+30)
+[Run this query](/dannet/sparql?query=SELECT+%3Fprop+%3Fvalue+WHERE+{%0A++dn%3Asynset-52+%3Fprop+%3Fvalue+.%0A})
 
 This is the SPARQL equivalent of "show me everything about this thing". It's the best way to discover what properties are available. You can also just [visit the resource page](/dannet/data/synset-52) and browse the same data visually.
 
@@ -363,7 +396,7 @@ This is the SPARQL equivalent of "show me everything about this thing". It's the
 **Read the Turtle.** Visit any DanNet resource page (e.g. [synset-52](/dannet/data/synset-52)) and download the [Turtle representation](/dannet/data/synset-52?format=text/turtle). The predicates you see there are the same ones you use in your SPARQL queries.
 
 
-## 9. Common prefixes
+### Common prefixes
 
 You don't need to memorize full URIs. The DanNet [SPARQL endpoint](/dannet/sparql) pre-declares these [prefixes](https://en.wikibooks.org/wiki/SPARQL/Prefixes) (among others):
 
@@ -379,17 +412,7 @@ You don't need to memorize full URIs. The DanNet [SPARQL endpoint](/dannet/sparq
 | **rdf:** | http://www.w3.org/1999/02/22-rdf-syntax-ns# | Types |
 
 
-## 10. Exercises
-
-Try these on the [DanNet SPARQL endpoint](/dannet/sparql):
-
-1. Find all the meanings of the word "hund" (dog). How many distinct synsets are there?
-2. What are the kinds of (hyponyms of) "kat" (cat, [synset-3264](/dannet/data/synset-3264))?
-3. Find all synsets that are used for "mad" (food). *(Hint: use `dns:usedFor` and filter by the label.)*
-4. Which word in DanNet has the most distinct synsets?
-5. Pick any synset and trace its hypernym chain all the way to the top using `wn:hypernym+`. How many levels are there?
-
----
+### Links & external resources
 
 * The DanNet SPARQL endpoint is at: [`/dannet/sparql`](/dannet/sparql)*
 * Browse the data at: [`wordnet.dk`](/)*

@@ -71,6 +71,22 @@
     (.setLimit query-obj results-limit))
   query-obj)
 
+(defn offset-results!
+  "Apply `offset` to SELECT `query-obj` when the user hasn't set one already."
+  [^Query query-obj offset]
+  (when (and (.isSelectType query-obj)
+             (pos? offset)
+             (= (.getOffset query-obj) Query/NOLIMIT))
+    (.setOffset query-obj offset))
+  query-obj)
+
+(defn has-user-pagination?
+  "Check if `query-obj` already contains a user-supplied LIMIT or OFFSET clause."
+  [^Query query-obj]
+  (and (.isSelectType query-obj)
+       (or (not= (.getLimit query-obj) Query/NOLIMIT)
+           (not= (.getOffset query-obj) Query/NOLIMIT))))
+
 ;; TODO: eventually use something like this for formatting ASK results
 #_(defn format-ask-results
     "Format ASK query results based on requested format."
@@ -89,12 +105,14 @@
 (defn execute
   "Execute validated SPARQL `query-obj` against `model` with safety constraints
   by applying a query `timeout` and a `results-limit`. DISTINCT is also applied
-  to SELECT queries by default unless `distinct?` is false."
+  to SELECT queries by default unless `distinct?` is false. An optional `offset`
+  is applied when the query doesn't already contain an OFFSET clause."
   [^Model model ^Query query-obj timeout results-limit
-   & {:keys [distinct?] :or {distinct? true}}]
+   & {:keys [distinct? offset] :or {distinct? true offset 0}}]
   (tx/transact-read model
     (let [query (cond-> query-obj
                   distinct? (ensure-distinct!)
+                  true (offset-results! offset)
                   true (limit-results! results-limit))
           qexec (doto ^QueryExecution (QueryExecutionFactory/create query-obj model)
                   (.setTimeout ^Long timeout TimeUnit/MILLISECONDS))]

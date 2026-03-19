@@ -146,11 +146,11 @@
         languages'     (:languages state')
         comments       {:inference
                         (i18n/da-en languages'
-                          "helt eller delvist logisk udledt"
-                          "fully or partially logically inferred")
+                          "indeholder logisk afledt data"
+                          "contains logically inferred data")
                         :inheritance
                         (i18n/da-en languages'
-                          "helt eller delvist  nedarvet fra hypernym"
+                          "helt eller delvist nedarvet fra hypernym"
                           "fully or partially inherited from hypernym")
                         :supplemented
                         (i18n/da-en languages'

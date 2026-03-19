@@ -40,7 +40,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret s
 * Nogle af ordklasserne for adjektiver tilføjet i udgivelsen `2023-05-11` manglede en ordklasse-relation og/eller forvekslede to separate relationstyper; dette er nu blevet rettet.
 
 ## **2023-11-28**: Korte etiketter
-* `dns:shortLabel`-varianter af de eksisterende synset-labels (udledt fra bl.a. ordfrekvenser fra [DDO](https://ordnet.dk/ddo)) er blevet tilføjet til DanNet-datasættet.
+* `dns:shortLabel`-varianter af de eksisterende synset-labels (afledt fra bl.a. ordfrekvenser fra [DDO](https://ordnet.dk/ddo)) er blevet tilføjet til DanNet-datasættet.
 * `dns:source` bruges nu igen til at linke til oprindelige opslagskilder som f.eks. DDO. Brugen af `dc:source` var både problematisk ift. skemadefinitionen samt det irritationsmoment at `dc` i visse tilfælde skaber forvirring når det bruges som RDF-præfiks, da det kan være hardcoded til en bestemt IRI.
 * Nogle sense-etiketter havde ved en fejl mistet deres sprog (@da) og dette er nu udbedret.
 
@@ -52,7 +52,7 @@ De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret s
 * Flere nye relationer ( `dns:eqHypernym`, `dns:eqHyponym` og `dns:eqSimilar` ) er blevet tilføjet, da `wn:ili` og `wn:eqSynonym` ikke var nok til at beskrive de relationer vi har mellem forskellige WordNets nu.
 * DanNet-synsets har nu også de rå DDO-domæneværdier fra DSL, der fandtes i gamle versioner af DanNet. Disse repræsenteres med  `dc:subject`-relationen.
 * Derudover er kønsdata fra de gamle versioner af DanNet også nu inkluderet. Det kan findes via den nye `dns:gender`-relation.
-* For bedre at kunne facilitere navigation af grafen på DanNet-hjemmesiden er en ny relation, `dns:linkedConcept`, blevet tilføjet til DanNet-skemaet. Denne relation er den omvendte relation af `wn:ili` og kan udledes i den store graf der kan udforskes på wordnet.dk/dannet.
+* For bedre at kunne facilitere navigation af grafen på DanNet-hjemmesiden er en ny relation, `dns:linkedConcept`, blevet tilføjet til DanNet-skemaet. Denne relation er den omvendte relation af `wn:ili` og kan afledes i den store graf der kan udforskes på wordnet.dk/dannet.
 
 ## **2023-06-01**: ~5000 links til Open English WordNet
 * Skemaoversættelserne er blevet opdateret.
@@ -77,7 +77,7 @@ Der er for mange ændringer i denne første version til at opremse dem alle på 
 * DanNet er nu "RDF-native"; RDF-skemaer er også tilgængelige og dækker bl.a. ontologiske typer.
 * De DSL-afledte Dannet-ID'er oversættes nu til egentlige RDF-ressourcer der kan ses i en browser.
 * Diverse alternative datasæt kan også downloades og disse er også sammenføjet med det data der er på wordnet.dk.
-* Yderligere datapunkter er også blevet udledt fra vores "bootstrap"-data, f.eks. omvendte relationer.
+* Yderligere datapunkter er også blevet afledt fra vores "bootstrap"-data, f.eks. omvendte relationer.
 * Vores CSV-download er nu CSVW og inkluderer metadatafiler, der beskriver indholdet af kolonnerne.
 * DanNet-datasættene er nu tilgængelige under en CC BY-SA 4.0-licens og projektets kildekode under en MIT-licens.
 * ... og selvfølgelig er wordnet.dk/dannet nu DanNets nye hjem.

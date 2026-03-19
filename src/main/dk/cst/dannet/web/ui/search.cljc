@@ -107,6 +107,7 @@
                   :on-click              prevent-closing    ; should not bubble
                   :on-change             update-suggestions
                   :auto-complete         "off"
+                  :required              true
                   :default-value         (or lemma s "")}]
          [:input {:type      "submit"
                   :tab-index "-1"

@@ -359,8 +359,8 @@ dl.search-results div {
     box-shadow: var(--shadow-card);
 }
 
-dl.search-results div + div {
-    margin-top: var(--spacing-xxl);
+dl.search-results div {
+    margin-bottom: var(--spacing-xxl);
 }
 
 dl.search-results div:hover,
@@ -519,13 +519,13 @@ p.note {
 }
 
 p.note + p.note {
-    margin-top: 0;
+    margin-top: var(--spacing-s);
 }
 
 p.note strong {
-    font-size: var(--font-size-l);
     color: var(--color-dark);
-    vertical-align: middle;
+    vertical-align: baseline;
+    margin-right: var(--spacing-xs);
 }
 
 
@@ -1623,6 +1623,32 @@ ul.hypernym-chain > li.subject {
 ul.hypernym-chain > li.subject::before {
     content: "";
     margin-right: 0;
+}
+
+
+/* ===========================================
+   SPARQL EDITOR
+   =========================================== */
+
+.sparql-editor + output {
+    display: block;
+    margin-top: var(--spacing-xl);
+}
+
+.sparql-editor__input {
+    display: flex;
+    gap: var(--spacing-s);
+}
+
+.sparql-editor__input textarea {
+    padding: var(--spacing-s);
+    flex-grow: 1;
+    resize: vertical;
+    min-height: 8em;
+}
+
+.sparql-editor__controls {
+    padding: var(--spacing-s);
 }
 
 

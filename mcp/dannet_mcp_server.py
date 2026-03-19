@@ -1831,14 +1831,15 @@ def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distin
         
         request_params = {
             "query": query,
-            "format": "json"
+            "format": "json",
+            "lookahead": "false"
         }
         
         # Add optional parameters if they differ from defaults
         if timeout != 8000:
             request_params["timeout"] = str(timeout)
         if max_results != 100:
-            request_params["maxResults"] = str(max_results)
+            request_params["limit"] = str(max_results)
         if not distinct:
             request_params["distinct"] = "false"
         if inference is not None:

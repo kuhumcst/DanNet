@@ -37,7 +37,8 @@
   [e]
   #?(:cljs (let [target (.-target e)]
              (.preventDefault e)
-             (submit-form target))))
+             (when (.checkValidity target)
+               (submit-form target)))))
 
 (defn autofocus-ref
   [node]

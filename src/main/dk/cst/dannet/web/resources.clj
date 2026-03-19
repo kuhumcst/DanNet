@@ -948,34 +948,47 @@
     3. No query     -> :sparql has :input nil, editor page is rendered."
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query timeout maxResults distinct inference]} (:query-params request)
+            (let [{:keys [query timeout limit offset
+                          distinct inference lookahead]} (:query-params request)
                   raw-sparql (or query
                                  (when (string? (:body request))
                                    (:body request)))]
               (if raw-sparql
                 (try
-                  (let [query-obj   (sparql/validate raw-sparql)
-                        timeout'    (if timeout
-                                      (min (Long/parseLong timeout)
-                                           sparql/max-timeout)
-                                      sparql/max-timeout)
-                        maxResults' (if maxResults
-                                      (min (Long/parseLong maxResults)
-                                           sparql/max-results-limit)
-                                      sparql/max-results-limit)
-                        distinct?   (not= distinct "false")
+                  (let [query-obj  (sparql/validate raw-sparql)
+                        timeout'   (if timeout
+                                     (min (Long/parseLong timeout)
+                                          sparql/max-timeout)
+                                     sparql/max-timeout)
+                        limit'     (if limit
+                                     (min (Long/parseLong limit)
+                                          sparql/max-results-limit)
+                                     sparql/max-results-limit)
+                        offset'    (if offset
+                                     (Long/parseLong offset)
+                                     0)
+                        distinct?  (not= distinct "false")
+                        ;; Lookahead (N+1) is on by default for pagination.
+                        ;; Disable when the query contains LIMIT/OFFSET or
+                        ;; when explicitly opted out via lookahead=false.
+                        user-pag?  (sparql/has-user-pagination? query-obj)
+                        lookahead? (and (not= lookahead "false")
+                                        (not user-pag?))
                         ;; Three-way: nil (auto), true (force), false (base only)
-                        inference?  (case inference
-                                     "true"  true
+                        inference? (case inference
+                                     "true" true
                                      "false" false
                                      nil)]
                     (assoc ctx
-                      :sparql {:input       {:query raw-sparql}
-                               :query-obj   query-obj
-                               :timeout     timeout'
-                               :max-results maxResults'
-                               :distinct?   distinct?
-                               :inference?  inference?}))
+                      :sparql {:input      {:query     raw-sparql
+                                            :inference inference}
+                               :query-obj  query-obj
+                               :timeout    timeout'
+                               :limit      limit'
+                               :offset     offset'
+                               :distinct?  distinct?
+                               :lookahead? lookahead?
+                               :inference? inference?}))
                   (catch ExceptionInfo e
                     (let [{:keys [type cause max actual]} (ex-data e)
                           languages (request->languages request)
@@ -1007,32 +1020,44 @@
   "Execute the validated SPARQL query, or render the editor page if no query.
   Skipped when sparql-validation-ic already set :content (validation error).
 
+  When `lookahead?` is true (set by the frontend via the `lookahead` query param),
+  uses the N+1 trick for pagination: requests one extra row beyond the limit
+  to determine if more results exist, then the UI trims back to the requested limit.
+
   Model selection:
     inference?=nil   Auto: try base model first, retry with inference if empty.
     inference?=true  Force inference model (slower, may time out).
     inference?=false Force base model only, no retry."
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql] :as ctx}]
-            (let [{:keys [input query-obj timeout max-results
-                          distinct? inference?]} sparql
-                  run-query (fn [model executor]
-                              (try
-                                (tx/with-hard-timeout executor timeout
-                                  #(sparql/execute model
-                                                   query-obj timeout max-results
-                                                   :distinct? distinct?))
-                                (catch TimeoutException _
-                                  {:error {:type    "timeout"
-                                           :message (str "The query exceeded the timeout of "
-                                                         (/ timeout 1000) " seconds.")}})
-                                ;; Safety net: the hard timeout abandons the query
-                                ;; thread without interrupting it (to protect TDB2),
-                                ;; but unexpected exceptions from the InfModel or
-                                ;; Jena internals should still produce a clean error
-                                ;; response rather than a 500.
-                                (catch Exception e
-                                  {:error {:type    (.getSimpleName (class e))
-                                           :message (.getMessage e)}})))]
+            (let [{:keys [input query-obj timeout limit offset
+                          distinct? lookahead? inference?]} sparql
+                  fetch-limit (if lookahead? (inc limit) limit)
+                  run-query   (fn [model executor]
+                                (try
+                                  (tx/with-hard-timeout executor timeout
+                                    #(sparql/execute model query-obj timeout fetch-limit
+                                                     :distinct? distinct?
+                                                     :offset offset))
+                                  (catch TimeoutException _
+                                    {:error {:type    "timeout"
+                                             :message (str "The query exceeded the timeout of "
+                                                           (/ timeout 1000) " seconds.")}})
+                                  ;; Safety net: the hard timeout abandons the query
+                                  ;; thread without interrupting it (to protect TDB2),
+                                  ;; but unexpected exceptions from the InfModel or
+                                  ;; Jena internals should still produce a clean error
+                                  ;; response rather than a 500.
+                                  (catch Exception e
+                                    {:error {:type    (.getSimpleName (class e))
+                                             :message (.getMessage e)}})))
+                  trim-result (fn [{:keys [sparql-type sparql-result] :as result}]
+                                (if (and lookahead?
+                                         (= sparql-type :select)
+                                         (instance? ResultSetMem sparql-result)
+                                         (> (.size ^ResultSetMem sparql-result) limit))
+                                  (assoc result :has-more? true)
+                                  result))]
               (cond
                 ;; Validation error - :content already set, pass through.
                 (:content ctx)
@@ -1041,25 +1066,25 @@
                 ;; Valid query - execute and return results.
                 query-obj
                 (let [{:keys [base-model model]} @db
-                      result
-                      (case inference?
-                        ;; Force inference model.
-                        true
-                        (assoc (run-query model tx/inference-query-executor)
-                          :inference? true)
+                      result (case inference?
+                               ;; Force inference model.
+                               true
+                               (assoc (run-query model tx/inference-query-executor)
+                                 :inference? true)
 
-                        ;; Force base model, no retry.
-                        false
-                        (assoc (run-query base-model tx/query-executor)
-                          :inference? false)
+                               ;; Force base model, no retry.
+                               false
+                               (assoc (run-query base-model tx/query-executor)
+                                 :inference? false)
 
-                        ;; Auto: try base, retry with inference if empty.
-                        (let [base-result (run-query base-model tx/query-executor)]
-                          (if (empty-select-result? base-result)
-                            (assoc (run-query model tx/inference-query-executor)
-                              :inference? true)
-                            (assoc base-result
-                              :inference? false))))]
+                               ;; Auto: try base, retry with inference if empty.
+                               (let [base-result (run-query base-model tx/query-executor)]
+                                 (if (empty-select-result? base-result)
+                                   (assoc (run-query model tx/inference-query-executor)
+                                     :inference? true)
+                                   (assoc base-result
+                                     :inference? false))))
+                      result (trim-result result)]
                   (if (:error result)
                     ;; Use 504 (Gateway Timeout) rather than 408 (Request Timeout):
                     ;; browsers auto-retry 408 responses per the HTTP spec, which
@@ -1070,7 +1095,11 @@
                       :page-meta {:title "SPARQL timeout"
                                   :page  "sparql"})
                     (assoc ctx
-                      :content (assoc result :input input)
+                      :content (assoc result
+                                 :input input
+                                 :limit limit
+                                 :offset offset
+                                 :lookahead? lookahead?)
                       :page-meta {:title "SPARQL query result"
                                   :page  "sparql"})))
 

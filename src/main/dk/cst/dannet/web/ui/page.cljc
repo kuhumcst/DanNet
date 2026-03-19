@@ -48,7 +48,12 @@
    (when-not (empty? search-results)
      [:dl.search-results
       (for [[k entity] search-results]
-        (rum/with-key (search/result k entity opts) k))])])
+        (rum/with-key (search/result k entity opts) k))])
+   [:p.note
+    [:strong "☞ "]
+    (i18n/da-en languages
+      [:<> "overvej at bruge " [:a {:href prefix/sparql-path} "SPARQL"] " til avancerede søgninger"]
+      [:<> "consider using " [:a {:href prefix/sparql-path} "SPARQL"] " for advanced queries"])]])
 
 (rum/defc markdown
   [{:keys [languages content] :as opts}]
@@ -86,7 +91,7 @@
 
 (rum/defc sparql
   "SPARQL query editor and results page."
-  [{:keys [languages inference?] :as opts}]
+  [{:keys [languages] :as opts}]
   [:article.sparql
    [:header.page-header
     [:h1 (i18n/da-en languages
@@ -104,10 +109,6 @@
        "få hjælp her"
        "read tutorial")] ")"]
    (sparql/editor opts)
-   (when inference?
-     [:p.note (i18n/da-en languages
-                "Brugte inferensgrafen"
-                "Used the inference graph")])
    (sparql/output opts)])
 
 (rum/defc error
