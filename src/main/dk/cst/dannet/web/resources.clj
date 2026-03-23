@@ -949,7 +949,7 @@
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [query timeout limit offset
-                          distinct inference lookahead]} (:query-params request)
+                          distinct inference lookahead noop]} (:query-params request)
                   query-str (or query
                                 (when (string? (:body request))
                                   (:body request)))]
@@ -967,7 +967,7 @@
                         offset'    (if offset
                                      (Long/parseLong offset)
                                      0)
-                        distinct?  (not= distinct "false")
+                        distinct?  (= distinct "true")
                         ;; Lookahead (N+1) is on by default for pagination.
                         ;; Disable when the query contains LIMIT/OFFSET or
                         ;; when explicitly opted out via lookahead=false.
@@ -981,8 +981,10 @@
                                      nil)]
                     (assoc ctx
                       :sparql {:input      {:query     query-str
-                                            :inference inference}
+                                            :inference inference
+                                            :distinct  distinct}
                                :query-obj  query-obj
+                               :noop?      (some? noop)
                                :timeout    timeout'
                                :limit      limit'
                                :offset     offset'
@@ -1016,12 +1018,17 @@
   model selection (base vs inference), and the N+1 pagination lookahead."
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql] :as ctx}]
-            (let [{:keys [input query-obj limit offset lookahead?]
+            (let [{:keys [input query-obj noop? limit offset lookahead?]
                    :as   query-opts} sparql]
               (cond
                 ;; Validation error -> :content already set, pass through.
                 (:content ctx)
                 ctx
+
+                ;; Noop -> return normalized query without executing.
+                (and query-obj noop?)
+                (assoc ctx
+                  :content {:normalized-query (str query-obj)})
 
                 ;; Valid query -> execute (with caching) and return results.
                 query-obj

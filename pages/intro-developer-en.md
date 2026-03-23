@@ -18,7 +18,9 @@ curl -H "Accept: application/ld+json" https://wordnet.dk/dannet/data/synset-5028
 ```
 
 ### SPARQL endpoint
-A public [SPARQL endpoint][SPARQL endpoint] is available for programmatic querying. It has restrictions on result set size and query execution time.
+A public [SPARQL endpoint][SPARQL endpoint] is available for querying. In a browser, it serves an interactive query editor. See the [SPARQL guide][SPARQL guide] for an introduction to querying DanNet.
+
+The SPARQL endpoint also accepts programmatic requests via GET (with a `query` parameter) or POST (with the query as the request body), and supports content negotiation (including serving as `application/sparql-results+json`). Additional query parameters: `limit`, `offset`, `timeout`, `inference`, and `distinct`. There are restrictions on result set size and query execution time, though, so if you need to make some more resource-intensive queries you are better off querying the dataset in a local RDF graph.
 
 ### WN-LMF + Python
 The [WN-LMF][wn-lmf] format can be used with the [wn][wn] Python library:
@@ -51,6 +53,7 @@ The DanNet codebase is an MIT-licensed Clojure/ClojureScript project hosted on [
 ## Documentation
 Additional developer-oriented documentation:
 
+* [SPARQL guide][SPARQL guide] — a hands-on introduction to querying DanNet with SPARQL
 * [Querying DanNet][queries] — SPARQL, Aristotle DSL, and graph traversal
 * [Sense/synset label format][label-rewrite]
 * [Design rationale][rationale]
@@ -69,6 +72,7 @@ Additional developer-oriented documentation:
 [about]: /dannet/page/about "About DanNet"
 [SPARQL]: https://www.w3.org/TR/sparql11-query/ "SPARQL 1.1 Query Language specification"
 [SPARQL endpoint]: /dannet/sparql "SPARQL endpoint"
+[SPARQL guide]: /dannet/page/sparql "SPARQL guide"
 [mcp]: /dannet/page/mcp "MCP server"
 [JSON-LD]: https://json-ld.org/ "JSON for Linking Data"
 [jena]: https://jena.apache.org/ "Apache Jena"

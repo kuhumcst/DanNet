@@ -95,7 +95,7 @@ SELECT DISTINCT ?synset ?label ?definition WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22kage%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22kage%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%7D&distinct=true)
 
 Let's break this down:
 
@@ -152,7 +152,7 @@ SELECT ?hypernym ?label WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Fhypernym+%3Flabel+WHERE+{+dn%3Asynset-52+wn%3Ahypernym+%3Fhypernym+.+%3Fhypernym+rdfs%3Alabel+%3Flabel+.+})
+[Run this query](/dannet/sparql?query=SELECT+%3Fhypernym+%3Flabel+WHERE+{+dn%3Asynset-52+wn%3Ahypernym+%3Fhypernym+.+%3Fhypernym+rdfs%3Alabel+%3Flabel+.+}&distinct=true)
 
 We learn that cake is a kind of *bagværk* (baked goods). One triple pattern gives us the parent concept.
 
@@ -167,7 +167,7 @@ SELECT ?hyponym ?label WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fhyponym%20%3Flabel%20WHERE%20%7B%20%3Fhyponym%20wn%3Ahypernym%20dn%3Asynset-52%20.%20%3Fhyponym%20rdfs%3Alabel%20%3Flabel%20.%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20%3Fhyponym%20%3Flabel%20WHERE%20%7B%20%3Fhyponym%20wn%3Ahypernym%20dn%3Asynset-52%20.%20%3Fhyponym%20rdfs%3Alabel%20%3Flabel%20.%20%7D&distinct=true)
 
 ### Climbing the hierarchy with property paths
 
@@ -180,7 +180,7 @@ SELECT ?ancestor ?label WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Fancestor+%3Flabel+WHERE+{%0A++dn%3Asynset-52+wn%3Ahypernym%2B+%3Fancestor+.%0A++%3Fancestor+rdfs%3Alabel+%3Flabel+.%0A})
+[Run this query](/dannet/sparql?query=SELECT+%3Fancestor+%3Flabel+WHERE+{%0A++dn%3Asynset-52+wn%3Ahypernym%2B+%3Fancestor+.%0A++%3Fancestor+rdfs%3Alabel+%3Flabel+.%0A}&distinct=true)
 
 This traces the full chain: kage → bagværk → fødevare (food).
 
@@ -196,7 +196,7 @@ SELECT ?relation ?targetLabel WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Frelation+%3FtargetLabel+WHERE+{%0A++VALUES+%3Frelation+{+wn%3Amero_substance+wn%3Aresult+dns%3AusedFor+}%0A++dn%3Asynset-52+%3Frelation+%3Ftarget+.%0A++%3Ftarget+rdfs%3Alabel+%3FtargetLabel+.%0A})
+[Run this query](/dannet/sparql?query=SELECT+%3Frelation+%3FtargetLabel+WHERE+{%0A++VALUES+%3Frelation+{+wn%3Amero_substance+wn%3Aresult+dns%3AusedFor+}%0A++dn%3Asynset-52+%3Frelation+%3Ftarget+.%0A++%3Ftarget+rdfs%3Alabel+%3FtargetLabel+.%0A}&distinct=true)
 
 We'll look at more of these DanNet-specific relations in [section 7](#7-dannet-specific-relations).
 
@@ -214,7 +214,7 @@ SELECT DISTINCT ?synset ?label ?hyperLabel WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fsynset%20%3Flabel%20%3FhyperLabel%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22fisk%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20OPTIONAL%20%7B%20%3Fsynset%20wn%3Ahypernym%2Frdfs%3Alabel%20%3FhyperLabel%20.%20%7D%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fsynset%20%3Flabel%20%3FhyperLabel%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22fisk%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20OPTIONAL%20%7B%20%3Fsynset%20wn%3Ahypernym%2Frdfs%3Alabel%20%3FhyperLabel%20.%20%7D%20%7D&distinct=true)
 
 This finds all senses of "fisk" (fish) and their hypernyms *where they exist*. Without `OPTIONAL`, any synset lacking a hypernym would be silently dropped from the results.
 
@@ -237,7 +237,7 @@ SELECT ?synset ?label ?definition WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20FILTER(CONTAINS(%3Fdefinition%2C%20%22pattedyr%22))%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20%3Fsynset%20%3Flabel%20%3Fdefinition%20WHERE%20%7B%20%3Fsynset%20skos%3Adefinition%20%3Fdefinition%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20FILTER(CONTAINS(%3Fdefinition%2C%20%22pattedyr%22))%20%7D&distinct=true)
 
 ### Language filtering
 
@@ -251,7 +251,7 @@ SELECT ?synset ?label WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Fsynset+%3Flabel+WHERE+{%0A++%3Fsynset+rdfs%3Alabel+%3Flabel+.%0A++%3Fsynset+wn%3Ahypernym+dn%3Asynset-52+.%0A++FILTER(LANG(%3Flabel)+%3D+"da")%0A})
+[Run this query](/dannet/sparql?query=SELECT+%3Fsynset+%3Flabel+WHERE+{%0A++%3Fsynset+rdfs%3Alabel+%3Flabel+.%0A++%3Fsynset+wn%3Ahypernym+dn%3Asynset-52+.%0A++FILTER(LANG(%3Flabel)+%3D+"da")%0A}&distinct=true)
 
 ### Comparison operators
 
@@ -280,7 +280,7 @@ SELECT ?label (COUNT(?hyponym) AS ?numHyponyms) WHERE {
 GROUP BY ?label
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Flabel+(COUNT(%3Fhyponym)+AS+%3FnumHyponyms)+WHERE+{%0A++%3Fhyponym+wn%3Ahypernym+dn%3Asynset-52+.%0A++dn%3Asynset-52+rdfs%3Alabel+%3Flabel+.%0A}%0AGROUP+BY+%3Flabel)
+[Run this query](/dannet/sparql?query=SELECT+%3Flabel+(COUNT(%3Fhyponym)+AS+%3FnumHyponyms)+WHERE+{%0A++%3Fhyponym+wn%3Ahypernym+dn%3Asynset-52+.%0A++dn%3Asynset-52+rdfs%3Alabel+%3Flabel+.%0A}%0AGROUP+BY+%3Flabel&distinct=true)
 
 ### Which words have the most senses?
 
@@ -298,7 +298,7 @@ SELECT ?word ?senses WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fword%20%3Fsenses%20WHERE%20%7B%20%7B%20SELECT%20%3Fword%20(COUNT(DISTINCT%20%3Fsynset)%20AS%20%3Fsenses)%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fword%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%7D%20GROUP%20BY%20%3Fword%20ORDER%20BY%20DESC(%3Fsenses)%20LIMIT%2010%20%7D%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20%3Fword%20%3Fsenses%20WHERE%20%7B%20%7B%20SELECT%20%3Fword%20(COUNT(DISTINCT%20%3Fsynset)%20AS%20%3Fsenses)%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fword%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%7D%20GROUP%20BY%20%3Fword%20ORDER%20BY%20DESC(%3Fsenses)%20LIMIT%2010%20%7D%20%7D&distinct=true)
 
 `GROUP BY` collects rows, `COUNT` aggregates them, `ORDER BY DESC(…)` sorts descending, and `LIMIT` caps the output. This query uses a [subquery](https://en.wikibooks.org/wiki/SPARQL/Subqueries) to perform the aggregation and limiting in one step, which is more efficient for large datasets.
 
@@ -340,7 +340,7 @@ SELECT DISTINCT ?thingLabel ?purposeLabel WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3FthingLabel%20%3FpurposeLabel%20WHERE%20%7B%20%3Fthing%20dns%3AusedFor%20%3Fpurpose%20.%20%3Fthing%20rdfs%3Alabel%20%3FthingLabel%20.%20%3Fpurpose%20rdfs%3Alabel%20%3FpurposeLabel%20.%20FILTER(CONTAINS(%3FpurposeLabel%2C%20%22sport%22))%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3FthingLabel%20%3FpurposeLabel%20WHERE%20%7B%20%3Fthing%20dns%3AusedFor%20%3Fpurpose%20.%20%3Fthing%20rdfs%3Alabel%20%3FthingLabel%20.%20%3Fpurpose%20rdfs%3Alabel%20%3FpurposeLabel%20.%20FILTER(CONTAINS(%3FpurposeLabel%2C%20%22sport%22))%20%7D&distinct=true)
 
 ### Register: finding slang words
 
@@ -354,7 +354,7 @@ SELECT DISTINCT ?slang WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fslang%20WHERE%20%7B%20%3Fsense%20lexinfo%3Aregister%20lexinfo%3AslangRegister%20.%20%3Fword%20ontolex%3Asense%20%3Fsense%20%3B%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fslang%20.%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20DISTINCT%20%3Fslang%20WHERE%20%7B%20%3Fsense%20lexinfo%3Aregister%20lexinfo%3AslangRegister%20.%20%3Fword%20ontolex%3Asense%20%3Fsense%20%3B%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fslang%20.%20%7D&distinct=true)
 
 This is a good example of something that is hard to discover by just browsing the web interface.
 
@@ -371,7 +371,7 @@ SELECT ?label ?enSynset WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Flabel%20%3FenSynset%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22kage%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20%3Fsynset%20wn%3Aeq_synonym%20%3FenSynset%20.%20%7D)
+[Run this query](/dannet/sparql?query=SELECT%20%3Flabel%20%3FenSynset%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22kage%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20%3Fsynset%20wn%3Aeq_synonym%20%3FenSynset%20.%20%7D&distinct=true)
 
 The result URI `https://en-word.net/id/oewn-07644479-n` is a synset in the English WordNet. You can [look it up](https://en-word.net/id/oewn-07644479-n) to find the English equivalents.
 
@@ -387,7 +387,7 @@ SELECT ?prop ?value WHERE {
 }
 ```
 
-[Run this query](/dannet/sparql?query=SELECT+%3Fprop+%3Fvalue+WHERE+{%0A++dn%3Asynset-52+%3Fprop+%3Fvalue+.%0A})
+[Run this query](/dannet/sparql?query=SELECT+%3Fprop+%3Fvalue+WHERE+{%0A++dn%3Asynset-52+%3Fprop+%3Fvalue+.%0A}&distinct=true)
 
 This is the SPARQL equivalent of "show me everything about this thing". It's the best way to discover what properties are available. You can also just [visit the resource page](/dannet/data/synset-52) and browse the same data visually.
 

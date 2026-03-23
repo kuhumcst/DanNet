@@ -230,7 +230,7 @@
   Uses Query.serialize() for canonical AST serialization."
   [{:keys [^Query query-obj inference? distinct? limit offset lookahead?]
     :as   query-opts}]
-  [(.serialize query-obj)
+  [(.serialize query-obj)                                   ; normalized SPARQL
    inference? distinct? limit offset lookahead?])
 
 (defn- copy-result
@@ -247,22 +247,24 @@
   "Run validated SPARQL `query-opts` against `db` with caching.
 
   Returns a map with :sparql-type, :sparql-result, :inference?, optionally
-  :has-more?. Error results include :error instead."
+  :has-more? and :cached?. Error results include :error instead."
   [db query-opts]
-  (let [k (cache-key query-opts)]
+  (let [k       (cache-key query-opts)
+        cached? (cache/has? @result-cache k)]
     ;; NOTE: small race window where an error result is briefly
     ;; visible in the cache between `lookup-or-miss` storing it
     ;; and the subsequent `evict`. Harmless in practice — a
     ;; concurrent request would see a real error, and the eviction
     ;; follows immediately so the next request retries.
-    (copy-result
-      (cw/lookup-or-miss
-        result-cache k
-        (fn [_]
-          (let [result (execute-query db query-opts)]
-            (if (:error result)
-              (do (cw/evict result-cache k) result)
-              result)))))))
+    (-> (cw/lookup-or-miss
+          result-cache k
+          (fn [_]
+            (let [result (execute-query db query-opts)]
+              (if (:error result)
+                (do (cw/evict result-cache k) result)
+                result))))
+        (copy-result)
+        (assoc :cached? cached?))))
 
 (comment
   (validate "SELECT * WHERE { ?s ?p ?o } LIMIT 10")

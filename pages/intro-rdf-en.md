@@ -48,18 +48,16 @@ All DanNet datasets are published under the [CC BY-SA 4.0][license] license and 
 ## Public access
 
 ### SPARQL endpoint
-A public [SPARQL endpoint][sparql] is available for querying the graph. It has restrictions on result set size and query execution time.
+A public [SPARQL endpoint][sparql] is available for querying the graph. It includes an interactive query editor for trying out queries in the browser. The [SPARQL guide][SPARQL guide] shows how to use SPARQL in the context of the DanNet data model. The public endpoint has restrictions on result set size and query execution time.
 
 Example query:
 
 ```sparql
-PREFIX wn: <https://globalwordnet.github.io/schemas/wn#>
-PREFIX dn: <https://wordnet.dk/dannet/data/>
-
 SELECT ?hypernym WHERE {
   dn:synset-5028 wn:hypernym ?hypernym .
 }
 ```
+[Run this query](/dannet/sparql?query=SELECT+%3Fhypernym+WHERE+{%0A++dn%3Asynset-5028+wn%3Ahypernym+%3Fhypernym+.%0A}&offset=0&limit=10&distinct=true&inference=auto)
 
 > **NOTE:** common prefixes such as `wn` and `dn` are added automatically when using the public SPARQL endpoint, so they aren't strictly necessary!
 
@@ -81,6 +79,7 @@ An [MCP server][mcp] enables integration with AI tools. The public API generally
 [downloads]: /dannet/page/downloads "Dataset downloads"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Past releases"
 [sparql]: /dannet/sparql "SPARQL endpoint"
+[SPARQL guide]: /dannet/page/sparql "SPARQL guide"
 [mcp]: /dannet/page/mcp "MCP server"
 [jena]: https://jena.apache.org/ "Apache Jena"
 [rdfa]: https://www.w3.org/TR/rdfa-primer/ "RDFa"

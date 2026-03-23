@@ -11,8 +11,10 @@ Klik på **forstørrelsesglasset** i øverste venstre hjørne af siden for at s�
 
 [![Synsettet 'kage' i DanNet](/images/kage_dannet.png)](/dannet/data/synset-52)
 
-## Brug DanNet med AI-værktøjer
+## Andre måder at bruge DanNet
 Hvis du bruger AI-assistenter som [Claude][Claude] eller [ChatGPT][ChatGPT], kan du forbinde DanNet direkte, så AI'en kan slå danske ords betydninger og relationer op for dig. Se [siden om MCP-integration][mcp] for vejledning til opsætning.
+
+Hvis du har mod på at lære endnu mere, kan du også læse vores [SPARQL-guide][SPARQL guide], som lærer dig hvordan man kan fremsøge al mulig slags viden i DanNet ved at kode i vores interaktive editor.
 
 ## Hvem har lavet DanNet?
 DanNet er skabt af [Center for Sprogteknologi][CST] ved Københavns Universitet og [Dansk Sprog- og Litteraturselskab][DSL]. Denne udgave blev første gang udgivet i 2023 med støtte fra [Carlsbergfondet][Carlsbergfondet].
@@ -31,3 +33,4 @@ Ja. DanNet er gratis at bruge, udforske og dele. Alle data er tilgængelige unde
 [palace]: /dannet/external/en/oewn-03883542-n "Palace-synset (engelsk)"
 [Claude]: https://claude.com/ "Claude fra Anthropic"
 [ChatGPT]: https://openai.com/chatgpt "ChatGPT fra OpenAI"
+[SPARQL guide]: /dannet/page/sparql "Lær at bruge SPARQL"

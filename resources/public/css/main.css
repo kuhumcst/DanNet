@@ -301,6 +301,8 @@ pre code {
     color: white;
 }
 pre {
+    text-shadow: none !important;
+    color: white;
     background: rgba(0,0,0,0.85);
     padding: var(--spacing-s) var(--spacing-m);
 }
@@ -1640,15 +1642,59 @@ ul.hypernym-chain > li.subject::before {
     gap: var(--spacing-s);
 }
 
+.sparql-editor__buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+}
+
+.sparql-editor__buttons input[type=submit] {
+    flex: 2;
+}
+
+.sparql-editor__buttons button {
+    flex: 1;
+}
+
 .sparql-editor__input textarea {
     padding: var(--spacing-s);
     flex-grow: 1;
     resize: vertical;
     min-height: 8em;
+    transition: border-color var(--transition-base),
+                box-shadow var(--transition-base);
+}
+
+.sparql-editor__input textarea:invalid {
+    border-color: var(--color-dannet);
+    box-shadow: 0 0 0 1px var(--color-dannet);
 }
 
 .sparql-editor__controls {
-    padding: var(--spacing-s);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-m);
+    margin-top: var(--spacing-s);
+}
+
+label.distinct-select {
+    margin-left: auto;
+}
+
+.sparql-progress {
+    height: var(--spacing-s);
+    margin-top: var(--spacing-xs);
+    background: transparent;
+}
+
+#content.fetching .sparql-progress {
+    background: var(--color-dannet);
+    animation: sparql-fill 15s ease forwards;
+}
+
+@keyframes sparql-fill {
+    from { transform: scaleX(0); transform-origin: left; }
+    to   { transform: scaleX(1); transform-origin: left; }
 }
 
 
