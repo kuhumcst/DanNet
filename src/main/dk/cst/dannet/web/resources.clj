@@ -36,7 +36,6 @@
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayOutputStream File]
            [java.util Date]
-           [java.util.concurrent TimeoutException]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.datatypes BaseDatatype$TypedValue]
            [org.apache.jena.datatypes.xsd XSDDateTime]
@@ -78,6 +77,7 @@
   (delay
     (println "DanNet opts:")
     (pprint @dannet-opts)
+    (sparql/reset-cache!)
     (time (bootstrap/->dannet @dannet-opts))))
 
 (def one-day-cache
@@ -950,12 +950,12 @@
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [query timeout limit offset
                           distinct inference lookahead]} (:query-params request)
-                  raw-sparql (or query
-                                 (when (string? (:body request))
-                                   (:body request)))]
-              (if raw-sparql
+                  query-str (or query
+                                (when (string? (:body request))
+                                  (:body request)))]
+              (if query-str
                 (try
-                  (let [query-obj  (sparql/validate raw-sparql)
+                  (let [query-obj  (sparql/validate query-str)
                         timeout'   (if timeout
                                      (min (Long/parseLong timeout)
                                           sparql/max-timeout)
@@ -980,7 +980,7 @@
                                      "false" false
                                      nil)]
                     (assoc ctx
-                      :sparql {:input      {:query     raw-sparql
+                      :sparql {:input      {:query     query-str
                                             :inference inference}
                                :query-obj  query-obj
                                :timeout    timeout'
@@ -996,10 +996,10 @@
                                       "SPARQL-valideringsfejl"
                                       "SPARQL validation error")]
                       (assoc ctx
-                        :sparql {:input {:query raw-sparql}}
+                        :sparql {:input {:query query-str}}
                         :response-status 400
                         :content (assoc {:languages languages
-                                         :input     {:query raw-sparql}}
+                                         :input     {:query query-str}}
                                    :error (cond-> {:type    (name type)
                                                    :message (ex-message e)}
                                             cause (assoc :details cause)
@@ -1009,86 +1009,24 @@
                                     :page  "sparql"}))))
                 ctx)))})
 
-(defn- empty-select-result?
-  "Check if a SPARQL execute result is an empty SELECT result set."
-  [{:keys [sparql-type sparql-result]}]
-  (and (= sparql-type :select)
-       (instance? ResultSetMem sparql-result)
-       (zero? (.size ^ResultSetMem sparql-result))))
-
 (def sparql-execution-ic
   "Execute the validated SPARQL query, or render the editor page if no query.
-  Skipped when sparql-validation-ic already set :content (validation error).
 
-  When `lookahead?` is true (set by the frontend via the `lookahead` query param),
-  uses the N+1 trick for pagination: requests one extra row beyond the limit
-  to determine if more results exist, then the UI trims back to the requested limit.
-
-  Model selection:
-    inference?=nil   Auto: try base model first, retry with inference if empty.
-    inference?=true  Force inference model (slower, may time out).
-    inference?=false Force base model only, no retry."
+  Delegates to sparql/execute-cached which handles caching, request coalescing,
+  model selection (base vs inference), and the N+1 pagination lookahead."
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql] :as ctx}]
-            (let [{:keys [input query-obj timeout limit offset
-                          distinct? lookahead? inference?]} sparql
-                  fetch-limit (if lookahead? (inc limit) limit)
-                  run-query   (fn [model executor]
-                                (try
-                                  (tx/with-hard-timeout executor timeout
-                                    #(sparql/execute model query-obj timeout fetch-limit
-                                                     :distinct? distinct?
-                                                     :offset offset))
-                                  (catch TimeoutException _
-                                    {:error {:type    "timeout"
-                                             :message (str "The query exceeded the timeout of "
-                                                           (/ timeout 1000) " seconds.")}})
-                                  ;; Safety net: the hard timeout abandons the query
-                                  ;; thread without interrupting it (to protect TDB2),
-                                  ;; but unexpected exceptions from the InfModel or
-                                  ;; Jena internals should still produce a clean error
-                                  ;; response rather than a 500.
-                                  (catch Exception e
-                                    {:error {:type    (.getSimpleName (class e))
-                                             :message (.getMessage e)}})))
-                  trim-result (fn [{:keys [sparql-type sparql-result] :as result}]
-                                (if (and lookahead?
-                                         (= sparql-type :select)
-                                         (instance? ResultSetMem sparql-result)
-                                         (> (.size ^ResultSetMem sparql-result) limit))
-                                  (assoc result :has-more? true)
-                                  result))]
+            (let [{:keys [input query-obj limit offset lookahead?]
+                   :as   query-opts} sparql]
               (cond
-                ;; Validation error - :content already set, pass through.
+                ;; Validation error -> :content already set, pass through.
                 (:content ctx)
                 ctx
 
-                ;; Valid query - execute and return results.
+                ;; Valid query -> execute (with caching) and return results.
                 query-obj
-                (let [{:keys [base-model model]} @db
-                      result (case inference?
-                               ;; Force inference model.
-                               true
-                               (assoc (run-query model tx/inference-query-executor)
-                                 :inference? true)
-
-                               ;; Force base model, no retry.
-                               false
-                               (assoc (run-query base-model tx/query-executor)
-                                 :inference? false)
-
-                               ;; Auto: try base, retry with inference if empty.
-                               (let [base-result (run-query base-model tx/query-executor)]
-                                 (if (empty-select-result? base-result)
-                                   (assoc (run-query model tx/inference-query-executor)
-                                     :inference? true)
-                                   (assoc base-result
-                                     :inference? false))))
-                      result (trim-result result)]
+                (let [result (sparql/execute-cached @db query-opts)]
                   (if (:error result)
-                    ;; Use 504 (Gateway Timeout) rather than 408 (Request Timeout):
-                    ;; browsers auto-retry 408 responses per the HTTP spec, which
-                    ;; creates an infinite loop for queries that always time out.
                     (assoc ctx
                       :response-status 504
                       :content (assoc result :input input)
@@ -1103,7 +1041,7 @@
                       :page-meta {:title "SPARQL query result"
                                   :page  "sparql"})))
 
-                ;; No query - render the SPARQL editor page.
+                ;; No query -> render the SPARQL editor page.
                 :else
                 (assoc ctx
                   :content {:input input}
