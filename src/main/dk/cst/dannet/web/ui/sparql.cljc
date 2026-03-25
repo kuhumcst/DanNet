@@ -179,8 +179,7 @@
                        (take limit rows)
                        rows)
         opts'        (assoc opts :table-component table/attr-val-table)]
-    ;; TODO: change as this is not actually attr-val results
-    [:table.attr-val
+    [:table.sparql-results
      [:thead
       [:tr
        (for [col cols]
