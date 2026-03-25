@@ -8,6 +8,7 @@
             [dk.cst.dannet.web.ui.form :as form]
             [rum.core :as rum]
             [dk.cst.dannet.web.ui.rdf :as rdf]
+            [dk.cst.dannet.web.ui.table :as table]
             #?(:cljs [lambdaisland.fetch :as fetch]))
   #?(:clj (:import [java.net URLEncoder])))
 
@@ -176,11 +177,12 @@
 
 (rum/defc result-table
   "Display SPARQL SELECT results as a table with RDF-aware components."
-  [{:keys [result-vars limit] :as opts} rows]
+  [{:keys [result-vars limit blank-entities] :as opts} rows]
   (let [cols         (or result-vars (-> rows first keys))
         display-rows (if limit
                        (take limit rows)
-                       rows)]
+                       rows)
+        opts'        (assoc opts :table-component table/attr-val-table)]
     ;; TODO: change as this is not actually attr-val results
     [:table.attr-val
      [:thead
@@ -192,11 +194,12 @@
         [:tr {:key i}
          (for [col cols]
            (let [v (get row col)]
-             (if (keyword? v)
-               [:td {:key col}
-                (rdf/resource-hyperlink v opts)]
-               [:td {:key col}
-                (rdf/transform-val v opts)])))])]]))
+             [:td {:key col}
+              (if-let [be (and (symbol? v) (get blank-entities v))]
+                (rdf/blank-resource opts' be)
+                (if (keyword? v)
+                  (rdf/resource-hyperlink v opts')
+                  (rdf/transform-val v opts')))]))])]]))
 
 (rum/defc pagination
   "Previous/next page controls for SPARQL results."

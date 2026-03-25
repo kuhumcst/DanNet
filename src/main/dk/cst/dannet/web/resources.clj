@@ -1011,15 +1011,25 @@
                                     :page  "sparql"}))))
                 ctx)))})
 
+(defn- resolve-blank-entities
+  "Resolve blank node entities from a SELECT `sparql-result` in graph `g`.
+  Resets the ResultSetMem so it can be iterated again downstream."
+  [g ^ResultSetMem sparql-result]
+  (let [rows (handle-sparql-result sparql-result)]
+    (.reset sparql-result)
+    (q/collect-blank-entities g rows)))
+
 (def sparql-execution-ic
   "Execute the validated SPARQL query, or render the editor page if no query.
 
   Delegates to sparql/execute-cached which handles caching, request coalescing,
-  model selection (base vs inference), and the N+1 pagination lookahead."
+  model selection (base vs inference), and the N+1 pagination lookahead.
+
+  For SELECT results, collects blank node entity data so that the UI can render
+  blank nodes inline (works for both SSR and SPA)."
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql] :as ctx}]
-            (let [{:keys [input query-obj noop? limit offset lookahead?]
-                   :as   query-opts} sparql]
+            (let [{:keys [input query-obj noop? limit offset lookahead?]} sparql]
               (cond
                 ;; Validation error -> :content already set, pass through.
                 (:content ctx)
@@ -1027,26 +1037,30 @@
 
                 ;; Noop -> return normalized query without executing.
                 (and query-obj noop?)
-                (assoc ctx
-                  :content {:normalized-query (str query-obj)})
+                (assoc ctx :content {:normalized-query (str query-obj)})
 
                 ;; Valid query -> execute (with caching) and return results.
                 query-obj
-                (let [result (sparql/execute-cached @db query-opts)]
+                (let [result (sparql/execute-cached @db sparql)]
                   (if (:error result)
                     (assoc ctx
                       :response-status 504
                       :content (assoc result :input input)
                       :page-meta {:title "SPARQL timeout"
                                   :page  "sparql"})
-                    (assoc ctx
-                      :content (assoc result
-                                 :input input
-                                 :limit limit
-                                 :offset offset
-                                 :lookahead? lookahead?)
-                      :page-meta {:title "SPARQL query result"
-                                  :page  "sparql"})))
+                    (let [{:keys [sparql-result sparql-type]} result
+                          content (cond-> (assoc result
+                                            :input input
+                                            :limit limit
+                                            :offset offset
+                                            :lookahead? lookahead?)
+                                    (= sparql-type :select)
+                                    (assoc :blank-entities
+                                           (resolve-blank-entities (:graph @db) sparql-result)))]
+                      (assoc ctx
+                        :content content
+                        :page-meta {:title "SPARQL query result"
+                                    :page  "sparql"}))))
 
                 ;; No query -> render the SPARQL editor page.
                 :else

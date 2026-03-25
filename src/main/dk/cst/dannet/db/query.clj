@@ -98,6 +98,24 @@
           :else x))
       entity)))
 
+;; TODO: reuse attach-blank-entities (requires re-think of data flow for SPARQL)
+;; Due to the flow in how SPARQL results are handled, we can't attach metadata
+;; the same way we do in 'attach-blank-entities' above, so we need this other
+;; function to do the job.
+(defn collect-blank-entities
+  "Collect blank node entity data from SPARQL result `rows` in graph `g`.
+  Returns a map from blank node symbol to its entity description."
+  [g rows]
+  (let [blanks (into #{} (comp (mapcat vals) (filter symbol?)) rows)]
+    (when (seq blanks)
+      (persistent!
+        (reduce (fn [acc b]
+                  (if-let [e (not-empty (entity g b))]
+                    (assoc! acc b e)
+                    acc))
+                (transient {})
+                blanks)))))
+
 (def synset-indegrees-file
   "db/synset-indegree.edn")
 
