@@ -70,7 +70,7 @@
 
 ;; TODO: can it use basic-entity instead of entity?
 ;; TODO: what about blank-expanded-entity?
-(defn blank-entity
+(defn blank-node
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
   [g subject predicate blank-object]
   (when (and subject predicate)
@@ -80,10 +80,9 @@
                    (update acc ?p (fnil conj #{}) ?o))
                  {}))))
 
-;; I am not smart enough to do this through SPARQL/algebra, so instead I have to
-;; resort to this hack.
-(defn attach-blank-entities
-  "Replace blank resources in `entity` of `subject` in `g` with entity maps."
+;; I am not smart enough to do this through SPARQL/algebra!
+(defn attach-blank-nodes
+  "Replace blank node symbols in `entity` of `subject` in `g` with entity maps."
   [g subject entity]
   (let [predicate (volatile! nil)]
     (walk/prewalk
@@ -93,17 +92,17 @@
           (do (vreset! predicate (first x)) x)
 
           (symbol? x)
-          (with-meta x (blank-entity g subject @predicate x))
+          (with-meta x (blank-node g subject @predicate x))
 
           :else x))
       entity)))
 
-;; TODO: reuse attach-blank-entities (requires re-think of data flow for SPARQL)
+;; TODO: reuse attach-blank-nodes (requires re-think of data flow for SPARQL)
 ;; Due to the flow in how SPARQL results are handled, we can't attach metadata
-;; the same way we do in 'attach-blank-entities' above, so we need this other
+;; the same way we do in 'attach-blank-nodes' above, so we need this other
 ;; function to do the job.
-(defn collect-blank-entities
-  "Collect blank node entity data from SPARQL result `rows` in graph `g`.
+(defn collect-blank-nodes
+  "Collect blank node entity maps in SPARQL result `rows` in graph `g`.
   Returns a map from blank node symbol to its entity description."
   [g rows]
   (let [blanks (into #{} (comp (mapcat vals) (filter symbol?)) rows)]
@@ -259,7 +258,7 @@
   (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
     (let [entity* (with-meta (->> (basic-entity result)
                                   (weighted-relations)
-                                  (attach-blank-entities g subject))
+                                  (attach-blank-nodes g subject))
                              (cond-> {:entities (other-entities result)
                                       :subject  subject}
                                (instance? BaseInfGraph g)

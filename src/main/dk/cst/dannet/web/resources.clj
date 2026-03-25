@@ -165,7 +165,7 @@
     (instance? XSDDateTime data)
     {:value (str data) :datatype "xsd:dateTime"}
 
-    ;; Handle symbols with metadata (blank entities from attach-blank-entities)
+    ;; Handle symbols with metadata (blank nodes from attach-blank-nodes)
     (symbol? data)
     (if-let [resolved-data (meta data)]
       ;; If the symbol has metadata, use the resolved data
@@ -1011,13 +1011,13 @@
                                     :page  "sparql"}))))
                 ctx)))})
 
-(defn- resolve-blank-entities
-  "Resolve blank node entities from a SELECT `sparql-result` in graph `g`.
+(defn- resolve-blank-nodes
+  "Resolve blank node entities in a SELECT `sparql-result` in graph `g`.
   Resets the ResultSetMem so it can be iterated again downstream."
   [g ^ResultSetMem sparql-result]
   (let [rows (handle-sparql-result sparql-result)]
     (.reset sparql-result)
-    (q/collect-blank-entities g rows)))
+    (q/collect-blank-nodes g rows)))
 
 (def sparql-execution-ic
   "Execute the validated SPARQL query, or render the editor page if no query.
@@ -1055,8 +1055,8 @@
                                             :offset offset
                                             :lookahead? lookahead?)
                                     (= sparql-type :select)
-                                    (assoc :blank-entities
-                                           (resolve-blank-entities (:graph @db) sparql-result)))]
+                                    (assoc :blank-nodes
+                                           (resolve-blank-nodes (:graph @db) sparql-result)))]
                       (assoc ctx
                         :content content
                         :page-meta {:title "SPARQL query result"

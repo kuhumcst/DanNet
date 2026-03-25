@@ -177,7 +177,7 @@
 
 (rum/defc result-table
   "Display SPARQL SELECT results as a table with RDF-aware components."
-  [{:keys [result-vars limit blank-entities] :as opts} rows]
+  [{:keys [result-vars limit blank-nodes] :as opts} rows]
   (let [cols         (or result-vars (-> rows first keys))
         display-rows (if limit
                        (take limit rows)
@@ -195,8 +195,8 @@
          (for [col cols]
            (let [v (get row col)]
              [:td {:key col}
-              (if-let [be (and (symbol? v) (get blank-entities v))]
-                (rdf/blank-resource opts' be)
+              (if-let [be (and (symbol? v) (get blank-nodes v))]
+                (rdf/blank-node opts' be)
                 (if (keyword? v)
                   (rdf/resource-hyperlink v opts')
                   (rdf/transform-val v opts')))]))])]]))

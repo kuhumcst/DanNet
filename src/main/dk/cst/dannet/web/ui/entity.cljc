@@ -168,12 +168,12 @@
         (when-let [definition (:wn/definition subentity)]
           [:span {:property "wn:definition"}
            (error/try-render
-             (rdf/blank-resource opts (meta definition)))]))]
+             (rdf/blank-node opts (meta definition)))]))]
      (when ontologicalType
        [:li {:property "dns:ontologicalType"}
         (error/try-render
-          (rdf/blank-resource (assoc opts :attr-key :dns/ontologicalType)
-                              (meta ontologicalType)))])]))
+          (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
+                          (meta ontologicalType)))])]))
 
 (rum/defc synset-header-content
   [subentity opts]

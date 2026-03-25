@@ -27,9 +27,9 @@
       [:td.attr-combo                                       ; fixes alignment
        (rdf/resource-hyperlink v opts)])
 
-    ;; Using blank resource data included as a metadata map.
+    ;; Using blank node entity data included as a metadata map.
     (map? v)
-    [:td (rdf/blank-resource (assoc opts :table-component attr-val-table) v)]
+    [:td (rdf/blank-node (assoc opts :table-component attr-val-table) v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
