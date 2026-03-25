@@ -164,6 +164,19 @@
         (transient {})
         expanded-entity-result))))
 
+(defn resource-labels
+  "Fetch labels for a set of keyword `resources` from graph `g`.
+  Returns `{resource {label-type #{label-values}}}` like `other-entities`."
+  [g resources]
+  (when (seq resources)
+    (let [result (run g (op/resource-labels-query resources))]
+      (persistent!
+        (reduce
+          (fn [acc {:syms [?resource ?labelRel ?label]}]
+            (assoc-resource-label! acc ?resource ?labelRel ?label))
+          (transient {})
+          result)))))
+
 (defn weighted-relations
   "Sort synset relation collections in `entity` by their weights.
 

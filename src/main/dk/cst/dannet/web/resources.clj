@@ -615,7 +615,7 @@
                                 :lemma          lemma
                                 :search-results results}
                       :page-meta {:title (i18n/da-en languages
-                                           (str "Søg: " lemma)
+                                           (str "Søgning: " lemma)
                                            (str "Search: " lemma))
                                   :page  "search"}))))))})
 
@@ -1011,13 +1011,30 @@
                                     :page  "sparql"}))))
                 ctx)))})
 
-(defn- resolve-blank-nodes
-  "Resolve blank node entities in a SELECT `sparql-result` in graph `g`.
-  Resets the ResultSetMem so it can be iterated again downstream."
-  [g ^ResultSetMem sparql-result]
-  (let [rows (handle-sparql-result sparql-result)]
+(def max-label-resources
+  "Maximum number of unique resources to fetch labels for in SPARQL results.
+  Prevents excessive label queries for very large result sets."
+  500)
+
+(defn- collect-keywords
+  "Collect all unique keywords from SPARQL SELECT result `rows`."
+  [rows]
+  (into #{} (comp (mapcat vals) (filter keyword?)) rows))
+
+(defn- enrich-select-result
+  "Enrich a SELECT result with blank node data and resource labels.
+  Converts the ResultSetMem to rows, resets it for downstream consumers,
+  then attaches :blank-nodes and :k->label to `content`."
+  [content ^ResultSetMem sparql-result]
+  (let [rows (handle-sparql-result sparql-result)
+        g    (:graph @db)
+        kws  (collect-keywords rows)]
     (.reset sparql-result)
-    (q/collect-blank-nodes g rows)))
+    (cond-> (assoc content :blank-nodes (q/collect-blank-nodes g rows))
+      (and (seq kws) (<= (count kws) max-label-resources))
+      (assoc :k->label (let [entity-label* (shared/->entity-label-fn false)]
+                         (update-vals (q/resource-labels g kws)
+                                      entity-label*))))))
 
 (def sparql-execution-ic
   "Execute the validated SPARQL query, or render the editor page if no query.
@@ -1026,10 +1043,12 @@
   model selection (base vs inference), and the N+1 pagination lookahead.
 
   For SELECT results, collects blank node entity data so that the UI can render
-  blank nodes inline (works for both SSR and SPA)."
+  blank nodes inline, and fetches labels for all keyword resources in the result
+  so that the UI can display human-readable labels (works for both SSR and SPA)."
   {:name  ::sparql-execution
-   :enter (fn [{:keys [sparql] :as ctx}]
-            (let [{:keys [input query-obj noop? limit offset lookahead?]} sparql]
+   :enter (fn [{:keys [sparql request] :as ctx}]
+            (let [{:keys [input query-obj noop? limit offset lookahead?]} sparql
+                  languages (request->languages request)]
               (cond
                 ;; Validation error -> :content already set, pass through.
                 (:content ctx)
@@ -1045,18 +1064,20 @@
                   (if (:error result)
                     (assoc ctx
                       :response-status 504
-                      :content (assoc result :input input)
+                      :content (assoc result
+                                 :input input
+                                 :languages languages)
                       :page-meta {:title "SPARQL timeout"
                                   :page  "sparql"})
                     (let [{:keys [sparql-result sparql-type]} result
                           content (cond-> (assoc result
                                             :input input
+                                            :languages languages
                                             :limit limit
                                             :offset offset
                                             :lookahead? lookahead?)
                                     (= sparql-type :select)
-                                    (assoc :blank-nodes
-                                           (resolve-blank-nodes (:graph @db) sparql-result)))]
+                                    (enrich-select-result sparql-result))]
                       (assoc ctx
                         :content content
                         :page-meta {:title "SPARQL query result"
@@ -1065,7 +1086,8 @@
                 ;; No query -> render the SPARQL editor page.
                 :else
                 (assoc ctx
-                  :content {:input input}
+                  :content {:input     input
+                            :languages languages}
                   :page-meta {:title "SPARQL query editor"
                               :page  "sparql"}))))})
 

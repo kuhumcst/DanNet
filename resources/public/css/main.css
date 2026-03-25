@@ -352,21 +352,18 @@ dl.search-results dt .set__content sub {
     font-size: var(--font-size-m);
 }
 
-dl.search-results div {
+dl.search-results > div {
     transition: transform var(--transition-fast);
     cursor: pointer;
     padding: var(--spacing-xl) var(--spacing-l);
+    margin-bottom: var(--spacing-xxl);
     background-color: rgba(255, 255, 255, 1);
     border: var(--normal-border);
     box-shadow: var(--shadow-card);
 }
 
-dl.search-results div {
-    margin-bottom: var(--spacing-xxl);
-}
-
-dl.search-results div:hover,
-dl.search-results div:focus-visible {
+dl.search-results > div:hover,
+dl.search-results > div:focus-visible {
     transform: scale(102%);
 }
 
@@ -1272,7 +1269,7 @@ header > .rdf-uri .rdf-uri__name {
 span.set {
     display: inline-flex;
     flex-basis: 100%;
-    vertical-align: bottom;
+    vertical-align: baseline;
 }
 
 .set__content {
@@ -1308,6 +1305,7 @@ span.marker {
     margin-right: var(--spacing-xs);
     color: var(--color-muted);
     cursor: help;
+    vertical-align: baseline;
 }
 
 

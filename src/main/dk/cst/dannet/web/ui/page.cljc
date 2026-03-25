@@ -50,7 +50,7 @@
       (for [[k entity] search-results]
         (rum/with-key (search/result k entity opts) k))])
    [:p.note
-    [:strong "☞ "]
+    [:strong "? "]
     (i18n/da-en languages
       [:<> "overvej at bruge " [:a {:href prefix/sparql-path} "SPARQL"] " til avancerede søgninger"]
       [:<> "consider using " [:a {:href prefix/sparql-path} "SPARQL"] " for advanced queries"])]])

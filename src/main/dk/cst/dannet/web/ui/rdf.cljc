@@ -257,48 +257,53 @@
       [:span {:lang (i18n/lang selected)}
        (transform-val selected opts)])))
 
+(defn- blank-node*
+  [languages v & vs]
+  (into [:div.blank-node
+         [:span.marker {:title (i18n/da-en languages
+                                 "Blank knude"
+                                 "Blank node")}
+          "⦿"]
+         v]
+        vs))
+
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages] :as opts} m]
-  [:div.blank-node
-   [:span.marker {:title
-                  (i18n/da-en languages
-                    "Indhold fra blank knude"
-                    "Content of blank node")}
-    "⬡"]
-   (cond
-     (shared/rdf-datatype? m)
-     (transform-val m)
+  (let [container (partial blank-node* languages)]
+    (cond
+      (shared/rdf-datatype? m)
+      (container (transform-val m))
 
-     (= (keys m) [:rdf/value])
-     (transform-text opts (:rdf/value m))
+      (= (keys m) [:rdf/value])
+      (container (transform-text opts (:rdf/value m)))
 
-     ;; Special handling of DanNet sentiment data.
-     (and (= (keys m) [:marl/hasPolarity :marl/polarityValue])
-          (keyword? (first (:marl/hasPolarity m))))
-     [:<>
-      (resource-hyperlink (first (:marl/hasPolarity m)) opts)
-      " (" (first (:marl/polarityValue m)) ")"]
+      ;; Special handling of DanNet sentiment data.
+      (and (= (keys m) [:marl/hasPolarity :marl/polarityValue])
+           (keyword? (first (:marl/hasPolarity m))))
+      (container
+        (resource-hyperlink (first (:marl/hasPolarity m)) opts)
+        " (" (first (:marl/polarityValue m)) ")")
 
-     :let [resources (shared/bag->coll m)]
-     resources
-     [:span.set
-      (when (and (every? keyword? resources)
-                 (apply = (map namespace resources)))
-        (let [prefix (symbol (namespace (first resources)))]
-          (prefix-badge prefix opts)))
-      [:span.set__left-bracket]
-      (into [:span.set__content]
-            (->> resources
-                 (map #(entity-link % opts))
-                 (interpose [:span.subtle " • "])))
-      [:span.set__right-bracket]]
+      :let [resources (shared/bag->coll m)]
+      resources
+      (container [:span.set
+                  (when (and (every? keyword? resources)
+                             (apply = (map namespace resources)))
+                    (let [prefix (symbol (namespace (first resources)))]
+                      (prefix-badge prefix opts)))
+                  [:span.set__left-bracket]
+                  (into [:span.set__content]
+                        (->> resources
+                             (map #(entity-link % opts))
+                             (interpose [:span.subtle " • "])))
+                  [:span.set__right-bracket]])
 
-     ;; An optional fallback table component with the same function signature.
-     ;; It's passed via dependency injection to avoid cyclic ns dependencies.
-     ;; NOTE: we don't mark tables as it is clear that they are blank nodes.
-     table-component
-     (table-component opts m))])
+      ;; An optional fallback table component with the same function signature.
+      ;; It's passed via dependency injection to avoid cyclic ns dependencies.
+      ;; NOTE: we don't mark tables as it is clear that they are blank nodes.
+      table-component
+      (table-component opts m))))
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."

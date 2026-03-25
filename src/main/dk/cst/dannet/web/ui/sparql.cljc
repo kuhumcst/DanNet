@@ -9,6 +9,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
+            [reitit.impl :refer [url-encode]]               ; CLJC url-encode
             #?(:cljs [lambdaisland.fetch :as fetch]))
   #?(:clj (:import [java.net URLEncoder])))
 
@@ -17,11 +18,6 @@
 
 (def default-page-size
   10)
-
-(defn- url-encode
-  [s]
-  #?(:clj  (URLEncoder/encode (str s) "UTF-8")
-     :cljs (js/encodeURIComponent (str s))))
 
 ;; TODO: currently differences between frontend/backend
 (defn- pagination-href

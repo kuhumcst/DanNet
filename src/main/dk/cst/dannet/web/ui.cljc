@@ -22,7 +22,7 @@
    (i18n/da-en languages
      [:<>
       [:p {:lang "da"}
-       [:a {:href  (shared/page-href "privacy")
+       [:a {:href   (shared/page-href "privacy")
             :titlex "Privatlivspolitik"}
         "Privatliv"]
        " · "
@@ -167,7 +167,12 @@
         opts'          (assoc (merge opts state')
                          :synset? synset?
                          :comments comments
-                         :k->label (update-vals entities' entity-label*))
+                         ;; Entity pages build k->label from expanded entity
+                         ;; metadata; other pages (e.g. SPARQL) may supply their
+                         ;; own k->label via the interceptor chain.
+                         :k->label (if entities
+                                     (update-vals entities' entity-label*)
+                                     (:k->label opts)))
         [prefix _ _] (shared/parse-rdf-term subject)
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix

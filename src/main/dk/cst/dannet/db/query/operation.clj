@@ -31,6 +31,19 @@
        }
      }")))
 
+(defn resource-labels-query
+  "Build a SPARQL Op that fetches labels for a collection of keyword `resources`."
+  [resources]
+  (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))
+        values     (str/join " " (map #(str "<" (prefix/kw->uri %) ">") resources))]
+    (sparql
+      "SELECT ?resource ?labelRel ?label
+       WHERE {
+         VALUES ?resource { " values " }
+         VALUES ?labelRel { " label-rels " }
+         ?resource ?labelRel ?label .
+       }")))
+
 (def synset-lemma-freqs
   (q/build
     '[:bgp
