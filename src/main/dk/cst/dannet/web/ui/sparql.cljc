@@ -10,6 +10,7 @@
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
             [reitit.impl :refer [url-encode]]               ; CLJC url-encode
+            #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm])
             #?(:cljs [lambdaisland.fetch :as fetch]))
   #?(:clj (:import [java.net URLEncoder])))
 
@@ -18,6 +19,8 @@
 
 (def default-page-size
   10)
+
+#?(:cljs (defonce ^:private *editor-view (atom nil)))
 
 ;; TODO: currently differences between frontend/backend
 (defn- pagination-href
@@ -36,97 +39,144 @@
   (cond-> (or message "Invalid query")
     details (str "\n\n" (str/trim details))))
 
-(defn- validate-query!
-  "Validate the query in `textarea` via the noop endpoint.
+(defn- set-submit-disabled!
+  "Toggle the submit button `disabled` state inside `form`."
+  [form disabled?]
+  #?(:cljs
+     (when-let [btn (.querySelector form "input[type=submit]")]
+       (set! (.-disabled btn) disabled?))))
 
-  On error, set custom validity on `textarea`, disable the submit button, and
-  report validity. Return a js/Promise resolving to the normalized query on
-  success, nil on error."
-  [textarea]
-  #?(:cljs (when-let [query (not-empty (.-value textarea))]
-             (-> (fetch/request (shared/normalize-url prefix/sparql-path)
-                                {:query-params        {:query   query
-                                                       :noop    true
-                                                       :transit true}
-                                 :transit-json-reader shared/reader})
-                 (.then (fn [{:keys [body]}]
-                          (if-let [nq (:normalized-query body)]
-                            (do
-                              (.setCustomValidity textarea "")
-                              (form/set-submit-disabled! textarea false)
-                              nq)
-                            (do
-                              (.setCustomValidity textarea (validity-message (:error body)))
-                              (form/set-submit-disabled! textarea true)
-                              (.reportValidity textarea)
-                              nil))))
-                 (.catch (fn [_] nil))))
-     :clj  nil))
+(defn- validate-query!
+  "Validate the current query via the noop endpoint.
+
+  Read the query from the CM6 editor, send it to the server for parsing.
+  On success, clear any error state and return a js/Promise resolving to
+  the normalized query string. On error, show the error and return nil."
+  [form]
+  #?(:cljs
+     (when-let [view @*editor-view]
+       (when-let [query (not-empty (cm/get-doc view))]
+         (-> (fetch/request (shared/normalize-url prefix/sparql-path)
+                            {:query-params        {:query   query
+                                                   :noop    true
+                                                   :transit true}
+                             :transit-json-reader shared/reader})
+             (.then (fn [{:keys [body]}]
+                      (if-let [nq (:normalized-query body)]
+                        (do
+                          (cm/clear-editor-error! view)
+                          (set-submit-disabled! form false)
+                          nq)
+                        (do
+                          (cm/show-editor-error!
+                            view (validity-message (:error body)))
+                          (set-submit-disabled! form true)
+                          nil))))
+             (.catch (fn [_] nil)))))))
 
 (defn- normalize-query!
-  "Validate and format the current textarea query.
+  "Validate and format the current query.
 
-  On success, replace the textarea content with the normalized query.
-  On error, mark the textarea as invalid."
+  On success, replace the editor content with the normalized query.
+  On error, mark the editor as invalid."
   []
   #?(:cljs
-     (when-let [textarea (js/document.getElementById
-                           "sparql-textarea")]
-       (some-> (validate-query! textarea)
+     (when-let [form (js/document.querySelector "form.sparql-editor")]
+       (some-> (validate-query! form)
                (.then (fn [nq]
-                        (when nq
-                          (set! (.-value textarea) nq))))))
-     :clj nil))
+                        (when (and nq @*editor-view)
+                          (cm/set-doc! @*editor-view (str/trim nq))
+                          (cm/fold-all! @*editor-view))))))))
 
 (defn- on-submit
-  "Validate the SPARQL query before submitting the `e` form.
+  "Validate the SPARQL query before submitting `e` form.
 
-  On success, submit the form. On parse error, set custom
-  validity and report it to show the browser tooltip."
+  On success, sync the query to the hidden input and submit.
+  On parse error, mark the editor invalid."
   [e]
   #?(:cljs
-     (let [form     (.-target e)
-           textarea (js/document.getElementById
-                      "sparql-textarea")]
+     (let [form (.-target e)]
        (.preventDefault e)
-       ;; Client-side pre-validation via the noop endpoint.
        (when (.checkValidity form)
-         (some-> (validate-query! textarea)
+         (some-> (validate-query! form)
                  (.then (fn [nq]
                           (when nq
-                            (form/submit-form form)))))))
-     :clj nil))
+                            ;; Write the normalized query to the hidden input
+                            ;; so that form/submit-form picks it up correctly.
+                            (when-let [el (.getElementById
+                                            js/document
+                                            "sparql-query-hidden")]
+                              (set! (.-value el) nq))
+                            (form/submit-form form)))))))))
 
 (def basic-select-query
   "SELECT  *\nWHERE\n  { ?subject  ?predicate  ?object }")
 
-(rum/defc editor
+(defn- init-editor!
+  "Mount a CM6 editor inside the component's .cm-wrapper div."
+  [state]
+  #?(:cljs
+     (let [dom-node (rum/dom-node state)
+           cm-div   (.querySelector dom-node ".cm-wrapper")
+           hidden   (.querySelector dom-node "#sparql-query-hidden")
+           view     (cm/create-editor! cm-div (.-value hidden)
+                                       (fn [doc]
+                                         ;; Keep the hidden input in sync so the form always
+                                         ;; has the current query for submission.
+                                         (set! (.-value hidden) doc)
+                                         (when-let [v @*editor-view]
+                                           (cm/clear-editor-error! v)
+                                           (set-submit-disabled!
+                                             (.closest (.-dom v) "form") false))))]
+       (reset! *editor-view view)
+       (cm/focus! view)
+       (assoc state ::view view))
+     :clj state))
+
+(defn- teardown-editor!
+  "Destroy the CM6 editor and clear the shared atom."
+  [state]
+  #?(:cljs
+     (do
+       (when-let [view (::view state)]
+         (cm/destroy-editor! view)
+         (reset! *editor-view nil))
+       (dissoc state ::view))
+     :clj state))
+
+(def ^:private codemirror-mixin
+  ;; Note: only :did-mount/:will-unmount — no :did-update. The form must NOT
+  ;; have a React :key, since a key change would destroy the CM6 DOM without
+  ;; triggering a Rum remount (Rum lifecycle is tied to the component, not
+  ;; its inner elements). The editor content is the source of truth and
+  ;; persists across re-renders.
+  {:did-mount    init-editor!
+   :will-unmount teardown-editor!})
+
+(rum/defcs editor < codemirror-mixin
   "SPARQL query editor with page size selector."
-  [{:keys [languages input normalized-query limit] :as opts}]
+  [state {:keys [languages input normalized-query limit] :as opts}]
   (let [current-limit (or limit default-page-size)
         distinct?     (if (:query input)
                         (= (:distinct input) "true")
-                        true)]
+                        true)
+        query-value   (when-let [s (or normalized-query
+                                       (:query input)
+                                       basic-select-query)]
+                        (str/trim s))]
     [:form.sparql-editor
-     {:key       (str (:query input) (:distinct input))
-      :action    prefix/sparql-path
+     {:action    prefix/sparql-path
       :on-submit on-submit
       :method    "get"}
      [:div.sparql-editor__input
-      [:textarea {:placeholder   (i18n/da-en languages
-                                   "skriv en forespørgsel..."
-                                   "write a query...")
-                  :id            "sparql-textarea"
-                  :name          "query"
-                  :default-value (when-let [s (or normalized-query
-                                                  (:query input)
-                                                  basic-select-query)]
-                                   (str/trim s))
-                  :ref           form/autofocus-ref
-                  #_#_:on-focus form/select-text
-                  :on-input      form/clear-validity!
-                  :auto-complete "off"
-                  :required      true}]
+      ;; The .cm-wrapper div is populated by codemirror-mixin on :did-mount.
+      ;; The hidden input carries the query value for form submission; the CM6
+      ;; update listener keeps it in sync.
+      [:div.cm-wrapper]
+      [:input {:type  "hidden"
+               :name  "query"
+               :id    "sparql-query-hidden"
+               :value (or query-value "")}]
       [:div.sparql-editor__buttons
        [:input {:type      "submit"
                 :tab-index "-1"

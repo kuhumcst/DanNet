@@ -1654,19 +1654,96 @@ ul.hypernym-chain > li.subject::before {
     flex: 1;
 }
 
-.sparql-editor__input textarea {
-    padding: var(--spacing-s);
+/* CodeMirror 6 editor */
+.sparql-editor__input .cm-wrapper {
     flex-grow: 1;
-    resize: vertical;
+    min-width: 0; /* Prevent flex child from expanding beyond container */
     min-height: 8em;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+/* Before CM6 mounts, show a styled placeholder matching the editor appearance */
+.sparql-editor__input .cm-wrapper:empty {
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Fake gutter strip — mirrors .cm-gutters background and border-right */
+.sparql-editor__input .cm-wrapper:empty::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 32px; /* approximate width of line-number + fold gutter */
+    background: var(--color-bg-alt);
+    border-right: 1px solid rgba(0, 0, 0, var(--border-opacity-subtle));
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor {
+    flex-grow: 1;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
     transition: border-color var(--transition-base),
                 box-shadow var(--transition-base);
 }
 
-.sparql-editor__input textarea:invalid {
+.sparql-editor__input .cm-wrapper .cm-editor.cm-focused {
+    outline: none;
+    border-color: var(--color-link);
+    box-shadow: 0 0 0 1px var(--color-link);
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor.cm-invalid {
     border-color: var(--color-dannet);
     box-shadow: 0 0 0 1px var(--color-dannet);
 }
+
+.cm-validation-error {
+    color: var(--color-dannet);
+    font-size: var(--font-size-s);
+    padding: var(--spacing-xs) var(--spacing-s);
+    white-space: pre-wrap;
+}
+
+.sparql-editor__input .cm-wrapper .cm-scroller {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: var(--font-size-s);
+    line-height: 1.5;
+    overflow-x: auto !important; /* Scroll horizontally instead of expanding the editor width */
+}
+
+.sparql-editor__input .cm-wrapper .cm-content {
+    padding: var(--spacing-s) 0;
+    color: var(--color-subtle); /* base colour for untagged tokens: { } . , ; etc. */
+}
+
+.sparql-editor__input .cm-wrapper .cm-gutters {
+    background: var(--color-bg-alt);
+    border-right: var(--subtle-border);
+    color: var(--color-subtle);
+    font-size: var(--font-size-xs);
+}
+
+/* TODO: this is work in progress, probably needs further adjustment */
+/* SPARQL syntax highlighting via classHighlighter .tok-* classes */
+.sparql-editor__input .tok-keyword      { color: var(--color-w3c); font-weight: bold; }
+.sparql-editor__input .tok-variableName { color: var(--color-ontolex); }
+.sparql-editor__input .tok-namespace    { color: var(--color-meta); }
+.sparql-editor__input .tok-url          { color: var(--color-meta); } /* <IRI> literals */
+.sparql-editor__input .tok-atom         { color: var(--color-wordnet); } /* QNames e.g. wn:foo */
+.sparql-editor__input .tok-string       { color: var(--color-dark); }
+.sparql-editor__input .tok-number,
+.sparql-editor__input .tok-float,
+.sparql-editor__input .tok-bool        { color: var(--color-dannet); }
+.sparql-editor__input .tok-comment     { color: var(--color-subtle); font-style: italic; }
+.sparql-editor__input .tok-annotation  { color: var(--color-meta); }
+.sparql-editor__input .tok-typeName    { color: var(--color-ontolex); }
 
 .sparql-editor__controls {
     display: flex;
