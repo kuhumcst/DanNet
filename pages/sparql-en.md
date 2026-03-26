@@ -364,7 +364,7 @@ DanNet synsets are linked to the [Open English WordNet](https://en-word.net/) vi
 
 ```sparql
 SELECT ?label ?enSynset WHERE {
-  ?entry ontolex:canonicalForm/ontolex:writtenRep "kage"@da .
+  ?entry ontolex:canonicalForm/ontolex:writtenRep "land"@da .
   ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
   ?synset rdfs:label ?label .
   ?synset wn:eq_synonym ?enSynset .
@@ -373,7 +373,7 @@ SELECT ?label ?enSynset WHERE {
 
 [Run this query](/dannet/sparql?query=SELECT%20%3Flabel%20%3FenSynset%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%22kage%22%40da%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%3Fsynset%20rdfs%3Alabel%20%3Flabel%20.%20%3Fsynset%20wn%3Aeq_synonym%20%3FenSynset%20.%20%7D&distinct=true)
 
-The result URI `https://en-word.net/id/oewn-07644479-n` is a synset in the English WordNet. You can [look it up](https://en-word.net/id/oewn-07644479-n) to find the English equivalents.
+The resulting URIs are synsets in the English WordNet.
 
 ## 8. Practical tips
 
