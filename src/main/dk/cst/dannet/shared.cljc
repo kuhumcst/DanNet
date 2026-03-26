@@ -418,6 +418,11 @@
   (and (coll? v)
        (not (map? v))))
 
+(defn unwrap
+  "Unwrap a single-element coll, returning the `v` as-is if not a collection."
+  [v]
+  (cond-> v (coll? v) first))
+
 (def narrow-glyphs
   #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
 

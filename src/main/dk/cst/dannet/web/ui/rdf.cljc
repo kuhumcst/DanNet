@@ -279,11 +279,12 @@
       (container (transform-text opts (:rdf/value m)))
 
       ;; Special handling of DanNet sentiment data.
-      (and (= (keys m) [:marl/hasPolarity :marl/polarityValue])
-           (keyword? (first (:marl/hasPolarity m))))
+      :let [polarity (some-> (get m :marl/hasPolarity) shared/unwrap)]
+      (keyword? polarity)
       (container
-        (resource-hyperlink (first (:marl/hasPolarity m)) opts)
-        " (" (first (:marl/polarityValue m)) ")")
+        (resource-hyperlink polarity opts)
+        (when-let [value (some-> (get m :marl/polarityValue) shared/unwrap)]
+          (str " (" value ")")))
 
       :let [resources (shared/bag->coll m)]
       resources
