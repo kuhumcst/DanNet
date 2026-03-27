@@ -185,9 +185,11 @@
      [:nav {:class ["prefix"
                     (if full-diagram?
                       "full-screen"
-                      (prefix/prefix->class (if (= page "markdown")
-                                              'dn
-                                              prefix')))]}
+                      (cond
+                        (= page "markdown") "dannet"
+                        (= page "sparql") "w3c"
+                        (= page "metadata") "meta"
+                        :else (prefix/prefix->class prefix')))]}
       (search/form opts')
       [:a.title {:title (i18n/da-en languages'
                           "Gå til forsiden"

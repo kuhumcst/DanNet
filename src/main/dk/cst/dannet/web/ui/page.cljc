@@ -1,12 +1,10 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
-  (:require [dk.cst.dannet.web.ui.error :as error]
-            [rum.core :as rum]
+  (:require [rum.core :as rum]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
