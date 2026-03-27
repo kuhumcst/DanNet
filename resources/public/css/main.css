@@ -1023,7 +1023,8 @@ nav.full-screen search:not(.search-active) {
    TABLES
    =========================================== */
 
-table.attr-val {
+table.attr-val,
+table.sparql-results {
     font-size: var(--font-size-m);
     border-collapse: collapse;
     border: var(--normal-border);
@@ -1051,9 +1052,19 @@ table.attr-val.attr-val--nested td.attr-name {
     border-right: none;
 }
 
-td {
+td, th {
     padding: var(--spacing-m);
     vertical-align: top;
+}
+
+th {
+    font-weight: bold;
+    font-variant: small-caps;
+    font-size: var(--font-size-m);
+    border-bottom: var(--very-subtle-border);
+    background:var(--bg-texture);
+    text-align: left;
+    text-shadow: none !important;
 }
 
 td.attr-prefix {
@@ -1091,6 +1102,14 @@ tr tr:nth-child(odd) {
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
 .attr-combo > span {
     vertical-align: top;
+}
+
+table.sparql-results {
+}
+
+th.sparql-results__count,
+td.sparql-results__count {
+    text-align: right;
 }
 
 
@@ -1637,7 +1656,7 @@ ul.hypernym-chain > li.subject::before {
 
 .sparql-editor__input {
     display: flex;
-    gap: var(--spacing-s);
+    gap: var(--spacing-m);
 }
 
 .sparql-editor__buttons {
@@ -1647,18 +1666,24 @@ ul.hypernym-chain > li.subject::before {
 }
 
 .sparql-editor__buttons input[type=submit] {
-    flex: 2;
+    flex: 3;
 }
 
 .sparql-editor__buttons button {
     flex: 1;
 }
 
+.sparql-editor button,
+.sparql-editor select,
+.sparql-editor input[type=submit] {
+    padding: var(--spacing-xs)  var(--spacing-s);
+}
+
 /* CodeMirror 6 editor */
 .sparql-editor__input .cm-wrapper {
     flex-grow: 1;
     min-width: 0; /* Prevent flex child from expanding beyond container */
-    min-height: 8em;
+    min-height: 5em;
     display: flex;
     flex-direction: column;
     background: white;
@@ -1749,7 +1774,7 @@ ul.hypernym-chain > li.subject::before {
     display: flex;
     align-items: center;
     gap: var(--spacing-m);
-    margin-top: var(--spacing-s);
+    margin-top: var(--spacing-m);
 }
 
 label.distinct-select {

@@ -232,11 +232,13 @@
     [:table.sparql-results
      [:thead
       [:tr
+       [:th.sparql-results__count "#"]
        (for [col cols]
          [:th {:key col} (name col)])]]
      [:tbody
       (for [[i row] (map-indexed vector display-rows)]
         [:tr {:key i}
+         [:td.sparql-results__count (inc i)]
          (for [col cols]
            (let [v (get row col)]
              [:td {:key col}
