@@ -182,14 +182,15 @@
                          (swap! shared/state update :details? not))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
-     [:nav {:class ["prefix"
-                    (if full-diagram?
-                      "full-screen"
-                      (cond
-                        (= page "markdown") "dannet"
-                        (= page "sparql") "w3c"
-                        (= page "metadata") "meta"
-                        :else (prefix/prefix->class prefix')))]}
+     [:nav#main-nav
+      {:class ["prefix"
+               (if full-diagram?
+                 "full-screen"
+                 (cond
+                   (= page "markdown") "dannet"
+                   (= page "sparql") "w3c"
+                   (= page "metadata") "meta"
+                   :else (prefix/prefix->class prefix')))]}
       (search/form opts')
       [:a.title {:title (i18n/da-en languages'
                           "Gå til forsiden"

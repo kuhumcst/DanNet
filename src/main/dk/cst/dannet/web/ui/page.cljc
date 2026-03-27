@@ -93,8 +93,8 @@
   [:article.sparql
    [:header.page-header
     [:h1 (i18n/da-en languages
-           "SPARQL"
-           "SPARQL")]]
+           "SPARQL-editor"
+           "SPARQL editor")]]
    [:p.subheading
     (i18n/da-en languages
       "Søg i DanNet-databasen ("
@@ -104,7 +104,7 @@
                   "SPARQL-guide"
                   "SPARQL guide")}
      (i18n/da-en languages
-       "få hjælp her"
+       "læs guide"
        "read tutorial")] ")"]
    (sparql/editor opts)
    (sparql/output opts)])

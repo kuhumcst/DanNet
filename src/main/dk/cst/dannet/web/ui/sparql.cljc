@@ -25,13 +25,14 @@
 ;; TODO: currently differences between frontend/backend
 (defn- pagination-href
   "Build href for a SPARQL pagination link."
-  [query limit offset inference distinct]
+  [query limit offset inference distinct labels]
   (cond-> (str prefix/sparql-path
                "?query=" (url-encode query)
                "&limit=" limit
                "&offset=" offset)
     inference (str "&inference=" (url-encode inference))
-    (some? distinct) (str "&distinct=" (url-encode distinct))))
+    (some? distinct) (str "&distinct=" (url-encode distinct))
+    (some? labels) (str "&labels=" (url-encode labels))))
 
 (defn- validity-message
   "Build a custom validity message from an `error` map."
@@ -160,6 +161,9 @@
         distinct?     (if (:query input)
                         (= (:distinct input) "true")
                         true)
+        labels?       (if (:query input)
+                        (= (:labels input) "true")
+                        true)
         query-value   (when-let [s (or normalized-query
                                        (:query input)
                                        basic-select-query)]
@@ -198,27 +202,45 @@
      #_[:div.sparql-progress]
      [:div.sparql-editor__controls
       [:label.page-size-select
+       {:title (i18n/da-en languages
+                 "Antal resultater pr. side"
+                 "Number of results per page")}
        (i18n/da-en languages "Resultater " "Results ")
        [:select {:name          "limit"
                  :default-value (str current-limit)}
         (for [n page-sizes]
           [:option {:key n :value (str n)} (str n)])]]
+      [:label.model-select
+       {:title (i18n/da-en languages
+                 "Vælg om forespørgslen køres mod rå eller logisk afledt data"
+                 "Choose whether to query raw or logically inferred data")}
+       (i18n/da-en languages "Kilde " "Source ")
+       [:select {:name          "inference"
+                 :default-value "auto"}
+        [:option {:value "auto"}
+         "Auto"]
+        [:option {:value "false"}
+         (i18n/da-en languages "Rå" "Raw")]
+        [:option {:value "true"}
+         (i18n/da-en languages "Afledt" "Inferred")]]]
       [:label.distinct-select
+       {:title (i18n/da-en languages
+                 "Fjern duplikerede rækker fra resultatet"
+                 "Remove duplicate rows from the result")}
        (i18n/da-en languages "Fjern dubletter " "No duplicates ")
        [:input {:type            "checkbox"
                 :name            "distinct"
                 :value           "true"
                 :default-checked distinct?}]]
-      [:label.model-select
-       (i18n/da-en languages "Kilde " "Source ")
-       [:select {:name          "inference"
-                 :default-value "auto"}
-        [:option {:value "auto"}
-         (i18n/da-en languages "Automatisk" "Automatic")]
-        [:option {:value "false"}
-         (i18n/da-en languages "Rå data" "Raw data")]
-        [:option {:value "true"}
-         (i18n/da-en languages "Afledt data" "Inferred data")]]]]]))
+      [:label.labels-select
+       {:title (i18n/da-en languages
+                 "Tilføj menneskelæsbare etiketter til ressourcer i resultatet"
+                 "Add human-readable labels to resources in the result")}
+       (i18n/da-en languages "Beriget " "Enriched ")
+       [:input {:type            "checkbox"
+                :name            "labels"
+                :value           "true"
+                :default-checked labels?}]]]]))
 
 
 (rum/defc result-table
@@ -257,6 +279,7 @@
         query     (:query input)
         inference (:inference input)
         distinct  (:distinct input)
+        labels    (:labels input)
         prev?     (pos? offset')
         next?     has-more?]
     (when (and query (or prev? next?))
@@ -266,7 +289,7 @@
           {:href (pagination-href
                    query limit'
                    (max 0 (- offset' limit'))
-                   inference distinct)}
+                   inference distinct labels)}
           (i18n/da-en languages
             "← Forrige" "← Previous")]
          [:span.sparql-pagination__prev.disabled
@@ -283,7 +306,7 @@
           {:href (pagination-href
                    query limit'
                    (+ offset' limit')
-                   inference distinct)}
+                   inference distinct labels)}
           (i18n/da-en languages
             "Næste →" "Next →")]
          [:span.sparql-pagination__next.disabled
@@ -334,7 +357,9 @@
                       (:inference input) (str "&inference="
                                               (url-encode (:inference input)))
                       (:distinct input) (str "&distinct="
-                                             (url-encode (:distinct input))))]
+                                             (url-encode (:distinct input)))
+                      (:labels input) (str "&labels="
+                                           (url-encode (:labels input))))]
            [:p.note
             [:strong "↓ "]
             (i18n/da-en languages

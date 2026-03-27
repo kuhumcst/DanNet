@@ -45,8 +45,7 @@
     --border-radius-s: 2px;
     
     /* SHADOWS */
-    --shadow-card: 0 0 12px rgba(0,0,0,0.33);
-    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.2);
+    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.25);
     --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
     --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
     
@@ -756,7 +755,7 @@ aside.notes {
    NAVIGATION
    =========================================== */
 
-nav {
+nav#main-nav {
     transition: background var(--transition-slow);
     display: flex;
     flex-direction: column;
@@ -769,11 +768,10 @@ nav {
     z-index: var(--z-base);
 }
 
-nav a.title {
+nav#main-nav a.title {
     /* letter-spacing transition has 1s delay to match loading animation */
     transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing var(--transition-slow) ease-in-out 1s;
     color: white;
-    opacity: var(--opacity-interactive);
     user-select: none;
     writing-mode: vertical-rl;
     text-orientation: sideways;
@@ -786,27 +784,25 @@ nav a.title {
 }
 
 /* Shared styles for nav icons */
-nav .nav-icon {
+nav#main-nav .nav-icon {
     transition: opacity var(--transition-base), transform var(--transition-base);
-    opacity: var(--opacity-interactive);
     background-repeat: no-repeat;
     background-position: center;
 }
 
-nav a.title:hover,
-nav a.title:focus-visible,
-nav .nav-icon:hover,
-nav .nav-icon:focus-visible {
-    opacity: var(--opacity-interactive-hover);
+nav#main-nav a.title:hover,
+nav#main-nav a.title:focus-visible,
+nav#main-nav .nav-icon:hover,
+nav#main-nav .nav-icon:focus-visible {
     transform: scale(110%);
 }
 
-nav a.title span {
+nav#main-nav a.title span {
     display: inline-block;
     color: inherit; /* Override namespace-specific colors */
 }
 
-nav select.language {
+nav#main-nav select.language {
     /* Remove default styling */
     color: transparent;
     border: none;
@@ -822,7 +818,7 @@ nav select.language {
     background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
 }
 
-nav button.synset-details {
+nav#main-nav button.synset-details {
     border: none;
     background-color: transparent;
     background-image: url("/images/minus.svg");
@@ -832,18 +828,18 @@ nav button.synset-details {
     padding: var(--spacing-xs);
 }
 
-nav button.synset-details.toggled {
+nav#main-nav button.synset-details.toggled {
     background-image: url("/images/plus.svg");
 }
 
-nav.full-screen {
+nav#main-nav.full-screen {
     background: white;
     box-shadow: none;
 }
 
 /* Darken the icons in the nav bar in full-screen mode. */
-nav.full-screen a.title,
-nav.full-screen .nav-icon {
+nav#main-nav.full-screen a.title,
+nav#main-nav.full-screen .nav-icon {
     filter: invert(1);
     opacity: var(--opacity-fullscreen-icon);
 }
@@ -854,20 +850,20 @@ nav.full-screen .nav-icon {
 }
 
 /* nav precedes #content in DOM, so :has(~) checks following sibling state */
-nav:has(~ #content.fetching) a.title {
+nav#main-nav:has(~ #content.fetching) a.title {
     letter-spacing: 8px;
 }
 
-nav:has(~ #content.fetching) a.title span {
+nav#main-nav:has(~ #content.fetching) a.title span {
     animation: title-pulse 1.6s ease-in-out infinite;
 }
 
 /* Staggered animation delays create a wave effect across the 6 letters */
-nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
-nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
-nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
-nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
-nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
+nav#main-nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
+nav#main-nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
+nav#main-nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
+nav#main-nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
+nav#main-nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
 
 
 /* ===========================================
@@ -880,7 +876,6 @@ search {
     position: fixed;
     margin: -5px 0 0 -5px;
     padding: var(--spacing-xs);
-    opacity: var(--opacity-interactive);
     width: var(--icon-size);
     min-height: var(--icon-size); /* Tap target matches search icon */
     background: url(/images/search.svg) no-repeat 5px 5px / var(--icon-size);
@@ -889,7 +884,6 @@ search {
 
 search.search-active {
     transition: background-color var(--transition-slow);
-    opacity: var(--opacity-interactive-hover);
     background: rgba(0,0,0,0.66) url(/images/back.svg) no-repeat var(--spacing-m) 20px / 42px;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
@@ -1028,7 +1022,7 @@ table.sparql-results {
     font-size: var(--font-size-m);
     border-collapse: collapse;
     border: var(--normal-border);
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card-subtle);
     width: 100%;
 }
 
@@ -1105,6 +1099,8 @@ tr tr:nth-child(odd) {
 }
 
 table.sparql-results {
+    min-width: 100%;
+    width: auto;
 }
 
 th.sparql-results__count,
@@ -1124,9 +1120,9 @@ td.sparql-results__count {
 span.prefix {
     background: var(--bg-dark);
     font-variant: small-caps;
-    color: rgba(255,255,255,var(--opacity-interactive));
+    color: rgba(255,255,255,255);
     border-radius: var(--border-radius-s);
-    border: 1px solid rgba(0,0,0,var(--opacity-decorative));
+    border: var(--very-subtle-border);
     padding: var(--spacing-xxs) var(--spacing-prefix);
     margin-right: var(--spacing-prefix);
 
@@ -1167,23 +1163,28 @@ span.prefix__sep {
 }
 
 /* Namespace-specific prefix colors */
-.prefix.dannet {
+.prefix.dannet,
+nav#main-nav.prefix.dannet {
     background-color: var(--color-dannet);
 }
 
-.prefix.w3c {
+.prefix.w3c,
+nav#main-nav.prefix.w3c {
     background-color: var(--color-w3c);
 }
 
-.prefix.meta {
+.prefix.meta,
+nav#main-nav.prefix.meta {
     background-color: var(--color-meta);
 }
 
-.prefix.ontolex {
+.prefix.ontolex,
+nav#main-nav.prefix.ontolex {
     background-color: var(--color-ontolex);
 }
 
-.prefix.wordnet {
+.prefix.wordnet,
+nav#main-nav.prefix.wordnet {
     background-color: var(--color-wordnet);
 }
 
@@ -1229,6 +1230,10 @@ span.prefix__sep {
     display: inline-flex;
     /* TODO: doesn't center properly with multiline names + lang tag... */
     align-items: center;
+}
+
+.qname a .set {
+    vertical-align: middle;
 }
 
 /* RDF URI display */
@@ -1651,7 +1656,8 @@ ul.hypernym-chain > li.subject::before {
 
 .sparql-editor + output {
     display: block;
-    margin-top: var(--spacing-xl);
+    margin-top: var(--spacing-xxl);
+    overflow-x: auto;
 }
 
 .sparql-editor__input {
@@ -1687,6 +1693,7 @@ ul.hypernym-chain > li.subject::before {
     display: flex;
     flex-direction: column;
     background: white;
+    box-shadow: var(--shadow-card-subtle);
 }
 
 /* Before CM6 mounts, show a styled placeholder matching the editor appearance */
@@ -1730,9 +1737,11 @@ ul.hypernym-chain > li.subject::before {
 }
 
 .cm-validation-error {
-    color: var(--color-dannet);
+    color: white;
+    background: black;
+    text-shadow: none !important;
     font-size: var(--font-size-s);
-    padding: var(--spacing-xs) var(--spacing-s);
+    padding: var(--spacing-s);
     white-space: pre-wrap;
 }
 
@@ -1772,9 +1781,21 @@ ul.hypernym-chain > li.subject::before {
 
 .sparql-editor__controls {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-m);
     margin-top: var(--spacing-m);
+}
+
+.sparql-pagination {
+    display: flex;
+    padding: var(--spacing-m) 0 0 0;
+    gap: var(--spacing-m);
+    justify-content: space-between;
+}
+
+.sparql-pagination__info {
+    font-weight: bold;
 }
 
 label.distinct-select {
@@ -2022,6 +2043,9 @@ span.render-error {
 
 /* Mobile view (minimalist) */
 @media only screen and (max-width: 700px) {
+    .sparql-editor__controls {
+        justify-content: flex-end;
+    }
     td.attr-name > [lang]:not(footer, h1 span, article)::after {
         content: "";
     }
@@ -2051,17 +2075,17 @@ span.render-error {
     #app {
         flex-direction: column;
     }
-    nav {
+    nav#main-nav {
         flex-direction: row;
         border: 1px solid transparent;
         border-bottom: var(--normal-border);
     }
-    nav a.title {
+    nav#main-nav a.title {
         writing-mode: initial;
         text-orientation: initial;
         margin: 0 auto;
     }
-    nav select.language {
+    nav#main-nav select.language {
         margin: 0 var(--spacing-s) 0 -40px;
     }
     article.document > div > ul:first-child  {
