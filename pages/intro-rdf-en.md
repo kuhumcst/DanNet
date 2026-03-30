@@ -14,6 +14,9 @@ The WordNet data in DanNet maps to the [Ontolex-lemon][Ontolex] types:
 - ontolex:LexicalEntry (words)
 - ontolex:Form (word forms)
 
+![Ontolex-lemon representation](/images/ontolex.png "The Ontolex-lemon representation of a WordNet")
+
+### DanNet namespaces
 The core of DanNet consists of three namespaces:
 
 | Prefix | URI | Purpose |

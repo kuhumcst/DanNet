@@ -20,19 +20,20 @@
 (def default-page-size
   10)
 
+;; Shared reference to the active CM6 EditorView, used by `on-submit` and
+;; `normalize-query!` which operate outside the Rum component lifecycle.
 #?(:cljs (defonce ^:private *editor-view (atom nil)))
 
-;; TODO: currently differences between frontend/backend
 (defn- pagination-href
   "Build href for a SPARQL pagination link."
-  [query limit offset inference distinct labels]
+  [query limit offset inference distinct enrichment]
   (cond-> (str prefix/sparql-path
                "?query=" (url-encode query)
                "&limit=" limit
                "&offset=" offset)
     inference (str "&inference=" (url-encode inference))
     (some? distinct) (str "&distinct=" (url-encode distinct))
-    (some? labels) (str "&labels=" (url-encode labels))))
+    (some? enrichment) (str "&enrichment=" (url-encode enrichment))))
 
 (defn- validity-message
   "Build a custom validity message from an `error` map."
@@ -128,10 +129,12 @@
                                          (when-let [v @*editor-view]
                                            (cm/clear-editor-error! v)
                                            (set-submit-disabled!
-                                             (.closest (.-dom v) "form") false))))]
+                                             (.closest (.-dom v) "form") false))))
+           [{:keys [input normalized-query]}] (:rum/args state)
+           url-query (or normalized-query (:query input))]
        (reset! *editor-view view)
        (cm/focus! view)
-       (assoc state ::view view))
+       (assoc state ::view view ::url-query url-query))
      :clj state))
 
 (defn- teardown-editor!
@@ -145,13 +148,31 @@
        (dissoc state ::view))
      :clj state))
 
+;; TODO: sync-editor! currently also fires after Execute, replacing the editor
+;;       content with the normalized query from the URL. Ideally it should only
+;;       sync on back/forward navigation, not after form submission.
+(defn- sync-editor!
+  "Sync the CM6 editor content when the URL query changes (e.g. back/forward)."
+  [state]
+  #?(:cljs
+     (if-let [view (::view state)]
+       (let [[{:keys [input normalized-query]}] (:rum/args state)
+             url-query (or normalized-query (:query input))]
+         (if (and url-query (not= url-query (::url-query state)))
+           (do (cm/set-doc! view (str/trim url-query))
+               (cm/fold-all! view)
+               (assoc state ::url-query url-query))
+           state))
+       state)
+     :clj state))
+
+;; NOTE: :did-update syncs the editor content when the query in the URL changes
+;; (e.g. via back/forward navigation). The form must NOT have a React :key,
+;; since a key change would destroy the CM6 DOM without triggering a Rum remount
+;; (Rum lifecycle is tied to the component, not its inner elements).
 (def ^:private codemirror-mixin
-  ;; Note: only :did-mount/:will-unmount — no :did-update. The form must NOT
-  ;; have a React :key, since a key change would destroy the CM6 DOM without
-  ;; triggering a Rum remount (Rum lifecycle is tied to the component, not
-  ;; its inner elements). The editor content is the source of truth and
-  ;; persists across re-renders.
   {:did-mount    init-editor!
+   :did-update   sync-editor!
    :will-unmount teardown-editor!})
 
 (rum/defcs editor < codemirror-mixin
@@ -161,8 +182,8 @@
         distinct?     (if (:query input)
                         (= (:distinct input) "true")
                         true)
-        labels?       (if (:query input)
-                        (= (:labels input) "true")
+        enrichment?   (if (:query input)
+                        (= (:enrichment input) "true")
                         true)
         query-value   (when-let [s (or normalized-query
                                        (:query input)
@@ -232,24 +253,25 @@
                 :name            "distinct"
                 :value           "true"
                 :default-checked distinct?}]]
-      [:label.labels-select
+      [:label.enrichment-select
        {:title (i18n/da-en languages
                  "Tilføj menneskelæsbare etiketter til ressourcer i resultatet"
                  "Add human-readable labels to resources in the result")}
        (i18n/da-en languages "Beriget " "Enriched ")
        [:input {:type            "checkbox"
-                :name            "labels"
+                :name            "enrichment"
                 :value           "true"
-                :default-checked labels?}]]]]))
+                :default-checked enrichment?}]]]]))
 
 
 (rum/defc result-table
   "Display SPARQL SELECT results as a table with RDF-aware components."
-  [{:keys [result-vars limit blank-nodes] :as opts} rows]
+  [{:keys [result-vars limit offset blank-nodes] :as opts} rows]
   (let [cols         (or result-vars (-> rows first keys))
         display-rows (if limit
                        (take limit rows)
                        rows)
+        offset'      (or offset 0)
         opts'        (assoc opts :table-component table/attr-val-table)]
     [:table.sparql-results
      [:thead
@@ -260,7 +282,7 @@
      [:tbody
       (for [[i row] (map-indexed vector display-rows)]
         [:tr {:key i}
-         [:td.sparql-results__count (inc i)]
+         [:td.sparql-results__count (+ offset' (inc i))]
          (for [col cols]
            (let [v (get row col)]
              [:td {:key col}
@@ -274,14 +296,14 @@
   "Previous/next page controls for SPARQL results."
   [{:keys [languages input limit offset has-more? sparql-result]
     :as   opts}]
-  (let [limit'    (or limit default-page-size)
-        offset'   (or offset 0)
-        query     (:query input)
-        inference (:inference input)
-        distinct  (:distinct input)
-        labels    (:labels input)
-        prev?     (pos? offset')
-        next?     has-more?]
+  (let [limit'     (or limit default-page-size)
+        offset'    (or offset 0)
+        query      (:query input)
+        inference  (:inference input)
+        distinct   (:distinct input)
+        enrichment (:enrichment input)
+        prev?      (pos? offset')
+        next?      has-more?]
     (when (and query (or prev? next?))
       [:nav.sparql-pagination
        (if prev?
@@ -289,7 +311,7 @@
           {:href (pagination-href
                    query limit'
                    (max 0 (- offset' limit'))
-                   inference distinct labels)}
+                   inference distinct enrichment)}
           (i18n/da-en languages
             "← Forrige" "← Previous")]
          [:span.sparql-pagination__prev.disabled
@@ -306,7 +328,7 @@
           {:href (pagination-href
                    query limit'
                    (+ offset' limit')
-                   inference distinct labels)}
+                   inference distinct enrichment)}
           (i18n/da-en languages
             "Næste →" "Next →")]
          [:span.sparql-pagination__next.disabled
@@ -358,8 +380,8 @@
                                               (url-encode (:inference input)))
                       (:distinct input) (str "&distinct="
                                              (url-encode (:distinct input)))
-                      (:labels input) (str "&labels="
-                                           (url-encode (:labels input))))]
+                      (:enrichment input) (str "&enrichment="
+                                               (url-encode (:enrichment input))))]
            [:p.note
             [:strong "↓ "]
             (i18n/da-en languages

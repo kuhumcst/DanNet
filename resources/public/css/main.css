@@ -667,10 +667,11 @@ article.document a:hover {
 
 /* Styles affecting images in the root of the document. */
 article.document > div > img,
+article.document > div > p > img,
 article.document > div > p > a > img {
     max-width: 80%;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card);
+    border: var(--subtle-border);
+    box-shadow: var(--shadow-card-subtle);
 
     /* Centering */
     display: block;
@@ -1106,6 +1107,8 @@ table.sparql-results {
 th.sparql-results__count,
 td.sparql-results__count {
     text-align: right;
+    width: 1%;
+    white-space: nowrap;
 }
 
 

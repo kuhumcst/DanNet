@@ -949,7 +949,7 @@
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
             (let [{:keys [query timeout limit offset
-                          distinct inference lookahead noop labels]} (:query-params request)
+                          distinct inference lookahead noop enrichment]} (:query-params request)
                   query-str (or query
                                 (when (string? (:body request))
                                   (:body request)))]
@@ -980,19 +980,19 @@
                                      "false" false
                                      nil)]
                     (assoc ctx
-                      :sparql {:input      {:query     query-str
-                                            :inference inference
-                                            :distinct  distinct
-                                            :labels    labels}
-                               :query-obj  query-obj
-                               :noop?      (some? noop)
-                               :timeout    timeout'
-                               :limit      limit'
-                               :offset     offset'
-                               :distinct?  distinct?
-                               :lookahead? lookahead?
-                               :inference? inference?
-                               :labels?    (= labels "true")}))
+                      :sparql {:input       {:query      query-str
+                                             :inference  inference
+                                             :distinct   distinct
+                                             :enrichment enrichment}
+                               :query-obj   query-obj
+                               :noop?       (some? noop)
+                               :timeout     timeout'
+                               :limit       limit'
+                               :offset      offset'
+                               :distinct?   distinct?
+                               :lookahead?  lookahead?
+                               :inference?  inference?
+                               :enrichment? (= enrichment "true")}))
                   (catch ExceptionInfo e
                     (let [{:keys [type cause max actual]} (ex-data e)
                           languages (request->languages request)
@@ -1026,14 +1026,14 @@
 (defn- enrich-select-result
   "Enrich a SELECT result with blank node data and optionally resource labels.
   Converts the ResultSetMem to rows, resets it for downstream consumers,
-  then attaches :blank-nodes and (when `labels?`) :k->label to `content`."
-  [content ^ResultSetMem sparql-result labels?]
+  then attaches :blank-nodes and (when `enrichment?`) :k->label to `content`."
+  [content ^ResultSetMem sparql-result enrichment?]
   (let [rows (handle-sparql-result sparql-result)
         g    (:graph @db)
         kws  (collect-keywords rows)]
     (.reset sparql-result)
     (cond-> (assoc content :blank-nodes (q/collect-blank-nodes g rows))
-      (and labels? (seq kws) (<= (count kws) max-label-resources))
+      (and enrichment? (seq kws) (<= (count kws) max-label-resources))
       (assoc :k->label (let [entity-label* (shared/->entity-label-fn false)]
                          (update-vals (q/resource-labels g kws)
                                       entity-label*))))))
@@ -1049,7 +1049,7 @@
   so that the UI can display human-readable labels (works for both SSR and SPA)."
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql request] :as ctx}]
-            (let [{:keys [input query-obj noop? limit offset lookahead? labels?]} sparql
+            (let [{:keys [input query-obj noop? limit offset lookahead? enrichment?]} sparql
                   languages (request->languages request)]
               (cond
                 ;; Validation error -> :content already set, pass through.
@@ -1079,7 +1079,7 @@
                                             :offset offset
                                             :lookahead? lookahead?)
                                     (= sparql-type :select)
-                                    (enrich-select-result sparql-result labels?))]
+                                    (enrich-select-result sparql-result enrichment?))]
                       (assoc ctx
                         :content content
                         :page-meta {:title (i18n/da-en languages

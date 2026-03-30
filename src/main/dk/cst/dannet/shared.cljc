@@ -464,7 +464,7 @@
             (contains? type :rdf/Bag))
     (->> (dissoc m :rdf/type)
          (filter (comp member-property? first))
-         (mapcat second)
+         (mapcat (comp setify second))
          sort
          not-empty)))
 

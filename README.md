@@ -70,7 +70,7 @@ DanNet is based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) stan
 | `ontolex:LexicalEntry` | Words |
 | `ontolex:Form` | Forms |
 
-![Ontolex-lemon representation](doc/ontolex.png "The Ontolex-lemon representation of a WordNet")
+![Ontolex-lemon representation](resources/public/images/ontolex.png "The Ontolex-lemon representation of a WordNet")
 
 ### URI Prefixes
 
