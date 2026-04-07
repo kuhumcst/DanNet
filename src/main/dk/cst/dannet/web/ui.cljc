@@ -108,8 +108,8 @@
    [:div.help-overlay__item {:style {:top   10
                                      :color "#df7300"}}
     (i18n/da-en languages
-      "start søgning"
-      "start search")]
+      "find ord"
+      "find words")]
    [:div.help-overlay__item {:style {:bottom "calc(50% + 8px)"
                                      :color  "#901a1e"}}
     (i18n/da-en languages

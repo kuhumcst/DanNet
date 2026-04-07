@@ -618,7 +618,7 @@
 
 (defn text->slug
   "Create a URL-safe slug from `text`, keeping only English alphanumerics
-  separated by single dashes.
+  separated by single dashes. Danish characters are transliterated first.
 
   NOTE: technically, HTML5 allows for most Unicode characters. However, the
         subsequent URL-encoding effort really isn't worth it."
@@ -627,6 +627,9 @@
     (-> text
         (str/trim)
         (str/lower-case)
+        (str/replace "æ" "ae")
+        (str/replace "ø" "oe")
+        (str/replace "å" "aa")
         (str/replace #"[^a-z0-9]+" "-")
         (str/replace #"^-|-$" ""))))
 

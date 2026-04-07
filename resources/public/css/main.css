@@ -272,7 +272,7 @@ h3 {
     font-size: var(--font-size-m-l);
     text-align: left;
     border-bottom: var(--subtle-border);
-    margin: var(--spacing-xl) 0 var(--spacing-m) 0;
+    margin: var(--spacing-xxl) 0 var(--spacing-m) 0;
     padding: 0 0 var(--spacing-xs) 0;
 }
 
@@ -283,12 +283,12 @@ sub {
 }
 
 code {
-    background: rgba(0,0,0,0.1);
+    background: rgba(255,255, 255,0.67);
     color: black;
     text-shadow: none !important;
     padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
-    font-size: 14px;
+    font-size: var(--font-size-s);
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     font-weight: normal;
 }
@@ -302,8 +302,14 @@ pre code {
 pre {
     text-shadow: none !important;
     color: white;
+    box-shadow:
+      inset 0 0 4px rgba(255,255,255,0.33),
+      0 0 4px rgba(0,0,0,0.25);
     background: rgba(0,0,0,0.85);
-    padding: var(--spacing-s) var(--spacing-m);
+    padding: var(--spacing-m);
+    margin: var(--spacing-xl);
+    overflow: scroll;
+    border-radius: var(--border-radius-s);
 }
 
 pre.message {
@@ -647,7 +653,7 @@ article.document h1 {
 }
 
 article.document p {
-    margin: 1em 0 2em 0;
+    margin: 1.5em 0 1.5em 0;
 }
 
 article.document li > a {
@@ -692,13 +698,12 @@ article.document li + li {
     padding-top: var(--spacing-s);
 }
 
-article.document li strong:first-child,
-article.document li a:first-child {
+article.document li strong:first-child {
     text-transform: uppercase;
     margin-right: var(--spacing-xs);
 }
 
-article.document blockquote { margin: 0;}
+article.document blockquote { margin: var(--spacing-xl) ;}
 article.document blockquote p {
     padding: var(--spacing-l) var(--spacing-xl);
     margin: var(--spacing-xl) 0;
@@ -1018,6 +1023,7 @@ nav.full-screen search:not(.search-active) {
    TABLES
    =========================================== */
 
+article.document table,
 table.attr-val,
 table.sparql-results {
     font-size: var(--font-size-m);
@@ -1025,6 +1031,11 @@ table.sparql-results {
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
     width: 100%;
+}
+
+article.document table {
+    width: fit-content;
+    margin: 0 auto;
 }
 
 table.attr-val col:nth-child(2) {
@@ -1742,9 +1753,12 @@ ul.hypernym-chain > li.subject::before {
 .cm-validation-error {
     color: white;
     background: black;
+    box-shadow: inset 0 0 4px rgba(255,255,255,0.33);
+    padding: var(--spacing-m);
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: normal;
     text-shadow: none !important;
     font-size: var(--font-size-s);
-    padding: var(--spacing-s);
     white-space: pre-wrap;
 }
 
@@ -1992,7 +2006,7 @@ span.render-error {
     }
 }
 
-@media only screen and (min-width: 1440px) {
+@media only screen and (min-width: 700px) {
     .help-overlay {
         opacity: 1;
     }

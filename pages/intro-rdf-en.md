@@ -56,11 +56,12 @@ A public [SPARQL endpoint][sparql] is available for querying the graph. It inclu
 Example query:
 
 ```sparql
-SELECT ?hypernym WHERE {
-  dn:synset-5028 wn:hypernym ?hypernym .
-}
+SELECT  (dn:synset-5028 AS ?synset) ?hypernym
+WHERE
+  { dn:synset-5028  wn:hypernym  ?hypernym
+  }
 ```
-[Run this query](/dannet/sparql?query=SELECT+%3Fhypernym+WHERE+{%0A++dn%3Asynset-5028+wn%3Ahypernym+%3Fhypernym+.%0A}&offset=0&limit=10&distinct=true&inference=auto)
+[Run this query](/dannet/sparql?query=PREFIX++dn%3A+++<https%3A//wordnet.dk/dannet/data/>%0APREFIX++wn%3A+++<https%3A//globalwordnet.github.io/schemas/wn%23>%0A%0ASELECT++(dn%3Asynset-5028+AS+%3Fsynset)+%3Fhypernym%0AWHERE%0A++{+dn%3Asynset-5028%0A++++++++++++++wn%3Ahypernym++%3Fhypernym%0A++}%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
 > **NOTE:** common prefixes such as `wn` and `dn` are added automatically when using the public SPARQL endpoint, so they aren't strictly necessary!
 

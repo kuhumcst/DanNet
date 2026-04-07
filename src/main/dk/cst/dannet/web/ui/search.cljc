@@ -99,8 +99,8 @@
                   :id                    "search-input"
                   :name                  "lemma"
                   :placeholder           (i18n/da-en languages
-                                           "skriv noget..."
-                                           "write something...")
+                                           "begynd at skrive..."
+                                           "start writing...")
                   :on-key-down           on-key-down
                   :ref                   form/autofocus-ref
                   :on-focus              form/select-text
