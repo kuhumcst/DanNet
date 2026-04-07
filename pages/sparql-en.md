@@ -299,25 +299,25 @@ ORDER BY ?lexfile
 
 ### Which words have the most senses?
 
-**TODO: this query needs fixing, or neeeds to be replaced**
-
 ```sparql
-SELECT ?word ?senses WHERE {
-  {
-    SELECT ?word (COUNT(DISTINCT ?synset) AS ?senses) WHERE {
-      ?entry ontolex:canonicalForm/ontolex:writtenRep ?word .
-      ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
+SELECT  ?word ?senses
+WHERE
+  { { SELECT  ?word (COUNT(DISTINCT ?synset) AS ?senses)
+      WHERE
+        { ?entry ontolex:canonicalForm/ontolex:writtenRep ?word .
+          ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset
+          FILTER strstarts(str(?entry), str(dn:))
+        }
+      GROUP BY ?word
+      ORDER BY DESC(?senses)
+      LIMIT   10
     }
-    GROUP BY ?word
-    ORDER BY DESC(?senses)
-    LIMIT 10
   }
-}
 ```
 
-[Run this query](/dannet/sparql?query=SELECT%20%3Fword%20%3Fsenses%20WHERE%20%7B%20%7B%20SELECT%20%3Fword%20(COUNT(DISTINCT%20%3Fsynset)%20AS%20%3Fsenses)%20WHERE%20%7B%20%3Fentry%20ontolex%3AcanonicalForm%2Fontolex%3AwrittenRep%20%3Fword%20.%20%3Fentry%20ontolex%3Asense%2Fontolex%3AisLexicalizedSenseOf%20%3Fsynset%20.%20%7D%20GROUP%20BY%20%3Fword%20ORDER%20BY%20DESC(%3Fsenses)%20LIMIT%2010%20%7D%20%7D&distinct=true)
+[Run this query](/dannet/sparql?query=PREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0A%0ASELECT++%3Fword+%3Fsenses%0AWHERE%0A++%7B+%7B+SELECT++%3Fword+%28COUNT%28DISTINCT+%3Fsynset%29+AS+%3Fsenses%29%0A++++++WHERE%0A++++++++%7B+%3Fentry+ontolex%3AcanonicalForm/ontolex%3AwrittenRep+%3Fword+.%0A++++++++++%3Fentry+ontolex%3Asense/ontolex%3AisLexicalizedSenseOf+%3Fsynset%0A++++++++++FILTER+strstarts%28str%28%3Fentry%29%2C+str%28dn%3A%29%29%0A++++++++%7D%0A++++++GROUP+BY+%3Fword%0A++++++ORDER+BY+DESC%28%3Fsenses%29%0A++++++LIMIT+++10%0A++++%7D%0A++%7D%0A&offset=0&limit=10&inference=true)
 
-This query uses a [subquery](https://en.wikibooks.org/wiki/SPARQL/Subqueries) to perform the aggregation and limiting in one step, which is more efficient for large datasets. `ORDER BY DESC(…)` sorts descending and `LIMIT` caps the output.
+This query uses a [subquery](https://en.wikibooks.org/wiki/SPARQL/Subqueries) to perform the aggregation and limiting in one step. `ORDER BY DESC(…)` sorts descending and `LIMIT` caps the output. The `FILTER STRSTARTS(…)` restricts entries to the DanNet namespace (see [Filtering by namespace](#filtering-by-namespace)), which is important here because the triplestore also contains entries from other datasets such as COR and the English WordNet. Note that the "Run this query" link above sets the inference mode to *Inferred*; see [Raw, inferred, and auto](#raw-inferred-and-auto) in the appendix for why this matters.
 
 > **NOTE:** `ORDER BY` can be very expensive on large result sets, as it requires the database to sort all matching rows before returning any. Use it sparingly and prefer queries that constrain results with triple patterns first. When combined with `GROUP BY`, sorting a smaller aggregated result (as in the subquery above) is much cheaper than sorting the full result set.
 
@@ -488,6 +488,20 @@ Results are displayed as a table with clickable resource links. If the result se
 Below the results, status indicators show whether the result was served from cache and whether inferencing was used. A **JSON download** link lets you save the current result set in a [standardised format](https://www.w3.org/TR/sparql12-results-json/).
 
 The full query state (query text, page size, inference mode, distinct, enrichment) is encoded in the page URL, so you can share or bookmark any query. The "Run this query" links throughout this guide work exactly this way.
+
+### Raw, inferred, and auto
+
+The public DanNet triplestore contains both explicitly stated triples ("raw") and triples that can be derived via logical inference. For example, DanNet stores `ontolex:sense` links from words to senses and `ontolex:evokes` links from words to synsets as explicit triples. But the inverse link `ontolex:isLexicalizedSenseOf` (from a sense back to its synset) only exists in the inferred model, because it is derived from the ontology definitions.
+
+The **Source** control in the editor selects which model to query:
+
+- **Raw** queries only the explicitly stated triples. It is faster, but some triple patterns that work with inference will return no results.
+- **Inferred** queries the inference model, which includes both raw triples and logically derived ones. It is slower, but more complete.
+- **Auto** (the default) tries the raw model first and automatically retries with the inference model if the raw query returns no results.
+
+Auto works well for most queries, but it can be misleading when a query returns *some* results from the raw model that are not the results you expected. For instance, a query that scans entries across both DanNet and the English WordNet may find matches in the English data (which has explicit `ontolex:isLexicalizedSenseOf` triples) while missing the Danish data entirely (where those triples are inferred). Since the raw model returned a non-empty result, Auto never retries with inference.
+
+When you know your query relies on inferred triples, set the source to *Inferred* explicitly.
 
 
 ## Appendix - Quick overview
