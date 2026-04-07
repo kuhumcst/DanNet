@@ -99,7 +99,7 @@
     (i18n/da-en languages
       "Søg i DanNet-databasen ("
       "Search the DanNet database (")
-    [:a {:href "/dannet/page/sparql"
+    [:a {:href  "/dannet/page/sparql"
          :title (i18n/da-en languages
                   "SPARQL-guide"
                   "SPARQL guide")}

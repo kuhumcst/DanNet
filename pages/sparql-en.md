@@ -3,18 +3,16 @@
 This is a hands-on introduction for people with no prior knowledge of RDF or SPARQL.
 By reading this guide you will learn how to use [SPARQL](https://www.w3.org/TR/sparql11-query/) queries to fetch data from the DanNet database.
 
-**TODO: the IDs generated from the Markdown headings aren't all valid, result in broken links**
-
 1. [What is RDF?](#what-is-rdf)
 2. [What is SPARQL?](#what-is-sparql)
 3. [Exploring relationships](#exploring-relationships)
-4. [OPTIONAL - handling missing data](#optional---handling-missing-data)
-5. [FILTER - narrowing results](#filter---narrowing-results)
-6. [Aggregation - counting, grouping, and limiting](#aggregation---counting-grouping-and-limiting)
-7. [DanNet-specific relations](#dannet---specific-relations)
+4. [OPTIONAL: handling missing data](#optional-handling-missing-data)
+5. [FILTER: narrowing results](#filter-narrowing-results)
+6. [Aggregation: counting, grouping, and limiting](#aggregation-counting-grouping-and-limiting)
+7. [DanNet-specific relations](#dannet-specific-relations)
 8. [Practical tips](#practical-tips)
-9. [Appendix - The SPARQL editor](#appendix---the-sparql-editor)
-10. [Appendix - Quick overview](#appendix---quick-overview)
+9. [Appendix A: The SPARQL editor](#appendix-a-the-sparql-editor)
+10. [Appendix B: Quick overview](#appendix-b-quick-overview)
 
 
 ## What is RDF?
@@ -194,10 +192,10 @@ WHERE
 
 [Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0A%0ASELECT++%3Frelation+%3FtargetLabel%0AWHERE%0A++%7B+VALUES+%3Frelation+%7B+wn%3Amero_substance+wn%3Aresult+dns%3AusedFor+%7D%0A++++dn%3Asynset-52++%3Frelation++%3Ftarget+.%0A++++%3Ftarget+++rdfs%3Alabel++%3FtargetLabel%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
-We'll look at more of these DanNet-specific relations in [section 7](#7-dannet-specific-relations).
+We'll look at more of these DanNet-specific relations in [section 7](#dannet-specific-relations).
 
 
-## OPTIONAL - handling missing data
+## OPTIONAL: handling missing data
 
 Not every synset has every property. If you want results even when some data is absent, use [`OPTIONAL`](https://en.wikibooks.org/wiki/SPARQL/OPTIONAL):
 
@@ -216,7 +214,7 @@ WHERE
 This finds all **Comestible** synsets (food) and their usage examples *if they exist*. Some synsets have examples, some don't. Without `OPTIONAL`, any synset lacking an example would be silently dropped from the results. Scroll through the results and notice how some rows have an `?example` value while others are empty.
 
 
-## FILTER - narrowing results
+## FILTER: narrowing results
 
 [`FILTER`](https://en.wikibooks.org/wiki/SPARQL/FILTER) lets you add conditions beyond simple pattern matching. Common uses:
 
@@ -275,7 +273,7 @@ For more on the available [expressions and functions](https://en.wikibooks.org/w
 **Performance note:** `FILTER` with `CONTAINS` on large result sets can be slow. When possible, constrain results with triple patterns first, then filter.
 
 
-## Aggregation - counting, grouping, and limiting
+## Aggregation: counting, grouping, and limiting
 
 The [modifiers](https://en.wikibooks.org/wiki/SPARQL/Modifiers) `GROUP BY`, `ORDER BY`, `LIMIT`, and `OFFSET` let you aggregate, sort, and paginate results. See also the Wikibook chapter on [aggregate functions](https://en.wikibooks.org/wiki/SPARQL/Aggregate_functions).
 
@@ -462,7 +460,7 @@ You don't need to memorize full URIs. The DanNet [SPARQL endpoint](/dannet/sparq
 * For a broader SPARQL tutorial (with Wikidata examples), see: [SPARQL on Wikibooks](https://en.wikibooks.org/wiki/SPARQL)*
 
 
-## Appendix - The SPARQL editor
+## Appendix A: The SPARQL editor
 
 The DanNet [SPARQL editor](/dannet/sparql) is a browser-based interface for writing and running queries against the public DanNet triplestore. This database comprises not just the core DanNet data and its associated schemas, but also the sentiment data in [DDS](https://github.com/dsldk/danish-sentiment-lexicon), the morphological data in [COR](http://ordregister.dk), links to the [Collaborative Interlingual Index](https://github.com/globalwordnet/cili), as well as an entire additional WordNet: the [Open English WordNet](https://en-word.net/).
 
@@ -504,7 +502,7 @@ Auto works well for most queries, but it can be misleading when a query returns 
 When you know your query relies on inferred triples, set the source to *Inferred* explicitly.
 
 
-## Appendix - Quick overview
+## Appendix B: Quick overview
 
 **RDF** is the data format. All data in DanNet is stored as **triples**, i.e. simple statements of the form `subject predicate object`. For example: *synset-52 has-definition "sødt bagværk…"*. A collection of triples forms a graph.
 

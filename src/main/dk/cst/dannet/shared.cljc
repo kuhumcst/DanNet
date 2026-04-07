@@ -616,6 +616,20 @@
     (coll? v) (get (set v) x)
     :else (= v x)))
 
+(defn text->slug
+  "Create a URL-safe slug from `text`, keeping only English alphanumerics
+  separated by single dashes.
+
+  NOTE: technically, HTML5 allows for most Unicode characters. However, the
+        subsequent URL-encoding effort really isn't worth it."
+  [text]
+  (when (string? text)
+    (-> text
+        (str/trim)
+        (str/lower-case)
+        (str/replace #"[^a-z0-9]+" "-")
+        (str/replace #"^-|-$" ""))))
+
 ;; See also: https://mathiasbynens.be/notes/html5-id-class
 (defn lstr-slug
   "Turn a coll of `lstrs` into a slug that is HTML5 id compatible."
