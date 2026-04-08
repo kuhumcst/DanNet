@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.entity
   "Rendering of the RDF resources in DanNet."
-  (:require [flatland.ordered.map :as fop]
+  (:require [clojure.string :as str]
+            [flatland.ordered.map :as fop]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -161,10 +162,14 @@
                                            :content (str lexfile')))
          pos])
       (if-let [definition (:skos/definition subentity)]
-        [:span {:property "skos:definition"}
-         (error/try-render
-           (rdf/transform-val definition opts)
-           (str definition))]
+        (let [definition' (if (set? definition)
+                            (->> (sort (map str definition))
+                                 (str/join "; "))
+                            definition)]
+          [:span {:property "skos:definition"}
+           (error/try-render
+             (rdf/transform-val definition' opts)
+             (str definition'))])
         (when-let [definition (:wn/definition subentity)]
           [:span {:property "wn:definition"}
            (error/try-render
