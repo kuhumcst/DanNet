@@ -124,7 +124,7 @@ Lad os gennemgå det:
 
 Forespørgslen kan læses som:
 
-> Find enhver entry hvis skriftform er 'kage', følg dens betydninger til deres synsets, og returnér hvert synsets mærkat (label) og definition.
+> Find enhver entry hvis skriftform er 'kage', følg dens betydninger til deres synsets, og returnér hvert synsets etiket (label) og definition.
 
 Bemærk skråstreg-syntaksen i `ontolex:canonicalForm/ontolex:writtenRep` - dette er en såkaldt [property path](#property-paths), som forklares nedenfor.
 
@@ -138,9 +138,9 @@ Denne forespørgsel returnerer 3 rækker:
 
 Ordet "kage" har tre betydninger: kage (bagværket), en mere eller mindre fast masse (størknet eller sammenpresset), og det idiomatiske "en del af kagen" (en andel af noget fordelagtigt).
 
-### Læsning af synset-mærkater (labels)
+### Læsning af synset-etiketter (labels)
 
-Mærkater som `{kage_1§1}` kræver en forklaring. De opremser alle de ord der deler denne betydning, dvs. **synonymerne**. Når et synset har flere, vil du se dem adskilt af semikoloner: `{bag_2§1; bagværk_§1; brød_1§1b}`. `§1`-notationen stammer fra [Den Danske Ordbog (DDO)](https://ordnet.dk/ddo) og peger på et bestemt definitionsnummer i den ordbog.
+Etiketter som `{kage_1§1}` kræver en forklaring. De opremser alle de ord der deler denne betydning, dvs. **synonymerne**. Når et synset har flere, vil du se dem adskilt af semikoloner: `{bag_2§1; bagværk_§1; brød_1§1b}`. `§1`-notationen stammer fra [Den Danske Ordbog (DDO)](https://ordnet.dk/ddo) og peger på et bestemt definitionsnummer i den ordbog.
 
 ### Property paths
 
@@ -180,7 +180,7 @@ WHERE
 
 Denne forespørgsel finder dyrebegreber med en negativ sentimentannotering. Den kombinerer flere ting: navigation ind i en RDF Bag via `dns:ontologicalType/rdfs:member`, matching af en specifik ontologisk type (`dnc:Animal`), og traversering af sentimentdata der bruger [MARL](http://www.gsi.upm.es/ontologies/marl/)-vokabularet. Det er den type tværgående forespørgsel der ville være meget svær at besvare blot ved at browse webgrænsefladen.
 
-> **BEMÆRK:** "Kør denne forespørgsel"-linket ovenfor har **mærkatberigelse** (label enrichment) aktiveret. Med dette aktiveret mapper editoren automatisk mærkater til alle ressource-URI'er i resultaterne, så du ikke behøver manuelt at hente `rdfs:label` for hver variabel.
+> **BEMÆRK:** "Kør denne forespørgsel"-linket ovenfor har **etiketberigelse** (label enrichment) aktiveret. Med dette aktiveret mapper editoren automatisk etiketter til alle ressource-URI'er i resultaterne, så du ikke behøver manuelt at hente `rdfs:label` for hver variabel.
 
 ### Op gennem hypernym-hierarkiet
 
@@ -434,7 +434,7 @@ WHERE
 
 [Kør denne forespørgsel](/dannet/sparql?query=PREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0A%0ASELECT++%3Fsynset+%3FenSynset%0AWHERE%0A++%7B+%3Fentry+ontolex%3AcanonicalForm/ontolex%3AwrittenRep+%22land%22@da+.%0A++++%3Fentry+ontolex%3Asense/ontolex%3AisLexicalizedSenseOf+%3Fsynset+.%0A++++%3Fsynset++wn%3Aeq_synonym++%3FenSynset%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
 
-Med berigelse aktiveret vil både DanNet-synsettet og det engelske synset vises som links med mærkater, så det er nemt at se hvilke danske betydninger der svarer til hvilke engelske. Hvis man har brug for at begrænse resultater til ét sprog, kan man bruge `STRSTARTS`-teknikken fra [Filtrering efter namespace](#filtrering-efter-namespace).
+Med berigelse aktiveret vil både DanNet-synsettet og det engelske synset vises som links med etiketter, så det er nemt at se hvilke danske betydninger der svarer til hvilke engelske. Hvis man har brug for at begrænse resultater til ét sprog, kan man bruge `STRSTARTS`-teknikken fra [Filtrering efter namespace](#filtrering-efter-namespace).
 
 ## Praktiske tips
 
@@ -459,16 +459,16 @@ Dette er SPARQL-ækvivalenten til "vis mig alt om denne ting". Det er den bedste
 
 Man behøver ikke at huske fulde URI'er. DanNets [SPARQL-endpoint](/dannet/sparql) foruddefinerer disse [præfikser](https://en.wikibooks.org/wiki/SPARQL/Prefixes) (blandt andre):
 
-| Præfiks | Namespace | Bruges til |
-|---------|---|---|
-| **dn:** | https://wordnet.dk/dannet/data/ | DanNet-synsets, -ord, -betydninger |
-| **dns:** | https://wordnet.dk/dannet/schema/ | DanNet-specifikke egenskaber |
-| **dnc:** | https://wordnet.dk/dannet/concepts/ | DanNet-ontologiske typer |
+| Præfiks | Namespace | Bruges til                               |
+|---------|---|------------------------------------------|
+| **dn:** | https://wordnet.dk/dannet/data/ | DanNet-synsets, -ord, -betydninger       |
+| **dns:** | https://wordnet.dk/dannet/schema/ | DanNet-specifikke egenskaber             |
+| **dnc:** | https://wordnet.dk/dannet/concepts/ | DanNet-ontologiske typer                 |
 | **ontolex:** | http://www.w3.org/ns/lemon/ontolex# | Leksikalske entries, betydninger, former |
-| **wn:**  | https://globalwordnet.github.io/schemas/wn# | WordNet-relationer (hypernym, osv.) |
-| **skos:** | http://www.w3.org/2004/02/skos/core# | Definitioner |
-| **rdfs:** | http://www.w3.org/2000/01/rdf-schema# | Mærkater (labels) |
-| **rdf:** | http://www.w3.org/1999/02/22-rdf-syntax-ns# | Typer |
+| **wn:**  | https://globalwordnet.github.io/schemas/wn# | WordNet-relationer (hypernym, osv.)      |
+| **skos:** | http://www.w3.org/2004/02/skos/core# | Definitioner                             |
+| **rdfs:** | http://www.w3.org/2000/01/rdf-schema# | Etiketter (labels)                       |
+| **rdf:** | http://www.w3.org/1999/02/22-rdf-syntax-ns# | Typer                                    |
 
 
 ### Links og eksterne ressourcer
@@ -498,7 +498,7 @@ Under editoren er der flere kontroller:
 - **Results** sætter sidestørrelsen (10, 20, 50 eller 100 resultater pr. side). Bemærk at der er en hård grænse på 100 resultater pr. forespørgsel (også uanset en eksplicit `LIMIT`-klausul i forespørgslen).
 - **Kilde** vælger inferenstilstanden: *Auto* (standard) lader serveren bestemme, *Rå* forespørger kun den rå triplestore (hurtigere, men kan kræve mere komplekse forespørgsler), og *Afledt* gennemtvinger inferensmodellen (langsommere, men inkluderer tripler afledt via logisk inferens). Se [Rå, afledt og auto](#raa-afledt-og-auto) for detaljer.
 - **Fjern dubletter** slår `DISTINCT` til/fra på resultaterne.
-- **Beriget** slår mærkatberigelse (label enrichment) til/fra. Når det er aktiveret, slår editoren menneskelæsbare mærkater op for alle ressource-URI'er i resultaterne og fletter dem med RDF-ressourcerne, så man ikke behøver manuelt at joine på `rdfs:label` i hver forespørgsel. Det er også sådan ressourcer normalt vises på hele DanNet-websitet.
+- **Beriget** slår etiketberigelse (label enrichment) til/fra. Når det er aktiveret, slår editoren menneskelæsbare etiketter op for alle ressource-URI'er i resultaterne og fletter dem med RDF-ressourcerne, så man ikke behøver manuelt at joine på `rdfs:label` i hver forespørgsel. Det er også sådan ressourcer normalt vises på hele DanNet-websitet.
 
 ### Resultater, paginering og download
 
@@ -531,6 +531,6 @@ Når man ved, at ens forespørgsel afhænger af infererede tripler, bør man eks
 
 **DanNet** organiserer sine data omkring tre centrale byggesten ([ord, betydninger og synsets](#dannets-datamodel-forenklet)), der følger strukturen fra det oprindelige Princeton WordNet. Disse er formaliseret for RDF vha. [OntoLex-Lemon](https://www.w3.org/2016/05/ontolex/)-standarden. Kæden er: **Ord → Betydning → Synset**. Et ord kan have flere betydninger, og hver betydning peger på et synset. Synsets er forbundet med hinanden gennem [semantiske relationer](#udforsk-relationer).
 
-Enhver **RDF-ressource** (ord, betydninger, synsets) er identificeret ved en **URI** (f.eks. `https://wordnet.dk/dannet/data/synset-52`), og man kan besøge dem alle i sin browser. Egenskaber som mærkater, definitioner og relationer er alle blot tripler der peger fra én URI til en anden (eller til en tekstværdi).
+Enhver **RDF-ressource** (ord, betydninger, synsets) er identificeret ved en **URI** (f.eks. `https://wordnet.dk/dannet/data/synset-52`), og man kan besøge dem alle i sin browser. Egenskaber som etiketter, definitioner og relationer er alle blot tripler der peger fra én URI til en anden (eller til en tekstværdi).
 
 Med dette in mente gennemgår resten af denne guide RDF og SPARQL i detaljer, startende fra bunden.
