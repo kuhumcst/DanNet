@@ -772,6 +772,7 @@ nav#main-nav {
     border: 1px solid transparent;
     border-right: var(--normal-border);
     z-index: var(--z-base);
+    gap: var(--spacing-s);
 }
 
 nav#main-nav a.title {
@@ -783,7 +784,7 @@ nav#main-nav a.title {
     text-orientation: sideways;
     font-size: var(--font-size-l);
     line-height: var(--icon-size); /* centre align */
-    margin: auto 0 calc(-1 * var(--icon-size)) 0; /* account for fixed search element */
+    margin: auto 0;
     font-variant: small-caps;
     justify-self: center;
     letter-spacing: 4px;
@@ -815,13 +816,24 @@ nav#main-nav select.language {
     appearance: none;
 
     cursor: pointer;
-    margin: auto 0 var(--spacing-s) 0;
     width: var(--icon-size);
     height: var(--icon-size);
     font-size: var(--font-size-m-xl);
     background-image: url(/images/globe.svg);
     background-color: transparent;
     background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
+}
+
+nav#main-nav a.sparql-link {
+    cursor: pointer;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    background-image: url("/images/sparql-icon.svg");
+    background-size: 26px;
+}
+
+nav#main-nav:has(search.search-active) a.sparql-link {
+    margin-top: calc(var(--icon-size) + var(--spacing-m));
 }
 
 nav#main-nav button.synset-details {
@@ -879,7 +891,6 @@ nav#main-nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-dela
 search {
     display: flex;
     flex-direction: column;
-    position: fixed;
     margin: -5px 0 0 -5px;
     padding: var(--spacing-xs);
     width: var(--icon-size);
@@ -889,6 +900,7 @@ search {
 }
 
 search.search-active {
+    position: fixed;
     transition: background-color var(--transition-slow);
     background: rgba(0,0,0,0.66) url(/images/back.svg) no-repeat var(--spacing-m) 20px / 42px;
     backdrop-filter: blur(5px);
@@ -2097,13 +2109,14 @@ span.render-error {
         border: 1px solid transparent;
         border-bottom: var(--normal-border);
     }
+    nav#main-nav:has(search.search-active) a.sparql-link {
+        margin-top: 0;
+        margin-left: calc(var(--icon-size) + var(--spacing-s));
+    }
     nav#main-nav a.title {
         writing-mode: initial;
         text-orientation: initial;
         margin: 0 auto;
-    }
-    nav#main-nav select.language {
-        margin: 0 var(--spacing-s) 0 -40px;
     }
     article.document > div > ul:first-child  {
         gap: var(--spacing-m);

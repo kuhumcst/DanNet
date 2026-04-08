@@ -106,17 +106,22 @@
   [page {:keys [languages] :as opts}]
   [:section.help-overlay {:aria-hidden true}
    [:div.help-overlay__item {:style {:top   10
-                                     :color "#df7300"}}
+                                     :color "#387111"}}
     (i18n/da-en languages
       "find ord"
       "find words")]
-   [:div.help-overlay__item {:style {:bottom "calc(50% + 8px)"
+   [:div.help-overlay__item {:style {:top   52
+                                     :color "#55f"}}
+    (i18n/da-en languages
+      "skriv SPARQL"
+      "write SPARQL")]
+   [:div.help-overlay__item {:style {:bottom "calc(50% - 12px)"
                                      :color  "#901a1e"}}
     (i18n/da-en languages
       "til forsiden"
       "to the frontpage")]
-   [:div.help-overlay__item {:style {:bottom 50
-                                     :color  "#55f"}}
+   [:div.help-overlay__item {:style {:bottom 52
+                                     :color  "#df7300"}}
     (i18n/da-en languages
       "skift sprog"
       "change language")]
@@ -192,6 +197,11 @@
                    (= page "metadata") "meta"
                    :else (prefix/prefix->class prefix')))]}
       (search/form opts')
+      [:a.sparql-link.nav-icon
+       {:title (i18n/da-en languages'
+                 "Åbn SPARQL-editor"
+                 "Open SPARQL editor")
+        :href  "/dannet/sparql"}]
       [:a.title {:title (i18n/da-en languages'
                           "Gå til forsiden"
                           "Go to the front page")
