@@ -244,6 +244,19 @@
          (i18n/da-en languages "Rå" "Raw")]
         [:option {:value "true"}
          (i18n/da-en languages "Afledt" "Inferred")]]]
+      [:label.timeout-select
+       {:title (i18n/da-en languages
+                 "Maks timeout i sekunder"
+                 "Max timeout in seconds")}
+       (i18n/da-en languages "Tid " "Time ")
+       ;; TODO: switch to type=text with inputtype=numeric for more precise styling
+       [:input (cond-> {:type        "number"
+                        :name        "timeout"
+                        :min         "1"
+                        :step        "1"
+                        :placeholder "15"}
+                 (not shared/development?)
+                 (assoc :max "30"))]]
       [:label.distinct-select
        {:title (i18n/da-en languages
                  "Fjern duplikerede rækker fra resultatet"
@@ -262,7 +275,6 @@
                 :name            "enrichment"
                 :value           "true"
                 :default-checked enrichment?}]]]]))
-
 
 (rum/defc result-table
   "Display SPARQL SELECT results as a table with RDF-aware components."

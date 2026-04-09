@@ -838,18 +838,19 @@ nav#main-nav:has(search.search-active) a.sparql-link {
     margin-top: calc(var(--icon-size) + var(--spacing-m));
 }
 
-nav#main-nav button.synset-details {
+nav#main-nav select.detail-level {
+    /* Remove default styling */
+    color: transparent;
     border: none;
-    background-color: transparent;
-    background-image: url("/images/minus.svg");
-    background-size: 26px;
+    appearance: none;
+
+    cursor: pointer;
     width: var(--icon-size);
     height: var(--icon-size);
-    padding: var(--spacing-xs);
-}
-
-nav#main-nav button.synset-details.toggled {
-    background-image: url("/images/plus.svg");
+    font-size: var(--font-size-m-xl);
+    background-image: url("/images/text-box.svg");
+    background-color: transparent;
+    background-size: 26px;
 }
 
 nav#main-nav.full-screen {
@@ -1707,10 +1708,11 @@ ul.hypernym-chain > li.subject::before {
     flex: 1;
 }
 
+label.timeout-select input[type=number],
 .sparql-editor button,
 .sparql-editor select,
 .sparql-editor input[type=submit] {
-    padding: var(--spacing-xs)  var(--spacing-s);
+    padding: var(--spacing-xs) var(--spacing-s);
 }
 
 /* CodeMirror 6 editor */
@@ -1816,6 +1818,10 @@ ul.hypernym-chain > li.subject::before {
     align-items: center;
     gap: var(--spacing-m);
     margin-top: var(--spacing-m);
+}
+
+label.timeout-select input[type=number] {
+    width: 5ch;
 }
 
 .sparql-pagination {

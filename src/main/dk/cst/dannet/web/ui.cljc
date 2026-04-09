@@ -85,6 +85,11 @@
 
 (rum/defc language-select
   [languages]
+  ;; TODO: the :on-change handler may not fire after SSR hydration (same issue
+  ;; as detail-level-select). Currently works because language changes trigger
+  ;; a page reload via the cookie, masking the problem. If this select ever
+  ;; needs to work without a reload, add a native event listener via :ref
+  ;; (see detail-level-select for the pattern).
   (let [change-language (fn [e]
                           #?(:cljs (let [v (-> (.-target e)
                                                (.-value)
@@ -101,6 +106,36 @@
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
+(defn- change-detail-level!
+  [e]
+  #?(:cljs (let [v (keyword (.-value (.-target e)))]
+             (shared/update-cookie! :detail-level (constantly v)))))
+
+(rum/defc detail-level-select
+  [detail-level languages]
+  [:select.detail-level.nav-icon
+   {:title     (i18n/da-en languages
+                 "Justér berigelse med etiketter"
+                 "Adjust label enrichment")
+    :value     (name detail-level)
+    :on-change change-detail-level!
+    ;; TODO: this also seems like an unnecessary hack, think of some alternative
+    :ref       #?(:clj  nil
+                  :cljs (fn [^js elem]
+                          (when elem
+                            ;; Native listener as fallback when React/Rum
+                            ;; synthetic onChange doesn't fire after hydration.
+                            (when-not (.-_detailHandler elem)
+                              (set! (.-_detailHandler elem) true)
+                              (.addEventListener elem "change"
+                                (fn [e]
+                                  (change-detail-level! e)))))))}
+   [:option {:value "basic"}
+    (i18n/da-en languages "Ingen etiketter" "No labels")]
+   [:option {:value "normal"}
+    "Standard"]
+   [:option {:value "high"}
+    (i18n/da-en languages "Lange etiketter" "Long labels")]])
 
 (rum/defc help-arrows
   [page {:keys [languages] :as opts}]
@@ -146,7 +181,8 @@
         ;; subsequently hydrate the HTML on the client-side with no errors.
         state' #?(:clj (assoc @shared/state
                          :languages languages
-                         :full-screen full-screen)
+                         :full-screen full-screen
+                         :detail-level (or (:detail-level opts) :normal))
                   :cljs (rum/react shared/state))
         languages'     (:languages state')
         comments       {:inference
@@ -161,9 +197,10 @@
                         (i18n/da-en languages'
                           "suppleret fra andre ressourcer"
                           "supplemented from other resources")}
-        details?       (or (get state' :details?)
-                           (get opts :details?))
-        entity-label*  (shared/->entity-label-fn details?)
+        detail-level   (or (get state' :detail-level)
+                           (get opts :detail-level)
+                           :normal)
+        entity-label*  (shared/->entity-label-fn detail-level)
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)
         synset?        (some section/semantic-rels? entity)
@@ -171,6 +208,7 @@
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')
                          :synset? synset?
+                         :detail-level detail-level
                          :comments comments
                          ;; Entity pages build k->label from expanded entity
                          ;; metadata; other pages (e.g. SPARQL) may supply their
@@ -181,10 +219,7 @@
         [prefix _ _] (shared/parse-rdf-term subject)
         prefix'        (or prefix (some-> entity
                                           :vann/preferredNamespacePrefix
-                                          symbol))
-        toggle-details (fn [e]
-                         (.preventDefault e)
-                         (swap! shared/state update :details? not))]
+                                          symbol))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav#main-nav
@@ -209,16 +244,7 @@
        ;; Wrapped in spans for staggered loading animation (see main.css).
        [:span "D"] [:span "a"] [:span "n"] [:span "N"] [:span "e"] [:span "t"]]
       (language-select languages')
-      [:button.synset-details.nav-icon {:class    (when details?
-                                                    "toggled")
-                                        :title    (if details?
-                                                    (i18n/da-en languages'
-                                                      "Vis færre detaljer"
-                                                      "Show fewer details")
-                                                    (i18n/da-en languages'
-                                                      "Vis flere detaljer"
-                                                      "Show more details"))
-                                        :on-click toggle-details}]]
+      (detail-level-select detail-level languages')]
      (when-not full-diagram?
        (help-arrows page opts'))
      [:div#content {:class [(when full-diagram?

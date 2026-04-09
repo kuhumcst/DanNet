@@ -404,7 +404,10 @@
 
 (defn with-cookies
   [request data]
-  (assoc data :full-screen (shared/get-cookie request :full-screen)))
+  (assoc data
+    :full-screen (shared/get-cookie request :full-screen)
+    :detail-level (or (shared/get-cookie request :detail-level)
+                      :normal)))
 
 (def response-body-ic
   "Generate a response containing the content body (if available)."
@@ -956,9 +959,11 @@
               (if query-str
                 (try
                   (let [query-obj  (sparql/validate query-str)
-                        timeout'   (if timeout
-                                     (min (Long/parseLong timeout)
-                                          sparql/max-timeout)
+                        timeout'   (if (not-empty timeout)
+                                     (let [ms (* (Long/parseLong timeout) 1000)]
+                                       (if shared/development?
+                                         ms
+                                         (min ms sparql/max-timeout)))
                                      sparql/max-timeout)
                         limit'     (if limit
                                      (min (Long/parseLong limit)
@@ -1034,7 +1039,7 @@
     (.reset sparql-result)
     (cond-> (assoc content :blank-nodes (q/collect-blank-nodes g rows))
       (and enrichment? (seq kws) (<= (count kws) max-label-resources))
-      (assoc :k->label (let [entity-label* (shared/->entity-label-fn false)]
+      (assoc :k->label (let [entity-label* (shared/->entity-label-fn :normal)]
                          (update-vals (q/resource-labels g kws)
                                       entity-label*))))))
 

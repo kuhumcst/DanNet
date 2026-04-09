@@ -28,13 +28,14 @@
                      (filter ks entity))))))
 
 (rum/defc entity-header
-  [{:keys [subject languages entity k->label details?]
+  [{:keys [subject languages entity k->label detail-level]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (shared/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
-        ;; detailed label (usually rsfs:label).
-        label-key     (if (and details? (get (:rdf/type entity)
-                                             :ontolex/LexicalConcept))
+        ;; detailed label (usually rdfs:label).
+        label-key     (if (and (= detail-level :high)
+                               (get (:rdf/type entity)
+                                    :ontolex/LexicalConcept))
                         :rdfs/label
                         (shared/find-label-key entity))
         select-label* (partial i18n/select-label languages)

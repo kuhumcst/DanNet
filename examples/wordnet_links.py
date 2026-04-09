@@ -1,3 +1,19 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["rdflib"]
+# ///
+"""
+Extract cross-wordnet links from a DanNet RDF export.
+
+Run with:
+    uv run wordnet_links.py
+
+Interactive REPL (for copy-pasting individual lines):
+    uv run --with rdflib python
+
+Requires ../export/rdf/dannet.ttl to exist.
+"""
+
 from rdflib import Graph
 from rdflib.namespace import NamespaceManager
 

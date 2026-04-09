@@ -122,9 +122,10 @@
               (rum/with-key (suggestion v on-key-down) v)))]]])]))
 
 (rum/defc result
-  [k {:keys [dc/subject] :as entity} {:keys [details? languages] :as opts}]
+  [k {:keys [dc/subject] :as entity} {:keys [detail-level languages] :as opts}]
   (let [{:keys [k->label short-label]} (meta entity)
-        opts' (assoc opts :k->label (if (and (not details?) short-label)
+        opts' (assoc opts :k->label (if (and (not= detail-level :high)
+                                             short-label)
                                       (assoc k->label k short-label)
                                       k->label))
         dt-id (str "result-" (name subject))

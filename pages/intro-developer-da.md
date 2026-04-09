@@ -21,16 +21,27 @@ curl -H "Accept: application/ld+json" https://wordnet.dk/dannet/data/synset-5028
 Et offentligt [SPARQL-endpoint][SPARQL endpoint] er tilgængeligt til programmatiske forespørgsler. Det har begrænsninger på resultatsætstørrelse og forespørgselstid.
 
 ### WN-LMF + Python
-[WN-LMF][wn-lmf]-formatet kan bruges med Python-biblioteket [wn][wn]:
+[WN-LMF][wn-lmf]-formatet kan bruges med Python-biblioteket [wn][wn]. Et [tutorialscript][tutorial] er tilgængeligt i GitHub-repoet og dækker polysemi, relationer, taksonomi, lighed, ILI m.m.:
 
 ```python
 import wn
+from wn import taxonomy, similarity
 
 wn.add("dannet-wn-lmf.xml.gz")
+dn = wn.Wordnet("dn")
 
-for synset in wn.synsets('kage'):
-    print((synset.lexfile() or "?") + ": " + (synset.definition() or "?"))
+# Polysemi: flere veje til samme data
+for ss in dn.synsets("land"):
+    print(ss.definition())
+
+# Semantisk lighed
+ss1 = dn.synsets("hund", pos="n")[0]
+ss2 = dn.synsets("kat", pos="n")[0]
+print(similarity.path(ss1, ss2))
+print(similarity.wup(ss1, ss2))
 ```
+
+Vi anbefaler [uv][uv] til at køre Python-scripts. Det håndterer afhængigheder automatisk. Eksemplerne i repoet er sat op som uv-scripts og kan køres direkte med f.eks. `uv run dannet_tutorial.py`.
 
 > **BEMÆRK:** WN-LMF indeholder kun officielle GWA-relationer; DanNet-specifikke relationer (såsom `used_for`) er kun tilgængelige i RDF-formatet.
 
@@ -51,6 +62,7 @@ DanNet-kodebasen er et MIT-licenseret Clojure/ClojureScript-projekt på [GitHub]
 ## Dokumentation
 Yderligere udviklerorienteret dokumentation:
 
+* [Python-eksempler][examples] — tutorial og eksempler til at arbejde med DanNet i Python
 * [Forespørgsler i DanNet][queries] (en) — SPARQL, Aristotle DSL og graftraversering
 * [Sense/synset-labelformat][label-rewrite] (en)
 * [Rationale][rationale] (en)
@@ -77,6 +89,9 @@ Yderligere udviklerorienteret dokumentation:
 [Github]: https://github.com/kuhumcst/DanNet "GitHub-projektsiden"
 [wn]: https://github.com/goodmami/wn "Et Python-bibliotek til udforskning af WordNets"
 [wn-lmf]: /export/wn-lmf/dn "DanNet (WN-LMF)"
+[uv]: https://docs.astral.sh/uv/ "uv: en hurtig Python-pakke- og projekthåndtering"
+[tutorial]: https://github.com/kuhumcst/DanNet/blob/master/examples/dannet_tutorial.py "Python-tutorialscript"
+[examples]: https://github.com/kuhumcst/DanNet/tree/master/examples "Python-eksempler"
 [downloads]: /dannet/page/downloads "Download datasæt"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Tidligere udgivelser"
 [queries]: /dannet/page/queries "Forespørgsler i DanNet"

@@ -3,26 +3,39 @@
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             #?(:cljs [dk.cst.dannet.web.d3 :as d3])))
+
+(defn- viz-opts
+  "Returns opts with k->label guaranteed to have real labels for visualisations,
+  regardless of the user's detail-level setting."
+  [{:keys [detail-level entities entity subject] :as opts}]
+  (if (and (= detail-level :basic) entities)
+    (let [entities' (assoc entities subject entity)]
+      (assoc opts :k->label
+             (update-vals entities' (shared/->entity-label-fn :normal))))
+    opts))
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
   [state synsets {:keys [cloud-limit] :as opts}]
   ;; Key on displayed items only, so deferred data doesn't trigger re-render
   ;; when cloud-limit caps what's shown anyway.
-  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)]
+  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)
+        opts'     (viz-opts opts)]
     [:div {:key (hash displayed)
            :ref #?(:clj  nil
-                   :cljs #(d3/build-cloud! (::synsets state) opts synsets %))}]))
+                   :cljs #(d3/build-cloud! (::synsets state) opts' synsets %))}]))
 
 (rum/defc radial-tree-diagram
   [subentity opts]
-  [:figure.radial-tree-diagram
-   {:ref #?(:clj  nil
-            :cljs (fn [elem]
-                    (when elem
-                      (d3/build-radial! subentity elem opts))))}])
+  (let [opts' (viz-opts opts)]
+    [:figure.radial-tree-diagram
+     {:ref #?(:clj  nil
+              :cljs (fn [elem]
+                      (when elem
+                        (d3/build-radial! subentity elem opts'))))}]))
 
 (defn- elem-classes
   [el]
@@ -45,7 +58,7 @@
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
-  [state subentity {:keys [full-screen languages k->label] :as opts}]
+  [state subentity {:keys [full-screen languages k->label detail-level] :as opts}]
   (let [selected (::selected state)
         toggle   (fn [_]
                    #?(:cljs (do
@@ -66,7 +79,9 @@
      [:ul.radial-tree-legend
       (for [k (keys subentity)]
         (when-let [theme (get shared/synset-rel-theme k)]
-          (let [label        (i18n/select-label languages (k->label k))
+          (let [label        (if (= detail-level :basic)
+                               (prefix/kw->qname k)
+                               (i18n/select-label languages (k->label k)))
                 is-selected? (= @selected theme)]
             [:li {:key k}
              [:label {:lang (i18n/lang label)} (str label)
@@ -103,10 +118,10 @@
       (rdf/resource (assoc opts :attr-key :lexinfo/senseExample) v)]]))
 
 (rum/defc ancestry-dt+dd
-  [{:keys [languages entity details?] :as opts}]
+  [{:keys [languages entity detail-level] :as opts}]
   (let [label       (str (:rdfs/label entity))
         short-label (some-> (:dns/shortLabel entity) str)
-        subj-label  (if details? label (or short-label label))]
+        subj-label  (if (= detail-level :high) label (or short-label label))]
     [:<>
      [:dt.synset-radial__footer-item {:id "ancestry"}
       (i18n/da-en languages

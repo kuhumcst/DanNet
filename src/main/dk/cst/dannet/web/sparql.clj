@@ -16,7 +16,7 @@
            [org.apache.jena.sparql.resultset ResultSetMem]
            [org.apache.jena.update UpdateFactory]))
 
-(def ^:const max-timeout 15000)
+(def ^:const max-timeout 30000)
 (def ^:const max-results-limit 100)
 (def ^:const max-query-length 5000)
 

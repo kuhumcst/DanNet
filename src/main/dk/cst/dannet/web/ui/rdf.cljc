@@ -43,10 +43,10 @@
              (= prefix (-> subj namespace symbol))))))
 
 
-;; TODO: don't hide when `details?` is true?
+;; TODO: don't hide when detail-level is :high?
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key details?] :as opts}]
+  [prefix {:keys [attr-key] :as opts}]
   (or (= :rdf/about attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
@@ -154,6 +154,13 @@
 
      (re-find #"\n" s)
      (into [:<>] (interpose [:br] (str/split s #"\n")))
+
+     ;; Context-free sense label rendering for e.g. SPARQL result tables where
+     ;; no attr-key or entity is available.
+     ;; TODO: could be tightened by threading the resource keyword through and
+     ;;       checking for :dn/sense-* instead of relying on string matching alone.
+     :let [[_ word _ sub mwe] (when-not attr-key (re-matches shared/sense-label s))]
+     sub [:<> word [:sub sub] mwe]
 
      :else s))
   ([s]
@@ -377,7 +384,7 @@
   "Render nested `ancestry` in `opts` as arrow-separated hyperlinks.
 
   Handles multiple hypernyms per synset, creating nested sublists. Respects
-  `:details?` in `opts` to select full or short labels. When `:subject-label`
+  `:detail-level` in `opts` to select full/short labels. When `:subject-label`
   is provided, prepends the subject as first item (not a hyperlink)."
   ([{:keys [ancestry subject-label] :as opts}]
    (if subject-label
@@ -386,11 +393,13 @@
        (transform-val subject-label opts)
        (hypernym-chain ancestry opts)]]
      (hypernym-chain ancestry opts)))
-  ([ancestry {:keys [details?] :as opts}]
+  ([ancestry {:keys [detail-level] :as opts}]
    (when (seq ancestry)
      (into [:ul.hypernym-chain]
            (for [{:keys [wn/hypernym rdfs/label dns/shortLabel ancestors]} ancestry
-                 :let [label (if details? label (or shortLabel label))]]
+                 :let [label (if (= detail-level :high)
+                               label
+                               (or shortLabel label))]]
              [:li
               (entity-link hypernym (assoc opts :k->label {hypernym label}))
               (hypernym-chain ancestors opts)])))))

@@ -80,14 +80,19 @@
   #?(:clj  false
      :cljs (boolean (get-cookie :full-screen))))
 
+(def default-detail-level
+  #?(:clj  :normal
+     :cljs (or (get-cookie :detail-level)
+               :normal)))
+
 ;; Page state used in the single-page app; completely unused server-side.
 (defonce state
-  (atom {:languages   default-languages
-         :search      {:completion {}
-                       :s          ""}
-         :full-screen default-full-screen
-         :section     {section/semantic-title {:display {:selected "radial"}}}
-         :details?    nil}))
+  (atom {:languages    default-languages
+         :search       {:completion {}
+                        :s          ""}
+         :full-screen  default-full-screen
+         :detail-level default-detail-level
+         :section      {section/semantic-title {:display {:selected "radial"}}}}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
 (defonce post-navigate
@@ -518,13 +523,18 @@
     (get entity k)))
 
 (defn ->entity-label-fn
-  "Returns a function that extracts labels from entities.
-  If `prefer-full?` is true, prefers rdfs:label over dns:shortLabel."
-  [prefer-full?]
-  (let [label-keys (if prefer-full?
-                     label-keys-full
-                     label-keys-short)]
-    #(get-entity-label label-keys %)))
+  "Return a function that extracts labels from entities based on `detail-level`.
+
+    :basic  - returns nil (no label enrichment)
+    :normal - prefers dns:shortLabel over rdfs:label
+    :high   - prefers rdfs:label over dns:shortLabel"
+  [detail-level]
+  (case detail-level
+    :basic (constantly nil)
+    :high (let [label-keys label-keys-full]
+            #(get-entity-label label-keys %))
+    (let [label-keys label-keys-short]
+      #(get-entity-label label-keys %))))
 
 (def semantic-relation-limit
   "Maximum number of values to display per semantic relation.

@@ -23,16 +23,27 @@ A public [SPARQL endpoint][SPARQL endpoint] is available for querying. In a brow
 The SPARQL endpoint also accepts programmatic requests via GET (with a `query` parameter) or POST (with the query as the request body), and supports content negotiation (including serving as `application/sparql-results+json`). Additional query parameters: `limit`, `offset`, `timeout`, `inference`, and `distinct`. There are restrictions on result set size and query execution time, though, so if you need to make some more resource-intensive queries you are better off querying the dataset in a local RDF graph.
 
 ### WN-LMF + Python
-The [WN-LMF][wn-lmf] format can be used with the [wn][wn] Python library:
+The [WN-LMF][wn-lmf] format can be used with the [wn][wn] Python library. A [tutorial script][tutorial] is available in the GitHub repo covering polysemy, relations, taxonomy, similarity, ILI, and more:
 
 ```python
 import wn
+from wn import taxonomy, similarity
 
 wn.add("dannet-wn-lmf.xml.gz")
+dn = wn.Wordnet("dn")
 
-for synset in wn.synsets('kage'):
-    print((synset.lexfile() or "?") + ": " + (synset.definition() or "?"))
+# Polysemy: multiple paths to the same data
+for ss in dn.synsets("land"):
+    print(ss.definition())
+
+# Semantic similarity
+ss1 = dn.synsets("hund", pos="n")[0]
+ss2 = dn.synsets("kat", pos="n")[0]
+print(similarity.path(ss1, ss2))
+print(similarity.wup(ss1, ss2))
 ```
+
+We recommend [uv][uv] for running Python scripts. It handles dependency resolution automatically. The example scripts in the repo are set up as uv scripts and can be run directly with e.g. `uv run dannet_tutorial.py`.
 
 > **NOTE:** WN-LMF only includes official GWA relations; DanNet-specific relations (such as `used_for`) are only available in the RDF format.
 
@@ -53,6 +64,7 @@ The DanNet codebase is an MIT-licensed Clojure/ClojureScript project hosted on [
 ## Documentation
 Additional developer-oriented documentation:
 
+* [Python examples][examples] — tutorial and example scripts for working with DanNet in Python
 * [SPARQL guide][SPARQL guide] — a hands-on introduction to querying DanNet with SPARQL
 * [Querying DanNet][queries] — SPARQL, Aristotle DSL, and graph traversal
 * [Sense/synset label format][label-rewrite]
@@ -81,6 +93,9 @@ Additional developer-oriented documentation:
 [Github]: https://github.com/kuhumcst/DanNet "The Github project page"
 [wn]: https://github.com/goodmami/wn "A Python library for exploring WordNets"
 [wn-lmf]: /export/wn-lmf/dn "DanNet (WN-LMF)"
+[uv]: https://docs.astral.sh/uv/ "uv: a fast Python package and project manager"
+[tutorial]: https://github.com/kuhumcst/DanNet/blob/master/examples/dannet_tutorial.py "Python tutorial script"
+[examples]: https://github.com/kuhumcst/DanNet/tree/master/examples "Python example scripts"
 [downloads]: /dannet/page/downloads "Dataset downloads"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Past releases"
 [queries]: /dannet/page/queries "Querying DanNet"
