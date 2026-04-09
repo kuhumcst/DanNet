@@ -167,7 +167,7 @@ Dette er en [**property path**](https://en.wikibooks.org/wiki/SPARQL/Property_pa
 Hvert synset i DanNet er annoteret med en eller flere **ontologiske typer** fra `dnc:`-namespacet (f.eks. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`). Disse typer er gemt i en [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag), en beholder der rummer en uordnet samling af værdier. For at tilgå værdierne i en Bag bruger man `rdfs:member` (som matcher ethvert medlem af Bag'en) i en [property path](#property-paths):
 
 ```sparql
-SELECT  ?synset ?definition ?polarity
+SELECT  ?synset ?definition
 WHERE
   { ?synset dns:ontologicalType/rdfs:member dnc:Animal .
     ?synset   skos:definition   ?definition ;
@@ -176,7 +176,7 @@ WHERE
   }
 ```
 
-[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fpolarity%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
 
 Denne forespørgsel finder dyrebegreber med en negativ sentimentannotering. Den kombinerer flere ting: navigation ind i en RDF Bag via `dns:ontologicalType/rdfs:member`, matching af en specifik ontologisk type (`dnc:Animal`), og traversering af sentimentdata der bruger [MARL](http://www.gsi.upm.es/ontologies/marl/)-vokabularet. Det er den type tværgående forespørgsel der ville være meget svær at besvare blot ved at browse webgrænsefladen.
 

@@ -167,7 +167,7 @@ The `/` means "follow this property, then follow that property". It saves you fr
 Every synset in DanNet is annotated with one or more **ontological types** from the `dnc:` namespace (e.g. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`). These types are stored in an [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag), a container that holds an unordered collection of values. To access the values inside a Bag, you use `rdfs:member` (which matches any member of the Bag) in a [property path](#property-paths):
 
 ```sparql
-SELECT  ?synset ?definition ?polarity
+SELECT  ?synset ?definition
 WHERE
   { ?synset dns:ontologicalType/rdfs:member dnc:Animal .
     ?synset   skos:definition   ?definition ;
@@ -176,7 +176,7 @@ WHERE
   }
 ```
 
-[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fpolarity%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
+[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
 
 This query finds animal concepts that have a negative sentiment annotation. It combines several things: navigating into an RDF Bag via `dns:ontologicalType/rdfs:member`, matching a specific ontological type (`dnc:Animal`), and traversing the sentiment data which uses the [MARL](http://www.gsi.upm.es/ontologies/marl/) vocabulary. This is the kind of cross-cutting query that would be very hard to answer by browsing the web interface.
 
