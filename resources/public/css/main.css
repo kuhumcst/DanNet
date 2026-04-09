@@ -364,7 +364,7 @@ dl.search-results > div {
     margin-bottom: var(--spacing-xxl);
     background-color: rgba(255, 255, 255, 1);
     border: var(--normal-border);
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card-subtle);
 }
 
 dl.search-results > div:hover,
@@ -402,16 +402,18 @@ ul.synset-summary {
     border-left: 6px solid var(--color-dannet);
 }
 
-ul.synset-summary> li:has(abbr.pos-label) {
-    display: flex;
-}
-
+/* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
+.rdf-resource ul.synset-summary { box-shadow: none; }
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-xl);
     background-color: rgba(255, 255, 255, 1);
     border: var(--normal-border);
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card-subtle);
     margin: 0 auto;
+}
+
+ul.synset-summary> li:has(abbr.pos-label) {
+    display: flex;
 }
 
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
@@ -1370,7 +1372,7 @@ span.marker {
 
     background: white;
     border: var(--normal-border);
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card-subtle);
 }
 
 #content.full-screen .synset-radial-container {

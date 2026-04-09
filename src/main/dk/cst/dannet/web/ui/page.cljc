@@ -26,10 +26,10 @@
         [_ _ rdf-uri] (shared/parse-rdf-term subject)
         typeof    (prefix/rdfa-val (:rdf/type entity))]
     (if (and synset? full-screen)
-      [:article
+      [:article.rdf-resource
        (entity/full-screen-content opts')]
-      [:article (cond-> {:about rdf-uri}
-                  typeof (assoc :typeof typeof))
+      [:article.rdf-resource (cond-> {:about rdf-uri}
+                               typeof (assoc :typeof typeof))
        (entity/entity-header opts')
        (entity/entity-content opts')
        (entity/entity-notes opts')])))
