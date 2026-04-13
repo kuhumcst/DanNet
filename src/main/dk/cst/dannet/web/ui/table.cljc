@@ -182,7 +182,9 @@
 
                        ;; Add RDFa subject when available.
                        (and subject (not (:table-component opts)))
-                       (assoc :about (prefix/kw->uri subject)))
+                       (assoc :about (if (keyword? subject)
+                                       (prefix/kw->uri subject)
+                                       subject)))
      [:colgroup
       [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
       [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]

@@ -74,7 +74,7 @@
           [:span.rdf-uri__name {:key local-name}
            (rdf/break-up-uri local-name)]]
          [:a.rdf-uri {:href  rdf-uri
-                      :title (str (select-label* languages a-titles))
+                      :title (str (select-label* a-titles))
                       :key   rdf-uri}
           (rdf/break-up-uri rdf-uri)]))]))
 
@@ -93,8 +93,6 @@
     (i18n/da-en languages
       "hent data som: "
       "download data as: ")
-    ;; TODO: some weird href diff in frontend/backend here
-    ;;       http://localhost:3456/dannet/external?subject=%3Chttp%3A%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema%23%3E
     [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
                         "format=turtle")
          :type     "text/turtle"
