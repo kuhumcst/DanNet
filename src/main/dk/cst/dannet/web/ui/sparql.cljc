@@ -298,11 +298,13 @@
          (for [col cols]
            (let [v (get row col)]
              [:td {:key col}
-              (if-let [be (and (symbol? v) (get blank-nodes v))]
-                (rdf/blank-node opts' be)
-                (if (keyword? v)
-                  (rdf/resource-hyperlink v opts')
-                  (rdf/transform-val v opts')))]))])]]))
+              [:div.sparql-results__cell
+               (if-let [be (and (symbol? v) (get blank-nodes v))]
+                 (rdf/blank-node opts' be)
+                 (if (keyword? v)
+                   (rdf/resource-hyperlink v opts')
+                   (rdf/transform-val v opts')))]]))])]]))
+
 
 (rum/defc pagination
   "Previous/next page controls for SPARQL results."

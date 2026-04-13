@@ -1130,6 +1130,13 @@ table.sparql-results {
     width: auto;
 }
 
+/* Constrain individual cell content to prevent a single long URI from
+   dominating the column width distribution in multi-column results. */
+.sparql-results__cell {
+    max-width: 66vw;
+    overflow-wrap: break-word;
+}
+
 th.sparql-results__count,
 td.sparql-results__count {
     text-align: right;

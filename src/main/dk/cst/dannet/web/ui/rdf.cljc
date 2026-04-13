@@ -14,12 +14,19 @@
 (def expandable-list-cutoff
   8)
 
+(def uri-pattern
+  #"://|[^\./\?&=#%]+|%[0-9A-Fa-f]{2}|[\./\?&=#]")
+
 (defn break-up-uri
-  "Place word break opportunities into a potentially long `uri`."
+  "Place word break opportunities into a potentially long `uri`.
+
+  Tokenizes the URI into path separators, query string delimiters, %-encoded
+  sequences, and plain text by inserting <wbr> before key delimiters: / ? & = #.
+  The :// scheme separator is kept atomic to avoid awkward mid-scheme breaks."
   [uri]
-  (into [:<>] (for [part (re-seq #"[^\./]+|[\./]+" uri)]
-                (if (re-matches #"[^\./]+" part)
-                  [:<> part [:wbr]]
+  (into [:<>] (for [part (re-seq uri-pattern uri)]
+                (case part
+                  ("/" "?" "&" "=" "#") [:<> [:wbr] part]
                   part))))
 
 (rum/defc rdf-uri-hyperlink
