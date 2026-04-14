@@ -135,10 +135,10 @@ for ss in dn.synsets("glad"):
 
 # --- 5. Filter by part of speech -----------------------------------------
 print("=" * 60)
-print("5. Filtrer på ordklasse: kun navneord for 'stol'")
+print("5. Filtrer på ordklasse: kun navneord for 'have'")
 print("=" * 60)
 
-for ss in dn.synsets("stol", pos="n"):
+for ss in dn.synsets("have", pos="n"):
     words = [w.lemma() for w in ss.words()]
     defn = ss.definition() or "?"
     print(f"  {ss.id}: {words} -- {defn}")
