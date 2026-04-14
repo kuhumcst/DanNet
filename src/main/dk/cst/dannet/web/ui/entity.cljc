@@ -156,7 +156,9 @@
     [:ul.synset-summary
      [:li
       (when pos
-        [:abbr.pos-label (cond-> {:title lexfile'}
+        [:abbr.pos-label (cond-> {:title (if lexfile'
+                                           (str lexfile' " (wn:lexfile)")
+                                           "wn:lexfile")}
                            lexfile' (assoc :property "wn:lexfile"
                                            :content (str lexfile')))
          pos])
@@ -165,16 +167,19 @@
                             (->> (sort (map str definition))
                                  (str/join "; "))
                             definition)]
-          [:span {:property "skos:definition"}
+          [:span {:property "skos:definition"
+                  :title    "skos:definition"}
            (error/try-render
              (rdf/transform-val definition' opts)
              (str definition'))])
         (when-let [definition (:wn/definition subentity)]
-          [:span {:property "wn:definition"}
+          [:span {:property "wn:definition"
+                  :title    "wn:definition"}
            (error/try-render
              (rdf/blank-node opts (meta definition)))]))]
      (when ontologicalType
-       [:li {:property "dns:ontologicalType"}
+       [:li {:property "dns:ontologicalType"
+             :title    "dns:ontologicalType"}
         (error/try-render
           (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
                           (meta ontologicalType)))])]))

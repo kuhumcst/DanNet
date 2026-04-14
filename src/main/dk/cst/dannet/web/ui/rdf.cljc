@@ -272,19 +272,20 @@
        (transform-val selected opts)])))
 
 (defn- blank-node*
-  [languages v & vs]
-  (into [:div.blank-node
-         [:span.marker {:title (i18n/da-en languages
-                                 "Blank knude"
-                                 "Blank node")}
-          "⦿"]
-         v]
-        vs))
+  [languages attr-key v & vs]
+  (let [base-title (i18n/da-en languages "Blank knude" "Blank node")
+        title      (if attr-key
+                     (str base-title " (" (prefix/kw->qname attr-key) ")")
+                     base-title)]
+    (into [:div.blank-node
+           [:span.marker {:title title} "⦿"]
+           v]
+          vs)))
 
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
-  [{:keys [table-component languages] :as opts} m]
-  (let [container (partial blank-node* languages)]
+  [{:keys [table-component languages attr-key] :as opts} m]
+  (let [container (partial blank-node* languages attr-key)]
     (cond
       (shared/rdf-datatype? m)
       (container (transform-val m))
