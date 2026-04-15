@@ -29,6 +29,7 @@
            thi.ng/color                   {:mvn/version "1.5.1"}
            dk.ative/docjure               {:mvn/version "1.21.0"}
            com.cnuernber/ham-fisted       {:mvn/version "2.031"}
+           com.cognitect/anomalies        {:mvn/version "0.1.12"}
 
            ;; https://github.com/taoensso/telemere/wiki/3-Config#java-logging
            org.slf4j/slf4j-api            {:mvn/version "2.0.17"}

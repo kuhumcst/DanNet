@@ -36,10 +36,11 @@
     (some? enrichment) (str "&enrichment=" (url-encode enrichment))))
 
 (defn- validity-message
-  "Build a custom validity message from an `error` map."
+  "Build a custom validity message from an anomaly map for the CodeMirror editor."
   [{:keys [message details]}]
-  (cond-> (or message "Invalid query")
-    details (str "\n\n" (str/trim details))))
+  (let [msg (or (:en message) "Invalid query")]
+    (cond-> msg
+      details (str "\n\n" (str/trim details)))))
 
 (defn- set-submit-disabled!
   "Toggle the submit button `disabled` state inside `form`."
@@ -71,7 +72,7 @@
                           nq)
                         (do
                           (cm/show-editor-error!
-                            view (validity-message (:error body)))
+                            view (validity-message (:anomaly body)))
                           (set-submit-disabled! form true)
                           nil))))
              (.catch (fn [_] nil)))))))
@@ -350,7 +351,7 @@
             "Næste →" "Next →")])])))
 
 (rum/defc output
-  [{:keys [languages input sparql-result error inference?
+  [{:keys [languages input sparql-result anomaly inference?
            cached? distinct? lookahead? limit offset]
     :as   opts}]
   [:output {:aria-live "polite"}
@@ -413,7 +414,5 @@
         "Ingen resultater."
         "No results.")]
 
-     error
-     (let [{:keys [type message details]} error]
-       (error/default-fallback
-         (str type ": " message) details)))])
+     anomaly
+     (error/anomaly-fallback anomaly languages))])

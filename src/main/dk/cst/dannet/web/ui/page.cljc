@@ -9,6 +9,7 @@
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
             [dk.cst.dannet.web.ui.sparql :as sparql]
+            [dk.cst.dannet.web.ui.error :as error]
             [dk.cst.dannet.web.ui.markdown :as mdc]))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
@@ -110,12 +111,17 @@
    (sparql/output opts)])
 
 (rum/defc error
-  "User-friendly error page shown when a page component fails to render."
-  [{:keys [languages] :as opts}]
+  "User-friendly error page shown when a page component fails to render.
+
+  When an :anomaly is present in `opts`, it is rendered below the friendly
+  links via `error/anomaly-fallback` to give specific details."
+  [{:keys [languages anomaly] :as opts}]
   (i18n/da-en languages
     [:article.document {:lang "da"}
      [:h1 "Noget gik galt"]
-     [:p "Der opstod en fejl under indlæsning af denne side."]
+     (if anomaly
+       (error/anomaly-fallback anomaly languages)
+       [:p "Der opstod en fejl under indlæsning af denne side."])
      [:ul
       [:li [:a {:href "javascript:location.reload()"} "Genindlæs siden"]
        " – det kan løse midlertidige problemer."]
@@ -125,7 +131,9 @@
        " – hvis problemet fortsætter."]]]
     [:article.document {:lang "en"}
      [:h1 "Something went wrong"]
-     [:p "An error occurred while loading this page."]
+     (if anomaly
+       (error/anomaly-fallback anomaly languages)
+       [:p "An error occurred while loading this page."])
      [:ul
       [:li [:a {:href "javascript:location.reload()"} "Reload the page"]
        " – this may fix temporary issues."]

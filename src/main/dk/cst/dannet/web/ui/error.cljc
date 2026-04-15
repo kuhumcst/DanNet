@@ -8,6 +8,8 @@
   
   All caught errors are logged via Telemere."
   (:require [rum.core :as rum]
+            [cognitect.anomalies :as-alias anom]
+            [dk.cst.dannet.web.i18n :as i18n]
             [taoensso.telemere :as t]
             #?(:clj [clojure.stacktrace])))
 
@@ -36,6 +38,24 @@
    [:details.render-error
     [:summary "⚠️ " message]
     [:pre.message details]]))
+
+(rum/defc anomaly-fallback
+  "Render a user-friendly, bilingual error from an anomaly map.
+
+  Uses an expandable details element similar to default-fallback.
+  The anomaly map should contain ::anom/category, :message {:da ... :en ...},
+  :retry?, and optionally :details."
+  [{::anom/keys [category] :keys [message retry? details]} languages]
+  (let [msg (i18n/da-en languages (:da message) (:en message))]
+    [:details.render-error
+     [:summary "⚠️ " msg]
+     (when retry?
+       [:p.note
+        (i18n/da-en languages
+          "Du kan prøve at genindlæse siden."
+          "You can try reloading the page.")])
+     (when details
+       [:pre.message details])]))
 
 (rum/defcs error-boundary < error-boundary-mixin
   "Wrap `child` in a React error boundary, showing `fallback` on error.

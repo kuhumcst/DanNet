@@ -7,6 +7,7 @@
   (:require [clojure.core.cache :as cache]
             [clojure.core.cache.wrapped :as cw]
             [dk.cst.dannet.db.transaction :as tx]
+            [dk.cst.dannet.web.anomaly :as anomaly]
             [ont-app.vocabulary.core :as voc])
   (:import [java.util.concurrent TimeUnit TimeoutException]
            [org.apache.jena.query Query QueryCancelledException
@@ -132,10 +133,8 @@
           (.isDescribeType query)
           {:sparql-type   :describe
            :sparql-result (.execDescribe qexec)})
-        (catch QueryCancelledException _
-          {:error {:type    "timeout"
-                   :message (str "Query exceeded the timeout of "
-                                 (/ timeout 1000) " seconds.")}})
+        (catch QueryCancelledException e
+          {:anomaly (anomaly/translate e)})
         (finally
           (.close qexec))))))
 
@@ -149,13 +148,10 @@
       #(execute model query-obj timeout fetch-limit
                 :distinct? distinct?
                 :offset offset))
-    (catch TimeoutException _
-      {:error {:type    "timeout"
-               :message (str "Query exceeded the timeout of "
-                             (/ timeout 1000) " seconds.")}})
+    (catch TimeoutException e
+      {:anomaly (anomaly/translate e)})
     (catch Exception e
-      {:error {:type    (.getSimpleName (class e))
-               :message (.getMessage e)}})))
+      {:anomaly (anomaly/translate e)})))
 
 (defn- empty-select-result?
   "Check if :sparql-result in the `result` map is an empty SELECT result set."
@@ -247,7 +243,7 @@
   "Run validated SPARQL `query-opts` against `db` with caching.
 
   Returns a map with :sparql-type, :sparql-result, :inference?, optionally
-  :has-more? and :cached?. Error results include :error instead."
+  :has-more? and :cached?. Error results include :anomaly instead."
   [db query-opts]
   (let [k       (cache-key query-opts)
         cached? (cache/has? @result-cache k)]
@@ -260,7 +256,7 @@
           result-cache k
           (fn [_]
             (let [result (execute-query db query-opts)]
-              (if (:error result)
+              (if (:anomaly result)
                 (do (cw/evict result-cache k) result)
                 result))))
         (copy-result)

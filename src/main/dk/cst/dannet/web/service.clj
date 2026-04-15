@@ -92,6 +92,7 @@
         (cond->
           (not shared/development?) (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic))
         (update ::http/interceptors #(cons %2 %1) trailing-slash)
+        (update ::http/interceptors #(cons %2 %1) res/error-ic)
         (update ::http/interceptors conj middleware/cookies)
 
         ;; Make sure we can communicate with the Shadow CLJS app during dev.
@@ -99,9 +100,9 @@
         ;; headers. This is required for shadow-cljs dev server (port 7777) to
         ;; make cross-origin requests to this backend (port 3456).
         (cond->
-          shared/development? (update ::http/interceptors 
+          shared/development? (update ::http/interceptors
                                       #(cons (cors/allow-origin {:allowed-origins (constantly true)
-                                                                 :creds true}) %))))))
+                                                                 :creds           true}) %))))))
 
 (defn start []
   (let [service-map (->service-map @conf)]

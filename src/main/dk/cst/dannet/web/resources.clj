@@ -13,6 +13,7 @@
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
+            [io.pedestal.interceptor :as interceptor]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [ont-app.vocabulary.lstr]
@@ -20,8 +21,10 @@
             [com.owoga.trie :as trie]
             [thi.ng.color.core :as col]
             [thi.ng.color.presets.categories :as cat]
+            [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.anomaly :as anomaly]
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.prefix :as prefix]
@@ -31,8 +34,7 @@
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.db.query.operation :as op]
-            [dk.cst.dannet.db.transaction :as tx])
+            [dk.cst.dannet.db.query.operation :as op])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayOutputStream File]
            [java.util Date]
@@ -44,10 +46,6 @@
            [org.apache.jena.riot.resultset ResultSetLang]
            [org.apache.jena.sparql.engine.binding Binding]
            [org.apache.jena.sparql.resultset ResultSetMem]))
-
-;; TODO: "download as" on entity page + don't use expanded entity for non-HTML
-;; TODO: weird label edge cases:
-;;       http://localhost:3456/dannet/data/synset-74520
 
 (def schema-uris
   "URIs where relevant schemas can be fetched."
@@ -443,6 +441,56 @@
 
                                  ;; Add filename extensions when needed.
                                  (merge (with-file-ext title content-type)))))))})
+
+(defn- error-content-type
+  "Determine the response content-type for an error response.
+
+  Prefers (get-in request [:accept :field]) when content negotiation has run;
+  otherwise falls back to sniffing the raw Accept header and defaults to Transit
+  (matching the SPA) for non-HTML clients."
+  [request]
+  (or (get-in request [:accept :field])
+      (let [accept (or (get-in request [:headers "accept"])
+                       (get-in request [:headers :accept]))]
+        (cond
+          (and accept (str/includes? accept "text/html")) "text/html"
+          :else "application/transit+json"))))
+
+(def error-ic
+  "Outermost error-handling interceptor.
+
+  Translates any unhandled exception into an anomaly via 'anomaly/translate'
+  and renders it through the same content-type->body-fn machinery used for
+  normal responses. Logs the original exception via Telemere at :error level.
+
+  Catches errors from any interceptor enqueued after it, including the router
+  and all per-route interceptors. Since content negotiation is a per-route
+  interceptor, it may not have run before the error was thrown; in that case
+  we sniff the Accept header directly."
+  (interceptor/interceptor
+    {:name  ::error
+     :error (fn [ctx ex]
+              (let [cause     (or (some-> ex ex-data :exception) ex)
+                    request   (:request ctx)
+                    anomaly   (-> (anomaly/translate cause)
+                                  (anomaly/localize (request->languages request)))
+                    ctype     (error-content-type request)
+                    body-fn   (content-type->body-fn ctype)
+                    title     (i18n/da-en (request->languages request)
+                                "Fejl" "Error")
+                    content   {:languages (request->languages request)
+                               :anomaly   anomaly}
+                    page-meta {:title title :page "error"}]
+                (tel/log! {:level :error
+                           :error cause
+                           :data  {:uri    (:uri request)
+                                   :method (:request-method request)}}
+                          "Unhandled exception")
+                (assoc ctx
+                  :response {:status  (:status anomaly)
+                             :headers (merge (x-headers page-meta)
+                                             {"Content-Type" ctype})
+                             :body    (body-fn content page-meta)})))}))
 
 (def expand-content-types
   "Content types that receive expanded entity data with relation labels."
@@ -999,21 +1047,17 @@
                                :inference?  inference?
                                :enrichment? (= enrichment "true")}))
                   (catch ExceptionInfo e
-                    (let [{:keys [type cause max actual]} (ex-data e)
+                    (let [anomaly   (anomaly/translate e)
                           languages (request->languages request)
                           title     (i18n/da-en languages
                                       "SPARQL-valideringsfejl"
                                       "SPARQL validation error")]
                       (assoc ctx
                         :sparql {:input {:query query-str}}
-                        :response-status 400
-                        :content (assoc {:languages languages
-                                         :input     {:query query-str}}
-                                   :error (cond-> {:type    (name type)
-                                                   :message (ex-message e)}
-                                            cause (assoc :details cause)
-                                            max (assoc :max max)
-                                            actual (assoc :actual actual)))
+                        :response-status (:status anomaly)
+                        :content {:languages languages
+                                  :input     {:query query-str}
+                                  :anomaly   anomaly}
                         :page-meta {:title title
                                     :page  "sparql"}))))
                 ctx)))})
@@ -1068,13 +1112,14 @@
                 ;; Valid query -> execute (with caching) and return results.
                 query-obj
                 (let [result (sparql/execute-cached @db sparql)]
-                  (if (:error result)
+                  (if-let [anomaly (:anomaly result)]
                     (assoc ctx
-                      :response-status 504
-                      :content (assoc result
-                                 :input input
-                                 :languages languages)
-                      :page-meta {:title "SPARQL timeout"
+                      :response-status (:status anomaly)
+                      :content {:input     input
+                                :languages languages
+                                :anomaly   anomaly}
+                      :page-meta {:title (i18n/da-en languages
+                                           "SPARQL-fejl" "SPARQL error")
                                   :page  "sparql"})
                     (let [{:keys [sparql-result sparql-type]} result
                           content (cond-> (assoc result
