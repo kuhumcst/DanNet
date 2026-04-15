@@ -2087,6 +2087,12 @@ span.render-error {
 
 /* Mobile view (minimalist) */
 @media only screen and (max-width: 700px) {
+    .sparql-editor__input {
+        flex-direction: column;
+    }
+    .sparql-editor__buttons {
+        flex-direction: row;
+    }
     .sparql-editor__controls {
         justify-content: flex-end;
     }
