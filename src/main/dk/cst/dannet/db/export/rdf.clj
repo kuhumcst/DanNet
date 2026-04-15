@@ -137,17 +137,17 @@
         x))
     entity))
 
-(defn collect-blank-nodes
-  "Collect symbols (blank node refs) with non-nil metadata from `entity`."
+(defn inline-blank-nodes
+  "Replace blank node symbols (with metadata) in `entity` with their property
+  maps, allowing Donatello to serialize them as inline [ ... ] blank nodes.
+  Properties are sorted by key to ensure a deterministic output order."
   [entity]
-  (let [blanks (volatile! [])]
-    (walk/postwalk
-      (fn [x]
-        (when (and (symbol? x) (meta x))
-          (vswap! blanks conj [x (meta x)]))
-        x)
-      entity)
-    @blanks))
+  (walk/postwalk
+    (fn [x]
+      (if (and (symbol? x) (meta x))
+        (into (array-map) (sort-by key (meta x)))
+        x))
+    entity))
 
 (defn donatello-prefixes
   "Prepare prefixes in `entity` for Donatello TTL output."
@@ -190,15 +190,14 @@
     (.write sw "\n")))
 
 (defn ttl-entity
-  "Get TTL output for `entity` with realised blank nodes and grouped labels."
+  "Get TTL output for expanded `entity` with inlined blank nodes + labels."
   [entity & [base]]
-  (let [entity*        (flatten-nested-sets entity)
-        blank-nodes    (collect-blank-nodes entity*)
+  (let [entity*        (-> entity flatten-nested-sets inline-blank-nodes)
         label-entities (:entities (meta entity))
-        {:keys [relations synsets other]} (group-by label-entity-group label-entities)
-        all-data       (concat [entity*]
-                               (map second blank-nodes)
-                               (map second label-entities))
+        {:keys [relations
+                synsets
+                other]} (group-by label-entity-group label-entities)
+        all-data       (cons entity* (map second label-entities))
         prefixes       (reduce #(merge %1 (donatello-prefixes %2))
                                {} all-data)]
     (with-open [sw (StringWriter.)]
@@ -206,8 +205,6 @@
         (ttl/write-base! sw base))
       (ttl/write-prefixes! sw prefixes)
       (ttl/write-triples! sw (:subject (meta entity)) entity*)
-      (doseq [[sym props] blank-nodes]
-        (ttl/write-triples! sw sym props))
       (write-triple-group! sw "Relation labels" relations)
       (write-triple-group! sw "Synset labels" synsets)
       (write-triple-group! sw "Other resource labels" other)

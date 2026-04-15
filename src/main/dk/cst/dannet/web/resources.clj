@@ -1161,7 +1161,7 @@
   (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
   (q/entity (:graph @db) :dn/synset-78300)
   (let [subject :dn/synset-78300
-        entity  (q/entity (:graph @db) subject)]
+        entity  (q/expanded-entity (:graph @db) subject)]
     (export.rdf/ttl-entity entity))
 
   (q/entity (:graph @db) :dn/synset-46015)
