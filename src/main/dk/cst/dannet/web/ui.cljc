@@ -80,7 +80,7 @@
              "UCPH"] ")"
        " & "
        [:a {:lang "da" :href "https://dsl.dk/"}
-        "Det Danske Sprog- og Litteraturselskab"]
+        "The Society for Danish Language and Literature"]
        "."]])])
 
 (rum/defc language-select
