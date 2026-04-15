@@ -14,6 +14,9 @@ WordNet-dataene i DanNet afbildes til følgende [Ontolex-lemon][Ontolex]-typer:
 - ontolex:LexicalEntry (ord)
 - ontolex:Form (ordformer)
 
+![Ontolex-lemon-repræsentation](/images/ontolex.png "Ontolex-lemon-repræsentationen af et WordNet")
+
+### DanNet-namespaces
 Kernen i DanNet består af tre namespaces:
 
 | Præfiks | URI | Formål |
@@ -48,18 +51,17 @@ Alle DanNet-datasæt er udgivet under [CC BY-SA 4.0][license]-licensen og kan do
 ## Offentlig adgang
 
 ### SPARQL-endpoint
-Et offentligt [SPARQL-endpoint][sparql] er tilgængeligt til forespørgsler mod grafen. Det har begrænsninger på resultatsætstørrelse og forespørgselstid.
+Et offentligt [SPARQL-endpoint][sparql] er tilgængeligt til forespørgsler mod grafen. Det inkluderer en interaktiv forespørgselseditor til at prøve forespørgsler i browseren. [SPARQL-guiden][SPARQL guide] viser hvordan man bruger SPARQL i konteksten af DanNets datamodel. Det offentlige endpoint har begrænsninger på resultatsætstørrelse og forespørgselstid.
 
 Eksempelforespørgsel:
 
 ```sparql
-PREFIX wn: <https://globalwordnet.github.io/schemas/wn#>
-PREFIX dn: <https://wordnet.dk/dannet/data/>
-
-SELECT ?hypernym WHERE {
-  dn:synset-5028 wn:hypernym ?hypernym .
-}
+SELECT  (dn:synset-5028 AS ?synset) ?hypernym
+WHERE
+  { dn:synset-5028  wn:hypernym  ?hypernym
+  }
 ```
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dn%3A+++<https%3A//wordnet.dk/dannet/data/>%0APREFIX++wn%3A+++<https%3A//globalwordnet.github.io/schemas/wn%23>%0A%0ASELECT++(dn%3Asynset-5028+AS+%3Fsynset)+%3Fhypernym%0AWHERE%0A++{+dn%3Asynset-5028%0A++++++++++++++wn%3Ahypernym++%3Fhypernym%0A++}%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
 > **BEMÆRK:** Almindelige præfikser som `wn` og `dn` tilføjes automatisk, når du bruger det offentlige SPARQL-endpoint, så de er ikke strengt nødvendige!
 
@@ -81,6 +83,7 @@ En [MCP-server][mcp] muliggør integration med AI-værktøjer. Det offentlige AP
 [downloads]: /dannet/page/downloads "Download datasæt"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Tidligere udgivelser"
 [sparql]: /dannet/sparql "SPARQL-endpoint"
+[SPARQL guide]: /dannet/page/sparql "SPARQL-guide"
 [mcp]: /dannet/page/mcp "MCP-server"
 [jena]: https://jena.apache.org/ "Apache Jena"
 [rdfa]: https://www.w3.org/TR/rdfa-primer/ "RDFa"

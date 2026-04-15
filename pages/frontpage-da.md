@@ -17,5 +17,5 @@ DanNet er et [WordNet][WordNet] for det **danske sprog** skabt i fællesskab af 
 [CST]: https://cst.ku.dk/ "Center for Sprogteknologi (Københavns Universitet)"
 [Carlsbergfondet]: https://www.carlsbergfondet.dk/da "Carlsbergfondet"
 [WordNet]: https://wordnet.princeton.edu/ "What is WordNet?"
-[downloads]: /dannet/page/downloads "Datasæt-downlo~~~~ads"
+[downloads]: /dannet/page/downloads "Download datasæt"
 [SPARQL]: /dannet/sparql "SPARQL-forespørgsels-editor"

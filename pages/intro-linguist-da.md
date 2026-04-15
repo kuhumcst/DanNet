@@ -22,7 +22,9 @@ Du kan gennemse ressourcen på [wordnet.dk][home] via søgefeltet. Hver synset-s
 Dataene er frit tilgængelige under [CC BY-SA 4.0][license]-licensen og kan downloades i RDF/Turtle, CSV og WN-LMF XML fra [download-siden][downloads].
 
 ## Brug af DanNet i forskning
-DanNet kan indlæses direkte via [WN-LMF][wn-lmf]-formatet i software-biblioteker som f.eks. [`wn`][pywn] (Python). Et offentligt [SPARQL-endpoint][sparql] er også tilgængeligt til avancerede forespørgsler, og en [MCP-server][mcp] muliggør integration med AI-assisterede forskningsworkflows.
+* DanNet kan indlæses direkte via [WN-LMF][wn-lmf]-formatet i software-biblioteker som f.eks. [`wn`][pywn] (Python).
+* Et offentligt [SPARQL-endpoint][sparql] med en interaktiv forespørgselseditor er også tilgængeligt til avancerede forespørgsler. Vores [guide][SPARQL guide] giver en praktisk introduktion til at komme i gang.
+* En [MCP-server][mcp] muliggør integration med AI-assisterede forskningsworkflows.
 
 For citationer af DanNet og relevante publikationer, se universitetets [projektside][projectpage].
 
@@ -40,6 +42,7 @@ For citationer af DanNet og relevante publikationer, se universitetets [projekts
 [CILI]: https://github.com/globalwordnet/cili "Collaborative Interlingual Index"
 [license]: https://creativecommons.org/licenses/by-sa/4.0/ "CC BY-SA 4.0"
 [sparql]: /dannet/sparql "SPARQL-endpoint"
+[SPARQL guide]: /dannet/page/sparql "SPARQL-guide"
 [mcp]: /dannet/page/mcp "MCP-server"
 [wn-lmf]: /export/wn-lmf/dn "DanNet (WN-LMF)"
 [pywn]: https://github.com/goodmami/wn "Python wn-biblioteket"

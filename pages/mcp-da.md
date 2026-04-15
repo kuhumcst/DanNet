@@ -33,7 +33,7 @@ AI'en vil forespørge DanNet direkte og give dig svar baseret på vores leksikal
 DanNet er registreret i MCP-serverregistret som `io.github.kuhumcst/dannet`. For udviklere, der er interesserede i implementeringen, se [MCP-serverens kildekode][MCP source] på Github.
 
 [Claude]: https://claude.com/ "Claude fra Anthropic"
-[ChatGPT]: https://openai.com/chatgpt "ChatGPT fra OpenAI"
+[ChatGPT]: https://chatgpt.com/ "ChatGPT fra OpenAI"
 [MCP]: https://modelcontextprotocol.io/ "Model Context Protocol"
 [Claude Desktop]: https://claude.ai/download "Download Claude Desktop"
 [Claude.ai]: https://claude.ai/ "Claude.ai"
