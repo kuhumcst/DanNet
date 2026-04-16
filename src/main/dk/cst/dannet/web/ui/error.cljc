@@ -39,6 +39,7 @@
     [:summary "⚠️ " message]
     [:pre.message details]]))
 
+;; TODO: compose this with default-fallback?
 (rum/defc anomaly-fallback
   "Render a user-friendly, bilingual error from an anomaly map.
 

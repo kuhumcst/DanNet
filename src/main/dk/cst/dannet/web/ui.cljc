@@ -102,7 +102,7 @@
                    "Set language preference")
       :value     (str (first languages))
       :on-change change-language}
-     [:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
+     #_[:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
      [:option {:value "da"} "\uD83C\uDDE9\uD83C\uDDF0 Dansk"]]))
 
