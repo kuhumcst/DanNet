@@ -1,5 +1,6 @@
 (ns dk.cst.dannet.web.anomaly
-  "Exception translation for user-facing error pages.
+  "Exception translation for user-facing error pages using Cognitect Anomalies.
+  Inspired by this post: https://mbezjak.github.io/posts/exception-translation/
 
   Classifies exceptions into anomaly categories using the qualified keywords
   from cognitect.anomalies and provides bilingual (DA/EN) user-friendly
@@ -8,13 +9,14 @@
 
   An anomaly map has the shape:
     {::anom/category  ::anom/busy
-     ::anom/message   \"The query took too long.\"  ; localized
-     :message         {:da \"...\" :en \"...\"}       ; bilingual source
+     ::anom/message   \"The query took too long.\" ; localised
+     :message         {:da \"...\" :en \"...\"}    ; bilingual source
      :retry?          true
      :status          504
-     :details         \"...\"}                       ; optional, dev only"
+     :details         \"...\"}                     ; optional, dev only"
   (:require [cognitect.anomalies :as-alias anom])
-  #?(:clj (:import [java.util.concurrent TimeoutException]
+  #?(:clj (:import [clojure.lang ExceptionInfo]
+                   [java.util.concurrent TimeoutException]
                    [org.apache.jena.query QueryCancelledException])))
 
 (def categories
@@ -102,7 +104,7 @@
        [ex]
        (cond
          ;; ExceptionInfo with :type in ex-data (SPARQL validation errors)
-         (and (instance? clojure.lang.ExceptionInfo ex)
+         (and (instance? ExceptionInfo ex)
               (contains? (ex-data ex) :type))
          (let [{:keys [type cause max actual]} (ex-data ex)
                category (get validation-type->category type ::anom/fault)
