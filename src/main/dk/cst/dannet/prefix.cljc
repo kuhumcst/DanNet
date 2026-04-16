@@ -135,14 +135,27 @@
               (str (name k) ": " uri)))
        (str/join "\n")))
 
+;; The ont-app.vocabulary library eagerly claims a handful of common prefixes
+;; (e.g. `dc` -> http://purl.org/dc/elements/1.1/) on its own namespaces at
+;; load time. A plain `put-ns-meta!` on our own ns for the same prefix string
+;; would create two namespaces claiming it, causing `prefix-to-ns` to throw a
+;; DuplicatePrefix error on its next cache rebuild. So if we find an existing
+;; claim on a *different* ns, we dissoc the vann metadata from it first so
+;; that our ns becomes the sole owner. This lets us assert our own preferred
+;; URI (e.g. `dc` -> http://purl.org/dc/terms/) in `prepend-prefix-declarations`
 (defn register
   "Register `ns-prefix` for `uri` in both Aristotle and igraph."
   [ns-prefix uri]
   #?(:clj (reg/prefix ns-prefix uri))
   (let [prefix-str (name ns-prefix)]
-    (when-not (get (voc/prefix-to-ns) prefix-str)
-      (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
-                                   :vann/preferredNamespaceUri    uri}))))
+    #?(:clj
+       (when-let [existing-ns (get (voc/prefix-to-ns) prefix-str)]
+         (when (not= (ns-name existing-ns) ns-prefix)
+           (alter-meta! existing-ns dissoc
+                        :vann/preferredNamespacePrefix
+                        :vann/preferredNamespaceUri))))
+    (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
+                                 :vann/preferredNamespaceUri    uri})))
 
 ;; TODO: is registration necessary in CLJS?
 (doseq [[ns-prefix {:keys [uri]}] schemas]
