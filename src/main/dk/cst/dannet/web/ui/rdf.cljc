@@ -349,8 +349,8 @@
 (rum/defcs reactive-details < (rum/local false ::open)
   [state summary content]
   (let [open (::open state)]
-    [:details {:on-toggle #(swap! open not)
-               :open      @open}
+    [:details.reactive-list {:on-toggle #(swap! open not)
+                             :open      @open}
      (when summary
        (if (not @open)
          summary

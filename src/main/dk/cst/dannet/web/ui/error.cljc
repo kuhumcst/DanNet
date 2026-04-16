@@ -50,11 +50,12 @@
   (let [msg (i18n/da-en languages (:da message) (:en message))]
     [:details.render-error
      [:summary "⚠️ " msg]
+     ;; TODO: is this needed?
      (when retry?
-       [:p.note
+       [:p
         (i18n/da-en languages
-          "Du kan prøve at genindlæse siden."
-          "You can try reloading the page.")])
+          "Du kan evt. prøve at genindlæse siden."
+          "You may also try reloading the page.")])
      (when details
        [:pre.message details])]))
 

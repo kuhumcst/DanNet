@@ -472,12 +472,12 @@ li::marker {
 }
 
 /* Details/summary (collapsible sections) */
-details {
+details.reactive-list {
     margin: var(--spacing-s) 0 0 0;
     border-top: 1px solid transparent;
 }
 
-details summary {
+details.reactive-list summary {
     cursor: pointer;
     border-radius: var(--border-radius-s);
     color: rgba(0,0,0,var(--opacity-interactive));
@@ -485,12 +485,12 @@ details summary {
     padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
 }
 
-details summary:hover {
+details.reactive-list summary:hover {
     text-decoration: underline;
     text-underline-offset: var(--spacing-xs);
 }
 
-details[open] {
+details.reactive-list[open] {
     border-top: var(--very-subtle-border);
     padding-bottom: var(--spacing-m);
 }
@@ -1976,14 +1976,6 @@ nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
 
 /* Error boundary fallback */
 details.render-error[open] {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: white;
-    z-index: var(--z-modal);
-    padding: 1em;
     margin: 0;
     overflow: auto;
     box-sizing: border-box;
