@@ -15,7 +15,7 @@
   8)
 
 (def uri-pattern
-  #"://|[^\./\?&=#%]+|%[0-9A-Fa-f]{2}|[\./\?&=#]")
+  #"https?://|[^\./\?&=#%]+|%[0-9A-Fa-f]{2}|[\./\?&=#]")
 
 (defn break-up-uri
   "Place word break opportunities into a potentially long `uri`.
