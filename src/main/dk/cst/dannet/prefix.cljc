@@ -150,7 +150,8 @@
 
 (defn kw->qname
   [kw]
-  (str/replace-first (subs (str kw) 1) #"/" ":"))
+  (when (and kw (namespace kw))
+    (str/replace-first (str (symbol kw)) #"/" ":")))
 
 (defn rdfa-val
   "Convert an RDF value `v` (or collection of values) into a space-separated
