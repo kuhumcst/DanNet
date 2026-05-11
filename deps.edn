@@ -27,7 +27,7 @@
            com.wsscode/transito           {:mvn/version "2021.07.04"}
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
            thi.ng/color                   {:mvn/version "1.5.1"}
-           dk.ative/docjure               {:mvn/version "1.21.0"}
+           dk.ative/docjure               {:mvn/version "1.22.0"}
            com.cnuernber/ham-fisted       {:mvn/version "2.031"}
            com.cognitect/anomalies        {:mvn/version "0.1.12"}
 
