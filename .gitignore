@@ -48,6 +48,9 @@ bootstrap/other/english/senseidx.edn
 # Elexis
 bootstrap/other/elexis-wsd-1.1
 
+# ChainNet
+bootstrap/other/chainnet
+
 # Python temp files
 examples/venv
 examples/wn-lmf-validation.json
