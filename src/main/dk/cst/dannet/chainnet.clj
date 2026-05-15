@@ -43,13 +43,16 @@
    :D :entry
    :F :sentence})
 
-(def normalize-entry
-  {1.0    "1"
-   "1.a." "1.a"})
-
-(defn normalize-columns
-  [{:keys [entry] :as m}]
-  (update m :entry #(get normalize-entry % %)))
+;; DDO entry values come in mixed formats across sheets: "1.a", "1a", "1A",
+;; "1.a.", 2.0, and free text like "ordet mangler" or "Ikke i DDO".
+;; We normalize to a canonical form (lowercase, no trailing dot) or nil.
+(defn normalize-entry [entry]
+  (cond
+    (nil? entry)    nil
+    (number? entry) (str (long entry))
+    (string? entry) (let [s (-> entry str/trim str/lower-case (str/replace #"\.$" ""))]
+                      (when (re-matches #"\d+[a-z.]*" s) s))
+    :else           nil))
 
 (defn load-sheet
   [id columns]
@@ -58,7 +61,7 @@
        (xl/select-sheet (get sheets id))
        (xl/select-columns columns)
        (rest)
-       (map normalize-columns)
+       (map #(update % :entry normalize-entry))
        ;; Deduplicate by lemma, preferring rows with a sentence
        (reduce (fn [acc {:keys [lemma] :as row}]
                  (let [existing (get acc lemma)]
@@ -196,10 +199,6 @@
       [(make-output-row lemma "unknown_root" nil nil "-" "root not in DanNet")
        (make-output-row lemma (:sense metaphor) (:def metaphor) sentence "unknown_root" nil)]
 
-      ;; metaphor found, no parent expected (entry="1").
-      metaphor
-      [(make-output-row lemma (:sense metaphor) (:def metaphor) sentence "-" nil)]
-
       ;; nil DDO ref but DanNet has §1/§1a pair.
       ;; Assume §1a = metaphor, §1 = root (e.g. festfyrværkeri, kalejdoskop).
       (and (nil? entry)
@@ -211,15 +210,34 @@
          (make-output-row lemma (:sense met) (:def met) sentence
                           (:sense root) "verify inferred IDs")])
 
-      ;; seeking §1a but only §1 exists (e.g. gråhåret, fundament).
-      ;; Known root + virtual metaphor row.
-      (and (= suffix "§1a")
-           (= 1 (count senses))
-           (= "§1" (by-suffix (first senses))))
-      (let [root (first senses)]
+      ;; Sub-sense sought but only parent exists (e.g. §10a sought, only §10;
+      ;; or §1b sought, only §1). Known root + virtual metaphor row.
+      (and suffix
+           (parent-suffix suffix)
+           (not metaphor)
+           (= 1 (count (filter #(= (parent-suffix suffix) (by-suffix %)) senses))))
+      (let [root (first (filter #(= (parent-suffix suffix) (by-suffix %)) senses))]
         [(make-output-row lemma (:sense root) (:def root) nil "-" nil)
          (make-output-row lemma "unknown_metaphor" nil sentence (:sense root)
                           "metaphor not in DanNet")])
+
+      ;; Top-level entry (e.g. "2") matched a sense but we don't know if
+      ;; it's root or metaphor. Filter to the §N family (§2, §2a, §2b...)
+      ;; so the annotator only sees the relevant senses.
+      (and metaphor (nil? p-suffix))
+      (let [family (filter #(when-let [s (by-suffix %)]
+                              (str/starts-with? s suffix))
+                           senses)
+            known  (if (> (count family) 1) family senses)]
+        (if (= 1 (count known))
+          (let [s (first known)]
+            [(make-output-row lemma (:sense s) (:def s) nil nil "assign roles")
+             (make-output-row lemma "unknown_sense" nil sentence nil "assign roles")])
+          (let [rows (mapv (fn [s]
+                             (make-output-row lemma (:sense s)
+                                              (:def s) nil nil "assign roles"))
+                           known)]
+            (update rows 0 assoc :example sentence))))
 
       ;; single sense with no § in label (e.g. enøjet, grundmuret)
       ;; or single sense where suffix didn't match. Known sense + virtual row;
