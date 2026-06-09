@@ -58,6 +58,7 @@ examples/wn-lmf-validation.json
 .cpcache
 .DS_Store
 
+.clj-kondo
 .shadow-cljs
 node_modules
 resources/public/js/compiled
