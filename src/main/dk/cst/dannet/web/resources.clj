@@ -561,7 +561,13 @@
                   subject*     (cond->> (decode-query-part subject)
                                  prefix (keyword (name prefix)))
                   languages    (request->languages request)
-                  qs           (remove-internal-params (:query-string request))
+                  qs           (some-> (:query-string request)
+                                       remove-internal-params
+                                       ;; Canonicalize slash encoding: reitit's
+                                       ;; url-encode emits %2F while the client
+                                       ;; leaves slashes bare. The difference
+                                       ;; otherwise causes a hydration mismatch.
+                                       (str/replace "%2F" "/"))
                   qname        (if (keyword? subject*)
                                  (prefix/kw->qname subject*)
                                  subject*)

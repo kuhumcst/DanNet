@@ -347,7 +347,7 @@
   (fn [item]
     (let [k (if (map-entry? item) (first item) item)]
       [(str (i18n/select-label languages (get k->label k)))
-       (str item)])))
+       (str k)])))
 
 (def label-sortkey-fn
   #?(:clj  (memo/lru label-sortkey-fn* :lru/threshold 1000)

@@ -163,7 +163,7 @@
 
 (defn kw->qname
   [kw]
-  (when (and kw (namespace kw))
+  (when (and (keyword? kw) (namespace kw))
     (str/replace-first (str (symbol kw)) #"/" ":")))
 
 (defn rdfa-val
