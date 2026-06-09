@@ -14,16 +14,26 @@
             #?(:clj [clojure.stacktrace])))
 
 (def error-boundary-mixin
-  "Rum mixin that catches render errors in child components.
+  "Rum mixin that catches render errors in the wrapped child component.
 
-  Stores the caught error in component state under ::error key.
-  Logs error via Telemere. Only active on CLJS (no-op on CLJ)."
+  Stores the error under ::error and the child that threw under ::errored-child,
+  then logs via Telemere; CLJS only (no-op on CLJ)."
   #?(:cljs {:did-catch (fn [state error info]
                          (t/log! {:level :error
                                   :error error
                                   :data  {:info info}}
                                  "React render error")
-                         (assoc state ::error error))}
+                         (assoc state
+                                ::error error
+
+                                ;; React errors don't auto-reset once tripped.
+                                ;; Recording which child threw lets
+                                ;; 'error-boundary' keep the fallback while that
+                                ;; same element re-renders, but recover when a
+                                ;; different child arrives, i.e. on navigation.
+                                ;; Otherwise, the error page sticks until a hard
+                                ;; refresh has been by the user (not ideal).
+                                ::errored-child (first (:rum/args state))))}
      :clj  {}))
 
 (defn default-fallback
@@ -62,11 +72,13 @@
 (rum/defcs error-boundary < error-boundary-mixin
   "Wrap `child` in a React error boundary, showing `fallback` on error.
 
-  Displays a default expandable details element if no fallback provided.
-  Prefer using 'try-render' macro instead. Only active on CLJS."
+  On error the `fallback` shows, then clears automatically once `child` changes
+  (e.g. on navigation); see 'error-boundary-mixin' for why. Default fallback is
+  an expandable details element. Prefer 'try-render'. Only active on CLJS."
   [state child fallback]
-  (if-let [error (::error state)]
-    (or fallback (default-fallback error))
+  (if (and (::error state)
+           (identical? child (::errored-child state)))
+    (or fallback (default-fallback (::error state)))
     child))
 
 ;; TODO: find a way to preserve backend errors in the frontend after SSR,
