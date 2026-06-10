@@ -12,6 +12,7 @@ The system includes:
 - Rich query capabilities via SPARQL and Clojure DSL
 - Interactive visualizations including radial tree diagrams and word clouds
 - An MCP (Model Context Protocol) server for AI application integration
+- A ChainNet metaphor annotation pipeline producing annotation-ready Excel output
 
 ## Key Architecture Components
 
@@ -59,6 +60,18 @@ The system includes:
 - HTTP transport mode deployed at `https://wordnet.dk/mcp`
 - Caching support for query results
 
+### ChainNet Annotation Pipeline (`dk.cst.dannet.chainnet`)
+- Builds a ChainNet metaphor annotation layer on top of DanNet
+- Matches metaphorical senses from the METALLM input spreadsheet against DanNet sense data
+- Produces annotation-ready Excel output (via docjure/POI) with clickable URI hyperlinks, color-coded status cells, dropdown validations, and frozen headers
+- Flat one-row-per-sense output format with lemma grouping and status-based sorting
+
+### Anomaly Handling (`dk.cst.dannet.web.anomaly`)
+- Exception translation for user-facing error pages using `cognitect.anomalies`
+- Classifies exceptions (e.g. Jena `QueryCancelledException`, `TimeoutException`) into anomaly categories at the boundary
+- Bilingual (DA/EN) user-friendly messages with retry hints and HTTP status codes
+- Anomaly maps are rendered directly by the UI across SSR and SPA
+
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap`)
 - Loads previous RDF releases from `./bootstrap` directory
 - Applies version migrations and schema updates
@@ -70,6 +83,7 @@ The system includes:
 ### Core Database & Query
 ```
 src/main/dk/cst/dannet/
+├── chainnet.clj               # ChainNet metaphor annotation pipeline (Excel in/out)
 ├── db.clj                     # Core database operations, model management
 ├── db/
 │   ├── bootstrap.clj          # Release bootstrapping and migration
@@ -95,6 +109,7 @@ src/main/dk/cst/dannet/web/
 ├── resources.clj             # Resource handlers, content negotiation, entity truncation
 ├── rate_limit.clj            # Rate limiting functionality
 ├── sparql.clj                # SPARQL endpoint: validation, execution, result caching
+├── anomaly.cljc              # Exception translation to cognitect.anomalies (bilingual error pages)
 ├── client.cljs               # ClojureScript SPA entry point
 ├── d3.cljs                   # D3 visualization components (radial trees)
 ├── ui.cljc                   # Core Rum UI components
@@ -104,6 +119,9 @@ src/main/dk/cst/dannet/web/
 │   ├── form.cljc             # Form utilities (submit, validation, autofocus)
 │   ├── visualization.cljc    # Radial tree diagrams, word clouds, ancestry display
 │   ├── search.cljc           # Search form components
+│   ├── search/
+│   │   └── aria.cljs         # ARIA-compliant combobox keyboard navigation
+│   ├── catalog.cljc          # Catalog resources display (schemas and datasets)
 │   ├── table.cljc            # Table components
 │   ├── markdown.cljc         # Markdown rendering components
 │   ├── rdf.cljc              # RDF display components
@@ -163,14 +181,17 @@ pages/
 - **Pedestal** (0.7.2): HTTP service and routing
 - **Rum**: React-like UI components (custom fork)
 - **Reitit** (0.9.1): Client-side routing for SPA
-- **Shadow-cljs**: ClojureScript compilation
+- **Shadow-cljs** (3.2.0): ClojureScript compilation (`:frontend` alias)
+- **lambdaisland/fetch**: Client-side HTTP requests (custom fork)
 - **CodeMirror 6**: SPARQL editor (via `codemirror`, `@codemirror/view`, `@codemirror/state`, `codemirror-lang-sparql`)
 
 ### Data Processing
 - **clj-yaml** (1.0.29): YAML configuration parsing
-- **docjure** (1.21.0): Excel file processing
+- **docjure** (1.22.0): Excel file processing (ChainNet pipeline, POI styling)
 - **data.csv** (1.1.0): CSV parsing and generation
+- **data.json** (2.5.1): JSON parsing and generation
 - **data.xml** (0.2.0-alpha9): XML processing for WN-LMF
+- **nextjournal/markdown** (0.7.189): Markdown parsing and rendering
 - **tightly-packed-trie**: Efficient trie data structures
 
 ### Caching
@@ -180,6 +201,9 @@ pages/
 ### Utilities
 - **better-cond** (2.1.5): Enhanced conditional macros
 - **ham-fisted** (2.031): High-performance collections
+- **cognitect/anomalies** (0.1.12): Error categorization for exception translation
+- **transito**: Transit serialization (CLJ/CLJS)
+- **thi.ng/color** (1.5.1): Color manipulation for visualizations
 - **Telemere** (1.1.0): Logging and error reporting
 
 ## Development Workflow
@@ -254,6 +278,7 @@ npx shadow-cljs compile test
 - React error boundaries (CLJS) via `error-boundary-mixin` in `dk.cst.dannet.web.ui.error`
 - `try-render` and `try-render-with` macros for wrapping component renders
 - `try-static-render` for imperative DOM error handling
+- Exception translation at the boundary via `dk.cst.dannet.web.anomaly`: Java exceptions are mapped to `cognitect.anomalies` maps with bilingual messages, retry hints, and HTTP status codes
 - Database operations return nil on failure
 - Web handlers use Pedestal interceptors for error handling
 - Bootstrap validates data before committing changes
