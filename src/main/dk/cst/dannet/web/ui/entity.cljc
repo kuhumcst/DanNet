@@ -119,9 +119,9 @@
 (rum/defc display-mode-selector
   [title {:keys [languages]
           :as   opts}]
-  [:label.subheading (i18n/da-en languages
-                       "Vis som "
-                       "Display as ")
+  [:label (i18n/da-en languages
+            "Vis som "
+            "Display as ")
    [:select {:value     (get-in opts [:section title :display :selected])
              :on-change (fn [e]
                           (swap! shared/state assoc-in
@@ -192,7 +192,13 @@
 (rum/defc semantic-relations-content
   [title subentity {:keys [languages] :as opts}]
   [:<>
-   (display-mode-selector title opts)
+   [:p.subheading
+    (display-mode-selector title opts)
+    (i18n/da-en languages
+      [:<> " eller " [:a {:href prefix/relations-path} "lær mere"]
+       " om de enkelte relationer."]
+      [:<> " or " [:a {:href prefix/relations-path} "learn more"]
+       " about the individual relations."])]
    (case (get-in opts [:section title :display :selected])
      "radial" [:<>
                (error/try-render (viz/expanded-radial subentity opts))

@@ -466,6 +466,12 @@
        ?s ?rel ?o .
      }"))
 
+(defn relation-usage-query
+  "Build a query checking whether `rel` is in use as a predicate."
+  [rel]
+  (sparql
+    (str "SELECT ?s WHERE { ?s " (prefix/kw->qname rel) " ?o } LIMIT 1")))
+
 (def short-label-candidates
   (sparql
     "SELECT ?word (STR(?senseLabel) AS ?label)

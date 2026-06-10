@@ -169,12 +169,13 @@
 (rum/defc page-shell < rum/reactive
   [page {:keys [entity subject languages entities full-screen] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
-  (let [page-component (get {"entity"   page/entity
-                             "search"   page/search
-                             "markdown" page/markdown
-                             "metadata" page/metadata
-                             "sparql"   page/sparql
-                             "error"    page/error}
+  (let [page-component (get {"entity"    page/entity
+                             "search"    page/search
+                             "markdown"  page/markdown
+                             "metadata"  page/metadata
+                             "relations" page/relations
+                             "sparql"    page/sparql
+                             "error"     page/error}
                             page
                             page/not-found)
         ;; The backend also needs access to user-specific state to be able to
@@ -230,6 +231,7 @@
                    (= page "markdown") "dannet"
                    (= page "sparql") "w3c"
                    (= page "metadata") "meta"
+                   (= page "relations") "wordnet"
                    :else (prefix/prefix->class prefix')))]}
       (search/form opts')
       [:a.sparql-link.nav-icon

@@ -8,6 +8,7 @@
             [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
+            [dk.cst.dannet.web.ui.relations :as rels]
             [dk.cst.dannet.web.ui.sparql :as sparql]
             [dk.cst.dannet.web.ui.error :as error]
             [dk.cst.dannet.web.ui.markdown :as mdc]))
@@ -73,9 +74,14 @@
     [:article.metadata
      [:header.page-header
       [:h1 "Metadata"]]
-     [:p.subheading (i18n/da-en languages
-                      "Dette er de primære skemaer og datasæt der bruges i DanNet."
-                      "These are the core schemas and datasets used in DanNet.")]
+     [:p.subheading
+      (i18n/da-en languages
+        [:<> "Dette er de primære skemaer og datasæt der bruges i DanNet. Se også de "
+         [:a {:href prefix/relations-path} "synset-relationer"]
+         " der er i brug."]
+        [:<> "These are the core schemas and datasets used in DanNet. See also the "
+         [:a {:href prefix/relations-path} "synset relations"]
+         " in use."])]
      (if (empty? ordered-groups)
        [:p (i18n/da-en languages
              "Ingen ressourcer fundet."
@@ -87,6 +93,34 @@
                  (i18n/da-en languages (:da title) (:en title)))]
           [:p.subheading (i18n/da-en languages (:da desc) (:en desc))]
           (catalog/table opts k->label entries)]))]))
+
+(rum/defc relations
+  "Display the synset relations in use in DanNet, divided into groups."
+  [{:keys [languages relations detail-level] :as opts}]
+  (let [k->label       (rels/k->label relations detail-level)
+        ordered-groups (rels/prepare-groups relations opts)]
+    [:article.metadata
+     [:header.page-header
+      [:h1 (i18n/da-en languages "Synset-relationer" "Synset relations")]]
+     [:p.subheading
+      (i18n/da-en languages
+        [:<> "Synset-relationerne i brug i DanNet ("
+         [:a {:href prefix/metadata-path} "se skemaer"]
+         "); relevant når man skriver "
+         [:a {:href prefix/sparql-path} "SPARQL"] "."]
+        [:<> "The synset relations in use in DanNet ("
+         [:a {:href prefix/metadata-path} "view schemas"]
+         "); relevant when writing "
+         [:a {:href prefix/sparql-path} "SPARQL"] "."])]
+     (if (empty? ordered-groups)
+       [:p (i18n/da-en languages
+             "Ingen relationer fundet."
+             "No relations found.")]
+       (for [[group-key title desc entries] ordered-groups]
+         [:section {:key (name group-key)}
+          [:h2 (i18n/da-en languages (:da title) (:en title))]
+          [:p.subheading (i18n/da-en languages (:da desc) (:en desc))]
+          (rels/table opts k->label entries)]))]))
 
 (rum/defc sparql
   "SPARQL query editor and results page."
@@ -106,7 +140,10 @@
                   "SPARQL guide")}
      (i18n/da-en languages
        "læs guide"
-       "read tutorial")] ")"]
+       "read tutorial")] ")"
+    (i18n/da-en languages
+      [:<> "; se også oversigten over " [:a {:href prefix/relations-path} "synset-relationer"] "."]
+      [:<> "; see also the overview of " [:a {:href prefix/relations-path} "synset relations"] "."])]
    (sparql/editor opts)
    (sparql/output opts)])
 

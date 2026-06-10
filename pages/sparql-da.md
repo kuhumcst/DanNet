@@ -390,6 +390,8 @@ For almindelige udforskende forespørgsler kan man blot udelade `LIMIT` og `OFFS
 
 DanNet går ud over den standard WordNet-hypernym/hyponym-taksonomi. Med udgangspunkt i [datamodellen](#dannets-datamodel-forenklet) introduceret tidligere, koder den funktionelle og tematiske relationer der er værd at udforske.
 
+> **BEMÆRK:** et komplet overblik over de anvendte synset-relationer (grupperet efter type og med beskrivelser) findes på siden med [synset-relationer](/dannet/relations). Vælger man "Ingen etiketter" i menuen på den side, vises relationernes tekniske navne, dvs. dem der bruges i SPARQL-forespørgsler.
+
 ### "Bruges til": funktionelt formål
 
 Hvilke ting bruges til "transportere"?

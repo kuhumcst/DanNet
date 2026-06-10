@@ -390,6 +390,8 @@ For ordinary exploratory queries, leave `LIMIT` and `OFFSET` out and let the edi
 
 DanNet goes beyond the standard WordNet hypernym/hyponym taxonomy. Building on the [data model](#the-dannet-data-model-simplified) introduced earlier, it encodes functional and thematic relationships that are worth exploring.
 
+> **NOTE:** a complete overview of the synset relations in use (grouped by type, with descriptions) can be found on the [synset relations](/dannet/relations) page. Selecting "No labels" in the menu on that page displays the technical names of the relations, i.e. the ones used in SPARQL queries.
+
 ### "Used for": functional purpose
 
 What things are used for "transportere" (transport)?

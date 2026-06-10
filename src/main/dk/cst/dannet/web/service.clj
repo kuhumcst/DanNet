@@ -30,6 +30,7 @@
       res/schema-download-route
       res/sparql-route
       res/metadata-route
+      res/relations-route
 
       ;; Non-entity routes which support content-negotiation
       res/markdown-route
@@ -106,11 +107,13 @@
 
 (defn start []
   (let [service-map (->service-map @conf)]
+    ;; Compute in-use synset relations after the database is ready.
+    (async/thread @res/db @res/synset-rels)
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
-  (async/thread @res/db)                                    ; init database
+  (async/thread @res/db @res/synset-rels)                   ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 

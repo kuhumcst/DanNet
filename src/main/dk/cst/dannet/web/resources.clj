@@ -724,6 +724,29 @@
          (sort-by (comp str first))
          (into (ordered/ordered-map)))))
 
+(defn find-synset-relations
+  "Find the synset relations in use in the graph `g`, including the relations
+  used to link to other datasets (these are not typed as wn:SynsetRelType and
+  therefore probed individually).
+
+  Returns a map of `{rel entity}` where each entity is pruned to the label
+  properties and rdfs:comment."
+  [g]
+  (let [in-use?    (fn [rel] (seq (q/run g (op/relation-usage-query rel))))
+        cross-rels (filter in-use? (second section/cross-link-section))
+        rels       (map '?rel (q/run g op/synset-relation-types))
+        ks         (cons :rdfs/comment shared/label-keys-full)]
+    (->> (concat rels cross-rels)
+         (distinct)
+         (map (fn [rel]
+                [rel (select-keys (q/entity g rel) ks)]))
+         (into {}))))
+
+(defonce synset-rels
+  (delay
+    (println "Computing in-use synset relations...")
+    (time (find-synset-relations (:graph @db)))))
+
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
 
@@ -991,6 +1014,26 @@
          metadata-ic
          response-body-ic]
    :route-name ::metadata])
+
+(def relations-ic
+  {:name  ::relations
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [languages (request->languages request)]
+              (assoc ctx
+                :content {:languages languages
+                          :relations @synset-rels}
+                :page-meta {:title (i18n/da-en languages
+                              "Synset-relationer" "Synset relations")
+                            :page  "relations"})))})
+
+(def relations-route
+  [prefix/relations-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         explicit-params-ic
+         relations-ic
+         response-body-ic]
+   :route-name ::relations])
 
 
 (def sparql-validation-ic
