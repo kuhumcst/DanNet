@@ -506,6 +506,57 @@
   #{"application/transit+json"
     "text/html"})
 
+;; Map of property -> set of strict superproperties, derived from the
+;; rdfs:subPropertyOf closure entailed by the inference model (see rdfs5 in
+;; 'dannet.rules'). Cyclic pairs (equivalent properties) are excluded.
+(defonce superproperty-closure
+  (delay
+    (let [pairs (->> (q/run (:graph @db) '[:bgp [?p :rdfs/subPropertyOf ?q]])
+                     (map (juxt '?p '?q))
+                     (filter (fn [[p q]]
+                               (and (keyword? p) (keyword? q) (not= p q))))
+                     (set))]
+      (->> pairs
+           (remove (fn [[p q]] (contains? pairs [q p])))
+           (reduce (fn [m [p q]] (update m p (fnil conj #{}) q)) {})))))
+
+(defn- prune-entailed-superproperties
+  "Remove relations from `entity` whose values are fully covered by present
+  subproperty relations, e.g. skos:broader rows entailed from wn:hypernym.
+  This is display-only de-duplication; negotiated RDF output is unaffected.
+
+  Returns a map with:
+    :entity - entity without the fully covered superproperty relations
+    :folded - {surviving relation -> set of removed superproperties}"
+  [k->supers entity]
+  (let [->set   (fn [v] (if (coll? v) (set v) #{v}))
+        subs-of (reduce (fn [m k]
+                          (reduce (fn [m q]
+                                    (if (contains? entity q)
+                                      (update m q (fnil conj #{}) k)
+                                      m))
+                                  m
+                                  (k->supers k)))
+                        {}
+                        (keys entity))
+        pruned  (set (for [[q subs] subs-of
+                           :let [covered (reduce #(into %1 (->set (entity %2)))
+                                                 #{}
+                                                 subs)]
+                           :when (every? covered (->set (entity q)))]
+                       q))
+        folded  (reduce (fn [m q]
+                          (reduce (fn [m k]
+                                    (if (pruned k)
+                                      m
+                                      (update m k (fnil conj #{}) q)))
+                                  m
+                                  (subs-of q)))
+                        {}
+                        pruned)]
+    {:entity (apply dissoc entity pruned)
+     :folded folded}))
+
 (defn- truncate-semantic-relations
   "Truncate semantic relation values in `entity`.
   
@@ -578,13 +629,20 @@
                   ;; Apply truncation only for content types that support deferred loading
                   truncate?    (truncate-content-types content-type)
                   deferred?    (and truncate? deferred)
-                  {:keys [truncated deferred-entity has-deferred]}
+                  ;; De-duplicate entailed superproperty rows (display only).
+                  {pruned-entity :entity
+                   folded        :folded}
                   (if (and truncate? (not-empty raw-entity))
-                    (let [result (truncate-semantic-relations raw-entity)]
+                    (prune-entailed-superproperties @superproperty-closure
+                                                    raw-entity)
+                    {:entity raw-entity :folded nil})
+                  {:keys [truncated deferred-entity has-deferred]}
+                  (if (and truncate? (not-empty pruned-entity))
+                    (let [result (truncate-semantic-relations pruned-entity)]
                       {:truncated       (:truncated result)
                        :deferred-entity (:deferred result)
                        :has-deferred    (:has-deferred result)})
-                    {:truncated raw-entity :deferred-entity {} :has-deferred false})
+                    {:truncated pruned-entity :deferred-entity {} :has-deferred false})
                   ;; Return truncated on initial request, deferred portion on deferred request.
                   ;; If there's nothing deferred (entity was small, or was re-fetched from
                   ;; scratch), return the full entity to avoid an empty response.
@@ -602,7 +660,9 @@
                                                  (when (not-empty qs)
                                                    (str "?" qs)))
                                       :subject subject*
-                                      :entity entity))
+                                      :entity entity)
+                               (cond->
+                                 (not-empty folded) (assoc :folded folded)))
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
                                (and has-deferred (not deferred?))

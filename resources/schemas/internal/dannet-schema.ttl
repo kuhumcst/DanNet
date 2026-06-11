@@ -28,7 +28,7 @@
   dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
   rdfs:seeAlso "<https://wordnet.dk/dannet/concepts>", "<https://wordnet.dk/dannet/data>" .
 
-:shortLabel a owl:ObjectProperty  ;
+:shortLabel a owl:DatatypeProperty ;
   rdfs:label "short label"@en;
   rdfs:label "kort etiket"@da;
   rdfs:comment "A shorter alternative to the regular label (if needed)."@en ;
@@ -42,6 +42,7 @@
   rdfs:label "ækvivalent overbegreb"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is a hypernym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hypernym af subjektet."@da ;
+  rdfs:subPropertyOf skos:broadMatch ;
   owl:inverseOf :eqHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -50,14 +51,16 @@
   rdfs:label "ækvivalent underbegreb"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is a hyponym of the subject."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet er et hyponym af subjektet."@da ;
+  rdfs:subPropertyOf skos:narrowMatch ;
   owl:inverseOf :eqHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :eqSimilar a wn:SynsetRelType ;
   rdfs:label "equivalent near synonym"@en ;
-  rdfs:label "equivalent nær-synonym"@da ;
+  rdfs:label "ækvivalent nær-synonym"@da ;
   rdfs:comment "A relation between two concepts in separate datasets where the object is similar to the subject, though not synonymous."@en ;
   rdfs:comment "En relation mellem to begreber i separate datasæt, hvor objektet minder om subjektet men dog ikke er et synonym."@da ;
+  rdfs:subPropertyOf skos:closeMatch ;
   owl:inverseOf :eqSimilar ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -67,6 +70,7 @@
   rdfs:label "forbundet begreb"@da ;
   rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
   rdfs:comment "Den udgående forbindelse til et leksikalsk begreb/synset fra dets noterede Interlingual Index."@da ;
+  rdfs:subPropertyOf skos:exactMatch ;
   owl:inverseOf wn:ili ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -136,8 +140,8 @@
 :usedFor a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "A lexical concept which the subject concept may be used for; see <https://cst.ku.dk/projekter/dannet>."@en ;
-  rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se <https://cst.ku.dk/projekter/dannet>."@da ;
+  rdfs:comment "A lexical concept which the subject concept may be used for; see <https://cst.ku.dk/projekter/dannet/DanNetLinguisticSpecifications.pdf>."@en ;
+  rdfs:comment "Et leksikalsk begreb som subjekt-begrebet kan bruges til; se <https://cst.ku.dk/projekter/dannet/DanNetLinguisticSpecifications.pdf>."@da ;
   rdfs:label "used for"@en ;
   rdfs:label "bruges til"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
@@ -145,8 +149,8 @@
 :usedForObject a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;
-  rdfs:comment "TODO; see <https://cst.ku.dk/projekter/dannet>."@en ;
-  rdfs:comment "TODO; se <https://cst.ku.dk/projekter/dannet>."@da ;
+  rdfs:comment "TODO; see <https://cst.ku.dk/projekter/dannet/DanNetLinguisticSpecifications.pdf>."@en ;
+  rdfs:comment "TODO; se <https://cst.ku.dk/projekter/dannet/DanNetLinguisticSpecifications.pdf>."@da ;
   rdfs:label "used for object"@en ;
   rdfs:label "bruges til objekt"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
@@ -168,6 +172,7 @@
   rdfs:comment "Hyperonymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "ortho-hypernym"@en ;
   rdfs:label "orto-overbegreb"@da ;
+  rdfs:subPropertyOf skos:broader ;
   owl:inverseOf :orthogonalHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -178,6 +183,7 @@
   rdfs:comment "Hyponymer der er ortogonale i taxonomien; se <https://cst.ku.dk/projekter/dannet>."@da ;
   rdfs:label "ortho-hyponym"@en ;
   rdfs:label "orto-underbegreb"@da ;
+  rdfs:subPropertyOf skos:narrower ;
   owl:inverseOf :orthogonalHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -220,7 +226,7 @@
   rdfs:label "kilde"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
-:build a owl:ObjectProperty ;
+:build a owl:DatatypeProperty ;
   rdfs:comment "The current build hash of this iteration of DanNet, mainly for debugging."@en ;
   rdfs:comment "Det nuværende 'build hash' for denne iteration af DanNet, mest til debugging."@da ;
   rdfs:label "build"@en ; # TODO: dansk oversætteselse?
@@ -240,6 +246,7 @@
   rdfs:comment "Hyperonym-agtig relation der skifter over i en anden ordklasse."@da ;
   rdfs:label "cross-PoS hypernym"@en ;
   rdfs:label "ordklasseskift-hyperonym"@da ;
+  rdfs:subPropertyOf skos:broader ;
   owl:inverseOf :crossPoSHyponym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
@@ -250,5 +257,6 @@
   rdfs:comment "Hyponym-agtig relation der skifter over i en anden ordklasse."@da ;
   rdfs:label "cross-PoS hyponym"@en ;
   rdfs:label "ordklasseskift-hyponym"@da ;
+  rdfs:subPropertyOf skos:narrower ;
   owl:inverseOf :crossPoSHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

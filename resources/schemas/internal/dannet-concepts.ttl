@@ -23,186 +23,311 @@
   dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
   rdfs:seeAlso "<https://wordnet.dk/dannet/schema>", "<https://wordnet.dk/dannet/data>".
 
+# Descriptions of the EuroWordNet concepts are adapted from the EuroWordNet
+# Top Ontology; see <https://archive.illc.uva.nl/EuroWordNet/corebcs/ewnTopOntology.html>.
+
 :Agentive a dns:EuroWordNetConcept ;
   rdfs:label "agentive"@en ;
+  rdfs:comment "Situations in which a controlling agent intentionally causes a dynamic change; e.g. to kill, to do, to act."@en ;
+  rdfs:comment "Situationer hvor en kontrollerende agent forsætligt forårsager en dynamisk ændring; f.eks. dræbe, gøre, handle."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Animal a dns:EuroWordNetConcept ;
   rdfs:label "animal"@en ;
+  rdfs:comment "Animals, as opposed to humans, plants, and imaginary creatures; e.g. animal, dog."@en ;
+  rdfs:comment "Dyr, i modsætning til mennesker, planter og fantasivæsener; f.eks. dyr, hund."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Artifact a dns:EuroWordNetConcept ;
   rdfs:label "artifact"@en ;
+  rdfs:comment "Anything manufactured by people, as opposed to anything natural; e.g. car, building."@en ;
+  rdfs:comment "Alt menneskeskabt, i modsætning til alt naturligt; f.eks. bil, bygning."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Artwork a dns:DanNetConcept ;
   rdfs:label "artwork"@en ;
+  rdfs:comment "Concrete entities functioning as works of art; e.g. painting, sculpture."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som kunstværker; f.eks. maleri, skulptur."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :BodyPart a dns:DanNetConcept ;
   rdfs:label "body part"@en ;
+  rdfs:comment "Parts of the body of humans or animals; e.g. arm, organ."@en ;
+  rdfs:comment "Dele af menneskers eller dyrs krop; f.eks. arm, organ."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :BoundedEvent a dns:EuroWordNetConcept ;
   rdfs:label "bounded event"@en ;
+  rdfs:comment "Dynamic situations implying a specific transition from one state to another, bounded in time and directed at a result; e.g. to do, to make, to create."@en ;
+  rdfs:comment "Dynamiske situationer der indebærer en specifik overgang fra én tilstand til en anden, afgrænset i tid og rettet mod et resultat; f.eks. gøre, lave, skabe."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Building a dns:EuroWordNetConcept ;
   rdfs:label "building"@en ;
+  rdfs:comment "Concrete entities functioning as buildings or parts of buildings; e.g. house, church."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som bygninger eller dele af bygninger; f.eks. hus, kirke."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Cause a dns:EuroWordNetConcept ;
   rdfs:label "cause"@en ;
+  rdfs:comment "Situations involving the causation of other situations, whether static or dynamic; e.g. cause, prevent, result."@en ;
+  rdfs:comment "Situationer der involverer forårsagelse af andre situationer, statiske såvel som dynamiske; f.eks. forårsage, forhindre, resultere."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Colour a dns:EuroWordNetConcept ;
   rdfs:label "colour"@en ;
+  rdfs:comment "Properties relating to colour; e.g. red, green."@en ;
+  rdfs:comment "Egenskaber der vedrører farve; f.eks. rød, grøn."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Comestible a dns:EuroWordNetConcept ;
   rdfs:label "comestible"@en ;
+  rdfs:comment "Concrete entities functioning as food or drink; e.g. food, beverage."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som mad eller drikke; f.eks. fødevare, drikkevare."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Communication a dns:EuroWordNetConcept ;
   rdfs:label "communication"@en ;
+  rdfs:comment "Situations involving communication, either static or dynamic; e.g. speak, tell, ask, statement, conversation."@en ;
+  rdfs:comment "Situationer der involverer kommunikation, statiske såvel som dynamiske; f.eks. tale, fortælle, spørge, udsagn, samtale."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Condition a dns:EuroWordNetConcept ;
   rdfs:label "condition"@en ;
+  rdfs:comment "Situations involving an evaluative state of something, either static (e.g. health, disease, success) or dynamic (e.g. worsen, improve)."@en ;
+  rdfs:comment "Situationer der involverer en evaluerende tilstand af noget, enten statisk (f.eks. sundhed, sygdom, succes) eller dynamisk (f.eks. forværre, forbedre)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Container a dns:EuroWordNetConcept ;
   rdfs:label "container"@en ;
+  rdfs:comment "Concrete entities functioning as containers; e.g. bag, bottle."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som beholdere; f.eks. taske, flaske."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Covering a dns:EuroWordNetConcept ;
   rdfs:label "covering"@en ;
+  rdfs:comment "Concrete entities functioning as coverings; e.g. skin, cloth."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som beklædning eller overtræk; f.eks. hud, klæde."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Creature a dns:EuroWordNetConcept ;
   rdfs:label "creature"@en ;
+  rdfs:comment "Imaginary creatures, as opposed to humans, animals, and plants; e.g. god, troll, E.T."@en ;
+  rdfs:comment "Fantasivæsener, i modsætning til mennesker, dyr og planter; f.eks. gud, trold, E.T."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Domain a dns:DanNetConcept ;
   rdfs:label "domain"@en ;
+  rdfs:comment "Concepts denoting a subject domain or field of activity; e.g. medicine, sport."@en ;
+  rdfs:comment "Begreber der betegner et emneområde eller aktivitetsfelt; f.eks. medicin, sport."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Dynamic a dns:EuroWordNetConcept ;
   rdfs:label "dynamic"@en ;
+  rdfs:comment "Situations implying either a specific transition from one state to another or an ongoing, temporally unbounded process, as opposed to static situations; e.g. event, happen, change, activity."@en ;
+  rdfs:comment "Situationer der indebærer enten en specifik overgang fra én tilstand til en anden eller en igangværende, tidsmæssigt uafgrænset proces, i modsætning til statiske situationer; f.eks. begivenhed, ske, ændring, aktivitet."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Existence a dns:EuroWordNetConcept ;
   rdfs:label "existence"@en ;
+  rdfs:comment "Situations involving the existence of objects and substances, whether static states of existence (e.g. exist, live, death) or dynamic changes in existence (e.g. create, destroy, die)."@en ;
+  rdfs:comment "Situationer der involverer objekters og substansers eksistens, enten statiske eksistenstilstande (f.eks. eksistere, leve, død) eller dynamiske ændringer i eksistens (f.eks. skabe, ødelægge, dø)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Experience a dns:EuroWordNetConcept ;
   rdfs:label "experience"@en ;
+  rdfs:comment "Situations involving an experiencer, either mental or perceptual through the senses; e.g. to experience, to feel, pain."@en ;
+  rdfs:comment "Situationer der involverer en oplever, enten mentalt eller perceptuelt gennem sanserne; f.eks. opleve, føle, smerte."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :FirstOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "1st order entity"@en ;
+  rdfs:comment "Any concrete entity perceivable by the senses and located at any point in time, in a three-dimensional space; e.g. objects and substances."@en ;
+  rdfs:comment "Enhver konkret enhed der kan opfattes med sanserne og befinder sig på et givet tidspunkt i et tredimensionelt rum; f.eks. objekter og substanser."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Form a dns:EuroWordNetConcept ;
   rdfs:label "form"@en ;
+  rdfs:comment "Concrete entities considered in terms of their shape, either fixed as an object or amorphous as a substance."@en ;
+  rdfs:comment "Konkrete enheder betragtet ud fra deres form, enten fast som et objekt eller amorf som en substans."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Furniture a dns:EuroWordNetConcept ;
   rdfs:label "furniture"@en ;
+  rdfs:comment "Concrete entities functioning as furniture; e.g. chair, table."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som møbler; f.eks. stol, bord."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Garment a dns:EuroWordNetConcept ;
   rdfs:label "garment"@en ;
+  rdfs:comment "Concrete entities functioning as clothing; e.g. shirt, dress."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som beklædningsgenstande; f.eks. skjorte, kjole."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :GeopoliticalPlace a dns:EuroWordNetConcept ;
   rdfs:label "geopolitical place"@en ;
+  rdfs:comment "Places defined by geopolitical boundaries; e.g. country, city."@en ;
+  rdfs:comment "Steder defineret af geopolitiske grænser; f.eks. land, by."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Group a dns:EuroWordNetConcept ;
   rdfs:label "group"@en ;
+  rdfs:comment "Concrete entities consisting of multiple discrete objects, typically people, animals, or vehicles; e.g. army, herd, fleet."@en ;
+  rdfs:comment "Konkrete enheder bestående af flere adskilte objekter, typisk mennesker, dyr eller køretøjer; f.eks. hær, flok, flåde."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Human a dns:EuroWordNetConcept ;
   rdfs:label "human"@en ;
+  rdfs:comment "Human beings, as opposed to animals, plants, and imaginary creatures; e.g. person, someone."@en ;
+  rdfs:comment "Mennesker, i modsætning til dyr, planter og fantasivæsener; f.eks. person, nogen."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Imagerepresentation a dns:EuroWordNetConcept ;
   rdfs:label "image representation"@en ;
+  rdfs:comment "Physical representations conveyed in a visual medium; e.g. picture, traffic sign, light signal."@en ;
+  rdfs:comment "Fysiske repræsentationer formidlet i et visuelt medie; f.eks. billede, færdselstavle, lyssignal."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Institution a dns:DanNetConcept ;
   rdfs:label "institution"@en ;
+  rdfs:comment "Organisations and institutions; e.g. school, company."@en ;
+  rdfs:comment "Organisationer og institutioner; f.eks. skole, virksomhed."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Instrument a dns:EuroWordNetConcept ;
   rdfs:label "instrument"@en ;
+  rdfs:comment "Concrete entities functioning as instruments or tools; e.g. device, tool."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som instrumenter eller redskaber; f.eks. apparat, værktøj."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :LanguageRepresentation a dns:EuroWordNetConcept ;
   rdfs:label "language representation"@en ;
+  rdfs:comment "Physical representations conveyed in spoken, written, or sign language; e.g. text, word, sentence, poem."@en ;
+  rdfs:comment "Fysiske repræsentationer formidlet i talt sprog, skriftsprog eller tegnsprog; f.eks. tekst, ord, sætning, digt."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Liquid a dns:EuroWordNetConcept ;
   rdfs:label "liquid"@en ;
+  rdfs:comment "Substances in liquid form, as opposed to solids and gases; e.g. water, soup, rain."@en ;
+  rdfs:comment "Substanser i flydende form, i modsætning til faste stoffer og gasser; f.eks. vand, suppe, regn."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Living a dns:EuroWordNetConcept ;
   rdfs:label "living"@en ;
+  rdfs:comment "Anything living and dying, including objects, organic parts or tissue, and bodily fluids; e.g. organism, cell, skin, hair."@en ;
+  rdfs:comment "Alt der lever og dør, herunder objekter, organiske dele eller væv samt kropsvæsker; f.eks. organisme, celle, hud, hår."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Location a dns:EuroWordNetConcept ;
   rdfs:label "location"@en ;
+  rdfs:comment "Situations involving spatial relations, whether static (e.g. distance, path) or a change of location (e.g. move, put, fall)."@en ;
+  rdfs:comment "Situationer der involverer rumlige relationer, enten statiske (f.eks. afstand, rute) eller en ændring af placering (f.eks. flytte, lægge, falde)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Manner a dns:EuroWordNetConcept ;
   rdfs:label "manner"@en ;
+  rdfs:comment "Situations in which way or manner plays a role, either incorporated in a dynamic situation (e.g. walk, swim, fly) or as the property itself (e.g. manner, way)."@en ;
+  rdfs:comment "Situationer hvor måden spiller en rolle, enten indlejret i en dynamisk situation (f.eks. gå, svømme, flyve) eller som selve egenskaben (f.eks. måde, facon)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Mental a dns:EuroWordNetConcept ;
   rdfs:label "mental"@en ;
+  rdfs:comment "Situations experienced in the mind, including ideas, interpretations, emotions, and attitudes, as opposed to physical situations; e.g. think, remember, learn, invent."@en ;
+  rdfs:comment "Situationer der opleves i sindet, herunder idéer, fortolkninger, følelser og holdninger, i modsætning til fysiske situationer; f.eks. tænke, huske, lære, opfinde."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :MoneyRepresentation a dns:EuroWordNetConcept ;
   rdfs:label "money representation"@en ;
+  rdfs:comment "Physical representations of value or money; e.g. coin, share."@en ;
+  rdfs:comment "Fysiske repræsentationer af værdi eller penge; f.eks. mønt, aktie."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Natural a dns:EuroWordNetConcept ;
   rdfs:label "natural"@en ;
+  rdfs:comment "Anything produced by nature and physical forces, as opposed to artifacts; e.g. land, natural object."@en ;
+  rdfs:comment "Alt der er frembragt af naturen og fysiske kræfter, i modsætning til menneskeskabte ting; f.eks. land, naturligt objekt."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Object a dns:EuroWordNetConcept ;
   rdfs:label "object"@en ;
+  rdfs:comment "Any conceptually countable concrete entity with an outer limit, as opposed to substances; e.g. book, car, person, brick."@en ;
+  rdfs:comment "Enhver konceptuelt tællelig konkret enhed med en ydre afgrænsning, i modsætning til substanser; f.eks. bog, bil, person, mursten."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Occupation a dns:EuroWordNetConcept ;
   rdfs:label "occupation"@en ;
+  rdfs:comment "Humans considered in terms of their occupation or role; e.g. worker, teacher."@en ;
+  rdfs:comment "Mennesker betragtet ud fra deres beskæftigelse eller rolle; f.eks. arbejder, lærer."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Part a dns:EuroWordNetConcept ;
   rdfs:label "part"@en ;
+  rdfs:comment "Any concrete entity contained in an object, substance, or group; e.g. limb, juice, wheel, door."@en ;
+  rdfs:comment "Enhver konkret enhed som er indeholdt i et objekt, en substans eller en gruppe; f.eks. lem, saft, hjul, dør."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Phenomenal a dns:EuroWordNetConcept ;
   rdfs:label "phenomenal"@en ;
+  rdfs:comment "Situations that occur in nature, controlled or uncontrolled, or considered as a force, as opposed to causation by agents or stimuli; e.g. weather, chance."@en ;
+  rdfs:comment "Situationer der forekommer i naturen, kontrolleret eller ukontrolleret, eller betragtes som en kraft, i modsætning til forårsagelse af agenter eller stimuli; f.eks. vejr, tilfælde."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Physical a dns:EuroWordNetConcept ;
   rdfs:label "physical"@en ;
+  rdfs:comment "Situations involving perceptual and measurable properties of concrete entities, whether static (e.g. colour, shape, smell) or dynamic (e.g. redden, widen, see, hear), as opposed to mental situations."@en ;
+  rdfs:comment "Situationer der involverer perceptuelle og målbare egenskaber ved konkrete enheder, enten statiske (f.eks. farve, form, lugt) eller dynamiske (f.eks. rødme, udvide, se, høre), i modsætning til mentale situationer."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Place a dns:EuroWordNetConcept ;
   rdfs:label "place"@en ;
+  rdfs:comment "Concrete entities functioning as the location for something else; e.g. place, spot, centre."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som placering for noget andet; f.eks. sted, plet, centrum."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Plant a dns:EuroWordNetConcept ;
   rdfs:label "plant"@en ;
+  rdfs:comment "Plants, as opposed to humans, animals, and imaginary creatures; e.g. plant, rice."@en ;
+  rdfs:comment "Planter, i modsætning til mennesker, dyr og fantasivæsener; f.eks. plante, ris."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Possession a dns:EuroWordNetConcept ;
   rdfs:label "possession"@en ;
+  rdfs:comment "Situations involving possession, whether static (e.g. have, own, contain) or dynamic changes in possession (e.g. buy, sell, give, steal)."@en ;
+  rdfs:comment "Situationer der involverer besiddelse, enten statisk (f.eks. have, eje, indeholde) eller dynamiske ændringer i besiddelse (f.eks. købe, sælge, give, stjæle)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Property a dns:EuroWordNetConcept ;
   rdfs:label "property"@en ;
+  rdfs:comment "Static situations applying to a single concrete entity or abstract situation; e.g. colour, speed, age, length, weight."@en ;
+  rdfs:comment "Statiske situationer der gælder for en enkelt konkret enhed eller abstrakt situation; f.eks. farve, hastighed, alder, længde, vægt."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Purpose a dns:EuroWordNetConcept ;
   rdfs:label "purpose"@en ;
+  rdfs:comment "Situations which are intended to have some effect; reflects the intentionality of acts and activities."@en ;
+  rdfs:comment "Situationer der har til hensigt at opnå en virkning; afspejler intentionaliteten i handlinger og aktiviteter."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Quantity a dns:EuroWordNetConcept ;
   rdfs:label "quantity"@en ;
+  rdfs:comment "Situations involving quantity and measure, whether static (e.g. weight, heaviness) or dynamic changes in quantity (e.g. increase, decrease)."@en ;
+  rdfs:comment "Situationer der involverer mængde og mål, enten statiske (f.eks. vægt, tyngde) eller dynamiske ændringer i mængde (f.eks. forøge, formindske)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Relation a dns:EuroWordNetConcept ;
   rdfs:label "relation"@en ;
+  rdfs:comment "Static situations applying to a pair of entities, which cannot exist by themselves without the involved entities; e.g. relation, kinship, distance."@en ;
+  rdfs:comment "Statiske situationer der gælder for et par af enheder, og som ikke kan eksistere i sig selv uden de involverede enheder; f.eks. relation, slægtskab, afstand."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Representation a dns:EuroWordNetConcept ;
   rdfs:label "representation"@en ;
+  rdfs:comment "Any concrete entity used for conveying a message; e.g. traffic sign, word, money."@en ;
+  rdfs:comment "Enhver konkret enhed der bruges til at formidle et budskab; f.eks. færdselstavle, ord, penge."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :SecondOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "2nd order entity"@en ;
+  rdfs:comment "Any static or dynamic situation (event, state, property, relation) which cannot be grasped as an independent physical thing; can be located in time and occurs or takes place rather than exists; e.g. continue, occur, apply."@en ;
+  rdfs:comment "Enhver statisk eller dynamisk situation (begivenhed, tilstand, egenskab, relation) som ikke kan opfattes som en selvstændig fysisk ting; kan placeres i tid og forekommer eller finder sted snarere end eksisterer; f.eks. fortsætte, forekomme, gælde."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Social a dns:EuroWordNetConcept ;
   rdfs:label "social"@en ;
+  rdfs:comment "Situations related to society and the social interaction of people, whether static (e.g. employment, poverty) or dynamic (e.g. work, management, recreation)."@en ;
+  rdfs:comment "Situationer relateret til samfundet og menneskers sociale interaktion, enten statiske (f.eks. beskæftigelse, fattigdom) eller dynamiske (f.eks. arbejde, ledelse, fritid)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Software a dns:EuroWordNetConcept ;
   rdfs:label "software"@en ;
+  rdfs:comment "Computer software; e.g. program, application."@en ;
+  rdfs:comment "Computersoftware; f.eks. program, applikation."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Static a dns:EuroWordNetConcept ;
   rdfs:label "static"@en ;
+  rdfs:comment "Situations (properties, relations, and states) in which there is no transition from one situation to another, as opposed to dynamic situations; e.g. state, be."@en ;
+  rdfs:comment "Situationer (egenskaber, relationer og tilstande) hvor der ikke er nogen overgang fra én situation til en anden, i modsætning til dynamiske situationer; f.eks. tilstand, være."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Stimulating a dns:EuroWordNetConcept ;
   rdfs:label "stimulating"@en ;
+  rdfs:comment "Situations in which something elicits or arouses a perception or provides the motivation for some event; e.g. sounds, views, smells."@en ;
+  rdfs:comment "Situationer hvor noget fremkalder eller vækker en perception eller udgør motivationen for en begivenhed; f.eks. lyde, syn, lugte."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Substance a dns:EuroWordNetConcept ;
   rdfs:label "substance"@en ;
+  rdfs:comment "All stuff without boundary or fixed shape, considered from a conceptual point of view, as opposed to objects; e.g. mass, water, sand, air."@en ;
+  rdfs:comment "Alt stof uden afgrænsning eller fast form, betragtet fra et konceptuelt synspunkt, i modsætning til objekter; f.eks. masse, vand, sand, luft."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :ThirdOrderEntity a dns:EuroWordNetConcept ;
   rdfs:label "3rd order entity"@en ;
+  rdfs:comment "An unobservable proposition which exists independently of time and space; can be true or false rather than real, and can be asserted or denied, remembered or forgotten; e.g. idea, information, theory, plan."@en ;
+  rdfs:comment "En uobserverbar proposition som eksisterer uafhængigt af tid og rum; kan være sand eller falsk snarere end virkelig, og kan hævdes eller benægtes, huskes eller glemmes; f.eks. idé, information, teori, plan."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Time a dns:EuroWordNetConcept ;
   rdfs:label "time"@en ;
+  rdfs:comment "Situations in which duration or time plays a significant role, whether static (e.g. day, period) or dynamic (e.g. begin, end, last)."@en ;
+  rdfs:comment "Situationer hvor varighed eller tid spiller en væsentlig rolle, enten statiske (f.eks. dag, periode) eller dynamiske (f.eks. begynde, slutte, vare)."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :UnboundedEvent a dns:EuroWordNetConcept ;
   rdfs:label "unbounded event"@en ;
+  rdfs:comment "Dynamic situations occurring during a period of time, composed of a sequence of (micro-)changes of state which are not perceived as relevant for characterizing the situation as a whole; e.g. grow, live, work, play."@en ;
+  rdfs:comment "Dynamiske situationer der finder sted over en periode og består af en række (mikro-)tilstandsændringer, som ikke opfattes som relevante for at karakterisere situationen som helhed; f.eks. vokse, leve, arbejde, lege."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Underspecified a dns:EuroWordNetConcept ;
   rdfs:label "underspecified"@en ;
+  rdfs:comment "Concepts whose ontological type is left underspecified."@en ;
+  rdfs:comment "Begreber hvis ontologiske type er underspecificeret."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
 :Vehicle a dns:EuroWordNetConcept ;
   rdfs:label "vehicle"@en ;
+  rdfs:comment "Concrete entities functioning as vehicles; e.g. car, ship."@en ;
+  rdfs:comment "Konkrete enheder der fungerer som transportmidler; f.eks. bil, skib."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .

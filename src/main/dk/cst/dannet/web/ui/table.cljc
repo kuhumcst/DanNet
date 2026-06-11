@@ -80,18 +80,77 @@
   [:td {:key coll}
    (rdf/transform-text opts coll)])
 
+(rum/defc attr-name-extras
+  "Extra widgets shown below the relation name in `attr-val-row`: relations
+  entailed by the attribute key (folded into its row by the backend) and
+  display options for longer lists of synsets."
+  [{:keys [subject attr-key display-opt languages comments folded] :as opts}
+   v display-opts]
+  (let [folded-ks (not-empty (get folded attr-key))
+        cloud?    (display-cloud? opts v)
+        v-count   (if (coll? v) (count v) 0)]
+    (when (or folded-ks cloud?)
+      [:div.attr-name__extras
+
+       ;; Superproperty relations entailed by this one, e.g. skos:broader
+       ;; for wn:hypernym; folded into this row by the backend to avoid
+       ;; duplication.
+       (when folded-ks
+         [:details.entailed
+          [:summary {:title (:entailment comments)}
+           "⊑"]
+          [:ul.entailed__rels
+           (for [k' (sort-by str folded-ks)]
+             [:li {:key (str k')}
+              (rdf/entity-link k' (assoc opts :attr-key k'))])]])
+
+       ;; Longer lists of synsets can be displayed as a word cloud.
+       (when cloud?
+         ;; Default to word cloud only for collections exceeding the limit.
+         (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
+               value          (or display-opt (when exceeds-limit? "cloud"))
+               change         (fn [e]
+                                (swap! display-opts assoc-in [subject attr-key]
+                                       (.-value (.-target e))))]
+           (i18n/da-en languages
+             [:select.display-options {:title     "Visningsmuligheder"
+                                       :value     value
+                                       :on-change change}
+              [:option {:value ""}
+               "liste"]
+              (if exceeds-limit?
+                [:<>
+                 [:option {:value "cloud"}
+                  (str "ordsky (top)")]
+                 [:option {:value "max-cloud"}
+                  (str "ordsky (" v-count ")")]]
+                [:option {:value "max-cloud"}
+                 "ordsky"])]
+             [:select.display-options {:title     "Display options"
+                                       :value     value
+                                       :on-change change}
+              [:option {:value ""}
+               "list"]
+              (if exceeds-limit?
+                [:<>
+                 [:option {:value "cloud"}
+                  (str "word cloud (top)")]
+                 [:option {:value "max-cloud"}
+                  (str "word cloud (" v-count ")")]]
+                [:option {:value "max-cloud"}
+                 "word cloud"])])))])))
+
 (rum/defc attr-val-row < rum/reactive
   "A single row in the attribute-value table. Only re-renders when its specific
   display option changes."
-  [{:keys [subject languages comments] :as opts} k v display-opts inherited? inferred? supplemented?]
+  [{:keys [subject comments] :as opts} k v display-opts inherited? inferred? supplemented?]
   (let [prefix        (if (keyword? k)
                         (some-> (namespace k) symbol)
                         k)
         display-opt   (get-in @display-opts [subject k])
         opts+attr-key (assoc opts
                         :attr-key k
-                        :display-opt display-opt)
-        v-count       (if (coll? v) (count v) 0)]
+                        :display-opt display-opt)]
     [:tr (cond-> {:key (str k)}
            (keyword? k) (assoc :property (prefix/kw->qname k))
            inferred? (update :class conj "inferred")
@@ -107,42 +166,7 @@
       (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
-
-      ;; Longer lists of synsets can be displayed as a word cloud.
-      (when (display-cloud? opts+attr-key v)
-        ;; Default to word cloud only for collections exceeding the limit.
-        (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
-              value          (or display-opt (when exceeds-limit? "cloud"))
-              change         (fn [e]
-                               (swap! display-opts assoc-in [subject k]
-                                      (.-value (.-target e))))]
-          (i18n/da-en languages
-            [:select.display-options {:title     "Visningsmuligheder"
-                                      :value     value
-                                      :on-change change}
-             [:option {:value ""}
-              "liste"]
-             (if exceeds-limit?
-               [:<>
-                [:option {:value "cloud"}
-                 (str "ordsky (top)")]
-                [:option {:value "max-cloud"}
-                 (str "ordsky (" v-count ")")]]
-               [:option {:value "max-cloud"}
-                "ordsky"])]
-            [:select.display-options {:title     "Display options"
-                                      :value     value
-                                      :on-change change}
-             [:option {:value ""}
-              "list"]
-             (if exceeds-limit?
-               [:<>
-                [:option {:value "cloud"}
-                 (str "word cloud (top)")]
-                [:option {:value "max-cloud"}
-                 (str "word cloud (" v-count ")")]]
-               [:option {:value "max-cloud"}
-                "word cloud"])])))]
+      (attr-name-extras opts+attr-key v display-opts)]
      (error/try-render
        (cond
          ;; NOTE: this used to only test using `set?`, but as we return both

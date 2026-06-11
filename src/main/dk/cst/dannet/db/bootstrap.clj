@@ -283,10 +283,12 @@
       "Input data: " (str/join ", " filenames))))
 
 (def reasoner
-  "The custom reasoner inferring many triples present in the complete dataset."
+  "The custom reasoner inferring many triples present in the complete dataset.
+
+  The rules in 'dannet.rules' are purpose-built for DanNet, covering only
+  owl:inverseOf and rdfs:subPropertyOf entailment as tabled backward rules."
   (let [rules (Rule/parseRules (slurp (io/resource "etc/dannet.rules")))]
     (doto (GenericRuleReasoner. rules)
-      (.setOWLTranslation true)
       (.setMode GenericRuleReasoner/HYBRID)
       (.setTransitiveClosureCaching true))))
 

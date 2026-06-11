@@ -1100,6 +1100,72 @@ td.attr-name {
     border-right: 1px solid rgba(0,0,0,var(--opacity-decorative));
 }
 
+/* Extra widgets below the relation name: entailed relations + display options.
+   When the <details> is closed, the display options sit next to the ⊑ symbol;
+   when open, the entailed relations claim the full row, wrapping the display
+   options onto the line below. */
+td.attr-name .attr-name__extras {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-s);
+    margin-top: var(--spacing-s);
+}
+
+td.attr-name .attr-name__extras > details.entailed,
+td.attr-name .attr-name__extras > select.display-options {
+    margin-top: 0;
+}
+
+td.attr-name .attr-name__extras > details.entailed[open] {
+    flex-basis: 100%;
+}
+
+/* Superproperty relations folded into a more specific relation's row. */
+td.attr-name details.entailed {
+    display: block;
+    margin-left: 0;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+td.attr-name details.entailed summary {
+    display: inline;
+    cursor: pointer;
+    opacity: 0.5;
+    user-select: none;
+}
+
+td.attr-name details.entailed summary:hover {
+    opacity: 1;
+}
+
+td.attr-name details.entailed[open] summary {
+    opacity: 1;
+    padding-right: var(--spacing-s);
+}
+
+/* The revealed relations always break onto their own line. */
+td.attr-name details.entailed[open] {
+    display: flex;
+    flex-direction: row;
+}
+
+td.attr-name details.entailed[open] + * {
+    margin-top: var(--spacing-xs);
+}
+
+td.attr-name details.entailed .entailed__rels {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+td.attr-name details.entailed .entailed__rels li + li {
+    margin-top: var(--spacing-m);
+    padding-top: 0;
+}
+
 td.attr-prefix,
 td.attr-name {
     background: var(--bg-texture);
@@ -1917,22 +1983,25 @@ span.subtle {
 select.display-options {
     appearance: none;
     display: block;
+    flex-grow: 1;
 
-    background: transparent url(/images/caret-down.svg) 0 center no-repeat;
+    background: rgba(0,0,0,0.1) url(/images/caret-down.svg) 4px center no-repeat;
     background-size: var(--font-size-s);
-    border: none;
-    padding: 0 0 0 16px;
-    font-size: var(--font-size-s);
+    border: var(--subtle-border);
+    border-radius: var(--border-radius-s);
+    padding: 4px 4px 4px 20px;
+    font-size: var(--font-size-xs);
 
-    color: black;
+    color: var(--color-dark);
     cursor: pointer;
-    opacity: 0.5;
+    opacity: 0.67;
 }
 
 select.display-options:hover,
 select.display-options:focus-visible {
     opacity: var(--opacity-interactive-hover);
     text-decoration: underline;
+    opacity: 1;
 }
 
 * + select.display-options {
@@ -1944,6 +2013,7 @@ select.display-options:focus-visible {
     opacity: 0;
     transition: opacity 1s;
     user-select: none;
+    pointer-events: none;
 }
 
 .help-overlay__item {

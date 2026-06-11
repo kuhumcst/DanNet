@@ -88,6 +88,8 @@
      [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
    (when (not-empty supplemented)
      [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
+   (when (not-empty (:folded opts))
+     [:p.note.desktop-only [:strong "⊑ "] (:entailment comments)])
    [:p.note
     [:strong "↓ "]
     (i18n/da-en languages

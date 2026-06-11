@@ -197,7 +197,11 @@
                         :supplemented
                         (i18n/da-en languages'
                           "suppleret fra andre ressourcer"
-                          "supplemented from other resources")}
+                          "supplemented from other resources")
+                        :entailment
+                        (i18n/da-en languages'
+                          "se andre relationer afledt af denne"
+                          "view other relations entailed by this one")}
         detail-level   (or (get state' :detail-level)
                            (get opts :detail-level)
                            :normal)
