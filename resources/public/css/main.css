@@ -1107,7 +1107,7 @@ td.attr-name {
 td.attr-name .attr-name__extras {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: flex-start;
     gap: var(--spacing-xs) var(--spacing-s);
     margin-top: var(--spacing-s);
 }
@@ -1125,7 +1125,7 @@ td.attr-name .attr-name__extras > details.entailed[open] {
 td.attr-name details.entailed {
     display: block;
     margin-left: 0;
-    margin-top: var(--spacing-xs);
+    padding-top: 2px; /*  match display options select next to it. */
     font-size: var(--font-size-xs);
 }
 
@@ -1134,6 +1134,7 @@ td.attr-name details.entailed summary {
     cursor: pointer;
     opacity: 0.5;
     user-select: none;
+    font-size: var(--font-size-s);
 }
 
 td.attr-name details.entailed summary:hover {
@@ -1983,13 +1984,12 @@ span.subtle {
 select.display-options {
     appearance: none;
     display: block;
-    flex-grow: 1;
 
-    background: rgba(0,0,0,0.1) url(/images/caret-down.svg) 4px center no-repeat;
+    background: transparent url(/images/caret-down.svg) 2px center no-repeat;
     background-size: var(--font-size-s);
-    border: var(--subtle-border);
+    border: 1px solid transparent;
     border-radius: var(--border-radius-s);
-    padding: 4px 4px 4px 20px;
+    padding: 2px 4px 2px 18px;
     font-size: var(--font-size-xs);
 
     color: var(--color-dark);
@@ -1999,13 +1999,9 @@ select.display-options {
 
 select.display-options:hover,
 select.display-options:focus-visible {
-    opacity: var(--opacity-interactive-hover);
     text-decoration: underline;
+    border: var(--subtle-border);
     opacity: 1;
-}
-
-* + select.display-options {
-    margin-top: var(--spacing-s);
 }
 
 /* Help overlay (shown on wide screens) */
