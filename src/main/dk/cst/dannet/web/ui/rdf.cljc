@@ -98,6 +98,29 @@
           :datatype uri}
    value])
 
+(def ^:private sense-label-token
+  "Matches a DSL entry marker (e.g. `_§35`) or a regular piece of text."
+  #"_((?:§|\d|\()[^_ ]+)|[^_]+|_")
+
+(defn- marker->sub
+  "Render the entry marker text `sub` as a subscript, correcting for the rare
+  case of an affixed comma, e.g. http://localhost:3456/dannet/data/synset-7290"
+  [sub]
+  (if (str/ends-with? sub ",")
+    [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
+    [:sub sub]))
+
+(defn- subscript-markers
+  "Subscript every DSL entry marker in `s`; complements 'shared/sense-label'
+  which only captures the initial marker, while some multiword expressions
+  carry markers on several words (issue #75)."
+  [s]
+  (into [:<>]
+        (for [[token sub] (re-seq sense-label-token s)]
+          (if sub
+            (marker->sub sub)
+            token))))
+
 (defn- transform-val*
   "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
@@ -138,13 +161,8 @@
                     (if (= word shared/omitted)
                       [:span.subtle word]
                       word)
-                    ;; Correct for the rare case of an affixed comma.
-                    ;; e.g. http://localhost:3456/dannet/data/synset-7290
-                    (when sub
-                      (if (str/ends-with? sub ",")
-                        [:<> [:sub (subs sub 0 (dec (count sub)))] ","]
-                        [:sub sub]))]
-                   mwe]
+                    (some-> sub marker->sub)]
+                   (some-> mwe subscript-markers)]
                   label))))
       [:span.set__right-bracket]]
 
@@ -154,7 +172,7 @@
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
          (= (:rdf/type entity) :ontolex/LexicalSense))
      (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word [:sub sub] mwe])
+       [:<> word [:sub sub] (some-> mwe subscript-markers)])
 
      (re-matches #"https?://[^\s]+" s)
      (break-up-uri s)
@@ -167,7 +185,7 @@
      ;; TODO: could be tightened by threading the resource keyword through and
      ;;       checking for :dn/sense-* instead of relying on string matching alone.
      :let [[_ word _ sub mwe] (when-not attr-key (re-matches shared/sense-label s))]
-     sub [:<> word [:sub sub] mwe]
+     sub [:<> word [:sub sub] (some-> mwe subscript-markers)]
 
      :else s))
   ([s]
