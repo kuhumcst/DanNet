@@ -84,7 +84,8 @@
   "Extra widgets shown below the relation name in `attr-val-row`: relations
   entailed by the attribute key (folded into its row by the backend) and
   display options for longer lists of synsets."
-  [{:keys [subject attr-key display-opt languages comments folded] :as opts}
+  [{:keys [subject attr-key display-opt languages comments folded k->label]
+    :as   opts}
    v display-opts]
   (let [folded-ks (not-empty (get folded attr-key))
         cloud?    (display-cloud? opts v)
@@ -96,13 +97,30 @@
        ;; for wn:hypernym; folded into this row by the backend to avoid
        ;; duplication.
        (when folded-ks
-         [:details.entailed
-          [:summary {:title (:entailment comments)}
-           "⊑"]
-          [:ul.entailed__rels
-           (for [k' (sort-by str folded-ks)]
-             [:li {:key (str k')}
-              (rdf/entity-link k' (assoc opts :attr-key k'))])]])
+         ;; Label resolution mirrors 'rdf/entity-link'; relations whose label
+         ;; collides with the core relation or a sibling display their QName
+         ;; instead, e.g. "dc11:date" rather than a second identical "date"
+         ;; next to dc:date.
+         (let [label-of   (fn [k']
+                            (str (or (i18n/select-label languages
+                                                        (get k->label k'))
+                                     (name k'))))
+               core-label (label-of attr-key)
+               freqs      (frequencies (map label-of folded-ks))
+               ambiguous? (fn [k']
+                            (let [label (label-of k')]
+                              (or (= label core-label)
+                                  (> (get freqs label) 1))))]
+           [:details.entailed
+            [:summary {:title (:entailment comments)}
+             "⊑"]
+            [:ul.entailed__rels
+             (for [k' (sort-by str folded-ks)]
+               [:li {:key (str k')}
+                (rdf/entity-link k' (cond-> (assoc opts :attr-key k')
+                                      (ambiguous? k')
+                                      (assoc-in [:k->label k']
+                                                (prefix/kw->qname k'))))])]]))
 
        ;; Longer lists of synsets can be displayed as a word cloud.
        (when cloud?
