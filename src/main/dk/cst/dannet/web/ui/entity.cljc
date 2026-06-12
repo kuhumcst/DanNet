@@ -63,7 +63,10 @@
                         :key   rdf-uri}
             (rdf/break-up-uri rdf-uri)]
            local-name))]
-      (when label-lang
+      ;; Rendered explicitly since the CSS-based superscripts skip the h1 span;
+      ;; hidden when matching the UI language, mirroring the CSS rule.
+      (when (and label-lang (or (= detail-level :high)
+                                (not= label-lang (first languages))))
         [:sup label-lang])]
      (when-not uri-only?
        (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]

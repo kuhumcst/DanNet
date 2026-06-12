@@ -86,16 +86,21 @@
 (rum/defc language-select
   [languages]
   ;; TODO: the :on-change handler may not fire after SSR hydration (same issue
-  ;; as detail-level-select). Currently works because language changes trigger
-  ;; a page reload via the cookie, masking the problem. If this select ever
-  ;; needs to work without a reload, add a native event listener via :ref
-  ;; (see detail-level-select for the pattern).
+  ;; as detail-level-select). Language changes do NOT reload the page; the
+  ;; content re-renders reactively via the client state. If this handler stops
+  ;; firing, add a native event listener via :ref (see detail-level-select).
   (let [change-language (fn [e]
                           #?(:cljs (let [v (-> (.-target e)
                                                (.-value)
                                                (not-empty)
                                                (i18n/lang-prefs))]
-                                     (shared/update-cookie! :languages (constantly v)))))]
+                                     (shared/update-cookie! :languages (constantly v))
+                                     ;; Keep <html lang> in sync since no page
+                                     ;; reload occurs; the SSR'ed attribute is
+                                     ;; semantic and drives the CSS rule hiding
+                                     ;; redundant language tag superscripts.
+                                     (set! (.-lang js/document.documentElement)
+                                           (or (first v) "")))))]
     [:select.language.nav-icon
      {:title     (i18n/da-en languages
                    "Indstil sprogpræference"
@@ -109,7 +114,12 @@
 (defn- change-detail-level!
   [e]
   #?(:cljs (let [v (keyword (.-value (.-target e)))]
-             (shared/update-cookie! :detail-level (constantly v)))))
+             (shared/update-cookie! :detail-level (constantly v))
+             ;; Keep <html data-detail-level> in sync since no page reload
+             ;; occurs; at the :high detail level the CSS keeps all language
+             ;; tag superscripts visible regardless of the UI language.
+             (.setAttribute js/document.documentElement
+                            "data-detail-level" (name v)))))
 
 (rum/defc detail-level-select
   [detail-level languages]
@@ -131,11 +141,11 @@
                                 (fn [e]
                                   (change-detail-level! e)))))))}
    [:option {:value "basic"}
-    (i18n/da-en languages "Ingen etiketter" "No labels")]
+    "Minimal"]
    [:option {:value "normal"}
-    "Standard"]
+    (i18n/da-en languages "Dynamisk" "Dynamic")]
    [:option {:value "high"}
-    (i18n/da-en languages "Lange etiketter" "Long labels")]])
+    (i18n/da-en languages "Detaljeret" "Detailed")]])
 
 (rum/defc help-arrows
   [page {:keys [languages] :as opts}]

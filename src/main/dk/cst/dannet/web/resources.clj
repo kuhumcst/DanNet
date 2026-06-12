@@ -116,12 +116,20 @@
   (str path "?hash=" version-hash))
 
 (defn html-page
-  "A full HTML page ready to be hydrated. Needs a `title` and `content`."
-  [title languages content]
+  "A full HTML page ready to be hydrated. Needs a `title`, `content`, and the
+  user-specific `data` (languages and detail level)."
+  [title {:keys [languages detail-level] :as data} content]
   (str
     "<!DOCTYPE html>\n"                                     ;; Avoid Quirks Mode
     (rum/render-static-markup
-      [:html {:prefix prefix/rdfa-prefixes}
+      ;; The :lang attribute declares the negotiated UI language semantically;
+      ;; it doubles as the base language for RDFa literals lacking a closer
+      ;; @lang and is matched in CSS to hide redundant language superscripts.
+      ;; The detail level is mirrored in :data-detail-level since the CSS only
+      ;; hides redundant superscripts below the :high detail level.
+      [:html {:prefix            prefix/rdfa-prefixes
+              :lang              (first languages)
+              :data-detail-level (some-> detail-level name)}
        [:head
         [:title title]
         [:meta {:charset "UTF-8"}]
@@ -210,11 +218,11 @@
 ;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
   {"text/html"
-   (fn [{:keys [languages sparql-result] :as data} &
+   (fn [{:keys [sparql-result] :as data} &
         [{:keys [page title] :as opts}]]
      (html-page
        title
-       languages
+       data
        (ui/page-shell page (update data :sparql-result handle-sparql-result))))
 
    "text/turtle"
@@ -490,7 +498,8 @@
                   :response {:status  (:status anomaly)
                              :headers (merge (x-headers page-meta)
                                              {"Content-Type" ctype})
-                             :body    (body-fn content page-meta)})))}))
+                             :body    (body-fn (with-cookies request content)
+                                               page-meta)})))}))
 
 (def expand-content-types
   "Content types that receive expanded entity data with relation labels."

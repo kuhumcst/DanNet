@@ -1374,7 +1374,7 @@ header > .rdf-uri .rdf-uri__name {
 }
 
 /* Language tags shown as superscript after lang-attributed elements. */
-[lang]:not(footer, footer *, h1 span, article)::after {
+[lang]:not(html, footer, footer *, h1 span, article)::after {
     content: attr(lang);
     margin-left: 0.4ch;
     vertical-align: top;
@@ -1382,6 +1382,14 @@ header > .rdf-uri .rdf-uri__name {
     opacity: var(--opacity-muted);
     text-decoration: none;
     font-variant: small-caps;
+}
+
+/* Hide the superscript when it matches the UI language declared on <html>;
+   [lang|=...] also covers regional subtags such as en-GB. At the "high"
+   detail level (= long labels) all language tags remain visible. */
+html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
+html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
+    content: none;
 }
 
 
