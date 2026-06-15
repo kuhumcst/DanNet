@@ -213,6 +213,24 @@ WHERE
 
 We'll look at more of these DanNet-specific relations in [section 7](#dannet-specific-relations).
 
+### Measuring synset similarity
+
+DanNet provides three custom SPARQL functions that score how *taxonomically close* two synsets are, based on their position in the [hypernym hierarchy](#climbing-the-hypernym-hierarchy): `dnf:path`, `dnf:lch` (Leacock-Chodorow) and `dnf:wup` (Wu-Palmer). Each takes two synsets and returns a number where higher means more similar. This query ranks every Danish synset by its Wu-Palmer similarity to "lærerkreds" ([synset-54219](/dannet/data/synset-54219)):
+
+```sparql
+SELECT  ?synset ?wup
+WHERE
+  { ?synset  a  ontolex:LexicalConcept
+    FILTER strstarts(str(?synset), str(dn:))
+    BIND(dnf:wup(dn:synset-54219, ?synset) AS ?wup)
+  }
+ORDER BY DESC(?wup)
+```
+
+[Run this query](/dannet/sparql?query=PREFIX++dnf%3A++%3Chttps%3A//wordnet.dk/dannet/function/%3E%0APREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0A%0ASELECT++%3Fsynset+%3Fwup%0AWHERE%0A++%7B+%3Fsynset++a++ontolex%3ALexicalConcept%0A++++FILTER+strstarts%28str%28%3Fsynset%29%2C+str%28dn%3A%29%29%0A++++BIND%28dnf%3Awup%28dn%3Asynset-54219%2C+%3Fsynset%29+AS+%3Fwup%29%0A++%7D%0AORDER+BY+DESC%28%3Fwup%29%0A&offset=0&limit=10&inference=auto&timeout=&distinct=true&enrichment=true)
+
+The synset scores `1.0` against itself, its hypernym "kreds" comes next, and the scores fall off with taxonomic distance. `dnf:path` and `dnf:lch` take the same two arguments. The functions only compare synsets within the same part of speech and language, so pairs with no shared hypernym path (e.g. a noun and a verb, or a Danish and an English synset) come back unbound; `ORDER BY DESC(?wup)` sorts those to the bottom, so the `LIMIT` keeps just the closest matches. (`dnf:path` instead returns `0` for unrelated pairs.)
+
 
 ## OPTIONAL: handling missing data
 

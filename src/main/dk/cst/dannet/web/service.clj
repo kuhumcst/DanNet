@@ -108,12 +108,12 @@
 (defn start []
   (let [service-map (->service-map @conf)]
     ;; Compute in-use synset relations after the database is ready.
-    (async/thread @res/db @res/synset-rels)
+    (async/thread @res/db @res/synset-rels @res/hypernym-graph)
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
-  (async/thread @res/db @res/synset-rels)                   ; init database
+  (async/thread @res/db @res/synset-rels @res/hypernym-graph)   ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 

@@ -266,6 +266,10 @@
 (def cor-uri
   (prefix->uri 'cor))
 
+(def dnf-uri
+  "Namespace for custom ARQ SPARQL functions (registered as the `dnf` prefix)."
+  (str dannet-root "function/"))
+
 (def not-for-export
   #{oewn-uri
     oewn-extension-uri                                      ; exports separately

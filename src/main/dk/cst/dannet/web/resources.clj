@@ -34,7 +34,8 @@
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.db.query.operation :as op])
+            [dk.cst.dannet.db.query.operation :as op]
+            [dk.cst.dannet.similarity :as sim])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayOutputStream File]
            [java.util Date]
@@ -815,6 +816,25 @@
   (delay
     (println "Computing in-use synset relations...")
     (time (find-synset-relations (:graph @db)))))
+
+(defonce hypernym-graph
+  (delay
+    (println "Building hypernym graph...")
+    (time
+      (let [bg  (.getGraph (:base-model @db))
+            hg  (sim/build-hypernym-graph bg)
+            nd  (sim/node-depths hg)
+            pos (sim/synset->pos bg)]
+        {:graph       hg
+         :node-depths nd
+         :pos         pos
+         :taxonomy    (sim/taxonomy-depths nd pos)
+         ;; memoized so scoring one synset against many reuses each distance map
+         :ad          (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
+
+;; Expose the similarity metrics as dnf:path / dnf:lch / dnf:wup SPARQL
+;; functions. The context above is derefed lazily, on the first call.
+(sim/register! (fn [] @hypernym-graph))
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
