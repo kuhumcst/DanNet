@@ -10,7 +10,6 @@
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
-            [dk.cst.dannet.hash :as hash]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.transaction :as txn]
@@ -409,8 +408,8 @@
                             (:hash (meta #'->dannet))
                             (hash prefix/schemas)]
             ;; Undo potentially negative number by bit-shifting.
-            files-hash     (hash/pos-hash files)
-            bootstrap-hash (hash/pos-hash fn-hashes)
+            files-hash     (h/pos-hash files)
+            bootstrap-hash (h/pos-hash fn-hashes)
             db-name        (str files-hash "-" bootstrap-hash)
             full-db-path   (str db-path "/" db-name)
             zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
