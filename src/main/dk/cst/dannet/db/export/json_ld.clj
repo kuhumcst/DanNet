@@ -150,7 +150,7 @@
   ;; Test with simple entity structure
   (def test-entity
     (with-meta {:rdf/type    #{:ontolex/LexicalConcept}
-                :rdfs/label  (dk.cst.dannet.db.bootstrap/da "test synset")
+                :rdfs/label  (dk.cst.dannet.db.bootstrap.metadata/da "test synset")
                 :wn/hypernym #{:dn/synset-123}}
                {:subject :dn/synset-123}))
 

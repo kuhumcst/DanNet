@@ -9,7 +9,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.bootstrap :as bootstrap]
+            [dk.cst.dannet.db.bootstrap.metadata :as metadata]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
@@ -245,7 +245,7 @@
     :language "da"
     :email    "simongray@hum.ku.dk"
     :license  "https://creativecommons.org/licenses/by-sa/4.0/" ; TODO: change licence? See relevant issue
-    :version  bootstrap/new-release
+    :version  metadata/new-release
     :citation "Pedersen, Bolette S. Sanni Nimb, Jørg Asmussen, Nicolai H. Sørensen, Lars Trap-Jensen og Henrik Lorentzen (2009). DanNet – the challenge of compiling a WordNet for Danish by reusing a monolingual dictionary (pdf). Lang Resources & Evaluation 43:269–299."
     :url      "https://wordnet.dk/dannet"}])
 

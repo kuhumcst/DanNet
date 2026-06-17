@@ -4,194 +4,34 @@
   Inverse relations are not explicitly created, but rather handled by way of
   inference using a Jena OWL reasoner."
   (:require [clojure.java.io :as io]
-            [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.data.json :as json]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
-            [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.bootstrap.downloads :as downloads]
+            [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.io File]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
-           [java.util.zip GZIPInputStream]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
            [org.apache.jena.tdb2 TDB2Factory]))
 
-(defn da
-  [& s]
-  (->LangStr (apply str s) "da"))
-
-(defn en
-  [& s]
-  (->LangStr (apply str s) "en"))
-
-(def <simongray>
-  "<https://simongray.dk>")
-
-(def <cst>
-  "<https://cst.dk>")
-
-(def <dsl>
-  "<https://dsl.dk>")
-
-(def <dsn>
-  "<https://dsn.dk>")
-
-(def <dn>
-  "The RDF resource URI for the DanNet dataset."
-  (prefix/prefix->rdf-resource 'dn))
-
-(def <dns>
-  "The RDF resource URI for the DanNet schema."
-  (prefix/prefix->rdf-resource 'dns))
-
-(def <dnc>
-  "The RDF resource URI for the DanNet/EuroWordNet concepts."
-  (prefix/prefix->rdf-resource 'dnc))
-
-(def <dds>
-  "The RDF resource URI for the sentiment dataset."
-  (prefix/prefix->rdf-resource 'dds))
-
-(def <cor>
-  "The RDF resource URI for the COR dataset."
-  (prefix/prefix->rdf-resource 'cor))
-
-(def dn-zip-uri
-  (prefix/dataset-uri "rdf" 'dn))
-
-(def dn-zip-csv-uri
-  (prefix/dataset-uri "csv" 'dn))
-
-(def cor-zip-uri
-  (prefix/dataset-uri "rdf" 'cor))
-
-(def dds-zip-uri
-  (prefix/dataset-uri "rdf" 'dds))
-
-(def dns-schema-uri
-  (prefix/schema-uri 'dns))
-
-(def dnc-schema-uri
-  (prefix/schema-uri 'dnc))
-
-;; Defines the release that the database should be bootstrapped from.
-;; If making a new release, the zip files that are placed in /bootstrap/latest
-;; need to match precisely this release.
-(def bootstrap-base-release
-  "2025-07-03")
-
-(def new-release
-  (str "2025-07-03" "-SNAPSHOT"))
-
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from."
   [model]
   (let [result (q/run (.getGraph ^Model model)
-                      [:bgp [<dn> :owl/versionInfo bootstrap-base-release]])]
+                      [:bgp [md/<dn> :owl/versionInfo md/bootstrap-base-release]])]
     (assert (not-empty result)
-            (str "bootstrap files not the expected release (" bootstrap-base-release "). "
+            (str "bootstrap files not the expected release (" md/bootstrap-base-release "). "
                  result))))
-
-(defn see-also
-  [source rdf-resources]
-  (set (for [v rdf-resources]
-         [source :rdfs/seeAlso v])))
-
-(h/defn update-metadata!
-  "Remove old dataset metadata from `model` and add current `dataset-metadata`."
-  [dataset-metadata model]
-  (println "... updating with current dataset metadata")
-  (let [metadata-resources [<dn> <dns> <dnc>
-                            <dds> <cor>
-                            <cst> <dds> <dsl>
-                            <simongray>]]
-    (doseq [rdf-resource metadata-resources]
-      (db/remove! model [rdf-resource '_ '_]))
-    (db/safe-add! (.getGraph ^Model model) dataset-metadata)))
-
-(h/def metadata
-  {'dn  (set/union
-          (see-also <dn> [<dns> <dnc> <dds> <cor>])
-          (see-also <cst> [<dn> <dsl> <dsn>])
-          #{[<dn> :rdf/type :dcat/Dataset]
-            [<dn> :rdf/type :lime/Lexicon]
-            [<dn> :vann/preferredNamespacePrefix "dn"]
-            [<dn> :vann/preferredNamespaceUri (prefix/prefix->uri 'dn)]
-            [<dn> :rdfs/label "DanNet"]
-            [<dn> :dc/title "DanNet"]
-            [<dn> :dc/language "da"]
-            [<dn> :dc/description (en "The Danish WordNet.")]
-            [<dn> :dc/description (da "Det danske WordNet.")]
-            [<dn> :dc/issued new-release]
-            [<dn> :dc/contributor <simongray>]
-            [<dn> :dc/contributor <cst>]
-            [<dn> :dc/contributor <dsl>]
-            [<dn> :dc/publisher <cst>]
-            [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
-            [<dn> :schema/email "simongray@hum.ku.dk"]
-            [<dn> :owl/versionInfo new-release]
-            [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & "
-                                 "The Society for Danish Language and Literature; "
-                                 "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
-            [<dn> :dc/rights (da "Copyright © Center for Sprogteknologi (Københavns Universitet) & "
-                                 "Det Danske Sprog- og Litteraturselskab; "
-                                 "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
-            [<dn> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
-            ["<https://creativecommons.org/licenses/by-sa/4.0/>" :rdfs/label "CC BY-SA 4.0"]
-            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-uri)]
-            [<dn> :dcat/downloadURL (prefix/uri->rdf-resource dn-zip-csv-uri)]
-            [<dns> :dcat/downloadURL (prefix/uri->rdf-resource dns-schema-uri)]
-            [<dnc> :dcat/downloadURL (prefix/uri->rdf-resource dnc-schema-uri)]
-
-            ;; Contributors
-            [<simongray> :rdf/type :foaf/Person]
-            [<simongray> :foaf/name "Simon Gray"]
-            [<simongray> :foaf/workplaceHomepage "<https://nors.ku.dk/ansatte/?id=428973&vis=medarbejder>"]
-            [<simongray> :foaf/homepage <simongray>]
-            [<simongray> :foaf/weblog "<https://simon.grays.blog>"]
-            [<cst> :rdf/type :foaf/Group]
-            [<cst> :foaf/name (da "Center for Sprogteknologi")]
-            [<cst> :foaf/name (en "Centre for Language Technology")]
-            [<cst> :rdfs/comment (da "Centret er en del af Københavns universitet.")]
-            [<cst> :rdfs/comment (en "The centre is part of the University of Copenhagen.")]
-            [<cst> :foaf/homepage <cst>]
-            [<cst> :foaf/homepage "<https://cst.ku.dk>"]
-            [<cst> :foaf/member <simongray>]
-            [<dsl> :rdf/type :foaf/Group]
-            [<dsl> :foaf/name (da "Det Danske Sprog- og Litteraturselskab")]
-            [<dsl> :foaf/name (en "The Society for Danish Language and Literature")]
-            [<dsl> :foaf/homepage <dsl>]})
-   'dds #{[<dds> :rdfs/label "DDS"]
-          [<dds> :dc/title "DDS"]
-          [<dds> :dc/description (en "The Danish Sentiment Lexicon")]
-          [<dds> :dc/description (da "Det Danske Sentimentleksikon")]
-          [<dds> :dc/contributor <cst>]
-          [<dds> :dc/contributor <dsl>]
-          [<dds> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
-          [<dds> :dcat/downloadURL (prefix/uri->rdf-resource dds-zip-uri)]}
-   'cor #{[<cor> :rdfs/label "COR"]
-          [<cor> :dc/title "COR"]
-          [<cor> :dc/contributor <cst>]
-          [<cor> :dc/contributor <dsl>]
-          [<cor> :dc/contributor <dsn>]
-          [<cor> :dc/description (en "The Central Word Registry.")]
-          [<cor> :dc/description (da "Det Centrale Ordregister.")]
-          [<cor> :rdfs/seeAlso (prefix/uri->rdf-resource "https://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor/")]
-          [<dsn> :rdf/type :foaf/Group]
-          [<dsn> :foaf/name (da "Dansk Sprognævn")]
-          [<dsn> :foaf/name (en "The Danish Language Council")]
-          [<dsn> :foaf/homepage <dsn>]
-          [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}})
 
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
@@ -207,7 +47,7 @@
                              (set $)
                              (sort $)
                              (str/join "; " $)
-                             (en "{" $ "}")))]
+                             (md/en "{" $ "}")))]
     (txn/transact-exec dataset
       (println "... adding synset labels to" prefix/oewn-extension-uri)
       (->> (reduce collect-rep {} ms)
@@ -218,7 +58,7 @@
       (println "... adding sense and word labels to" prefix/oewn-extension-uri)
       (->> ms
            (mapcat (fn [{:syms [?sense ?word ?rep]}]
-                     [[?word :rdfs/label (en "\"" ?rep "\"")]
+                     [[?word :rdfs/label (md/en "\"" ?rep "\"")]
                       [?sense :rdfs/label ?rep]]))
            (aristotle/add label-graph))))
   (println "Labels added to the Open English WordNet!"))
@@ -228,14 +68,12 @@
   "Add the Open English WordNet to a Jena `dataset`."
   [dataset]
   (println "Importing Open English Wordnet...")
-  (let [oewn-file     "bootstrap/other/english/english-wordnet-2024.ttl"
-        oewn-changefn (fn [temp-model]
+  (let [oewn-changefn (fn [temp-model]
                         (println "... removing problematic entries")
-                        (db/remove! temp-model [prefix/oewn-uri :lime/entry '_]))
-        ili-file      "bootstrap/other/english/ili.ttl"]
+                        (db/remove! temp-model [prefix/oewn-uri :lime/entry '_]))]
     (println "... creating temporary in-memory graph")
-    (db/import-files dataset prefix/oewn-uri [oewn-file] oewn-changefn)
-    (db/import-files dataset prefix/ili-uri [ili-file]))
+    (db/import-files dataset prefix/oewn-uri [downloads/oewn-ttl-path] oewn-changefn)
+    (db/import-files dataset prefix/ili-uri [downloads/ili-path]))
   (println "Open English Wordnet imported!")
   (add-open-english-wordnet-labels! dataset))
 
@@ -246,14 +84,21 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  (let [expected-release (str "2025-07-03-SNAPSHOT")]
-    (assert (= new-release expected-release))               ; another check
-    (println "Applying release changes for" expected-release "...")
+  ;; Cleanup tripwire. This literal is a deliberate duplicate of (:from md/release).
+  ;; It stays stable throughout a development cycle, so it never interferes with
+  ;; everyday rebuilds. When the NEXT cycle is opened and :from is bumped to the
+  ;; release that was just cut, this assertion fires -- forcing the now-shipped
+  ;; temporary changes below to be cleared out and this marker bumped to match.
+  (assert (= "2025-07-03" (:from md/release))
+          (str "make-release-changes! still holds changes for the old release, "
+               "but (:from release) is now " (:from md/release) ". "
+               "Clear out the shipped changes and update this marker."))
+  (println "Applying release changes for" md/new-release "...")
 
-    ;; ==== The block of changes for this particular release. ====
-    ;; TODO: add release changes for next release
+  ;; ==== The block of changes for this particular release. ====
+  ;; TODO: add release changes for next release
 
-    (println "Release changes applied!")))
+  (println "Release changes applied!"))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -317,76 +162,6 @@
        :model      model
        :graph      graph})))
 
-(defn fetch-bootstrap-datasets!
-  "Fetch DanNet dataset releases from GitHub and prepare them for bootstrapping.
-
-     :version - Specific release (e.g. \"v2024-08-09\"), defaults to latest
-     :files - Set of datasets to fetch, defaults to all"
-  [& {:keys [version files]
-      :or   {files #{"dannet.zip"
-                     "cor.zip"
-                     "dds.zip"
-                     "oewn-extension.zip"}}}]
-  (let [bootstrap-dir (io/file "bootstrap/latest")
-        github-api    "https://api.github.com/repos/kuhumcst/DanNet/releases"]
-
-    (when-not (.exists bootstrap-dir)
-      (.mkdirs bootstrap-dir))
-
-    (println "Fetching release information from GitHub...")
-    (let [releases-url (if version
-                         (str github-api "/tags/" version)
-                         (str github-api "/latest"))
-          response     (slurp releases-url)
-          release      (json/read-str response :key-fn keyword)
-          assets       (:assets release)
-          release-name (or (:tag_name release) (:name release))]
-      (println (str "Found release: " release-name))
-
-      (doseq [filename files]
-        (when-let [asset (first (filter #(= filename (:name %)) assets))]
-          (let [download-url (:browser_download_url asset)
-                output-file  (io/file bootstrap-dir filename)]
-            (println (str "Downloading " filename "..."))
-            (with-open [in  (io/input-stream download-url)
-                        out (io/output-stream output-file)]
-              (io/copy in out)))))
-
-      (println "Bootstrap datasets ready!")
-      release-name)))
-
-(defn fetch-english-datasets!
-  "Download OEWN and ILI datasets to bootstrap/other/english/ if missing."
-  []
-  (let [english-dir (io/file "bootstrap/other/english")
-        oewn-file   (io/file english-dir "english-wordnet-2024.ttl")
-        oewn-gz     (io/file english-dir "english-wordnet-2024.ttl.gz")
-        ili-file    (io/file english-dir "ili.ttl")]
-    (.mkdirs english-dir)
-
-    (when-not (.exists oewn-file)
-      (try
-        (with-open [in-gz  (io/input-stream "https://en-word.net/static/english-wordnet-2024.ttl.gz")
-                    out-gz (io/output-stream oewn-gz)]
-          (io/copy in-gz out-gz))
-        (with-open [in-ttl  (GZIPInputStream. (io/input-stream oewn-gz))
-                    out-ttl (io/output-stream oewn-file)]
-          (io/copy in-ttl out-ttl))
-        (.delete oewn-gz)
-        (println "✓ OEWN")
-        (catch Exception e (println "⚠ OEWN failed:" (.getMessage e)))))
-
-    (when-not (.exists ili-file)
-      (try
-        (with-open [in-ili  (io/input-stream "https://raw.githubusercontent.com/globalwordnet/cili/master/ili.ttl")
-                    out-ili (io/output-stream ili-file)]
-          (io/copy in-ili out-ili))
-        (println "✓ ILI")
-        (catch Exception e (println "⚠ ILI failed:" (.getMessage e)))))
-
-    {:oewn-exists (.exists oewn-file)
-     :ili-exists  (.exists ili-file)}))
-
 (h/defn ->dannet
   "Create a Jena database from the latest DanNet export.
 
@@ -398,13 +173,16 @@
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      (let [files          (->> (file-seq input-dir)
+      (let [_              (downloads/ensure-bootstrap-datasets! input-dir (:from md/release))
+            _              (downloads/ensure-synset-indegrees! (:from md/release))
+            _              (downloads/ensure-english-datasets!)
+            files          (->> (file-seq input-dir)
                                 (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
                             (:hash (meta #'make-release-changes!))
-                            (:hash (meta #'metadata))
-                            (:hash (meta #'update-metadata!))
+                            (:hash (meta #'md/metadata))
+                            (:hash (meta #'md/update-metadata!))
                             (:hash (meta #'->dannet))
                             (hash prefix/schemas)]
             ;; Undo potentially negative number by bit-shifting.
@@ -418,7 +196,7 @@
             new-entry      (log-entry db-name db-type input-dir)
             dataset        (->dataset db-type full-db-path)
             ;; Include the current build hash to make debugging easier
-            metadata'      (update metadata 'dn conj [<dn> :dn/build db-name])]
+            metadata'      (update md/metadata 'dn conj [md/<dn> :dn/build db-name])]
         (println "Full database path:" full-db-path)
         (if db-exists?
           (do
@@ -432,7 +210,7 @@
                     model-uri (prefix/zip-file->uri (.getName zip-file))
                     prefix    (prefix/uri->prefix model-uri)
                     update!   (when prefix
-                                (partial update-metadata! (metadata' prefix)))
+                                (partial md/update-metadata! (metadata' prefix)))
                     ;; Special behaviour to check bootstrap files version
                     changefn  (if (= prefix 'dn)
                                 (fn [model]
@@ -464,10 +242,3 @@
             dataset      (->dataset db-type full-db-path)]
         (println "WARNING: no input dir provided!")
         (dataset->db dataset schema-uris)))))
-
-(comment
-  (fetch-english-datasets!)                                 ; ILI and OEWN
-
-  (fetch-bootstrap-datasets!)                               ; latest version
-  (fetch-bootstrap-datasets! :version "v2024-08-09")        ; specific version
-  (fetch-bootstrap-datasets! :files #{"dannet.zip"}))

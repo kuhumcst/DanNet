@@ -36,10 +36,9 @@ bootstrap/other/cor/ddo_bet_corextlink.csv
 # File sent by Sanni in email on 2022-05-23 (renamed).
 bootstrap/other/sentiment/sense_polarities.tsv
 
-# The open English WordNet
-bootstrap/other/english/english-wordnet-2022.ttl
-bootstrap/other/english/english-wordnet-2023.ttl
-bootstrap/other/english/english-wordnet-2024.ttl
+# The open English WordNet (downloaded via fetch-english-datasets!)
+bootstrap/other/english/english-wordnet-*.ttl
+bootstrap/other/english/english-wordnet-*.ttl.gz
 bootstrap/other/english/ili.ttl
 bootstrap/other/english/ili-map-pwn20.tab
 bootstrap/other/english/yaml

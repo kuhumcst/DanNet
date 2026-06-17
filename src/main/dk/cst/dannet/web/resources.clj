@@ -30,6 +30,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
+            [dk.cst.dannet.db.bootstrap.metadata :as metadata]
             [dk.cst.dannet.db.export.rdf :as export.rdf]
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
@@ -1340,7 +1341,7 @@
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 
-  (meta (q/expanded-entity (:graph @db) bootstrap/<dn>))
+  (meta (q/expanded-entity (:graph @db) metadata/<dn>))
   (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
   (q/entity (:graph @db) :dn/synset-78300)
   (let [subject :dn/synset-78300
