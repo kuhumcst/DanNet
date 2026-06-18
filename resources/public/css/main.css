@@ -38,7 +38,6 @@
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
 
-    --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-normal));
     --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
     --very-subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
 
@@ -363,7 +362,7 @@ dl.search-results > div {
     padding: var(--spacing-xl) var(--spacing-l);
     margin-bottom: var(--spacing-xxl);
     background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
+    border: var(--subtle-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
@@ -407,7 +406,7 @@ ul.synset-summary {
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-xl);
     background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
+    border: var(--subtle-border);
     box-shadow: var(--shadow-card-subtle);
     margin: 0 auto;
 }
@@ -772,7 +771,7 @@ nav#main-nav {
     background: var(--bg-dark);
     box-shadow: var(--shadow-nav);
     border: 1px solid transparent;
-    border-right: var(--normal-border);
+    border-right: var(--subtle-border);
     z-index: var(--z-base);
     gap: var(--spacing-s);
 }
@@ -1043,7 +1042,7 @@ table.attr-val,
 table.sparql-results {
     font-size: var(--font-size-m);
     border-collapse: collapse;
-    border: var(--normal-border);
+    border: var(--subtle-border);
     box-shadow: var(--shadow-card-subtle);
     width: 100%;
 }
@@ -1059,18 +1058,6 @@ table.attr-val col:nth-child(2) {
 
 table.attr-val col:nth-child(3) {
     width: 80ch;
-}
-
-table.attr-val.attr-val--nested {
-    border: var(--subtle-border);
-    box-shadow: var(--shadow-card-subtle);
-}
-
-/* Border resets for inner tables */
-table.attr-val.attr-val--nested td.attr-prefix,
-table.attr-val.attr-val--nested td.attr-name {
-    border-top: none;
-    border-right: none;
 }
 
 td, th {
@@ -1097,7 +1084,7 @@ td.attr-prefix {
 
 td.attr-name {
     padding-left: 0;
-    border-right: 1px solid rgba(0,0,0,var(--opacity-decorative));
+    border-right: var(--subtle-border);
 }
 
 /* Extra widgets below the relation name: entailed relations + display options.
@@ -1174,7 +1161,6 @@ td.attr-name {
 
 tr + tr td.attr-prefix,
 tr + tr td.attr-name {
-    border-top: var(--very-subtle-border);
 }
 
 tr:nth-child(odd),
@@ -1454,7 +1440,7 @@ span.marker {
     height: 100%;
 
     background: white;
-    border: var(--normal-border);
+    border: var(--subtle-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
@@ -1810,7 +1796,7 @@ label.timeout-select input[type=number],
 
 /* Before CM6 mounts, show a styled placeholder matching the editor appearance */
 .sparql-editor__input .cm-wrapper:empty {
-    border: var(--normal-border);
+    border: var(--subtle-border);
     border-radius: var(--border-radius-s);
     background: white;
     position: relative;
@@ -1831,7 +1817,7 @@ label.timeout-select input[type=number],
 
 .sparql-editor__input .cm-wrapper .cm-editor {
     flex-grow: 1;
-    border: var(--normal-border);
+    border: var(--subtle-border);
     border-radius: var(--border-radius-s);
     transition: border-color var(--transition-base),
                 box-shadow var(--transition-base);
@@ -2194,7 +2180,7 @@ span.render-error {
     nav#main-nav {
         flex-direction: row;
         border: 1px solid transparent;
-        border-bottom: var(--normal-border);
+        border-bottom: var(--subtle-border);
     }
     nav#main-nav:has(search.search-active) a.sparql-link {
         margin-top: 0;
