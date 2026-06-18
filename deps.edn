@@ -1,9 +1,9 @@
 {:paths   [#_"../rum/src" "src/main" "src/dev" "resources"]
- :deps    {org.clojure/clojure            {:mvn/version "1.12.1"}
-           org.clojure/data.csv           {:mvn/version "1.1.0"}
-           org.clojure/data.xml           {:mvn/version "0.2.0-alpha9"}
-           org.clojure/data.json          {:mvn/version "2.5.1"}
-           org.clojure/math.combinatorics {:mvn/version "0.3.0"}
+ :deps    {org.clojure/clojure            {:mvn/version "1.12.5"}
+           org.clojure/data.csv           {:mvn/version "1.1.1"}
+           org.clojure/data.xml           {:mvn/version "0.2.0-alpha11"}
+           org.clojure/data.json          {:mvn/version "2.5.2"}
+           org.clojure/math.combinatorics {:mvn/version "0.3.2"}
            clj-file-zip/clj-file-zip      {:mvn/version "0.1.0"}
            clj-commons/clj-yaml           {:mvn/version "1.0.29"}
 
@@ -14,27 +14,27 @@
 
            org.flatland/ordered           {:mvn/version "1.15.12"}
            better-cond/better-cond        {:mvn/version "2.1.5"}
-           org.clojure/core.memoize       {:mvn/version "1.1.266"}
-           metosin/reitit                 {:mvn/version "0.9.1"} ; for url-encode
-           io.github.nextjournal/markdown {:mvn/version "0.7.189"}
+           org.clojure/core.memoize       {:mvn/version "1.2.281"}
+           metosin/reitit                 {:mvn/version "0.10.1"} ; for url-encode
+           io.github.nextjournal/markdown {:mvn/version "0.7.225"}
 
            io.pedestal/pedestal.service   {:mvn/version "0.7.2"}
            io.pedestal/pedestal.route     {:mvn/version "0.7.2"}
            io.pedestal/pedestal.jetty     {:mvn/version "0.7.2"}
-           ring/ring-core                 {:mvn/version "1.14.2"}
+           ring/ring-core                 {:mvn/version "1.15.4"}
            com.owoga/tightly-packed-trie  {:mvn/version "0.3.0"}
-           org.slf4j/slf4j-simple         {:mvn/version "2.0.17"}
+           org.slf4j/slf4j-simple         {:mvn/version "2.0.18"}
            com.wsscode/transito           {:mvn/version "2021.07.04"}
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
            thi.ng/color                   {:mvn/version "1.5.1"}
            dk.ative/docjure               {:mvn/version "1.22.0"}
-           com.cnuernber/ham-fisted       {:mvn/version "2.031"}
+           com.cnuernber/ham-fisted       {:mvn/version "3.030"}
            com.cognitect/anomalies        {:mvn/version "0.1.12"}
 
            ;; https://github.com/taoensso/telemere/wiki/3-Config#java-logging
-           org.slf4j/slf4j-api            {:mvn/version "2.0.17"}
-           com.taoensso/telemere          {:mvn/version "1.1.0"}
-           com.taoensso/telemere-slf4j    {:mvn/version "1.1.0"}
+           org.slf4j/slf4j-api            {:mvn/version "2.0.18"}
+           com.taoensso/telemere          {:mvn/version "1.2.1"}
+           com.taoensso/telemere-slf4j    {:mvn/version "1.2.1"}
 
            ;; Our own fork of Rum which uses React 18.
            rum/rum                        {:git/url "https://github.com/kuhumcst/rum.git"
@@ -43,9 +43,8 @@
                       :jvm-opts   ["-Djdk.attach.allowAttachSelf"]}
            :build    {:extra-deps {io.github.seancorfield/build-clj
                                    {:git/tag "v0.9.2" :git/sha "9c9f078"}}}
-           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "3.2.0"}
-                                   lambdaisland/fetch   {:git/url "https://github.com/lambdaisland/fetch.git"
-                                                         :sha     "b74d2fb590917a14ae0ab3a1478bf60ff6906f65"}}}
+           :frontend {:extra-deps {thheller/shadow-cljs {:mvn/version "3.4.11"}
+                                   lambdaisland/fetch   {:mvn/version "1.5.83"}}}
 
            ;; https://github.com/bhauman/clojure-mcp?tab=readme-ov-file#step-1-configure-your-target-projects-nrepl-connection
            :nrepl    {:extra-paths ["test" "src" "resources"]
