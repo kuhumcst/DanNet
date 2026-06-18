@@ -1,9 +1,57 @@
 (ns dk.cst.dannet.db.bootstrap.downloads
-  "Functions for fetching the bootstrap datasets (DanNet, OEWN, CILI)."
+  "Functions for fetching the bootstrap datasets (DanNet, OEWN, CILI).
+
+  Every fetch fails fast: a network error, a missing release asset, or a failed
+  decompression throws rather than leaving the bootstrap half-populated. Files
+  are also written atomically (download to a temp sibling, then move into
+  place), so a crashed/partial download never leaves a file that a later run --
+  or the import step -- would mistake for complete."
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
             [dk.cst.dannet.db.query :as q])
-  (:import [java.util.zip GZIPInputStream]))
+  (:import [java.util.zip GZIPInputStream]
+           [java.nio.file CopyOption Files StandardCopyOption]))
+
+(defn- move-into-place!
+  "Atomically move `tmp` onto `dest` (same filesystem), replacing any existing
+  file. Pairs with the temp-file writes below so `dest` only ever appears once
+  it is complete."
+  [tmp dest]
+  (Files/move (.toPath (io/file tmp))
+              (.toPath (io/file dest))
+              (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING])))
+
+(defn download-to-file!
+  "Stream `url` to `dest`, writing to a temp sibling first and moving it into
+  place only on success. Deletes the temp file and rethrows on any failure."
+  [url dest]
+  (let [tmp (io/file (str dest ".part"))]
+    (io/make-parents tmp)
+    (try
+      (with-open [in  (io/input-stream url)
+                  out (io/output-stream tmp)]
+        (io/copy in out))
+      (move-into-place! tmp dest)
+      (catch Throwable e
+        (.delete tmp)
+        (throw e)))
+    (io/file dest)))
+
+(defn gunzip-to-file!
+  "Decompress gzip `src` to `dest`, writing to a temp sibling first and moving it
+  into place only on success. Deletes the temp file and rethrows on any failure."
+  [src dest]
+  (let [tmp (io/file (str dest ".part"))]
+    (io/make-parents tmp)
+    (try
+      (with-open [in  (GZIPInputStream. (io/input-stream src))
+                  out (io/output-stream tmp)]
+        (io/copy in out))
+      (move-into-place! tmp dest)
+      (catch Throwable e
+        (.delete tmp)
+        (throw e)))
+    (io/file dest)))
 
 (def bootstrap-files
   "The set of DanNet release zips that constitute a bootstrap. Shared by the
@@ -18,7 +66,10 @@
 
      :version - Specific release (e.g. \"v2024-08-09\"), defaults to latest
      :files - Set of datasets to fetch, defaults to all (see bootstrap-files)
-     :dir - Target directory, defaults to bootstrap/latest"
+     :dir - Target directory, defaults to bootstrap/latest
+
+  Throws if a requested file has no matching asset in the release, so a partial
+  or stale release can't quietly leave the bootstrap incomplete."
   [& {:keys [version files dir]
       :or   {files bootstrap-files
              dir   (io/file "bootstrap/latest")}}]
@@ -39,13 +90,15 @@
       (println (str "Found release: " release-name))
 
       (doseq [filename files]
-        (when-let [asset (first (filter #(= filename (:name %)) assets))]
+        (if-let [asset (first (filter #(= filename (:name %)) assets))]
           (let [download-url (:browser_download_url asset)
                 output-file  (io/file bootstrap-dir filename)]
             (println (str "Downloading " filename "..."))
-            (with-open [in  (io/input-stream download-url)
-                        out (io/output-stream output-file)]
-              (io/copy in out)))))
+            (download-to-file! download-url output-file))
+          (throw (ex-info (str "No asset named " filename " in release " release-name)
+                          {:filename filename
+                           :release  release-name
+                           :assets   (map :name assets)}))))
 
       (println "Bootstrap datasets ready!")
       release-name)))
@@ -103,36 +156,24 @@
   "https://raw.githubusercontent.com/globalwordnet/cili/master/ili.ttl")
 
 (defn ensure-english-datasets!
-  "Download the OEWN and ILI datasets into english-dir if missing."
-  []
-  (let [dir      (io/file english-dir)
-        oewn-ttl (io/file oewn-ttl-path)
-        oewn-gz  (io/file (str oewn-ttl-path ".gz"))
-        ili      (io/file ili-path)]
-    (.mkdirs dir)
+  "Download the OEWN and ILI datasets into english-dir if missing.
 
+  Fails fast: any download or decompression error propagates so the overall
+  bootstrap stops rather than continuing toward an import of a missing file."
+  []
+  (let [oewn-ttl (io/file oewn-ttl-path)
+        ili      (io/file ili-path)]
     (when-not (.exists oewn-ttl)
-      (try
-        (with-open [in-gz  (io/input-stream (str "https://en-word.net/static/english-wordnet-" oewn-version ".ttl.gz"))
-                    out-gz (io/output-stream oewn-gz)]
-          (io/copy in-gz out-gz))
-        (with-open [in-ttl  (GZIPInputStream. (io/input-stream oewn-gz))
-                    out-ttl (io/output-stream oewn-ttl)]
-          (io/copy in-ttl out-ttl))
+      (let [oewn-gz (io/file (str oewn-ttl-path ".gz"))]
+        (download-to-file! (str "https://en-word.net/static/english-wordnet-" oewn-version ".ttl.gz")
+                           oewn-gz)
+        (gunzip-to-file! oewn-gz oewn-ttl)
         (.delete oewn-gz)
-        (println "✓ OEWN")
-        (catch Exception e (println "⚠ OEWN failed:" (.getMessage e)))))
+        (println "✓ OEWN")))
 
     (when-not (.exists ili)
-      (try
-        (with-open [in-ili  (io/input-stream ili-url)
-                    out-ili (io/output-stream ili)]
-          (io/copy in-ili out-ili))
-        (println "✓ ILI")
-        (catch Exception e (println "⚠ ILI failed:" (.getMessage e)))))
-
-    {:oewn-exists (.exists oewn-ttl)
-     :ili-exists  (.exists ili)}))
+      (download-to-file! ili-url ili)
+      (println "✓ ILI"))))
 
 (comment
   (ensure-english-datasets!)                                ; ILI and OEWN

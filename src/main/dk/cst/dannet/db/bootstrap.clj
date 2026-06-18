@@ -173,6 +173,8 @@
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
+      ;; The ensure-* steps run for side effects and must precede the file-seq
+      ;; below (they put the inputs on disk), hence the leading _ bindings.
       (let [_              (downloads/ensure-bootstrap-datasets! input-dir (:from md/release))
             _              (downloads/ensure-synset-indegrees! (:from md/release))
             _              (downloads/ensure-english-datasets!)
@@ -184,7 +186,15 @@
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
                             (:hash (meta #'->dannet))
-                            (hash prefix/schemas)]
+                            (hash prefix/schemas)
+                            ;; The emitted version is baked into the dataset
+                            ;; metadata but isn't captured by any hashed form
+                            ;; above (those hash source, not values), so include
+                            ;; it explicitly -- otherwise cutting a release
+                            ;; (:to "SNAPSHOT" -> a real version, same :from)
+                            ;; wouldn't change db-name and the stale, still
+                            ;; SNAPSHOT-labelled database would be reused.
+                            md/new-release]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (h/pos-hash files)
             bootstrap-hash (h/pos-hash fn-hashes)
