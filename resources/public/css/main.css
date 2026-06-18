@@ -38,8 +38,8 @@
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
 
-    --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
-    --very-subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
+    --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
+    --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
 
     --border-radius-s: 2px;
     
@@ -270,7 +270,7 @@ h2::after {
 h3 {
     font-size: var(--font-size-m-l);
     text-align: left;
-    border-bottom: var(--subtle-border);
+    border-bottom: var(--normal-border);
     margin: var(--spacing-xxl) 0 var(--spacing-m) 0;
     padding: 0 0 var(--spacing-xs) 0;
 }
@@ -362,7 +362,7 @@ dl.search-results > div {
     padding: var(--spacing-xl) var(--spacing-l);
     margin-bottom: var(--spacing-xxl);
     background-color: rgba(255, 255, 255, 1);
-    border: var(--subtle-border);
+    border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
@@ -406,7 +406,7 @@ ul.synset-summary {
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-xl);
     background-color: rgba(255, 255, 255, 1);
-    border: var(--subtle-border);
+    border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
     margin: 0 auto;
 }
@@ -490,7 +490,7 @@ details.reactive-list summary:hover {
 }
 
 details.reactive-list[open] {
-    border-top: var(--very-subtle-border);
+    border-top: var(--subtle-border);
     padding-bottom: var(--spacing-m);
 }
 
@@ -556,7 +556,7 @@ p.note strong {
 }
 
 #content.full-screen hr {
-    border-top: var(--subtle-border);
+    border-top: var(--normal-border);
 }
 
 /* This essentially works like sharpening/emboss effect on non-white text. */
@@ -607,7 +607,7 @@ article.document > div > ul:first-child {
     margin: 0 0 var(--spacing-xl) 0;
     gap: var(--spacing-l);
 
-    border: var(--very-subtle-border);
+    border: var(--subtle-border);
     background: var(--bg-texture);
     border-radius: var(--border-radius-s);
 }
@@ -677,7 +677,7 @@ article.document > div > img,
 article.document > div > p > img,
 article.document > div > p > a > img {
     max-width: 80%;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 
     /* Centering */
@@ -708,7 +708,7 @@ article.document blockquote { margin: var(--spacing-xl) ;}
 article.document blockquote p {
     padding: var(--spacing-l) var(--spacing-xl);
     margin: var(--spacing-xl) 0;
-    border: var(--very-subtle-border);
+    border: var(--subtle-border);
     background: var(--bg-texture);
     border-radius: var(--border-radius-s);
 }
@@ -748,7 +748,7 @@ footer.page-footer p {
 
 hr {
     border: none;
-    border-top: var(--subtle-border);
+    border-top: var(--normal-border);
     width: 100%;
     margin: 0 0 var(--spacing-xl) 0;
 }
@@ -771,7 +771,7 @@ nav#main-nav {
     background: var(--bg-dark);
     box-shadow: var(--shadow-nav);
     border: 1px solid transparent;
-    border-right: var(--subtle-border);
+    border-right: var(--normal-border);
     z-index: var(--z-base);
     gap: var(--spacing-s);
 }
@@ -1042,7 +1042,7 @@ table.attr-val,
 table.sparql-results {
     font-size: var(--font-size-m);
     border-collapse: collapse;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
     width: 100%;
 }
@@ -1069,7 +1069,7 @@ th {
     font-weight: bold;
     font-variant: small-caps;
     font-size: var(--font-size-m);
-    border-bottom: var(--very-subtle-border);
+    border-bottom: var(--subtle-border);
     background:var(--bg-texture);
     text-align: left;
     text-shadow: none !important;
@@ -1084,7 +1084,7 @@ td.attr-prefix {
 
 td.attr-name {
     padding-left: 0;
-    border-right: var(--subtle-border);
+    border-right: var(--normal-border);
 }
 
 /* Extra widgets below the relation name: entailed relations + display options.
@@ -1211,7 +1211,7 @@ span.prefix {
     font-variant: small-caps;
     color: rgba(255,255,255,255);
     border-radius: var(--border-radius-s);
-    border: var(--very-subtle-border);
+    border: var(--subtle-border);
     padding: var(--spacing-xxs) var(--spacing-prefix);
     margin-right: var(--spacing-prefix);
 
@@ -1440,7 +1440,7 @@ span.marker {
     height: 100%;
 
     background: white;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 }
 
@@ -1468,7 +1468,7 @@ span.marker {
 .synset-radial-container .synset-radial__header {
     display: flex;
     align-items: center;
-    border-bottom: var(--subtle-border);
+    border-bottom: var(--normal-border);
     padding: 0 0 var(--spacing-m) 0;
     margin-bottom: var(--spacing-m);
 }
@@ -1476,7 +1476,7 @@ span.marker {
 .synset-radial-container aside.synset-radial__metadata {
     display: flex;
     align-items: center;
-    border-right: var(--subtle-border);
+    border-right: var(--normal-border);
     margin: 0;
     padding-right: var(--spacing-m);
     max-width: 20vw;
@@ -1488,7 +1488,7 @@ span.marker {
 }
 
 .synset-radial-container footer.synset-radial__footer {
-    border-top: var(--subtle-border);
+    border-top: var(--normal-border);
     margin-top: var(--spacing-m);
     padding-top: var(--spacing-l);
 }
@@ -1499,7 +1499,7 @@ abbr.pos-label {
     font-weight: bold;
     padding: 0 var(--spacing-s) 0 0;
     margin-right: var(--spacing-m);
-    border-right: var(--subtle-border);
+    border-right: var(--normal-border);
 }
 
 .synset-radial-container .synset-radial__definition {
@@ -1555,7 +1555,7 @@ fieldset.radial-tree-legend {
     margin: 0;
     border: none;
 
-    border-left: var(--subtle-border);
+    border-left: var(--normal-border);
 }
 
 fieldset.radial-tree-legend > button.icon {
@@ -1622,7 +1622,7 @@ fieldset.radial-tree-legend ul > li {
 }
 
 fieldset.radial-tree-legend ul > li:hover {
-    border: var(--subtle-border);
+    border: var(--normal-border);
     cursor: pointer;
 }
 
@@ -1796,7 +1796,7 @@ label.timeout-select input[type=number],
 
 /* Before CM6 mounts, show a styled placeholder matching the editor appearance */
 .sparql-editor__input .cm-wrapper:empty {
-    border: var(--subtle-border);
+    border: var(--normal-border);
     border-radius: var(--border-radius-s);
     background: white;
     position: relative;
@@ -1817,7 +1817,7 @@ label.timeout-select input[type=number],
 
 .sparql-editor__input .cm-wrapper .cm-editor {
     flex-grow: 1;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     border-radius: var(--border-radius-s);
     transition: border-color var(--transition-base),
                 box-shadow var(--transition-base);
@@ -1860,7 +1860,7 @@ label.timeout-select input[type=number],
 
 .sparql-editor__input .cm-wrapper .cm-gutters {
     background: var(--color-bg-alt);
-    border-right: var(--subtle-border);
+    border-right: var(--normal-border);
     color: var(--color-subtle);
     font-size: var(--font-size-xs);
 }
@@ -1949,7 +1949,7 @@ span.subtle {
     width: var(--icon-size);
     padding: var(--spacing-m);
     background-color: white;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     border-radius: var(--border-radius-s);
 }
 
@@ -1994,7 +1994,7 @@ select.display-options {
 select.display-options:hover,
 select.display-options:focus-visible {
     text-decoration: underline;
-    border: var(--subtle-border);
+    border: var(--normal-border);
     opacity: 1;
 }
 
@@ -2100,7 +2100,7 @@ span.render-error {
     }
     fieldset.radial-tree-legend {
         border-left: none;
-        border-top: var(--subtle-border);
+        border-top: var(--normal-border);
 
         /* Place max/min icon below legend. */
         flex-direction: column-reverse;
@@ -2113,7 +2113,7 @@ span.render-error {
     #content.full-screen aside.synset-radial__metadata {
         order: 3;
         border-right: none;
-        border-top: var(--subtle-border);
+        border-top: var(--normal-border);
         max-width: none;
         margin: 0;
         padding: var(--spacing-l) 0 0 0;
@@ -2180,7 +2180,7 @@ span.render-error {
     nav#main-nav {
         flex-direction: row;
         border: 1px solid transparent;
-        border-bottom: var(--subtle-border);
+        border-bottom: var(--normal-border);
     }
     nav#main-nav:has(search.search-active) a.sparql-link {
         margin-top: 0;
