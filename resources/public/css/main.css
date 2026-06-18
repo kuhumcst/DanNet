@@ -542,6 +542,11 @@ p.note strong {
     flex-grow: 1;
     overflow-y: auto;
 
+    /* Texture lives on the scroller (not body) and uses `local` attachment so
+       it scrolls along with the content rather than staying fixed behind it. */
+    background: #fff var(--bg-texture);
+    background-attachment: local;
+
     padding: var(--spacing-m);
 
     /* Center content & footer horizontally. */
