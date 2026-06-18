@@ -78,7 +78,8 @@
     (println "DanNet opts:")
     (pprint @dannet-opts)
     (sparql/reset-cache!)
-    (time (bootstrap/->dannet @dannet-opts))))
+    (tel/trace! {:id :dannet.graph/build-db :run-val :elided}
+      (bootstrap/->dannet @dannet-opts))))
 
 (def one-day-cache
   "private, max-age=86400")
@@ -815,13 +816,12 @@
 
 (defonce synset-rels
   (delay
-    (println "Computing in-use synset relations...")
-    (time (find-synset-relations (:graph @db)))))
+    (tel/trace! {:id :dannet.graph/synset-relations :run-val :elided}
+      (find-synset-relations (:graph @db)))))
 
 (defonce hypernym-graph
   (delay
-    (println "Building hypernym graph...")
-    (time
+    (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
       (let [bg  (.getGraph (:base-model @db))
             hg  (sim/build-hypernym-graph bg)
             nd  (sim/node-depths hg)
@@ -1054,10 +1054,8 @@
     (let [g      (db/get-graph (:dataset @db) prefix/dn-uri)
           words  (q/run g '[?writtenRep] op/written-representations)
           lwords (map (partial map shared/search-string) words)]
-      (println "Building trie for search autocompletion...")
-      (let [trie (apply trie/make-trie (map str (mapcat concat lwords words)))]
-        (println "Search trie finished!")
-        trie))))
+      (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
+        (apply trie/make-trie (map str (mapcat concat lwords words)))))))
 
 (defn autocomplete
   "Return auto-completions for `s` found in the graph."

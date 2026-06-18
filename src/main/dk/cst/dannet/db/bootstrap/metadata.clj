@@ -2,6 +2,7 @@
   "The DanNet dataset metadata applied during bootstrapping."
   (:require [clojure.set :as set]
             [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [taoensso.telemere :as t]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix])
@@ -92,7 +93,8 @@
 (h/defn update-metadata!
   "Remove old dataset metadata from `model` and add current `dataset-metadata`."
   [dataset-metadata model]
-  (println "... updating with current dataset metadata")
+  (t/log! {:level :debug :id :dannet.bootstrap/update-metadata}
+          "Updating dataset metadata")
   (let [metadata-resources [<dn> <dns> <dnc>
                             <dds> <cor>
                             <cst> <dsl>

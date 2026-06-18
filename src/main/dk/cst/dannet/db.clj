@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [ont-app.vocabulary.core :as voc]
+            [taoensso.telemere :as t]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.hash :as h]
@@ -93,7 +94,11 @@
   (try
     (aristotle/add g data)
     (catch Exception e
-      (println (.getMessage e) "->" (subs (str data) 0 240)))
+      (t/log! {:level :warn
+               :id    :dannet.db/safe-add-failed
+               :error e
+               :data  {:data-sample (subs (str data) 0 (min 240 (count (str data))))}}
+              "Failed to add data; continuing"))
     (finally
       g)))
 
@@ -103,21 +108,25 @@
   ([dataset model-uri files]
    (import-files dataset model-uri files nil))
   ([dataset model-uri files changefn]
-   (println "Importing files:" (str/join ", " (map #(if (instance? File %)
-                                                      (.getName %)
-                                                      %)
-                                                   files)))
+   (t/log! {:level :info
+            :id    :dannet.db/import-files
+            :data  {:model model-uri
+                    :files (mapv #(if (instance? File %) (.getName ^File %) %) files)}}
+           "Importing files")
    (let [temp-model (ModelFactory/createDefaultModel)
          temp-graph (.getGraph temp-model)]
-     (println "... creating temporary in-memory graph")
+     (t/log! {:level :debug :id :dannet.db/temp-graph-create} "Creating temporary in-memory graph")
      (doseq [file files]
        (aristotle/read temp-graph file))
 
      (when changefn
-       (println "... applying changes to temporary graph ")
+       (t/log! {:level :debug :id :dannet.db/temp-graph-changes} "Applying changes to temporary graph")
        (changefn temp-model))
 
-     (println "... persisting temporary graph:" model-uri)
+     (t/log! {:level :debug
+              :id    :dannet.db/temp-graph-persist
+              :data  {:model model-uri}}
+             "Persisting temporary graph")
      (txn/transact-exec dataset
        (aristotle/add (get-graph dataset model-uri) temp-graph)))))
 
@@ -138,14 +147,18 @@
                              triples-to-remove)]
     (when (not (empty? triples-to-remove'))
       (txn/transact-exec model
-        (println "... removing triples:"
-                 (if (second triples-to-remove')
-                   (str (first triples-to-remove')
-                        "... (" (count triples-to-remove') ")")
-                   triples-to-remove'))
+        (t/log! {:level :debug
+                 :id    :dannet.db/remove-triples
+                 :data  {:count   (count triples-to-remove')
+                         :example (first triples-to-remove')}}
+                "Removing triples")
         (doseq [triple triples-to-remove']
           (remove! model triple))))
     (txn/transact-exec g
-      (println "... adding" (count triples-to-add) "updated triples"
-               "based on" (count ms) "results for query:" query)
+      (t/log! {:level :debug
+               :id    :dannet.db/add-triples
+               :data  {:added   (count triples-to-add)
+                       :results (count ms)
+                       :query   query}}
+              "Adding updated triples")
       (safe-add! g triples-to-add))))

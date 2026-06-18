@@ -6,6 +6,8 @@
             [io.pedestal.http.cors :as cors]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
+            [taoensso.telemere :as t]
+            [taoensso.telemere.utils :as tu]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.shared :as shared])
@@ -105,13 +107,48 @@
                                       #(cons (cors/allow-origin {:allowed-origins (constantly true)
                                                                  :creds           true}) %))))))
 
+(def ^:private format-nsecs
+  "Telemere's human-readable nanosecond formatter (e.g. 326724417 -> \"327ms\")."
+  (tu/format-nsecs-fn))
+
+(defn- concise-signal
+  "One-line console rendering of a Telemere `signal`: timestamp, level, id,
+  message, run-time (for traces), compact :data, and the error class on
+  failures. Drops the default handler's parent/root/uid/host tree-tracking and
+  the multi-line run block. The full structured signal is untouched, so a
+  machine-readable handler could still be added alongside this one."
+  [{:keys [inst level kind id msg_ data run-nsecs error]}]
+  (str (subs (str inst) 11 19) " "                          ; HH:mm:ss (UTC)
+       (format "%-5s" (str/upper-case (name level))) " "
+       id
+       ;; trace! auto-messages are just "(form) => val" noise; keep only the
+       ;; real messages attached to log!/event! signals.
+       (when-not (= kind :trace)
+         (when-let [m (force msg_)] (str " — " m)))
+       (when run-nsecs (str " (" (format-nsecs run-nsecs) ")"))
+       (when (seq data) (str " " (pr-str data)))
+       (when error (str " !" (.getSimpleName (class error)) ": " (ex-message error)))
+       (System/lineSeparator)))
+
+(defn- init-logging!
+  "Configure DanNet's logging for app startup:
+   - Quieten our own bootstrap/graph-build :debug chatter (scoped to our
+     namespaces so other libraries' logging, e.g. Jena via SLF4J, is untouched).
+   - Replace the default console handler with a concise one-line formatter."
+  []
+  (t/set-min-level! nil "dk.cst.dannet.*" :info)
+  (t/add-handler! :default/console
+    (t/handler:console {:output-fn concise-signal})))
+
 (defn start []
+  (init-logging!)
   (let [service-map (->service-map @conf)]
     ;; Compute in-use synset relations after the database is ready.
     (async/thread @res/db @res/synset-rels @res/hypernym-graph)
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
+  (init-logging!)
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
   (async/thread @res/db @res/synset-rels @res/hypernym-graph)   ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)

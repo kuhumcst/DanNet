@@ -8,6 +8,7 @@
   or the import step -- would mistake for complete."
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
+            [taoensso.telemere :as t]
             [dk.cst.dannet.db.query :as q])
   (:import [java.util.zip GZIPInputStream]
            [java.nio.file CopyOption Files StandardCopyOption]))
@@ -27,14 +28,16 @@
   [url dest]
   (let [tmp (io/file (str dest ".part"))]
     (io/make-parents tmp)
-    (try
-      (with-open [in  (io/input-stream url)
-                  out (io/output-stream tmp)]
-        (io/copy in out))
-      (move-into-place! tmp dest)
-      (catch Throwable e
-        (.delete tmp)
-        (throw e)))
+    (t/trace! {:id   :dannet.download/file
+               :data {:url (str url) :dest (str dest)}}
+      (try
+        (with-open [in  (io/input-stream url)
+                    out (io/output-stream tmp)]
+          (io/copy in out))
+        (move-into-place! tmp dest)
+        (catch Throwable e
+          (.delete tmp)
+          (throw e))))
     (io/file dest)))
 
 (defn gunzip-to-file!
@@ -43,14 +46,16 @@
   [src dest]
   (let [tmp (io/file (str dest ".part"))]
     (io/make-parents tmp)
-    (try
-      (with-open [in  (GZIPInputStream. (io/input-stream src))
-                  out (io/output-stream tmp)]
-        (io/copy in out))
-      (move-into-place! tmp dest)
-      (catch Throwable e
-        (.delete tmp)
-        (throw e)))
+    (t/trace! {:id   :dannet.download/gunzip
+               :data {:src (str src) :dest (str dest)}}
+      (try
+        (with-open [in  (GZIPInputStream. (io/input-stream src))
+                    out (io/output-stream tmp)]
+          (io/copy in out))
+        (move-into-place! tmp dest)
+        (catch Throwable e
+          (.delete tmp)
+          (throw e))))
     (io/file dest)))
 
 (def bootstrap-files
@@ -79,7 +84,6 @@
     (when-not (.exists bootstrap-dir)
       (.mkdirs bootstrap-dir))
 
-    (println "Fetching release information from GitHub...")
     (let [releases-url (if version
                          (str github-api "/tags/" version)
                          (str github-api "/latest"))
@@ -87,20 +91,21 @@
           gh-release   (json/read-str response :key-fn keyword)
           assets       (:assets gh-release)
           release-name (or (:tag_name gh-release) (:name gh-release))]
-      (println (str "Found release: " release-name))
+      (t/event! :dannet.download/release-found
+                {:level :info
+                 :data  {:release release-name
+                         :files   (vec files)
+                         :dir     (str bootstrap-dir)}})
 
       (doseq [filename files]
         (if-let [asset (first (filter #(= filename (:name %)) assets))]
-          (let [download-url (:browser_download_url asset)
-                output-file  (io/file bootstrap-dir filename)]
-            (println (str "Downloading " filename "..."))
-            (download-to-file! download-url output-file))
+          (download-to-file! (:browser_download_url asset)
+                             (io/file bootstrap-dir filename))
           (throw (ex-info (str "No asset named " filename " in release " release-name)
                           {:filename filename
                            :release  release-name
                            :assets   (map :name assets)}))))
 
-      (println "Bootstrap datasets ready!")
       release-name)))
 
 (defn missing-bootstrap-files
@@ -114,11 +119,17 @@
   [dir version]
   (if-let [missing (seq (missing-bootstrap-files dir))]
     (do
-      (println "Missing bootstrap files in" (str dir) "--" (vec missing))
+      (t/log! {:level :info
+               :id    :dannet.download/bootstrap-missing
+               :data  {:dir (str dir) :missing (vec missing)}}
+              "Fetching missing bootstrap files")
       (fetch-bootstrap-datasets! :version (str "v" version)
                                  :files (set missing)
                                  :dir dir))
-    (println "All bootstrap files already present in" (str dir)))
+    (t/log! {:level :debug
+             :id    :dannet.download/bootstrap-present
+             :data  {:dir (str dir)}}
+            "All bootstrap files already present"))
   dir)
 
 (defn ensure-synset-indegrees!
@@ -132,7 +143,10 @@
   [version]
   (let [file (io/file q/synset-indegrees-file)]
     (when-not (.exists file)
-      (println "Missing" (str file) "-- fetching from release")
+      (t/log! {:level :info
+               :id    :dannet.download/synset-indegrees
+               :data  {:file (str file) :version version}}
+              "Fetching synset-indegree cache from release")
       (fetch-bootstrap-datasets! :version (str "v" version)
                                  :files #{(.getName file)}
                                  :dir (.getParentFile file)))))
@@ -169,11 +183,13 @@
                            oewn-gz)
         (gunzip-to-file! oewn-gz oewn-ttl)
         (.delete oewn-gz)
-        (println "✓ OEWN")))
+        (t/event! :dannet.download/oewn
+                  {:level :info :data {:version oewn-version :path (str oewn-ttl)}})))
 
     (when-not (.exists ili)
       (download-to-file! ili-url ili)
-      (println "✓ ILI"))))
+      (t/event! :dannet.download/ili
+                {:level :info :data {:path (str ili)}}))))
 
 (comment
   (ensure-english-datasets!)                                ; ILI and OEWN
