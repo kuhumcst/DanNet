@@ -2,7 +2,6 @@
   "Pedestal interceptors for entity look-ups and schema downloads."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.pprint :refer [pprint]]
             [clojure.data.json :as json]
             [clojure.core.memoize :as memo]
             [cognitect.transit :as t]
@@ -73,13 +72,29 @@
          :input-dir   (io/file "bootstrap/latest")
          :schema-uris schema-uris}))
 
-(defonce db
-  (delay
-    (println "DanNet opts:")
-    (pprint @dannet-opts)
+;; build-db! is a named fn (not inlined in the delay) so reset-db! can swap in a
+;; fresh delay to force a rebuild -- a realised delay otherwise caches forever.
+(defn build-db!
+  "Realise the DanNet database from the current dannet-opts. With `refetch?`,
+  wipe the stale/version-bound datasets and re-fetch the required versions
+  first."
+  [refetch?]
+  (let [opts (assoc @dannet-opts :refetch? refetch?)]
     (sparql/reset-cache!)
-    (tel/trace! {:id :dannet.graph/build-db :run-val :elided}
-      (bootstrap/->dannet @dannet-opts))))
+    (tel/trace! {:id      :dannet.graph/build-db
+                 :run-val :elided
+                 :data    {:opts opts}}
+      (bootstrap/->dannet opts))))
+
+(defonce db
+  (delay (build-db! false)))
+
+(defn reset-db!
+  "Replace the db delay so the next deref rebuilds, with `refetch?` controlling
+  whether stale datasets are wiped and re-fetched first. Lets restart-refetch
+  force a rebuild even when the db is already built."
+  [refetch?]
+  (alter-var-root #'db (constantly (delay (build-db! refetch?)))))
 
 (def one-day-cache
   "private, max-age=86400")
@@ -1111,7 +1126,7 @@
                 :content {:languages languages
                           :relations @synset-rels}
                 :page-meta {:title (i18n/da-en languages
-                              "Synset-relationer" "Synset relations")
+                                     "Synset-relationer" "Synset relations")
                             :page  "relations"})))})
 
 (def relations-route

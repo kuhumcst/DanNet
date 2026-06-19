@@ -138,7 +138,7 @@
   []
   (t/set-min-level! nil "dk.cst.dannet.*" :info)
   (t/add-handler! :default/console
-    (t/handler:console {:output-fn concise-signal})))
+                  (t/handler:console {:output-fn concise-signal})))
 
 (defn start []
   (init-logging!)
@@ -150,7 +150,7 @@
 (defn start-dev []
   (init-logging!)
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
-  (async/thread @res/db @res/synset-rels @res/hypernym-graph)   ; init database
+  (async/thread @res/db @res/synset-rels @res/hypernym-graph) ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 
@@ -162,17 +162,30 @@
     (stop-dev))
   (start-dev))
 
+(defn restart-refetch
+  "Like restart, but first wipes the stale/version-bound bootstrap datasets and
+  re-fetches the required versions, forcing a fresh db build. Use after a
+  version-mismatch error to pull the expected release."
+  []
+  (res/reset-db! true)
+  (restart))
+
 (defn -main
   [& args]
   ;; When uploading a db build from the dev machine the server, we want to skip
   ;; the bootstrap phase entirely.
   (when (not-empty (filter #{"--no-bootstrap"} args))
     (swap! res/dannet-opts dissoc :input-dir))
+  ;; Wipe stale/version-bound datasets and re-fetch the required versions before
+  ;; building (mirrors restart-refetch).
+  (when (not-empty (filter #{"--refetch"} args))
+    (res/reset-db! true))
   (start))
 
 (comment
   @conf
   (restart)
+  (restart-refetch)                                         ; wipe + re-fetch the expected datasets
   (stop-dev)
 
   ;; Rate-limiting

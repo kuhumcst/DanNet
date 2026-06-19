@@ -191,9 +191,115 @@
       (t/event! :dannet.download/ili
                 {:level :info :data {:path (str ili)}}))))
 
+(defn oewn-ttl-files
+  "List the english-wordnet-*.ttl files in english-dir, regardless of version."
+  []
+  (let [dir (io/file english-dir)]
+    (when (.isDirectory dir)
+      (filter #(re-matches #"english-wordnet-.*\.ttl" (.getName %))
+              (.listFiles dir)))))
+
+(defn stale-oewn-files
+  "List OEWN ttls on disk whose version differs from the required `oewn-version`
+  -- i.e. any english-wordnet-*.ttl that isn't the file we bootstrap from now."
+  []
+  (let [wanted (.getName (io/file oewn-ttl-path))]
+    (remove #(= wanted (.getName %)) (oewn-ttl-files))))
+
+(defn assert-datasets-present!
+  "Verify the datasets required to bootstrap are present in `dir`, erroring
+  toward the refetch flag rather than downloading silently or building an
+  incomplete database (the normal, non-refetch start path).
+
+  The DanNet release *version* isn't checked here -- the zip filename doesn't
+  encode it, so that is asserted during import. OEWN is version-checked, since
+  its version lives in the filename."
+  [dir]
+  (let [missing-zips (missing-bootstrap-files dir)
+        stale-oewn   (stale-oewn-files)
+        oewn-ttl     (io/file oewn-ttl-path)
+        ili          (io/file ili-path)
+        indegrees    (io/file q/synset-indegrees-file)
+        problems     (cond-> {}
+                       (seq missing-zips)
+                       (assoc :missing-bootstrap-zips (vec missing-zips))
+                       (not (.exists oewn-ttl))
+                       (assoc :missing-oewn (str oewn-ttl))
+                       (seq stale-oewn)
+                       (assoc :stale-oewn (mapv str stale-oewn))
+                       (not (.exists ili))
+                       (assoc :missing-ili (str ili))
+                       (not (.exists indegrees))
+                       (assoc :missing-synset-indegrees (str indegrees)))]
+    (when (seq problems)
+      (t/log! {:level :error
+               :id    :dannet.bootstrap/datasets-incomplete
+               :data  problems}
+              "Bootstrap datasets incomplete; restart with refetch to download")
+      (throw (ex-info (str "Bootstrap datasets incomplete -- restart with refetch "
+                           "(--refetch, or restart-refetch in the REPL) to "
+                           "download the required versions. " (pr-str problems))
+                      {:problems problems})))))
+
+(defn wipe-for-refetch!
+  "Delete the version-bound bootstrap datasets in `dir` so the ensure-* steps
+  re-download the required versions. Removes:
+
+   - all DanNet release zips and extracted .ttl leftovers in `dir` (the zip
+     filename doesn't encode a version, so we can't be selective -- wipe all)
+   - the synset-indegree cache (ships per release)
+   - stale OEWN ttls (a correct one is kept, so we don't re-pull ~46 MB)
+
+  ILI is unversioned (pulled from CILI master), so there's no mismatch to act
+  on: it's kept as-is, with a warning carrying the on-disk file's details so it
+  can be refreshed manually if needed."
+  [dir]
+  (doseq [f     (.listFiles (io/file dir))
+          :when (re-find #"\.(zip|ttl)$" (.getName f))]
+    (t/log! {:level :info
+             :id    :dannet.refetch/wipe-bootstrap
+             :data  {:file (str f)}}
+            "Wiping bootstrap file for refetch")
+    (.delete f))
+  (let [indegrees (io/file q/synset-indegrees-file)]
+    (when (.exists indegrees)
+      (t/log! {:level :info
+               :id    :dannet.refetch/wipe-synset-indegrees
+               :data  {:file (str indegrees)}}
+              "Wiping synset-indegree cache for refetch")
+      (.delete indegrees)))
+  (doseq [f (stale-oewn-files)]
+    (t/log! {:level :info
+             :id    :dannet.refetch/wipe-oewn
+             :data  {:file (str f) :required oewn-version}}
+            "Wiping stale OEWN file for refetch")
+    (.delete f))
+  (let [ili (io/file ili-path)]
+    (when (.exists ili)
+      (t/log! {:level :warn
+               :id    :dannet.refetch/ili-retained
+               :data  {:path     (str ili)
+                       :bytes    (.length ili)
+                       :modified (str (java.time.Instant/ofEpochMilli (.lastModified ili)))
+                       :source   ili-url}}
+              "ILI is unversioned (CILI master) and kept as-is on refetch"))))
+
+(defn refetch-datasets!
+  "Wipe the stale/version-bound datasets in `dir` and re-fetch the required
+  `version`. Drives the --refetch / restart-refetch path."
+  [dir version]
+  (wipe-for-refetch! dir)
+  (ensure-bootstrap-datasets! dir version)
+  (ensure-synset-indegrees! version)
+  (ensure-english-datasets!))
+
 (comment
   (ensure-english-datasets!)                                ; ILI and OEWN
 
   (fetch-bootstrap-datasets!)                               ; latest version
   (fetch-bootstrap-datasets! :version "v2024-08-09")        ; specific version
-  (fetch-bootstrap-datasets! :files #{"dannet.zip"}))
+  (fetch-bootstrap-datasets! :files #{"dannet.zip"})
+
+  ;; Wipe the stale/version-bound datasets, then re-fetch the expected release.
+  (refetch-datasets! (io/file "bootstrap/latest") "2025-07-03")
+  #_.)

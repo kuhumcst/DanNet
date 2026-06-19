@@ -26,18 +26,38 @@
            [org.apache.jena.tdb2 TDB2Factory]))
 
 (defn assert-expected-dannet-release!
-  "Assert that the DanNet `model` is the expected release to bootstrap from."
+  "Assert that the DanNet `model` is the expected release to bootstrap from.
+
+  On mismatch, reports the version actually found so it's diagnosable: the
+  dataset-level <dn> owl:versionInfo is authoritative, but older releases carry
+  no such triple, so we fall back to a sample of any versionInfo values present."
   [model]
-  (let [result (q/run (.getGraph ^Model model)
-                      [:bgp [md/<dn> :owl/versionInfo md/bootstrap-base-release]])]
-    (when (empty? result)
-      (t/log! {:level :error
-               :id    :dannet.bootstrap/unexpected-release
-               :data  {:expected md/bootstrap-base-release}}
-              "Bootstrap files are not the expected release"))
-    (assert (not-empty result)
-            (str "bootstrap files not the expected release (" md/bootstrap-base-release "). "
-                 result))))
+  (let [graph    (.getGraph ^Model model)
+        expected (q/run graph [:bgp [md/<dn> :owl/versionInfo md/bootstrap-base-release]])]
+    (when (empty? expected)
+      (let [dn-vers (->> (q/run graph [:bgp [md/<dn> :owl/versionInfo '?v]])
+                         (map #(str (get % '?v)))
+                         (distinct)
+                         (vec))
+            actual  (if (seq dn-vers)
+                      dn-vers
+                      (->> (q/run graph '[:bgp [?s :owl/versionInfo ?v]])
+                           (map #(str (get % '?v)))
+                           (distinct)
+                           (take 5)
+                           (vec)))]
+        (t/log! {:level :error
+                 :id    :dannet.bootstrap/unexpected-release
+                 :data  {:expected md/bootstrap-base-release
+                         :actual   actual}}
+                "Bootstrap files are not the expected release")
+        (throw (ex-info (str "bootstrap files not the expected release. Expected "
+                             (pr-str md/bootstrap-base-release) ", found "
+                             (if (seq actual) (pr-str actual) "no owl:versionInfo")
+                             ". Restart with refetch (--refetch, or restart-refetch "
+                             "in the REPL) to download the expected release.")
+                        {:expected md/bootstrap-base-release
+                         :actual   actual}))))))
 
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
@@ -106,11 +126,11 @@
   (t/log! {:level :info
            :id    :dannet.bootstrap/release-changes
            :data  {:version md/new-release}}
-          "Applying release changes")
+          "Applying release changes"))
 
-  ;; ==== The block of changes for this particular release. ====
-  ;; TODO: add release changes for next release
-  )
+;; ==== The block of changes for this particular release. ====
+;; TODO: add release changes for next release
+
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -188,15 +208,17 @@
     :db-type           - :tdb1, :tdb2, :in-mem, and :in-mem-txn are supported
     :db-path           - Where to persist the TDB1/TDB2 data.
     :schema-uris       - A collection of URIs containing schemas."
-  [& {:keys [^File input-dir db-path db-type schema-uris]
+  [& {:keys [^File input-dir db-path db-type schema-uris refetch?]
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      ;; The ensure-* steps run for side effects and must precede the file-seq
-      ;; below (they put the inputs on disk), hence the leading _ bindings.
-      (let [_              (downloads/ensure-bootstrap-datasets! input-dir (:from md/release))
-            _              (downloads/ensure-synset-indegrees! (:from md/release))
-            _              (downloads/ensure-english-datasets!)
+      ;; Either refetch (wipe stale/version-bound datasets and re-download the
+      ;; required versions) or assert the datasets are already present. Neither
+      ;; downloads silently on a normal start; both run for side effects before
+      ;; the file-seq below, which expects the inputs on disk.
+      (let [_              (if refetch?
+                             (downloads/refetch-datasets! input-dir (:from md/release))
+                             (downloads/assert-datasets-present! input-dir))
             files          (->> (file-seq input-dir)
                                 (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
