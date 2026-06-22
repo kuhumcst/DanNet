@@ -1795,6 +1795,19 @@ def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distin
       FILTER(STRSTARTS(STR(?pos), STR(rdf:_)))
     }
 
+    # TEMPLATE 11: Rank synsets by taxonomic similarity to a known synset
+    # The custom dnf:path / dnf:lch / dnf:wup functions score how close two
+    # synsets sit in the wn:hypernym hierarchy; higher = more similar, and a
+    # synset scores 1.0 against itself. All three take two synsets and return a
+    # double. They only compare synsets of the same part of speech and language,
+    # so cross-POS or Danish/English pairs come back unbound (dnf:path returns 0
+    # for unrelated pairs). Independent of the inference mode.
+    SELECT ?synset ?score WHERE {
+      ?synset a ontolex:LexicalConcept .
+      FILTER(STRSTARTS(STR(?synset), STR(dn:)))
+      BIND(dnf:wup(dn:synset-NNNN, ?synset) AS ?score)
+    } ORDER BY DESC(?score)
+
     ============================================
     KNOWN PREFIXES (automatically declared):
     ============================================
@@ -1802,7 +1815,8 @@ def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distin
     wn: (WordNet relations), ontolex: (lexical model), skos: (definitions),
     rdfs: (labels), rdf: (types), owl: (ontology), lexinfo: (morphology),
     marl: (sentiment), dc: (metadata), ili: (interlingual index),
-    en: (English WordNet), enl: (English lemmas), cor: (Danish register)
+    en: (English WordNet), enl: (English lemmas), cor: (Danish register),
+    dnf: (custom similarity functions: dnf:path, dnf:lch, dnf:wup)
 
     Args:
         query: SPARQL SELECT query string (prefixes will be automatically added)
@@ -2129,6 +2143,12 @@ def get_namespace_documentation() -> str:
                 "description": "Dublin Core metadata vocabulary",
                 "examples": ["dc:subject", "dc:title", "dc:issued"],
                 "usage": "Metadata about synsets and other resources"
+            },
+            "dnf": {
+                "uri": "https://wordnet.dk/dannet/function/",
+                "description": "Custom DanNet SPARQL functions for taxonomy-based synset similarity",
+                "examples": ["dnf:path", "dnf:lch", "dnf:wup"],
+                "usage": "Call as SPARQL functions taking two synsets, e.g. BIND(dnf:wup(dn:synset-54219, ?synset) AS ?score); higher means more similar"
             }
         },
         "common_patterns": {
@@ -2150,6 +2170,16 @@ def get_namespace_documentation() -> str:
                     "rdfs:label → The word form",
                     "ontolex:evokes → Synsets this word can evoke"
                 ]
+            },
+            "similarity_functions": {
+                "description": "Custom dnf: SPARQL functions scoring taxonomic closeness of two synsets (higher = more similar; a synset scores 1.0 against itself)",
+                "functions": [
+                    "dnf:path(a, b) → path-based similarity; returns 0 for unrelated pairs",
+                    "dnf:lch(a, b) → Leacock-Chodorow similarity; unbound for unrelated pairs",
+                    "dnf:wup(a, b) → Wu-Palmer similarity; unbound for unrelated pairs"
+                ],
+                "notes": "Both arguments are synsets (e.g. dn:synset-54219 or a ?var). Only synsets of the same part of speech and language are comparable; cross-POS and Danish/English pairs come back unbound. Works regardless of inference mode.",
+                "example": "SELECT ?synset ?score WHERE { ?synset a ontolex:LexicalConcept . FILTER(STRSTARTS(STR(?synset), STR(dn:))) BIND(dnf:wup(dn:synset-54219, ?synset) AS ?score) } ORDER BY DESC(?score)"
             }
         }
     }
@@ -2225,7 +2255,7 @@ Analyze and compare:
 1. Overlapping synsets or semantic fields between the words
 2. Distinct meanings unique to each word  
 3. Hierarchical semantic relationships (if any exist between them)
-4. Degree of semantic similarity or distance
+4. Degree of semantic similarity or distance — quantify this with the custom SPARQL similarity functions (e.g. dnf:wup(synsetA, synsetB) via sparql_query) once you have a synset for each word
 5. Different contexts where each word would be preferred
 6. Synonyms that are unique to each word vs. shared synonyms
 
@@ -2275,7 +2305,7 @@ Investigate:
 1. Is there a direct hypernym/hyponym relationship between these words?
 2. If not directly related, find their common hypernym (shared parent concept)
 3. Trace the full hypernym chain from each word to their common ancestor
-4. Calculate the semantic distance (number of steps) between them
+4. Calculate the semantic distance (number of steps) between them — the custom SPARQL similarity functions (dnf:path, dnf:lch, dnf:wup, called via sparql_query) score this directly from the hypernym hierarchy
 5. Identify any cross-cutting relationships via dns:orthogonalHypernym
 6. Explain what semantic features differentiate these concepts
 

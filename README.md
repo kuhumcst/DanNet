@@ -79,6 +79,7 @@ DanNet is based on the [Ontolex-lemon](https://www.w3.org/2016/05/ontolex/) stan
 | `dn` | https://wordnet.dk/dannet/data/ | Dataset instances |
 | `dnc` | https://wordnet.dk/dannet/concepts/ | Ontological type members |
 | `dns` | https://wordnet.dk/dannet/schema/ | Schema definitions |
+| `dnf` | https://wordnet.dk/dannet/function/ | Custom SPARQL functions (`dnf:path`, `dnf:lch`, `dnf:wup` synset similarity) |
 
 All DanNet URIs resolve to HTTP resources. Accessing one of these URIs via a GET request returns the data for that resource.
 

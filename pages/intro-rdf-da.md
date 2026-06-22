@@ -17,15 +17,18 @@ WordNet-dataene i DanNet afbildes til følgende [Ontolex-lemon][Ontolex]-typer:
 ![Ontolex-lemon-repræsentation](/images/ontolex.png "Ontolex-lemon-repræsentationen af et WordNet")
 
 ### DanNet-namespaces
-Kernen i DanNet består af tre namespaces:
+Kernen i DanNet består af tre namespaces, med et fjerde der tilbyder brugerdefinerede SPARQL-funktioner:
 
-| Præfiks | URI | Formål |
-|---------|-----|--------|
-| `dn:` | `https://wordnet.dk/dannet/data/` | [Dataset-instanser](/dannet/data) |
-| `dnc:` | `https://wordnet.dk/dannet/concepts/` | EuroWordNet [ontologiske typer](/dannet/concepts) |
-| `dns:` | `https://wordnet.dk/dannet/schema/` | DanNet [skema](/dannet/schema)-definitioner |
+| Præfiks | URI | Formål                                                    |
+|---------|-----|-----------------------------------------------------------|
+| `dn:` | `https://wordnet.dk/dannet/data/` | [Dataset-instanser](/dannet/data)                         |
+| `dnc:` | `https://wordnet.dk/dannet/concepts/` | EuroWordNet [ontologiske typer](/dannet/concepts)         |
+| `dns:` | `https://wordnet.dk/dannet/schema/` | DanNet [skema](/dannet/schema)-definitioner               |
+| `dnf:` | `https://wordnet.dk/dannet/function/` | Brugerdefinerede [SPARQL][SPARQL guide]-lighedsfunktioner |
 
 Semantiske relationer bruger standard `wn:`-relationer (f.eks. `wn:hypernym`, `wn:meronym`) suppleret af DanNet-specifikke relationer defineret i `dns:` (f.eks. `dns:usedFor`, `dns:involvedAgent`). Det fulde sæt af relationer er defineret i [DanNet-skemaet][dns-schema].
+
+`dnf:`-namespacet stiller brugerdefinerede SPARQL-funktioner til rådighed til taksonomibaseret synset-lighed. `dnf:path`, `dnf:lch` (Leacock-Chodorow) og `dnf:wup` (Wu-Palmer) måler hver især hvor tæt to synsets ligger i hypernym-hierarkiet. Se [SPARQL-guiden][SPARQL guide] for brug.
 
 ## Content negotiation
 Alle RDF-ressourcer i DanNet-datasættet er dereferencerbare. Anmod om forskellige repræsentationer via `Accept`-headeren:

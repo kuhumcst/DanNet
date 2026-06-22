@@ -17,15 +17,18 @@ The WordNet data in DanNet maps to the [Ontolex-lemon][Ontolex] types:
 ![Ontolex-lemon representation](/images/ontolex.png "The Ontolex-lemon representation of a WordNet")
 
 ### DanNet namespaces
-The core of DanNet consists of three namespaces:
+The core of DanNet consists of three namespaces, with a fourth providing custom SPARQL functions:
 
-| Prefix | URI | Purpose |
-|--------|-----|---------|
-| `dn:` | `https://wordnet.dk/dannet/data/` | [Dataset instances](/dannet/data) |
-| `dnc:` | `https://wordnet.dk/dannet/concepts/` | EuroWordNet [ontological types](/dannet/concepts) |
-| `dns:` | `https://wordnet.dk/dannet/schema/` | DanNet [schema](/dannet/schema) definitions |
+| Prefix | URI | Purpose                                            |
+|--------|-----|----------------------------------------------------|
+| `dn:` | `https://wordnet.dk/dannet/data/` | [Dataset instances](/dannet/data)                  |
+| `dnc:` | `https://wordnet.dk/dannet/concepts/` | EuroWordNet [ontological types](/dannet/concepts)  |
+| `dns:` | `https://wordnet.dk/dannet/schema/` | DanNet [schema](/dannet/schema) definitions        |
+| `dnf:` | `https://wordnet.dk/dannet/function/` | Custom [SPARQL][SPARQL guide] similarity functions |
 
 Semantic relations use the standard `wn:` relations (e.g. `wn:hypernym`, `wn:meronym`) supplemented by DanNet-specific relations defined in `dns:` (e.g. `dns:usedFor`, `dns:involvedAgent`). The full set of relations is defined in the [DanNet schema][dns-schema].
+
+The `dnf:` namespace provides custom SPARQL functions for taxonomy-based synset similarity. `dnf:path`, `dnf:lch` (Leacock-Chodorow) and `dnf:wup` (Wu-Palmer) each score how close two synsets sit in the hypernym hierarchy. See the [SPARQL guide][SPARQL guide] for usage.
 
 ## Content negotiation
 Every RDF resource in the DanNet dataset is dereferenceable. Request different representations via the `Accept` header:
