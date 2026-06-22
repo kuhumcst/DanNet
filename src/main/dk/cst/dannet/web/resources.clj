@@ -1165,10 +1165,10 @@
                                          ms
                                          (min ms sparql/max-timeout)))
                                      sparql/max-timeout)
-                        limit'     (if limit
-                                     (min (Long/parseLong limit)
-                                          sparql/max-results-limit)
-                                     sparql/max-results-limit)
+                        limit'     (min (or (sparql/user-limit query-obj)
+                                            (when limit (Long/parseLong limit))
+                                            sparql/max-results-limit)
+                                        sparql/max-results-limit)
                         offset'    (if offset
                                      (Long/parseLong offset)
                                      0)

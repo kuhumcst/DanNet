@@ -92,6 +92,13 @@
        (or (not= (.getLimit query-obj) Query/NOLIMIT)
            (not= (.getOffset query-obj) Query/NOLIMIT))))
 
+(defn user-limit
+  "Return the explicit LIMIT on SELECT `query-obj`, or nil when none is set."
+  [^Query query-obj]
+  (when (and (.isSelectType query-obj)
+             (not= (.getLimit query-obj) Query/NOLIMIT))
+    (.getLimit query-obj)))
+
 (defn execute
   "Execute validated SPARQL `query-obj` against `model` with safety constraints:
   a query `timeout` and a `results-limit`

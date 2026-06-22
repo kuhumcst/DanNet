@@ -20,6 +20,11 @@
 (def default-page-size
   10)
 
+(defn- query-has-limit?
+  "Heuristic check for an explicit SPARQL LIMIT clause in `s`."
+  [s]
+  (boolean (re-find #"\blimit\s+\d+" (str/lower-case (or s "")))))
+
 ;; Shared reference to the active CM6 EditorView, used by `on-submit` and
 ;; `normalize-query!` which operate outside the Rum component lifecycle.
 #?(:cljs (defonce ^:private *editor-view (atom nil)))
@@ -48,6 +53,13 @@
   #?(:cljs
      (when-let [btn (.querySelector form "input[type=submit]")]
        (set! (.-disabled btn) disabled?))))
+
+(defn- set-page-size-disabled!
+  "Toggle the page-size `<select>` `disabled` state inside `form`."
+  [form disabled?]
+  #?(:cljs
+     (when-let [sel (.querySelector form "select[name=limit]")]
+       (set! (.-disabled sel) disabled?))))
 
 (defn- validate-query!
   "Validate the current query via the noop endpoint.
@@ -122,15 +134,20 @@
      (let [dom-node (rum/dom-node state)
            cm-div   (.querySelector dom-node ".cm-wrapper")
            hidden   (.querySelector dom-node "#sparql-query-hidden")
-           view     (cm/create-editor! cm-div (.-value hidden)
-                                       (fn [doc]
-                                         ;; Keep the hidden input in sync so the form always
-                                         ;; has the current query for submission.
-                                         (set! (.-value hidden) doc)
-                                         (when-let [v @*editor-view]
-                                           (cm/clear-editor-error! v)
-                                           (set-submit-disabled!
-                                             (.closest (.-dom v) "form") false))))
+           view     (cm/create-editor!
+                      cm-div (.-value hidden)
+                      (fn [doc]
+                        ;; Keep the hidden input in sync so the form always
+                        ;; has the current query for submission.
+                        (set! (.-value hidden) doc)
+                        (when-let [v @*editor-view]
+                          (cm/clear-editor-error! v)
+                          (when-let [form (.closest (.-dom v) "form")]
+                            (set-submit-disabled! form false)
+                            ;; An explicit LIMIT overrides the page-size
+                            ;; selector, so disable it whenever one is present.
+                            (set-page-size-disabled!
+                              form (query-has-limit? doc))))))
            [{:keys [input normalized-query]}] (:rum/args state)
            url-query (or normalized-query (:query input))]
        (reset! *editor-view view)
@@ -179,17 +196,20 @@
 (rum/defcs editor < codemirror-mixin
   "SPARQL query editor with page size selector."
   [state {:keys [languages input normalized-query limit] :as opts}]
-  (let [current-limit (or limit default-page-size)
-        distinct?     (if (:query input)
-                        (= (:distinct input) "true")
-                        true)
-        enrichment?   (if (:query input)
-                        (= (:enrichment input) "true")
-                        true)
-        query-value   (when-let [s (or normalized-query
-                                       (:query input)
-                                       basic-select-query)]
-                        (str/trim s))]
+  (let [query-value     (when-let [s (or normalized-query
+                                         (:query input)
+                                         basic-select-query)]
+                          (str/trim s))
+        limit-in-query? (query-has-limit? query-value)
+        current-limit   (if limit-in-query?
+                          default-page-size
+                          (or limit default-page-size))
+        distinct?       (if (:query input)
+                          (= (:distinct input) "true")
+                          true)
+        enrichment?     (if (:query input)
+                          (= (:enrichment input) "true")
+                          true)]
     [:form.sparql-editor
      {:action    prefix/sparql-path
       :on-submit on-submit
@@ -224,12 +244,17 @@
      #_[:div.sparql-progress]
      [:div.sparql-editor__controls
       [:label.page-size-select
-       {:title (i18n/da-en languages
-                 "Antal resultater pr. side"
-                 "Number of results per page")}
+       {:title (if limit-in-query?
+                 (i18n/da-en languages
+                   "Forespørgslens egen LIMIT har forrang"
+                   "The query's own LIMIT takes precedence")
+                 (i18n/da-en languages
+                   "Antal resultater pr. side"
+                   "Number of results per page"))}
        (i18n/da-en languages "Resultater " "Results ")
        [:select {:name          "limit"
-                 :default-value (str current-limit)}
+                 :default-value (str current-limit)
+                 :disabled      limit-in-query?}
         (for [n page-sizes]
           [:option {:key n :value (str n)} (str n)])]]
       [:label.model-select
