@@ -15,7 +15,7 @@
   (if (and (= detail-level :basic) entities)
     (let [entities' (assoc entities subject entity)]
       (assoc opts :k->label
-             (update-vals entities' (shared/->entity-label-fn :normal))))
+                  (update-vals entities' (shared/->entity-label-fn :normal))))
     opts))
 
 (rum/defcs word-cloud < (rum/local nil ::synsets)
@@ -29,13 +29,74 @@
                    :cljs #(d3/build-cloud! (::synsets state) opts' synsets %))}]))
 
 (rum/defc radial-tree-diagram
-  [subentity opts]
+  [subentity {:keys [languages] :as opts}]
   (let [opts' (viz-opts opts)]
     [:figure.radial-tree-diagram
      {:ref #?(:clj  nil
               :cljs (fn [elem]
                       (when elem
-                        (d3/build-radial! subentity elem opts'))))}]))
+                        (d3/build-radial! subentity elem opts'))))}
+     ;; Names the figure for assistive tech; the SVG itself is built in the ref
+     ;; callback and also carries role="img" + a label.
+     [:figcaption.visually-hidden
+      (i18n/da-en languages
+        "Relationsdiagram for det aktuelle synset"
+        "Relations diagram for the current synset")]]))
+
+(rum/defc hyponym-sunburst-diagram
+  [tree {:keys [languages sunburst-nav] :as opts}]
+  [:figure.hyponym-sunburst-diagram
+   {:ref #?(:clj  nil
+            :cljs (fn [elem]
+                    (when elem
+                      (d3/build-sunburst! tree elem sunburst-nav opts))))}
+   ;; Names the figure for assistive tech; the SVG itself is built in the ref
+   ;; callback and also carries role="img" + a label.
+   [:figcaption.visually-hidden
+    (i18n/da-en languages
+      "Hyponym-soldiagram for det aktuelle synset"
+      "Hyponym sunburst for the current synset")]])
+
+(rum/defc full-screen-toggle
+  "The maximize/minimize button shared by the radial legend and the sunburst
+  history column, so it stays in place across diagram modes."
+  [{:keys [full-screen languages]}]
+  [:button.icon {:class    (if full-screen
+                             "minimize"
+                             "maximize")
+                 :title    (if full-screen
+                             (i18n/da-en languages "Minimér" "Minimize")
+                             (i18n/da-en languages "Maksimér" "Maximize"))
+                 :on-click (fn [_] (shared/toggle-full-screen!))}])
+
+(rum/defc diagram-legend
+  "Right-hand column shell shared by the radial and sunburst diagrams: holds the
+  mode-specific `content` in a fieldset that lines up across modes. The
+  full-screen toggle lives in the shared top bar, not here."
+  [attrs content]
+  [:fieldset.radial-tree-legend attrs
+   content])
+
+(rum/defc hyponym-sunburst-legend < rum/reactive
+  [{:keys [languages sunburst-nav] :as opts}]
+  (let [trail #?(:cljs (when sunburst-nav (rum/react sunburst-nav))
+                 :clj nil)]
+    (diagram-legend
+      {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
+      (when (seq trail)
+        ;; The breadcrumb is navigation through the zoom history, so it reads as
+        ;; a <nav> landmark rather than a bare list.
+        [:nav.hyponym-sunburst-history-nav
+         {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
+         (into [:ol.hyponym-sunburst-history]
+               (map-indexed
+                 (fn [i {:keys [name last? on-click]}]
+                   [:li {:key   i
+                         :class (when last? "current")}
+                    (if last?
+                      [:span {:aria-current "true"} name]
+                      [:button {:type "button" :on-click on-click} name])])
+                 trail))]))))
 
 (defn- elem-classes
   [el]
@@ -58,63 +119,51 @@
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
-  [state subentity {:keys [full-screen languages k->label detail-level] :as opts}]
-  (let [selected (::selected state)
-        toggle   (fn [_]
-                   #?(:cljs (do
-                              (shared/update-cookie! :full-screen not)
-                              ;; Scrolling to the top simulates a page change.
-                              (some-> (js/document.getElementById "content")
-                                      (.scroll #js {:top 0})))))]
-    [:fieldset.radial-tree-legend {:aria-label (i18n/da-en languages
-                                                 "Filtrer relationstyper"
-                                                 "Filter relation types")}
-     [:button.icon {:class    (if full-screen
-                                "minimize"
-                                "maximize")
-                    :title    (if full-screen
-                                (i18n/da-en languages "Minimér" "Minimize")
-                                (i18n/da-en languages "Maksimér" "Maximize"))
-                    :on-click toggle}]
-     [:ul.radial-tree-legend
-      (for [k (keys subentity)]
-        (when-let [theme (get shared/synset-rel-theme k)]
-          (let [label        (if (= detail-level :basic)
-                               (prefix/kw->qname k)
-                               (i18n/select-label languages (k->label k)))
-                is-selected? (= @selected theme)]
-            [:li {:key k}
-             [:label {:lang (i18n/lang label)} (str label)
-              [:input {:type      "radio"
-                       :name      "radial-tree-filter"
-                       :value     theme
-                       :checked   is-selected?
-                       :read-only true
-                       :on-click  (fn [_]
-                                    (let [new-selection (if is-selected? nil theme)
-                                          diagram       (get-diagram)]
-                                      (reset! selected new-selection)
-                                      (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                        (let [classes (elem-classes el)
-                                              show?   (or (nil? new-selection)
-                                                          (= new-selection (.getAttribute el "data-theme"))
-                                                          (get classes "radial-item--subject"))]
-                                          (if show?
-                                            (apply-classes el (disj classes "radial-item--de-emphasized"))
-                                            (apply-classes el (conj classes "radial-item--de-emphasized")))))))}]
-              [:span {:class "radial-tree-legend__bullet"
-                      :style {:background theme}}]]])))]]))
+  [state subentity {:keys [languages k->label detail-level]}]
+  (let [selected (::selected state)]
+    (diagram-legend
+      {:aria-label (i18n/da-en languages
+                     "Filtrer relationstyper"
+                     "Filter relation types")}
+      [:ul.radial-tree-legend
+       (for [k (keys subentity)]
+         (when-let [theme (get shared/synset-rel-theme k)]
+           (let [label        (if (= detail-level :basic)
+                                (prefix/kw->qname k)
+                                (i18n/select-label languages (k->label k)))
+                 is-selected? (= @selected theme)]
+             [:li {:key k}
+              [:label {:lang (i18n/lang label)} (str label)
+               [:input {:type      "radio"
+                        :name      "radial-tree-filter"
+                        :value     theme
+                        :checked   is-selected?
+                        :read-only true
+                        :on-click  (fn [_]
+                                     (let [new-selection (if is-selected? nil theme)
+                                           diagram       (get-diagram)]
+                                       (reset! selected new-selection)
+                                       (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+                                         (let [classes (elem-classes el)
+                                               show?   (or (nil? new-selection)
+                                                           (= new-selection (.getAttribute el "data-theme"))
+                                                           (get classes "radial-item--subject"))]
+                                           (if show?
+                                             (apply-classes el (disj classes "radial-item--de-emphasized"))
+                                             (apply-classes el (conj classes "radial-item--de-emphasized")))))))}]
+               [:span {:class "radial-tree-legend__bullet"
+                       :style {:background theme}}]]])))])))
 
 ;; TODO: use a heuristic for high-lighting the relevant word
 (rum/defc examples-dt+dd
   [{:keys [entity languages] :as opts}]
   (when-let [v (:lexinfo/senseExample entity)]
     [:<>
-     [:dt.synset-radial__footer-item {:id "examples"}
+     [:dt.synset-diagram__footer-item {:id "examples"}
       (i18n/da-en languages
         "Eksempler"
         "Examples")]
-     [:dd.synset-radial__footer-item
+     [:dd.synset-diagram__footer-item
       (rdf/resource (assoc opts :attr-key :lexinfo/senseExample) v)]]))
 
 (rum/defc ancestry-dt+dd
@@ -123,39 +172,75 @@
         short-label (some-> (:dns/shortLabel entity) str)
         subj-label  (if (= detail-level :high) label (or short-label label))]
     [:<>
-     [:dt.synset-radial__footer-item {:id "ancestry"}
+     [:dt.synset-diagram__footer-item {:id "ancestry"}
       (i18n/da-en languages
         "Overbegreber"
         "Hypernyms")]
-     [:dd.synset-radial__footer-item
+     [:dd.synset-diagram__footer-item
       (rdf/hypernym-chain (assoc opts :subject-label subj-label))]]))
 
-(rum/defc radial-tree
-  [subentity {:keys [entity languages full-screen] :as opts}]
-  [:div.radial-tree {:key (str (hash subentity))}
-   (when full-screen
-     [:<>
-      [:aside.synset-radial__metadata
-       [:dl
-        [:dt (i18n/da-en languages
-               "Ontologisk type"
-               "Ontological type")]
-        [:dd
-         (if-let [onto-types (some-> (:dns/ontologicalType entity)
-                                     meta
-                                     shared/bag->coll)]
-           (rdf/list-items (assoc opts :attr-key :dns/ontologicalType) onto-types)
-           "–")]
-        [:dt (i18n/da-en languages
-               "Bestanddele"
-               "Constituents")]
-        [:dd (rdf/resource
-               (assoc opts :attr-key :ontolex/lexicalizedSense)
-               (:ontolex/lexicalizedSense entity))]
-        (examples-dt+dd opts)
-        (ancestry-dt+dd opts)]]])
-   (radial-tree-diagram subentity opts)
-   (radial-tree-legend subentity opts)])
+(rum/defcs synset-diagram < (rum/local nil ::nav)
+  [state subentity {:keys [entity languages full-screen hyponym-tree] :as opts}]
+  (let [mode-sunburst? (= (get-in opts shared/diagram-mode-path) :sunburst)
+        ;; Fall back to the radial if a (non-synset) entity has no subtree.
+        sunburst?      (and mode-sunburst? hyponym-tree)
+        ;; Component-local breadcrumb atom: the sunburst builder writes the zoom
+        ;; trail to it and the history legend reacts to it, so the two share
+        ;; state without a module-global (and a fresh diagram starts clean).
+        opts           (assoc opts :sunburst-nav (::nav state))
+        set-mode!      (fn [mode]
+                         (fn [_] (swap! shared/state assoc-in
+                                        shared/diagram-mode-path mode)))]
+    [:div.synset-diagram {:key (str (hash subentity))}
+     ;; Shared top bar above both columns: mode radios centred, full-screen
+     ;; toggle pinned right. Keeping it out of the diagram column means swapping
+     ;; diagrams no longer shifts the radios.
+     [:div.synset-diagram__toolbar
+      [:fieldset.viz-mode-toggle
+       [:legend (i18n/da-en languages "Diagram" "Diagram")]
+       [:label
+        [:input {:type      "radio"
+                 :name      "viz-mode"
+                 :checked   (not mode-sunburst?)
+                 :on-change (set-mode! :radial)}]
+        (i18n/da-en languages "Relationer" "Relations")]
+       [:label
+        [:input {:type      "radio"
+                 :name      "viz-mode"
+                 :checked   mode-sunburst?
+                 :on-change (set-mode! :sunburst)}]
+        (i18n/da-en languages "Hyponymer" "Hyponyms")]]
+      (full-screen-toggle opts)]
+     [:div.synset-diagram__body
+      (when full-screen
+        [:aside.synset-diagram__metadata
+         [:dl
+          [:dt (i18n/da-en languages
+                 "Ontologisk type"
+                 "Ontological type")]
+          [:dd
+           (if-let [onto-types (some-> (:dns/ontologicalType entity)
+                                       meta
+                                       shared/bag->coll)]
+             (rdf/list-items (assoc opts :attr-key :dns/ontologicalType) onto-types)
+             "–")]
+          [:dt (i18n/da-en languages
+                 "Bestanddele"
+                 "Constituents")]
+          [:dd (rdf/resource
+                 (assoc opts :attr-key :ontolex/lexicalizedSense)
+                 (:ontolex/lexicalizedSense entity))]
+          (examples-dt+dd opts)
+          (ancestry-dt+dd opts)]])
+      [:div.synset-diagram__main
+       (if sunburst?
+         (hyponym-sunburst-diagram hyponym-tree opts)
+         (radial-tree-diagram subentity opts))]
+      ;; Keep a right-hand column in both modes so the diagram footprint stays
+      ;; stable; in sunburst mode it's the zoom history for stepping back up.
+      (if sunburst?
+        (hyponym-sunburst-legend opts)
+        (radial-tree-legend subentity opts))]]))
 
 (defn debounced-rerender-mixin
   "Debounced rerender on resize events to prevent excessive diagram repaints."
@@ -189,13 +274,13 @@
         :clj state))})
 
 ;; TODO: display ancestry and examples in full-screen mode
-(rum/defc expanded-radial < (debounced-rerender-mixin 200)
+(rum/defc expanded-diagram < (debounced-rerender-mixin 200)
   [subentity {:keys [entity ancestry] :as opts}]
-  [:div.synset-radial-container {:key (str (hash subentity))}
-   (radial-tree subentity opts)
+  [:div.synset-diagram-container {:key (str (hash subentity))}
+   (synset-diagram subentity opts)
    (let [{:keys [lexinfo/senseExample]} entity]
      (when (or senseExample ancestry)
-       [:footer.synset-radial__footer
+       [:footer.synset-diagram__footer
         [:dl
          (when senseExample
            (examples-dt+dd opts))

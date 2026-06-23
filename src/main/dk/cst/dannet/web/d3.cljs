@@ -507,16 +507,23 @@
   "Create and configure the base SVG container for radial tree.
 
   Takes `node` (DOM node), `width`, `height`, `cx` (center x), `cy` (center y),
-  and `sizing` map with font sizes. Returns the configured SVG selection."
-  [node width height cx cy]
-  (-> d3
-      (.select node)
-      (.append "svg")
-      (.attr "class" "radial-tree-diagram__svg")
-      ;; viewBox: defines coordinate system centered at (0,0)
-      ;; [minX minY width height] where (-cx, -cy) shifts origin to center
-      ;; This allows positive/negative coords radiating from center
-      (.attr "viewBox" #js [(- cx) (- cy) width height])))
+  and `aria-label` (accessible name). Exposes the SVG to assistive tech as a
+  single labelled image (`role=img` + `aria-label` plus a <title>), since the
+  tree geometry isn't meaningfully navigable by a screen reader — the table view
+  is the accessible path through the same relations. Returns the SVG selection."
+  [node width height cx cy aria-label]
+  (let [svg (-> d3
+                (.select node)
+                (.append "svg")
+                (.attr "class" "radial-tree-diagram__svg")
+                (.attr "role" "img")
+                (.attr "aria-label" aria-label)
+                ;; viewBox: defines coordinate system centered at (0,0)
+                ;; [minX minY width height] where (-cx, -cy) shifts origin to center
+                ;; This allows positive/negative coords radiating from center
+                (.attr "viewBox" #js [(- cx) (- cy) width height]))]
+    (-> svg (.append "title") (.text aria-label))
+    svg))
 
 (defn- render-radial-links
   "Render connection paths between nodes in the radial tree.
@@ -895,8 +902,12 @@
           root      (-> (.hierarchy d3 data)
                         (tree))
 
-          ;; Create the SVG container
-          svg       (create-radial-svg elem width height cx cy)]
+          ;; Create the SVG container, named for assistive tech after the subject.
+          svg       (create-radial-svg
+                      elem width height cx cy
+                      (i18n/da-en languages
+                        (str "Relationsdiagram for " (.-name data))
+                        (str "Relations diagram for " (.-name data))))]
 
       ;; Add gradient definition
       (create-radial-gradient svg)
@@ -930,10 +941,7 @@
             (.attr "r" radius)
             (.attr "fill" "transparent")
             (.style "cursor" (if (:full-screen opts) "zoom-out" "zoom-in"))
-            (.on "click" (fn [_]
-                           (shared/update-cookie! :full-screen not)
-                           (some-> (js/document.getElementById "content")
-                                   (.scroll #js {:top 0}))))
+            (.on "click" (fn [_] (shared/toggle-full-screen!)))
             (.append "title")
             (.text (if (:full-screen opts)
                      (i18n/da-en languages "Minimér" "Minimize")
@@ -947,3 +955,453 @@
   ;; render cycle where try-render and error boundaries can't catch errors.
   (error/try-static-render elem
     (build-radial!* entity elem opts)))
+
+(def sunburst-palette
+  "Per-branch hues, reusing the shared diagram theme colours. Lightness is
+  normalised per arc in `build-sunburst!*`, so only the hue/saturation matter."
+  (vec shared/theme))
+
+(defn- redistribute-x!
+  "Soften partition slice sizes in place: redistribute each node's children
+  across the parent's angular span proportional to (value^power) instead of
+  value, so a single huge branch doesn't squeeze its siblings into slivers.
+  power<1 compresses the differences (0.5 = square root).
+
+  NOTE: mutates the D3 layout nodes in place (`set!` on x0/x1) and walks the
+  child arrays with `aget`/`alength` — the most imperative spot in the sunburst.
+  If anything looks off, re-check against a synset with heavy multiple
+  inheritance: such synsets are tree-ified into repeated nodes (the same id
+  under several parents), and each repeat is laid out independently here."
+  [node power]
+  (when-let [kids (.-children node)]
+    (let [weights (mapv (fn [c] (math/pow (.-value c) power)) kids)
+          total   (reduce + weights)
+          span    (- (.-x1 node) (.-x0 node))]
+      (loop [x (.-x0 node)
+             i 0]
+        (when (< i (alength kids))
+          (let [c (aget kids i)
+                w (* span (/ (nth weights i) total))]
+            (set! (.-x0 c) x)
+            (set! (.-x1 c) (+ x w))
+            (redistribute-x! c power)
+            (recur (+ x w) (inc i))))))))
+
+(defn- render-centre-labels!
+  "Render sense `parts` stacked one per line and vertically centred in the
+  `text-sel` <text> element, with a faded `.subject-label-separator` dot trailing
+  every line but the last — the radial's grey separator, adapted to the narrow
+  centre where senses can't sit inline. When `link?`, a matching grey ↪ is
+  prepended to the first line, marking the centre as a navigable reference."
+  [text-sel parts link?]
+  (-> text-sel (.selectAll "tspan") (.remove))
+  (let [n      (count parts)
+        line-h 1.15]
+    (doseq [[i part] (map-indexed vector parts)]
+      (let [row (-> text-sel
+                    (.append "tspan")
+                    (.attr "x" 0)
+                    ;; First line lifts the block up so it stays centred.
+                    (.attr "dy" (if (zero? i)
+                                  (str (- 0.32 (* (/ (dec n) 2.0) line-h)) "em")
+                                  (str line-h "em"))))]
+        (when (and link? (zero? i))
+          (-> row
+              (.append "tspan")
+              (.attr "class" "subject-label-separator")
+              (.text "↪ ")))
+        (-> row (.append "tspan") (.text part))
+        (when (< i (dec n))
+          (-> row
+              (.append "tspan")
+              (.attr "class" "subject-label-separator")
+              (.text " •")))))))
+
+(def sunburst-width
+  "Intrinsic SVG width of the sunburst; the viewBox scales it to its container."
+  800)
+
+(def sunburst-radius
+  "Width of one ring band, and radius of the centre hit-circle."
+  (* sunburst-width 0.15))
+
+(def sunburst-label-px
+  "Font size of the arc labels; used to measure whether a word fits its ring."
+  12)
+
+(def sunburst-centre-px
+  "Base centre font size (mirrors --font-size-l); shrunk per-label to fit."
+  24)
+
+(defn- arc-visible?
+  "Whether arc `d` falls within the three rings drawn around the focus."
+  [d]
+  (and (<= (.-y1 d) 3) (>= (.-y0 d) 1) (> (.-x1 d) (.-x0 d))))
+
+(defn- label-visible?
+  "Whether arc `d` is visible and wide enough to carry a readable label."
+  [d]
+  (and (<= (.-y1 d) 3) (>= (.-y0 d) 1)
+       (> (* (- (.-y1 d) (.-y0 d))
+             (- (.-x1 d) (.-x0 d))) 0.045)))
+
+(def sunburst-arc
+  "Arc generator mapping partition coords (x0/x1 angles, y0/y1 rings) to a path."
+  (-> (.arc d3)
+      (.startAngle (fn [d] (.-x0 d)))
+      (.endAngle (fn [d] (.-x1 d)))
+      (.padAngle (fn [d] (min (/ (- (.-x1 d) (.-x0 d)) 2) 0.004)))
+      (.padRadius (* sunburst-radius 1.5))
+      (.innerRadius (fn [d] (* (.-y0 d) sunburst-radius)))
+      (.outerRadius (fn [d] (max (* (.-y0 d) sunburst-radius)
+                                 (- (* (.-y1 d) sunburst-radius) 1))))))
+
+(defn- label-fit
+  "Arc `d`'s label, kept whole where it fits the ring band, else truncated with
+  an ellipsis. The 0.97 factor lets labels run close to the ring edge before
+  cutting, leaving only a minimal margin."
+  [d]
+  (let [s    (str (.. d -data -name))
+        maxw (* 0.97 sunburst-radius)
+        w    (* (shared/glyph-width s) sunburst-label-px)]
+    (if (<= w maxw)
+      s
+      (let [k (max 1 (int (* (count s) (/ maxw w))))]
+        (str (subs s 0 k) shared/omitted)))))
+
+(defn- label-transform
+  "SVG transform placing arc `d`'s label along its ring, flipped upright on the
+  bottom half."
+  [d]
+  (let [x (* (/ (+ (.-x0 d) (.-x1 d)) 2) (/ 180 math/PI))
+        y (* (/ (+ (.-y0 d) (.-y1 d)) 2) sunburst-radius)]
+    (str "rotate(" (- x 90) ") translate(" y ",0) "
+         "rotate(" (if (< x 180) 0 180) ")")))
+
+(defn- sunburst-colour
+  "Fill for arc `d`: its top-level branch keeps a shared-theme hue at full
+  strength, while deeper rings lighten a little so the hierarchy stays readable."
+  [d]
+  (let [top  (loop [n d]
+               (if (> (.-depth n) 1) (recur (.-parent n)) n))
+        idx  (mod (.indexOf (.-children (.-parent top)) top)
+                  (count sunburst-palette))
+        base (.hsl d3 (nth sunburst-palette idx))]
+    (set! (.-l base) (min 0.8 (+ (.-l base)
+                                 (* (dec (.-depth d)) 0.12))))
+    (.formatHex base)))
+
+(defn- reduced-motion?
+  "Whether the user has asked for reduced motion. The sunburst zoom is a pure
+  D3 transition (JS-driven), so CSS `prefers-reduced-motion` can't reach it — we
+  read the media query here and collapse the durations instead."
+  []
+  (boolean (some-> js/window
+                   (.matchMedia "(prefers-reduced-motion: reduce)")
+                   (.-matches))))
+
+(defn- arc-tooltip
+  "Slash-joined ancestry path of arc `d`, for its <title> hover tooltip."
+  [d]
+  (->> (.ancestors d)
+       (map (fn [n] (.. n -data -name)))
+       (reverse)
+       (str/join " / ")))
+
+(defn- create-sunburst-svg
+  "Append the base sunburst <svg> to `elem`: viewBox-centred on the origin and
+  exposed to assistive tech as a single labelled image (`role=img` + `aria-label`
+  plus a <title>), since the arc geometry itself isn't meaningfully navigable by
+  a screen reader — the table view and zoom-history breadcrumb are the
+  accessible paths through the same data."
+  [elem aria-label]
+  (let [svg (-> (.select d3 elem)
+                (.append "svg")
+                (.attr "class" "hyponym-sunburst-diagram__svg")
+                (.attr "role" "img")
+                (.attr "aria-label" aria-label)
+                (.attr "viewBox" #js [(/ (- sunburst-width) 2)
+                                      (/ (- sunburst-width) 2)
+                                      sunburst-width sunburst-width]))]
+    (-> svg (.append "title") (.text aria-label))
+    svg))
+
+(defn- append-paper-pattern!
+  "Define the tiled paper-texture pattern used by the slice overlay (560x420 =
+  the PNG's native size, so its grain matches the rest of the page)."
+  [svg]
+  (-> svg
+      (.append "defs")
+      (.append "pattern")
+      (.attr "id" "sunburst-paper")
+      (.attr "patternUnits" "userSpaceOnUse")
+      (.attr "width" 560)
+      (.attr "height" 420)
+      (.append "image")
+      (.attr "href" "/images/exclusive-paper.png")
+      (.attr "width" 560)
+      (.attr "height" 420)))
+
+(defn- render-sunburst-arcs
+  "Append the coloured arc layer for `root`'s descendants and return the path
+  selection. Each arc carries a slash-joined ancestry <title> for hover."
+  [svg root]
+  (let [path (-> svg
+                 (.append "g")
+                 (.selectAll "path")
+                 (.data (.slice (.descendants root) 1))
+                 (.join "path")
+                 (.attr "fill" sunburst-colour)
+                 (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) 1 0)))
+                 (.attr "pointer-events" (fn [d] (if (arc-visible? (.-current d)) "auto" "none")))
+                 (.attr "d" (fn [d] (sunburst-arc (.-current d)))))]
+    (-> path (.append "title") (.text arc-tooltip))
+    path))
+
+(defn- render-sunburst-texture
+  "Append the paper-texture overlay layer, bound to the same nodes as the arc
+  layer so their shared `current` coords keep both aligned through zooms. Purely
+  decorative, so it's hidden from assistive tech and ignores pointer events."
+  [svg root]
+  (-> svg
+      (.append "g")
+      (.attr "class" "hyponym-sunburst__texture")
+      (.attr "aria-hidden" "true")
+      (.attr "pointer-events" "none")
+      (.selectAll "path")
+      (.data (.slice (.descendants root) 1))
+      (.join "path")
+      (.attr "fill" "url(#sunburst-paper)")
+      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) 1 0)))
+      (.attr "d" (fn [d] (sunburst-arc (.-current d))))))
+
+(defn- render-sunburst-labels
+  "Append the arc-label layer for `root`'s descendants and return the selection."
+  [svg root]
+  (-> svg
+      (.append "g")
+      (.attr "pointer-events" "none")
+      (.attr "text-anchor" "middle")
+      (.selectAll "text")
+      (.data (.slice (.descendants root) 1))
+      (.join "text")
+      (.attr "class" "hyponym-sunburst__label")
+      (.attr "fill" "#fff")
+      (.attr "dy" "0.32em")
+      (.attr "fill-opacity" (fn [d] (if (label-visible? (.-current d)) 1 0)))
+      (.attr "transform" (fn [d] (label-transform (.-current d))))
+      (.text (fn [d] (label-fit d)))))
+
+(defn- build-sunburst!*
+  "Build and render a zoomable hyponym sunburst in `elem` from prepared `tree`
+  data ({:name :href :children}, labels already localised).
+
+  Arc area is proportional to a softened leaf count; click any wedge (or focus
+  it and press Enter/Space) to focus it (zoom). The centre acts like the radial's
+  centre when it is the current synset (root) — toggling full-screen — and
+  navigates to the synset otherwise. The `nav` atom is reset to the root → focus
+  breadcrumb on every zoom, so the legend column can step back up."
+  [tree elem nav {:keys [entity languages full-screen]}]
+  (when (and elem tree)
+    (when-let [existing (.-firstChild elem)]
+      (.remove existing))
+    (let [tau           (* 2 math/PI)
+          data          (clj->js tree)
+          ;; Centre shows the synset's curated short label(s) (dns:shortLabel):
+          ;; the listed senses minus the "…" marker, joined by the middle dot.
+          subject-parts (->> (i18n/select-label languages (:dns/shortLabel entity))
+                             (shared/sense-labels shared/synset-sep)
+                             (map remove-subscript)
+                             (remove #{shared/omitted})
+                             (distinct)
+                             (vec))
+          aria-label    (i18n/da-en languages
+                          (str "Hyponym-soldiagram for " (str/join " · " subject-parts))
+                          (str "Hyponym sunburst for " (str/join " · " subject-parts)))
+          hierarchy     (-> (.hierarchy d3 data)
+                            (.sum (fn [d] (if (.-children d) 0 1)))
+                            (.sort (fn [a b] (- (.-value b) (.-value a)))))
+          height        (.-height hierarchy)
+          root          ((-> (.partition d3)
+                             (.size #js [tau (inc height)]))
+                         hierarchy)
+          ;; Soften slice sizes so a dominant branch leaves room for siblings.
+          _             (redistribute-x! root 0.5)
+          _             (.each root (fn [d] (set! (.-current d) d)))
+          ;; Reduced motion → instant transitions (the zoom is JS-driven, so CSS
+          ;; prefers-reduced-motion can't reach it).
+          zoom-ms       (if (reduced-motion?) 0 600)
+          fade-ms       (if (reduced-motion?) 0 300)
+          visible-now?  (fn [el] (> (js/parseFloat (.getAttribute el "fill-opacity")) 0))
+          centre-cursor (fn [root?] (if root?
+                                      (if full-screen "zoom-out" "zoom-in")
+                                      "pointer"))
+          centre-title  (fn [root?] (if root?
+                                      (if full-screen
+                                        (i18n/da-en languages "Minimér" "Minimize")
+                                        (i18n/da-en languages "Maksimér" "Maximize"))
+                                      (i18n/da-en languages
+                                        "Gå til dette synset"
+                                        "Go to this synset")))
+          svg           (create-sunburst-svg elem aria-label)
+          _             (append-paper-pattern! svg)
+          focus         (atom root)
+          centre-label  (-> svg
+                            (.append "text")
+                            (.attr "class" "hyponym-sunburst__centre")
+                            (.attr "fill" "#333")
+                            (.attr "text-anchor" "middle"))
+          path          (render-sunburst-arcs svg root)
+          texture-path  (render-sunburst-texture svg root)
+          label         (render-sunburst-labels svg root)
+          ;; Shown (faded in) only while the focus has no hyponyms to drill into.
+          empty-ring    (-> svg
+                            (.append "path")
+                            (.attr "class" "hyponym-sunburst__empty-ring")
+                            (.attr "fill" "#e6e6e6")
+                            (.attr "pointer-events" "none")
+                            (.attr "d" (sunburst-arc #js {:x0 0 :x1 tau :y0 1 :y1 2}))
+                            (.attr "fill-opacity" (if (.-children root) 0 1)))
+          ;; Transparent hit-circle over the centre, on top of everything.
+          centre-target (-> svg
+                            (.append "circle")
+                            (.attr "class" "hyponym-sunburst__center-target")
+                            (.attr "r" sunburst-radius)
+                            (.attr "fill" "transparent")
+                            (.attr "pointer-events" "all")
+                            (.style "cursor" (centre-cursor true)))]
+      (-> empty-ring
+          (.append "title")
+          (.text (i18n/da-en languages "Ingen hyponymer" "No hyponyms")))
+      (letfn [(navigate-centre! []
+                ;; Root centre toggles full-screen; a zoomed-in centre navigates
+                ;; to that synset's own page.
+                (if (identical? @focus root)
+                  (shared/toggle-full-screen!)
+                  (when-let [href (.. @focus -data -href)]
+                    ;; Reset to the radial so navigating reads as a page change,
+                    ;; not a silent re-root.
+                    (swap! shared/state assoc-in shared/diagram-mode-path :radial)
+                    (reset! shared/post-navigate {:scroll :diagram})
+                    (shared/navigate-to href))))
+              (render-centre! [p]
+                ;; Root → its short-label senses stacked with a faded dot between
+                ;; them; deeper → the focused node's own name, prefixed with the
+                ;; grey link arrow (the centre navigates there).
+                (let [parts  (if (and (identical? p root) (seq subject-parts))
+                               subject-parts
+                               [(str (.. p -data -name))])
+                      link?  (not (identical? p root))
+                      budget (* 2 sunburst-radius 0.9)
+                      ;; Size to the widest single sense so each stacked line
+                      ;; stays legible rather than shrinking to fit them inline.
+                      maxw   (apply max 1 (map shared/glyph-width parts))
+                      fit    (max 16 (min sunburst-centre-px (math/floor (/ budget maxw))))]
+                  (.style centre-label "font-size" (str fit "px"))
+                  (render-centre-labels! centre-label parts link?)))
+              (update-nav! [p]
+                ;; Publish root → focus breadcrumb for the legend column.
+                (reset! nav
+                        (vec (map-indexed
+                               (fn [_ n]
+                                 {:name     (.. n -data -name)
+                                  :last?    (identical? n p)
+                                  :on-click (fn [_] (zoom-to n))})
+                               (reverse (.ancestors p))))))
+              (zoom-to [p]
+                (reset! focus p)
+                (render-centre! p)
+                (.attr centre-label "text-decoration" "none")
+                (let [root? (identical? p root)]
+                  (.style centre-target "cursor" (centre-cursor root?))
+                  (-> centre-target (.select "title") (.text (centre-title root?))))
+                (-> empty-ring (.transition) (.duration fade-ms)
+                    (.attr "fill-opacity" (if (.-children p) 0 1)))
+                (update-nav! p)
+                (.each root
+                       (fn [d]
+                         (set! (.-target d)
+                               #js {:x0 (* (max 0 (min 1 (/ (- (.-x0 d) (.-x0 p))
+                                                            (- (.-x1 p) (.-x0 p))))) tau)
+                                    :x1 (* (max 0 (min 1 (/ (- (.-x1 d) (.-x0 p))
+                                                            (- (.-x1 p) (.-x0 p))))) tau)
+                                    :y0 (max 0 (- (.-y0 d) (.-depth p)))
+                                    :y1 (max 0 (- (.-y1 d) (.-depth p)))})))
+                (let [t (-> svg (.transition) (.duration zoom-ms))]
+                  (-> path
+                      (.transition t)
+                      (.tween "data" (fn [d]
+                                       (let [i (.interpolate d3 (.-current d) (.-target d))]
+                                         (fn [x] (set! (.-current d) (i x))))))
+                      (.filter (fn [d] (this-as this (or (visible-now? this)
+                                                         (arc-visible? (.-target d))))))
+                      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-target d)) 1 0)))
+                      (.attr "pointer-events" (fn [d] (if (arc-visible? (.-target d)) "auto" "none")))
+                      ;; Keep tab order in step with visibility: only on-screen arcs are focusable.
+                      (.attr "tabindex" (fn [d] (if (arc-visible? (.-target d)) 0 nil)))
+                      (.attrTween "d" (fn [d] (fn [] (sunburst-arc (.-current d))))))
+                  (-> texture-path
+                      (.filter (fn [d] (this-as this (or (visible-now? this)
+                                                         (arc-visible? (.-target d))))))
+                      (.transition t)
+                      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-target d)) 1 0)))
+                      (.attrTween "d" (fn [d] (fn [] (sunburst-arc (.-current d))))))
+                  (-> label
+                      (.filter (fn [d] (this-as this (or (visible-now? this)
+                                                         (label-visible? (.-target d))))))
+                      (.transition t)
+                      (.attr "fill-opacity" (fn [d] (if (label-visible? (.-target d)) 1 0)))
+                      (.attrTween "transform" (fn [d] (fn [] (label-transform (.-current d))))))))]
+        ;; Centre interactions: click/Enter/Space act; hover/focus underline the
+        ;; label when it would navigate (i.e. when zoomed in).
+        (-> centre-target
+            (.append "title")
+            (.text (centre-title true)))
+        (let [show-link! (fn [_] (when-not (identical? @focus root)
+                                   (.attr centre-label "text-decoration" "underline")))
+              hide-link! (fn [_] (.attr centre-label "text-decoration" "none"))]
+          (-> centre-target
+              (.attr "tabindex" 0)
+              (.attr "role" "button")
+              (.attr "aria-label" (centre-title true))
+              (.on "click" (fn [_] (navigate-centre!)))
+              (.on "keydown" (fn [e] (when (#{"Enter" " "} (.-key e))
+                                       (.preventDefault e)
+                                       (navigate-centre!))))
+              (.on "mouseenter" show-link!)
+              (.on "mouseleave" hide-link!)
+              (.on "focus" show-link!)
+              (.on "blur" hide-link!)))
+        (render-centre! root)
+        (update-nav! root)
+        ;; Any wedge — leaf or not — just focuses (zooms to) itself; only the
+        ;; centre navigates, so behaviour is consistent at the leaves. Arcs are
+        ;; focusable so the zoom is reachable by keyboard as well as pointer.
+        (-> path
+            (.style "cursor" "pointer")
+            (.attr "tabindex" (fn [d] (if (arc-visible? (.-current d)) 0 nil)))
+            (.attr "role" "button")
+            (.attr "aria-label" (fn [d] (.. d -data -name)))
+            (.on "click" (fn [_ d] (zoom-to d)))
+            (.on "keydown" (fn [e d] (when (#{"Enter" " "} (.-key e))
+                                       (.preventDefault e)
+                                       (zoom-to d))))))
+      (.node svg))))
+
+(defn build-sunburst!
+  "Render the hyponym sunburst for `tree` into the ref'd `elem`, publishing its
+  zoom breadcrumb to the `nav` atom (owned by the parent component, so the legend
+  column can react to it).
+
+  Idempotent across resizes: the SVG is viewBox-scaled, so resizing needs no
+  rebuild — and rebuilding would discard the user's zoom. A render-key stashed on
+  `elem` means we only (re)build when the data (`tree`) or `:full-screen` changes;
+  resizes just let CSS scale the existing SVG. (Like build-radial!, this runs in
+  a ref callback, so it uses try-static-render.)"
+  [tree ^js elem nav {:keys [full-screen] :as opts}]
+  (when elem
+    (let [render-key (str (hash tree) "|" (boolean full-screen))]
+      (when (not= render-key (.-dnSunburstKey elem))
+        (set! (.-dnSunburstKey elem) render-key)
+        (error/try-static-render elem
+          (build-sunburst!* tree elem nav opts))))))

@@ -116,10 +116,10 @@
 (def ui-descriptions
   "UI descriptions which shouldn't be configurable by the client."
   {:section {section/semantic-title
-             {:display {:options {"table"  ["\uD83D\uDDC4\uFE0F tabel"
-                                            "\uD83D\uDDC4\uFE0F table"]
-                                  "radial" ["\uD83D\uDCCA diagram"
-                                            "\uD83D\uDCCA diagram"]}}}}})
+             {:display {:options {"table"   ["\uD83D\uDDC4\uFE0F tabel"
+                                             "\uD83D\uDDC4\uFE0F table"]
+                                  "diagram" ["\uD83D\uDCCA diagram"
+                                             "\uD83D\uDCCA diagram"]}}}}})
 
 (rum/defc display-mode-selector
   [title {:keys [languages]
@@ -205,13 +205,13 @@
       [:<> " or " [:a {:href prefix/relations-path} "learn more"]
        " about the individual relations."])]
    (case (get-in opts [:section title :display :selected])
-     "radial" [:<>
-               (error/try-render (viz/expanded-radial subentity opts))
-               [:p.note
-                [:strong "! "]
-                (i18n/da-en languages
-                  "Data kan være udeladt; se tabellen for samtlige detaljer."
-                  "Data may be omitted; view table for full details.")]]
+     "diagram" [:<>
+                (error/try-render (viz/expanded-diagram subentity opts))
+                [:p.note
+                 [:strong "! "]
+                 (i18n/da-en languages
+                   "Data kan være udeladt; se tabellen for samtlige detaljer."
+                   "Data may be omitted; view table for full details.")]]
      (table/attr-val-table opts subentity))])
 
 (rum/defc entity-section-content
@@ -243,7 +243,7 @@
   [{:keys [entity]
     :as   opts}]
   (error/try-render
-    (viz/expanded-radial
+    (viz/expanded-diagram
       (ordered-subentity opts section/semantic-rels? entity)
       opts)))
 

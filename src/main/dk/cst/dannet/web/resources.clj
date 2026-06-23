@@ -35,7 +35,8 @@
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
-            [dk.cst.dannet.similarity :as sim])
+            [dk.cst.dannet.similarity :as sim]
+            [dk.cst.dannet.web.hyponymy :as hyponymy])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayOutputStream File]
            [java.util Date]
@@ -615,6 +616,29 @@
                  (assoc! truncated k v)
                  deferred))))))
 
+(defonce hypernym-graph
+  (delay
+    (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
+      (let [bg  (.getGraph (:base-model @db))
+            hg  (sim/build-hypernym-graph bg)
+            nd  (sim/node-depths hg)
+            pos (sim/synset->pos bg)]
+        {:graph       hg
+         :node-depths nd
+         :pos         pos
+         :taxonomy    (sim/taxonomy-depths nd pos)
+         ;; memoized so scoring one synset against many reuses each distance map
+         :ad          (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
+
+(defonce hyponym-graph
+  (delay
+    (tel/trace! {:id :dannet.graph/hyponym-graph :run-val :elided}
+      (let [hypo (sim/build-hyponym-graph (:graph @hypernym-graph))]
+        {:graph            hypo
+         ;; memoized so repeated branch-size look-ups during a subtree build
+         ;; (and across requests) don't re-walk the same descendants
+         :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))}))))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -677,7 +701,13 @@
                                  (if (not-empty deferred-entity)
                                    deferred-entity
                                    truncated)
-                                 truncated)]
+                                 truncated)
+                  ;; Recursive hyponym subtree for the sunburst — only for
+                  ;; synsets, on the initial (non-deferred) browser request.
+                  hyponym      (when (and truncate?
+                                          (not deferred?)
+                                          (shared/dn-synset? subject*))
+                                 (hyponymy/hyponym-tree g @hyponym-graph languages subject*))]
               (if (not-empty entity)
                 (assoc ctx
                   :content (-> (meta raw-entity)
@@ -689,7 +719,8 @@
                                       :subject subject*
                                       :entity entity)
                                (cond->
-                                 (not-empty folded) (assoc :folded folded)))
+                                 (not-empty folded) (assoc :folded folded)
+                                 (some? hyponym) (assoc :hyponym-tree hyponym)))
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
                                (and has-deferred (not deferred?))
@@ -833,20 +864,6 @@
   (delay
     (tel/trace! {:id :dannet.graph/synset-relations :run-val :elided}
       (find-synset-relations (:graph @db)))))
-
-(defonce hypernym-graph
-  (delay
-    (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
-      (let [bg  (.getGraph (:base-model @db))
-            hg  (sim/build-hypernym-graph bg)
-            nd  (sim/node-depths hg)
-            pos (sim/synset->pos bg)]
-        {:graph       hg
-         :node-depths nd
-         :pos         pos
-         :taxonomy    (sim/taxonomy-depths nd pos)
-         ;; memoized so scoring one synset against many reuses each distance map
-         :ad          (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
 
 ;; Expose the similarity metrics as dnf:path / dnf:lch / dnf:wup SPARQL
 ;; functions. The context above is derefed lazily, on the first call.

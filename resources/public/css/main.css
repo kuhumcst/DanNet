@@ -1448,7 +1448,7 @@ span.marker {
    RADIAL DIAGRAM
    =========================================== */
 
-.synset-radial-container {
+.synset-diagram-container {
     transition: font-size var(--transition-base);
     padding: var(--spacing-m);
     height: 100%;
@@ -1458,14 +1458,14 @@ span.marker {
     box-shadow: var(--shadow-card-subtle);
 }
 
-#content.full-screen .synset-radial-container {
+#content.full-screen .synset-diagram-container {
     border: none;
     box-shadow: none;
     display: flex;
     flex-direction: column;
 }
 
-#content.full-screen .radial-tree {
+#content.full-screen .synset-diagram {
     flex-grow: 1;
 }
 
@@ -1479,7 +1479,7 @@ span.marker {
     padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
 }
 
-.synset-radial-container .synset-radial__header {
+.synset-diagram-container .synset-diagram__header {
     display: flex;
     align-items: center;
     border-bottom: var(--normal-border);
@@ -1487,7 +1487,7 @@ span.marker {
     margin-bottom: var(--spacing-m);
 }
 
-.synset-radial-container aside.synset-radial__metadata {
+.synset-diagram-container aside.synset-diagram__metadata {
     display: flex;
     align-items: center;
     border-right: var(--normal-border);
@@ -1496,12 +1496,12 @@ span.marker {
     max-width: 20vw;
 }
 
-#content:not(.full-screen) aside.synset-radial__metadata,
-#content:not(.full-screen) footer.synset-radial__footer {
+#content:not(.full-screen) aside.synset-diagram__metadata,
+#content:not(.full-screen) footer.synset-diagram__footer {
     display: none;
 }
 
-.synset-radial-container footer.synset-radial__footer {
+.synset-diagram-container footer.synset-diagram__footer {
     border-top: var(--normal-border);
     margin-top: var(--spacing-m);
     padding-top: var(--spacing-l);
@@ -1516,17 +1516,83 @@ abbr.pos-label {
     border-right: var(--normal-border);
 }
 
-.synset-radial-container .synset-radial__definition {
+.synset-diagram-container .synset-diagram__definition {
     margin: 0 auto;
     display: flex;
     align-items: center;
 }
 
 /* Radial tree layout */
-.radial-tree {
+.synset-diagram {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
     height: 100%;
+}
+
+/* Shared top bar above the diagram and legend. A 1fr/auto/1fr grid keeps the
+   mode radios truly centred while the full-screen toggle stays pinned right (a
+   flex row can't centre the middle item once a sibling is right-aligned). */
+.synset-diagram__toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    margin-bottom: var(--spacing-s);
+    border-bottom: var(--normal-border);
+}
+
+.synset-diagram__toolbar > .viz-mode-toggle {
+    grid-column: 2;
+}
+
+.synset-diagram__toolbar > button.icon {
+    grid-column: 3;
+    justify-self: end;
+}
+
+/* The diagram and legend/history side by side, filling the space below the bar. */
+.synset-diagram__body {
+    display: flex;
+    align-items: stretch;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+/* Diagram column; the legend/history sits beside it in the body row. */
+.synset-diagram__main {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+}
+
+/* Mode radio group (Relations / Hyponyms), centred in the toolbar grid. */
+fieldset.viz-mode-toggle {
+    margin: 0;
+    padding: 0;
+    border: none;
+    text-align: center;
+}
+
+/* Legend kept for screen-reader grouping, hidden for sighted users. */
+fieldset.viz-mode-toggle legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+fieldset.viz-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0 var(--spacing-s);
+    font-size: var(--font-size-m);
+    cursor: pointer;
 }
 
 figure.radial-tree-diagram,
@@ -1570,10 +1636,6 @@ fieldset.radial-tree-legend {
     border: none;
 
     border-left: var(--normal-border);
-}
-
-fieldset.radial-tree-legend > button.icon {
-    align-self: flex-end;
 }
 
 fieldset.radial-tree-legend ul {
@@ -1696,6 +1758,157 @@ tspan.sense-paragraph {
 
 .definition-pos {
     font-weight: bold;
+}
+
+/* Hyponym sunburst diagram */
+
+/* Match the radial diagram's footprint exactly. */
+figure.hyponym-sunburst-diagram,
+svg.hyponym-sunburst-diagram__svg {
+    max-height: calc(80vh - var(--spacing-l));
+}
+
+figure.hyponym-sunburst-diagram {
+    flex-grow: 1;
+    margin: 0;
+    text-align: center;
+    display: flex;
+}
+
+svg.hyponym-sunburst-diagram__svg {
+    width: 100%;
+}
+
+#content.full-screen figure.hyponym-sunburst-diagram,
+#content.full-screen svg.hyponym-sunburst-diagram__svg {
+    max-height: calc(100vh - var(--layout-fullscreen-header));
+}
+
+.hyponym-sunburst__centre {
+    /* White halo so the stacked label reads like the radial subject label. */
+    stroke: white;
+    stroke-width: 4px;
+    paint-order: stroke;
+}
+
+/* On-arc labels: contrast colour is set per-arc in JS; no outline. */
+.hyponym-sunburst__label {
+    font-size: 14px;
+}
+
+/* Keep diagram text free of the global #content text-shadow (invisible on the
+   radial's white background, but a visible halo on coloured arcs). */
+.hyponym-sunburst__label,
+.hyponym-sunburst__centre {
+    text-shadow: none !important;
+}
+
+.hyponym-sunburst__empty-ring {
+    pointer-events: none;
+}
+
+/* Paper-texture overlay on the coloured slices. The PNG is mostly transparent
+   with marks, so we composite it normally (like the nav/page backgrounds) rather
+   than as a blend. Dial back via opacity if it reads too strong over the hues. */
+.hyponym-sunburst__texture {
+    opacity: 1;
+}
+
+/* Zoom-history column shown in sunburst mode. It reuses the radial legend shell
+   (.radial-tree-legend) for the border, layout and full-screen toggle, so the
+   toggle sits in the exact same spot. `margin: auto 0` centres the list,
+   pinning the toggle to the top just like the radial's filter list does. */
+.hyponym-sunburst-history {
+    margin: auto 0;
+    min-width: 14ch;
+    max-width: 24ch;
+    padding-left: var(--spacing-m);
+    list-style: none;
+    overflow-y: auto;
+
+    /* Match the radial legend's typographic language. */
+    font-variant: small-caps;
+    font-size: var(--font-size-s);
+}
+
+/* Down-arrow separators between breadcrumb steps (root → … → current). */
+.hyponym-sunburst-history > li:not(:first-child)::before {
+    content: "\2193";
+    display: block;
+    text-align: center;
+    padding: var(--spacing-xs) 0;
+    color: var(--color-muted);
+    font-size: 0.85em;
+    line-height: 1;
+}
+
+.hyponym-sunburst-history button,
+.hyponym-sunburst-history > li.current span {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-prefix);
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-s);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: inherit;
+    font-variant: inherit;
+    color: inherit;
+}
+
+/* Ancestors are clickable (zoom back up): give them the legend's hover box. */
+.hyponym-sunburst-history button {
+    background: transparent;
+    cursor: pointer;
+}
+
+.hyponym-sunburst-history button:hover {
+    border: var(--normal-border);
+}
+
+/* Current focus: the synset you're on — muted, not interactive. */
+.hyponym-sunburst-history > li.current span {
+    color: var(--color-muted);
+}
+
+/* Visually hide content while keeping it available to assistive tech (e.g.
+   the diagram <figcaption>s that name each figure). */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* The history breadcrumb is wrapped in a <nav> landmark; it carries no box of
+   its own — the surrounding fieldset and the list do the layout. */
+.hyponym-sunburst-history-nav {
+    display: contents;
+}
+
+/* Keyboard focus affordance for the focusable sunburst arcs and centre target
+   (operable via Enter/Space, mirroring a click). */
+.hyponym-sunburst-diagram__svg [role="button"]:focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 1px;
+}
+
+/* Respect reduced-motion: dampen the word-cloud reveal transition. The
+   sunburst's JS-driven zoom is collapsed separately in d3.cljs, since CSS
+   can't reach a D3 transition. */
+@media (prefers-reduced-motion: reduce) {
+    .word-cloud-item,
+    svg:hover .word-cloud-item {
+        transition: none;
+    }
 }
 
 /* Word cloud items */
@@ -2076,13 +2289,13 @@ span.render-error {
 
 @media only screen and (min-width: 1200px) {
     /* Hide "fake" footer items until diagram view turns into single column view. */
-    #content.full-screen aside.synset-radial__metadata .synset-radial__footer-item {
+    #content.full-screen aside.synset-diagram__metadata .synset-diagram__footer-item {
         display: none;
     }
     /* Make the fonts a bit bigger. */
     #content.full-screen fieldset.radial-tree-legend ul,
-    #content.full-screen .synset-radial-container,
-    #content.full-screen .synset-radial-container dd {
+    #content.full-screen .synset-diagram-container,
+    #content.full-screen .synset-diagram-container dd {
         font-size: var(--font-size-m);
     }
     #content.full-screen .radial-tree-legend__bullet {
@@ -2108,23 +2321,50 @@ span.render-error {
 /* --- Small screens (max-width, descending) --- */
 
 @media only screen and (max-width: 1200px) {
-    .radial-tree {
+    /* Stack the diagram and legend vertically; the toolbar stays as the top
+       bar above them. */
+    .synset-diagram__body {
         flex-direction: column;
         align-items: stretch;
     }
     fieldset.radial-tree-legend {
         border-left: none;
         border-top: var(--normal-border);
-
-        /* Place max/min icon below legend. */
-        flex-direction: column-reverse;
     }
     fieldset.radial-tree-legend ul {
         columns: 3;
         margin: var(--spacing-m) auto 0 auto;
         padding: 0;
     }
-    #content.full-screen aside.synset-radial__metadata {
+    /* Below the diagram there's width but little height, so lay the zoom history
+       out as a horizontal wrapping breadcrumb rather than the tall vertical list
+       the short space would otherwise clip down to just the first label. */
+    .hyponym-sunburst-history {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        margin: var(--spacing-m) auto 0;
+        max-width: none;
+        padding-left: 0;
+        overflow: visible;
+    }
+    .hyponym-sunburst-history > li {
+        display: flex;
+        align-items: center;
+        padding-top: 0;
+    }
+    /* Right-arrow between inline steps instead of the column's down-arrow. */
+    .hyponym-sunburst-history > li:not(:first-child)::before {
+        content: "\2192";
+        display: inline;
+        padding: 0 var(--spacing-xs);
+    }
+    .hyponym-sunburst-history button,
+    .hyponym-sunburst-history > li.current span {
+        width: auto;
+    }
+    #content.full-screen aside.synset-diagram__metadata {
         order: 3;
         border-right: none;
         border-top: var(--normal-border);
@@ -2137,13 +2377,13 @@ span.render-error {
         max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
     }
     /* Remove real footer items once the metadata column becomes the footer. */
-    #content.full-screen .synset-radial-container footer.synset-radial__footer {
+    #content.full-screen .synset-diagram-container footer.synset-diagram__footer {
         display: none;
     }
 }
 
 @media only screen and (max-width: 750px) {
-    .synset-radial-container {
+    .synset-diagram-container {
         font-size: var(--font-size-s);
     }
     fieldset.radial-tree-legend ul {
@@ -2175,7 +2415,7 @@ span.render-error {
     table.attr-val.attr-val--nested col:nth-child(2) {
         min-width: 10ch;
     }
-    .synset-radial-container .synset-radial__definition {
+    .synset-diagram-container .synset-diagram__definition {
         flex-direction: column;
         margin: 0 auto 0 0;
     }

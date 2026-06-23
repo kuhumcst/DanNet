@@ -58,6 +58,23 @@
               (transient {})
               (into #{} (mapcat keys) [H O])))))
 
+(defn build-hyponym-graph
+  "Invert a {child #{parents}} hypernym map into {parent #{children}}.
+
+  The hyponym direction isn't asserted in the base graph (it's the inferred
+  inverse of :wn/hypernym), so we derive it by inverting `hg` rather than
+  querying. Inherits the language partitioning of the input: edges only ever
+  connect synsets within the same wordnet."
+  [hg]
+  (persistent!
+    (reduce-kv (fn [m child parents]
+                 (reduce (fn [m parent]
+                           (assoc! m parent (conj (get m parent #{}) child)))
+                         m
+                         parents))
+               (transient {})
+               hg)))
+
 ;; DanNet stores PoS in :wn/lexfile; OEWN synsets store it in :wn/partOfSpeech.
 (def ^:private wn-pos->pos
   {:wn/noun                "noun"

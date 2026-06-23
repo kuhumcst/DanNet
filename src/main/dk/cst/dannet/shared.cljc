@@ -92,11 +92,20 @@
                         :s          ""}
          :full-screen  default-full-screen
          :detail-level default-detail-level
-         :section      {section/semantic-title {:display {:selected "radial"}}}}))
+         :section      {section/semantic-title
+                        {:display {:selected     "diagram"
+                                   :diagram-mode :radial}}}}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
 (defonce post-navigate
   (atom nil))
+
+(def diagram-mode-path
+  ;; The synset section shows as a table or a diagram (`:display :selected`);
+  ;; when it's a diagram, `:diagram-mode` picks which one (:radial or :sunburst).
+  ;; Co-located under :display so the relationship is clear in `state`, reachable
+  ;; via `opts` (state is merged in) and reset to :radial on a full page load.
+  [:section section/semantic-title :display :diagram-mode])
 
 (def windows?
   #?(:cljs (and (exists? js/navigator.appVersion)
@@ -231,6 +240,15 @@
 (def synset-sep
   #"\{|;|\}")
 
+(defn dn-synset?
+  "Return true if `k` is a DanNet synset."
+  [k & [entity]]
+  (and (keyword? k)
+       (= "dn" (namespace k))
+       (if entity
+         (= :ontolex/LexicalConcept (:rdf/type entity))
+         (str/starts-with? (name k) "synset-"))))
+
 (def omitted
   "…")
 
@@ -339,6 +357,17 @@
                               :referrer js/document.referrer
                               :stack    (.-stack (js/Error.))}}
                      "navigate-to called with empty URL"))))
+
+(defn toggle-full-screen!
+  "Toggle the `:full-screen` cookie and scroll the content pane to the top.
+
+  Shared by both diagram modes' full-screen controls; scrolling to the top
+  makes entering/leaving full-screen read like a page change."
+  []
+  #?(:cljs (do
+             (update-cookie! :full-screen not)
+             (some-> (js/document.getElementById "content")
+                     (.scroll #js {:top 0})))))
 
 (defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.

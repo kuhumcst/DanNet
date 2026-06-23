@@ -276,7 +276,7 @@
                                       :subject  subject}
                                (instance? BaseInfGraph g)
                                (assoc :inferred (inferred-entity result (find-raw g subject)))))]
-      (if (dn-synset? entity* subject)
+      (if (shared/dn-synset? subject entity*)
         (supplement-synset g entity* subject)
         entity*))
     (with-meta {} {:subject subject})))
