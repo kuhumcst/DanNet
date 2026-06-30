@@ -1658,7 +1658,8 @@ fieldset.radial-tree-legend ul label {
     position: relative;
     cursor: pointer;
     user-select: none;
-    padding: var(--spacing-prefix) 0 var(--spacing-prefix) var(--spacing-xl);
+    border: 1px solid transparent;
+    padding: var(--spacing-prefix) var(--spacing-prefix) var(--spacing-prefix) var(--spacing-xl);
 }
 
 fieldset.radial-tree-legend ul li + li {
@@ -1711,19 +1712,19 @@ fieldset.radial-tree-legend ul:has(input[type=radio]:checked) input[type=radio]:
 }
 
 fieldset.radial-tree-legend ul > li {
-    border: 1px solid transparent;
     border-radius: var(--border-radius-s);
     padding: 0;
     margin-bottom: 1px;
 }
 
-fieldset.radial-tree-legend ul > li:hover {
+fieldset.radial-tree-legend ul > li label:hover {
     border: var(--normal-border);
+    border-color: var(--color-dark);
     cursor: pointer;
 }
 
-fieldset.radial-tree-legend ul > li:focus-within {
-    border: 1px solid rgba(0,0,0,0.24);
+fieldset.radial-tree-legend ul > li:focus-within label {
+    border: var(--normal-border);
 }
 
 /* Radial tree items (SVG text) */
@@ -1886,12 +1887,12 @@ svg.hyponym-sunburst-diagram__svg {
 }
 
 .hyponym-sunburst-history button:hover {
-    border: var(--normal-border);
+    border-color: var(--color-dark);
 }
 
 /* Current focus: the synset you're on — muted, not interactive. */
 .hyponym-sunburst-history > li.current span {
-    color: var(--color-dannet);
+    border: var(--normal-border);
 }
 
 /* Visually hide content while keeping it available to assistive tech (e.g.
