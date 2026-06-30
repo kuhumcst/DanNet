@@ -1,0 +1,88 @@
+# DanNet SHACL shapes
+#
+# A small, deliberately conservative starter set of structural invariants for
+# the *asserted* (base) graph. These were chosen by validating against the live
+# data: the constraints below currently flag only a handful of genuine outliers
+# (≈64 synsets + ≈17 senses without labels; 0 entry violations), rather than
+# large systematic gaps.
+#
+# IMPORTANT — base vs. inferred graph:
+#   Validate these against the BASE (asserted) model. Relation-completeness
+#   checks (e.g. "every sense links to a synset") do NOT belong here: in DanNet
+#   the sense→synset link is asserted in only one direction (Danish senses carry
+#   only the inverse `ontolex:lexicalizedSense` on the synset), and the forward
+#   `ontolex:isLexicalizedSenseOf` is supplied by inference. Such a shape run
+#   against the base graph produces ~77k false positives. Put relation-shape
+#   checks against the inferred model instead (see the commented example below).
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
+@prefix dns:     <https://wordnet.dk/dannet/schema/> .
+
+## ---------------------------------------------------------------------------
+## LexicalEntry — currently 0 violations across all 163,701 entries.
+## ---------------------------------------------------------------------------
+dns:LexicalEntryShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalEntry ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalEntry must have an rdfs:label." ] ;
+    sh:property [
+        sh:path wn:partOfSpeech ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalEntry must have a wn:partOfSpeech." ] ;
+    sh:property [
+        sh:path ontolex:sense ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalEntry must have at least one ontolex:sense." ] ;
+    sh:property [
+        sh:path ontolex:canonicalForm ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalEntry must have exactly one ontolex:canonicalForm." ] .
+
+## ---------------------------------------------------------------------------
+## LexicalSense — flags ≈17 senses lacking a label.
+## ---------------------------------------------------------------------------
+dns:LexicalSenseShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalSense ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalSense must have an rdfs:label." ] .
+
+## ---------------------------------------------------------------------------
+## LexicalConcept (synset) — flags ≈64 synsets lacking a label.
+## NOTE: wn:definition and wn:partOfSpeech are intentionally NOT required here:
+## ≈70k synsets (largely imported OEWN concepts) legitimately lack them, so
+## requiring them would be noise, not signal. Revisit once that gap is understood.
+## ---------------------------------------------------------------------------
+dns:LexicalConceptShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalConcept ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "LexicalConcept (synset) must have an rdfs:label." ] .
+
+## ---------------------------------------------------------------------------
+## NEXT STEP (do NOT enable against the base graph) — relation completeness.
+## Run this kind of shape against the INFERRED model, where both directions of
+## the sense↔synset link are present:
+##
+## dns:SenseSynsetShape a sh:NodeShape ;
+##     sh:targetClass ontolex:LexicalSense ;
+##     sh:property [
+##         sh:path ontolex:isLexicalizedSenseOf ;
+##         sh:minCount 1 ; sh:maxCount 1 ;
+##         sh:class ontolex:LexicalConcept ;
+##         sh:message "A sense must lexicalize exactly one synset." ] .
