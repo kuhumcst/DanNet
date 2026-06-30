@@ -11,14 +11,16 @@
             [dk.cst.dannet.db.query :as q]))
 
 (defn hyponym-descendant-count
-  "Number of distinct DanNet hyponym descendants of `synset` in inverted graph
-  `hypo` (cycle-safe). Branches are ranked by this when capping breadth."
+  "Number of distinct hyponym descendants of `synset` in inverted graph `hypo`
+  (cycle-safe). Branches are ranked by this when capping breadth. Stays within
+  the wordnet of `synset` (DanNet or OEWN); the graph isn't linked across them."
   [hypo synset]
-  (let [seen (atom #{})]
+  (let [ns   (namespace synset)
+        seen (atom #{})]
     (letfn [(walk [n]
               (when-not (@seen n)
                 (swap! seen conj n)
-                (run! walk (filter #(= "dn" (namespace %)) (get hypo n)))))]
+                (run! walk (filter #(= ns (namespace %)) (get hypo n)))))]
       (walk synset)
       (dec (count @seen)))))
 
@@ -33,12 +35,13 @@
   repeated — while cycles along a single path are broken via `path`."
   [hypo count-fn root & {:keys [max-depth max-children max-nodes]
                          :or   {max-depth 5 max-children 12 max-nodes 250}}]
-  (let [budget (atom max-nodes)]
+  (let [budget (atom max-nodes)
+        ns     (namespace root)]
     (letfn [(node [n depth path]
               (swap! budget dec)
               (let [kids (when (and (< depth max-depth) (pos? @budget))
                            (->> (get hypo n)
-                                (filter #(= "dn" (namespace %)))
+                                (filter #(= ns (namespace %)))
                                 (remove path)
                                 (sort-by count-fn >)
                                 (take max-children)))]

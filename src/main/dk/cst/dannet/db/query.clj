@@ -194,13 +194,6 @@
                  (transient {})
                  entity))))
 
-(defn- dn-synset?
-  "Return true if `entity` for `subject` is a DanNet synset."
-  [entity subject]
-  (and (= :ontolex/LexicalConcept (:rdf/type entity))
-       (keyword? subject)
-       (= "dn" (namespace subject))))
-
 (defn synset-examples
   "Return usage examples for `synset-kw` in `g` as a set of LangStr values.
   Gathers examples from all senses of the synset."

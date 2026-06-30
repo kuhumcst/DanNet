@@ -706,7 +706,7 @@
                   ;; synsets, on the initial (non-deferred) browser request.
                   hyponym      (when (and truncate?
                                           (not deferred?)
-                                          (shared/dn-synset? subject*))
+                                          (shared/synset? subject* raw-entity))
                                  (hyponymy/hyponym-tree g @hyponym-graph languages subject*))]
               (if (not-empty entity)
                 (assoc ctx

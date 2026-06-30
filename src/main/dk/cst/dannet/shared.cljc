@@ -240,14 +240,18 @@
 (def synset-sep
   #"\{|;|\}")
 
+(defn synset?
+  "Return true if `subject` is a synset `entity` in DanNet, OEWN, etc."
+  [subject entity]
+  (and (keyword? subject)
+       (map? entity)
+       (= :ontolex/LexicalConcept (:rdf/type entity))))
+
 (defn dn-synset?
-  "Return true if `k` is a DanNet synset."
-  [k & [entity]]
-  (and (keyword? k)
-       (= "dn" (namespace k))
-       (if entity
-         (= :ontolex/LexicalConcept (:rdf/type entity))
-         (str/starts-with? (name k) "synset-"))))
+  "Return true if `subject` is a DanNet synset specifically."
+  [subject entity]
+  (and (synset? subject entity)
+       (= "dn" (namespace subject))))
 
 (def omitted
   "…")
