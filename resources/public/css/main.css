@@ -1650,7 +1650,7 @@ fieldset.radial-tree-legend ul {
 
     /* Vertical gap inserted above each relation group (see the group-start rule
        below); reset to the normal item gap in the multi-column layouts. */
-    --rel-group-gap: var(--spacing-l);
+    --rel-group-gap: var(--spacing-m);
 }
 
 fieldset.radial-tree-legend ul label {
@@ -1666,12 +1666,7 @@ fieldset.radial-tree-legend ul li + li {
     margin-top: var(--spacing-xs);
 }
 
-/* Extra space above the first item of each relation group. The list is sorted
-   by relations/group-order, so each group is a contiguous run and a group-start
-   is an <li> whose preceding sibling belongs to a different group (the very
-   first group therefore stays flush). Driven by --rel-group-gap so the gap can
-   be neutralised in the multi-column layouts below, where a per-item top margin
-   would only dent the column tops. */
+/* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
 fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
 fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
 fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
@@ -1680,6 +1675,8 @@ fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
 fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
 fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
     margin-top: var(--rel-group-gap);
+    padding-top: var(--rel-group-gap);
+    border-top: var(--subtle-border);
 }
 
 fieldset.radial-tree-legend ul input[type=radio] {
@@ -2379,6 +2376,18 @@ span.render-error {
         align-items: center;
         padding-top: 0;
     }
+    /* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
+    fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
+    fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
+    fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
+    fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
+    fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
+    fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
+    fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+        border-top: none;
+        padding: 0;
+        margin: 0;
+    }
     /* Right-arrow between inline steps instead of the column's down-arrow. */
     .hyponym-sunburst-history > li:not(:first-child)::before {
         content: "\2192";
@@ -2496,7 +2505,19 @@ span.render-error {
         columns: 1;
 
         /* Single column again, so the group gap is meaningful once more. */
-        --rel-group-gap: var(--spacing-l);
+        --rel-group-gap: var(--spacing-m);
+    }
+    /* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
+    fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
+    fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
+    fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
+    fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
+    fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
+    fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
+    fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+        margin-top: var(--rel-group-gap);
+        padding-top: var(--rel-group-gap);
+        border-top: var(--subtle-border);
     }
     .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-xl);
