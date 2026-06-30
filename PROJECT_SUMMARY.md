@@ -11,7 +11,7 @@ The system includes:
 - Bootstrap system for versioning and data migrations, with on-demand dataset downloads
 - Rich query capabilities via SPARQL and Clojure DSL
 - Taxonomy-based synset similarity metrics exposed as custom `dnf:` SPARQL functions
-- Interactive visualizations including radial tree diagrams and word clouds
+- Interactive visualizations including radial relation diagrams, a zoomable hyponym sunburst, and word clouds
 - An MCP (Model Context Protocol) server for AI application integration
 - A ChainNet metaphor annotation pipeline producing annotation-ready Excel output
 
@@ -38,6 +38,14 @@ The system includes:
 - Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
 - Full-screen visualization mode with persistent user preferences
 
+### Synset Diagrams (`dk.cst.dannet.web.ui.visualization` + `dk.cst.dannet.web.d3` + `dk.cst.dannet.web.hyponymy`)
+- The synset section can render as a table or a diagram; when in diagram mode, a mode toggle switches between two D3 visualizations sharing one toolbar/legend shell (`synset-diagram`, `diagram-legend`):
+  - **Radial relation diagram** — the existing radial layout of a synset's relations (legend with relation filtering via `radial-tree-legend` / `radial-item--*` classes; built by `d3/build-radial!`)
+  - **Hyponym sunburst** — a zoomable D3 partition (sunburst) of the synset's hyponym subtree, with click-to-zoom, a three-ring focus window, branch-coloured arcs, label truncation/fitting, a zoom-history breadcrumb (`hyponym-sunburst-history`), and `<title>` tooltips; built by `d3/build-sunburst!`
+- Diagram mode lives in shared state at `shared/diagram-mode-path` (`[:section section/semantic-title :display :diagram-mode]`, `:radial` or `:sunburst`), reset to `:radial` on full page load. The sunburst falls back to the radial when a (non-synset) entity has no subtree.
+- **Accessibility**: the sunburst SVG is `aria-hidden` (arc geometry isn't meaningfully navigable by screen readers); the table view and the zoom-history breadcrumb are the accessible alternatives. Reduced motion is honoured by checking `matchMedia("(prefers-reduced-motion: reduce)")` in JS, since the zoom is a D3-driven transition that CSS `prefers-reduced-motion` can't reach.
+- **`dk.cst.dannet.web.hyponymy`**: pure, bounded hyponym-subtree construction. `hyponym-subtree` builds a nested `{:id :children}` skeleton from the inverted hyponym graph, ranking children by descendant count so the largest branches survive `:max-children`/`:max-depth`/`:max-nodes` caps; multiple inheritance is tree-ified and single-path cycles are broken. `hyponym-tree` labels and localises the skeleton (one batched label query, trimmed to a single clean lemma per arc). The inverted graph itself is assembled and cached in `web/resources` (see below).
+
 ### SPARQL Frontend (`dk.cst.dannet.web.ui.sparql`)
 - Full-featured SPARQL query editor built on CodeMirror 6 with SPARQL syntax highlighting
 - Query validation (client-side and server-side), normalization, and a "Format" button
@@ -57,7 +65,7 @@ The system includes:
 
 ### Similarity Metrics (`dk.cst.dannet.similarity`)
 - Taxonomy-based synset similarity measures over the DanNet hypernym graph, porting the `wn` Python tool's metrics: `path`, `lch` (Leacock-Chodorow), and `wup` (Wu-Palmer), plus information-content measures (`res`, `jcn`, `lin`)
-- Runs over a precomputed `{child #{parents}}` hypernym graph built once from the base (asserted) graph; ancestor-distance maps are memoized so scoring one synset against many is cheap. Handles multiple-inheritance DAGs partitioned by language (no DanNet↔OEWN hypernym edges)
+- Runs over a precomputed `{child #{parents}}` hypernym graph built once from the base (asserted) graph; ancestor-distance maps are memoized so scoring one synset against many is cheap. Handles multiple-inheritance DAGs partitioned by language (no DanNet↔OEWN hypernym edges). `build-hyponym-graph` inverts this into a `{parent #{children}}` map (the hyponym direction is the un-asserted inverse of `:wn/hypernym`), which feeds the hyponym sunburst
 - Exposed as `dnf:path` / `dnf:lch` / `dnf:wup` SPARQL functions via `register!`; the hypernym-graph context is held by `dk.cst.dannet.web.resources/hypernym-graph` (a lazy `delay`, initialised on server start) and derefed lazily on first call
 - **`dk.cst.dannet.db.query.function`**: generic ARQ plumbing — `->function` lifts a plain `(ctx & args -> double|nil)` fn into a `FunctionFactory` (nil result ⇒ unbound), and `register-functions!` adds them to the global `FunctionRegistry` under a chosen RDF namespace, so any SPARQL query can call them regardless of inference mode
 
@@ -120,18 +128,19 @@ src/main/dk/cst/dannet/
 ```
 src/main/dk/cst/dannet/web/
 ├── service.clj               # Pedestal HTTP service and routing
-├── resources.clj             # Resource handlers, content negotiation, entity truncation
+├── resources.clj             # Resource handlers, content negotiation, entity truncation; caches the hypernym/hyponym graphs and attaches :hyponym-tree to synset entities
 ├── rate_limit.clj            # Rate limiting functionality
 ├── sparql.clj                # SPARQL endpoint: validation, execution, result caching
+├── hyponymy.clj              # Pure bounded hyponym-subtree construction for the sunburst
 ├── anomaly.cljc              # Exception translation to cognitect.anomalies (bilingual error pages)
 ├── client.cljs               # ClojureScript SPA entry point
-├── d3.cljs                   # D3 visualization components (radial trees)
+├── d3.cljs                   # D3 visualization components (radial relation diagram + hyponym sunburst)
 ├── ui.cljc                   # Core Rum UI components
 ├── ui/
 │   ├── sparql.cljc           # SPARQL query editor UI, result table, pagination
 │   ├── codemirror.cljs       # CodeMirror 6 interop (SPARQL syntax, folding, errors)
 │   ├── form.cljc             # Form utilities (submit, validation, autofocus)
-│   ├── visualization.cljc    # Radial tree diagrams, word clouds, ancestry display
+│   ├── visualization.cljc    # Synset diagrams (radial + sunburst, mode toggle, legend), word clouds, ancestry display
 │   ├── search.cljc           # Search form components
 │   ├── search/
 │   │   └── aria.cljs         # ARIA-compliant combobox keyboard navigation
