@@ -9,6 +9,7 @@
             [quoll.rdf :refer [print-escape]]
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [clojure.lang Symbol]
@@ -40,8 +41,12 @@
   The current prefixes in the Aristotle registry are used for the output,
   although a desired subset of :prefixes may also be specified.
 
+  When :validate is true, the written .ttl file is SHACL-validated against
+  the base shapes before zipping; validation failure aborts the export
+  (see shapes/validate-export!).
+
   See: https://jena.apache.org/documentation/io/rdf-output.html"
-  [path ^Model model & {:keys [fmt prefixes]
+  [path ^Model model & {:keys [fmt prefixes validate]
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
   (let [ttl-file (ttl-path path)]
     (txn/transact-exec model
@@ -53,6 +58,9 @@
       (add-registry-prefixes! model :prefixes prefixes)
       (io/make-parents path)
       (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
+      ;; Release gate: validate exactly what ships, before it is zipped.
+      (when validate
+        (shapes/validate-export! ttl-file))
       (zip/zip-files [ttl-file] path)
       ;; Clear temporarily added prefixes
       (.clearNsPrefixMap model)))
@@ -85,7 +93,12 @@
              :let [^Model model (db/get-model dataset model-uri)
                    prefix       (prefix/uri->prefix model-uri)
                    filename     (in-dir (prefix/export-file "rdf" prefix))]]
-       (export-rdf-model! filename model :prefixes (export-prefixes prefix)))
+       ;; TODO: also gate the other named models (dnc, dns, cor, ...) once
+       ;; shapes targeting their namespaces exist; today the SPARQL-based
+       ;; targets are scoped to dn:, so validating them would be a no-op.
+       (export-rdf-model! filename model
+                          :prefixes (export-prefixes prefix)
+                          :validate (= prefix 'dn)))
 
      ;; The OEWN extension data is exported separately from the other models,
      ;; since it isn't connected to a separate prefix (= graph).

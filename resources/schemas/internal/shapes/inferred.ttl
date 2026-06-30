@@ -1,0 +1,35 @@
+# DanNet SHACL shapes — INFERRED model only.
+#
+# Relation-completeness checks that hold only after OWL inference has supplied
+# the missing direction of inverse relations (e.g. `ontolex:isLexicalizedSenseOf`
+# from the asserted `ontolex:lexicalizedSense`).
+#
+# IMPORTANT: never run these against the BASE (asserted) graph — doing so
+# produces ~77k false positives (see base.ttl). These shapes are combined with
+# base.ttl and validated against the inference model via the opt-in
+# `validate-inferred-db`.
+#
+# NOTE: property shapes are deliberately given explicit IRIs (rather than the
+# usual blank nodes) so that validation reports can group violations by a
+# stable shape identity.
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix dns:     <https://wordnet.dk/dannet/schema/> .
+
+## ---------------------------------------------------------------------------
+## LexicalSense (dn:) — every sense lexicalizes exactly one synset.
+## ---------------------------------------------------------------------------
+dns:SenseSynsetShape a sh:NodeShape ;
+    ## dns:DanNetSenseTarget is defined in base.ttl, which is always loaded
+    ## together with this file (see `inferred-shapes` in shapes.clj).
+    sh:target dns:DanNetSenseTarget ;
+    sh:property dns:SenseSynsetShape-isLexicalizedSenseOf .
+
+dns:SenseSynsetShape-isLexicalizedSenseOf a sh:PropertyShape ;
+    sh:path ontolex:isLexicalizedSenseOf ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class ontolex:LexicalConcept ;
+    sh:severity sh:Violation ;
+    sh:message "A sense must lexicalize exactly one synset." .

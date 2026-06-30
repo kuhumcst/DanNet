@@ -30,6 +30,7 @@
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.db.bootstrap.metadata :as metadata]
+            [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.db.export.rdf :as export.rdf]
             [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
@@ -85,7 +86,16 @@
     (tel/trace! {:id      :dannet.graph/build-db
                  :run-val :elided
                  :data    {:opts opts}}
-                (bootstrap/->dannet opts))))
+                (let [dannet (bootstrap/->dannet opts)]
+                  ;; Non-fatal SHACL check, run async to stay off the boot
+                  ;; critical path; logs a summary via Telemere. Runs on every
+                  ;; boot (fresh builds *and* reused databases) by design.
+                  (future
+                    (try
+                      (shapes/validate-db dannet)
+                      (catch Exception e
+                        (tel/error! {:id :dannet.shapes/validate-error} e))))
+                  dannet))))
 
 (defonce db
   (delay (build-db! false)))

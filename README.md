@@ -167,6 +167,14 @@ java -jar -Xmx4g dannet.jar
 
 The system uses ~1.5 GB when idle and ~3 GB when rebuilding the database. A server should have at least 4 GB of available RAM.
 
+### Validating RDF (SHACL)
+
+The `dn:` dataset is validated against [SHACL](https://www.w3.org/TR/shacl/) shapes located in [resources/schemas/internal/shapes/](/resources/schemas/internal/shapes/) (see [dk.cst.dannet.db.shapes](src/main/dk/cst/dannet/db/shapes.clj)). This happens in several ways:
+
+- a non-fatal check of the asserted graph runs asynchronously at every boot, logging violations and comparing counts to a [known baseline](/resources/schemas/internal/shapes-baseline.edn),
+- RDF exports of the `dn:` dataset are gated: a baseline regression aborts the export, and
+- fixture-based tests run via `clojure -X:test`, which is also executed by the GitHub Actions workflow in [.github/workflows/test.yml](/.github/workflows/test.yml).
+
 ### Validating WN-LMF
 
 ```shell

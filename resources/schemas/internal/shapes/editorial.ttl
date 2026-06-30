@@ -1,0 +1,32 @@
+# DanNet SHACL shapes — EDITORIAL rules for newly edited data.
+#
+# Stricter requirements than base.ttl, meant ONLY for targeted validation of
+# individual focus nodes touched by an edit (see `validate-node`) before a
+# write is committed. Legacy data is deliberately exempt: e.g. ≈70k imported
+# OEWN synsets legitimately lack a wn:definition, so running these against the
+# full graph would drown signal in noise.
+#
+# A deliberately small starter set — extend as editorial policy is decided.
+#
+# NOTE: property shapes are deliberately given explicit IRIs (rather than the
+# usual blank nodes) so that validation reports can group violations by a
+# stable shape identity.
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
+@prefix dns:     <https://wordnet.dk/dannet/schema/> .
+
+## ---------------------------------------------------------------------------
+## LexicalConcept (synset) — edited synsets should carry a definition.
+## sh:Warning: surfaces in the editing UI without blocking the write.
+## ---------------------------------------------------------------------------
+dns:EditorialConceptShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalConcept ;
+    sh:property dns:EditorialConceptShape-definition .
+
+dns:EditorialConceptShape-definition a sh:PropertyShape ;
+    sh:path wn:definition ;
+    sh:minCount 1 ;
+    sh:severity sh:Warning ;
+    sh:message "An edited synset should have a wn:definition." .

@@ -1,0 +1,193 @@
+# DanNet SHACL shapes — BASE (asserted) graph invariants.
+#
+# A small, deliberately conservative starter set of structural invariants,
+# chosen by validating against the live data. Accepted violation counts are
+# recorded in shapes-baseline.edn; counts exceeding them indicate regressions.
+#
+# SCOPE — dn: resources only:
+#   DanNet only controls the dn: dataset, so shapes use SPARQL-based targets
+#   (SHACL-AF) scoped to the dn: namespace rather than sh:targetClass. This
+#   deliberately excludes companion datasets (COR, OEWN) that follow their own
+#   conventions. Note that dn: words are typed ontolex:Word or
+#   ontolex:MultiwordExpression -- never ontolex:LexicalEntry directly -- and
+#   the asserted graph contains no ontolex subClassOf triples, so an
+#   sh:targetClass would miss them entirely.
+#
+# IMPORTANT — base vs. inferred graph:
+#   Validate these against the BASE (asserted) model. Relation-completeness
+#   checks (e.g. "every sense links to a synset") do NOT belong here: in DanNet
+#   the sense→synset link is asserted in only one direction (Danish senses carry
+#   only the inverse `ontolex:lexicalizedSense` on the synset), and the forward
+#   `ontolex:isLexicalizedSenseOf` is supplied by inference. Such a shape run
+#   against the base graph produces ~77k false positives. Relation-shape checks
+#   live in inferred.ttl instead; stricter rules that only gate *newly edited*
+#   data live in editorial.ttl.
+#
+# NOTE: property shapes are deliberately given explicit IRIs (rather than the
+# usual blank nodes) so that validation reports can group violations by a
+# stable shape identity -- used e.g. for the violation baseline check.
+#
+# NOTE: wn:definition is intentionally NOT required on synsets here; that rule
+# lives in editorial.ttl, gating newly edited data only.
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
+@prefix dns:     <https://wordnet.dk/dannet/schema/> .
+
+## ---------------------------------------------------------------------------
+## SPARQL-based targets scoped to the dn: namespace.
+## NB: SHACL-AF SPARQL queries do not inherit the Turtle prefixes above; they
+## get their prefixes from the sh:declare block below (via sh:prefixes).
+## ---------------------------------------------------------------------------
+dns:DanNetPrefixes
+    sh:declare [ sh:prefix "dn" ;
+                 sh:namespace "https://wordnet.dk/dannet/data/"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "ontolex" ;
+                 sh:namespace "http://www.w3.org/ns/lemon/ontolex#"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "wn" ;
+                 sh:namespace "https://globalwordnet.github.io/schemas/wn#"^^xsd:anyURI ] .
+
+dns:DanNetEntryTarget a sh:SPARQLTarget ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:select """
+SELECT ?this WHERE {
+  VALUES ?type { ontolex:LexicalEntry ontolex:Word ontolex:MultiwordExpression }
+  ?this a ?type .
+  FILTER(strstarts(str(?this), str(dn:)))
+}""" .
+
+dns:DanNetSenseTarget a sh:SPARQLTarget ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:select """
+SELECT ?this WHERE {
+  ?this a ontolex:LexicalSense .
+  FILTER(strstarts(str(?this), str(dn:)))
+}""" .
+
+dns:DanNetConceptTarget a sh:SPARQLTarget ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:select """
+SELECT ?this WHERE {
+  ?this a ontolex:LexicalConcept .
+  FILTER(strstarts(str(?this), str(dn:)))
+}""" .
+
+## ---------------------------------------------------------------------------
+## LexicalEntry (dn: words & multiword expressions)
+## ---------------------------------------------------------------------------
+dns:LexicalEntryShape a sh:NodeShape ;
+    sh:target dns:DanNetEntryTarget ;
+    sh:property dns:LexicalEntryShape-label ,
+                dns:LexicalEntryShape-partOfSpeech ,
+                dns:LexicalEntryShape-sense ,
+                dns:LexicalEntryShape-canonicalForm .
+
+dns:LexicalEntryShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalEntry must have an rdfs:label." .
+
+dns:LexicalEntryShape-partOfSpeech a sh:PropertyShape ;
+    sh:path wn:partOfSpeech ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalEntry must have a wn:partOfSpeech." .
+
+dns:LexicalEntryShape-sense a sh:PropertyShape ;
+    sh:path ontolex:sense ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalEntry must have at least one ontolex:sense." .
+
+dns:LexicalEntryShape-canonicalForm a sh:PropertyShape ;
+    sh:path ontolex:canonicalForm ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalEntry must have exactly one ontolex:canonicalForm." .
+
+## ---------------------------------------------------------------------------
+## LexicalSense (dn:)
+## ---------------------------------------------------------------------------
+dns:LexicalSenseShape a sh:NodeShape ;
+    sh:target dns:DanNetSenseTarget ;
+    sh:property dns:LexicalSenseShape-label .
+
+dns:LexicalSenseShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalSense must have an rdfs:label." .
+
+## ---------------------------------------------------------------------------
+## LexicalConcept (dn: synsets)
+## ---------------------------------------------------------------------------
+dns:LexicalConceptShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:property dns:LexicalConceptShape-label .
+
+dns:LexicalConceptShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalConcept (synset) must have an rdfs:label." .
+
+## ---------------------------------------------------------------------------
+## Hypernym hierarchy (dn: synsets) — SPARQL-based semantic checks.
+## wn:hypernym is ASSERTED in the base graph (152k+ triples), so these belong
+## here rather than in inferred.ttl. Severity is a property of the node shape,
+## hence two shapes: hierarchy errors block, POS disagreement only warns.
+## ---------------------------------------------------------------------------
+dns:HypernymHierarchyShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:HypernymHierarchyShape-selfHypernymy ,
+              dns:HypernymHierarchyShape-mutualHypernymy .
+
+dns:HypernymHierarchyShape-selfHypernymy a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "A synset must not be its own hypernym." ;
+    sh:select """
+SELECT $this WHERE {
+  $this wn:hypernym $this .
+}""" .
+
+dns:HypernymHierarchyShape-mutualHypernymy a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "Two synsets must not be hypernyms of each other." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this wn:hypernym ?value .
+  ?value wn:hypernym $this .
+  FILTER(?value != $this)
+}""" .
+
+## Cross-POS hypernymy is only a warning: the live data deliberately links
+## e.g. verbal nouns to verb synsets ({sammenskrivning} -> {skrive}), so this
+## surfaces for curation without ever blocking a write or an export.
+## The path below only uses ASSERTED triples: the synset carries
+## ontolex:lexicalizedSense and the word carries ontolex:sense + partOfSpeech
+## (the inverse directions are inference-only; see the note at the top).
+dns:HypernymPOSShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:severity sh:Warning ;
+    sh:sparql dns:HypernymPOSShape-posAgreement .
+
+dns:HypernymPOSShape-posAgreement a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "Synset and its hypernym are lexicalized by words with different parts of speech." ;
+    sh:select """
+SELECT DISTINCT $this ?value WHERE {
+  $this wn:hypernym ?value .
+  FILTER(strstarts(str(?value), str(dn:)))
+  $this ontolex:lexicalizedSense ?sense1 .
+  ?word1 ontolex:sense ?sense1 ; wn:partOfSpeech ?pos1 .
+  ?value ontolex:lexicalizedSense ?sense2 .
+  ?word2 ontolex:sense ?sense2 ; wn:partOfSpeech ?pos2 .
+  FILTER(?pos1 != ?pos2)
+}""" .

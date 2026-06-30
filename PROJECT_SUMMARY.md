@@ -88,6 +88,12 @@ The system includes:
 - Bilingual (DA/EN) user-friendly messages with retry hints and HTTP status codes
 - Anomaly maps are rendered directly by the UI across SSR and SPA
 
+### SHACL Validation (`dk.cst.dannet.db.shapes`)
+- Validates the `dn:` dataset against SHACL shapes in `resources/schemas/internal/shapes/` (`base.ttl` for the asserted graph, `inferred.ttl` for the inference model, `editorial.ttl` for future write gating); all shapes use SPARQL-based targets scoped to the `dn:` namespace
+- Returns violations as plain Clojure data; counts are compared to a known baseline (`resources/schemas/internal/shapes-baseline.edn`), so the enforced invariant is "no regressions" rather than "zero violations"
+- `validate-db`: non-fatal check of the asserted graph, run async at boot; `validate-export!`: release gate aborting RDF exports of the `dn:` model on baseline regressions; `validate-node`: targeted single-node validation intended for the future RDF Patch write pipeline (#194)
+- Fixture-based tests (`test/dk/cst/dannet/db/shapes_test.clj`) run via `clojure -X:test`, also executed by the GitHub Actions workflow (`.github/workflows/test.yml`)
+
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap` + submodules)
 - Loads previous RDF releases from the `./bootstrap` directory
 - Applies version migrations and schema updates
@@ -119,6 +125,7 @@ src/main/dk/cst/dannet/
 │   │   ├── operation.clj     # Query operations and transformations
 │   │   └── function.clj      # Generic ARQ custom SPARQL function registry plumbing
 │   ├── search.clj            # Text search and indexing
+│   ├── shapes.clj            # SHACL validation (boot check, export gate, node validation)
 │   └── transaction.clj       # Transaction management utilities
 ├── hash.clj                   # Content hashing and caching
 ├── prefix.cljc               # RDF namespace prefix management
@@ -171,7 +178,9 @@ resources/
 ├── schemas/
 │   ├── internal/
 │   │   ├── dannet-schema.ttl      # DanNet RDF schema
-│   │   └── dannet-concepts.ttl    # EuroWordNet concepts
+│   │   ├── dannet-concepts.ttl    # EuroWordNet concepts
+│   │   ├── shapes/                # SHACL shapes (base/inferred/editorial)
+│   │   └── shapes-baseline.edn    # Accepted SHACL violation counts by shape
 │   └── external/               # External ontologies (Ontolex, etc.)
 └── public/                     # Static web assets
 ```
@@ -285,7 +294,7 @@ npx shadow-cljs compile test
 
 ;; Export to various formats
 (require '[dk.cst.dannet.db.export.rdf :as rdf-export])
-(rdf-export/save-rdf-files! dataset "release/")
+(rdf-export/export-rdf! dataset "release/")
 ```
 
 ## Conventions and Patterns
