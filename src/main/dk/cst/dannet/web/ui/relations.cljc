@@ -70,6 +70,29 @@
      :en "Other relations."}
     nil]])
 
+(def relation-order
+  (into [] (mapcat (fn [[_ _ _ rels]] rels)) group-order))
+
+(def relation->group
+  (into {}
+        (mapcat (fn [[group-key _ _ rels]]
+                  (map (fn [rel] [rel group-key]) rels)))
+        group-order))
+
+(def relation->rank
+  "Map from a relation to its index in 'relation-order'."
+  (zipmap relation-order (range)))
+
+(defn relation-sort-key
+  "Ordering key for a relation `k` carrying localised `label`."
+  [k label]
+  [(get relation->rank k (count relation-order)) (str label)])
+
+(defn relation->class
+  "Generic CSS class marking the group of relation `k`."
+  [k]
+  (str (name (or (relation->group k) :other)) "-rel"))
+
 (defn prepare-groups
   "Transform a map of `relations` based on `opts` into grouped entries.
 

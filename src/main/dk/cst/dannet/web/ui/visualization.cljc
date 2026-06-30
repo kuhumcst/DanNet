@@ -6,6 +6,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.rdf :as rdf]
+            [dk.cst.dannet.web.ui.relations :as relations]
             #?(:cljs [dk.cst.dannet.web.d3 :as d3])))
 
 (defn- viz-opts
@@ -120,19 +121,26 @@
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
   [state subentity {:keys [languages k->label detail-level]}]
-  (let [selected (::selected state)]
+  (let [selected (::selected state)
+        label-of (fn [k]
+                   (if (= detail-level :basic)
+                     (prefix/kw->qname k)
+                     (i18n/select-label languages (k->label k))))]
     (diagram-legend
       {:aria-label (i18n/da-en languages
                      "Filtrer relationstyper"
                      "Filter relation types")}
       [:ul.radial-tree-legend
-       (for [k (keys subentity)]
+       ;; Relations are ordered by the canonical relations/group-order so the
+       ;; legend matches the diagram, and each <li> is tagged with its group
+       ;; class so the grouping can be styled in CSS without splitting the list.
+       (for [k (sort-by #(relations/relation-sort-key % (label-of %))
+                        (keys subentity))]
          (when-let [theme (get shared/synset-rel-theme k)]
-           (let [label        (if (= detail-level :basic)
-                                (prefix/kw->qname k)
-                                (i18n/select-label languages (k->label k)))
+           (let [label        (label-of k)
                  is-selected? (= @selected theme)]
-             [:li {:key k}
+             [:li {:key   k
+                   :class (relations/relation->class k)}
               [:label {:lang (i18n/lang label)} (str label)
                [:input {:type      "radio"
                         :name      "radial-tree-filter"

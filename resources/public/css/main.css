@@ -1646,7 +1646,11 @@ fieldset.radial-tree-legend ul {
     padding: 0 0 0 var(--spacing-m);
 
     font-variant: small-caps;
-    font-size: var(--font-size-s);
+    font-size: var(--font-size-m);
+
+    /* Vertical gap inserted above each relation group (see the group-start rule
+       below); reset to the normal item gap in the multi-column layouts. */
+    --rel-group-gap: var(--spacing-l);
 }
 
 fieldset.radial-tree-legend ul label {
@@ -1659,6 +1663,22 @@ fieldset.radial-tree-legend ul label {
 
 fieldset.radial-tree-legend ul li + li {
     margin-top: var(--spacing-xs);
+}
+
+/* Extra space above the first item of each relation group. The list is sorted
+   by relations/group-order, so each group is a contiguous run and a group-start
+   is an <li> whose preceding sibling belongs to a different group (the very
+   first group therefore stays flush). Driven by --rel-group-gap so the gap can
+   be neutralised in the multi-column layouts below, where a per-item top margin
+   would only dent the column tops. */
+fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
+fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
+fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
+fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
+fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
+fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
+fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+    margin-top: var(--rel-group-gap);
 }
 
 fieldset.radial-tree-legend ul input[type=radio] {
@@ -1828,7 +1848,7 @@ svg.hyponym-sunburst-diagram__svg {
 
     /* Match the radial legend's typographic language. */
     font-variant: small-caps;
-    font-size: var(--font-size-s);
+    font-size: var(--font-size-m-l);
 }
 
 /* Down-arrow separators between breadcrumb steps (root → … → current). */
@@ -1837,8 +1857,8 @@ svg.hyponym-sunburst-diagram__svg {
     display: block;
     text-align: center;
     padding: var(--spacing-xs) 0;
-    color: var(--color-muted);
-    font-size: 0.85em;
+    color: var(--color-ontolex);
+    font-size: 1em;
     line-height: 1;
 }
 
@@ -1847,6 +1867,7 @@ svg.hyponym-sunburst-diagram__svg {
     display: block;
     box-sizing: border-box;
     width: 100%;
+    margin-top: var(--spacing-l);
     padding: var(--spacing-prefix);
     border: 1px solid transparent;
     border-radius: var(--border-radius-s);
@@ -1855,7 +1876,6 @@ svg.hyponym-sunburst-diagram__svg {
     text-overflow: ellipsis;
     white-space: nowrap;
     font: inherit;
-    font-variant: inherit;
     color: inherit;
 }
 
@@ -1871,7 +1891,7 @@ svg.hyponym-sunburst-diagram__svg {
 
 /* Current focus: the synset you're on — muted, not interactive. */
 .hyponym-sunburst-history > li.current span {
-    color: var(--color-muted);
+    color: var(--color-dannet);
 }
 
 /* Visually hide content while keeping it available to assistive tech (e.g.
@@ -2335,6 +2355,10 @@ span.render-error {
         columns: 3;
         margin: var(--spacing-m) auto 0 auto;
         padding: 0;
+
+        /* Multi-column: drop the group gap back to the normal item gap so it
+           doesn't dent the tops of columns. */
+        --rel-group-gap: var(--spacing-xs);
     }
     /* Below the diagram there's width but little height, so lay the zoom history
        out as a horizontal wrapping breadcrumb rather than the tall vertical list
@@ -2363,6 +2387,7 @@ span.render-error {
     .hyponym-sunburst-history button,
     .hyponym-sunburst-history > li.current span {
         width: auto;
+        margin: 0 var(--spacing-m);
     }
     #content.full-screen aside.synset-diagram__metadata {
         order: 3;
@@ -2468,6 +2493,9 @@ span.render-error {
     }
     fieldset.radial-tree-legend ul {
         columns: 1;
+
+        /* Single column again, so the group gap is meaningful once more. */
+        --rel-group-gap: var(--spacing-l);
     }
     .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-xl);

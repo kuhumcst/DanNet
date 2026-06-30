@@ -6,6 +6,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
+            [dk.cst.dannet.web.ui.relations :as relations]
             ["d3" :as d3]
             ["d3-cloud" :as cloud]))
 
@@ -431,8 +432,11 @@
                               (shared/top-n-vals radial-limit)
                               (mapcat val))))))
 
-       ;; Sorting into (and of) groups happens here!
-       (insert-theme-spacers (comp str k->label first))
+       ;; Grouping (and group ordering) happens here: groups follow the
+       ;; canonical relations/group-order so related relations sit together
+       ;; and always appear in roughly the same place.
+       (insert-theme-spacers (fn [[k _]]
+                               (relations/relation-sort-key k (k->label k))))
 
        ;; Rotate for better placement with few nodes
        (rotate-for-bottom-placement)
