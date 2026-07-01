@@ -623,12 +623,14 @@
             hg  (sim/build-hypernym-graph bg)
             nd  (sim/node-depths hg)
             pos (sim/synset->pos bg)]
-        {:graph       hg
-         :node-depths nd
-         :pos         pos
-         :taxonomy    (sim/taxonomy-depths nd pos)
+        {:graph           hg
+         :node-depths     nd
+         :pos             pos
+         :taxonomy        (sim/taxonomy-depths nd pos)
+         ;; children with no real hypernym; see sim/build-hypernym-graph
+         :orthogonal-only (:orthogonal-only (meta hg))
          ;; memoized so scoring one synset against many reuses each distance map
-         :ad          (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
+         :ad              (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
 
 (defonce hyponym-graph
   (delay
@@ -637,7 +639,8 @@
         {:graph            hypo
          ;; memoized so repeated branch-size look-ups during a subtree build
          ;; (and across requests) don't re-walk the same descendants
-         :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))}))))
+         :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
+         :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -655,31 +658,31 @@
                           deferred]} (merge (:path-params request)
                                             (:query-params request)
                                             static-params)
-                  content-type (or (get-in request [:accept :field])
-                                   "application/json")
-                  g            (:graph @db)
+                  content-type       (or (get-in request [:accept :field])
+                                         "application/json")
+                  g                  (:graph @db)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  subject*     (cond->> (decode-query-part subject)
-                                 prefix (keyword (name prefix)))
-                  languages    (request->languages request)
-                  qs           (some-> (:query-string request)
-                                       remove-internal-params
-                                       ;; Canonicalize slash encoding: reitit's
-                                       ;; url-encode emits %2F while the client
-                                       ;; leaves slashes bare. The difference
-                                       ;; otherwise causes a hydration mismatch.
-                                       (str/replace "%2F" "/"))
-                  qname        (if (keyword? subject*)
-                                 (prefix/kw->qname subject*)
-                                 subject*)
-                  expand?      (expand-content-types content-type)
-                  raw-entity   (if expand?
-                                 (q/expanded-entity g subject*)
-                                 (q/entity g subject*))
+                  subject*           (cond->> (decode-query-part subject)
+                                       prefix (keyword (name prefix)))
+                  languages          (request->languages request)
+                  qs                 (some-> (:query-string request)
+                                             remove-internal-params
+                                             ;; Canonicalize slash encoding: reitit's
+                                             ;; url-encode emits %2F while the client
+                                             ;; leaves slashes bare. The difference
+                                             ;; otherwise causes a hydration mismatch.
+                                             (str/replace "%2F" "/"))
+                  qname              (if (keyword? subject*)
+                                       (prefix/kw->qname subject*)
+                                       subject*)
+                  expand?            (expand-content-types content-type)
+                  raw-entity         (if expand?
+                                       (q/expanded-entity g subject*)
+                                       (q/entity g subject*))
                   ;; Apply truncation only for content types that support deferred loading
-                  truncate?    (truncate-content-types content-type)
-                  deferred?    (and truncate? deferred)
+                  truncate?          (truncate-content-types content-type)
+                  deferred?          (and truncate? deferred)
                   ;; De-duplicate entailed superproperty rows (display only).
                   {pruned-entity :entity
                    folded        :folded}
@@ -697,17 +700,25 @@
                   ;; Return truncated on initial request, deferred portion on deferred request.
                   ;; If there's nothing deferred (entity was small, or was re-fetched from
                   ;; scratch), return the full entity to avoid an empty response.
-                  entity       (if deferred?
-                                 (if (not-empty deferred-entity)
-                                   deferred-entity
-                                   truncated)
-                                 truncated)
-                  ;; Recursive hyponym subtree for the sunburst — only for
-                  ;; synsets, on the initial (non-deferred) browser request.
-                  hyponym      (when (and truncate?
+                  entity             (if deferred?
+                                       (if (not-empty deferred-entity)
+                                         deferred-entity
+                                         truncated)
+                                       truncated)
+                  ;; Two independent hyponym sunburst trees (real vs
+                  ;; orthogonal-only), only for synsets on the initial
+                  ;; (non-deferred) browser request.
+                  synset?            (and truncate?
                                           (not deferred?)
                                           (shared/synset? subject* raw-entity))
-                                 (hyponymy/hyponym-tree g @hyponym-graph languages subject*))]
+                  orthogonal-only    (:orthogonal-only @hyponym-graph)
+                  ->tree             (fn [root-filter]
+                                       (when synset?
+                                         (hyponymy/hyponym-tree
+                                           g @hyponym-graph languages
+                                           root-filter subject*)))
+                  hyponym            (->tree (complement orthogonal-only))
+                  orthogonal-hyponym (->tree orthogonal-only)]
               (if (not-empty entity)
                 (assoc ctx
                   :content (-> (meta raw-entity)
@@ -720,7 +731,9 @@
                                       :entity entity)
                                (cond->
                                  (not-empty folded) (assoc :folded folded)
-                                 (some? hyponym) (assoc :hyponym-tree hyponym)))
+                                 (some? hyponym) (assoc :hyponym-tree hyponym)
+                                 (some? orthogonal-hyponym)
+                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)))
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
                                (and has-deferred (not deferred?))

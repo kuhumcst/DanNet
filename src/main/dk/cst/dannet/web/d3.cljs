@@ -1148,13 +1148,16 @@
 
 (defn- render-sunburst-arcs
   "Append the coloured arc layer for `root`'s descendants and return the path
-  selection. Each arc carries a slash-joined ancestry <title> for hover."
+  selection. Each arc carries a slash-joined ancestry <title> for hover;
+  orthogonal-only hyponyms also get a `--orthogonal` modifier class."
   [svg root]
   (let [path (-> svg
                  (.append "g")
                  (.selectAll "path")
                  (.data (.slice (.descendants root) 1))
                  (.join "path")
+                 (.attr "class" (fn [d] (when (.-orthogonal ^js (.-data d))
+                                          "hyponym-sunburst__arc--orthogonal")))
                  (.attr "fill" sunburst-colour)
                  (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) 1 0)))
                  (.attr "pointer-events" (fn [d] (if (arc-visible? (.-current d)) "auto" "none")))
@@ -1180,7 +1183,8 @@
       (.attr "d" (fn [d] (sunburst-arc (.-current d))))))
 
 (defn- render-sunburst-labels
-  "Append the arc-label layer for `root`'s descendants and return the selection."
+  "Append the arc-label layer for `root`'s descendants and return the selection;
+  orthogonal-only hyponyms also get a `--orthogonal` modifier class."
   [svg root]
   (-> svg
       (.append "g")
@@ -1189,7 +1193,9 @@
       (.selectAll "text")
       (.data (.slice (.descendants root) 1))
       (.join "text")
-      (.attr "class" "hyponym-sunburst__label")
+      (.attr "class" (fn [d] (str "hyponym-sunburst__label"
+                                  (when (.-orthogonal ^js (.-data d))
+                                    " hyponym-sunburst__label--orthogonal"))))
       (.attr "fill" "#fff")
       (.attr "dy" "0.32em")
       (.attr "fill-opacity" (fn [d] (if (label-visible? (.-current d)) 1 0)))
@@ -1224,7 +1230,14 @@
                           (str "Hyponym sunburst for " (str/join " · " subject-parts)))
           hierarchy     (-> (.hierarchy d3 data)
                             (.sum (fn [d] (if (.-children d) 0 1)))
-                            (.sort (fn [a b] (- (.-value b) (.-value a)))))
+                            ;; Orthogonal-only hyponyms sort after regular ones,
+                            ;; matching the server-side ranking.
+                            (.sort (fn [a b]
+                                     (let [ao (boolean (.-orthogonal ^js (.-data a)))
+                                           bo (boolean (.-orthogonal ^js (.-data b)))]
+                                       (if (not= ao bo)
+                                         (if ao 1 -1)
+                                         (- (.-value b) (.-value a)))))))
           height        (.-height hierarchy)
           root          ((-> (.partition d3)
                              (.size #js [tau (inc height)]))

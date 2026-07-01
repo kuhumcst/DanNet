@@ -1565,7 +1565,7 @@ abbr.pos-label {
     display: flex;
 }
 
-/* Mode radio group (Relations / Hyponyms), centred in the toolbar grid. */
+/* Mode radio group (Relations / Hyponyms / Ortho-hyponyms), centred in the toolbar grid. */
 fieldset.viz-mode-toggle {
     margin: 0;
     padding: 0;

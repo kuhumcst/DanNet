@@ -188,17 +188,29 @@
       (rdf/hypernym-chain (assoc opts :subject-label subj-label))]]))
 
 (rum/defcs synset-diagram < (rum/local nil ::nav)
-  [state subentity {:keys [entity languages full-screen hyponym-tree] :as opts}]
-  (let [mode-sunburst? (= (get-in opts shared/diagram-mode-path) :sunburst)
-        ;; Fall back to the radial if a (non-synset) entity has no subtree.
-        sunburst?      (and mode-sunburst? hyponym-tree)
+  [state subentity {:keys [entity languages full-screen hyponym-tree
+                           orthogonal-hyponym-tree] :as opts}]
+  (let [hyponym-available? (boolean (:children hyponym-tree))
+        ortho-available?   (boolean (:children orthogonal-hyponym-tree))
+        ;; Fall back to the radial when the selected sunburst has nothing to show.
+        mode               (case (get-in opts shared/diagram-mode-path)
+                             :sunburst-orthogonal (if ortho-available?
+                                                    :sunburst-orthogonal
+                                                    :radial)
+                             :sunburst (if hyponym-available? :sunburst :radial)
+                             :radial)
+        tree               (case mode
+                             :sunburst-orthogonal orthogonal-hyponym-tree
+                             :sunburst hyponym-tree
+                             nil)
+        sunburst?          (some? tree)
         ;; Component-local breadcrumb atom: the sunburst builder writes the zoom
         ;; trail to it and the history legend reacts to it, so the two share
         ;; state without a module-global (and a fresh diagram starts clean).
-        opts           (assoc opts :sunburst-nav (::nav state))
-        set-mode!      (fn [mode]
-                         (fn [_] (swap! shared/state assoc-in
-                                        shared/diagram-mode-path mode)))]
+        opts               (assoc opts :sunburst-nav (::nav state))
+        set-mode!          (fn [mode]
+                             (fn [_] (swap! shared/state assoc-in
+                                            shared/diagram-mode-path mode)))]
     [:div.synset-diagram {:key (str (hash subentity))}
      ;; Shared top bar above both columns: mode radios centred, full-screen
      ;; toggle pinned right. Keeping it out of the diagram column means swapping
@@ -209,15 +221,23 @@
        [:label
         [:input {:type      "radio"
                  :name      "viz-mode"
-                 :checked   (not mode-sunburst?)
+                 :checked   (= mode :radial)
                  :on-change (set-mode! :radial)}]
-        (i18n/da-en languages "Relationer" "Relations")]
-       [:label
-        [:input {:type      "radio"
-                 :name      "viz-mode"
-                 :checked   mode-sunburst?
-                 :on-change (set-mode! :sunburst)}]
-        (i18n/da-en languages "Hyponymer" "Hyponyms")]]
+        (i18n/da-en languages "relationer" "relations")]
+       (when hyponym-available?
+         [:label
+          [:input {:type      "radio"
+                   :name      "viz-mode"
+                   :checked   (= mode :sunburst)
+                   :on-change (set-mode! :sunburst)}]
+          (i18n/da-en languages "underbegreber" "hyponyms")])
+       (when ortho-available?
+         [:label
+          [:input {:type      "radio"
+                   :name      "viz-mode"
+                   :checked   (= mode :sunburst-orthogonal)
+                   :on-change (set-mode! :sunburst-orthogonal)}]
+          (i18n/da-en languages "orto-underbegreber" "ortho-hyponyms")])]
       (full-screen-toggle opts)]
      [:div.synset-diagram__body
       (when full-screen
@@ -242,7 +262,7 @@
           (ancestry-dt+dd opts)]])
       [:div.synset-diagram__main
        (if sunburst?
-         (hyponym-sunburst-diagram hyponym-tree opts)
+         (hyponym-sunburst-diagram tree opts)
          (radial-tree-diagram subentity opts))]
       ;; Keep a right-hand column in both modes so the diagram footprint stays
       ;; stable; in sunburst mode it's the zoom history for stepping back up.

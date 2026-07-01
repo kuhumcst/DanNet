@@ -38,25 +38,22 @@
 
   Uses asserted `:wn/hypernym`, falling back per-node to `:dns/orthogonalHypernym`
   when a synset has no proper hypernym (matching `q/hypernym-ancestry*`). Reads
-  only asserted triples, so `g` should be the base model (the inferred hyponym
-  relations aren't needed when we only traverse upwards)."
+  only asserted triples, so `g` should be the base model (we only walk upwards).
+
+  Children resolved purely via the orthogonal fallback are attached as
+  `:orthogonal-only` metadata, leaving the map's own shape unchanged."
   [g]
-  (let [adjacency (fn [pred]
-                    ;; {child #{parents}} for a single predicate over `g`
-                    (reduce (fn [m b]
-                              (update m (get b '?s) (fnil conj #{}) (get b '?o)))
-                            {}
-                            (q/run g [:bgp ['?s pred '?o]])))
-        H         (adjacency :wn/hypernym)
-        O         (adjacency :dns/orthogonalHypernym)]
-    (persistent!
-      (reduce (fn [m c]
-                ;; a real hypernym wins; orthogonal is only a stand-in
-                (assoc! m c (if (seq (get H c))
-                              (get H c)
-                              (get O c #{}))))
-              (transient {})
-              (into #{} (mapcat keys) [H O])))))
+  (let [adjacency       (fn [pred]
+                          ;; {child #{parents}} for a single predicate over `g`
+                          (reduce (fn [m b]
+                                    (update m (get b '?s) (fnil conj #{}) (get b '?o)))
+                                  {}
+                                  (q/run g [:bgp ['?s pred '?o]])))
+        H               (adjacency :wn/hypernym)
+        O               (adjacency :dns/orthogonalHypernym)
+        orthogonal-only (into #{} (remove H) (keys O))
+        hg              (into H (map (fn [c] [c (O c)])) orthogonal-only)]
+    (with-meta hg {:orthogonal-only orthogonal-only})))
 
 (defn build-hyponym-graph
   "Invert a {child #{parents}} hypernym map into {parent #{children}}.
