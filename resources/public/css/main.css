@@ -1825,13 +1825,6 @@ svg.hyponym-sunburst-diagram__svg {
     pointer-events: none;
 }
 
-/* Paper-texture overlay on the coloured slices. The PNG is mostly transparent
-   with marks, so we composite it normally (like the nav/page backgrounds) rather
-   than as a blend. Dial back via opacity if it reads too strong over the hues. */
-.hyponym-sunburst__texture {
-    opacity: 1;
-}
-
 /* Zoom-history column shown in sunburst mode. It reuses the radial legend shell
    (.radial-tree-legend) for the border, layout and full-screen toggle, so the
    toggle sits in the exact same spot. `margin: auto 0` centres the list,

@@ -1049,6 +1049,12 @@
        (> (* (- (.-y1 d) (.-y0 d))
              (- (.-x1 d) (.-x0 d))) 0.045)))
 
+(defn- band-opacity
+  "Fill-opacity for arc coords `d`: full on the innermost visible band, stepping
+  down a touch per outer band so depth reads without the arcs going lighter."
+  [d]
+  (max 0.75 (- 1 (* 0.25 (dec (.-y0 d))))))
+
 (def sunburst-arc
   "Arc generator mapping partition coords (x0/x1 angles, y0/y1 rings) to a path."
   (-> (.arc d3)
@@ -1083,17 +1089,17 @@
          "rotate(" (if (< x 180) 0 180) ")")))
 
 (defn- sunburst-colour
-  "Fill for arc `d`: its top-level branch keeps a shared-theme hue at full
-  strength, while deeper rings lighten a little so the hierarchy stays readable."
-  [d]
-  (let [top  (loop [n d]
-               (if (> (.-depth n) 1) (recur (.-parent n)) n))
-        idx  (mod (.indexOf (.-children (.-parent top)) top)
-                  (count sunburst-palette))
-        base (.hsl d3 (nth sunburst-palette idx))]
-    (set! (.-l base) (min 0.8 (+ (.-l base)
-                                 (* (dec (.-depth d)) 0.12))))
-    (.formatHex base)))
+  "Fill for arc `d` relative to focus `p`: the shared-theme hue of the child of
+  `p` that `d` descends from, inherited flat by that subtree. At the root focus
+  each top-level branch gets its own colour; after zooming, the focus's own
+  children re-alternate through the palette."
+  [p d]
+  (let [child-depth (inc (.-depth p))
+        top         (loop [n d]
+                      (if (> (.-depth n) child-depth) (recur (.-parent n)) n))
+        idx         (mod (.indexOf (.-children (.-parent top)) top)
+                         (count sunburst-palette))]
+    (nth sunburst-palette idx)))
 
 (defn- reduced-motion?
   "Whether the user has asked for reduced motion. The sunburst zoom is a pure
@@ -1130,22 +1136,6 @@
     (-> svg (.append "title") (.text aria-label))
     svg))
 
-(defn- append-paper-pattern!
-  "Define the tiled paper-texture pattern used by the slice overlay (560x420 =
-  the PNG's native size, so its grain matches the rest of the page)."
-  [svg]
-  (-> svg
-      (.append "defs")
-      (.append "pattern")
-      (.attr "id" "sunburst-paper")
-      (.attr "patternUnits" "userSpaceOnUse")
-      (.attr "width" 560)
-      (.attr "height" 420)
-      (.append "image")
-      (.attr "href" "/images/exclusive-paper.png")
-      (.attr "width" 560)
-      (.attr "height" 420)))
-
 (defn- render-sunburst-arcs
   "Append the coloured arc layer for `root`'s descendants and return the path
   selection. Each arc carries a slash-joined ancestry <title> for hover;
@@ -1158,29 +1148,12 @@
                  (.join "path")
                  (.attr "class" (fn [d] (when (.-orthogonal ^js (.-data d))
                                           "hyponym-sunburst__arc--orthogonal")))
-                 (.attr "fill" sunburst-colour)
-                 (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) 1 0)))
+                 (.attr "fill" (fn [d] (sunburst-colour root d)))
+                 (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) (band-opacity (.-current d)) 0)))
                  (.attr "pointer-events" (fn [d] (if (arc-visible? (.-current d)) "auto" "none")))
                  (.attr "d" (fn [d] (sunburst-arc (.-current d)))))]
     (-> path (.append "title") (.text arc-tooltip))
     path))
-
-(defn- render-sunburst-texture
-  "Append the paper-texture overlay layer, bound to the same nodes as the arc
-  layer so their shared `current` coords keep both aligned through zooms. Purely
-  decorative, so it's hidden from assistive tech and ignores pointer events."
-  [svg root]
-  (-> svg
-      (.append "g")
-      (.attr "class" "hyponym-sunburst__texture")
-      (.attr "aria-hidden" "true")
-      (.attr "pointer-events" "none")
-      (.selectAll "path")
-      (.data (.slice (.descendants root) 1))
-      (.join "path")
-      (.attr "fill" "url(#sunburst-paper)")
-      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-current d)) 1 0)))
-      (.attr "d" (fn [d] (sunburst-arc (.-current d))))))
 
 (defn- render-sunburst-labels
   "Append the arc-label layer for `root`'s descendants and return the selection;
@@ -1261,7 +1234,6 @@
                                         "Gå til dette synset"
                                         "Go to this synset")))
           svg           (create-sunburst-svg elem aria-label)
-          _             (append-paper-pattern! svg)
           focus         (atom root)
           centre-label  (-> svg
                             (.append "text")
@@ -1269,7 +1241,6 @@
                             (.attr "fill" "#333")
                             (.attr "text-anchor" "middle"))
           path          (render-sunburst-arcs svg root)
-          texture-path  (render-sunburst-texture svg root)
           label         (render-sunburst-labels svg root)
           ;; Shown (faded in) only while the focus has no hyponyms to drill into.
           empty-ring    (-> svg
@@ -1327,6 +1298,8 @@
                                (reverse (.ancestors p))))))
               (zoom-to [p]
                 (reset! focus p)
+                ;; Snap arc colours to the new focus (tweening hues would go muddy).
+                (.attr path "fill" (fn [d] (sunburst-colour p d)))
                 (render-centre! p)
                 (.attr centre-label "text-decoration" "none")
                 (let [root? (identical? p root)]
@@ -1352,16 +1325,10 @@
                                          (fn [x] (set! (.-current d) (i x))))))
                       (.filter (fn [d] (this-as this (or (visible-now? this)
                                                          (arc-visible? (.-target d))))))
-                      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-target d)) 1 0)))
+                      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-target d)) (band-opacity (.-target d)) 0)))
                       (.attr "pointer-events" (fn [d] (if (arc-visible? (.-target d)) "auto" "none")))
                       ;; Keep tab order in step with visibility: only on-screen arcs are focusable.
                       (.attr "tabindex" (fn [d] (if (arc-visible? (.-target d)) 0 nil)))
-                      (.attrTween "d" (fn [d] (fn [] (sunburst-arc (.-current d))))))
-                  (-> texture-path
-                      (.filter (fn [d] (this-as this (or (visible-now? this)
-                                                         (arc-visible? (.-target d))))))
-                      (.transition t)
-                      (.attr "fill-opacity" (fn [d] (if (arc-visible? (.-target d)) 1 0)))
                       (.attrTween "d" (fn [d] (fn [] (sunburst-arc (.-current d))))))
                   (-> label
                       (.filter (fn [d] (this-as this (or (visible-now? this)
