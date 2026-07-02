@@ -995,7 +995,7 @@
   "Render sense `parts` stacked one per line and vertically centred in the
   `text-sel` <text> element, with a faded `.subject-label-separator` dot trailing
   every line but the last — the radial's grey separator, adapted to the narrow
-  centre where senses can't sit inline. When `link?`, a matching grey ↪ is
+  centre where senses can't sit inline. When `link?`, a matching grey → is
   prepended to the first line, marking the centre as a navigable reference."
   [text-sel parts link?]
   (-> text-sel (.selectAll "tspan") (.remove))
@@ -1013,7 +1013,7 @@
           (-> row
               (.append "tspan")
               (.attr "class" "subject-label-separator")
-              (.text "↪ ")))
+              (.text "→ ")))
         (-> row (.append "tspan") (.text part))
         (when (< i (dec n))
           (-> row

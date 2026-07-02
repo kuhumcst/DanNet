@@ -51,7 +51,7 @@
     /* TYPOGRAPHY */
     --font-family: Georgia, serif;
     --letter-spacing-base: 0.2ch;
-    --line-height-prose: 1.6;
+    --line-height-prose: 1.8;
     
     /* Font size scale */
     --font-size-xs: 12px;
@@ -257,18 +257,8 @@ h2 {
     margin: var(--spacing-xxl) 0 var(--spacing-l) 0;
 }
 
-h2::before {
-    content: "⊱ ";
-    opacity: var(--opacity-decorative);
-}
-
-h2::after {
-    content: " ⊰";
-    opacity: var(--opacity-decorative);
-}
-
 h3 {
-    font-size: var(--font-size-m-l);
+    font-size: var(--font-size-l);
     text-align: left;
     border-bottom: var(--normal-border);
     margin: var(--spacing-xxl) 0 var(--spacing-m) 0;
@@ -359,7 +349,7 @@ dl.search-results dt .set__content sub {
 dl.search-results > div {
     transition: transform var(--transition-fast);
     cursor: pointer;
-    padding: var(--spacing-xl) var(--spacing-l);
+    padding: var(--spacing-m);
     margin-bottom: var(--spacing-xxl);
     background-color: rgba(255, 255, 255, 1);
     border: var(--normal-border);
@@ -368,13 +358,14 @@ dl.search-results > div {
 
 dl.search-results > div:hover,
 dl.search-results > div:focus-visible {
-    transform: scale(102%);
+    border-color: var(--color-dark);
 }
 
 /* Reset dt/dd spacing — handled by the wrapping div. */
 dl.search-results dt {
-    padding: 0;
+    padding: 0 0 var(--spacing-m) 0;
     margin: 0;
+    border-bottom: var(--subtle-border);
 }
 
 /* Cancel global dd + dt rule inside result divs. */
@@ -384,7 +375,7 @@ dl.search-results dd + dt {
 
 dl.search-results dd {
     padding: 0;
-    margin: var(--spacing-l) 0 0 var(--spacing-m); /* reset global dd margins */
+    margin: var(--spacing-m) 0 0 0; /* reset global dd margins */
 }
 
 ul.synset-summary {
@@ -395,16 +386,16 @@ ul.synset-summary {
         var(--spacing-xs)
         var(--spacing-xs)
         var(--spacing-xs)
-        var(--spacing-l);
+        var(--spacing-m);
     font-size: var(--font-size-m);
     margin: 0;
-    border-left: 6px solid var(--color-dannet);
+    border-left: var(--spacing-l) solid var(--color-dannet);
 }
 
 /* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
 .rdf-resource ul.synset-summary { box-shadow: none; }
 section.subentity:has(ul.synset-summary) {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-m);
     background-color: rgba(255, 255, 255, 1);
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
@@ -604,7 +595,7 @@ article.document {
     flex-direction: column;
     justify-content: center;
     max-width: var(--content-max-width-narrow);
-    font-size: var(--font-size-m-l);
+    font-size: var(--font-size-m);
 }
 
 article.document > div {
@@ -687,17 +678,22 @@ article.document a:hover {
 }
 
 /* Styles affecting images in the root of the document. */
+article.document > div > table,
 article.document > div > img,
 article.document > div > p > img,
 article.document > div > p > a > img {
-    max-width: 80%;
+    max-width: 90%;
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 
     /* Centering */
     display: block;
-    margin: 0 auto;
+    margin: var(--spacing-l) auto;
 }
+article.document > div > table:not(code) {
+    line-height: 1.6;
+}
+
 
 article.document ul {
     line-height: var(--line-height-prose);
@@ -1567,10 +1563,11 @@ abbr.pos-label {
 
 /* Mode radio group (Relations / Hyponyms / Ortho-hyponyms), centred in the toolbar grid. */
 fieldset.viz-mode-toggle {
-    margin: 0;
+    margin: var(--spacing-xs);
     padding: 0;
     border: none;
     text-align: center;
+    line-height: var(--line-height-prose);
 }
 
 /* Legend kept for screen-reader grouping, hidden for sighted users. */
@@ -1839,7 +1836,7 @@ svg.hyponym-sunburst-diagram__svg {
 
     /* Match the radial legend's typographic language. */
     font-variant: small-caps;
-    font-size: var(--font-size-m-l);
+    font-size: var(--font-size-m);
 }
 
 /* Down-arrow separators between breadcrumb steps (root → … → current). */
@@ -2433,6 +2430,8 @@ span.render-error {
     td.attr-name > [lang]:not(footer, h1 span, article)::after {
         content: "";
     }
+
+    ul.synset-summary,
     td {
         font-size: var(--font-size-s);
     }
@@ -2514,5 +2513,10 @@ span.render-error {
     }
     .radial-item:not(.radial-item--subject) {
         font-size: var(--font-size-m-xl);
+    }
+
+
+    h1, h2 {
+        font-size: var(--font-size-l);
     }
 }
