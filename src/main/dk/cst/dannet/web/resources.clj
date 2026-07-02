@@ -85,7 +85,7 @@
     (tel/trace! {:id      :dannet.graph/build-db
                  :run-val :elided
                  :data    {:opts opts}}
-      (bootstrap/->dannet opts))))
+                (bootstrap/->dannet opts))))
 
 (defonce db
   (delay (build-db! false)))
@@ -557,7 +557,10 @@
     :entity - entity without the fully covered superproperty relations
     :folded - {surviving relation -> set of removed superproperties}"
   [k->supers entity]
-  (let [->set   (fn [v] (if (coll? v) (set v) #{v}))
+  (let [->set   (fn [v] (cond
+                          (set? v) v
+                          (coll? v) (set v)
+                          :else #{v}))
         subs-of (reduce (fn [m k]
                           (reduce (fn [m q]
                                     (if (contains? entity q)
@@ -570,8 +573,11 @@
         pruned  (set (for [[q subs] subs-of
                            :let [covered (reduce #(into %1 (->set (entity %2)))
                                                  #{}
-                                                 subs)]
-                           :when (every? covered (->set (entity q)))]
+                                                 subs)
+                                 qv      (entity q)]
+                           :when (if (coll? qv)
+                                   (every? covered qv)
+                                   (contains? covered qv))]
                        q))
         folded  (reduce (fn [m q]
                           (reduce (fn [m k]
@@ -584,6 +590,35 @@
                         pruned)]
     {:entity (apply dissoc entity pruned)
      :folded folded}))
+
+(defn- prune-embedded-entities
+  "Apply 'prune-entailed-superproperties' to the blank node entity maps
+  embedded as metadata on symbols using `k->supers` within `entity` values.
+
+  Each pruned inner entity retains its own :folded map as metadata, which is
+  read by the frontend when rendering nested attr-val tables (see issue #195)."
+  [k->supers entity]
+  (let [prune-sym (fn [x]
+                    (if-let [m (and (symbol? x) (not-empty (meta x)))]
+                      (let [{inner  :entity
+                             folded :folded} (prune-entailed-superproperties
+                                               k->supers m)]
+                        (if (not-empty folded)
+                          (with-meta x (with-meta inner {:folded folded}))
+                          x))
+                      x))
+        prune-val (fn [v]
+                    (cond
+                      (symbol? v) (prune-sym v)
+
+                      ;; Values without blank nodes -- e.g. large collections
+                      ;; of synset relations -- are returned as-is rather than
+                      ;; being needlessly rebuilt.
+                      (not (and (coll? v) (some symbol? v))) v
+
+                      (set? v) (into (empty v) (map prune-sym) v)
+                      :else (with-meta (mapv prune-sym v) (meta v))))]
+    (update-vals entity prune-val)))
 
 (defn- truncate-semantic-relations
   "Truncate semantic relation values in `entity`.
@@ -619,28 +654,28 @@
 (defonce hypernym-graph
   (delay
     (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
-      (let [bg  (.getGraph (:base-model @db))
-            hg  (sim/build-hypernym-graph bg)
-            nd  (sim/node-depths hg)
-            pos (sim/synset->pos bg)]
-        {:graph           hg
-         :node-depths     nd
-         :pos             pos
-         :taxonomy        (sim/taxonomy-depths nd pos)
-         ;; children with no real hypernym; see sim/build-hypernym-graph
-         :orthogonal-only (:orthogonal-only (meta hg))
-         ;; memoized so scoring one synset against many reuses each distance map
-         :ad              (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
+                (let [bg  (.getGraph (:base-model @db))
+                      hg  (sim/build-hypernym-graph bg)
+                      nd  (sim/node-depths hg)
+                      pos (sim/synset->pos bg)]
+                  {:graph           hg
+                   :node-depths     nd
+                   :pos             pos
+                   :taxonomy        (sim/taxonomy-depths nd pos)
+                   ;; children with no real hypernym; see sim/build-hypernym-graph
+                   :orthogonal-only (:orthogonal-only (meta hg))
+                   ;; memoized so scoring one synset against many reuses each distance map
+                   :ad              (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
 
 (defonce hyponym-graph
   (delay
     (tel/trace! {:id :dannet.graph/hyponym-graph :run-val :elided}
-      (let [hypo (sim/build-hyponym-graph (:graph @hypernym-graph))]
-        {:graph            hypo
-         ;; memoized so repeated branch-size look-ups during a subtree build
-         ;; (and across requests) don't re-walk the same descendants
-         :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
-         :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
+                (let [hypo (sim/build-hyponym-graph (:graph @hypernym-graph))]
+                  {:graph            hypo
+                   ;; memoized so repeated branch-size look-ups during a subtree build
+                   ;; (and across requests) don't re-walk the same descendants
+                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
+                   :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
@@ -664,7 +699,7 @@
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
                   subject*           (cond->> (decode-query-part subject)
-                                       prefix (keyword (name prefix)))
+                                              prefix (keyword (name prefix)))
                   languages          (request->languages request)
                   qs                 (some-> (:query-string request)
                                              remove-internal-params
@@ -687,8 +722,10 @@
                   {pruned-entity :entity
                    folded        :folded}
                   (if (and truncate? (not-empty raw-entity))
-                    (prune-entailed-superproperties @superproperty-closure
-                                                    raw-entity)
+                    (-> (prune-entailed-superproperties @superproperty-closure
+                                                        raw-entity)
+                        (update :entity #(prune-embedded-entities
+                                           @superproperty-closure %)))
                     {:entity raw-entity :folded nil})
                   {:keys [truncated deferred-entity has-deferred]}
                   (if (and truncate? (not-empty pruned-entity))
@@ -876,7 +913,7 @@
 (defonce synset-rels
   (delay
     (tel/trace! {:id :dannet.graph/synset-relations :run-val :elided}
-      (find-synset-relations (:graph @db)))))
+                (find-synset-relations (:graph @db)))))
 
 ;; Expose the similarity metrics as dnf:path / dnf:lch / dnf:wup SPARQL
 ;; functions. The context above is derefed lazily, on the first call.
@@ -1100,7 +1137,7 @@
           words  (q/run g '[?writtenRep] op/written-representations)
           lwords (map (partial map shared/search-string) words)]
       (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
-        (apply trie/make-trie (map str (mapcat concat lwords words)))))))
+                  (apply trie/make-trie (map str (mapcat concat lwords words)))))))
 
 (defn autocomplete
   "Return auto-completions for `s` found in the graph."

@@ -335,9 +335,10 @@
 
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
-      ;; NOTE: we don't mark tables as it is clear that they are blank nodes.
+      ;; Nested tables use the embedded entity's own folded relations (attached
+      ;; as metadata by the backend) rather than the outer entity's, cf. #195.
       table-component
-      (table-component opts m))))
+      (table-component (assoc opts :folded (:folded (meta m))) m))))
 
 (rum/defc list-item
   "A list item element of a 'list-cell'."

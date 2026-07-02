@@ -258,17 +258,38 @@
                 :supplemented supplemented
                 :ancestry     ancestry})))
 
+(defn- embedded-resources
+  "Collect keyword resources (predicates and objects) found in the blank node
+  entity maps attached as metadata on symbols within `entity` values."
+  [entity]
+  (let [->coll #(if (coll? %) % [%])]
+    (into #{}
+          (comp (mapcat ->coll)
+                (filter symbol?)
+                (keep meta)
+                (mapcat (fn [m] (concat (keys m) (mapcat ->coll (vals m)))))
+                (filter keyword?))
+          (vals entity))))
+
 (defn- expanded-entity*
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
   (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
-    (let [entity* (with-meta (->> (basic-entity result)
-                                  (weighted-relations)
-                                  (attach-blank-nodes g subject))
-                             (cond-> {:entities (other-entities result)
-                                      :subject  subject}
-                               (instance? BaseInfGraph g)
-                               (assoc :inferred (inferred-entity result (find-raw g subject)))))]
+    (let [entity+   (->> (basic-entity result)
+                         (weighted-relations)
+                         (attach-blank-nodes g subject))
+          entities  (other-entities result)
+          ;; Labels for resources inside blank node entity maps are not part
+          ;; of the expanded entity query, so they are fetched separately for
+          ;; use in the nested attr-val tables.
+          entities+ (merge entities
+                           (resource-labels
+                             g (remove entities (embedded-resources entity+))))
+          entity*   (with-meta entity+
+                               (cond-> {:entities entities+
+                                        :subject  subject}
+                                 (instance? BaseInfGraph g)
+                                 (assoc :inferred (inferred-entity result (find-raw g subject)))))]
       (if (shared/dn-synset? subject entity*)
         (supplement-synset g entity* subject)
         entity*))
