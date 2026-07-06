@@ -411,7 +411,6 @@ ul.synset-summary > li.summary-main:not(:last-child) {
 
 /* Dictionary-style usage examples inside the synset summary. */
 ul.synset-summary li.sense-example {
-    color: var(--color-subtle);
     font-size: var(--font-size-s);
     list-style-type: "↪";
     margin-left: var(--spacing-xl);
@@ -421,25 +420,18 @@ ul.synset-summary li.sense-example {
 ul.synset-summary li.sense-example:nth-child(2) { margin-top: var(--spacing-m); }
 
 ul.synset-summary li.sense-example::marker {
-    color: var(--color-dark);
+    color: var(--color-subtle);
 }
 
-/*ul.synset-summary li.sense-example::before {
-    content: "↪ ";
-}*/
-
 ul.synset-summary li.sense-example strong {
-    color: var(--color-dark);
-    font-weight: normal;
+    font-weight: bold;
     text-decoration: underline;
     text-decoration-style: dashed;
     text-underline-offset: var(--spacing-xs);
 }
 
 ul.synset-summary li.sense-example + li[property="dns:ontologicalType"] {
-    border-top: var(--subtle-border);
-    padding-top: var(--spacing-s);
-    margin-top: var(--spacing-l);
+    margin-top: var(--spacing-m);
 }
 
 /* Generic dictionary entry-style badge for summary components,
@@ -448,19 +440,15 @@ span.summary-badge {
     margin-left: auto;
     font-size: var(--font-size-xs);
     border: 1px solid var(--color-subtle);
-    border-radius: 4px;
-    padding: 1px var(--spacing-xs);
-    white-space: nowrap;
-    opacity: 0.66;
+    border-radius: var(--border-radius-s);
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    text-align: center;
 }
 
 span.summary-badge:hover {
-    opacity: 1;
+    border: 1px solid var(--color-dark);
 }
 
-span.summary-badge a::after {
-    display: none;
-}
 
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
 dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
