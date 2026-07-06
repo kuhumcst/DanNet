@@ -607,8 +607,19 @@
   [detail-level]
   (case detail-level
     :basic (constantly nil)
-    :high (let [label-keys label-keys-full]
-            #(get-entity-label label-keys %))
+    ;; NOTE: dns:shortLabel values are also inferred as rdfs:label values
+    ;; (via skos:altLabel), so the short values must be excluded from the
+    ;; label set to actually surface the full/detailed label.
+    :high (fn [entity]
+            (let [label (get-entity-label label-keys-full entity)
+                  short (setify (:dns/shortLabel entity))]
+              (if-let [full (and (seq short)
+                                 (not-empty
+                                   (into #{} (remove short) (setify label))))]
+                (if (= 1 (count full))
+                  (first full)
+                  full)
+                label)))
     (let [label-keys label-keys-short]
       #(get-entity-label label-keys %))))
 
