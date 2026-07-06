@@ -206,7 +206,7 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label class link-href attr-key] :as opts}]
+  [resource {:keys [languages k->label class link-href link-title attr-key] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
           label  (i18n/select-label languages labels)
@@ -218,7 +218,7 @@
                    (dissoc opts :attr-key)
                    opts)]
       [:a (cond-> {:href  (or link-href (prefix/resolve-href resource))
-                   :title (str prefix ":" (name resource))
+                   :title (or link-title (str prefix ":" (name resource)))
                    :lang  (i18n/lang label)
                    :class (or class (get prefix/prefix->class prefix "unknown"))}
             ;; Add RDFa :resource when rendering a value to complete the triple

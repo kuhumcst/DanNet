@@ -148,6 +148,70 @@
          shared/pos-abbr-en)
        pos))
 
+(defn- synset-lemmas
+  "Candidate lemmas for a synset `entity` derived from its label(s)."
+  [{:keys [rdfs/label]}]
+  (->> (shared/setify label)
+       (mapcat #(shared/sense-labels shared/synset-sep (str %)))
+       (keep #(second (re-matches shared/sense-label %)))
+       (map str/trim)
+       (remove #{shared/omitted ""})
+       (distinct)))
+
+(defn- lemma-pattern
+  "Regex matching any of the `lemmas` as (the start of) a full word, e.g. the
+  lemma 'hund' also matches inflected forms such as 'hunden' or 'hundes'."
+  [lemmas]
+  (let [alternation (->> (sort-by count > lemmas)           ; longest match wins
+                         (map shared/re-quote)
+                         (str/join "|"))]
+    (shared/ci-pattern (str "(?<!\\p{L})(?:" alternation ")\\p{L}*"))))
+
+(defn- highlight-matches
+  "Emphasise the parts of the string `s` matching `re`."
+  [re s]
+  (into [:<>] (for [[kind segment] (shared/split-matches re s)]
+                (case kind
+                  :match [:strong segment]
+                  :text segment))))
+
+(defn- highlight-lemmas
+  "Emphasise occurrences of `lemmas` (incl. inflected forms) in the string `s`."
+  [lemmas s]
+  (if (empty? lemmas)
+    s
+    (highlight-matches (lemma-pattern lemmas) s)))
+
+(defn- example-strs
+  "The usage examples in a synset `subentity` as [property example] pairs.
+  DanNet synsets are supplemented with lexinfo:senseExample gathered from their
+  senses, while the OEWN attaches wn:example blank nodes directly to synsets."
+  [{:keys [lexinfo/senseExample wn/example]}]
+  (cond
+    senseExample
+    (for [ex (sort-by str (shared/setify senseExample))]
+      ["lexinfo:senseExample" ex])
+
+    example
+    (for [ex (->> (shared/setify example)
+                  (keep (comp first :rdf/value meta))       ; blank node values
+                  (sort-by str))]
+      ["wn:example" ex])))
+
+(rum/defc synset-examples
+  "Usage examples in `subentity`, rendered dictionary-style as list items with
+  the lemmas of the synset highlighted within the example text."
+  [subentity {:keys [entity] :as opts}]
+  (let [lemmas (synset-lemmas entity)]
+    (for [[property ex] (example-strs subentity)]
+      [:li.sense-example {:key      (str ex)
+                          :property property
+                          :title    property
+                          :lang     (i18n/lang ex)}
+       (error/try-render
+         (highlight-lemmas lemmas (str ex))
+         (str ex))])))
+
 (rum/defc synset-summary
   [{:keys [wn/lexfile dns/ontologicalType] :as subentity}
    {:keys [languages entity] :as opts}]
@@ -158,8 +222,8 @@
                                           (some->> entity :wn/partOfSpeech name)))
         ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
         lexfile' (or lexfile (:dc/subject entity))]
-    [:ul.synset-summary
-     [:li
+    [:ul.synset-summary {:typeof "ontolex:LexicalConcept"}
+     [:li.summary-main
       (when pos
         [:abbr.pos-label (cond-> {:title (if lexfile'
                                            (str lexfile' " (wn:lexfile)")
@@ -181,7 +245,9 @@
           [:span {:property "wn:definition"
                   :title    "wn:definition"}
            (error/try-render
-             (rdf/blank-node opts (meta definition)))]))]
+             (rdf/blank-node opts (meta definition)))]))
+      (:badge opts)]
+     (synset-examples subentity opts)
      (when ontologicalType
        [:li {:property "dns:ontologicalType"
              :title    "dns:ontologicalType"}
@@ -189,10 +255,28 @@
           (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
                           (meta ontologicalType)))])]))
 
+(rum/defc summary-badge
+  "Generic dictionary entry-style badge for use in summary components.
+  RDFa/mouseover `attrs` (:property + :title) should indicate the attribute
+  that the badge `content` was pulled from."
+  [attrs & content]
+  (into [:span.summary-badge attrs] content))
+
+(rum/defc shape-badge
+  "Discreet badge displaying the rdf:type `shape` behind a custom summary
+  component, since such components otherwise hide the type of the resource."
+  [shape opts]
+  (summary-badge {:property "rdf:type"
+                  :title    "rdf:type"}
+                 (rdf/entity-link shape (assoc opts :link-title "rdf:type"))))
+
 (rum/defc synset-header-content
   [subentity opts]
-  [:<>
-   (synset-summary subentity opts)])
+  ;; The shape badge is passed as an opt since the search page reuses the
+  ;; synset summary component, but shouldn't display a badge for every result.
+  (synset-summary subentity (assoc opts :badge (shape-badge
+                                                 :ontolex/LexicalConcept
+                                                 opts))))
 
 (rum/defc semantic-relations-content
   [title subentity {:keys [languages] :as opts}]

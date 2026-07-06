@@ -365,7 +365,6 @@ dl.search-results > div:focus-visible {
 dl.search-results dt {
     padding: 0 0 var(--spacing-m) 0;
     margin: 0;
-    border-bottom: var(--subtle-border);
 }
 
 /* Cancel global dd + dt rule inside result divs. */
@@ -381,12 +380,7 @@ dl.search-results dd {
 ul.synset-summary {
     line-height: 1.5;
     list-style-type: none;
-    max-width: fit-content;
-    padding:
-        var(--spacing-xs)
-        var(--spacing-xs)
-        var(--spacing-xs)
-        var(--spacing-m);
+    padding: 0 0 0 var(--spacing-m);
     font-size: var(--font-size-m);
     margin: 0;
     border-left: var(--spacing-l) solid var(--color-dannet);
@@ -402,8 +396,70 @@ section.subentity:has(ul.synset-summary) {
     margin: 0 auto;
 }
 
-ul.synset-summary> li:has(abbr.pos-label) {
+/* The main line of a summary lays out its parts (e.g. PoS + definition) in a
+   flex row; any summary badges are pushed to the far right side. */
+ul.synset-summary > li.summary-main {
     display: flex;
+    align-items: first baseline;
+    gap: var(--spacing-xs);
+}
+
+ul.synset-summary > li.summary-main:not(:last-child) {
+    border-bottom: var(--subtle-border);
+    padding-bottom: var(--spacing-s);
+}
+
+/* Dictionary-style usage examples inside the synset summary. */
+ul.synset-summary li.sense-example {
+    color: var(--color-subtle);
+    font-size: var(--font-size-s);
+    list-style-type: "↪";
+    margin-left: var(--spacing-xl);
+    padding-left: var(--spacing-s);
+}
+
+ul.synset-summary li.sense-example:nth-child(2) { margin-top: var(--spacing-m); }
+
+ul.synset-summary li.sense-example::marker {
+    color: var(--color-dark);
+}
+
+/*ul.synset-summary li.sense-example::before {
+    content: "↪ ";
+}*/
+
+ul.synset-summary li.sense-example strong {
+    color: var(--color-dark);
+    font-weight: normal;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-underline-offset: var(--spacing-xs);
+}
+
+ul.synset-summary li.sense-example + li[property="dns:ontologicalType"] {
+    border-top: var(--subtle-border);
+    padding-top: var(--spacing-s);
+    margin-top: var(--spacing-l);
+}
+
+/* Generic dictionary entry-style badge for summary components,
+   e.g. displaying the (otherwise hidden) rdf:type of a summary. */
+span.summary-badge {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    border: 1px solid var(--color-subtle);
+    border-radius: 4px;
+    padding: 1px var(--spacing-xs);
+    white-space: nowrap;
+    opacity: 0.66;
+}
+
+span.summary-badge:hover {
+    opacity: 1;
+}
+
+span.summary-badge a::after {
+    display: none;
 }
 
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
@@ -1486,7 +1542,7 @@ span.marker {
 .synset-diagram-container aside.synset-diagram__metadata {
     display: flex;
     align-items: center;
-    border-right: var(--normal-border);
+    border-right: var(--subtle-border);
     margin: 0;
     padding-right: var(--spacing-m);
     max-width: 20vw;
@@ -1498,7 +1554,7 @@ span.marker {
 }
 
 .synset-diagram-container footer.synset-diagram__footer {
-    border-top: var(--normal-border);
+    border-top: var(--subtle-border);
     margin-top: var(--spacing-m);
     padding-top: var(--spacing-l);
 }
@@ -1509,7 +1565,8 @@ abbr.pos-label {
     font-weight: bold;
     padding: 0 var(--spacing-s) 0 0;
     margin-right: var(--spacing-m);
-    border-right: var(--normal-border);
+    border-right: var(--subtle-border);
+    align-self: stretch;
 }
 
 .synset-diagram-container .synset-diagram__definition {
@@ -1534,7 +1591,7 @@ abbr.pos-label {
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     margin-bottom: var(--spacing-s);
-    border-bottom: var(--normal-border);
+    border-bottom: var(--subtle-border);
 }
 
 .synset-diagram__toolbar > .viz-mode-toggle {
@@ -1632,7 +1689,7 @@ fieldset.radial-tree-legend {
     margin: 0;
     border: none;
 
-    border-left: var(--normal-border);
+    border-left: var(--subtle-border);
 }
 
 fieldset.radial-tree-legend ul {
@@ -2337,7 +2394,7 @@ span.render-error {
     }
     fieldset.radial-tree-legend {
         border-left: none;
-        border-top: var(--normal-border);
+        border-top: var(--subtle-border);
     }
     fieldset.radial-tree-legend ul {
         columns: 3;
@@ -2392,7 +2449,7 @@ span.render-error {
     #content.full-screen aside.synset-diagram__metadata {
         order: 3;
         border-right: none;
-        border-top: var(--normal-border);
+        border-top: var(--subtle-border);
         max-width: none;
         margin: 0;
         padding: var(--spacing-l) 0 0 0;

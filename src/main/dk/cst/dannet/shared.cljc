@@ -222,6 +222,48 @@
   (when x
     (if (set? x) x #{x})))
 
+(defn re-quote
+  "Escape regex special characters in `s` (a CLJC-safe Pattern/quote)."
+  [s]
+  (str/replace s #"[.*+?^${}()|\[\]\\]" "\\\\$0"))
+
+(defn ci-pattern
+  "Compile pattern string `s` into a case-insensitive, unicode-aware regex."
+  [s]
+  #?(:clj  (re-pattern (str "(?iu)" s))
+     :cljs (js/RegExp. s "iu")))
+
+(defn- match-bounds
+  "Return [start end] index pairs for every match of `re` in string `s`.
+  This is the only part of regex splitting requiring platform-specific code."
+  [re s]
+  #?(:clj  (let [m (re-matcher re s)]
+             (loop [bounds []]
+               (if (.find m)
+                 (recur (conj bounds [(.start m) (.end m)]))
+                 bounds)))
+     :cljs (let [flags (cond-> (.-flags re)
+                         (not (.-global re)) (str "g"))
+                 re'   (js/RegExp. (.-source re) flags)]
+             (loop [bounds []]
+               (if-let [m (.exec re' s)]
+                 (recur (conj bounds [(.-index m)
+                                      (+ (.-index m) (count (aget m 0)))]))
+                 bounds)))))
+
+(defn split-matches
+  "Split `s` into segments of [:text s]/[:match s] according to regex `re`.
+  Unlike str/split, the matched segments are retained in the output."
+  [re s]
+  (let [indices (concat [0] (apply concat (match-bounds re s)) [(count s)])
+        spans   (partition 2 1 indices)
+        kinds   (cycle [:text :match])]
+    (->> (map (fn [kind [start end]]
+                [kind (subs s start end)])
+              kinds
+              spans)
+         (filterv (comp seq second)))))
+
 (defn sense-labels*
   "Split a `synset` label into sense labels. Work for both old and new formats."
   [sep label]

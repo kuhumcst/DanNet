@@ -3,7 +3,32 @@
             [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
-(defmulti defined-sections :rdf/type)
+(def core-shapes
+  "The core OntoLex shapes that have custom section definitions."
+  #{:ontolex/LexicalConcept
+    :ontolex/LexicalSense
+    :ontolex/LexicalEntry
+    :ontolex/Word
+    :ontolex/MultiwordExpression})
+
+(def shape-hierarchy
+  "Hierarchy used to dispatch subclasses of the core OntoLex shapes,
+  e.g. DanNet words are ontolex:Word while the OEWN just uses
+  ontolex:LexicalEntry directly."
+  (-> (make-hierarchy)
+      (derive :ontolex/Word :ontolex/LexicalEntry)
+      (derive :ontolex/MultiwordExpression :ontolex/LexicalEntry)))
+
+(defn shape-dispatch
+  "Return the core shape of `entity` based on its rdf:type (or :default).
+  Handles both single keyword and collection values for rdf:type."
+  [{:keys [rdf/type] :as entity}]
+  (if (coll? type)
+    (or (some core-shapes type)
+        :default)
+    type))
+
+(defmulti defined-sections shape-dispatch :hierarchy #'shape-hierarchy)
 
 (def lexical-title
   #{(->LangStr "Lexical context" "en")
@@ -84,16 +109,56 @@
     :ontolex/lexicalizedSense
     :ontolex/isLexicalizedSenseOf]])
 
+(def synset-lexical-section
+  "Like `lexical-section`, but omitting the usage examples which are instead
+  displayed as part of the synset summary."
+  (let [[title ks] lexical-section]
+    [title (vec (remove #{:lexinfo/senseExample :wn/example} ks))]))
+
 (defmethod defined-sections :ontolex/LexicalConcept
   [entity]
   [[nil [:rdf/type                                          ; needed, not shown
          :skos/definition
          :wn/definition                                     ; used by OEWN
          :wn/lexfile
-         :dns/ontologicalType]]
+         :dns/ontologicalType
+         :lexinfo/senseExample                              ; supplemented (DanNet)
+         :wn/example]]                                      ; used by OEWN
    semantic-section
-   lexical-section
+   synset-lexical-section
    cross-link-section])
+
+(defmethod defined-sections :ontolex/LexicalSense
+  [entity]
+  [[nil [:rdf/type
+         :skos/definition
+         :lexinfo/senseExample
+         :skos/note]]
+   semantic-section                                         ; OEWN sense-level rels
+   [lexical-title [:ontolex/isLexicalizedSenseOf
+                   :ontolex/isSenseOf
+                   :dns/sentiment]]
+   [cross-link-title [:dns/source                           ; DDO deep link
+                      :owl/sameAs]]])
+
+(defmethod defined-sections :ontolex/LexicalEntry
+  [entity]
+  ;; Also covers ontolex:Word and ontolex:MultiwordExpression (DanNet) through
+  ;; `shape-hierarchy`; the OEWN types its entries as ontolex:LexicalEntry.
+  [[nil [:rdf/type
+         :lexinfo/partOfSpeech
+         :wn/partOfSpeech
+         :dns/gender]]
+   semantic-section
+   [lexical-title [:ontolex/canonicalForm
+                   :ontolex/otherForm
+                   :ontolex/lexicalForm
+                   :ontolex/writtenRep
+                   :lexinfo/morphosyntacticProperty
+                   :ontolex/sense
+                   :ontolex/evokes]]
+   [cross-link-title [:owl/sameAs
+                      :dns/source]]])
 
 (defmethod defined-sections :default
   [entity]
