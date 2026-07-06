@@ -45,7 +45,7 @@
         "Relations diagram for the current synset")]]))
 
 (rum/defc hyponym-sunburst-diagram
-  [tree {:keys [languages sunburst-nav] :as opts}]
+  [tree {:keys [languages sunburst-nav sunburst-caption] :as opts}]
   [:figure.hyponym-sunburst-diagram
    {:ref #?(:clj  nil
             :cljs (fn [elem]
@@ -54,9 +54,10 @@
    ;; Names the figure for assistive tech; the SVG itself is built in the ref
    ;; callback and also carries role="img" + a label.
    [:figcaption.visually-hidden
-    (i18n/da-en languages
-      "Hyponym-soldiagram for det aktuelle synset"
-      "Hyponym sunburst for the current synset")]])
+    (or sunburst-caption
+        (i18n/da-en languages
+          "Hyponym-soldiagram for det aktuelle synset"
+          "Hyponym sunburst for the current synset"))]])
 
 (rum/defc full-screen-toggle
   "The maximize/minimize button shared by the radial legend and the sunburst
@@ -189,25 +190,35 @@
 
 (rum/defcs synset-diagram < (rum/local nil ::nav)
   [state subentity {:keys [entity languages full-screen hyponym-tree
-                           orthogonal-hyponym-tree] :as opts}]
+                           orthogonal-hyponym-tree meronym-tree] :as opts}]
   (let [hyponym-available? (boolean (:children hyponym-tree))
         ortho-available?   (boolean (:children orthogonal-hyponym-tree))
+        meronym-available? (boolean (:children meronym-tree))
         ;; Fall back to the radial when the selected sunburst has nothing to show.
         mode               (case (get-in opts shared/diagram-mode-path)
                              :sunburst-orthogonal (if ortho-available?
                                                     :sunburst-orthogonal
                                                     :radial)
+                             :sunburst-meronym (if meronym-available?
+                                                 :sunburst-meronym
+                                                 :radial)
                              :sunburst (if hyponym-available? :sunburst :radial)
                              :radial)
         tree               (case mode
                              :sunburst-orthogonal orthogonal-hyponym-tree
+                             :sunburst-meronym meronym-tree
                              :sunburst hyponym-tree
                              nil)
         sunburst?          (some? tree)
         ;; Component-local breadcrumb atom: the sunburst builder writes the zoom
         ;; trail to it and the history legend reacts to it, so the two share
         ;; state without a module-global (and a fresh diagram starts clean).
-        opts               (assoc opts :sunburst-nav (::nav state))
+        opts               (cond-> (assoc opts :sunburst-nav (::nav state))
+                             (= mode :sunburst-meronym)
+                             (assoc :sunburst-caption
+                                    (i18n/da-en languages
+                                      "Meronym-soldiagram for det aktuelle synset"
+                                      "Meronym sunburst for the current synset")))
         set-mode!          (fn [mode]
                              (fn [_] (swap! shared/state assoc-in
                                             shared/diagram-mode-path mode)))]
@@ -237,7 +248,14 @@
                    :name      "viz-mode"
                    :checked   (= mode :sunburst-orthogonal)
                    :on-change (set-mode! :sunburst-orthogonal)}]
-          (i18n/da-en languages "orto-underbegreber" "ortho-hyponyms")])]
+          (i18n/da-en languages "orto-underbegreber" "ortho-hyponyms")])
+       (when meronym-available?
+         [:label
+          [:input {:type      "radio"
+                   :name      "viz-mode"
+                   :checked   (= mode :sunburst-meronym)
+                   :on-change (set-mode! :sunburst-meronym)}]
+          (i18n/da-en languages "dele" "parts")])]
       (full-screen-toggle opts)]
      [:div.synset-diagram__body
       (when full-screen

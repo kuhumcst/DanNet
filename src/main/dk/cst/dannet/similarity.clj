@@ -72,6 +72,30 @@
                (transient {})
                hg)))
 
+(defn build-meronym-graph
+  "Build the {whole #{parts}} meronym adjacency map from base graph `g`.
+
+  Merges every part-whole subtype (part/member/substance/location). `mero_*`
+  points whole->part while `holo_*` points part->whole; the two directions are
+  asserted independently in the source data, so a complete parts graph needs
+  the union of `mero_*` and inverted `holo_*` edges."
+  [g]
+  (let [adjacency (fn [pred whole-var part-var]
+                    ;; {whole #{parts}} for a single predicate over `g`
+                    (reduce (fn [m b]
+                              (update m (get b whole-var)
+                                      (fnil conj #{}) (get b part-var)))
+                            {}
+                            (q/run g [:bgp ['?s pred '?o]])))]
+    (apply merge-with into
+           (concat
+             (for [p [:wn/mero_part :wn/mero_member
+                      :wn/mero_substance :wn/mero_location]]
+               (adjacency p '?s '?o))
+             (for [p [:wn/holo_part :wn/holo_member
+                      :wn/holo_substance :wn/holo_location]]
+               (adjacency p '?o '?s))))))
+
 ;; DanNet stores PoS in :wn/lexfile; OEWN synsets store it in :wn/partOfSpeech.
 (def ^:private wn-pos->pos
   {:wn/noun                "noun"

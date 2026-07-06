@@ -687,6 +687,16 @@
                    :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
                    :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
 
+(defonce meronym-graph
+  (delay
+    (tel/trace! {:id :dannet.graph/meronym-graph :run-val :elided}
+                (let [mero (sim/build-meronym-graph (.getGraph (:base-model @db)))]
+                  ;; Same shape as `hyponym-graph` so `hyponymy/hyponym-tree`
+                  ;; can build meronym sunburst trees over it unchanged.
+                  {:graph            mero
+                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count mero s)))
+                   :orthogonal-only  (constantly false)}))))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -765,7 +775,13 @@
                                            g @hyponym-graph languages
                                            root-filter subject*)))
                   hyponym            (->tree (complement orthogonal-only))
-                  orthogonal-hyponym (->tree orthogonal-only)]
+                  orthogonal-hyponym (->tree orthogonal-only)
+                  ;; Whole->part sunburst tree over the meronym graph, reusing
+                  ;; the hyponym subtree machinery unchanged.
+                  meronym            (when synset?
+                                       (hyponymy/hyponym-tree
+                                         g @meronym-graph languages
+                                         any? subject*))]
               (if (not-empty entity)
                 (assoc ctx
                   :content (-> (meta raw-entity)
@@ -780,7 +796,8 @@
                                  (not-empty folded) (assoc :folded folded)
                                  (some? hyponym) (assoc :hyponym-tree hyponym)
                                  (some? orthogonal-hyponym)
-                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)))
+                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)
+                                 (some? meronym) (assoc :meronym-tree meronym)))
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
                                (and has-deferred (not deferred?))

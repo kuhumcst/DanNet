@@ -103,9 +103,9 @@
 (def diagram-mode-path
   ;; The synset section shows as a table or a diagram (`:display :selected`);
   ;; when it's a diagram, `:diagram-mode` picks which one (:radial, :sunburst,
-  ;; or :sunburst-orthogonal). Co-located under :display so the relationship
-  ;; is clear in `state`, reachable via `opts` (state is merged in) and reset
-  ;; to :radial on a full page load.
+  ;; :sunburst-orthogonal, or :sunburst-meronym). Co-located under :display so
+  ;; the relationship is clear in `state`, reachable via `opts` (state is
+  ;; merged in) and reset to :radial on a full page load.
   [:section section/semantic-title :display :diagram-mode])
 
 (def windows?
