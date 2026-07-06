@@ -1,0 +1,8 @@
+;; Known SHACL violation counts per property shape (see shapes/base.ttl) against the
+;; live asserted graph -- the accepted status quo, recorded 2026-07-03 after
+;; scoping all shapes to the dn: namespace (the previously recorded 64
+;; label-less synsets turned out to belong to OEWN and are no longer targeted).
+;;
+;; Counts EXCEEDING these values indicate a regression (validate-db logs :error).
+;; Counts below them mean data was fixed: lower the value here accordingly.
+{:dns/LexicalSenseShape-label 17}
