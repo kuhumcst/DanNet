@@ -843,7 +843,7 @@
                 (let [results (look-up* (:graph @db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
-                      :redirect (ffirst results)
+                      :replace (ffirst results)
                       :redirect-params query-params)
                     (assoc ctx
                       :content {:languages      languages
