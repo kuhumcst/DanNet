@@ -79,7 +79,6 @@
   ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
                                               :or   {complete false}}]
    (let [in-dir       (partial str dir)
-         #_#_merged-ttl   (in-dir (prefix/export-file "rdf" 'dn "merged"))
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (->> (iterator-seq (.listNames ^Dataset dataset))
@@ -229,6 +228,10 @@
   ;; Export individual models
   (export-rdf-model! "export/rdf/dannet.zip" (db/get-model dataset prefix/dn-uri)
                      :prefixes (export-prefixes 'dn))
+  ;; ... with the SHACL release gate enabled, as done by export-rdf!
+  (export-rdf-model! "export/rdf/dannet.zip" (db/get-model dataset prefix/dn-uri)
+                     :prefixes (export-prefixes 'dn)
+                     :validate true)
   (export-rdf-model! "export/rdf/dds.zip" (db/get-model dataset prefix/dds-uri)
                      :prefixes (export-prefixes 'dds))
   (export-rdf-model! "export/rdf/cor.zip" (db/get-model dataset prefix/cor-uri)
@@ -242,4 +245,9 @@
   (export-rdf! @dk.cst.dannet.web.resources/db)
 
   (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
+
+  ;; Manually run the release gate against an exported dn: artifact (a plain
+  ;; .ttl on disk, i.e. before zipping); throws when the baseline is exceeded.
+  ;; export-rdf! runs this automatically for the dn: model via :validate.
+  (shapes/validate-export! "export/rdf/dannet.ttl")
   #_.)

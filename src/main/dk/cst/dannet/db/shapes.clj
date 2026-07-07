@@ -17,13 +17,12 @@
       (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            ;; Required for its side effects: registers DanNet prefixes with
-            ;; ont-app/vocabulary so that `voc/keyword-for` works in fresh JVMs.
-            [dk.cst.dannet.prefix]
+            [dk.cst.dannet.prefix]                          ; required for its side effects
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.db.transaction :as txn]
             [taoensso.telemere :as t])
-  (:import [org.apache.jena.shacl ShaclValidator Shapes]
+  (:import [org.apache.jena.rdf.model Model]
+           [org.apache.jena.shacl ShaclValidator Shapes]
            [org.apache.jena.shacl.validation ReportEntry]
            [org.apache.jena.graph Graph GraphUtil Node NodeFactory]
            [org.apache.jena.riot RDFDataMgr]
@@ -201,12 +200,12 @@
   [db]
   ;; Called async at boot from dk.cst.dannet.web.resources -- deliberately
   ;; non-fatal so a validation problem can never take the service down.
-  (let [graph  (.getGraph ^org.apache.jena.rdf.model.Model (:base-model db))
+  (let [graph (.getGraph ^Model (:base-model db))
         {:keys [violations exceeded] :as result}
         (against-baseline (txn/transact-read (:dataset db) (validate graph)))]
-    (t/log! {:level (cond (seq exceeded)            :error
+    (t/log! {:level (cond (seq exceeded) :error
                           (not (:conforms? result)) :warn
-                          :else                     :info)
+                          :else :info)
              :id    :dannet.shapes/validate
              :data  {:conforms?  (:conforms? result)
                      :violations violations
@@ -224,7 +223,7 @@
   triples. Expect this to take a long time on the full dataset."
   [db]
   (let [result (txn/transact-read (:dataset db)
-                 (validate (:graph db) @inferred-shapes))
+                                  (validate (:graph db) @inferred-shapes))
         counts (by-shape (:entries result))]
     (t/log! {:level (if (:conforms? result) :info :warn)
              :id    :dannet.shapes/validate-inferred
@@ -248,9 +247,9 @@
   (let [path (str path)
         {:keys [violations exceeded] :as result}
         (against-baseline (validate (RDFDataMgr/loadGraph path)))]
-    (t/log! {:level (cond (seq exceeded)            :error
+    (t/log! {:level (cond (seq exceeded) :error
                           (not (:conforms? result)) :warn
-                          :else                     :info)
+                          :else :info)
              :id    :dannet.shapes/validate-export
              :data  {:path       path
                      :conforms?  (:conforms? result)
@@ -262,3 +261,12 @@
                       {:path     path
                        :exceeded exceeded})))
     result))
+
+(comment
+  ;; Inspect the currently accepted violation counts.
+  @baseline
+
+  ;; The shapes and baseline are parsed once into delays, so after editing
+  ;; the .ttl shape files or the baseline EDN, reload this ns to pick them up.
+  (require 'dk.cst.dannet.db.shapes :reload)
+  #_.)

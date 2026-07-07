@@ -1490,6 +1490,26 @@
   ;; Find unlabeled senses (count: 0)
   (count (q/run (:graph @db) op/unlabeled-senses))
 
+  ;; SHACL-validate the asserted graph against base shapes + baseline.
+  ;; Logs a summary; :exceeded should be {} on a healthy system (~1 min).
+  (shapes/validate-db @db)
+
+  ;; Same, but keeping the result around for closer inspection.
+  (def validation-result (shapes/validate-db @db))
+  (shapes/by-shape (:entries validation-result))
+  (shapes/by-severity (:entries validation-result))
+
+  ;; SHACL-validate a single synset (cheap) -- e.g. against the editorial
+  ;; shapes, the same call that will eventually gate writes.
+  (require '[dk.cst.dannet.db.transaction :as txn])
+  (txn/transact-read (:dataset @db)
+                     (shapes/validate-node (.getGraph (:base-model @db))
+                                           @shapes/editorial-shapes
+                                           :dn/synset-1522))
+
+  ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.
+  (shapes/validate-inferred-db @db)
+
   ;; Testing autocompletion
   (autocomplete "sar")
   (autocomplete "spo")

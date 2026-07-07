@@ -3,12 +3,12 @@
 ;; scoping all shapes to the dn: namespace (the previously recorded 64
 ;; label-less synsets turned out to belong to OEWN and are no longer targeted).
 ;;
-;; The meronymy counts were recorded 2026-07-07 when the directionality shapes
-;; were added: 8 = four mutually-asserted pairs (reported from both ends) and
-;; 9 = pairs related by both a mero_* and a holo_* edge in the same direction.
+;; The meronymy shapes were added 2026-07-07 along with release changes
+;; (fix-meronym-directionality!) deleting all 17 violations found in the live
+;; data, so their accepted counts are 0: any nonzero count is a regression.
 ;;
 ;; Counts EXCEEDING these values indicate a regression (validate-db logs :error).
 ;; Counts below them mean data was fixed: lower the value here accordingly.
 {:dns/LexicalSenseShape-label      17
- :dns/MeronymyHierarchyShape       8
- :dns/MeronymyContradictionShape   9}
+ :dns/MeronymyHierarchyShape       0
+ :dns/MeronymyContradictionShape   0}
