@@ -162,6 +162,167 @@
       (doseq [triple bad-triples]
         (db/remove! model triple)))))
 
+(h/defn fix-cross-pos-hypernymy!
+  "Replace the dns:crossPoSHypernym bandaid relation (GitHub issue #146) with
+  proper GWA relations -- or remove it -- based on an analysis of the 72
+  distinct target synsets of the 5,636 asserted triples. The sources are all
+  adjective synsets; the targets fall into four groups:
+
+    1. quality/dimension nouns (~5,400 pairs) -> wn:attribute
+    2. genuine taxonomic hypernyms of substantivised adjectives -> wn:classified_by
+    3. mistagged verb phrases -> PoS corrected + relation restored as wn:hypernym
+    4. pertainym-like and participle-like leftovers with no GWA-valid synset
+       relation -> deleted
+
+  Only the hypernym direction is asserted in the dataset; dns:crossPoSHyponym
+  exists solely through OWL inference, so no inverse triples need removal."
+  [dataset]
+  (let [crosspos-query '[:bgp [?s :dns/crossPoSHypernym ?o]]
+
+        ;; Quality/dimension nouns of which the source adjectives express
+        ;; values, e.g. {frisk} -> {helbred} or {lavendelfarvet} -> {farve}.
+        ;; This matches the GWA definition of wn:attribute: "a relation between
+        ;; nominal and adjectival concepts where the concept A is an attribute
+        ;; of concept B" -- and mirrors how the OEWN uses the relation.
+        attribute-targets
+                       #{:dn/synset-14959                   ; {beskaffenhed; egenskab; side}
+                         :dn/synset-21666                   ; {karaktertræk; personlighedstræk}
+                         :dn/synset-21732                   ; {form}
+                         :dn/synset-21809                   ; {stilling; tilstand}
+                         :dn/synset-42030                   ; {udseende}
+                         :dn/synset-25985                   ; {dygtighed; evne; kapacitet; ...}
+                         :dn/synset-14526                   ; {sindstilstand}
+                         :dn/synset-14996                   ; {grøn; grønt}
+                         :dn/synset-14954                   ; {farve; kulør; kulørt}
+                         :dn/synset-69924                   ; {oprindelse}
+                         :dn/synset-15180                   ; {farve}
+                         :dn/synset-14978                   ; {brun}
+                         :dn/synset-8360                    ; {størrelse; udstrækning}
+                         :dn/synset-25969                   ; {dygtighed; gave}
+                         :dn/synset-21810                   ; {helbred; konstitution; ...}
+                         :dn/synset-15034                   ; {grå}
+                         :dn/synset-21697                   ; {træk}
+                         :dn/synset-14924                   ; {hårfarve}
+                         :dn/synset-68263                   ; {evne}
+                         :dn/synset-18060                   ; {tilstand}
+                         :dn/synset-68918                   ; {mål}
+                         :dn/synset-31257                   ; {vægt}
+                         :dn/synset-14244                   ; {følelse; fornemmelse}
+                         :dn/synset-21694                   ; {egenart; særpræg}
+                         :dn/synset-14871                   ; {grundfarve; primærfarve}
+                         :dn/synset-14915                   ; {hudfarve}
+                         :dn/synset-8359                    ; {omfang; udstrækning}
+                         :dn/synset-14694                   ; {lyst}
+                         :dn/synset-8365                    ; {kvantitet; mængde}
+                         :dn/synset-14914                   ; {farve; hudfarve}
+                         :dn/synset-22215                   ; {skønhed}
+                         :dn/synset-62217                   ; {mangel}
+                         :dn/synset-45419                   ; {adfærd}
+                         :dn/synset-14948                   ; {farvetone; nuance}
+                         :dn/synset-8524                    ; {grad; styrke}
+                         :dn/synset-8526                    ; {fart; hastighed}
+                         :dn/synset-57665                   ; {funktion; gang}
+                         :dn/synset-14937                   ; {purpurfarve; purpur}
+                         :dn/synset-26104                   ; {sans}
+                         :dn/synset-21827}                  ; {styrke}
+
+        ;; Genuine taxonomic hypernyms whose hyponyms are substantivised
+        ;; adjectives, e.g. {mongolsk} -> {sprog} or {hjemløs} -> {person}.
+        ;; The taxonomy is real, but plain wn:hypernym would violate the
+        ;; same-PoS restriction, so wn:classified_by is used instead.
+        classified-by-targets
+                       #{:dn/synset-8143                    ; {sprog} <- language names
+                         :dn/synset-8091                    ; {dialekt; folkemål; mundart}
+                         :dn/synset-8109                    ; {dansk; dansken}
+                         :dn/synset-7878                    ; {bandeord; ed; kraftudtryk}
+                         :dn/synset-8079                    ; {skældsord; ukvemsord}
+                         :dn/synset-48279                   ; {ansat}
+                         :dn/synset-2119                    ; {individ; menneske; person}
+                         :dn/synset-6217                    ; {medarbejder}
+                         :dn/synset-48734                   ; {forældre}
+                         :dn/synset-1478                    ; {kaffe; mokka}
+                         :dn/synset-116}]                   ; {drik; drikkevare}
+
+    ;; === 1. Adjective values of quality nouns -> wn:attribute ===
+    ;; Covers ~96% of all dns:crossPoSHypernym triples, the vast majority of
+    ;; which target {egenskab} and {karaktertræk}.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos->attribute
+             :data  {:targets (count attribute-targets)}}
+            "Converting cross-PoS hypernyms of quality nouns to wn:attribute")
+    (db/update-triples!
+      prefix/dn-uri dataset crosspos-query
+      (fn [{:syms [?s ?o]}]
+        (when (attribute-targets ?o)
+          [?s :wn/attribute ?o]))
+      (fn [{:syms [?s ?o]}]
+        (when (attribute-targets ?o)
+          [?s :dns/crossPoSHypernym ?o])))
+
+    ;; === 2. Substantivised adjectives -> wn:classified_by ===
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos->classified-by
+             :data  {:targets (count classified-by-targets)}}
+            "Converting cross-PoS hypernyms of substantivised adjectives to wn:classified_by")
+    (db/update-triples!
+      prefix/dn-uri dataset crosspos-query
+      (fn [{:syms [?s ?o]}]
+        (when (classified-by-targets ?o)
+          [?s :wn/classified_by ?o]))
+      (fn [{:syms [?s ?o]}]
+        (when (classified-by-targets ?o)
+          [?s :dns/crossPoSHypernym ?o])))
+
+    ;; === 3. Mistagged verb phrases: correct PoS, restore wn:hypernym ===
+    ;; {gøre rent} and {gøre sig til gode} are verb phrases erroneously tagged
+    ;; as adjectives (lexfile adj.ppl). With the PoS corrected, their original
+    ;; hypernym relations no longer cross a PoS boundary and can be restored.
+    ;; The new lexfiles are inherited from the respective hypernyms.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos-pos-fix
+             :data  {:synsets [:dn/synset-27764 :dn/synset-74898]}}
+            "Correcting PoS of mistagged verb phrases, restoring wn:hypernym")
+    (let [model (db/get-model dataset prefix/dn-uri)
+          g     (db/get-graph dataset prefix/dn-uri)]
+      (txn/transact-exec model
+        (doseq [triple [;; {gøre rent} -> {fjerne}
+                        [:dn/synset-27764 :dns/crossPoSHypernym :dn/synset-27703]
+                        [:dn/synset-27764 :wn/lexfile "adj.ppl"]
+                        [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/adjective]
+                        [:dn/word-11042803-23 :wn/partOfSpeech :wn/adjective]
+                        ;; {gøre sig til gode} -> {indtage}
+                        [:dn/synset-74898 :dns/crossPoSHypernym :dn/synset-637]
+                        [:dn/synset-74898 :wn/lexfile "adj.ppl"]
+                        [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/adjective]
+                        [:dn/word-11018326-23 :wn/partOfSpeech :wn/adjective]]]
+          (db/remove! model triple)))
+      (txn/transact-exec g
+        (db/safe-add! g [;; {gøre rent} -> {fjerne}
+                         [:dn/synset-27764 :wn/hypernym :dn/synset-27703]
+                         [:dn/synset-27764 :wn/lexfile "verb.motion"]
+                         [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/verb]
+                         [:dn/word-11042803-23 :wn/partOfSpeech :wn/verb]
+                         ;; {gøre sig til gode} -> {indtage}
+                         [:dn/synset-74898 :wn/hypernym :dn/synset-637]
+                         [:dn/synset-74898 :wn/lexfile "verb.consumption"]
+                         [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/verb]
+                         [:dn/word-11018326-23 :wn/partOfSpeech :wn/verb]])))
+
+    ;; === 4. Delete the remaining cross-PoS violations ===
+    ;; What is left after sections 1-3 are pertainym-like cases (e.g.
+    ;; {kvartårlig} -> {år}, {boligpolitisk} -> {boligpolitik}) and participial
+    ;; adjectives pointing at verbs (e.g. {hjelmklædt} -> {klæde}). The correct
+    ;; GWA relations (pertainym, participle) are sense-level relations, so no
+    ;; valid synset-level replacement exists; the triples are simply deleted.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos-delete}
+            "Deleting remaining pertainym/participle-like cross-PoS hypernyms")
+    (db/update-triples!
+      prefix/dn-uri dataset crosspos-query
+      (constantly nil)
+      (fn [{:syms [?s ?o]}]
+        [?s :dns/crossPoSHypernym ?o]))))
+
 (h/defn add-in-scheme!
   "Add skos:inScheme to all DanNet and COR resources (GitHub issue #175),
   mirroring how the OEWN marks scheme membership on its resources. Every URI
@@ -260,6 +421,7 @@
 
   ;; ==== The block of changes for this particular release. ====
   (fix-meronym-directionality! dataset)
+  (fix-cross-pos-hypernymy! dataset)
   (anonymize-inheritance! dataset)
   (add-in-scheme! dataset)
   (regenerate-short-labels! dataset))
