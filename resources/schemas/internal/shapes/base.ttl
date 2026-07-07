@@ -191,3 +191,60 @@ SELECT DISTINCT $this ?value WHERE {
   ?word2 ontolex:sense ?sense2 ; wn:partOfSpeech ?pos2 .
   FILTER(?pos1 != ?pos2)
 }""" .
+
+## ---------------------------------------------------------------------------
+## Meronymy (dn: synsets) — SPARQL-based semantic checks.
+## Both mero_* and holo_* directions are asserted independently in the base
+## graph, which allows two classes of directionality error (all instances
+## found in the live data are recorded in shapes-baseline.edn):
+##   1. the same relation asserted both ways (X mero_part Y, Y mero_part X)
+##   2. a mero_* and a holo_* edge between the same pair in the same
+##      direction (X mero_substance Y, X holo_part Y) -- contradictory
+##      regardless of subtype, since it makes X and Y parts of each other.
+## Split into two node shapes so the baseline can track them separately.
+## ---------------------------------------------------------------------------
+dns:MeronymyHierarchyShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:MeronymyHierarchyShape-selfMeronymy ,
+              dns:MeronymyHierarchyShape-mutualMeronymy .
+
+dns:MeronymyHierarchyShape-selfMeronymy a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "A synset must not be a meronym or holonym of itself." ;
+    sh:select """
+SELECT $this WHERE {
+  VALUES ?p { wn:mero_part wn:mero_member wn:mero_substance wn:mero_location
+              wn:holo_part wn:holo_member wn:holo_substance wn:holo_location
+              wn:meronym wn:holonym }
+  $this ?p $this .
+}""" .
+
+dns:MeronymyHierarchyShape-mutualMeronymy a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "The same part-whole relation must not be asserted in both directions between two synsets." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  VALUES ?p { wn:mero_part wn:mero_member wn:mero_substance wn:mero_location
+              wn:holo_part wn:holo_member wn:holo_substance wn:holo_location
+              wn:meronym wn:holonym }
+  $this ?p ?value .
+  ?value ?p $this .
+  FILTER(?value != $this)
+}""" .
+
+dns:MeronymyContradictionShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:MeronymyContradictionShape-meroHoloContradiction .
+
+dns:MeronymyContradictionShape-meroHoloContradiction a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "A synset must not have both a mero_* and a holo_* relation to the same synset; one of the two directions must be wrong." ;
+    sh:select """
+SELECT DISTINCT $this ?value WHERE {
+  VALUES ?m { wn:mero_part wn:mero_member wn:mero_substance wn:mero_location wn:meronym }
+  VALUES ?h { wn:holo_part wn:holo_member wn:holo_substance wn:holo_location wn:holonym }
+  $this ?m ?value .
+  $this ?h ?value .
+}""" .
