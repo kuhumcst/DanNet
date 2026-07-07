@@ -129,6 +129,269 @@
       (db/import-files dataset prefix/ili-uri [downloads/ili-path])))
   (add-open-english-wordnet-labels! dataset))
 
+(h/defn fix-cross-pos-hypernymy!
+  "Replace the dns:crossPoSHypernym bandaid relation (GitHub issue #146) with
+  proper GWA relations -- or remove it -- based on an analysis of the 72
+  distinct target synsets of the 5,636 asserted triples. The sources are all
+  adjective synsets; the targets fall into four groups:
+
+    1. quality/dimension nouns (5,413 pairs) -> wn:attribute
+    2. mistagged verb phrases (2 pairs) -> PoS corrected + restored as wn:hypernym
+    3. pertainym-like and participle-like leftovers (117 pairs) with no
+       GWA-valid synset relation -> deleted
+    4. substantivised adjectives and usage labels (104 pairs) -> retained
+       as-is, pending editorial review
+
+  Group 4 was previously converted to wn:classified_by. That was wrong: the GWA
+  relation denotes numeral classifiers (Morgado Da Costa & Bond 2016), e.g.
+  'head' classifying 'cattle'. The pairs are really three distinct phenomena --
+  substantivised adjectives, nominal idioms, and register labels on swear words
+  -- each needing a different treatment, so they are left untouched for now.
+  Retaining them is safe: dns:crossPoSHypernym is not among the
+  supported-wn-relations that the WN-LMF exporter emits.
+
+  Only the hypernym direction is asserted in the dataset; dns:crossPoSHyponym
+  exists solely through OWL inference, so no inverse triples need removal."
+  [dataset]
+  (let [crosspos-query '[:bgp [?s :dns/crossPoSHypernym ?o]]
+
+        ;; Quality/dimension nouns of which the source adjectives express
+        ;; values, e.g. {frisk} -> {helbred} or {lavendelfarvet} -> {farve}.
+        ;; This matches the GWA definition of wn:attribute: "a relation between
+        ;; nominal and adjectival concepts where the concept A is an attribute
+        ;; of concept B" -- and mirrors how the OEWN uses the relation.
+        attribute-targets
+                       #{:dn/synset-14959                   ; {beskaffenhed; egenskab; side}
+                         :dn/synset-21666                   ; {karaktertræk; personlighedstræk}
+                         :dn/synset-21732                   ; {form}
+                         :dn/synset-21809                   ; {stilling; tilstand}
+                         :dn/synset-42030                   ; {udseende}
+                         :dn/synset-25985                   ; {dygtighed; evne; kapacitet; ...}
+                         :dn/synset-14526                   ; {sindstilstand}
+                         :dn/synset-14996                   ; {grøn; grønt}
+                         :dn/synset-14954                   ; {farve; kulør; kulørt}
+                         :dn/synset-69924                   ; {oprindelse}
+                         :dn/synset-15180                   ; {farve}
+                         :dn/synset-14978                   ; {brun}
+                         :dn/synset-8360                    ; {størrelse; udstrækning}
+                         :dn/synset-25969                   ; {dygtighed; gave}
+                         :dn/synset-21810                   ; {helbred; konstitution; ...}
+                         :dn/synset-15034                   ; {grå}
+                         :dn/synset-21697                   ; {træk}
+                         :dn/synset-14924                   ; {hårfarve}
+                         :dn/synset-68263                   ; {evne}
+                         :dn/synset-18060                   ; {tilstand}
+                         :dn/synset-68918                   ; {mål}
+                         :dn/synset-31257                   ; {vægt}
+                         :dn/synset-14244                   ; {følelse; fornemmelse}
+                         :dn/synset-21694                   ; {egenart; særpræg}
+                         :dn/synset-14871                   ; {grundfarve; primærfarve}
+                         :dn/synset-14915                   ; {hudfarve}
+                         :dn/synset-8359                    ; {omfang; udstrækning}
+                         :dn/synset-14694                   ; {lyst}
+                         :dn/synset-8365                    ; {kvantitet; mængde}
+                         :dn/synset-14914                   ; {farve; hudfarve}
+                         :dn/synset-22215                   ; {skønhed}
+                         :dn/synset-62217                   ; {mangel}
+                         :dn/synset-45419                   ; {adfærd}
+                         :dn/synset-14948                   ; {farvetone; nuance}
+                         :dn/synset-8524                    ; {grad; styrke}
+                         :dn/synset-8526                    ; {fart; hastighed}
+                         :dn/synset-57665                   ; {funktion; gang}
+                         :dn/synset-14937                   ; {purpurfarve; purpur}
+                         :dn/synset-26104                   ; {sans}
+                         :dn/synset-21827}                  ; {styrke}
+
+        ;; Targets whose pairs need editorial judgement, so they survive the
+        ;; deletion in section 3. Substantivised adjectives ({mongolsk} ->
+        ;; {sprog}, {hjemløs} -> {person}) are nominal hypernymy once the PoS
+        ;; is corrected, which is a claim about Danish needing DDO evidence per
+        ;; item. Register labels ({helvedes} -> {bandeord}) are not hypernymy
+        ;; at all and are candidates for wn:exemplifies.
+        deferred-targets
+                       #{:dn/synset-8143                    ; {sprog} <- language names
+                         :dn/synset-8091                    ; {dialekt; folkemål; mundart}
+                         :dn/synset-8109                    ; {dansk; dansken}
+                         :dn/synset-7878                    ; {bandeord; ed; kraftudtryk}
+                         :dn/synset-8079                    ; {skældsord; ukvemsord}
+                         :dn/synset-48279                   ; {ansat}
+                         :dn/synset-2119                    ; {individ; menneske; person}
+                         :dn/synset-6217                    ; {medarbejder}
+                         :dn/synset-48734                   ; {forældre}
+                         :dn/synset-1478                    ; {kaffe; mokka}
+                         :dn/synset-116}                    ; {drik; drikkevare}
+
+        deferred-count 104]
+
+    ;; === 1. Adjective values of quality nouns -> wn:attribute ===
+    ;; Covers ~96% of all dns:crossPoSHypernym triples, the vast majority of
+    ;; which target {egenskab} and {karaktertræk}.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos->attribute
+             :data  {:targets (count attribute-targets)}}
+            "Converting cross-PoS hypernyms of quality nouns to wn:attribute")
+    (db/update-triples!
+      prefix/dn-uri dataset crosspos-query
+      (fn [{:syms [?s ?o]}]
+        (when (attribute-targets ?o)
+          [?s :wn/attribute ?o]))
+      (fn [{:syms [?s ?o]}]
+        (when (attribute-targets ?o)
+          [?s :dns/crossPoSHypernym ?o])))
+
+    ;; === 2. Mistagged verb phrases: correct PoS, restore wn:hypernym ===
+    ;; {gøre rent} and {gøre sig til gode} are verb phrases erroneously tagged
+    ;; as adjectives (lexfile adj.ppl). With the PoS corrected, their original
+    ;; hypernym relations no longer cross a PoS boundary and can be restored.
+    ;; The new lexfiles are inherited from the respective hypernyms.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos-pos-fix
+             :data  {:synsets [:dn/synset-27764 :dn/synset-74898]}}
+            "Correcting PoS of mistagged verb phrases, restoring wn:hypernym")
+    (let [model (db/get-model dataset prefix/dn-uri)
+          g     (db/get-graph dataset prefix/dn-uri)]
+      (txn/transact-exec model
+        (doseq [triple [;; {gøre rent} -> {fjerne}
+                        [:dn/synset-27764 :dns/crossPoSHypernym :dn/synset-27703]
+                        [:dn/synset-27764 :wn/lexfile "adj.ppl"]
+                        [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/adjective]
+                        [:dn/word-11042803-23 :wn/partOfSpeech :wn/adjective]
+                        ;; {gøre sig til gode} -> {indtage}
+                        [:dn/synset-74898 :dns/crossPoSHypernym :dn/synset-637]
+                        [:dn/synset-74898 :wn/lexfile "adj.ppl"]
+                        [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/adjective]
+                        [:dn/word-11018326-23 :wn/partOfSpeech :wn/adjective]]]
+          (db/remove! model triple)))
+      (txn/transact-exec g
+        (db/safe-add! g [;; {gøre rent} -> {fjerne}
+                         [:dn/synset-27764 :wn/hypernym :dn/synset-27703]
+                         [:dn/synset-27764 :wn/lexfile "verb.motion"]
+                         [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/verb]
+                         [:dn/word-11042803-23 :wn/partOfSpeech :wn/verb]
+                         ;; {gøre sig til gode} -> {indtage}
+                         [:dn/synset-74898 :wn/hypernym :dn/synset-637]
+                         [:dn/synset-74898 :wn/lexfile "verb.consumption"]
+                         [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/verb]
+                         [:dn/word-11018326-23 :wn/partOfSpeech :wn/verb]])))
+
+    ;; === 3. Delete the remaining cross-PoS violations ===
+    ;; What is left after sections 1-2, minus the deferred targets, is
+    ;; pertainym-like cases (e.g. {kvartårlig} -> {år}, {boligpolitisk} ->
+    ;; {boligpolitik}) and participial adjectives pointing at verbs (e.g.
+    ;; {hjelmklædt} -> {klæde}). The correct GWA relations (pertainym,
+    ;; participle) are sense-level relations, so no valid synset-level
+    ;; replacement exists; the triples are simply deleted.
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/crosspos-delete}
+            "Deleting remaining pertainym/participle-like cross-PoS hypernyms")
+    (db/update-triples!
+      prefix/dn-uri dataset crosspos-query
+      (constantly nil)
+      (fn [{:syms [?s ?o]}]
+        (when-not (deferred-targets ?o)
+          [?s :dns/crossPoSHypernym ?o])))
+
+    ;; === 4. Assert that exactly the deferred pairs survive ===
+    ;; Without this, narrowing either target set above would silently route
+    ;; pairs into the deletion in section 3, orphaning their source synsets:
+    ;; none of the deferred sources have another wn:hypernym to fall back on.
+    (let [g         (db/get-graph dataset prefix/dn-uri)
+          remaining (count (q/run g crosspos-query))]
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/crosspos-deferred
+               :data  {:count remaining :targets (count deferred-targets)}}
+              "Retaining deferred cross-PoS hypernyms for editorial review")
+      (assert (= deferred-count remaining)
+              (str "expected " deferred-count " deferred dns:crossPoSHypernym "
+                   "triples to survive, found " remaining)))))
+
+(h/defn fix-verb-phrase-pos!
+  "Correct the PoS of noun-tagged verb phrase synsets (GitHub issue #153,
+  group 2a). Sources whose lemmas are all multi-word and whose single hypernym
+  is a verb synset are verb phrases mistagged as nouns -- {slå mønt} ->
+  {fremstille}, {drage nytte af} -> {anvende}. The taxonomy is correct; only
+  the word PoS is wrong, so this is the same fix as the two adj.ppl cases in
+  fix-cross-pos-hypernymy!, applied at scale: 107 synsets, 113 words.
+
+  The criterion is evaluated against the data rather than hardcoded, so the
+  count is asserted afterwards. Three of the 110 synsets matching it are not
+  verbal and are excluded by hand; the multi-word test also admits stranded
+  prepositional and participial phrases.
+
+  Lexfiles are inherited from the hypernym, as every source is noun.* and every
+  hypernym verb.*."
+  [dataset]
+  (let [g          (db/get-graph dataset prefix/dn-uri)
+        model      (db/get-model dataset prefix/dn-uri)
+
+        ;; Matched by the heuristic but not verb phrases: {over kors} and
+        ;; {i pleje} are stranded prepositional fragments of their hypernym's
+        ;; idiom, {skåret over samme læst} is participial.
+        excluded   #{:dn/synset-27542                       ; {over kors}
+                     :dn/synset-27572                       ; {i pleje}
+                     :dn/synset-30501}                      ; {skåret ... over samme læst}
+        expected   107
+
+        ;; PoS and lemmas are queried separately on purpose: a word may carry a
+        ;; partOfSpeech without a canonicalForm/writtenRep. Joining the two
+        ;; would hide such a word, leaving it un-flipped while its siblings
+        ;; become verbs -- i.e. a synset inconsistent with itself.
+        pos-rows   (q/run g '[:bgp
+                              [?synset :ontolex/lexicalizedSense ?sense]
+                              [?word :ontolex/sense ?sense]
+                              [?word :wn/partOfSpeech ?pos]])
+        rep-rows   (q/run g '[:bgp
+                              [?synset :ontolex/lexicalizedSense ?sense]
+                              [?word :ontolex/sense ?sense]
+                              [?word :ontolex/canonicalForm ?form]
+                              [?form :ontolex/writtenRep ?rep]])
+        by-pos     (group-by '?synset pos-rows)
+        by-rep     (group-by '?synset rep-rows)
+        pos-of     #(set (map '?pos (by-pos %)))
+        words-of   #(set (map '?word (by-pos %)))
+        reps-of    #(map (comp str '?rep) (by-rep %))
+        lexfile-of (into {} (map (juxt '?s (comp str '?lf)))
+                         (q/run g '[:bgp [?s :wn/lexfile ?lf]]))
+
+        candidates (->> (q/run g '[:bgp [?s :wn/hypernym ?o]])
+                        (keep (fn [{:syms [?s ?o]}]
+                                (when (and (str/starts-with? (str ?o) ":dn/")
+                                           (not (excluded ?s))
+                                           (= #{:wn/noun} (pos-of ?s))
+                                           (= #{:wn/verb} (pos-of ?o))
+                                           (let [reps (reps-of ?s)]
+                                             (and (seq reps)
+                                                  (every? #(str/includes? % " ") reps))))
+                                  {:synset ?s :hypernym ?o})))
+                        (doall))]
+
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/verb-phrase-pos
+             :data  {:count (count candidates) :excluded (count excluded)}}
+            "Correcting PoS of noun-tagged verb phrases")
+    (assert (= expected (count candidates))
+            (str "expected " expected " noun-tagged verb phrase synsets, found "
+                 (count candidates)))
+
+    (txn/transact-exec model
+      (doseq [{:keys [synset]} candidates]
+        (doseq [w (words-of synset)]
+          (db/remove! model [w :lexinfo/partOfSpeech :lexinfo/noun])
+          (db/remove! model [w :wn/partOfSpeech :wn/noun]))
+        (when-let [lf (lexfile-of synset)]
+          (db/remove! model [synset :wn/lexfile lf]))))
+
+    (txn/transact-exec g
+      (db/safe-add! g (mapcat (fn [{:keys [synset hypernym]}]
+                                (concat
+                                  (mapcat (fn [w]
+                                            [[w :lexinfo/partOfSpeech :lexinfo/verb]
+                                             [w :wn/partOfSpeech :wn/verb]])
+                                          (words-of synset))
+                                  (when-let [lf (lexfile-of hypernym)]
+                                    [[synset :wn/lexfile lf]])))
+                              candidates)))))
+
 (h/defn add-framenet!
   "Add the framenet graph to `dataset`: the FrameNet 1.7 frame inventory
   converted from the PreMOn dump by the premon ns."
@@ -755,6 +1018,11 @@
     (add-cor-sem-graph! dataset)
     (name-subject-domains! dataset)
 
+    ;; The cross-PoS work (#146, #153) is still awaiting approval and is
+    ;; therefore absent from the 2026-08-03 bootstrap data.
+    (fix-cross-pos-hypernymy! dataset)
+    (fix-verb-phrase-pos! dataset)
+
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
     (regenerate-short-labels! dataset)))
@@ -879,6 +1147,8 @@
                             (hash domain-names)
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
+                            (:hash (meta #'fix-cross-pos-hypernymy!))
+                            (:hash (meta #'fix-verb-phrase-pos!))
                             (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
@@ -887,10 +1157,9 @@
                             ;; The emitted version is baked into the dataset
                             ;; metadata but isn't captured by any hashed form
                             ;; above (those hash source, not values), so include
-                            ;; it explicitly; otherwise cutting a release
-                            ;; (:to "SNAPSHOT" -> a real version, same :from)
-                            ;; wouldn't change db-name and the stale, still
-                            ;; SNAPSHOT-labelled database would be reused.
+                            ;; it explicitly -- otherwise cutting a release
+                            ;; (:to bumped away from :from) wouldn't change
+                            ;; db-name and the stale database would be reused.
                             release/to
                             ;; The OEWN edition is likewise only a value: its
                             ;; ttl isn't among the hashed input zips, so it is
@@ -979,6 +1248,9 @@
               (add-framenet! dataset)
 
               ;; Effectuate changes for the current release.
+              ;; These are always tied to the current release and depend on the
+              ;; former release, i.e. the contents of this function is versioned
+              ;; together with every single formal release.
               (make-release-changes! dataset)
 
               ;; Runs after the release changes so that the dataset
