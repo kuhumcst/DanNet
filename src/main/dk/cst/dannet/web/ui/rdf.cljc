@@ -57,6 +57,8 @@
   (or (= :rdf/about attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
+      ;; TODO: remove the :dns/inherited special case once #182 has shipped
+      ;;       (inheritance values are now blank nodes, never dn: resources)
       (and (not= :dns/inherited attr-key)                   ; special case
            (local-entity-prefix? prefix opts))))
 
@@ -241,6 +243,8 @@
   [resource {:keys [attr-key k->label] :as opts}]
   (cond
     ;; Label and text colour are modified to fit the inherited relation.
+    ;; TODO: remove once #182 has shipped (inheritance resources are now blank
+    ;;       nodes rendered by 'blank-node', so this case no longer triggers)
     (= attr-key :dns/inherited)
     (let [inherited       (some->> (get k->label resource) first (prefix/qname->kw))
           inherited-label (get k->label inherited)
@@ -318,6 +322,16 @@
         (resource-hyperlink polarity opts)
         (when-let [value (some-> (get m :marl/polarityValue) shared/unwrap)]
           (str " (" value ")")))
+
+      ;; Special handling of DanNet inheritance data; anonymous resources
+      ;; (GitHub issue #182) displayed as the inherited relation followed by
+      ;; the synset that the relation was inherited from.
+      :let [relation (some-> (get m :dns/inheritedRelation) shared/unwrap)]
+      (keyword? relation)
+      (container
+        (resource-hyperlink relation opts)
+        (when-let [from (some-> (get m :dns/inheritedFrom) shared/unwrap)]
+          [:span.subtle " ← " (entity-link from opts)]))
 
       :let [resources (shared/bag->coll m)]
       resources
