@@ -33,6 +33,7 @@
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
@@ -83,7 +84,8 @@ dns:LexicalEntryShape a sh:NodeShape ;
     sh:property dns:LexicalEntryShape-label ,
                 dns:LexicalEntryShape-partOfSpeech ,
                 dns:LexicalEntryShape-sense ,
-                dns:LexicalEntryShape-canonicalForm .
+                dns:LexicalEntryShape-canonicalForm ,
+                dns:LexicalEntryShape-inScheme .
 
 dns:LexicalEntryShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
@@ -111,12 +113,22 @@ dns:LexicalEntryShape-canonicalForm a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "LexicalEntry must have exactly one ontolex:canonicalForm." .
 
+## skos:inScheme (GitHub issue #175) is added to every dn: resource during
+## bootstrapping (see add-in-scheme! in the bootstrap ns); a missing value
+## only warns since scheme membership is metadata, not lexical structure.
+dns:LexicalEntryShape-inScheme a sh:PropertyShape ;
+    sh:path skos:inScheme ;
+    sh:hasValue <https://wordnet.dk/dannet/data> ;
+    sh:severity sh:Warning ;
+    sh:message "LexicalEntry should have skos:inScheme <https://wordnet.dk/dannet/data>." .
+
 ## ---------------------------------------------------------------------------
 ## LexicalSense (dn:)
 ## ---------------------------------------------------------------------------
 dns:LexicalSenseShape a sh:NodeShape ;
     sh:target dns:DanNetSenseTarget ;
-    sh:property dns:LexicalSenseShape-label .
+    sh:property dns:LexicalSenseShape-label ,
+                dns:LexicalSenseShape-inScheme .
 
 dns:LexicalSenseShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
@@ -124,18 +136,31 @@ dns:LexicalSenseShape-label a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "LexicalSense must have an rdfs:label." .
 
+dns:LexicalSenseShape-inScheme a sh:PropertyShape ;
+    sh:path skos:inScheme ;
+    sh:hasValue <https://wordnet.dk/dannet/data> ;
+    sh:severity sh:Warning ;
+    sh:message "LexicalSense should have skos:inScheme <https://wordnet.dk/dannet/data>." .
+
 ## ---------------------------------------------------------------------------
 ## LexicalConcept (dn: synsets)
 ## ---------------------------------------------------------------------------
 dns:LexicalConceptShape a sh:NodeShape ;
     sh:target dns:DanNetConceptTarget ;
-    sh:property dns:LexicalConceptShape-label .
+    sh:property dns:LexicalConceptShape-label ,
+                dns:LexicalConceptShape-inScheme .
 
 dns:LexicalConceptShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
     sh:minCount 1 ;
     sh:severity sh:Violation ;
     sh:message "LexicalConcept (synset) must have an rdfs:label." .
+
+dns:LexicalConceptShape-inScheme a sh:PropertyShape ;
+    sh:path skos:inScheme ;
+    sh:hasValue <https://wordnet.dk/dannet/data> ;
+    sh:severity sh:Warning ;
+    sh:message "LexicalConcept (synset) should have skos:inScheme <https://wordnet.dk/dannet/data>." .
 
 ## ---------------------------------------------------------------------------
 ## Hypernym hierarchy (dn: synsets) — SPARQL-based semantic checks.

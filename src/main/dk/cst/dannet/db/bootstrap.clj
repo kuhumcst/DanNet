@@ -304,6 +304,33 @@
       (fn [{:syms [?s ?o]}]
         [?s :dns/crossPoSHypernym ?o]))))
 
+(h/defn add-in-scheme!
+  "Add skos:inScheme to all DanNet and COR resources (GitHub issue #175),
+  mirroring how the OEWN marks scheme membership on its resources. Every URI
+  subject residing in the namespace of its containing model is linked to the
+  RDF resource of the relevant dataset. The DDS dataset is deliberately left
+  out since it contains no resources of its own, only annotations of dn:
+  resources; the OEWN label extensions don't need it either."
+  [dataset]
+  (doseq [[model-uri scheme] [[prefix/dn-uri md/<dn>]
+                              [prefix/cor-uri md/<cor>]]]
+    (let [model    (db/get-model dataset model-uri)
+          g        (db/get-graph dataset model-uri)
+          subjects (txn/transact model
+                     (->> (iterator-seq (.listSubjects model))
+                          (filter #(.isURIResource %))
+                          (map #(.getURI %))
+                          (filter #(str/starts-with? % model-uri))
+                          (doall)))]
+      (txn/transact-exec g
+        (t/log! {:level :info
+                 :id    :dannet.bootstrap/add-in-scheme
+                 :data  {:scheme scheme
+                         :count  (count subjects)}}
+                "Adding skos:inScheme to resources")
+        (db/safe-add! g (for [uri subjects]
+                          [(prefix/uri->rdf-resource uri) :skos/inScheme scheme]))))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -327,7 +354,8 @@
 
   ;; ==== The block of changes for this particular release. ====
   (fix-meronym-directionality! dataset)
-  (fix-cross-pos-hypernymy! dataset))
+  (fix-cross-pos-hypernymy! dataset)
+  (add-in-scheme! dataset))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
