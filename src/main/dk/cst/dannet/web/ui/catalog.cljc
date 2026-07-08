@@ -5,11 +5,20 @@
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
+(def companion-datasets
+  "The companion datasets shown in their own catalog group (see group-order)."
+  #{(prefix/prefix->rdf-resource 'cor)
+    (prefix/prefix->rdf-resource 'dds)
+    (prefix/uri->rdf-resource prefix/oewn-uri)})
+
 (def group-order
   "Display order for catalog prefix groups with titles and descriptions."
   [["dannet" "DanNet"
     {:da "Skemaer og datasæt specifikt for DanNet."
      :en "Schemas and datasets specifically for DanNet."}]
+   ["companion" {:da "Tilknyttede datasæt" :en "Companion datasets"}
+    {:da "Selvstændige datasæt som DanNets data er forbundet med."
+     :en "Independent datasets connected to the DanNet data."}]
    ["wordnet" "WordNet"
     {:da "Skemaer relateret til Global WordNet-standarden."
      :en "Schemas related to the Global WordNet standard."}]
@@ -35,8 +44,12 @@
   (let [sort-key    (fn [[_ {:keys [label]}]]
                       (str/lower-case (str (i18n/select-label languages label))))
         with-labels (filter (comp :label second) catalog)
-        grouped     (group-by (fn [[_ {:keys [prefix]}]]
-                                (when prefix
+        grouped     (group-by (fn [[rdf-resource {:keys [prefix]}]]
+                                (cond
+                                  (companion-datasets rdf-resource)
+                                  "companion"
+
+                                  prefix
                                   (prefix/prefix->class (symbol prefix))))
                               with-labels)]
     (keep (fn [[group-key title desc]]
@@ -62,7 +75,7 @@
     [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
     [:col {:aria-label (i18n/da-en languages "Beskrivelse" "Description")}]]
    [:tbody
-    (for [[rdf-resource {:keys [description prefix]}] entries
+    (for [[rdf-resource {:keys [label description prefix]}] entries
           :let [uri   (prefix/rdf-resource->uri rdf-resource)
                 path  (prefix/uri->internal-path uri)
                 opts' (assoc opts :k->label k->label :link-href path)
@@ -72,8 +85,17 @@
         (when prefix
           (rdf/prefix-badge (symbol prefix)))]
        [:td.attr-name
-        (if kw
+        (cond
+          kw
           (rdf/entity-link kw opts')
+
+          ;; Resources without a resolvable prefix, e.g. the COR and OEWN
+          ;; dataset resources, still display by their dc:title/rdfs:label.
+          label
+          (let [s (i18n/select-label languages label)]
+            [:a {:href path :lang (i18n/lang s)} (str s)])
+
+          :else
           (rdf/rdf-uri-hyperlink uri opts'))]
        [:td (when description
               (rdf/transform-text opts description))]])]])

@@ -889,7 +889,12 @@
         sources         (->> results
                              (map '?source)
                              (set))
-        normalized-keys (set (map prefix/normalize-rdf-resource sources))
+        ;; NB: only sources ALREADY in normalized form count as canonical.
+        ;; Deriving this set by normalizing every source would unconditionally
+        ;; drop sources with trailing separators, e.g. the OEWN dataset
+        ;; resource <https://en-word.net/> (GitHub issue #178).
+        normalized-keys (set (filter #(= % (prefix/normalize-rdf-resource %))
+                                     sources))
         ;; Remove entries with trailing separators when normalized version exists
         unique-sources  (remove (fn [src]
                                   (let [normalized (prefix/normalize-rdf-resource src)]
@@ -910,6 +915,9 @@
                                                    :dc11/description]))
                       ;; Try to get prefix: from entity, from known schemas, or nil
                       pfx    (or (:vann/preferredNamespacePrefix entity)
+                                 ;; Datasets whose resource URI doesn't share a
+                                 ;; namespace with their resources, e.g. COR.
+                                 (prefix/rdf-resource->prefix rdf-resource)
                                  (prefix/uri->prefix uri)
                                  (prefix/uri->prefix (str uri "#"))
                                  (prefix/uri->prefix (str uri "/")))]
