@@ -155,7 +155,10 @@
             [<dsl> :foaf/name (da "Det Danske Sprog- og Litteraturselskab")]
             [<dsl> :foaf/name (en "The Society for Danish Language and Literature")]
             [<dsl> :foaf/homepage <dsl>]})
-   'dds #{[<dds> :rdfs/label "DDS"]
+   ;; NOTE: the dcat:Dataset typing of DDS and COR ensures that they are listed
+   ;; on the metadata page along with the DanNet dataset (GitHub issue #178).
+   'dds #{[<dds> :rdf/type :dcat/Dataset]
+          [<dds> :rdfs/label "DDS"]
           [<dds> :dc/title "DDS"]
           [<dds> :dc/description (en "The Danish Sentiment Lexicon")]
           [<dds> :dc/description (da "Det Danske Sentimentleksikon")]
@@ -163,7 +166,8 @@
           [<dds> :dc/contributor <dsl>]
           [<dds> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
           [<dds> :dcat/downloadURL (prefix/uri->rdf-resource dds-zip-uri)]}
-   'cor #{[<cor> :rdfs/label "COR"]
+   'cor #{[<cor> :rdf/type :dcat/Dataset]
+          [<cor> :rdfs/label "COR"]
           [<cor> :dc/title "COR"]
           [<cor> :dc/contributor <cst>]
           [<cor> :dc/contributor <dsl>]
