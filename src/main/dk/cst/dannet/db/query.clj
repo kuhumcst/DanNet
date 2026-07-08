@@ -71,13 +71,17 @@
 ;; TODO: can it use basic-entity instead of entity?
 ;; TODO: what about blank-expanded-entity?
 (defn blank-node
-  "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`."
+  "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`.
+
+  Every value is normalised to a set. NB: multi-valued properties are already
+  sets in the entity map and must NOT be wrapped again -- doing so produced
+  nested sets, e.g. for the dns:inheritedFrom of inheritance nodes with
+  multiple parent synsets, crashing the frontend rendering."
   [g subject predicate blank-object]
   (when (and subject predicate)
     (->> (entity g blank-object)
-         ;; TODO: why is this transformation necessary?
          (reduce (fn [acc [?p ?o]]
-                   (update acc ?p (fnil conj #{}) ?o))
+                   (update acc ?p (fnil into #{}) (shared/setify ?o)))
                  {}))))
 
 ;; I am not smart enough to do this through SPARQL/algebra!

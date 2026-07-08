@@ -325,13 +325,19 @@
 
       ;; Special handling of DanNet inheritance data; anonymous resources
       ;; (GitHub issue #182) displayed as the inherited relation followed by
-      ;; the synset that the relation was inherited from.
+      ;; the synset(s) that the relation was inherited from.
       :let [relation (some-> (get m :dns/inheritedRelation) shared/unwrap)]
       (keyword? relation)
-      (container
-        (resource-hyperlink relation opts)
-        (when-let [from (some-> (get m :dns/inheritedFrom) shared/unwrap)]
-          [:span.subtle " ← " (entity-link from opts)]))
+      ;; NB: :attr-key is dissoc'ed to keep the legacy :dns/inherited special
+      ;; case in 'resource-hyperlink' from hijacking the relation rendering.
+      (let [opts' (dissoc opts :attr-key)]
+        (container
+          (resource-hyperlink relation opts')
+          (when-let [froms (some-> (get m :dns/inheritedFrom) shared/setify not-empty)]
+            (into [:span.subtle " ← "]
+                  (->> (sort-by str froms)
+                       (map #(entity-link % opts'))
+                       (interpose ", "))))))
 
       :let [resources (shared/bag->coll m)]
       resources
