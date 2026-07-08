@@ -228,24 +228,24 @@
         entries   (+ (count-type dn-model :ontolex/Word)
                      (count-type dn-model :ontolex/MultiwordExpression))
         senses    (count-type dn-model :ontolex/LexicalSense)
-        concepts  (count-type dn-model :ontolex/LexicalConcept)
-        stats     {dn-model  [[<dn> :lime/language "da"]
-                              [<dn> :lime/lexicalEntries entries]
-                              [<dn> :lime/lexicalizations senses]
-                              [<dn> :lime/concepts concepts]
-                              (when-let [x (avg senses entries)]
-                                [<dn> :lime/avgAmbiguity x])
-                              (when-let [x (avg senses concepts)]
-                                [<dn> :lime/avgSynonymy x])
-                              [<dn> :void/triples (triple-count dn-model)]]
-                   dds-model [[<dds> :void/triples (triple-count dds-model)]]
-                   cor-model [[<cor> :lime/language "da"]
-                              [<cor> :lime/lexicalEntries
-                               (+ (count-type cor-model :ontolex/Word)
-                                  (count-type cor-model :ontolex/MultiwordExpression)
-                                  (count-type cor-model :ontolex/Affix))]
-                              [<cor> :void/triples (triple-count cor-model)]]}]
-    (doseq [[^Model model triples] stats
+        concepts  (count-type dn-model :ontolex/LexicalConcept)]
+    (doseq [[^Model model triples]
+            [[dn-model [[<dn> :lime/language "da"]
+                        [<dn> :lime/lexicalEntries entries]
+                        [<dn> :lime/lexicalizations senses]
+                        [<dn> :lime/concepts concepts]
+                        (when-let [x (avg senses entries)]
+                          [<dn> :lime/avgAmbiguity x])
+                        (when-let [x (avg senses concepts)]
+                          [<dn> :lime/avgSynonymy x])
+                        [<dn> :void/triples (triple-count dn-model)]]]
+             [dds-model [[<dds> :void/triples (triple-count dds-model)]]]
+             [cor-model [[<cor> :lime/language "da"]
+                         [<cor> :lime/lexicalEntries
+                          (+ (count-type cor-model :ontolex/Word)
+                             (count-type cor-model :ontolex/MultiwordExpression)
+                             (count-type cor-model :ontolex/Affix))]
+                         [<cor> :void/triples (triple-count cor-model)]]]]
             :let [triples' (remove nil? triples)]]
       (txn/transact-exec model
         (t/log! {:level :info

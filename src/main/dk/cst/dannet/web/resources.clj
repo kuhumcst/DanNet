@@ -1503,9 +1503,9 @@
   ;; shapes, the same call that will eventually gate writes.
   (require '[dk.cst.dannet.db.transaction :as txn])
   (txn/transact-read (:dataset @db)
-                     (shapes/validate-node (.getGraph (:base-model @db))
-                                           @shapes/editorial-shapes
-                                           :dn/synset-1522))
+    (shapes/validate-node (.getGraph (:base-model @db))
+                          @shapes/editorial-shapes
+                          :dn/synset-1522))
 
   ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.
   (shapes/validate-inferred-db @db)
