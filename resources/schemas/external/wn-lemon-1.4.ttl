@@ -2,6 +2,7 @@
 @prefix cc: <http://creativecommons.org/ns#> .
 @prefix dc: <http://purl.org/dc/elements/1.1/> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/3.0/lexinfo#> .
 @prefix synsem: <http://www.w3.org/ns/lemon/synsem#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -39,12 +40,15 @@
   rdfs:label "confidence score"@en .
 
 :partOfSpeech a owl:ObjectProperty ;
-  rdfs:domain ontolex:LexicalEntry ;
+  rdfs:subPropertyOf lexinfo:partOfSpeech ;
+  rdfs:domain [
+    owl:unionOf ( ontolex:LexicalEntry ontolex:LexicalConcept ) ] ;
   rdfs:range :PartOfSpeech ;
   rdfs:label "part of speech"@en ;
   rdfs:comment "The syntactic class of the entry, e.g., noun, verb"@en .
 
 :PartOfSpeech a owl:Class ;
+  rdfs:subClassOf lexinfo:PartOfSpeech ;
   rdfs:label "part of speech"@en ;
   rdfs:comment "The syntactic class of the entry, e.g., noun, verb"@en ;
   owl:oneOf (
@@ -53,20 +57,26 @@
 
 
 :noun a :PartOfSpeech ;
+  owl:sameAs lexinfo:noun ;
   rdfs:label "noun"@en.
 :verb a :PartOfSpeech ;
+  owl:sameAs lexinfo:verb ;
   rdfs:label "verb"@en .
 :adjective a :PartOfSpeech ;
+  owl:sameAs lexinfo:adjective ;
   rdfs:label "adjective"@en .
 :adverb a :PartOfSpeech ;
+  owl:sameAs lexinfo:adverb ;
   rdfs:label "adverb"@en .
 :adjective_satellite a :PartOfSpeech ;
   rdfs:label "adjective satellite"@en .
 :named_entity a :PartOfSpeech ;
   rdfs:label "named entity"@en .
 :conjunction a :PartOfSpeech ;
+  owl:sameAs lexinfo:conjunction ;
   rdfs:label "conjunction"@en .
 :adposition a :PartOfSpeech ;
+  owl:sameAs lexinfo:adposition ;
   rdfs:label "adposition"@en .
 :other_pos a :PartOfSpeech ;
   rdfs:label "other pos"@en .
@@ -149,261 +159,300 @@
 :SenseRelType a owl:Class ;
   rdfs:label "sense relation type"@en .
 
-:agent a :SynsetRelType ;
+:agent a :SynsetRelType , :SenseRelType ;
   rdfs:label "agent"@en ;
-  rdfs:comment "A relation between two concepts where concept A is typically the agent of the action expressed by concept B"@en ;
+  rdfs:comment "A concept which is typically the one/that who/which does the action denoted by a given concept."@en ;
   owl:inverseOf :involved_agent .
 
 :also a :SynsetRelType, :SenseRelType ;
   rdfs:label "also"@en ;
-  rdfs:comment "A relation giving further information of an unspecified type"@en ;
+  rdfs:comment "a word having a loose semantic relation to another word"@en ;
+  rdfs:comment "当該synsetと相手synsetとの間に何らかの関連がある"@ja ;
   owl:inverseOf :also .
 
 :antonym a :SynsetRelType, :SenseRelType ;
   rdfs:label "antonym"@en ;
-  rdfs:comment "Indicates that the two terms have opposite meanings"@en ;
+  rdfs:comment "An opposite and inherently incompatible word"@en ;
+  rdfs:comment "当該語義やsynsetの意味や程度が反対または対の関係となっている語義やsynset"@ja ;
   owl:inverseOf :antonym .
 
 :attribute a :SynsetRelType ;
   rdfs:label "attribute"@en ;
-  rdfs:comment "A relation between nominal and adjectival concepts where the concept A is an attribute of concept B"@en ;
+  rdfs:comment "an abstraction belonging to or characteristic of an entity"@en ;
+  rdfs:comment "(a=形容詞のsynsetから見て)当該synsetが相手synsetという属性を表す際に使われる\n(n=名詞のsynsetから見て)当該synsetという属性を表す際に相手synsetを使う"@ja ;
   owl:inverseOf :attribute .
 
 :be_in_state a :SynsetRelType ;
   rdfs:label "be in state"@en ;
-  rdfs:comment "A relation between two concepts where concept A is qualified by concept B"@en ;
+  rdfs:comment "X is qualified by Y"@en ;
   owl:inverseOf :state_of .
 
 :causes a :SynsetRelType ;
   rdfs:label "causes"@en ;
-  rdfs:comment "A relation between two concepts where concept B comes into existence as a result of concept A"@en ;
+  rdfs:comment "Concept A is an entity that produces an effect or is responsible for events or\nresults of Concept B."@en ;
+  rdfs:comment "当該synsetを行うと、相手synsetを引き起こす"@ja ;
   owl:inverseOf :is_caused_by .
 
 
 :classified_by a :SynsetRelType ;
   rdfs:label "classified by"@en ;
-  rdfs:comment "A relation between concept B and a classifier concept A"@en ;
+  rdfs:comment "Concept B is modified by classifier A when it is counted."@en ;
   owl:inverseOf :classifies .
 
 :classifies a :SynsetRelType ;
   rdfs:label "classifies"@en ;
-  rdfs:comment "A relation between a classifier concept A and concept B"@en ;
+  rdfs:comment "A concept A used when counting concept B"@en ;
   owl:inverseOf :classified_by .
 
 :co_agent_instrument a :SynsetRelType ;
   rdfs:label "co-agent instrument"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the instrument used by concept A in a certain action"@en ;
+  rdfs:comment "A concept which is the instrument used by a given concept in an action."@en ;
   owl:inverseOf :co_instrument_agent .
 
 :co_agent_patient a :SynsetRelType ;
   rdfs:label "co-agent patient"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the patient undergoing an action carried out by concept A"@en ;
+  rdfs:comment "A concept which is the patient undergoing an action carried out by a given concept."@en ;
   owl:inverseOf :co_patient_agent .
 
 :co_agent_result a :SynsetRelType ;
   rdfs:label "co-agent result"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the result of an action carried out by concept A"@en ;
+  rdfs:comment "A concept which is the result of an action taken by a given concept."@en ;
   owl:inverseOf :co_result_agent .
 
 :co_instrument_agent a :SynsetRelType ;
   rdfs:label "co-instrument agent"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the instrument used by concept B for a certain action"@en ;
+  rdfs:comment "A concept which carries out an action by using a given concept as an instrument."@en ;
   owl:inverseOf :co_agent_instrument .
 
 :co_instrument_patient a :SynsetRelType ;
   rdfs:label "co-instrument patient"@en ;
-  rdfs:comment "A relation between two concepts where concept B undergoes an action for which the instrument expressed by concept A is used"@en ;
+  rdfs:comment "A concept which undergoes an action with the use of a given concept as an instrument."@en ;
   owl:inverseOf :co_patient_instrument .
 
 :co_instrument_result a :SynsetRelType ;
   rdfs:label "co-instrument result"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the result of an action carried out by the instrument expressed by concept A"@en ;
+  rdfs:comment "A concept which is the result of an action using an instrument of a given concept."@en ;
   owl:inverseOf :co_result_instrument .
 
 :co_patient_agent a :SynsetRelType ;
   rdfs:label "co-patient agent"@en ;
-  rdfs:comment "A relation between two concepts where concept B undergoes an action carried out by concept A"@en ;
+  rdfs:comment "A concept which carries out an action a given concept undergoing."@en ;
   owl:inverseOf :co_agent_patient .
 
 :co_patient_instrument a :SynsetRelType ;
   rdfs:label "co-patient instrument"@en ;
-  rdfs:comment "A relation between two concepts where concept A undergoes an action for which the instrument expressed by concept A is used"@en ;
+  rdfs:comment "A concept which is used as an instrument in an action a given concept undergoes."@en ;
   owl:inverseOf :co_instrument_patient .
 
 :co_result_agent a :SynsetRelType ;
   rdfs:label "co-result agent"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the result of an action carried out by concept B"@en ;
+  rdfs:comment "A concept which takes an action resulting in a given concept."@en ;
   owl:inverseOf :co_agent_result .
 
 :co_result_instrument a :SynsetRelType ;
   rdfs:label "co-result instrument"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the result of an action for which the instrument expressed by concept B is used"@en ;
+  rdfs:comment "A concept which is used as an instrument in an action resulting in a given concept."@en ;
   owl:inverseOf :co_instrument_result .
 
 :co_role a :SynsetRelType ;
   rdfs:label "co-role"@en ;
-  rdfs:comment "A relation between two concepts where one concept undergoes an action in which the other concept is involved (bidirectional)"@en ;
+  rdfs:comment "A concept undergoes an action in which a given concept is involved."@en ;
   owl:inverseOf :co_role .
 
 :derivation a :SenseRelType ;
   rdfs:label "derivation"@en ;
-  rdfs:comment "Indicates a syntactic derivation from one term to another"@en .
+  rdfs:comment "A concept which is a derivationally related form of a given concept."@en .
 
 :direction a :SynsetRelType ;
   rdfs:label "direction"@en ;
-  rdfs:comment "A relation between two concepts where concept A is typically the direction or location of the action or event expressed by concept B"@en ;
+  rdfs:comment "A concept which is the direction of the action or event expressed by a given concept."@en ;
   owl:inverseOf :involved_direction .
 
 :domain_region a :SynsetRelType, :SenseRelType ;
   rdfs:label "domain region"@en ;
-  rdfs:comment "A relation between two concepts where B is a geographical / cultural domain of concept A"@en ;
+  rdfs:comment "A concept which is a geographical / cultural domain pointer of a given concept."@en ;
+  rdfs:comment "当該synsetが相手synsetの地域に属するものである"@ja ;
   owl:inverseOf :has_domain_region .
 
 :domain_topic a :SynsetRelType, :SenseRelType ;
   rdfs:label "domain topic"@en ;
-  rdfs:comment "A relation between two concepts where B is a a scientific domain (e"@en ;
+  rdfs:comment "A concept which is the scientific category pointer of a given concept."@en ;
+  rdfs:comment "当該synsetが相手synsetのカテゴリに属する"@ja ;
   owl:inverseOf :has_domain_topic .
 
 :exemplifies a :SynsetRelType, :SenseRelType ;
   rdfs:label "exemplifies"@en ;
-  rdfs:comment "A relation between two concepts where B is a type of concept A"@en ;
+  rdfs:comment "A concept which is the example of a given concept."@en ;
+  rdfs:comment "当該synsetの用法が相手synsetの領域に限られる"@ja ;
   owl:inverseOf :is_exemplified_by .
 
 :entails a :SynsetRelType ;
   rdfs:label "entails"@en ;
   rdfs:comment "impose, involve, or imply as a necessary accompaniment or result"@en ;
+  rdfs:comment "当該synsetを行う場合、必ず相手synsetも行っている"@ja ;
   owl:inverseOf :is_entailed_by .
 
 :eq_synonym a :SynsetRelType ;
   rdfs:label "eq synonym"@en ;
-  rdfs:comment "A relation between two concepts where A and B are equivalent concepts but their nature requires that they remain separate (e"@en ;
+  rdfs:comment "X and Y are equivalent concepts but their nature requires that they remain separate (e.g. Exemplifies)"@en ;
   owl:inverseOf :eq_synonym .
 
 :has_domain_region a :SynsetRelType, :SenseRelType ;
   rdfs:label "has domain region"@en ;
-  rdfs:comment "A relation between two concepts where A is a geographical / cultural domain of concept B"@en ;
+  rdfs:comment "A concept which is the term in the geographical / cultural domain of a given concept."@en ;
+  rdfs:comment "当該synsetが相手synsetの属する地域である"@ja ;
   owl:inverseOf :domain_region .
 
 :has_domain_topic a :SynsetRelType, :SenseRelType ;
   rdfs:label "has domain topic"@en ;
-  rdfs:comment "A relation between two concepts where A is a a scientific domain (e"@en ;
+  rdfs:comment "A concept which is a term in the scientific category of a given concept."@en ;
+  rdfs:comment "当該synsetが相手synsetが属するカテゴリである"@ja ;
   owl:inverseOf :domain_topic .
 
 :is_exemplified_by a :SynsetRelType, :SenseRelType ;
   rdfs:label "is exemplified by"@en ;
-  rdfs:comment "A relation between two concepts where A an example of the type B"@en ;
+  rdfs:comment "A concept which is the type of a given concept."@en ;
+  rdfs:comment "当該synsetの領域が相手synsetの用法を規定する"@ja ;
   owl:inverseOf :exemplifies .
+
+:metaphor a :SenseRelType ;
+  rdfs:label "metaphor"@en ;
+  rdfs:comment "a relation between two senses, where the first sense is a metaphorical extension of the second sense"@en ;
+  owl:inverseOf :has_metaphor .
+
+:has_metaphor a :SenseRelType ;
+  rdfs:label "has metaphor"@en ;
+  rdfs:comment "a relation between two senses, where the second sense is a metaphorical extension of the first sense"@en ;
+  owl:inverseOf :metaphor .
+
+:metonym a :SenseRelType ;
+  rdfs:label "metonym"@en ;
+  rdfs:comment "a relation between two senses, where the first sense is a metonymical extension of the second sense"@en ;
+  owl:inverseOf :has_metonym .
+
+:has_metonym a :SenseRelType ;
+  rdfs:label "has metonym"@en ;
+  rdfs:comment "a relation between two senses, where the second sense is a metonymical extension of the first sense"@en ;
+  owl:inverseOf :metonym .
 
 :holo_location a :SynsetRelType ;
   rdfs:label "holonym location"@en ;
-  rdfs:comment "A relation between two concepts where concept B is a place located in concept A"@en ;
+  rdfs:comment "Y is a place located in X"@en ;
   owl:inverseOf :mero_location .
 
 :holo_member a :SynsetRelType ;
   rdfs:label "holonym member"@en ;
-  rdfs:comment "A relation between two concepts where concept A is a member/ element of concept B"@en ;
+  rdfs:comment "Concept B is a member of Concept A"@en ;
+  rdfs:comment "当該synsetが相手synsetという構成員によって構成される"@ja ;
   owl:inverseOf :mero_member .
 
 :holo_part a :SynsetRelType ;
   rdfs:label "holonym part"@en ;
-  rdfs:comment "A relation between two concepts where concept A is a component of concept B"@en ;
+  rdfs:comment "Concept B is the whole where Concept A is a part"@en ;
+  rdfs:comment "当該synsetが部分として相手synsetを構成する"@ja ;
   owl:inverseOf :mero_part .
 
 :holo_portion a :SynsetRelType ;
   rdfs:label "holonym portion"@en ;
-  rdfs:comment "A relation between two concepts where concept B is an amount/piece/portion of concept A"@en ;
+  rdfs:comment "Y is an amount/piece/portion of X"@en ;
   owl:inverseOf :mero_portion .
 
 :holo_substance a :SynsetRelType ;
   rdfs:label "holonym substance"@en ;
-  rdfs:comment "A relation between two concepts where concept B is made of concept A"@en ;
+  rdfs:comment "Concept-B is a substance of Concept-A"@en ;
+  rdfs:comment "当該synsetが相手synsetを構成する物質or材料である"@ja ;
   owl:inverseOf :mero_substance .
 
 :holonym a :SynsetRelType ;
   rdfs:label "holonym"@en ;
-  rdfs:comment "A relation between two concepts where concept A makes up a part of concept B"@en ;
+  rdfs:comment "X makes up a part of Y"@en ;
+  rdfs:comment "当該synsetがsynsetを構成する"@ja ;
   owl:inverseOf :meronym .
 
 :hypernym a :SynsetRelType ;
   rdfs:label "hypernym"@en ;
-  rdfs:comment "A relation between two concepts where concept A is a type of concept B"@en ;
+  rdfs:comment "a word that is more general than a given word"@en ;
+  rdfs:comment "Relacja łącząca znaczenie z drugim, ogólniejszym, niż to pierwsze, ale\nnależącym do tej samej części mowy, co ono"@pl ;
   rdfs:subPropertyOf skos:broader ;
   owl:inverseOf :hyponym .
 
 :hyponym a :SynsetRelType ;
   rdfs:label "hyponym"@en ;
-  rdfs:comment "A relation between two concepts where concept B is a type of concept A"@en ;
+  rdfs:comment "a word that is more specific than a given word"@en ;
+  rdfs:comment "当該synsetが相手synsetを包含する"@ja ;
   rdfs:subPropertyOf skos:narrower ;
   owl:inverseOf :hypernym .
 
 :in_manner a :SynsetRelType ;
   rdfs:label "in manner"@en ;
-  rdfs:comment "A relation between two concepts where concept B qualifies the manner in which an action or event expressed by concept A takes place"@en ;
+  rdfs:comment "Y qualifies the manner in which an action or event expressed by X takes place"@en ;
   owl:inverseOf :manner_of .
 
 :instance_hypernym a :SynsetRelType ;
   rdfs:label "instance hypernym"@en ;
-  rdfs:comment "A relation between two concepts where concept B is a type of concept A, and where B is a terminal node in the hierchy"@en ;
+  rdfs:comment "the type of an instance"@en ;
+  rdfs:comment "当該synsetは相手synsetを事例として持つ"@ja ;
   owl:inverseOf :instance_hyponym .
 
 :instance_hyponym a :SynsetRelType ;
   rdfs:label "instance hyponym"@en ;
-  rdfs:comment "A relation between two concepts where concept A is a type of concept B, and where B is a terminal node in the hierchy"@en ;
+  rdfs:comment "an occurrence of something"@en ;
+  rdfs:comment "当該synsetは相手synsetの事例である"@ja ;
   owl:inverseOf :instance_hypernym .
 
 :instrument a :SynsetRelType ;
   rdfs:label "instrument"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the instrument necessary for the action or event expressed by concept B"@en ;
+  rdfs:comment "A concept which is the instrument necessary for the action or event expressed by a given concept."@en ;
   owl:inverseOf :involved_instrument .
 
 :involved a :SynsetRelType ;
   rdfs:label "involved"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically involved in the action or event expressed by concept A"@en ;
+  rdfs:comment "A concept which is the action or event a given concept typically involved in."@en ;
   owl:inverseOf :role .
 
 :involved_agent a :SynsetRelType ;
   rdfs:label "involved agent"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically the agent of the action expressed by concept A"@en ;
+  rdfs:comment "A concept which is the action done by an agent expressed by a given concept."@en ;
   owl:inverseOf :agent .
 
 :involved_direction a :SynsetRelType ;
   rdfs:label "involved direction"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically the direction or location of the action or event expressed by concept A"@en ;
+  rdfs:comment "A concept which is the action with the direction expressed by a given concept."@en ;
   owl:inverseOf :direction .
 
 :involved_instrument a :SynsetRelType ;
   rdfs:label "involved instrument"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically the instrument necessary for the action or event expressed by concept A"@en ;
+  rdfs:comment "A concept which is typically the action with the instrument expressed by a given concept."@en ;
   owl:inverseOf :instrument .
 
 :involved_location a :SynsetRelType ;
   rdfs:label "involved location"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically the location where the action or event expressed by concept A takes place"@en ;
+  rdfs:comment "A concept which is the event happening in a place expressed by a given concept."@en ;
   owl:inverseOf :location .
 
 :involved_patient a :SynsetRelType ;
   rdfs:label "involved patient"@en ;
-  rdfs:comment "A relation between two concepts where concept B is typically the patient un-dergoing an action or event expressed by concept A"@en ;
+  rdfs:comment "A concept which is the action that the patient expressed by a given concept undergoing."@en ;
   owl:inverseOf :patient .
 
 :involved_result a :SynsetRelType ;
   rdfs:label "involved result"@en ;
-  rdfs:comment "A relation between two concepts where concept B comes into existence as a result of concept A"@en ;
+  rdfs:comment "A concept which is the action or event with a result of a given concept comes into existence."@en ;
   owl:inverseOf :result .
 
 :involved_source_direction a :SynsetRelType ;
   rdfs:label "involved source direction"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the place from where the action or event expressed by concept A begins/starts/happens"@en ;
+  rdfs:comment "A concept which is the action beginning from a place of a given concept."@en ;
   owl:inverseOf :source_direction .
 
 :involved_target_direction a :SynsetRelType ;
   rdfs:label "involved target direction"@en ;
-  rdfs:comment "A relation between two concepts where concept B is the place where the action or event expressed by concept A leads to"@en ;
+  rdfs:comment "A concept which is the action or event leading to a place expressed by a given concept."@en ;
   owl:inverseOf :target_direction .
 
 :is_caused_by a :SynsetRelType ;
   rdfs:label "is caused by"@en ;
-  rdfs:comment "A relation between two concepts where concept A comes into existence as a result of concept B"@en ;
+  rdfs:comment "X comes about because of Y"@en ;
   owl:inverseOf :causes .
 
 :is_entailed_by a :SynsetRelType ;
@@ -413,109 +462,114 @@
 
 :is_subevent_of a :SynsetRelType ;
   rdfs:label "is subevent of"@en ;
-  rdfs:comment "A relation between two concepts where concept A takes place during or as part of concept B, and whenever concept A takes place, concept B takes place"@en ;
+  rdfs:comment "X takes place during or as part of Y, and whenever X takes place, Y takes place"@en ;
   owl:inverseOf :subevent .
 
 :location a :SynsetRelType ;
   rdfs:label "location"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the location where the action or event expressed by concept B takes place"@en ;
+  rdfs:comment "A concept which is the place where the event expressed by a given concept happens."@en ;
   owl:inverseOf :involved_location .
 
 :manner_of a :SynsetRelType ;
   rdfs:label "manner of"@en ;
-  rdfs:comment "A relation between two concepts where concept A qualifies the manner in which an action or event expressed by concept B takes place"@en ;
+  rdfs:comment "X qualifies the manner in which an action or event expressed by Y takes place"@en ;
   owl:inverseOf :in_manner .
 
 :mero_location a :SynsetRelType ;
   rdfs:label "meronym location"@en ;
-  rdfs:comment "A relation between two concepts where concept A is a place located in concept B"@en ;
+  rdfs:comment "X is a place located in Y"@en ;
   owl:inverseOf :holo_location .
 
 :mero_member a :SynsetRelType ;
   rdfs:label "meronym member"@en ;
-  rdfs:comment "A relation between two concepts where concept B is a member/ element of concept A"@en ;
+  rdfs:comment "Concept A is a member of Concept B"@en ;
+  rdfs:comment "当該synsetが相手synsetの構成員である"@ja ;
   owl:inverseOf :holo_member .
 
 :mero_part a :SynsetRelType ;
   rdfs:label "meronym part"@en ;
-  rdfs:comment "A relation between two concepts where concept B is a component of concept A"@en ;
+  rdfs:comment "concept A is a component of concept B"@en ;
+  rdfs:comment "当該synsetが相手synsetという部分によって構成される"@ja ;
   owl:inverseOf :holo_part .
 
 :mero_portion a :SynsetRelType ;
   rdfs:label "meronym portion"@en ;
-  rdfs:comment "A relation between two concepts where concept A is an amount/piece/portion of concept B"@en ;
+  rdfs:comment "X is an amount/piece/portion of Y"@en ;
   owl:inverseOf :holo_portion .
 
 :mero_substance a :SynsetRelType ;
   rdfs:label "meronym substance"@en ;
-  rdfs:comment "A relation between two concepts where concept A is made of concept B"@en ;
+  rdfs:comment "Concept A is made of concept B."@en ;
+  rdfs:comment "当該synsetが相手synsetという物質or材料によって構成される"@ja ;
   owl:inverseOf :holo_substance .
 
 :meronym a :SynsetRelType ;
   rdfs:label "meronym"@en ;
-  rdfs:comment "A relation between two concepts where concept B makes up a part of concept A"@en ;
+  rdfs:comment "Y makes up a part of X"@en ;
+  rdfs:comment "当該synsetが相手synsetによって構成される"@ja ;
   owl:inverseOf :holonym .
 
 :other a :SynsetRelType, :SenseRelType ;
   rdfs:label "other"@en ;
-  rdfs:comment "An unspecified relation type (normally given by `dc:type`)"@en .
+  rdfs:comment "Any relation not otherwise specified"@en .
 
 :participle a :SenseRelType ;
   rdfs:label "participle"@en ;
-  rdfs:comment "Indicates a participle form of a verb"@en .
+  rdfs:comment "A concept which is a participial adjective derived from a verb expressed by a given concept."@en .
 
 :patient a :SynsetRelType ;
   rdfs:label "patient"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the patient undergoing an action or event expressed by concept B"@en ;
+  rdfs:comment "A concept which is the one/that who/which undergoes a given concept."@en ;
   owl:inverseOf :involved_patient .
 
 :pertainym a :SenseRelType ;
   rdfs:label "pertainym"@en ;
-  rdfs:comment "Indicates a noun that pertains to this word"@en .
+  rdfs:comment "A concept which is of or pertaining to a given concept."@en .
 
 :restricted_by a :SynsetRelType ;
   rdfs:label "restricted by"@en ;
-  rdfs:comment "A relation between nominal (pronominal) concept B and an adjectival concept A (quantifier/determiner)"@en ;
+  rdfs:comment "A relation between nominal (pronominal) Y and an adjectival X (quantifier/determiner)"@en ;
   owl:inverseOf :restricts .
 
 :restricts a :SynsetRelType ;
   rdfs:label "restricts"@en ;
-  rdfs:comment "A relation between an adjectival concept A (quantifier/determiner) and a nominal (pronominal) concept B"@en ;
+  rdfs:comment "A relation between an adjectival X (quantifier/determiner) and a nominal (pronominal) Y"@en ;
   owl:inverseOf :restricted_by .
 
 :result a :SynsetRelType ;
   rdfs:label "result"@en ;
-  rdfs:comment "A relation between two concepts where concept A comes into existence as a result of concept B"@en ;
+  rdfs:comment "A concept which comes into existence as a result of a given concept."@en ;
   owl:inverseOf :involved_result .
 
 :role a :SynsetRelType ;
   rdfs:label "role"@en ;
-  rdfs:comment "A relation between two concepts where concept A is typically involved in the action or event expressed by concept B"@en ;
+  rdfs:comment "A concept which is involved in the action or event expressed by a given concept."@en ;
   owl:inverseOf :involved .
 
 :similar a :SynsetRelType, :SenseRelType ;
   rdfs:label "similar"@en ;
-  rdfs:comment "A relation between two concepts where concept A and concept B are closely related in meaning but are not in the same synset"@en ;
+  rdfs:comment "(of words) expressing closely related meanings"@en ;
+  rdfs:comment "当該synsetは表す意味が相手synsetと近似している"@ja ;
   owl:inverseOf :similar .
 
 :source_direction a :SynsetRelType ;
   rdfs:label "source direction"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the place from where the action or event expressed by concept B begins/starts/happens"@en ;
+  rdfs:comment "A concept which is the place from where the event expressed by a given concept begins."@en ;
   owl:inverseOf :involved_source_direction .
 
 :state_of a :SynsetRelType ;
   rdfs:label "state of"@en ;
-  rdfs:comment "A relation between two concepts where concept B is qualified by concept A"@en ;
+  rdfs:comment "Y is qualified by X"@en ;
   owl:inverseOf :be_in_state .
 
 :subevent a :SynsetRelType ;
   rdfs:label "subevent"@en ;
-  rdfs:comment "A relation between two concepts where concept B takes place during or as part of concept A, and whenever concept B takes place, concept A takes place"@en ;
+  rdfs:comment "Y takes place during or as part of X, and whenever Y takes place, X takes place"@en ;
   owl:inverseOf :is_subevent_of .
 
 :target_direction a :SynsetRelType ;
   rdfs:label "target direction"@en ;
-  rdfs:comment "A relation between two concepts where concept A is the place where the action or event expressed by concept B leads to"@en ;
+  rdfs:comment "A concept which is the place where the action or event expressed by a given concept leads to."@en ;
   owl:inverseOf :involved_target_direction .
 
 :feminine a :SynsetRelType ;
@@ -608,6 +662,60 @@
   rdfs:comment "A concept which is linked to another through a change in aspect (pi)"@en ;
   owl:inverseOf :secondary_aspect_ip .
 
+:material a :SynsetRelType ;
+  rdfs:label "material"@en ;
+  rdfs:comment "A word which is typically the material of a given word (e.g. \"wood\")"@en .
+
+:event a :SynsetRelType ;
+  rdfs:label "event"@en ;
+  rdfs:comment "An noun representing the event of a verb (e.g., \"(a) meet\" - \"(to) meet\")"@en .
+
+:instrument a :SynsetRelType ;
+  rdfs:label "instrument"@en ;
+  rdfs:comment "An instrument for doing a task (e.g., \"photocopier\" - \"photocopy\")"@en .
+
+:location a :SynsetRelType ;
+  rdfs:label "location"@en ;
+  rdfs:comment "A verb derived from the action performed at a place (e.g., \"(a) forge\" - \"(to) forge\")"@en .
+
+:by_means_of a :SynsetRelType ;
+  rdfs:label "by means of"@en ;
+  rdfs:comment "A word which is typically the means by which something is done (e.g.,g \"deceive\" - \"deception\")"@en .
+
+:undergoer a :SynsetRelType ;
+  rdfs:label "undergoer"@en ;
+  rdfs:comment "A word which is typically the undergoer of a given word (e.g. \"honor\" - \"honoree\")"@en .
+
+:property a :SynsetRelType ;
+  rdfs:label "property"@en ;
+  rdfs:comment "Cause something to have a particular property (e.g., \"magnetize\" - \"magnetization\")"@en .
+
+:result a :SynsetRelType ;
+  rdfs:label "result"@en ;
+  rdfs:comment "A word which is typically the result of a given word (e.g. \"nitrify\" - \"nitrate\")"@en .
+
+:state a :SynsetRelType ;
+  rdfs:label "state"@en ;
+  rdfs:comment "A state caused by the verb (e.g., \"sensitize\" - \"sensitization\")"@en .
+
+:uses a :SynsetRelType ;
+  rdfs:label "uses"@en ;
+  rdfs:comment "A verb that uses a noun (e.g., \"(to) talc\" - \"talc\")"@en .
+
+:destination a :SynsetRelType ;
+  rdfs:label "destination"@en ;
+  rdfs:comment "The noun indicates the destination of a verb (e.g., \"retire\" - \"retiree\")"@en .
+
+:body_part a :SynsetRelType ;
+  rdfs:label "body part"@en ;
+  rdfs:comment "A word which is typically a body part of a given word (e.g. \"finger\")"@en .
+
+:vehicle a :SynsetRelType ;
+  rdfs:label "vehicle"@en ;
+  rdfs:comment "A verb indicating movement with a particular vehicle (e.g., \"(to) ship\" - \"ship\")"@en .
+
+
+
 :senseSubcat a owl:ObjectProperty ;
   rdfs:label "sense subcategorization"@en ;
   rdfs:comment "Indicates that a syntactic behaviour applies to a specific sense"@en ;
@@ -651,3 +759,15 @@
   rdfs:label "audio"@en ;
   rdfs:comment "Links to an audio file for a pronunciation"@en ;
   rdfs:domain :Pronunciation .
+
+:index a owl:DatatypeProperty ;
+  rdfs:label "index"@en ;
+  rdfs:comment "The normalized form of a lexical entry for indexing purposes"@en ;
+  rdfs:domain ontolex:LexicalEntry ;
+  rdfs:range rdfs:Literal .
+
+:n a owl:DatatypeProperty ;
+  rdfs:label "n"@en ;
+  rdfs:comment "The ordering of a sense within a lexical entry or a normalized group of entries"@en ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range xsd:integer .
