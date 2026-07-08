@@ -332,12 +332,13 @@
       ;; case in 'resource-hyperlink' from hijacking the relation rendering.
       (let [opts' (dissoc opts :attr-key)]
         (container
-          (resource-hyperlink relation opts')
-          (when-let [froms (some-> (get m :dns/inheritedFrom) shared/setify not-empty)]
-            (into [:span.subtle " ← "]
-                  (->> (sort-by str froms)
-                       (map #(entity-link % opts'))
-                       (interpose ", "))))))
+          [:span.inheritance
+           (resource-hyperlink relation opts')
+           (when-let [froms (some-> (get m :dns/inheritedFrom) shared/setify not-empty)]
+             (into [:<> [:span.subtle " ← "]]
+                   (->> (sort-by str froms)
+                        (map #(entity-link % opts'))
+                        (interpose ", "))))]))
 
       :let [resources (shared/bag->coll m)]
       resources

@@ -1447,6 +1447,36 @@ span.set {
     vertical-align: baseline;
 }
 
+/* Inheritance display (anonymous dns:inherited nodes, cf. GitHub issue #182):
+   the inherited relation followed by the parent synset(s) as inline text. */
+
+/* Keep the subscripted sense markers from distorting the shared line box. */
+span.inheritance sub {
+    vertical-align: baseline;
+    position: relative;
+    top: 0.3em;
+    line-height: 0;
+}
+
+/* Render the parent synset links as plain inline content; the inline-flex
+   used for regular set notation otherwise exports a synthesized baseline,
+   placing the synset labels a few pixels above the surrounding text. */
+span.inheritance a .set,
+span.inheritance a .set__content {
+    display: inline;
+}
+
+/* The bracket spans are empty and normally sized by the set flex layout,
+   so they must be given explicit dimensions to show their background SVGs
+   in the inline context above. */
+span.inheritance a .set__left-bracket,
+span.inheritance a .set__right-bracket {
+    display: inline-block;
+    width: 1ch;
+    height: 1em;
+    vertical-align: text-bottom;
+}
+
 .set__content {
     text-align: center;
     /* TODO: figure out a way to make ontotype big sets work better
