@@ -351,6 +351,16 @@
   (let [schemas' (assoc schemas 'oewn oewn-extension)]
     (-> schemas' prefix :resource)))
 
+(def rdf-resource->prefix
+  "Map from dataset RDF resource, e.g. \"<https://ordregister.dk>\", to its
+  prefix. Useful when the resource URI doesn't share a namespace with the
+  resources of the dataset itself (as is the case for e.g. COR)."
+  (into {}
+        (keep (fn [[prefix {:keys [resource]}]]
+                (when resource
+                  [resource prefix])))
+        schemas))
+
 (defn dataset-uri
   "Prepare a download URL for the dataset defined by `prefix` in specified
   `type` and of a possible `variant`."
