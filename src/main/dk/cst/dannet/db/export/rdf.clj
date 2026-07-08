@@ -183,6 +183,8 @@
           (str/starts-with? (or n "") "oewn-"))
       :synsets
 
+      ;; TODO: remove "inherit" once #182 has shipped (inheritance resources
+      ;;       are now blank nodes, so named inherit-* resources no longer occur)
       (and (= ns "dn")
            (re-find #"^(word|sense|inherit)-" n))
       :other

@@ -20,10 +20,12 @@
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
            [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.rdf.model Model ModelFactory]
+           [org.apache.jena.rdf.model Model ModelFactory Resource]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
-           [org.apache.jena.tdb2 TDB2Factory]))
+           [org.apache.jena.tdb2 TDB2Factory]
+           [org.apache.jena.util ResourceUtils]
+           [org.apache.jena.vocabulary RDF]))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from.
@@ -331,6 +333,30 @@
         (db/safe-add! g (for [uri subjects]
                           [(prefix/uri->rdf-resource uri) :skos/inScheme scheme]))))))
 
+(h/defn anonymize-inheritance!
+  "Convert the named dn:inherit-* resources into anonymous resources, i.e.
+  blank nodes (GitHub issue #182). Inheritance markings are just synset
+  metadata, so there is no reason to mint a unique URI for each instance.
+  ResourceUtils/renameResource moves every statement mentioning the resource
+  -- in both subject and object position -- over to the new blank node.
+
+  NOTE: must run BEFORE add-in-scheme! so that the inheritance resources do
+  not get skos:inScheme triples attached prior to losing their dn: URIs."
+  [dataset]
+  (let [model (db/get-model dataset prefix/dn-uri)]
+    (txn/transact-exec model
+      (let [inheritance (.createResource model (prefix/kw->uri :dns/Inheritance))
+            named       (->> (.listSubjectsWithProperty model RDF/type inheritance)
+                             (iterator-seq)
+                             (filter #(.isURIResource ^Resource %))
+                             (doall))]
+        (t/log! {:level :info
+                 :id    :dannet.bootstrap/anonymize-inheritance
+                 :data  {:count (count named)}}
+                "Converting named inheritance resources to blank nodes")
+        (doseq [^Resource r named]
+          (ResourceUtils/renameResource r nil))))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -355,6 +381,7 @@
   ;; ==== The block of changes for this particular release. ====
   (fix-meronym-directionality! dataset)
   (fix-cross-pos-hypernymy! dataset)
+  (anonymize-inheritance! dataset)
   (add-in-scheme! dataset))
 
 (defn ->dataset

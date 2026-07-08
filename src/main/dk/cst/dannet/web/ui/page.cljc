@@ -22,7 +22,20 @@
     :as   opts}]
   ;; TODO: could this transformation be moved to the backend?
   (let [inherited (->> (shared/setify (:dns/inherited entity))
-                       (map (comp prefix/qname->kw first k->label))
+                       ;; Inheritance is marked by anonymous resources (#182)
+                       ;; carrying their entity data as metadata; named
+                       ;; inherit-* resources found in older builds are
+                       ;; resolved through their labels as before.
+                       ;; TODO: remove the legacy keyword branch once #182
+                       ;;       has shipped and no older builds remain.
+                       (keep (fn [v]
+                               (if (symbol? v)
+                                 (some-> (meta v)
+                                         (get :dns/inheritedRelation)
+                                         (shared/unwrap))
+                                 (some->> (get k->label v)
+                                          (first)
+                                          (prefix/qname->kw)))))
                        (set))
         opts'     (assoc opts :inherited inherited)
         [_ _ rdf-uri] (shared/parse-rdf-term subject)
