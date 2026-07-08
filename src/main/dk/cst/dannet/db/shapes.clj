@@ -223,7 +223,7 @@
   triples. Expect this to take a long time on the full dataset."
   [db]
   (let [result (txn/transact-read (:dataset db)
-                                  (validate (:graph db) @inferred-shapes))
+                 (validate (:graph db) @inferred-shapes))
         counts (by-shape (:entries result))]
     (t/log! {:level (if (:conforms? result) :info :warn)
              :id    :dannet.shapes/validate-inferred
