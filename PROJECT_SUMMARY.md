@@ -271,6 +271,64 @@ npx shadow-cljs watch app
 # Access dev server at http://localhost:7777
 ```
 
+### Browser REPL Debugging (shadow-cljs)
+
+Frontend behaviour can be debugged directly in a live browser tab by hooking
+into the shadow-cljs nREPL. This is the tool of choice for bugs that only
+manifest client-side — hydration errors invisible to SSR, CLJS/CLJ behavioural
+differences (e.g. keyword hashing, `subs` on non-strings), inspecting transit
+payloads as the client actually sees them, and pixel-level CSS work.
+
+```clojure
+;; 1. Connect to the shadow-cljs nREPL (port in .shadow-cljs/nrepl.port;
+;;    it runs alongside the regular clj nREPL on 7888).
+
+;; 2. Confirm a browser tab is connected, then switch the session to CLJS:
+(shadow.cljs.devtools.api/repl-runtimes :app)
+(shadow.cljs.devtools.api/repl :app)      ; :cljs/quit to leave CLJS mode
+
+;; 3. Everything now evaluates inside the live browser tab:
+
+;; Inspect client state, e.g. the current page data:
+(:data @dk.cst.dannet.web.client/location)
+
+;; Drive navigation to reproduce a bug on a specific page:
+(dk.cst.dannet.shared/navigate-to "/dannet/data/synset-52")
+
+;; Query and measure the DOM, incl. glyph-level baseline comparisons:
+(.querySelector js/document "tr[property=\"dns:inherited\"]")
+;; (use Range/getClientRects on single characters to compare baselines)
+
+;; Instrument a suspect function non-invasively; capture args/stacks in an
+;; atom that can be deref'ed from the REPL, then restore the original:
+(defonce orig-f some.ns/suspect-fn)
+(defonce captured (atom []))
+(set! some.ns/suspect-fn (fn [x]
+                           (swap! captured conj [(pr-str x) (.-stack (js/Error.))])
+                           (orig-f x)))
+
+;; Try CSS candidates by injecting a temporary <style> and re-measuring,
+;; before committing anything to main.css:
+(let [style (.createElement js/document "style")]
+  (set! (.-id style) "exp-style")
+  (set! (.-textContent style) "span.inheritance sub { line-height: 0; }")
+  (.appendChild (.-head js/document) style))
+
+;; Force a stylesheet reload after editing main.css (cache busting):
+(doseq [link (array-seq (.querySelectorAll js/document "link[rel=stylesheet]"))]
+  (set! (.-href link) (str (first (clojure.string/split (.-href link) #"\?"))
+                           "?v=" (js/Date.now))))
+```
+
+Notes:
+- This drives the developer's actual browser tab — navigation and re-renders
+  are visible, so coordinate before jumping around.
+- Always clean up: restore `set!`-instrumented functions and remove injected
+  `<style>` elements when done.
+- The shadow watcher hot-reloads edited `.cljs`/`.cljc` files automatically
+  (allow a few seconds before re-testing); backend `.clj` changes still need
+  a `(require ... :reload)` in the *clj* REPL.
+
 ### Running Tests
 ```bash
 # Run Clojure tests
