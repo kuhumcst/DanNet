@@ -43,6 +43,8 @@
              :alt "schemas/external/olia.owl"}
 
    ;; Metadata-related namespaces.
+   'void    {:uri "http://rdfs.org/ns/void#"
+             :alt :no-schema}
    'dcat    {:uri "http://www.w3.org/ns/dcat#"
              :alt "schemas/external/dcat2.ttl"}
    'vann    {:uri "http://purl.org/vocab/vann/"
@@ -77,13 +79,15 @@
              :resource "<https://ordregister.dk>"
              :export   #{'dn 'cor
                          'rdf 'rdfs 'owl
-                         'ontolex 'skos 'lexinfo}
+                         'ontolex 'skos 'lexinfo
+                         'lime 'void 'dc 'dcat}
              :download {"rdf" {:default "cor.zip"}}}
 
    ;; Sentiment data
    'dds     {:uri      "https://wordnet.dk/sentiment/"
              :resource "<https://wordnet.dk/sentiment>"
-             :export   #{'dn 'dns 'marl}
+             :export   #{'dn 'dns 'marl
+                         'void 'dc 'dcat}
              :download {"rdf" {:default "dds.zip"}}}
 
    ;; The three internal DanNet namespaces.
@@ -91,8 +95,8 @@
              :resource (str "<" dannet-root "data>")
              :export   #{'dn 'dnc 'dns
                          'rdf 'rdfs 'owl
-                         'wn 'ontolex 'skos 'lexinfo 'marl
-                         'dcat 'vann 'foaf 'dc
+                         'lime 'wn 'ontolex 'skos 'lexinfo 'marl
+                         'dcat 'vann 'foaf 'dc 'void
                          'ili 'en}
              :download {"rdf"    {:default   "dannet.zip"
                                   "merged"   "dannet-dds-cor.zip"

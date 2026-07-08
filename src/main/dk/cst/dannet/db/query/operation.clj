@@ -584,6 +584,10 @@
            { ?source a skos:ConceptScheme }
            UNION
            { ?source a dcat:Dataset }
+           UNION
+           # Companion datasets that we cannot modify ourselves, e.g. the
+           # OEWN, are typed lime:Lexicon rather than dcat:Dataset (#178).
+           { ?source a lime:Lexicon }
            FILTER (!isBlank(?source))
          }
        }
