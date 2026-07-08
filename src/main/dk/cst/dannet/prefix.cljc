@@ -24,7 +24,7 @@
    'owl     {:uri "http://www.w3.org/2002/07/owl#"
              :alt "schemas/external/owl.ttl"}
    'wn      {:uri "https://globalwordnet.github.io/schemas/wn#" ; https official
-             :alt "schemas/external/wn-lemon-1.2.ttl"}
+             :alt "schemas/external/wn-lemon-1.4.ttl"}
    'svs     {:uri "http://www.w3.org/2003/06/sw-vocab-status/ns#"
              :alt "schemas/external/svs.xml"}
    'ontolex {:uri "http://www.w3.org/ns/lemon/ontolex#"

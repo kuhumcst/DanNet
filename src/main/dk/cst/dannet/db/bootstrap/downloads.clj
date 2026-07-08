@@ -157,7 +157,7 @@
 
 (def oewn-version
   "The Open English WordNet edition to bootstrap against."
-  "2024")
+  "2025")
 
 (def oewn-ttl-path
   (str english-dir "/english-wordnet-" oewn-version ".ttl"))

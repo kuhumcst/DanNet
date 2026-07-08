@@ -326,7 +326,12 @@
                             ;; (:to "SNAPSHOT" -> a real version, same :from)
                             ;; wouldn't change db-name and the stale, still
                             ;; SNAPSHOT-labelled database would be reused.
-                            md/new-release]
+                            md/new-release
+                            ;; The OEWN edition is likewise only a value: its
+                            ;; ttl isn't among the hashed input zips, so it is
+                            ;; included explicitly -- otherwise bumping the
+                            ;; edition wouldn't trigger a rebuild.
+                            downloads/oewn-version]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (h/pos-hash files)
             bootstrap-hash (h/pos-hash fn-hashes)
