@@ -4,9 +4,11 @@
             [ont-app.vocabulary.lstr :refer [->LangStr]]
             [taoensso.telemere :as t]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix])
-  (:import [org.apache.jena.rdf.model Model]))
+  (:import [org.apache.jena.rdf.model Model]
+           [org.apache.jena.vocabulary RDF]))
 
 (defn da
   [& s]
@@ -91,17 +93,18 @@
          [source :rdfs/seeAlso v])))
 
 (h/defn update-metadata!
-  "Remove old dataset metadata from `model` and add current `dataset-metadata`."
+  "Remove old dataset metadata from `model` and add current `dataset-metadata`.
+
+  The resources to remove are derived from the subjects of the incoming
+  `dataset-metadata` rather than kept in a hand-maintained list, ensuring that
+  the removals can never go out of date as metadata is added or changed from
+  release to release."
   [dataset-metadata model]
   (t/log! {:level :debug :id :dannet.bootstrap/update-metadata}
           "Updating dataset metadata")
-  (let [metadata-resources [<dn> <dns> <dnc>
-                            <dds> <cor>
-                            <cst> <dsl>
-                            <simongray>]]
-    (doseq [rdf-resource metadata-resources]
-      (db/remove! model [rdf-resource '_ '_]))
-    (db/safe-add! (.getGraph ^Model model) dataset-metadata)))
+  (doseq [rdf-resource (set (map first dataset-metadata))]
+    (db/remove! model [rdf-resource '_ '_]))
+  (db/safe-add! (.getGraph ^Model model) dataset-metadata))
 
 (h/def metadata
   {'dn  (set/union
@@ -160,6 +163,10 @@
    'dds #{[<dds> :rdf/type :dcat/Dataset]
           [<dds> :rdfs/label "DDS"]
           [<dds> :dc/title "DDS"]
+          ;; The DDS and COR RDF datasets are regenerated with every DanNet
+          ;; release, so their issued/version metadata tracks the release.
+          [<dds> :dc/issued new-release]
+          [<dds> :owl/versionInfo new-release]
           [<dds> :dc/description (en "The Danish Sentiment Lexicon")]
           [<dds> :dc/description (da "Det Danske Sentimentleksikon")]
           [<dds> :dc/contributor <cst>]
@@ -169,6 +176,8 @@
    'cor #{[<cor> :rdf/type :dcat/Dataset]
           [<cor> :rdfs/label "COR"]
           [<cor> :dc/title "COR"]
+          [<cor> :dc/issued new-release]
+          [<cor> :owl/versionInfo new-release]
           [<cor> :dc/contributor <cst>]
           [<cor> :dc/contributor <dsl>]
           [<cor> :dc/contributor <dsn>]
@@ -180,3 +189,67 @@
           [<dsn> :foaf/name (en "The Danish Language Council")]
           [<dsn> :foaf/homepage <dsn>]
           [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}})
+
+(defn- count-type
+  "Count the number of instances of `rdf-type` in `model`."
+  [^Model model rdf-type]
+  (txn/transact model
+    (count (iterator-seq
+             (.listStatements model nil RDF/type
+                              (.createResource model (prefix/kw->uri rdf-type)))))))
+
+(defn- triple-count
+  "Count the total number of triples in `model`."
+  [^Model model]
+  (txn/transact model
+    (.size model)))
+
+(defn- avg
+  "The ratio of `n` to `d` rounded to two decimal places; nil when undefined."
+  [n d]
+  (when (pos? d)
+    (/ (Math/round (* 100.0 (/ n d))) 100.0)))
+
+(h/defn add-dataset-statistics!
+  "Compute and add statistics for the DanNet, DDS, and COR dataset resources
+  in `dataset`: LIME lexicon metadata mirroring what the OEWN provides for
+  <https://en-word.net/> (GitHub issue #178) plus VoID triple counts.
+
+  This is a permanent part of the bootstrap process: it must run AFTER the
+  release changes so that the statistics reflect the data actually being
+  exported. Stale statistics never survive a rebuild since update-metadata!
+  removes every dataset resource triple during the initial import."
+  [dataset]
+  (let [dn-model  (db/get-model dataset prefix/dn-uri)
+        dds-model (db/get-model dataset prefix/dds-uri)
+        cor-model (db/get-model dataset prefix/cor-uri)
+        ;; dn: words are typed ontolex:Word or ontolex:MultiwordExpression --
+        ;; never ontolex:LexicalEntry directly; COR additionally has affixes.
+        entries   (+ (count-type dn-model :ontolex/Word)
+                     (count-type dn-model :ontolex/MultiwordExpression))
+        senses    (count-type dn-model :ontolex/LexicalSense)
+        concepts  (count-type dn-model :ontolex/LexicalConcept)
+        stats     {dn-model  [[<dn> :lime/language "da"]
+                              [<dn> :lime/lexicalEntries entries]
+                              [<dn> :lime/lexicalizations senses]
+                              [<dn> :lime/concepts concepts]
+                              (when-let [x (avg senses entries)]
+                                [<dn> :lime/avgAmbiguity x])
+                              (when-let [x (avg senses concepts)]
+                                [<dn> :lime/avgSynonymy x])
+                              [<dn> :void/triples (triple-count dn-model)]]
+                   dds-model [[<dds> :void/triples (triple-count dds-model)]]
+                   cor-model [[<cor> :lime/language "da"]
+                              [<cor> :lime/lexicalEntries
+                               (+ (count-type cor-model :ontolex/Word)
+                                  (count-type cor-model :ontolex/MultiwordExpression)
+                                  (count-type cor-model :ontolex/Affix))]
+                              [<cor> :void/triples (triple-count cor-model)]]}]
+    (doseq [[^Model model triples] stats
+            :let [triples' (remove nil? triples)]]
+      (txn/transact-exec model
+        (t/log! {:level :info
+                 :id    :dannet.bootstrap/dataset-statistics
+                 :data  {:statistics (vec triples')}}
+                "Adding dataset statistics")
+        (db/safe-add! (.getGraph model) triples')))))

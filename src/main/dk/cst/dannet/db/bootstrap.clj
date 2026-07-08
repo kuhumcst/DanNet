@@ -384,6 +384,9 @@
   (anonymize-inheritance! dataset)
   (add-in-scheme! dataset))
 
+;; NOTE: dataset statistics generation lives in the metadata ns; it is invoked
+;; below in ->dannet after the release changes have been applied.
+
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
 
@@ -476,6 +479,7 @@
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
                             (:hash (meta #'make-release-changes!))
+                            (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
                             (:hash (meta #'->dannet))
@@ -551,6 +555,10 @@
                       ;; former release, i.e. the contents of this function is versioned
                       ;; together with every single formal release.
                       (make-release-changes! dataset)
+
+                      ;; Runs after the release changes so that the dataset
+                      ;; statistics reflect the data actually being exported.
+                      (md/add-dataset-statistics! dataset)
 
                       ;; The English is always explicitly added as it is not part of our
                       ;; own latest export (only the DanNet-like labels we produce are).
