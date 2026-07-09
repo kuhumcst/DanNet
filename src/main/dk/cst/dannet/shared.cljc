@@ -299,44 +299,82 @@
 (def omitted
   "…")
 
-(defn- entry-sort
-  "Divide `sense-labels` into partitions of [s sub] according to DSL entry IDs."
-  [sense-labels]
-  (->> (map (comp (partial re-matches sense-label) str) sense-labels)
-       (map (fn [[s _ _ sub _]]
-              (cond
-                (nil? sub)                                  ; uncertain = keep
-                [s "1§1"]
+(defn- entry-sort-key
+  "Sort key for a sense label `s` based on its DSL entry ID.
 
-                (and sub (str/starts-with? sub "§"))        ; normalisation
-                [s (str "0" sub)]
+  Lower sense numbers rank first (parsed numerically, so §2 < §12). The first
+  subentry outranks the bare sense number (§1a > §1), which outranks the later
+  subentries (§1b, §1c, …). The homograph number breaks any remaining ties
+  (1, then no homograph, then 2, 3, …). So e.g. 1§1 > §1 > 2§1 and §1a > §1.
 
-                :else
-                [s sub])))
-       (sort-by second)
-       (partition-by second)))
+  Labels with no parsable entry ID (e.g. proper nouns) sort last."
+  [s]
+  (let [[_ _ _ sub] (re-matches sense-label (str s))
+        [_ homograph sense suffix] (some->> sub (re-matches #"(\d+)?§(\d+)(.*)"))
+        h (some-> homograph parse-long)
+        n (some-> sense parse-long)]
+    (if n
+      [n
+       (case suffix
+         "a" "0"                                            ; first subentry
+         ""  "1"                                            ; bare sense number
+         (str "2" suffix))                                  ; b, c, … + uncertain
+       (cond
+         (= h 1)  0                                         ; primary homograph
+         (nil? h) 1                                         ; no homograph number
+         :else    h)]                                       ; secondary (2, 3, …)
+      [##Inf "" 0])))
 
-(defn canonical
-  "Return only canonical `sense-labels` using the DSL entry IDs as a heuristic.
-
-  The sense of canonical being applied here is: 'reduced to the simplest and
-  most significant form possible without loss of generality'.
-
-  Input labels are sorted into partitions with the top partition returned.
-  In cases where adding the second partition puts the total count at n<=3,
-  this second partition is also included."
-  [sense-labels]
-  (if (= 1 (count sense-labels))
-    sense-labels
-    (let [[first-partition second-partition :as parts] (entry-sort sense-labels)
-          n (+ (count first-partition) (count second-partition))]
-      (mapv first (if (<= n 3)
-                    (concat first-partition second-partition)
-                    first-partition)))))
+(defn canonical*
+  "Implementation for `canonical`. Use that function instead."
+  ([sense-labels]
+   (canonical* nil sense-labels))
+  ([tiebreak sense-labels]
+   (let [keyfn (if tiebreak (juxt entry-sort-key tiebreak) entry-sort-key)
+         word  (fn [s] (or (second (re-matches sense-label (str s)))
+                           (str s)))]
+     (->> (remove #{omitted} sense-labels)
+          (sort-by keyfn)
+          (reduce (fn [[seen out :as acc] s]
+                    (let [w (word s)]
+                      (if (contains? seen w)
+                        acc
+                        [(conj seen w) (conj out s)])))
+                  [#{} []])
+          (second)
+          (into [] (take 2))))))
 
 ;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
-#?(:clj  (alter-var-root #'canonical #(memo/lu % :lu/threshold 1000))
-   :cljs (def canonical (memoize canonical)))
+(def canonical
+  "Return the top (at most 2) canonical `sense-labels`, at most one per word,
+  using the DSL entry IDs as a heuristic. Optionally takes a `tiebreak` keyfn
+  as its first argument.
+
+  The sense of canonical being applied here is: 'reduced to the simplest and
+  most significant form possible without loss of generality'. The maximum of 2
+  keeps labels from taking over the UI.
+
+  A `tiebreak` keyfn refines the order among labels with equal entry-ID keys;
+  without one, ties keep their input order (sort-by is stable), so pre-ranked
+  labels such as stored dns:shortLabel values pass through in their stored
+  order.
+
+  The \"…\" truncation marker is ignored, as it is never a sense label."
+  #?(:clj  (memo/lu canonical* :lu/threshold 1000)
+     :cljs (memoize canonical*)))
+
+(defn short-label
+  "Return an abridged version of a synset `label` keeping only the canonical
+  sense labels followed by the \"…\" marker, or nil when nothing is omitted.
+
+  An optional `tiebreak` keyfn is passed on to `canonical`."
+  ([label]
+   (short-label nil label))
+  ([tiebreak label]
+   (let [labels (sense-labels synset-sep (str label))
+         kept   (canonical tiebreak labels)]
+     (when (< (count kept) (count labels))
+       (str "{" (str/join "; " kept) "; " omitted "}")))))
 
 (defn min-max-normalize
   [span low num]

@@ -11,7 +11,9 @@
             [cognitect.anomalies :as-alias anom]
             [dk.cst.dannet.web.i18n :as i18n]
             [taoensso.telemere :as t]
-            #?(:clj [clojure.stacktrace])))
+            #?(:clj [clojure.stacktrace])
+            #?(:cljs [daiquiri.interpreter :as interpreter])
+            #?(:cljs ["react-dom/server" :as react-dom-server])))
 
 (def error-boundary-mixin
   "Rum mixin that catches render errors in the wrapped child component.
@@ -94,6 +96,16 @@
           "Render error caught")
   (or fallback (default-fallback e)))
 
+#?(:cljs
+   (defn static-markup
+     "Render `hiccup` to a static HTML string in the browser.
+
+     Unlike 'rum/render-static-markup', this works client-side: it interprets
+     the hiccup into a React element and uses the bundled react-dom/server
+     rather than a js/ReactDOMServer global (which shadow-cljs never defines)."
+     [hiccup]
+     (react-dom-server/renderToStaticMarkup (interpreter/interpret hiccup))))
+
 (defn- emit-try-catch
   "Emit try/catch for `body` with `error-sym` and `catch-body`.
   
@@ -151,8 +163,8 @@
   "Wrap `body` in try/catch, rendering fallback into `elem` on error.
   
   This is used for imperative DOM code (e.g. ref callbacks) that runs *outside*
-  React's normal render cycle. It uses 'rum/render-static-markup' to render
-  the fallback hiccup directly into the element if needed.
+  React's normal render cycle. It uses 'static-markup' to render the fallback
+  hiccup directly into the element if needed.
   
   Examples:
     (try-static-render node (build-viz! node))
@@ -167,5 +179,5 @@
          ~@body
          (catch :default e#
            (set! (.-innerHTML ~elem)
-                 (rum/render-static-markup (fallback-content e# ~fallback)))))
+                 (static-markup (fallback-content e# ~fallback)))))
       `(do ~@body))))

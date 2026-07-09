@@ -496,6 +496,19 @@
        }
      }"))
 
+(def sense-label-polysemy
+  "The polysemy (number of senses) of the word behind every dn: sense label;
+  used as a proxy for word commonness when ranking canonical sense labels."
+  (sparql
+    "SELECT ?senseLabel (COUNT(DISTINCT ?otherSense) AS ?polysemy)
+     WHERE {
+       ?word ontolex:sense ?sense .
+       FILTER(STRSTARTS(str(?word), str(dn:))) .
+       ?sense rdfs:label ?senseLabel .
+       ?word ontolex:sense ?otherSense .
+     }
+     GROUP BY ?senseLabel"))
+
 (def missing-lexinfo-pos
   (sparql
     "SELECT ?word ?pos
