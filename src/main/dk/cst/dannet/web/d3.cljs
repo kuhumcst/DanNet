@@ -243,10 +243,9 @@
             :let [name' (if s
                           (str/replace s (str "_" sub) "")
                           name)]]
-        (when-not (= s shared/omitted)
-          (assoc m
-            :name name'
-            :sub sub))))))
+        (assoc m
+          :name name'
+          :sub sub)))))
 
 (def radial-limit
   56)
@@ -484,7 +483,6 @@
                         (shared/sense-labels shared/synset-sep)
                         (shared/canonical)
                         (map remove-subscript)
-                        (remove #{shared/omitted})
                         (set)
                         (sort-by shared/glyph-width)
                         (str/join ", "))

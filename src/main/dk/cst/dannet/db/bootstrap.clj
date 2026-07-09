@@ -15,6 +15,7 @@
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.hash :as h]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.io File]
            [java.time LocalDateTime]
@@ -373,6 +374,30 @@
         (doseq [^Resource r named]
           (ResourceUtils/renameResource r nil))))))
 
+(h/defn regenerate-short-labels!
+  "Regenerate every dns:shortLabel from its synset's rdfs:label using the
+  shared/canonical entry-ID heuristic, breaking ties by word polysemy (a proxy
+  for word commonness). The old short labels were built from corpus
+  frequencies (#108) and often dropped homograph senses (e.g. hund_1§1)
+  entirely. A short label is only emitted when canonical omits senses, with
+  the \"…\" marker appended; otherwise rdfs:label suffices as-is."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/regenerate-short-labels}
+          "Regenerating short synset labels")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        polysemy (->> (q/run g op/sense-label-polysemy)
+                      (map (juxt (comp str '?senseLabel) '?polysemy))
+                      (into {}))
+        tiebreak (fn [s] [(- (get polysemy (str s) 0)) (str s)])]
+    (db/update-triples! prefix/dn-uri dataset op/synset-long-short-labels
+      (fn [{:syms [?synset ?label]}]
+        (when-let [short (shared/short-label tiebreak ?label)]
+          [?synset :dns/shortLabel (md/da short)]))
+      (fn [{:syms [?synset ?shortLabel]}]
+        (when ?shortLabel
+          [?synset :dns/shortLabel ?shortLabel])))))
+
 (h/defn make-release-changes!
   "This function tracks all changes made in this release, i.e. deletions and
   additions to either of the export datasets.
@@ -398,7 +423,8 @@
   (fix-meronym-directionality! dataset)
   (fix-cross-pos-hypernymy! dataset)
   (anonymize-inheritance! dataset)
-  (add-in-scheme! dataset))
+  (add-in-scheme! dataset)
+  (regenerate-short-labels! dataset))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
