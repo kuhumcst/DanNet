@@ -1,0 +1,17 @@
+DDS integration for DanNet {version}
+====================================
+An RDF conversion of DDS (Det Danske Sentimentleksikon / The Danish
+Sentiment Lexicon), attaching polarity values to DanNet words and senses
+using the MARL vocabulary.
+
+Source dataset: https://github.com/dsldk/danish-sentiment-lexicon
+compiled by Sanni Nimb, Sussi Olsen & Thomas Troelsgård and published by
+Det Danske Sprog- og Litteraturselskab (DSL) and Center for Sprogteknologi
+(CST), University of Copenhagen.
+
+The source dataset is licensed under CC BY-SA 4.0; this RDF conversion is
+a derivative work published under the same licence (see LICENSE or
+https://creativecommons.org/licenses/by-sa/4.0/).
+
+Changes relative to the source: the tabular data has been converted to RDF
+and linked to DanNet resources.

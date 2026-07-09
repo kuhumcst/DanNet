@@ -94,7 +94,23 @@
              (mapcat (fn [{:syms [?sense ?word ?rep]}]
                        [[?word :rdfs/label (md/en "\"" ?rep "\"")]
                         [?sense :rdfs/label ?rep]]))
-             (aristotle/add label-graph))))))
+             (aristotle/add label-graph)))
+      ;; Carry the CC BY 4.0 licence in the RDF itself, not just the export zip
+      ;; (issue #96): the OEWN label extension is our derivative of the Open
+      ;; English Wordnet, published under the same CC BY 4.0 licence.
+      (txn/transact-exec dataset
+        (t/log! {:level :debug
+                 :id    :dannet.bootstrap/oewn-license
+                 :data  {:graph (str prefix/oewn-extension-uri)}}
+                "Adding OEWN extension licence metadata")
+        (let [oewn-ext (prefix/uri->rdf-resource prefix/oewn-extension-uri)]
+          (aristotle/add
+            label-graph
+            [[oewn-ext :dc/license "<https://creativecommons.org/licenses/by/4.0/>"]
+             ["<https://creativecommons.org/licenses/by/4.0/>" :rdfs/label "CC BY 4.0"]
+             [oewn-ext :dc/rights (md/en "DanNet-style labels for the Open English Wordnet; "
+                                         "© the Open English Wordnet contributors, "
+                                         "licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).")]]))))))
 
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!

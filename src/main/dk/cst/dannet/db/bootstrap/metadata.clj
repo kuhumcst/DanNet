@@ -171,6 +171,15 @@
           [<dds> :dc/description (da "Det Danske Sentimentleksikon")]
           [<dds> :dc/contributor <cst>]
           [<dds> :dc/contributor <dsl>]
+          ;; The CC BY-SA 4.0 rdfs:label is asserted in the 'dn map above; DDS
+          ;; reuses the same licence resource, so only the links are added here.
+          [<dds> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
+          [<dds> :dc/rights (en "Copyright © Det Danske Sprog- og Litteraturselskab & "
+                                "Centre for Language Technology (University of Copenhagen); "
+                                "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
+          [<dds> :dc/rights (da "Copyright © Det Danske Sprog- og Litteraturselskab & "
+                                "Center for Sprogteknologi (Københavns Universitet); "
+                                "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
           [<dds> :rdfs/seeAlso (prefix/uri->rdf-resource "https://github.com/dsldk/danish-sentiment-lexicon")]
           [<dds> :dcat/downloadURL (prefix/uri->rdf-resource dds-zip-uri)]}
    'cor #{[<cor> :rdf/type :dcat/Dataset]
@@ -181,6 +190,11 @@
           [<cor> :dc/contributor <cst>]
           [<cor> :dc/contributor <dsl>]
           [<cor> :dc/contributor <dsn>]
+          ;; COR upstream is only partly CC0: we consume ONLY the CC0 resources
+          ;; (COR₁ 1.02 and COR.EXT 1.0). COR.SEM.EXT is CC BY-NC-ND and must NOT
+          ;; be added here without revisiting the licence (issue #96).
+          [<cor> :dc/license "<https://creativecommons.org/publicdomain/zero/1.0/>"]
+          ["<https://creativecommons.org/publicdomain/zero/1.0/>" :rdfs/label "CC0 1.0"]
           [<cor> :dc/description (en "The Central Word Registry.")]
           [<cor> :dc/description (da "Det Centrale Ordregister.")]
           [<cor> :rdfs/seeAlso (prefix/uri->rdf-resource "https://dsn.dk/sprogets-udvikling/sprogteknologi-og-fagsprog/cor/")]
