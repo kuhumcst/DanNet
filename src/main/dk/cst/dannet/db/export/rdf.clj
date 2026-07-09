@@ -10,6 +10,7 @@
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.shapes :as shapes]
+            [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [clojure.lang Symbol]
@@ -18,7 +19,9 @@
            [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.query Dataset]
-           [java.io StringWriter]))
+           [java.io File StringWriter]
+           [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]))
 
 (defn add-registry-prefixes!
   "Adds prefixes in use from the Aristotle registry to the `model`."
@@ -46,7 +49,7 @@
   (see shapes/validate-export!).
 
   See: https://jena.apache.org/documentation/io/rdf-output.html"
-  [path ^Model model & {:keys [fmt prefixes validate]
+  [path ^Model model & {:keys [fmt prefixes validate extra-files]
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
   (let [ttl-file (ttl-path path)]
     (txn/transact-exec model
@@ -61,7 +64,7 @@
       ;; Release gate: validate exactly what ships, before it is zipped.
       (when validate
         (shapes/validate-export! ttl-file))
-      (zip/zip-files [ttl-file] path)
+      (zip/zip-files (into [ttl-file] extra-files) path)
       ;; Clear temporarily added prefixes
       (.clearNsPrefixMap model)))
   nil)
@@ -69,6 +72,59 @@
 (defn- export-prefixes
   [prefix]
   (get-in prefix/schemas [prefix :export]))
+
+(def license-file
+  "Map from CC licence keyword to the bundled plain-text licence resource."
+  {:cc-by-sa "export/licenses/CC-BY-SA-4.0.txt"
+   :cc-by    "export/licenses/CC-BY-4.0.txt"
+   :cc0      "export/licenses/CC0-1.0.txt"})
+
+(def export-licensing
+  "Per download prefix: the licence + README template shipped inside its zip.
+
+  Decisions locked in for issue #96: COR RDF is CC0 1.0, the OEWN label
+  extension is CC BY 4.0, everything else is CC BY-SA 4.0."
+  {'dn             {:license :cc-by-sa :readme "dannet.txt"}
+   'dds            {:license :cc-by-sa :readme "dds.txt"}
+   'cor            {:license :cc0 :readme "cor.txt"}
+   'oewn-extension {:license :cc-by :readme "oewn-extension.txt"}})
+
+(defn render-readme
+  "Read the README template `readme` (under resources/export/readmes/) and fill
+  in the `version` placeholders. The OEWN labels track the DanNet release, so
+  {version} and {oewn-version} resolve to the same string."
+  [readme version]
+  (-> (slurp (io/resource (str "export/readmes/" readme)))
+      (str/replace "{version}" version)
+      (str/replace "{oewn-version}" version)))
+
+(defn copy-license!
+  "Copy the bundled licence text for `license-key` to `dest` (typically a file
+  named LICENSE, so it ships under that name inside a zip)."
+  [license-key dest]
+  (with-open [in (io/input-stream (io/resource (license-file license-key)))]
+    (io/copy in (io/file dest))))
+
+(defn- delete-dir!
+  "Recursively delete `dir` (children before parents)."
+  [^File dir]
+  (doseq [^File f (reverse (file-seq dir))]
+    (.delete f)))
+
+(defn stage-export-files!
+  "Materialise LICENSE + README.txt for `prefix` in a fresh temp dir so both
+  ship under those exact names inside the zip (clj-file-zip names entries by
+  basename). Returns [tmp-dir extra-files] for use with :extra-files; the
+  caller is responsible for deleting tmp-dir afterwards."
+  [prefix version]
+  (let [{:keys [license readme]} (get export-licensing prefix)
+        tmp-dir (.toFile (Files/createTempDirectory
+                           "dannet-export" (make-array FileAttribute 0)))
+        lic     (io/file tmp-dir "LICENSE")
+        rdm     (io/file tmp-dir "README.txt")]
+    (copy-license! license lic)
+    (spit rdm (render-readme readme version))
+    [tmp-dir [(.getPath lic) (.getPath rdm)]]))
 
 (defn export-rdf!
   "Export the models of the RDF `dataset` into `dir`.
@@ -79,6 +135,7 @@
   ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
                                               :or   {complete false}}]
    (let [in-dir       (partial str dir)
+         version      md/new-release
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (->> (iterator-seq (.listNames ^Dataset dataset))
@@ -95,16 +152,26 @@
        ;; TODO: also gate the other named models (dnc, dns, cor, ...) once
        ;; shapes targeting their namespaces exist; today the SPARQL-based
        ;; targets are scoped to dn:, so validating them would be a no-op.
-       (export-rdf-model! filename model
-                          :prefixes (export-prefixes prefix)
-                          :validate (= prefix 'dn)))
+       (let [[tmp-dir extra-files] (stage-export-files! prefix version)]
+         (try
+           (export-rdf-model! filename model
+                              :prefixes (export-prefixes prefix)
+                              :validate (= prefix 'dn)
+                              :extra-files extra-files)
+           (finally
+             (delete-dir! tmp-dir)))))
 
      ;; The OEWN extension data is exported separately from the other models,
      ;; since it isn't connected to a separate prefix (= graph).
-     (export-rdf-model!
-       (in-dir (get-in prefix/oewn-extension [:download "rdf" :default]))
-       (db/get-model dataset prefix/oewn-extension-uri)
-       :prefixes (get prefix/oewn-extension :export))
+     (let [[tmp-dir extra-files] (stage-export-files! 'oewn-extension version)]
+       (try
+         (export-rdf-model!
+           (in-dir (get-in prefix/oewn-extension [:download "rdf" :default]))
+           (db/get-model dataset prefix/oewn-extension-uri)
+           :prefixes (get prefix/oewn-extension :export)
+           :extra-files extra-files)
+         (finally
+           (delete-dir! tmp-dir))))
 
      ;; The union of the input datasets.
      #_(let [union-model (.getUnionModel dataset)]

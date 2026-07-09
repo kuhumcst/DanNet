@@ -1,15 +1,15 @@
 # Downloads
-You can explore DanNet directly on wordnet.dk, but you may also download our data as an **RDF** dataset or in a slightly more limited **CSV** edition. We also offer DanNet as **WN-LMF** ready to be used in supporting software. All our datasets are published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license:
+You can explore DanNet directly on wordnet.dk, but you may also download our data as an **RDF** dataset or in a slightly more limited **CSV** edition. We also offer DanNet as **WN-LMF** ready to be used in supporting software. The DanNet dataset is published under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license in all three editions:
 
 - [RDF edition][DanNet RDF] - full dataset (sans inferences)
 - [CSV edition][DanNet CSV] - alternative dataset
 - [WN-LMF edition][DanNet WN-LMF] - alternative dataset, limited to WN-LMF relations
 
-DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their dataset from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF datasets can also be downloaded on this page:
+DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their dataset from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF datasets can also be downloaded on this page, each under its own license:
 
-- [COR integration][COR-integration]
-- [DDS integration][DDS-integration]
-- [OEWN extension][OEWN-extension]
+- [COR integration][COR-integration] (published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/))
+- [DDS integration][DDS-integration] (published under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
+- [OEWN extension][OEWN-extension] (published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))
 
 We also include the [CILI][CILI] data in our database, as it is used as a common integration point for different WordNets.
 

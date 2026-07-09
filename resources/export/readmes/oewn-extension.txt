@@ -1,0 +1,24 @@
+OEWN label extension for DanNet {version}
+=========================================
+DanNet-style RDF labels for the Open English Wordnet (OEWN), generated
+from the OEWN {oewn-version} data by the DanNet project:
+https://wordnet.dk/dannet
+
+This dataset is a derivative of the Open English Wordnet
+(https://en-word.net/), © the Open English Wordnet contributors, licensed
+under CC BY 4.0. Open English Wordnet is a fork of Princeton WordNet
+(https://wordnet.princeton.edu/); see the OEWN licence file for the
+Princeton WordNet licence notice:
+https://github.com/globalwordnet/english-wordnet/blob/main/LICENSE.md
+
+Changes relative to OEWN: none of the OEWN content is modified; this
+dataset only adds rdfs:label triples in DanNet's label style.
+
+This extension is likewise published under CC BY 4.0 (see LICENSE or
+https://creativecommons.org/licenses/by/4.0/).
+
+Citation for OEWN:
+
+  John P. McCrae, Alexandre Rademaker, Francis Bond, Ewa Rudnicka &
+  Christiane Fellbaum (2019). English WordNet 2019 – An Open-Source
+  WordNet for English. Proceedings of the 10th Global WordNet Conference.

@@ -1,0 +1,13 @@
+COR integration for DanNet {version}
+====================================
+An RDF representation of COR (Det Centrale Ordregister / The Central Word
+Registry), linking COR IDs to DanNet words and senses.
+
+Based on the CC0-licensed COR resources COR(1) and COR.EXT published by
+Dansk Sprognævn (DSN): https://ordregister.dk — with sense links provided
+by Det Danske Sprog- og Litteraturselskab (DSL) and Center for
+Sprogteknologi (CST), University of Copenhagen.
+
+Published under CC0 1.0 (see LICENSE or
+https://creativecommons.org/publicdomain/zero/1.0/). Attribution is not
+required, but credit to DSN, DSL & CST is appreciated.

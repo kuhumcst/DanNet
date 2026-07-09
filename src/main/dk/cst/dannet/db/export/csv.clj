@@ -11,6 +11,8 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
+            [dk.cst.dannet.db.export.rdf :as rdf]
+            [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [org.apache.jena.rdf.model Model Statement]))
@@ -33,7 +35,8 @@
   (walk/postwalk expand-kw m))
 
 (def synsets-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "synsets.csv"
               :tableSchema
               {:aboutUrl   (str prefix/dn-uri "{synset}")
@@ -56,7 +59,8 @@
    :dialect {:header false}})
 
 (def words-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "words.csv"
               :tableSchema
               {:aboutUrl   (str prefix/dn-uri "{word}")
@@ -78,7 +82,8 @@
    :dialect {:header false}})
 
 (def senses-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "senses.csv"
               :tableSchema
               {:aboutUrl   (str prefix/dn-uri "{sense}")
@@ -104,7 +109,8 @@
    :dialect {:header false}})
 
 (def inheritance-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "senses.csv"
               :tableSchema
               {:columns [{:name   "to"
@@ -124,7 +130,8 @@
    :dialect {:header false}})
 
 (def examples-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "examples.csv"
               :tableSchema
               {:columns [{:name   "sense"
@@ -136,7 +143,8 @@
    :dialect {:header false}})
 
 (def relations-metadata
-  {'context "http://www.w3.org/ns/csvw"
+  {'context    "http://www.w3.org/ns/csvw"
+   "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
    :tables  [{:url "examples.csv"
               :tableSchema
               {:columns [{:name   "from"
@@ -283,6 +291,12 @@
      (export-metadata!
        (str dir "relations-metadata.json")
        relations-metadata)
+
+     ;; LICENSE + README.txt are written into the export dir so non-zip-files
+     ;; picks them up and ships them under those exact names inside the zip.
+     (rdf/copy-license! :cc-by-sa (str dir "LICENSE"))
+     (spit (str dir "README.txt")
+           (rdf/render-readme "dannet-csv.txt" md/new-release))
 
      (println "Zipping CSV files and associated metadata into" zip-path "...")
      (zip/zip-files (non-zip-files dir) zip-path))
