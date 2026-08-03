@@ -77,7 +77,7 @@
 ;;         only at the moment a release is cut.
 (def release
   {:from "2025-07-03"
-   :to   "SNAPSHOT"})
+   :to   "2026-08-03"})
 
 (def bootstrap-base-release
   "The previous formal release the database is bootstrapped from."

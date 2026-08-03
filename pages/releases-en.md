@@ -1,6 +1,15 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **2026-08-03**: Data clean-up, licensing, and schema updates
+* 14 triples with reversed or contradictory part-whole directionality have been removed, e.g. sausages asserted as parts of {dyr} rather than substances of it. These were found by way of new SHACL shapes for meronymy.
+* All DanNet and COR resources now carry `skos:inScheme`, linking them to the RDF resource of the dataset they belong to, mirroring how the OEWN marks scheme membership. DDS is left out as it only annotates DanNet resources.
+* Inheritance markings are now anonymous resources (blank nodes) rather than named `dn:inherit-*` resources. They are synset metadata, so a unique IRI served no purpose.
+* `dns:shortLabel` has been regenerated for every synset. The old short labels were derived from corpus frequencies and would often drop homograph senses such as `hund_1§1`; the new ones are derived from the synset label itself.
+* The OEWN labels are now created based on the 2025 version of the Open English WordNet, and the GWA schema has been updated from `wn-lemon` 1.2 to 1.4.
+* Every dataset now states its own license explicitly: DanNet and DDS as CC BY-SA 4.0, COR as CC0 1.0, and the OEWN extension as CC BY 4.0. The full license texts and a README are now bundled inside the downloads themselves.
+* The dataset descriptions now include Open English WordNet-style statistics (`lime:entries`, `lime:lexicalizations`, `lime:concepts`, and averages) as well as `void:triples` counts for DanNet, DDS, and COR.
+
 ## **2025-07-03**: Improved validity of WN-LMF
 * The WN-LMF export now passes validation as per the output of the `wn` command line program.
   * The issues found and the process of elimination has been documented in [Github issue #146](https://github.com/kuhumcst/DanNet/issues/146).

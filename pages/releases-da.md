@@ -1,6 +1,15 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **2026-08-03**: Dataoprydning, licenser og skemaopdateringer
+* 14 tripler med omvendt eller selvmodsigende del-helhed-retning er blevet fjernet, f.eks. pølser angivet som dele af {dyr} frem for stof i det. De blev fundet ved hjælp af nye SHACL-shapes for meronymi.
+* Alle DanNet- og COR-ressourcer har nu `skos:inScheme`, som linker dem til RDF-ressourcen for det datasæt, de tilhører, på samme måde som OEWN markerer skematilhørsforhold. DDS er udeladt, da det kun annoterer DanNet-ressourcer.
+* Arvemarkeringer er nu anonyme ressourcer (blanke knuder) frem for navngivne `dn:inherit-*`-ressourcer. De er synset-metadata, så en unik IRI havde ingen funktion.
+* `dns:shortLabel` er blevet gendannet for alle synsets. De gamle korte etiketter var afledt af korpusfrekvenser og udelod ofte homografbetydninger såsom `hund_1§1`; de nye er afledt af selve synset-etiketten.
+* OEWN-etiketterne er nu skabt på baggrund af 2025-versionen af Open English WordNet, og GWA-skemaet er opdateret fra `wn-lemon` 1.2 til 1.4.
+* Hvert datasæt angiver nu eksplicit sin egen licens: DanNet og DDS som CC BY-SA 4.0, COR som CC0 1.0 og OEWN-udvidelsen som CC BY 4.0. De fulde licenstekster og en README følger nu med inde i selve download-filerne.
+* Datasætbeskrivelserne indeholder nu statistik i Open English WordNet-stil (`lime:entries`, `lime:lexicalizations`, `lime:concepts` og gennemsnit) samt `void:triples`-optællinger for DanNet, DDS og COR.
+
 ## **2025-07-03**: Forbedret validitet af WN-LMF
 * WN-LMF-eksporten valideres nu korrekt i henhold til outputtet fra `wn` kommandolinjeprogrammet.
   * De fundne problemer og eliminationsprocessen er dokumenteret i [Github issue #146](https://github.com/kuhumcst/DanNet/issues/146).
