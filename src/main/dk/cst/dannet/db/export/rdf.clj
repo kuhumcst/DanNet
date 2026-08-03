@@ -310,9 +310,9 @@
                      :prefixes (get prefix/oewn-extension :export))
 
   ;; Export the entire dataset as RDF
-  (export-rdf! dannet)
   (export-rdf! @dk.cst.dannet.web.resources/db)
 
+  ;; Include inferred relations (WARNING: takes a very, very long time)
   (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
 
   ;; Manually run the release gate against an exported dn: artifact (a plain
