@@ -64,7 +64,7 @@ WHERE
   { dn:synset-5028  wn:hypernym  ?hypernym
   }
 ```
-[Run this query](/dannet/sparql?query=PREFIX++dn%3A+++<https%3A//wordnet.dk/dannet/data/>%0APREFIX++wn%3A+++<https%3A//globalwordnet.github.io/schemas/wn%23>%0A%0ASELECT++(dn%3Asynset-5028+AS+%3Fsynset)+%3Fhypernym%0AWHERE%0A++{+dn%3Asynset-5028%0A++++++++++++++wn%3Ahypernym++%3Fhypernym%0A++}%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
+[Run this query](/dannet/sparql?query=PREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0APREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0A%0ASELECT++(dn%3Asynset-5028+AS+%3Fsynset)+%3Fhypernym%0AWHERE%0A++%7B+dn%3Asynset-5028%0A++++++++++++++wn%3Ahypernym++%3Fhypernym%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
 > **NOTE:** common prefixes such as `wn` and `dn` are added automatically when using the public SPARQL endpoint, so they aren't strictly necessary!
 

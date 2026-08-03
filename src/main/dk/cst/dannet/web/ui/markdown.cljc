@@ -4,16 +4,7 @@
             [nextjournal.markdown.transform :as md.transform]))
 
 (def renderers
-  (assoc md.transform/default-hiccup-renderers
-    ;; Clerk likes to ignore alt text and produce <figure> tags,
-    ;; so we need to intercept the regular image rendering to produce
-    ;; accessible images.
-    :image (fn [{:as ctx ::keys [parent]}
-                {:as node :keys [attrs content]}]
-             (let [alt (-> (filter (comp #{:text} :type) content)
-                           (first)
-                           (get :text))]
-               [:img (assoc attrs :alt alt)]))))
+  md.transform/default-hiccup-renderers)
 
 (defn- md->hiccup*
   [markdown-text]
