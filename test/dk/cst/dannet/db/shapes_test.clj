@@ -13,6 +13,7 @@
 (def ^:private prefixes "
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dn:      <https://wordnet.dk/dannet/data/> .
 ")
@@ -31,9 +32,12 @@
     (is (:conforms? (validate-ttl "
 dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
-  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 .
-dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" .
-dn:synset-1 a ontolex:LexicalConcept ; rdfs:label \"{hund}\" .")))))
+  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:synset-1 a ontolex:LexicalConcept ; rdfs:label \"{hund}\" ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .")))))
 
 (deftest lexical-entry-shape
   (testing "missing rdfs:label"
@@ -144,8 +148,10 @@ dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."))))))))
     (let [g (util/ttl->graph (str prefixes "
 dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
-  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 .
-dn:sense-2 a ontolex:LexicalSense ."))]
+  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:sense-2 a ontolex:LexicalSense ;
+  skos:inScheme <https://wordnet.dk/dannet/data> ."))]
       ;; the graph as a whole has a violation...
       (is (false? (:conforms? (shapes/validate g))))
       ;; ...but the well-formed entry validates clean in isolation
@@ -161,12 +167,18 @@ dn:sense-2 a ontolex:LexicalSense ."))]
                        (.deleteOnExit)
                        (spit (str prefixes ttl))))]
     (testing "conforming export passes the gate"
-      (is (:conforms? (shapes/validate-export!
-                        (.getPath (->ttl-file "
+      ;; The gate consults :exceeded, not :conforms?, so assert on that.
+      (let [result (shapes/validate-export!
+                     (.getPath (->ttl-file "
 dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
-  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 .
-dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ."))))))
+  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .")))]
+        (is (empty? (:exceeded result)))
+        (is (zero? (:violations result)))
+        (is (:conforms? result))))
     (testing "violations exceeding the baseline abort the export"
       ;; A label-less entry violates several LexicalEntryShape constraints
       ;; that have no baseline allowance, so the gate must throw.
