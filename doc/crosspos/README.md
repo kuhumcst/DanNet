@@ -76,7 +76,13 @@ editors chose genus terms ad hoc, giving *lære*, *fag* and *videnskab* used
 inconsistently for the same kind of concept.
 
 So these are not a considered editorial position being overturned. They are the
-residue of a process the specification itself describes.
+residue of a process the specification itself describes. §7 adds that only 2%
+of the material was ever validated, and that `has_hyperonym` was applied fairly
+consistently while the other relations varied considerably, which is what you
+would expect if it was the catch-all slot rather than a considered choice.
+
+Section-by-section locators for all of this are in the
+[verification appendix](#appendix-where-to-verify-each-claim).
 
 **Why automation was possible at all:** the 5,636 triples concentrate on only
 72 distinct *target* synsets. Each target was analysed by hand once, and the
@@ -338,6 +344,105 @@ so such a fix can raise a count as easily as lower it:
 None turned out to be reachable as a hypernym of a multi-word noun synset, so
 the corrected criterion still yields exactly 107. That was verified, not
 assumed.
+
+# Appendix: where to verify each claim
+
+Copyright limits how much of these sources can be reproduced here, so this is a
+locator guide rather than a quote collection: each entry gives a direct link
+and the exact section to look at. All links verified working.
+
+## Global WordNet Association, relation documentation
+
+<https://globalwordnet.github.io/gwadoc/> — has per-relation anchors, so these
+are deep links:
+
+| claim | where |
+|---|---|
+| `attribute` corresponds to EuroWordNet's `XPOS_Hyponymy`, and to Princeton's `=` pointer | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), table "Project-specific Names" |
+| `attribute` holds between a nominal and an adjectival concept, and should link only adjectives to nouns and the reverse | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), definition and comments |
+| EuroWordNet test 14, the *A is an attribute of B* diagnostic | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), test section |
+| `classified_by` is a numeral classifier relation ('head' of cattle, 匹 for 猫) | [#classified_by](https://globalwordnet.github.io/gwadoc/#classified_by) and [#classifies](https://globalwordnet.github.io/gwadoc/#classifies) |
+| `exemplifies` is the Usage subtype of Domain, Princeton's usage-domain pointer | [#exemplifies](https://globalwordnet.github.io/gwadoc/#exemplifies) |
+| `pertainym` and `participle` are sense-level, not synset-level | [#pertainym](https://globalwordnet.github.io/gwadoc/#pertainym), [#participle](https://globalwordnet.github.io/gwadoc/#participle) |
+
+## Lingvistiske specifikationer for DanNet Version 2 (2011)
+
+<https://cst.ku.dk/projekter/dannet/dannetspecifikationer_v2.pdf> (PDF, ~300 KB)
+
+The internal source, and the one most worth citing. Four passages carry the
+argument:
+
+**§1 Indledning, p. 3** states that about 30% of the material was produced
+semiautomatically without further enrichment, naming the affected areas as
+actions, events, **properties** and abstract entities. The opening clause reads
+"Ca. 30 % af materialet er blevet produceret semiautomatisk uden yderligere
+berigelse". Properties are where the adjectives live, so this is the single
+most direct statement that the cross-PoS hypernyms come from an un-enriched
+automatic process.
+
+**§2, subsection "Organisering af det leksikalske net", pp. 5-6** explains the
+mechanism: the net is organised on the nearest Danish superordinate, extracted
+automatically from DDO. It then notes that DDO's superordinates were not taken
+from any established ontological system but chosen by the individual editor,
+giving the worked example of one editor choosing *lære* for *informatik* and
+*bromatologi*, another *fag* for *samfundsfag*, and a third *videnskab* for
+*datalogi*. The same passage says harmonising these was DanNet's own job.
+
+**§3 Relationer og træk, pp. 8-9** is the complete relation inventory. Two
+things to point at: both `has_hyperonym` examples are noun→noun (*birketræ* →
+*træ*, *vejtræ* → *træ* with the `ortho` feature), and the only cross-PoS
+relation listed anywhere in the table is `xpos_near_synonym`, exemplified by
+*behandle* → *behandling*. There is no cross-PoS hyperonym relation.
+
+**§6 Eksempler, p. 25** notes that semantic relations are most prominent for
+concrete objects, and that for actions and abstract entities this version of
+DanNet has essentially nothing but `has_hyperonym`. The coding templates that
+follow (pp. 26-37) put `xpos_near_synonym` under *Synonymi* in every single
+template, never under *Formal: has_hyperonym*.
+
+**§7 Validering, p. 38** is a useful supplement: only 2% of the material was
+validated, and it reports that while `has_hyperonym` is given fairly
+consistently throughout, the other relations vary considerably in how finely
+they were applied. That supports reading `has_hyperonym` as the catch-all slot
+rather than a considered choice.
+
+## Morgado Da Costa & Bond (2016)
+
+<https://aclanthology.org/L16-1685.pdf> (PDF, ~470 KB)
+
+Introduces the non-referential concepts that `classifies`/`classified_by` were
+added for. Cite for the point that the relation was designed for numeral
+classifiers, which is what rules it out for the substantivised adjectives in
+§A4.
+
+## EuroWordNet General Document (Vossen, ed., 1999)
+
+<https://globalwordnet.github.io/gwadoc/pdf/EWN_general.pdf> (PDF, ~1.3 MB)
+
+The primary source for the EuroWordNet relation set and its tests, including
+the XPOS relations. Useful if she wants the original wording of the cross-PoS
+relations rather than GWA's mapping of them.
+
+## Princeton WordNet
+
+Fellbaum, C. (ed.) (1998). *WordNet: An Electronic Lexical Database*. MIT Press.
+No open link; the DanNet specification cites pp. 23-47 for the relevant
+chapter. Cite for adjectives being organised around attribute nouns rather than
+taxonomically, with `=` linking a value adjective to its attribute.
+
+## Global Wordnet Formats
+
+<https://globalwordnet.github.io/schemas/> — Bond, Vossen, McCrae & Fellbaum
+(2016). The schema definitions behind WN-LMF, i.e. the format constraint that
+surfaced all of this in #146.
+
+## Pedersen et al. (2009)
+
+*DanNet: the challenge of compiling a wordnet for Danish by reusing a
+monolingual dictionary*. Language Resources and Evaluation 43(3), 269-299.
+<https://doi.org/10.1007/s10579-009-9092-1> (likely paywalled outside the
+university network). The specification points here for the fuller methodological
+account.
 
 # References
 
