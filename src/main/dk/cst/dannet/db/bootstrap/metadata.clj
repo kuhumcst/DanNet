@@ -6,7 +6,8 @@
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.hash :as h]
-            [dk.cst.dannet.prefix :as prefix])
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.release :as release])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.vocabulary RDF]))
 
@@ -68,25 +69,6 @@
 (def dnc-schema-uri
   (prefix/schema-uri 'dnc))
 
-;; :from - the previous formal release we bootstrap on top of. The zip files
-;;         placed in /bootstrap/latest must match it precisely. It determines
-;;         which release downloads/fetch-bootstrap-datasets! pulls from GitHub.
-;;
-;; :to   - the version we produce. It stays "SNAPSHOT" throughout development
-;;         (the target date isn't known up front) and is set to a real version
-;;         only at the moment a release is cut.
-(def release
-  {:from "2025-07-03"
-   :to   "2026-08-03"})
-
-(def bootstrap-base-release
-  "The previous formal release the database is bootstrapped from."
-  (:from release))
-
-(def new-release
-  "The version being produced; stays \"SNAPSHOT\" until a release is cut."
-  (:to release))
-
 (defn see-also
   [source rdf-resources]
   (set (for [v rdf-resources]
@@ -119,14 +101,14 @@
             [<dn> :dc/language "da"]
             [<dn> :dc/description (en "The Danish WordNet.")]
             [<dn> :dc/description (da "Det danske WordNet.")]
-            [<dn> :dc/issued new-release]
+            [<dn> :dc/issued release/to]
             [<dn> :dc/contributor <simongray>]
             [<dn> :dc/contributor <cst>]
             [<dn> :dc/contributor <dsl>]
             [<dn> :dc/publisher <cst>]
             [<dn> :foaf/homepage "<https://cst.ku.dk/projekter/dannet>"]
             [<dn> :schema/email "simongray@hum.ku.dk"]
-            [<dn> :owl/versionInfo new-release]
+            [<dn> :owl/versionInfo release/to]
             [<dn> :dc/rights (en "Copyright © Centre for Language Technology (University of Copenhagen) & "
                                  "The Society for Danish Language and Literature; "
                                  "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
@@ -165,8 +147,8 @@
           [<dds> :dc/title "DDS"]
           ;; The DDS and COR RDF datasets are regenerated with every DanNet
           ;; release, so their issued/version metadata tracks the release.
-          [<dds> :dc/issued new-release]
-          [<dds> :owl/versionInfo new-release]
+          [<dds> :dc/issued release/to]
+          [<dds> :owl/versionInfo release/to]
           [<dds> :dc/description (en "The Danish Sentiment Lexicon")]
           [<dds> :dc/description (da "Det Danske Sentimentleksikon")]
           [<dds> :dc/contributor <cst>]
@@ -185,8 +167,8 @@
    'cor #{[<cor> :rdf/type :dcat/Dataset]
           [<cor> :rdfs/label "COR"]
           [<cor> :dc/title "COR"]
-          [<cor> :dc/issued new-release]
-          [<cor> :owl/versionInfo new-release]
+          [<cor> :dc/issued release/to]
+          [<cor> :owl/versionInfo release/to]
           [<cor> :dc/contributor <cst>]
           [<cor> :dc/contributor <dsl>]
           [<cor> :dc/contributor <dsn>]

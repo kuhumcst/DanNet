@@ -27,6 +27,7 @@
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.release :as release]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.db.bootstrap.metadata :as metadata]
@@ -71,7 +72,7 @@
 (def dannet-opts
   (atom {:db-type     :tdb2
          :db-path     "db/tdb2"
-         :input-dir   (io/file "bootstrap/latest")
+         :input-dir   (release/version-dir release/from)
          :schema-uris schema-uris}))
 
 ;; build-db! is a named fn (not inlined in the delay) so reset-db! can swap in a
@@ -1492,8 +1493,15 @@
        (group-by (juxt '?writtenRep '?pos))
        (count))
 
-  ;; Store the synset indegrees (the file is used during bootstrap)
+  ;; Store the synset indegrees (the file is used during bootstrap).
+  ;; The default lands among the export artifacts, ready to attach to the release.
   (q/save-synset-indegrees! (:graph @db))
+
+  ;; Or write it straight to a location that gets read: the legacy db/ override
+  ;; (which takes precedence), or the version dir of the release being produced,
+  ;; where the next cycle will look for it once release/from is bumped.
+  (q/save-synset-indegrees! (:graph @db) (first q/indegrees-files))
+  (q/save-synset-indegrees! (:graph @db) (q/indegrees-file release/to))
 
   ;; Find unlabeled senses (count: 0)
   (count (q/run (:graph @db) op/unlabeled-senses))

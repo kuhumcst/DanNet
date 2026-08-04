@@ -1,9 +1,12 @@
 (ns dk.cst.dannet.db.query
   "Functions for querying an Apache Jena graph."
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.walk :as walk]
             [clojure.core.memoize :as memo]
+            [taoensso.telemere :as t]
             [arachne.aristotle.query :as q]
+            [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db.query.operation :as op])
@@ -119,29 +122,70 @@
                 (transient {})
                 blanks)))))
 
-(def synset-indegrees-file
-  "db/synset-indegree.edn")
+(defn indegrees-file
+  "The synset-indegree cache location for release `v`, i.e. where a bootstrap
+  from `v` reads it and where its release asset belongs."
+  [v]
+  (io/file (release/version-dir v) release/indegrees-filename))
 
-;; This takes around 6 minutes to generate, unfortunately...
+(def indegrees-files
+  "Where the synset-indegree cache is read from, in order of precedence. The
+  first is the legacy location, kept as an override so a deployment that already
+  has the file next to its database keeps working without moving it; the second
+  is the release asset it ships as, alongside the other bootstrap inputs."
+  [(io/file "db" release/indegrees-filename)
+   (indegrees-file release/from)])
+
+(def indegrees-export
+  "Where a regenerated cache is written. It describes the release being produced
+  rather than the one bootstrapped from, so it ships with the export artifacts."
+  (io/file "export" release/indegrees-filename))
+
 (defn save-synset-indegrees!
-  "Generate and store synset indegrees found in `g`."
-  [g]
-  (->> (run g op/synset-indegree)
-       (map (juxt '?o '?indegree))
-       (sort-by first)
-       (clojure.pprint/pprint)
-       (with-out-str)
-       (spit synset-indegrees-file)))
+  "Generate and store the synset indegrees found in `g`, by default among the
+  export artifacts. Takes around 6 minutes, unfortunately."
+  ([g]
+   (save-synset-indegrees! g indegrees-export))
+  ([g dest]
+   (io/make-parents dest)
+   (->> (run g op/synset-indegree)
+        (map (juxt '?o '?indegree))
+        (sort-by first)
+        (clojure.pprint/pprint)
+        (with-out-str)
+        (spit dest))))
+
+(defn- read-synset-indegrees
+  []
+  ;; Degrades silently otherwise: every lookup returns 0, so search results and
+  ;; entity relations come back unranked rather than erroring.
+  (let [unavailable! (fn [why]
+                       (t/log! {:level :error
+                                :id    :dannet.query/indegrees-unavailable
+                                :data  {:searched (mapv str indegrees-files)
+                                        :why      why}}
+                               (str "SYNSET INDEGREE CACHE UNAVAILABLE -- search "
+                                    "results and entity relations will be "
+                                    "UNRANKED. " why))
+                       nil)]
+    (if-let [f (first (filter #(.exists %) indegrees-files))]
+      (try
+        (->> (slurp f)
+             (edn/read-string)
+             (into {}))
+        (catch Exception e
+          (unavailable! (str f " could not be read: " (.getMessage e)))))
+      (unavailable! (str "None of " (mapv str indegrees-files) " exist.")))))
 
 ;; Mapping of synset-id->indegree for the synset resources.
 (defonce synset-indegrees
-  (delay
-    (try
-      (->> (slurp synset-indegrees-file)
-           (edn/read-string)
-           (into {}))
-      (catch Exception _
-        nil))))
+  (delay (read-synset-indegrees)))
+
+(defn reload-synset-indegrees!
+  "Re-derive the indegree cache, which may have been downloaded or switched out
+  since this namespace was loaded."
+  []
+  (alter-var-root #'synset-indegrees (constantly (delay (read-synset-indegrees)))))
 
 (defn- assoc-resource-label!
   "Conj `label-value` into the set at (get-in acc [resource label-type])."

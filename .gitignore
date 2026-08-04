@@ -14,7 +14,7 @@ mcp/.mcpregistry_registry_token
 dannet.ttl
 
 bootstrap/dannet
-bootstrap/latest
+bootstrap/from/
 
 # The new 2023 data for DanNet, downloaded from Google Sheets.
 bootstrap/other/dannet-new/adjectives.tsv

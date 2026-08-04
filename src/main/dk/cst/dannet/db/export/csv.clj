@@ -12,7 +12,7 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.export.rdf :as rdf]
-            [dk.cst.dannet.db.bootstrap.metadata :as md]
+            [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [org.apache.jena.rdf.model Model Statement]))
@@ -296,7 +296,7 @@
      ;; picks them up and ships them under those exact names inside the zip.
      (rdf/copy-license! :cc-by-sa (str dir "LICENSE"))
      (spit (str dir "README.txt")
-           (rdf/render-readme "dannet-csv.txt" md/new-release))
+           (rdf/render-readme "dannet-csv.txt" release/to))
 
      (println "Zipping CSV files and associated metadata into" zip-path "...")
      (zip/zip-files (non-zip-files dir) zip-path))

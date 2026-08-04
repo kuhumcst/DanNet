@@ -99,8 +99,9 @@ The system includes:
 - Applies version migrations and schema updates
 - Generates new releases with full data validation
 - Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD)
-- **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release zips via the GitHub releases API, the Open English WordNet (OEWN), and the CILI interlingual index (ILI). Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`, `ensure-synset-indegrees!`), so manual placement is no longer required. The synset-indegree cache lands in `db/` (next to TDB2 data), the dataset zips in `bootstrap/latest`.
-- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`), and the single `release` map (`:from`/`:to`) that drives release tracking. `update-metadata!` swaps old metadata for current during bootstrap.
+- **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release assets via the GitHub releases API, the Open English WordNet (OEWN), and the CILI interlingual index (ILI). Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`), so manual placement is no longer required. The release assets (dataset zips plus the synset-indegree cache) land in a version-named directory under `bootstrap/from/`; the English datasets live in the shared `bootstrap/other/english`, where several OEWN editions may coexist since the edition is part of the filename.
+- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`). `update-metadata!` swaps old metadata for current during bootstrap.
+- **`dk.cst.dannet.release`**: the `from`/`to` release versions plus the version-named bootstrap layout derived from them (`version-dir`). Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
 
 ## File Structure
 
@@ -114,7 +115,7 @@ src/main/dk/cst/dannet/
 │   ├── bootstrap.clj          # Release bootstrapping, migration, OEWN/ILI integration
 │   ├── bootstrap/
 │   │   ├── downloads.clj      # On-demand fetching of bootstrap datasets (DanNet zips, OEWN, ILI)
-│   │   └── metadata.clj       # Dataset metadata triples, da/en helpers, release map (:from/:to)
+│   │   └── metadata.clj       # Dataset metadata triples, da/en helpers
 │   ├── export/
 │   │   ├── csv.clj           # CSV/CSVW export functionality
 │   │   ├── rdf.clj           # RDF/Turtle export
@@ -246,7 +247,7 @@ pages/
 ### Setup
 1. Install JVM (Java 24+) and Clojure CLI tools
 2. Clone the repository
-3. Bootstrap datasets are downloaded on-demand from GitHub/OEWN/CILI when missing (see `dk.cst.dannet.db.bootstrap.downloads`); manual placement in `./bootstrap` is only needed for offline or custom data. The base release that gets fetched is determined by `:from` in the `release` map in `dk.cst.dannet.db.bootstrap.metadata`.
+3. Bootstrap datasets are downloaded on-demand from GitHub/OEWN/CILI when missing (see `dk.cst.dannet.db.bootstrap.downloads`); manual placement in `./bootstrap` is only needed for offline or custom data. The base release that gets fetched is determined by `from` in `dk.cst.dannet.release`.
 
 ### REPL Development
 ```clojure
@@ -364,10 +365,10 @@ npx shadow-cljs compile test
 - Dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`) are defined centrally in `dk.cst.dannet.db.bootstrap.metadata`
 
 ### Release / Version Tracking
-- A single `release` map in `dk.cst.dannet.db.bootstrap.metadata` is the source of truth for versions:
-  - `:from` — the previous formal release bootstrapped on top of; the zip files in `bootstrap/latest` must match it, and it determines which release `downloads/fetch-bootstrap-datasets!` pulls from GitHub
-  - `:to` — the version being produced; stays `"SNAPSHOT"` throughout development and is set to a real version only when a release is cut
-- `bootstrap-base-release` and `new-release` are derived from this map and referenced by exporters (WN-LMF, JSON-LD) and dataset metadata
+- `dk.cst.dannet.release` is the source of truth for versions:
+  - `from` — the previous formal release bootstrapped on top of; the files in `bootstrap/from/<from>` must match it, and it determines which release `downloads/fetch-bootstrap-datasets!` pulls from GitHub. Because `->dannet` hashes the input file paths, the version in the path is also what keeps each bootstrap target's database distinct, so several targets can coexist across branches without rebuilding
+  - `to` — the version being produced; stays `"SNAPSHOT"` throughout development and is set to a real version only when a release is cut
+- Both are referenced directly by the exporters (WN-LMF, JSON-LD) and by the dataset metadata
 
 ### Namespace Organization
 - `dk.cst.dannet.*` - Core database and query functionality
@@ -432,7 +433,7 @@ npx shadow-cljs compile test
 ### Adding/Updating Bootstrap Datasets
 1. Add the dataset filename to `bootstrap-files` in `dk.cst.dannet.db.bootstrap.downloads` (if it ships as a DanNet release asset)
 2. Or add a dedicated `ensure-*!` fetcher for externally hosted datasets (cf. `ensure-english-datasets!`)
-3. Update the `release` map in `dk.cst.dannet.db.bootstrap.metadata` when cutting a new base/target version
+3. Update `from`/`to` in `dk.cst.dannet.release` when cutting a new base/target version
 
 ## Integration Examples
 
@@ -507,7 +508,7 @@ WHERE {
 - The project uses Apache Jena for RDF operations - transactions are automatic for TDB
 - The web app works both as SPA and traditional server-rendered HTML
 - Bootstrap is run once per version - subsequent work is query-only until the next version bootstrap
-- Bootstrap datasets are downloaded on-demand (`dk.cst.dannet.db.bootstrap.downloads`); the base release is set via the `release` map's `:from` in `dk.cst.dannet.db.bootstrap.metadata`
+- Bootstrap datasets are downloaded on-demand (`dk.cst.dannet.db.bootstrap.downloads`); the base release is set via `from` in `dk.cst.dannet.release`
 - A database gets automatically bootstrapped and/or initialised when the backend in `dk.cst.dannet.web.service` is launched (by calling the `restart` function during development)
 - The SPARQL editor frontend is in `ui/sparql.cljc` with CodeMirror interop in `ui/codemirror.cljs`
 - SPARQL backend logic (validation, execution, caching) is in `web/sparql.clj`

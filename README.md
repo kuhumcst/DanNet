@@ -134,7 +134,11 @@ New releases are bootstrapped from the [preceding release](https://github.com/ku
 4. Infer additional triples via [OWL/RDFS schemas](/resources/schemas/)
 5. Export the final RDF dataset (see [Database Release Workflow](#database-release-workflow))
 
-> Bootstrap data should be located in `./bootstrap` relative to the execution directory.
+> Bootstrap data lives under `./bootstrap` relative to the execution directory:
+> the DanNet release assets in `./bootstrap/from/<version>/` (named after the
+> release being bootstrapped *from*, so several can coexist) and the shared
+> English datasets in `./bootstrap/other/english/`. Missing files are downloaded
+> automatically, so manual placement is only needed when working offline.
 
 ## Setup
 
@@ -216,14 +220,21 @@ When releasing a new version of the database:
    (export-rdf! @dk.cst.dannet.web.resources/db)
    (export-csv! @dk.cst.dannet.web.resources/db)
    (export-wn-lmf! "export/wn-lmf/")
+   ;; And in dk.cst.dannet.db.query (~6 minutes):
+   (save-synset-indegrees! (:graph @dk.cst.dannet.web.resources/db))
    ```
 
-2. Stop the service on production:
+2. Attach the bootstrap assets to the GitHub release so the next cycle can fetch
+   them: `dannet.zip`, `cor.zip`, `dds.zip`, `oewn-extension.zip` and the
+   `export/synset-indegree.edn` produced above. The set is defined by
+   `bootstrap-files` in [dk.cst.dannet.db.bootstrap.downloads](src/main/dk/cst/dannet/db/bootstrap/downloads.clj).
+
+3. Stop the service on production:
    ```shell
    docker compose stop dannet
    ```
 
-3. Transfer database and export files via SFTP, then:
+4. Transfer database and export files via SFTP, then:
    ```shell
    unzip -o tdb2.zip -d /dannet/db/
    mv cor.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
@@ -231,7 +242,20 @@ When releasing a new version of the database:
    mv dannet-wn-lmf.xml.gz /dannet/export/wn-lmf/
    ```
 
-4. Restart:
+5. Ship the `export/synset-indegree.edn` generated in step 1. Production runs
+   with `--no-bootstrap` and so never downloads it, but it is read at query time
+   to rank search results and entity relations, and it should describe the
+   database actually being shipped. Either location works, the first taking
+   precedence (see `indegrees-files` in
+   [dk.cst.dannet.db.query](src/main/dk/cst/dannet/db/query.clj)):
+   ```shell
+   mv synset-indegree.edn /dannet/db/                      # legacy location
+   mv synset-indegree.edn /dannet/bootstrap/from/2025-07-03/   # alongside the bootstrap inputs
+   ```
+   If neither exists the service still starts and search still works, but results
+   come back unranked and a `:dannet.query/indegrees-unavailable` error is logged.
+
+6. Restart:
    ```shell
    docker compose up -d dannet --build
    ```

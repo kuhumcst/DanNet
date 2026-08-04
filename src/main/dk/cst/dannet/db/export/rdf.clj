@@ -10,7 +10,7 @@
             [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.shapes :as shapes]
-            [dk.cst.dannet.db.bootstrap.metadata :as md]
+            [dk.cst.dannet.release :as release]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.transaction :as txn])
   (:import [clojure.lang Symbol]
@@ -135,7 +135,7 @@
   ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
                                               :or   {complete false}}]
    (let [in-dir       (partial str dir)
-         version      md/new-release
+         version      release/to
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
          model-uris   (txn/transact dataset
                         (->> (iterator-seq (.listNames ^Dataset dataset))

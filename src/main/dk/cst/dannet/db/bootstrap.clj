@@ -15,6 +15,7 @@
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.hash :as h]
+            [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.io File]
@@ -36,7 +37,7 @@
   no such triple, so we fall back to a sample of any versionInfo values present."
   [model]
   (let [graph    (.getGraph ^Model model)
-        expected (q/run graph [:bgp [md/<dn> :owl/versionInfo md/bootstrap-base-release]])]
+        expected (q/run graph [:bgp [md/<dn> :owl/versionInfo release/from]])]
     (when (empty? expected)
       (let [dn-vers (->> (q/run graph [:bgp [md/<dn> :owl/versionInfo '?v]])
                          (map #(str (get % '?v)))
@@ -51,15 +52,15 @@
                            (vec)))]
         (t/log! {:level :error
                  :id    :dannet.bootstrap/unexpected-release
-                 :data  {:expected md/bootstrap-base-release
+                 :data  {:expected release/from
                          :actual   actual}}
                 "Bootstrap files are not the expected release")
         (throw (ex-info (str "bootstrap files not the expected release. Expected "
-                             (pr-str md/bootstrap-base-release) ", found "
+                             (pr-str release/from) ", found "
                              (if (seq actual) (pr-str actual) "no owl:versionInfo")
                              ". Restart with refetch (--refetch, or restart-refetch "
                              "in the REPL) to download the expected release.")
-                        {:expected md/bootstrap-base-release
+                        {:expected release/from
                          :actual   actual}))))))
 
 (h/defn add-open-english-wordnet-labels!
@@ -244,18 +245,16 @@
   This function survives between releases, but the functions it calls are all
   considered temporary and should be deleted when the release comes."
   [dataset]
-  ;; Cleanup tripwire. This literal is a deliberate duplicate of (:from md/release).
-  ;; It stays stable throughout a development cycle, so it never interferes with
-  ;; everyday rebuilds. When the NEXT cycle is opened and :from is bumped to the
-  ;; release that was just cut, this assertion fires -- forcing the now-shipped
-  ;; temporary changes below to be cleared out and this marker bumped to match.
-  (assert (= "2025-07-03" (:from md/release))
+  ;; Cleanup tripwire. This literal deliberately duplicates release/from, so
+  ;; that bumping `from` for the next cycle fires the assertion, forcing the
+  ;; now-shipped temporary changes below to be cleared out and the marker bumped.
+  (assert (= "2025-07-03" release/from)
           (str "make-release-changes! still holds changes for the old release, "
-               "but (:from release) is now " (:from md/release) ". "
+               "but release/from is now " release/from ". "
                "Clear out the shipped changes and update this marker."))
   (t/log! {:level :info
            :id    :dannet.bootstrap/release-changes
-           :data  {:version md/new-release}}
+           :data  {:version release/to}}
           "Applying release changes")
 
   ;; ==== The block of changes for this particular release. ====
@@ -344,13 +343,16 @@
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      ;; Either refetch (wipe stale/version-bound datasets and re-download the
-      ;; required versions) or assert the datasets are already present. Neither
+      ;; Either refetch or assert the datasets are already present. Neither
       ;; downloads silently on a normal start; both run for side effects before
       ;; the file-seq below, which expects the inputs on disk.
-      (let [_              (if refetch?
-                             (downloads/refetch-datasets! input-dir (:from md/release))
+      (let [_              (downloads/assert-input-dir! input-dir release/from)
+            _              (if refetch?
+                             (downloads/refetch-datasets! input-dir release/from)
                              (downloads/assert-datasets-present! input-dir))
+            ;; The indegree cache can arrive with the fetch above, i.e. after
+            ;; this namespace was loaded, so the delay is re-derived here.
+            _              (q/reload-synset-indegrees!)
             files          (->> (file-seq input-dir)
                                 (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
@@ -368,7 +370,7 @@
                             ;; (:to "SNAPSHOT" -> a real version, same :from)
                             ;; wouldn't change db-name and the stale, still
                             ;; SNAPSHOT-labelled database would be reused.
-                            md/new-release
+                            release/to
                             ;; The OEWN edition is likewise only a value: its
                             ;; ttl isn't among the hashed input zips, so it is
                             ;; included explicitly -- otherwise bumping the
