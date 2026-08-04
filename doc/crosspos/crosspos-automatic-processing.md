@@ -2,11 +2,18 @@
 
 This note documents which cross-PoS hypernymy cases were handled (or triaged)
 automatically and, more importantly, *why* automatic classification was sound
-in each case. The companion spreadsheet `crosspos-hypernym-review.xlsx`
-contains the pairs that still require lexicographic judgment. Note that its
-2d sheet holds 283 rows while the live graph yields 285 for that group, so two
-pairs are missing from it and need adding. The full review backlog is 285 (§2d)
-+ 149 (§2b) + 104 (§1a) pairs.
+in each case. The pairs that still need lexicographic judgment live in CSVs
+alongside this file, regenerated from the graph by
+`dk.cst.dannet.crosspos-review/regenerate!`:
+
+| file | pairs | see |
+|---|---|---|
+| `2d-cross-pos-taxonomy.csv` | 285 | §2d |
+| `a4-deferred-crosspos.csv` | 104 | §1a |
+| `2a-verb-phrase-pos-flip.csv` | 110 | §2a — record of an applied decision, not a worklist |
+
+§2b adds a further 149 pairs, not yet extracted to a CSV, giving a review
+backlog of 538.
 
 ## 1. `dns:crossPoSHypernym` — executed in the release pipeline (#146)
 
@@ -67,7 +74,7 @@ actually disjoint:
 | 2a mistagged verb phrases | 110 | 107 fixed in the pipeline, 3 excluded |
 | 2b mixed-PoS synsets (not disjoint) | 149 | deferred, mostly needs judgement |
 | 2c malformed placeholder word | 52 | technical fix, no lexicography |
-| 2d genuine cross-PoS taxonomy | 285 | review spreadsheet |
+| 2d genuine cross-PoS taxonomy | 285 | review CSV |
 
 These four are disjoint and sum to 596 exactly, verified against the live
 graph. Note that 2a and 2c are classifiable automatically because the *cause*
@@ -146,8 +153,8 @@ Genuinely cross-PoS taxonomy: deverbal nouns under verbs ({filtrering} →
 {fjerne}), verbs under nouns ({tilsvine} → {talehandling}), nouns under
 adjectives ({karmin} → {rød}). Only 2 of the 596 sources have an alternative
 hypernym, so deletion would orphan them — each pair needs a retargeting or
-re-relation decision. These are in the review spreadsheet, grouped by target
-(the top 15 targets cover over half the pairs) with same-lemma retarget
+re-relation decision. These are in `2d-cross-pos-taxonomy.csv`, grouped by
+target (the top 15 targets cover over half the pairs) with same-lemma retarget
 candidates precomputed where they exist.
 
 ## 3. Words without a written representation (unrelated defect, found in passing)
