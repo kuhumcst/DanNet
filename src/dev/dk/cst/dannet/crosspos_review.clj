@@ -80,7 +80,7 @@
 
 (defn partition-pairs
   "Split the flagged pairs into the four disjoint groups documented in
-  doc/crosspos/crosspos-automatic-processing.md."
+  doc/crosspos/README.md."
   [idx flagged]
   (let [disjoint? #(empty? (set/intersection (:spos %) (:tpos %)))
         phrase?   (fn [{:keys [source spos tpos]}]
