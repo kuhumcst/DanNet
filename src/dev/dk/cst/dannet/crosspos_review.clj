@@ -1,14 +1,14 @@
 (ns dk.cst.dannet.crosspos-review
   "Regenerate the cross-PoS review CSVs in doc/crosspos/ from the live graph.
 
-  The spreadsheet these replace was assembled by hand and had silently drifted
-  from the data (two missing rows in the 2d set). Everything here is derived
-  from the graph instead, with manually entered columns merged back in from the
+  These replace a hand-assembled spreadsheet that had silently drifted from the
+  data (it was missing two rows of the 2d set). Everything here is derived from
+  the graph instead, with manually entered columns merged forward from the
   existing CSVs so review work is never lost.
 
   Usage from the REPL, with a built database:
 
-    (regenerate! (:dataset @dk.cst.dannet.web.resources/db))"
+    (regenerate! (:dataset @dk.cst.dannet.web.instance/db))"
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.set :as set]
@@ -17,20 +17,18 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]))
 
-(def doc-dir "doc/crosspos/")
-
 (def files
-  {:2d (str doc-dir "2d-cross-pos-taxonomy.csv")
-   :2a (str doc-dir "2a-verb-phrase-pos-flip.csv")
-   :a4 (str doc-dir "a4-deferred-crosspos.csv")})
+  {:2d "doc/crosspos/2d-cross-pos-taxonomy.csv"
+   :a4 "doc/crosspos/a4-deferred-crosspos.csv"})
 
-;; Mirrors the exclusions in bootstrap/fix-verb-phrase-pos!. Kept in step by the
-;; count assertions in check-counts! rather than by a shared def, since the
-;; pipeline hashes that function's own form to decide when to rebuild.
+;; Mirrors the exclusions in bootstrap/fix-verb-phrase-pos!, kept in step by
+;; check-counts! rather than by a shared def: the pipeline hashes that
+;; function's own form to decide when to rebuild, so a reference to a def
+;; elsewhere would not trigger one.
 (def verb-phrase-exclusions
-  {:dn/synset-27542 "prepositional fragment of 'lægge armene over kors'"
-   :dn/synset-27572 "prepositional fragment of 'anbringe i pleje'"
-   :dn/synset-30501 "participial/adjectival, not a verb phrase"})
+  #{:dn/synset-27542                                        ; {over kors}
+    :dn/synset-27572                                        ; {i pleje}
+    :dn/synset-30501})                                      ; {skåret ... over samme læst}
 
 (def second-order
   "Artificial top-ontology node whose only word has empty-IRI PoS values."
@@ -82,7 +80,7 @@
 
 (defn partition-pairs
   "Split the flagged pairs into the four disjoint groups documented in
-  doc/crosspos/crosspos-automatic-processing.md."
+  doc/crosspos/README.md."
   [idx flagged]
   (let [disjoint? #(empty? (set/intersection (:spos %) (:tpos %)))
         phrase?   (fn [{:keys [source spos tpos]}]
@@ -90,9 +88,9 @@
                          (let [ls (get-in idx [source :lemmas])]
                            (and (seq ls) (every? #(str/includes? % " ") ls)))))
         top?      #(or (= second-order (:source %)) (= second-order (:target %)))
-        [dis mix] [(filter disjoint? flagged) (remove disjoint? flagged)]]
+        dis       (filter disjoint? flagged)]
     {:2a (filter phrase? dis)
-     :2b mix
+     :2b (remove disjoint? flagged)
      :2c (filter top? dis)
      :2d (remove #(or (phrase? %) (top? %)) dis)}))
 
@@ -139,17 +137,15 @@
   by then and no longer match the noun-source criterion; the 3 that remain are
   exactly the hand-excluded ones."
   [groups deferred]
-  (let [actual   (-> (update-vals groups count)
-                     (assoc :deferred (count deferred)))
+  (let [actual   (assoc (update-vals groups count) :deferred (count deferred))
         expected {:2a 3 :2b 149 :2c 52 :2d 285 :deferred 104}
         left     (set (map :source (:2a groups)))]
     (when (not= expected actual)
       (throw (ex-info "cross-PoS group counts have changed; update the docs"
                       {:expected expected :actual actual})))
-    (when (not= left (set (keys verb-phrase-exclusions)))
+    (when (not= left verb-phrase-exclusions)
       (throw (ex-info "unexpected 2a remainder; the exclusions no longer match"
-                      {:expected (set (keys verb-phrase-exclusions)) :actual left})))
-    (assert (= 489 (reduce + (map actual [:2a :2b :2c :2d]))))
+                      {:expected verb-phrase-exclusions :actual left})))
     actual))
 
 (defn regenerate!
@@ -201,5 +197,5 @@
     counts))
 
 (comment
-  (regenerate! (:dataset @dk.cst.dannet.web.resources/db))
+  (regenerate! (:dataset @dk.cst.dannet.web.instance/db))
   #_.)

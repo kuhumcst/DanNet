@@ -221,7 +221,7 @@
                          :dn/synset-1478                    ; {kaffe; mokka}
                          :dn/synset-116}                    ; {drik; drikkevare}
 
-        deferred-count 104]
+        expected   104]
 
     ;; === 1. Adjective values of quality nouns -> wn:attribute ===
     ;; Covers ~96% of all dns:crossPoSHypernym triples, the vast majority of
@@ -301,8 +301,8 @@
                :id    :dannet.bootstrap/crosspos-deferred
                :data  {:count remaining :targets (count deferred-targets)}}
               "Retaining deferred cross-PoS hypernyms for editorial review")
-      (assert (= deferred-count remaining)
-              (str "expected " deferred-count " deferred dns:crossPoSHypernym "
+      (assert (= expected remaining)
+              (str "expected " expected " deferred dns:crossPoSHypernym "
                    "triples to survive, found " remaining)))))
 
 (h/defn fix-verb-phrase-pos!
@@ -314,9 +314,9 @@
   fix-cross-pos-hypernymy!, applied at scale: 107 synsets, 113 words.
 
   The criterion is evaluated against the data rather than hardcoded, so the
-  count is asserted afterwards. Three of the 110 synsets matching it are not
-  verbal and are excluded by hand; the multi-word test also admits stranded
-  prepositional and participial phrases.
+  count is asserted afterwards. The multi-word test also admits stranded
+  prepositional and participial phrases, so 3 of the 110 synsets it matches are
+  excluded by hand.
 
   Lexfiles are inherited from the hypernym, as every source is noun.* and every
   hypernym verb.*."
@@ -363,7 +363,7 @@
                                              (and (seq reps)
                                                   (every? #(str/includes? % " ") reps))))
                                   {:synset ?s :hypernym ?o})))
-                        (doall))]
+                        (vec))]
 
     (t/log! {:level :info
              :id    :dannet.bootstrap/verb-phrase-pos
