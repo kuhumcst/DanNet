@@ -2,6 +2,7 @@
   "Functions for querying an Apache Jena graph."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.pprint :as pprint]
             [clojure.walk :as walk]
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
@@ -151,7 +152,7 @@
    (->> (run g op/synset-indegree)
         (map (juxt '?o '?indegree))
         (sort-by first)
-        (clojure.pprint/pprint)
+        (pprint/pprint)
         (with-out-str)
         (spit dest))))
 
