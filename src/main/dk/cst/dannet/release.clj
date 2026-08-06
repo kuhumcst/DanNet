@@ -11,13 +11,13 @@
   "The previous formal release the database is bootstrapped from. The files in
   its version-dir must match it precisely, and it decides which release
   downloads/fetch-bootstrap-datasets! pulls from GitHub."
-  "2025-07-03")
+  "2026-08-03")
 
 (def to
-  "The version being produced. Stays \"SNAPSHOT\" throughout development, since
-  the target date isn't known up front, and is set to a real version only at the
-  moment a release is cut."
-  "2026-08-03")
+  "The version being produced. Defaults to `from`, i.e. during development we
+  reproduce the release we bootstrap from; set to a new version only at the
+  moment a release is cut, which is also what enables make-release-changes!."
+  from)
 
 (def bootstrap-root
   "Parent of the version-named bootstrap directories."

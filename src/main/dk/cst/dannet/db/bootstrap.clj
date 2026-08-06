@@ -22,12 +22,10 @@
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
            [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.rdf.model Model ModelFactory Resource]
+           [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
-           [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.util ResourceUtils]
-           [org.apache.jena.vocabulary RDF]))
+           [org.apache.jena.tdb2 TDB2Factory]))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from.
@@ -127,42 +125,6 @@
       (db/import-files dataset prefix/ili-uri [downloads/ili-path])))
   (add-open-english-wordnet-labels! dataset))
 
-(h/defn fix-meronym-directionality!
-  "Delete the 14 dn: triples with reversed or contradictory part-whole
-  directionality flagged by the meronymy SHACL shapes (see shapes/base.ttl and
-  GitHub issue #200): pairs asserting the same relation in both directions,
-  and pairs asserting both a mero_* and a holo_* relation in the same
-  direction. In each case the correct direction is kept (or, for
-  gaffel/bordkniv, supplied by the existing bestik memberships)."
-  [dataset]
-  (let [model       (db/get-model dataset prefix/dn-uri)
-        bad-triples [;; X holo_part Y contradicting X mero_part Y (førerhus IS part of truck)
-                     [:dn/synset-1996 :wn/holo_part :dn/synset-1986] ; truck -> førerhus
-                     ;; sausages asserted as parts of {dyr} (contradicting mero_substance)
-                     [:dn/synset-34919 :wn/holo_part :dn/synset-3262] ; kødpølse
-                     [:dn/synset-34928 :wn/holo_part :dn/synset-3262] ; rullepølse
-                     [:dn/synset-34929 :wn/holo_part :dn/synset-3262] ; salami
-                     [:dn/synset-34930 :wn/holo_part :dn/synset-3262] ; spegepølse
-                     [:dn/synset-47102 :wn/holo_part :dn/synset-3262] ; chorizo
-                     [:dn/synset-67687 :wn/holo_part :dn/synset-3262] ; peperoni
-                     ;; X holo_substance Y contradicting X mero_substance Y ({stof} is the substance)
-                     [:dn/synset-59770 :wn/holo_substance :dn/synset-10735] ; armbind
-                     [:dn/synset-59775 :wn/holo_substance :dn/synset-10735] ; sørgebind
-                     ;; wrong half of mutually asserted pairs
-                     [:dn/synset-9749 :wn/mero_part :dn/synset-15530] ; receiver -> stereoanlæg
-                     [:dn/synset-38029 :wn/mero_part :dn/synset-1709] ; klaviatur -> klaver
-                     [:dn/synset-29801 :wn/mero_member :dn/synset-5637] ; midtbanespiller -> midtbane
-                     ;; neither is a member of the other; {bestik} already has both as members
-                     [:dn/synset-17988 :wn/mero_member :dn/synset-39561] ; bordkniv -> gaffel
-                     [:dn/synset-39561 :wn/mero_member :dn/synset-17988]]] ; gaffel -> bordkniv
-    (txn/transact-exec model
-      (t/log! {:level :info
-               :id    :dannet.bootstrap/fix-meronym-directionality
-               :data  {:count (count bad-triples)}}
-              "Removing reversed/contradictory meronym triples")
-      (doseq [triple bad-triples]
-        (db/remove! model triple)))))
-
 (h/defn add-in-scheme!
   "Add skos:inScheme to all DanNet and COR resources (GitHub issue #175),
   mirroring how the OEWN marks scheme membership on its resources. Every URI
@@ -190,37 +152,11 @@
         (db/safe-add! g (for [uri subjects]
                           [(prefix/uri->rdf-resource uri) :skos/inScheme scheme]))))))
 
-(h/defn anonymize-inheritance!
-  "Convert the named dn:inherit-* resources into anonymous resources, i.e.
-  blank nodes (GitHub issue #182). Inheritance markings are just synset
-  metadata, so there is no reason to mint a unique URI for each instance.
-  ResourceUtils/renameResource moves every statement mentioning the resource
-  -- in both subject and object position -- over to the new blank node.
-
-  NOTE: must run BEFORE add-in-scheme! so that the inheritance resources do
-  not get skos:inScheme triples attached prior to losing their dn: URIs."
-  [dataset]
-  (let [model (db/get-model dataset prefix/dn-uri)]
-    (txn/transact-exec model
-      (let [inheritance (.createResource model (prefix/kw->uri :dns/Inheritance))
-            named       (->> (.listSubjectsWithProperty model RDF/type inheritance)
-                             (iterator-seq)
-                             (filter #(.isURIResource ^Resource %))
-                             (doall))]
-        (t/log! {:level :info
-                 :id    :dannet.bootstrap/anonymize-inheritance
-                 :data  {:count (count named)}}
-                "Converting named inheritance resources to blank nodes")
-        (doseq [^Resource r named]
-          (ResourceUtils/renameResource r nil))))))
-
 (h/defn regenerate-short-labels!
   "Regenerate every dns:shortLabel from its synset's rdfs:label using the
   shared/canonical entry-ID heuristic, breaking ties by word polysemy (a proxy
-  for word commonness). The old short labels were built from corpus
-  frequencies (#108) and often dropped homograph senses (e.g. hund_1§1)
-  entirely. A short label is only emitted when canonical omits senses, with
-  the \"…\" marker appended; otherwise rdfs:label suffices as-is."
+  for word commonness). A short label is only emitted when canonical omits
+  senses, with the \"…\" marker appended; otherwise rdfs:label suffices as-is."
   [dataset]
   (t/log! {:level :info
            :id    :dannet.bootstrap/regenerate-short-labels}
@@ -239,29 +175,25 @@
           [?synset :dns/shortLabel ?shortLabel])))))
 
 (h/defn make-release-changes!
-  "This function tracks all changes made in this release, i.e. deletions and
-  additions to either of the export datasets.
+  "Apply the changes that produce this release, i.e. deletions and additions
+  to either of the export datasets.
 
-  This function survives between releases, but the functions it calls are all
-  considered temporary and should be deleted when the release comes."
+  Nothing runs while `to` equals `from`: the database then reproduces the
+  release it was bootstrapped from and must stay faithful to it. Setting `to`
+  cuts a release and enables the changes below, which are cleared out once that
+  release has shipped."
   [dataset]
-  ;; Cleanup tripwire. This literal deliberately duplicates release/from, so
-  ;; that bumping `from` for the next cycle fires the assertion, forcing the
-  ;; now-shipped temporary changes below to be cleared out and the marker bumped.
-  (assert (= "2025-07-03" release/from)
-          (str "make-release-changes! still holds changes for the old release, "
-               "but release/from is now " release/from ". "
-               "Clear out the shipped changes and update this marker."))
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/release-changes
-           :data  {:version release/to}}
-          "Applying release changes")
+  (when (not= release/from release/to)
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/release-changes
+             :data  {:from release/from :to release/to}}
+            "Applying release changes")
 
-  ;; ==== The block of changes for this particular release. ====
-  (fix-meronym-directionality! dataset)
-  (anonymize-inheritance! dataset)
-  (add-in-scheme! dataset)
-  (regenerate-short-labels! dataset))
+    ;; ==== Changes for this particular release. ====
+
+    ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
+    (add-in-scheme! dataset)
+    (regenerate-short-labels! dataset)))
 
 (defn ->dataset
   "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
@@ -358,6 +290,8 @@
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
                             (:hash (meta #'make-release-changes!))
+                            (:hash (meta #'add-in-scheme!))
+                            (:hash (meta #'regenerate-short-labels!))
                             (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
@@ -435,9 +369,6 @@
                   (zip/delete-file ttl-file)))
 
               ;; Effectuate changes for the current release.
-              ;; These are always tied to the current release and depend on the
-              ;; former release, i.e. the contents of this function is versioned
-              ;; together with every single formal release.
               (make-release-changes! dataset)
 
               ;; Runs after the release changes so that the dataset

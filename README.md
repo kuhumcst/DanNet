@@ -130,7 +130,7 @@ New releases are bootstrapped from the [preceding release](https://github.com/ku
 
 1. Load and clean the previous version's RDF data
 2. Convert to triples using the current schema
-3. Import into Apache Jena graphs and apply release changes
+3. Import into Apache Jena graphs and apply release changes (only when cutting a release, i.e. when `to` differs from `from`)
 4. Infer additional triples via [OWL/RDFS schemas](/resources/schemas/)
 5. Export the final RDF dataset (see [Database Release Workflow](#database-release-workflow))
 
@@ -213,28 +213,44 @@ docker compose up -d dannet --build
 
 When releasing a new version of the database:
 
-1. Build the database locally via REPL in `dk.cst.dannet.web.service`:
+1. Set `to` in [dk.cst.dannet.release](src/main/dk/cst/dannet/release.clj) to the
+   new version, leaving `from` on the release being bootstrapped from. The
+   release-specific changes in `make-release-changes!` only run once the two
+   differ.
+
+2. Build the database via REPL in `dk.cst.dannet.web.service`:
    ```clojure
    (restart)
-   ;; Then in dk.cst.dannet.db:
-   (export-rdf! @dk.cst.dannet.web.resources/db)
-   (export-csv! @dk.cst.dannet.web.resources/db)
-   (export-wn-lmf! "export/wn-lmf/")
-   ;; And in dk.cst.dannet.db.query (~6 minutes):
-   (save-synset-indegrees! (:graph @dk.cst.dannet.web.resources/db))
    ```
 
-2. Attach the bootstrap assets to the GitHub release so the next cycle can fetch
-   them: `dannet.zip`, `cor.zip`, `dds.zip`, `oewn-extension.zip` and the
-   `export/synset-indegree.edn` produced above. The set is defined by
-   `bootstrap-files` in [dk.cst.dannet.db.bootstrap.downloads](src/main/dk/cst/dannet/db/bootstrap/downloads.clj).
+3. Generate the export artifacts, each in its own namespace:
+   ```clojure
+   (dk.cst.dannet.db.export.rdf/export-rdf! @dk.cst.dannet.web.resources/db)
+   (dk.cst.dannet.db.export.csv/export-csv! @dk.cst.dannet.web.resources/db)
+   (dk.cst.dannet.db.export.wn-lmf/export-wn-lmf! "export/wn-lmf/")
+   ;; ~6 minutes
+   (dk.cst.dannet.db.query/save-synset-indegrees!
+     (:graph @dk.cst.dannet.web.resources/db))
+   ```
+   This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `dds.zip`,
+   `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
+   `export/wn-lmf/dannet-wn-lmf.xml.gz` and `export/synset-indegree.edn`. These
+   ship to production (step 7) and become the GitHub release assets that the
+   next cycle bootstraps from (step 4).
 
-3. Stop the service on production:
+4. Publish a GitHub release tagged `v<version>` and attach the bootstrap assets
+   listed by `bootstrap-files` in [dk.cst.dannet.db.bootstrap.downloads](src/main/dk/cst/dannet/db/bootstrap/downloads.clj):
+   `dannet.zip`, `cor.zip`, `dds.zip`, `oewn-extension.zip` and
+   `synset-indegree.edn`. The next cycle fetches these from GitHub.
+
+5. Zip the database on the dev machine, ready for transfer.
+
+6. Stop the service on production:
    ```shell
    docker compose stop dannet
    ```
 
-4. Transfer database and export files via SFTP, then:
+7. Transfer database and export files via SFTP, then:
    ```shell
    unzip -o tdb2.zip -d /dannet/db/
    mv cor.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
@@ -242,7 +258,7 @@ When releasing a new version of the database:
    mv dannet-wn-lmf.xml.gz /dannet/export/wn-lmf/
    ```
 
-5. Ship the `export/synset-indegree.edn` generated in step 1. Production runs
+8. Ship the `export/synset-indegree.edn` generated in step 3. Production runs
    with `--no-bootstrap` and so never downloads it, but it is read at query time
    to rank search results and entity relations, and it should describe the
    database actually being shipped. Either location works, the first taking
@@ -250,12 +266,16 @@ When releasing a new version of the database:
    [dk.cst.dannet.db.query](src/main/dk/cst/dannet/db/query.clj)):
    ```shell
    mv synset-indegree.edn /dannet/db/                      # legacy location
-   mv synset-indegree.edn /dannet/bootstrap/from/2025-07-03/   # alongside the bootstrap inputs
+   mv synset-indegree.edn /dannet/bootstrap/from/2026-08-03/   # alongside the bootstrap inputs
    ```
    If neither exists the service still starts and search still works, but results
    come back unranked and a `:dannet.query/indegrees-unavailable` error is logged.
 
-6. Restart:
+9. Restart:
    ```shell
    docker compose up -d dannet --build
    ```
+
+10. Bump `from` to the new version and delete `to`, which then defaults to `from`
+   again. Clear out the release-specific block in `make-release-changes!`: its
+   changes have now shipped. This readies the next cycle.

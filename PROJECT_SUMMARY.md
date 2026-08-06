@@ -96,12 +96,12 @@ The system includes:
 
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap` + submodules)
 - Loads previous RDF releases from the `./bootstrap` directory
-- Applies version migrations and schema updates
+- Applies version migrations and schema updates, but only when cutting a release (`to` differs from `from`)
 - Generates new releases with full data validation
 - Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD)
 - **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release assets via the GitHub releases API, the Open English WordNet (OEWN), and the CILI interlingual index (ILI). Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`), so manual placement is no longer required. The release assets (dataset zips plus the synset-indegree cache) land in a version-named directory under `bootstrap/from/`; the English datasets live in the shared `bootstrap/other/english`, where several OEWN editions may coexist since the edition is part of the filename.
 - **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`). `update-metadata!` swaps old metadata for current during bootstrap.
-- **`dk.cst.dannet.release`**: the `from`/`to` release versions plus the version-named bootstrap layout derived from them (`version-dir`). Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
+- **`dk.cst.dannet.release`**: the `from`/`to` release versions plus the version-named bootstrap layout derived from them (`version-dir`). `to` defaults to `from`, so it only needs setting when a release is cut. Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
 
 ## File Structure
 
@@ -367,8 +367,9 @@ npx shadow-cljs compile test
 ### Release / Version Tracking
 - `dk.cst.dannet.release` is the source of truth for versions:
   - `from` — the previous formal release bootstrapped on top of; the files in `bootstrap/from/<from>` must match it, and it determines which release `downloads/fetch-bootstrap-datasets!` pulls from GitHub. Because `->dannet` hashes the input file paths, the version in the path is also what keeps each bootstrap target's database distinct, so several targets can coexist across branches without rebuilding
-  - `to` — the version being produced; stays `"SNAPSHOT"` throughout development and is set to a real version only when a release is cut
+  - `to` — the version being produced; defaults to `from`, and is set to a new version only when a release is cut
 - Both are referenced directly by the exporters (WN-LMF, JSON-LD) and by the dataset metadata
+- While `to` equals `from` the bootstrap reproduces the release it was bootstrapped from: `make-release-changes!` is skipped entirely, so a development database is faithful to its published version and can be shipped to production as-is. Setting `to` is what puts the bootstrap into release-producing mode
 
 ### Namespace Organization
 - `dk.cst.dannet.*` - Core database and query functionality
@@ -433,7 +434,7 @@ npx shadow-cljs compile test
 ### Adding/Updating Bootstrap Datasets
 1. Add the dataset filename to `bootstrap-files` in `dk.cst.dannet.db.bootstrap.downloads` (if it ships as a DanNet release asset)
 2. Or add a dedicated `ensure-*!` fetcher for externally hosted datasets (cf. `ensure-english-datasets!`)
-3. Update `from`/`to` in `dk.cst.dannet.release` when cutting a new base/target version
+3. Update `from`/`to` in `dk.cst.dannet.release` when cutting a new base/target version (set `to` first; it defaults to `from`, and release changes are skipped while the two are equal)
 
 ## Integration Examples
 
