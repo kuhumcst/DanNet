@@ -248,7 +248,7 @@
       ;; A plain :info log, not a trace! around createInfModel: Jena builds the
       ;; InfModel lazily, so tracing here would report a near-zero runtime. The
       ;; real inference cost is realized later, on first traversal -- see the
-      ;; :dannet.graph/* traces in dk.cst.dannet.web.resources.
+      ;; :dannet.graph/* traces in dk.cst.dannet.web.instance.
       (t/log! {:level :info
                :id    :dannet.graph/inference-model
                :data  {:schema-count (count schema-uris)}}

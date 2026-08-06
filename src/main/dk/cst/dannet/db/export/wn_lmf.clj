@@ -124,7 +124,7 @@
 ;; #146 - some 500 cases left out, should really be fixed manually (eventually)
 (def excluded-hypernymy
   (delay
-    (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.resources/db)
+    (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.instance/db)
                                   prefix/dn-uri)
                     op/cross-pos-hypernymy)]
       (->> ms
@@ -382,7 +382,7 @@
   [f]
   (println "Exporting" f)
   (io/make-parents f)
-  (spit f (xml-str (run-queries @dk.cst.dannet.web.resources/db))))
+  (spit f (xml-str (run-queries @dk.cst.dannet.web.instance/db))))
 
 ;; Taken from here:
 ;; https://gist.github.com/mikeananev/b2026b712ecb73012e680805c56af45f
@@ -410,7 +410,7 @@
 (comment
   (get @excluded-hypernymy :dn/synset-30829)
   @excluded-hyponymy
-  (xml-str (run-queries @dk.cst.dannet.web.resources/db))
+  (xml-str (run-queries @dk.cst.dannet.web.instance/db))
   (time (export-xml! "export/wn-lmf/dannet-wn-lmf.xml"))
   (time (export-wn-lmf! "export/wn-lmf/"))
   #_.)

@@ -308,14 +308,14 @@
 
 (comment
   ;; Export DanNet as CSV
-  (export-csv! @dk.cst.dannet.web.resources/db)
+  (export-csv! @dk.cst.dannet.web.instance/db)
 
   (expand-kws x)
   (spit "synsets-metadata.json" (metadata->json synsets-metadata))
   (export-metadata! "synsets-metadata.json" synsets-metadata)
 
   ;; Generate new synset labels for Thomas Troelsgård
-  (->> (q/run (:graph @dk.cst.dannet.web.resources/db) op/synset-long-short-labels)
+  (->> (q/run (:graph @dk.cst.dannet.web.instance/db) op/synset-long-short-labels)
        (map (fn [{:syms [?synset ?label ?shortLabel]}]
               [(second (str/split (name ?synset) #"-s?"))
                (->> (or ?shortLabel ?label)
@@ -329,7 +329,7 @@
        (export-csv-rows! "synset-labels.csv"))
 
   ;; Test CSV table data
-  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.resources/db) prefix/dn-uri)]
+  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.instance/db) prefix/dn-uri)]
     (->> (q/table-query g '[?synset ?definition ?onto] op/csv-synsets)
          (take 10)))
   #_.)

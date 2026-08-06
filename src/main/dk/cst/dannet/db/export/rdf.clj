@@ -292,7 +292,7 @@
       (str sw))))
 
 (comment
-  (def dataset (:dataset @dk.cst.dannet.web.resources/db))
+  (def dataset (:dataset @dk.cst.dannet.web.instance/db))
 
   ;; Export individual models
   (export-rdf-model! "export/rdf/dannet.zip" (db/get-model dataset prefix/dn-uri)
@@ -310,10 +310,10 @@
                      :prefixes (get prefix/oewn-extension :export))
 
   ;; Export the entire dataset as RDF
-  (export-rdf! @dk.cst.dannet.web.resources/db)
+  (export-rdf! @dk.cst.dannet.web.instance/db)
 
   ;; Include inferred relations (WARNING: takes a very, very long time)
-  (export-rdf! @dk.cst.dannet.web.resources/db "export/rdf/" :complete true)
+  (export-rdf! @dk.cst.dannet.web.instance/db "export/rdf/" :complete true)
 
   ;; Manually run the release gate against an exported dn: artifact (a plain
   ;; .ttl on disk, i.e. before zipping); throws when the baseline is exceeded.

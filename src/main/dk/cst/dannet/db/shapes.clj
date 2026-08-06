@@ -198,7 +198,7 @@
   Logs :error when the baseline is exceeded, :warn on known violations, and
   :info when the graph conforms."
   [db]
-  ;; Called async at boot from dk.cst.dannet.web.resources -- deliberately
+  ;; Called async at boot from dk.cst.dannet.web.instance -- deliberately
   ;; non-fatal so a validation problem can never take the service down.
   (let [graph (.getGraph ^Model (:base-model db))
         {:keys [violations exceeded] :as result}

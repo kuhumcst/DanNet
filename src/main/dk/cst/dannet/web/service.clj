@@ -8,6 +8,7 @@
             [io.pedestal.http.ring-middlewares :as middleware]
             [taoensso.telemere :as t]
             [taoensso.telemere.utils :as tu]
+            [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.shared :as shared])
@@ -144,13 +145,13 @@
   (init-logging!)
   (let [service-map (->service-map @conf)]
     ;; Compute in-use synset relations after the database is ready.
-    (async/thread @res/db @res/synset-rels @res/hypernym-graph)
+    (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph)
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
   (init-logging!)
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
-  (async/thread @res/db @res/synset-rels @res/hypernym-graph) ; init database
+  (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph) ; init database
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 
@@ -167,7 +168,7 @@
   re-fetches the required versions, forcing a fresh db build. Use after a
   version-mismatch error to pull the expected release."
   []
-  (res/reset-db! true)
+  (instance/reset-db! true)
   (restart))
 
 (defn -main
@@ -175,11 +176,11 @@
   ;; When uploading a db build from the dev machine the server, we want to skip
   ;; the bootstrap phase entirely.
   (when (not-empty (filter #{"--no-bootstrap"} args))
-    (swap! res/dannet-opts dissoc :input-dir))
+    (swap! instance/dannet-opts dissoc :input-dir))
   ;; Wipe stale/version-bound datasets and re-fetch the required versions before
   ;; building (mirrors restart-refetch).
   (when (not-empty (filter #{"--refetch"} args))
-    (res/reset-db! true))
+    (instance/reset-db! true))
   (start))
 
 (comment

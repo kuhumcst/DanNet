@@ -1,13 +1,8 @@
 (ns dk.cst.dannet.web.resources
-  "Pedestal interceptors for entity look-ups and schema downloads."
+  "Pedestal interceptors and their associated routes."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.data.json :as json]
-            [clojure.core.memoize :as memo]
-            [cognitect.transit :as t]
-            [com.wsscode.transito :as to]
             [flatland.ordered.map :as ordered]
-            [arachne.aristotle.graph :as graph]
             [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
@@ -15,945 +10,23 @@
             [io.pedestal.interceptor :as interceptor]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
-            [ont-app.vocabulary.lstr]
-            [rum.core :as rum]
-            [com.owoga.trie :as trie]
             [thi.ng.color.core :as col]
             [thi.ng.color.presets.categories :as cat]
             [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.anomaly :as anomaly]
-            [dk.cst.dannet.web.section :as section]
-            [dk.cst.dannet.web.ui :as ui]
+            [dk.cst.dannet.web.response :as resp]
+            [dk.cst.dannet.web.instance :as instance]
+            [dk.cst.dannet.entity :as ent]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.release :as release]
-            [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.bootstrap :as bootstrap]
-            [dk.cst.dannet.db.bootstrap.metadata :as metadata]
-            [dk.cst.dannet.db.shapes :as shapes]
-            [dk.cst.dannet.db.export.rdf :as export.rdf]
-            [dk.cst.dannet.db.export.json-ld :refer [json-ld-ify]]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
-            [dk.cst.dannet.similarity :as sim]
             [dk.cst.dannet.web.hyponymy :as hyponymy])
   (:import [clojure.lang ExceptionInfo]
-           [java.io ByteArrayOutputStream File]
-           [java.util Date]
-           [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.datatypes BaseDatatype$TypedValue]
-           [org.apache.jena.datatypes.xsd XSDDateTime]
-           [org.apache.jena.query ResultSet]
-           [org.apache.jena.riot ResultSetMgr]
-           [org.apache.jena.riot.resultset ResultSetLang]
-           [org.apache.jena.sparql.engine.binding Binding]
+           [java.io File]
            [org.apache.jena.sparql.resultset ResultSetMem]))
-
-(def schema-uris
-  "URIs where relevant schemas can be fetched."
-  (->> (for [{:keys [alt uri export]} (vals prefix/schemas)]
-         (when-not export
-           (if alt
-             (cond
-               (= alt :no-schema)
-               nil
-
-               (or (str/starts-with? alt "http://")
-                   (str/starts-with? alt "https://"))
-               alt
-
-               :else
-               (io/resource alt))
-             uri)))
-       (filter some?)))
-
-(def dannet-opts
-  (atom {:db-type     :tdb2
-         :db-path     "db/tdb2"
-         :input-dir   (release/version-dir release/from)
-         :schema-uris schema-uris}))
-
-;; build-db! is a named fn (not inlined in the delay) so reset-db! can swap in a
-;; fresh delay to force a rebuild -- a realised delay otherwise caches forever.
-(defn build-db!
-  "Realise the DanNet database from the current dannet-opts. With `refetch?`,
-  wipe the stale/version-bound datasets and re-fetch the required versions
-  first."
-  [refetch?]
-  (let [opts (assoc @dannet-opts :refetch? refetch?)]
-    (sparql/reset-cache!)
-    (tel/trace! {:id      :dannet.graph/build-db
-                 :run-val :elided
-                 :data    {:opts opts}}
-                (let [dannet (bootstrap/->dannet opts)]
-                  ;; Non-fatal SHACL check, run async to stay off the boot
-                  ;; critical path; logs a summary via Telemere. Runs on every
-                  ;; boot (fresh builds *and* reused databases) by design.
-                  (future
-                    (try
-                      (shapes/validate-db dannet)
-                      (catch Exception e
-                        (tel/error! {:id :dannet.shapes/validate-error} e))))
-                  dannet))))
-
-(defonce db
-  (delay (build-db! false)))
-
-(defn reset-db!
-  "Replace the db delay so the next deref rebuilds, with `refetch?` controlling
-  whether stale datasets are wiped and re-fetched first. Lets restart-refetch
-  force a rebuild even when the db is already built."
-  [refetch?]
-  (alter-var-root #'db (constantly (delay (build-db! refetch?)))))
-
-(def one-day-cache
-  "private, max-age=86400")
-
-(def schema-download-route
-  (let [handler (fn [{:keys [path-params] :as request}]
-                  (let [{:keys [prefix]} path-params
-                        path     (prefix/prefix->schema-path (symbol prefix))
-                        filename (last (str/split path #"/"))
-                        cd       (str "attachment; filename=\"" filename "\"")]
-                    (-> (ring/resource-response path)
-                        (assoc-in [:headers "Cache-Control"] one-day-cache)
-                        (assoc-in [:headers "Content-Disposition"] cd))))]
-    ["/schema/:prefix" :get handler :route-name ::schema-download]))
-
-(def export-route
-  (let [handler (fn [{:keys [path-params query-params] :as request}]
-                  (let [{:keys [prefix type variant]} (merge path-params
-                                                             query-params)
-                        file (prefix/export-file type (symbol prefix) variant)
-                        root (str "export/" type "/")
-                        cd   (str "attachment; filename=\"" file "\"")]
-                    (-> (ring/file-response file {:root root})
-                        (assoc-in [:headers "Content-Type"] "text/turtle")
-                        (assoc-in [:headers "Cache-Control"] one-day-cache)
-                        (assoc-in [:headers "Content-Disposition"] cd))))]
-    ["/export/:type/:prefix" :get handler :route-name ::export]))
-
-(def version-hash
-  "Unique versioning of the frontend app."
-  (abs (hash (Date.))))
-
-;; https://javascript.plainenglish.io/what-is-cache-busting-55366b3ac022
-(defn- cb
-  "Decorate the supplied `path` with a cache busting string."
-  [path]
-  (str path "?hash=" version-hash))
-
-(defn html-page
-  "A full HTML page ready to be hydrated. Needs a `title`, `content`, and the
-  user-specific `data` (languages and detail level)."
-  [title {:keys [languages detail-level] :as data} content]
-  (str
-    "<!DOCTYPE html>\n"                                     ;; Avoid Quirks Mode
-    (rum/render-static-markup
-      ;; The :lang attribute declares the negotiated UI language semantically;
-      ;; it doubles as the base language for RDFa literals lacking a closer
-      ;; @lang and is matched in CSS to hide redundant language superscripts.
-      ;; The detail level is mirrored in :data-detail-level since the CSS only
-      ;; hides redundant superscripts below the :high detail level.
-      [:html {:prefix            prefix/rdfa-prefixes
-              :lang              (first languages)
-              :data-detail-level (some-> detail-level name)}
-       [:head
-        [:title title]
-        [:meta {:charset "UTF-8"}]
-        [:meta {:name    "viewport"
-                :content "width=device-width, initial-scale=1.0"}]
-        [:link {:rel "stylesheet" :href (cb "/css/main.css")}]
-
-        ;; Favicon section
-        [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
-        [:link {:rel "icon" :type "image/png" :sizes "32x32" :href "/favicon-32x32.png"}]
-        [:link {:rel "icon" :type "image/png" :sizes "16x16" :href "/favicon-16x16.png"}]
-        [:link {:rel "manifest" :href "/site.webmanifest"}]
-        [:link {:rel "mask-icon" :href "/safari-pinned-tab.svg" :color "#5bbad5"}]
-        [:meta {:name "msapplication-TileColor" :content "#da532c"}]
-        [:meta {:name "theme-color" :content "#ffffff"}]]
-       [:body
-        [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html content)}}]
-        [:script
-         {:dangerouslySetInnerHTML
-          {:__html (str
-                     "var inDevelopmentEnvironment = " shared/development? ";"
-                     "var negotiatedLanguages = '" (pr-str languages) "';")}}]
-        [:script {:src (str "/js/compiled/" shared/main-js)}]]])))
-
-(defn- lstr->s
-  [lstr]
-  (str (.s lstr) "@" (.lang lstr)))
-
-(defn- ->json-safe
-  "Convert RDF data to JSON-compatible format."
-  [data]
-  (cond
-    (instance? LangStr data)
-    {:value (.s data) :lang (.lang data)}
-
-    (instance? BaseDatatype$TypedValue data)
-    {:value (.getLexicalValue data) :datatype (str (.getDatatypeURI data))}
-
-    (instance? XSDDateTime data)
-    {:value (str data) :datatype "xsd:dateTime"}
-
-    ;; Handle symbols with metadata (blank nodes from attach-blank-nodes)
-    (symbol? data)
-    (if-let [resolved-data (meta data)]
-      ;; If the symbol has metadata, use the resolved data
-      (->json-safe resolved-data)
-      ;; Otherwise, convert the symbol to string
-      (str data))
-
-    (keyword? data) (prefix/kw->qname data)
-    (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
-    (coll? data) (mapv ->json-safe data)
-    :else data))
-
-(defn- TypedValue->m
-  [o]
-  {:value (.-lexicalValue o)
-   :uri   (.-datatypeURI o)})
-
-(defn handle-sparql-result
-  "Convert a `sparql-result` to a vector of Clojure maps using Aristotle's
-  'graph/data' for node conversion, matching the output format of 'q/run'."
-  [^ResultSet sparql-result]
-  (when sparql-result
-    (mapv (fn [qs]
-            (let [^Binding binding (.getBinding qs)]
-              (into {}
-                    (map (fn [var]
-                           [(graph/data var) (graph/data (.get binding var))])
-                         (iterator-seq (.vars binding))))))
-          (iterator-seq sparql-result))))
-
-(def transit-write-handlers
-  {LangStr                 (t/write-handler "lstr" lstr->s)
-   BaseDatatype$TypedValue (t/write-handler "rdfdatatype" TypedValue->m)
-   XSDDateTime             (t/write-handler "datetime" str)
-   ResultSetMem            (t/write-handler "array" handle-sparql-result)})
-
-(defn with-comment
-  [m comment]
-  (with-meta
-    (update m :rdfs/comment q/set-merge comment)
-    (meta m)))
-
-;; TODO: order matters when creating conneg interceptor, should be kvs as
-;;       shadow-handler relies on "text/html" being the first key, fix!
-(def content-type->body-fn
-  {"text/html"
-   (fn [{:keys [sparql-result] :as data} &
-        [{:keys [page title] :as opts}]]
-     (html-page
-       title
-       data
-       (ui/page-shell page (update data :sparql-result handle-sparql-result))))
-
-   "text/turtle"
-   (fn [{:keys [entity href]} & _]
-     (when entity
-       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))))
-
-   ;; TODO: should this match the JSON output? Or be used for debugging Transit?
-   "application/edn"
-   (fn [data & _]
-     (pr-str data))
-
-   "application/ld+json"
-   (fn [{:keys [entity entities
-                search-results lemma]
-         :as   data} & _]
-     (let [kv->entity (fn [[subject entity]]
-                        (assoc entity :dc/subject subject))]
-       (some-> (cond
-                 entity
-                 (json-ld-ify
-                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
-                   (map kv->entity entities))
-
-                 search-results
-                 (json-ld-ify
-                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                   (map kv->entity search-results)))
-
-               (json/write-str {:indent         true
-                                :escape-unicode false}))))
-
-   ;; https://www.w3.org/TR/sparql11-results-json/
-   "application/sparql-results+json"
-   (fn [{:keys [sparql-result]
-         :as   data} & _]
-     (when sparql-result
-       (let [out (ByteArrayOutputStream.)]
-         (ResultSetMgr/write out ^ResultSet sparql-result ResultSetLang/RS_JSON)
-         (.toString out "UTF-8"))))
-
-   "application/json"
-   (fn [{:keys [sparql-result]
-         :as   data} & _]
-     (json/write-str (->json-safe data)
-                     {:indent         true
-                      :escape-unicode false}))
-
-   "application/transit+json"
-   (fn [data & _]
-     (to/write-str data {:handlers transit-write-handlers}))})
-
-(defn- alt-resource
-  "Return an alternate resource qname for the given `qname`; useful for e.g.
-  resolving <https://example.com/ns#> as <https://example.com/ns>."
-  [qname]
-  (let [uri (prefix/rdf-resource->uri qname)]
-    (when (or (str/ends-with? uri "#")
-              (str/ends-with? uri "/"))
-      (as-> (dec (count uri)) $
-            (subs uri 0 $)
-            (str "<" $ ">")))))
-
-;; TODO: eventually support LangStr for titles too
-(defn x-headers
-  "Encode `page-meta` for a given page as custom HTTP headers.
-
-  See also: dk.cst.dannet.web.ui/x-header"
-  [page-meta]
-  (update-keys page-meta (fn [k] (str "X-" (str/capitalize (name k))))))
-
-(defn request->languages
-  "Resolve a vector of language preferences from a `request`."
-  [request]
-  (or (:languages request)
-      (i18n/lang-prefs (get-in request [:accept-language :type]))))
-
-(defn redirect-location
-  "Redirect to `x`.
-  If the provided arg isn't an RDF resource, it is assumed to be a plain URI."
-  [x]
-  (cond
-    (keyword? x)
-    (prefix/uri->dannet-path (prefix/kw->uri x))
-
-    (prefix/rdf-resource? x)
-    (prefix/resource-path x)
-
-    :else                                                   ; plain URI
-    x))
-
-;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
-(def redirect-ic
-  "Get a redirect response that works for both HTTP redirects and for the API
-  based on keys set in the the context:
-
-    :redirect        - (symbolic) location to redirect to
-    :redirect-params - query-params to used when redirecting
-    :replace         - (symbolic) location which replaces the current state
-
-
-  NOTE: The alternative `replace` location arg may be provided to tell the
-        client to replace the state in history rather than adding a new entry.
-        This is needed when automatically redirecting to an alt entity,
-        as the back button will otherwise break for the user.
-
-  ----
-
-  Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
-  manually, so a somewhat hacky solution is required to make it work. By setting
-  a custom header and adding some redirect logic on the client-side, the client
-  knows when to redirect from an API call."
-  {:name  ::redirect
-   :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
-            (let [{:keys [lang format]} redirect-params
-                  content-type (or (get-in request [:accept :field])
-                                   "application/json")
-                  location     (redirect-location (or redirect replace))
-                  ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
-                  api-location (if (or lang format)
-                                 (cond
-                                   (and lang format)
-                                   (str location "?lang=" lang "&format=" format)
-
-                                   lang
-                                   (str location "?lang=" lang)
-
-                                   format
-                                   (str location "?format=" format))
-                                 location)]
-              (if location
-                (assoc ctx
-                  :response (case content-type
-                              "text/html"
-                              {:status  303
-                               :headers {"Location" location}}
-
-                              ;; Custom header hack for SPA client-side redirect handling
-                              ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
-                              ;; e.g. https://github.com/lambdaisland/fetch/issues/24
-                              "application/transit+json"
-                              {:status  200
-                               :headers (x-headers {:redirect location
-                                                    :replace  (if replace "T" "F")})
-                               :body    "{}"}
-
-                              ;; Simple redirect for JSON - let HTTP client follow the redirect
-                              "application/json"
-                              {:status  303
-                               :headers {"Location" api-location}}
-
-                              ;; else
-                              nil))
-                ctx)))})
-
-(defn remove-internal-params
-  [query-string]
-  (when query-string
-    (str/replace query-string #"&?(transit=true|format=turtle)" "")))
-
-(defn with-file-ext
-  [title content-type]
-  (when (get #{"application/json"
-               "application/ld+json"
-               "text/turtle"}
-             content-type)
-    (let [filename  (str/replace title #":" "_")
-          extension (get {"application/json"    ".json"
-                          "application/ld+json" ".json"
-                          "text/turtle"         ".ttl"}
-                         content-type)]
-      {"Content-Disposition"
-       (str "attachment; filename=\"" filename extension "\"")})))
-
-(defn json-body-fn
-  "Combined body-fn that prefers specific types of JSON-LD over unspecified JSON
-  when they are available."
-  [& args]
-  (let [json-ld-body             (content-type->body-fn "application/ld+json")
-        json-sparql-results-body (content-type->body-fn "application/sparql-results+json")
-        json-body                (content-type->body-fn "application/json")]
-    (or (apply json-ld-body args)
-        (apply json-sparql-results-body args)
-        (apply json-body args))))
-
-(defn with-cookies
-  [request data]
-  (assoc data
-    :full-screen (shared/get-cookie request :full-screen)
-    :detail-level (or (shared/get-cookie request :detail-level)
-                      :normal)))
-
-(def response-body-ic
-  "Generate a response containing the content body (if available)."
-  {:name  ::response-body
-   :leave (fn [{:keys [request content page-meta] :as ctx}]
-            (let [content-type (or (get-in request [:accept :field])
-                                   "application/json")
-                  ;; Prefer using the JSON-LD body if available whenever the
-                  ;; content-type is regular JSON too. In this case the response
-                  ;; content-type doesn't get changed to JSON-LD, though.
-                  body         (if (= content-type "application/json")
-                                 json-body-fn
-                                 (content-type->body-fn content-type))
-                  title        (get page-meta :title "DanNet")]
-              (-> ctx
-                  (update :response merge
-                          (cond
-                            (false? content)
-                            {:status  204
-                             :headers {}}
-
-                            (and (empty? content) (empty? page-meta))
-                            {:status  404
-                             :headers {}}
-
-                            :else
-                            {:status (or (:response-status ctx) 200)
-                             :body   (body (with-cookies request content) page-meta)}))
-                  (update-in [:response :headers] merge
-                             (-> (assoc (x-headers page-meta)
-                                   "Content-Type" content-type
-                                   "Cache-Control" one-day-cache)
-
-                                 ;; Add filename extensions when needed.
-                                 (merge (with-file-ext title content-type)))))))})
-
-(defn- error-content-type
-  "Determine the response content-type for an error response.
-
-  Prefers (get-in request [:accept :field]) when content negotiation has run;
-  otherwise falls back to sniffing the raw Accept header and defaults to Transit
-  (matching the SPA) for non-HTML clients."
-  [request]
-  (or (get-in request [:accept :field])
-      (let [accept (or (get-in request [:headers "accept"])
-                       (get-in request [:headers :accept]))]
-        (cond
-          (and accept (str/includes? accept "text/html")) "text/html"
-          :else "application/transit+json"))))
-
-(def error-ic
-  "Outermost error-handling interceptor.
-
-  Translates any unhandled exception into an anomaly via 'anomaly/translate'
-  and renders it through the same content-type->body-fn machinery used for
-  normal responses. Logs the original exception via Telemere at :error level.
-
-  Catches errors from any interceptor enqueued after it, including the router
-  and all per-route interceptors. Since content negotiation is a per-route
-  interceptor, it may not have run before the error was thrown; in that case
-  we sniff the Accept header directly."
-  (interceptor/interceptor
-    {:name  ::error
-     :error (fn [ctx ex]
-              (let [cause     (or (some-> ex ex-data :exception) ex)
-                    request   (:request ctx)
-                    anomaly   (-> (anomaly/translate cause)
-                                  (anomaly/localize (request->languages request)))
-                    ctype     (error-content-type request)
-                    body-fn   (content-type->body-fn ctype)
-                    title     (i18n/da-en (request->languages request)
-                                "Fejl" "Error")
-                    content   {:languages (request->languages request)
-                               :anomaly   anomaly}
-                    page-meta {:title title :page "error"}]
-                (tel/log! {:level :error
-                           :error cause
-                           :data  {:uri    (:uri request)
-                                   :method (:request-method request)}}
-                          "Unhandled exception")
-                (assoc ctx
-                  :response {:status  (:status anomaly)
-                             :headers (merge (x-headers page-meta)
-                                             {"Content-Type" ctype})
-                             :body    (body-fn (with-cookies request content)
-                                               page-meta)})))}))
-
-(def expand-content-types
-  "Content types that receive expanded entity data with relation labels."
-  #{"application/transit+json"
-    "text/html"
-    "text/turtle"
-    "application/ld+json"
-    "application/json"})
-
-(def truncate-content-types
-  "Content types that support deferred loading of large semantic relations.
-  Limited to browser-based content types where the client can fetch the rest."
-  #{"application/transit+json"
-    "text/html"})
-
-;; Map of property -> set of strict superproperties, derived from the
-;; rdfs:subPropertyOf closure entailed by the inference model (see rdfs5 in
-;; 'dannet.rules'). Cyclic pairs (equivalent properties) are excluded.
-(defonce superproperty-closure
-  (delay
-    (let [pairs (->> (q/run (:graph @db) '[:bgp [?p :rdfs/subPropertyOf ?q]])
-                     (map (juxt '?p '?q))
-                     (filter (fn [[p q]]
-                               (and (keyword? p) (keyword? q) (not= p q))))
-                     (set))]
-      (->> pairs
-           (remove (fn [[p q]] (contains? pairs [q p])))
-           (reduce (fn [m [p q]] (update m p (fnil conj #{}) q)) {})))))
-
-(defn- prune-entailed-superproperties
-  "Remove relations from `entity` whose values are fully covered by present
-  subproperty relations, e.g. skos:broader rows entailed from wn:hypernym.
-  This is display-only de-duplication; negotiated RDF output is unaffected.
-
-  Returns a map with:
-    :entity - entity without the fully covered superproperty relations
-    :folded - {surviving relation -> set of removed superproperties}"
-  [k->supers entity]
-  (let [->set   (fn [v] (cond
-                          (set? v) v
-                          (coll? v) (set v)
-                          :else #{v}))
-        subs-of (reduce (fn [m k]
-                          (reduce (fn [m q]
-                                    (if (contains? entity q)
-                                      (update m q (fnil conj #{}) k)
-                                      m))
-                                  m
-                                  (k->supers k)))
-                        {}
-                        (keys entity))
-        pruned  (set (for [[q subs] subs-of
-                           :let [covered (reduce #(into %1 (->set (entity %2)))
-                                                 #{}
-                                                 subs)
-                                 qv      (entity q)]
-                           :when (if (coll? qv)
-                                   (every? covered qv)
-                                   (contains? covered qv))]
-                       q))
-        folded  (reduce (fn [m q]
-                          (reduce (fn [m k]
-                                    (if (pruned k)
-                                      m
-                                      (update m k (fnil conj #{}) q)))
-                                  m
-                                  (subs-of q)))
-                        {}
-                        pruned)]
-    {:entity (apply dissoc entity pruned)
-     :folded folded}))
-
-(defn- prune-embedded-entities
-  "Apply 'prune-entailed-superproperties' to the blank node entity maps
-  embedded as metadata on symbols using `k->supers` within `entity` values.
-
-  Each pruned inner entity retains its own :folded map as metadata, which is
-  read by the frontend when rendering nested attr-val tables (see issue #195)."
-  [k->supers entity]
-  (let [prune-sym (fn [x]
-                    (if-let [m (and (symbol? x) (not-empty (meta x)))]
-                      (let [{inner  :entity
-                             folded :folded} (prune-entailed-superproperties
-                                               k->supers m)]
-                        (if (not-empty folded)
-                          (with-meta x (with-meta inner {:folded folded}))
-                          x))
-                      x))
-        prune-val (fn [v]
-                    (cond
-                      (symbol? v) (prune-sym v)
-
-                      ;; Values without blank nodes -- e.g. large collections
-                      ;; of synset relations -- are returned as-is rather than
-                      ;; being needlessly rebuilt.
-                      (not (and (coll? v) (some symbol? v))) v
-
-                      (set? v) (into (empty v) (map prune-sym) v)
-                      :else (with-meta (mapv prune-sym v) (meta v))))]
-    (update-vals entity prune-val)))
-
-(defn- truncate-semantic-relations
-  "Truncate semantic relation values in `entity`.
-  
-  Returns a map with:
-    :truncated    - entity with values capped at the limit
-    :deferred     - entity containing only the overflow values  
-    :has-deferred - true if any relation exceeded the limit"
-  [entity]
-  (let [has-deferred? (volatile! false)]
-    (loop [[[k v] & more] (seq entity)
-           truncated (transient {})
-           deferred  (transient {})]
-      (if (nil? k)
-        {:truncated    (persistent! truncated)
-         :deferred     (persistent! deferred)
-         :has-deferred @has-deferred?}
-        (if (and (section/semantic-rels? [k])
-                 (coll? v)
-                 (> (count v) shared/semantic-relation-limit))
-          ;; Use subvec for O(1) splitting when possible, avoiding full traversal.
-          (let [v'    (if (vector? v) v (vec v))
-                trunc (subvec v' 0 shared/semantic-relation-limit)
-                defer (subvec v' shared/semantic-relation-limit)]
-            (vreset! has-deferred? true)
-            (recur more
-                   (assoc! truncated k trunc)
-                   (assoc! deferred k defer)))
-          (recur more
-                 (assoc! truncated k v)
-                 deferred))))))
-
-(defonce hypernym-graph
-  (delay
-    (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
-                (let [bg  (.getGraph (:base-model @db))
-                      hg  (sim/build-hypernym-graph bg)
-                      nd  (sim/node-depths hg)
-                      pos (sim/synset->pos bg)]
-                  {:graph           hg
-                   :node-depths     nd
-                   :pos             pos
-                   :taxonomy        (sim/taxonomy-depths nd pos)
-                   ;; children with no real hypernym; see sim/build-hypernym-graph
-                   :orthogonal-only (:orthogonal-only (meta hg))
-                   ;; memoized so scoring one synset against many reuses each distance map
-                   :ad              (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
-
-(defonce hyponym-graph
-  (delay
-    (tel/trace! {:id :dannet.graph/hyponym-graph :run-val :elided}
-                (let [hypo (sim/build-hyponym-graph (:graph @hypernym-graph))]
-                  {:graph            hypo
-                   ;; memoized so repeated branch-size look-ups during a subtree build
-                   ;; (and across requests) don't re-walk the same descendants
-                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
-                   :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
-
-(defonce meronym-graph
-  (delay
-    (tel/trace! {:id :dannet.graph/meronym-graph :run-val :elided}
-                (let [mero (sim/build-meronym-graph (.getGraph (:base-model @db)))]
-                  ;; Same shape as `hyponym-graph` so `hyponymy/hyponym-tree`
-                  ;; can build meronym sunburst trees over it unchanged.
-                  {:graph            mero
-                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count mero s)))
-                   :orthogonal-only  (constantly false)}))))
-
-(defn ->entity-ic
-  "Create an interceptor to return DanNet resources, optionally specifying a
-  predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
-  within the path-params.
-
-  When the content-type supports truncation (HTML, Transit) and the entity has
-  large semantic relations, values are truncated to `semantic-relation-limit`.
-  The remaining data can be fetched by adding `?deferred=true` to the request."
-  [& {:keys [prefix subject] :as static-params}]
-  {:name  ::entity
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [prefix
-                          subject
-                          deferred]} (merge (:path-params request)
-                                            (:query-params request)
-                                            static-params)
-                  content-type       (or (get-in request [:accept :field])
-                                         "application/json")
-                  g                  (:graph @db)
-                  ;; TODO: why is decoding necessary?
-                  ;; You would think that the path-params-decoder handled this.
-                  subject*           (cond->> (decode-query-part subject)
-                                              prefix (keyword (name prefix)))
-                  languages          (request->languages request)
-                  qs                 (some-> (:query-string request)
-                                             remove-internal-params
-                                             ;; Canonicalize slash encoding: reitit's
-                                             ;; url-encode emits %2F while the client
-                                             ;; leaves slashes bare. The difference
-                                             ;; otherwise causes a hydration mismatch.
-                                             (str/replace "%2F" "/"))
-                  qname              (if (keyword? subject*)
-                                       (prefix/kw->qname subject*)
-                                       subject*)
-                  expand?            (expand-content-types content-type)
-                  raw-entity         (if expand?
-                                       (q/expanded-entity g subject*)
-                                       (q/entity g subject*))
-                  ;; Apply truncation only for content types that support deferred loading
-                  truncate?          (truncate-content-types content-type)
-                  deferred?          (and truncate? deferred)
-                  ;; De-duplicate entailed superproperty rows (display only).
-                  {pruned-entity :entity
-                   folded        :folded}
-                  (if (and truncate? (not-empty raw-entity))
-                    (-> (prune-entailed-superproperties @superproperty-closure
-                                                        raw-entity)
-                        (update :entity #(prune-embedded-entities
-                                           @superproperty-closure %)))
-                    {:entity raw-entity :folded nil})
-                  {:keys [truncated deferred-entity has-deferred]}
-                  (if (and truncate? (not-empty pruned-entity))
-                    (let [result (truncate-semantic-relations pruned-entity)]
-                      {:truncated       (:truncated result)
-                       :deferred-entity (:deferred result)
-                       :has-deferred    (:has-deferred result)})
-                    {:truncated pruned-entity :deferred-entity {} :has-deferred false})
-                  ;; Return truncated on initial request, deferred portion on deferred request.
-                  ;; If there's nothing deferred (entity was small, or was re-fetched from
-                  ;; scratch), return the full entity to avoid an empty response.
-                  entity             (if deferred?
-                                       (if (not-empty deferred-entity)
-                                         deferred-entity
-                                         truncated)
-                                       truncated)
-                  ;; Two independent hyponym sunburst trees (real vs
-                  ;; orthogonal-only), only for synsets on the initial
-                  ;; (non-deferred) browser request.
-                  synset?            (and truncate?
-                                          (not deferred?)
-                                          (shared/synset? subject* raw-entity))
-                  orthogonal-only    (:orthogonal-only @hyponym-graph)
-                  ->tree             (fn [root-filter]
-                                       (when synset?
-                                         (hyponymy/hyponym-tree
-                                           g @hyponym-graph languages
-                                           root-filter subject*)))
-                  hyponym            (->tree (complement orthogonal-only))
-                  orthogonal-hyponym (->tree orthogonal-only)
-                  ;; Whole->part sunburst tree over the meronym graph, reusing
-                  ;; the hyponym subtree machinery unchanged.
-                  meronym            (when synset?
-                                       (hyponymy/hyponym-tree
-                                         g @meronym-graph languages
-                                         any? subject*))]
-              (if (not-empty entity)
-                (assoc ctx
-                  :content (-> (meta raw-entity)
-                               (update :entities dissoc subject*)
-                               (assoc :languages languages
-                                      :href (str (:uri request)
-                                                 (when (not-empty qs)
-                                                   (str "?" qs)))
-                                      :subject subject*
-                                      :entity entity)
-                               (cond->
-                                 (not-empty folded) (assoc :folded folded)
-                                 (some? hyponym) (assoc :hyponym-tree hyponym)
-                                 (some? orthogonal-hyponym)
-                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)
-                                 (some? meronym) (assoc :meronym-tree meronym)))
-                  :page-meta (cond-> {:title qname
-                                      :page  "entity"}
-                               (and has-deferred (not deferred?))
-                               (assoc :has-deferred "true")))
-                (let [alt (alt-resource qname)]
-                  (cond
-                    (and alt (not-empty (q/entity g alt)))
-                    (assoc ctx :replace alt)
-
-                    (keyword? subject*)
-                    (assoc ctx :redirect (prefix/kw->uri subject*))
-
-                    (string? subject*)
-                    (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
-
-
-(defn look-up*
-  [g lemma]
-  (or (not-empty (search/look-up g lemma))
-      ;; TODO: attempt to ignore case entirely...?
-      ;; Also check for a lower-case version
-      (when (and (first lemma)
-                 (Character/isUpperCase ^Character (first lemma)))
-        (not-empty (search/look-up g (str/lower-case lemma))))))
-
-(def search-ic
-  "Presents search results as synsets matching a given lemma.
-
-  In cases where one-and-only-one search result is returned, the interceptor
-  automatically redirects to that specific synset, skipping the list.
-
-  When provided with a QName or RDF resource URI in place of a lemma, the
-  relevant redirect is performed instead."
-  {:name  ::search
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [query-params (:query-params request)
-                  languages    (request->languages request)
-                  ;; TODO: why is decoding necessary?
-                  ;; You would think that the path-params-decoder handled this.
-                  lemma        (-> request
-                                   (get-in [:query-params :lemma])
-                                   (decode-query-part))]
-              (cond
-                (prefix/rdf-resource? lemma)
-                (assoc ctx
-                  :redirect lemma
-                  :redirect-params query-params)
-
-                (and (string? lemma) (re-find #"^https?://" lemma))
-                (assoc ctx
-                  :redirect (prefix/uri->rdf-resource lemma)
-                  :redirect-params query-params)
-
-                (prefix/qname? lemma)
-                (assoc ctx
-                  :redirect (prefix/qname->kw lemma)
-                  :redirect-params query-params)
-
-                :else
-                (let [results (look-up* (:graph @db) lemma)]
-                  (if (= (count results) 1)
-                    (assoc ctx
-                      :replace (ffirst results)
-                      :redirect-params query-params)
-                    (assoc ctx
-                      :content {:languages      languages
-                                :lemma          lemma
-                                :search-results results}
-                      :page-meta {:title (i18n/da-en languages
-                                           (str "Søgning: " lemma)
-                                           (str "Search: " lemma))
-                                  :page  "search"}))))))})
-
-(defn find-catalog-resources
-  "Find known schemas and datasets referenced in the graph `g`.
-  
-  Returns an ordered map of `{rdf-resource -> {:label ... :description ... :prefix ...}}`."
-  [g]
-  (let [results         (->> (q/run g op/catalog-resources)
-                             (filter (comp (some-fn keyword? prefix/rdf-resource?) '?source))
-                             (remove (fn [{:syms [?source]}]
-                                       (when (string? ?source)
-                                         (str/includes? ?source "www.w3.org/TR/"))))
-                             (map (fn [{:syms [?source] :as m}]
-                                    (if (keyword? ?source)
-                                      (update m '?source prefix/kw->rdf-resource)
-                                      m))))
-        ;; Collect unique sources, normalized to remove trailing separators
-        sources         (->> results
-                             (map '?source)
-                             (set))
-        ;; NB: only sources ALREADY in normalized form count as canonical.
-        ;; Deriving this set by normalizing every source would unconditionally
-        ;; drop sources with trailing separators, e.g. the OEWN dataset
-        ;; resource <https://en-word.net/> (GitHub issue #178).
-        normalized-keys (set (filter #(= % (prefix/normalize-rdf-resource %))
-                                     sources))
-        ;; Remove entries with trailing separators when normalized version exists
-        unique-sources  (remove (fn [src]
-                                  (let [normalized (prefix/normalize-rdf-resource src)]
-                                    (and (not= src normalized)
-                                         (contains? normalized-keys normalized))))
-                                sources)]
-    ;; Fetch label, description, and prefix for each catalog resource
-    (->> unique-sources
-         (map (fn [rdf-resource]
-                (let [uri    (prefix/rdf-resource->uri rdf-resource)
-                      entity (q/entity g rdf-resource)
-                      label  (or (:dc11/title entity)
-                                 (:dc/title entity)
-                                 (:rdfs/label entity))
-                      desc   (reduce q/set-merge nil
-                                     (keep entity [:rdfs/comment
-                                                   :dc/description
-                                                   :dc11/description]))
-                      ;; Try to get prefix: from entity, from known schemas, or nil
-                      pfx    (or (:vann/preferredNamespacePrefix entity)
-                                 ;; Datasets whose resource URI doesn't share a
-                                 ;; namespace with their resources, e.g. COR.
-                                 (prefix/rdf-resource->prefix rdf-resource)
-                                 (prefix/uri->prefix uri)
-                                 (prefix/uri->prefix (str uri "#"))
-                                 (prefix/uri->prefix (str uri "/")))]
-                  [rdf-resource {:label       label
-                                 :description desc
-                                 :prefix      pfx}])))
-         (sort-by (comp str first))
-         (into (ordered/ordered-map)))))
-
-(defn find-synset-relations
-  "Find the synset relations in use in the graph `g`, including the relations
-  used to link to other datasets (these are not typed as wn:SynsetRelType and
-  therefore probed individually).
-
-  Returns a map of `{rel entity}` where each entity is pruned to the label
-  properties and rdfs:comment."
-  [g]
-  (let [in-use?    (fn [rel] (seq (q/run g (op/relation-usage-query rel))))
-        cross-rels (filter in-use? (second section/cross-link-section))
-        rels       (map '?rel (q/run g op/synset-relation-types))
-        ks         (cons :rdfs/comment shared/label-keys-full)]
-    (->> (concat rels cross-rels)
-         (distinct)
-         (map (fn [rel]
-                [rel (select-keys (q/entity g rel) ks)]))
-         (into {}))))
-
-(defonce synset-rels
-  (delay
-    (tel/trace! {:id :dannet.graph/synset-relations :run-val :elided}
-                (find-synset-relations (:graph @db)))))
-
-;; Expose the similarity metrics as dnf:path / dnf:lch / dnf:wup SPARQL
-;; functions. The context above is derefed lazily, on the first call.
-(sim/register! (fn [] @hypernym-graph))
 
 (defn ->language-negotiation-ic
   "Make a language negotiation interceptor from a coll of `supported-languages`.
@@ -997,20 +70,20 @@
   (->language-negotiation-ic i18n/supported-languages))
 
 (def content-negotiation-ic
-  (conneg/negotiate-content (keys content-type->body-fn)))
+  (conneg/negotiate-content (keys resp/content-type->body-fn)))
 
 (def explicit-params-ic
   "Interceptor that completely supersedes content and language negotiation
   when explicit query parameters are provided.
-  
+
   Supports:
   - ?format= query parameter for content types (json, edn, transit, turtle, html, plain)
   - ?lang= query parameter for languages (da, en, danish, english)
-  
+
   Layman's terms are mapped to proper values, while standard MIME types and
   language codes pass through as-is. This provides both user-friendly shortcuts
   and precise control for API clients.
-  
+
   Must be placed AFTER content-negotiation-ic and language-negotiation-ic
   in the interceptor chain to completely override their results."
   {:name  ::explicit-params
@@ -1041,6 +114,298 @@
 
                 languages
                 (assoc-in [:request :languages] languages))))})
+
+;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
+(def redirect-ic
+  "Get a redirect response that works for both HTTP redirects and for the API
+  based on keys set in the the context:
+
+    :redirect        - (symbolic) location to redirect to
+    :redirect-params - query-params to used when redirecting
+    :replace         - (symbolic) location which replaces the current state
+
+
+  NOTE: The alternative `replace` location arg may be provided to tell the
+        client to replace the state in history rather than adding a new entry.
+        This is needed when automatically redirecting to an alt entity,
+        as the back button will otherwise break for the user.
+
+  ----
+
+  Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
+  manually, so a somewhat hacky solution is required to make it work. By setting
+  a custom header and adding some redirect logic on the client-side, the client
+  knows when to redirect from an API call."
+  {:name  ::redirect
+   :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
+            (let [{:keys [lang format]} redirect-params
+                  content-type (or (get-in request [:accept :field])
+                                   "application/json")
+                  location     (resp/redirect-location (or redirect replace))
+                  ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
+                  api-location (if (or lang format)
+                                 (cond
+                                   (and lang format)
+                                   (str location "?lang=" lang "&format=" format)
+
+                                   lang
+                                   (str location "?lang=" lang)
+
+                                   format
+                                   (str location "?format=" format))
+                                 location)]
+              (if location
+                (assoc ctx
+                  :response (case content-type
+                              "text/html"
+                              {:status  303
+                               :headers {"Location" location}}
+
+                              ;; Custom header hack for SPA client-side redirect handling
+                              ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
+                              ;; e.g. https://github.com/lambdaisland/fetch/issues/24
+                              "application/transit+json"
+                              {:status  200
+                               :headers (resp/x-headers {:redirect location
+                                                         :replace  (if replace "T" "F")})
+                               :body    "{}"}
+
+                              ;; Simple redirect for JSON - let HTTP client follow the redirect
+                              "application/json"
+                              {:status  303
+                               :headers {"Location" api-location}}
+
+                              ;; else
+                              nil))
+                ctx)))})
+
+(def response-body-ic
+  "Generate a response containing the content body (if available)."
+  {:name  ::response-body
+   :leave (fn [{:keys [request content page-meta] :as ctx}]
+            (let [content-type (or (get-in request [:accept :field])
+                                   "application/json")
+                  ;; Prefer using the JSON-LD body if available whenever the
+                  ;; content-type is regular JSON too. In this case the response
+                  ;; content-type doesn't get changed to JSON-LD, though.
+                  body-fn      (if (= content-type "application/json")
+                                 resp/json-body-fn
+                                 (resp/content-type->body-fn content-type))
+                  title        (get page-meta :title "DanNet")]
+              (-> ctx
+                  (update :response merge
+                          (cond
+                            (false? content)
+                            {:status  204
+                             :headers {}}
+
+                            (and (empty? content) (empty? page-meta))
+                            {:status  404
+                             :headers {}}
+
+                            :else
+                            {:status (or (:response-status ctx) 200)
+                             :body   (body-fn (resp/with-cookies request content) page-meta)}))
+                  (update-in [:response :headers] merge
+                             (-> (assoc (resp/x-headers page-meta)
+                                   "Content-Type" content-type
+                                   "Cache-Control" resp/one-day-cache)
+
+                                 ;; Add filename extensions when needed.
+                                 (merge (resp/with-file-ext title content-type)))))))})
+
+(def error-ic
+  "Outermost error-handling interceptor.
+
+  Translates any unhandled exception into an anomaly via 'anomaly/translate'
+  and renders it through the same 'resp/content-type->body-fn' machinery used
+  for normal responses. Logs the original exception via Telemere at :error
+  level.
+
+  Catches errors from any interceptor enqueued after it, including the router
+  and all per-route interceptors. Since content negotiation is a per-route
+  interceptor, it may not have run before the error was thrown; in that case
+  we sniff the Accept header directly."
+  (interceptor/interceptor
+    {:name  ::error
+     :error (fn [ctx ex]
+              (let [cause        (or (some-> ex ex-data :exception) ex)
+                    request      (:request ctx)
+                    anomaly      (-> (anomaly/translate cause)
+                                     (anomaly/localize (resp/request->languages request)))
+                    content-type (resp/error-content-type request)
+                    body-fn      (resp/content-type->body-fn content-type)
+                    title        (i18n/da-en (resp/request->languages request)
+                                   "Fejl" "Error")
+                    content      {:languages (resp/request->languages request)
+                                  :anomaly   anomaly}
+                    page-meta    {:title title :page "error"}]
+                (tel/log! {:level :error
+                           :error cause
+                           :data  {:uri    (:uri request)
+                                   :method (:request-method request)}}
+                          "Unhandled exception")
+                (assoc ctx
+                  :response {:status  (:status anomaly)
+                             :headers (merge (resp/x-headers page-meta)
+                                             {"Content-Type" content-type})
+                             :body    (body-fn (resp/with-cookies request content)
+                                               page-meta)})))}))
+
+(defn frontpage-redirect
+  [_]
+  {:status  301
+   :headers {"Location" (shared/page-href "frontpage")}})
+
+(def root-route
+  ["/" :get [frontpage-redirect] :route-name ::root])
+
+(def dannet-route
+  ["/dannet" :get [frontpage-redirect] :route-name ::dannet])
+
+(defn- alt-resource
+  "Return an alternate resource qname for the given `qname`; useful for e.g.
+  resolving <https://example.com/ns#> as <https://example.com/ns>."
+  [qname]
+  (let [uri (prefix/rdf-resource->uri qname)]
+    (when (or (str/ends-with? uri "#")
+              (str/ends-with? uri "/"))
+      (as-> (dec (count uri)) $
+            (subs uri 0 $)
+            (str "<" $ ">")))))
+
+(defn remove-internal-params
+  [query-string]
+  (when query-string
+    (str/replace query-string #"&?(transit=true|format=turtle)" "")))
+
+(def expand-content-types
+  "Content types that receive expanded entity data with relation labels."
+  #{"application/transit+json"
+    "text/html"
+    "text/turtle"
+    "application/ld+json"
+    "application/json"})
+
+(def truncate-content-types
+  "Content types that support deferred loading of large semantic relations.
+  Limited to browser-based content types where the client can fetch the rest."
+  #{"application/transit+json"
+    "text/html"})
+
+(defn ->entity-ic
+  "Create an interceptor to return DanNet resources, optionally specifying a
+  predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
+  within the path-params.
+
+  When the content-type supports truncation (HTML, Transit) and the entity has
+  large semantic relations, values are truncated to `semantic-relation-limit`.
+  The remaining data can be fetched by adding `?deferred=true` to the request."
+  [& {:keys [prefix subject] :as static-params}]
+  {:name  ::entity
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [prefix
+                          subject
+                          deferred]} (merge (:path-params request)
+                                            (:query-params request)
+                                            static-params)
+                  content-type       (or (get-in request [:accept :field])
+                                         "application/json")
+                  g                  (:graph @instance/db)
+                  ;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  subject*           (cond->> (decode-query-part subject)
+                                       prefix (keyword (name prefix)))
+                  languages          (resp/request->languages request)
+                  qs                 (some-> (:query-string request)
+                                             remove-internal-params
+                                             ;; Canonicalize slash encoding: reitit's
+                                             ;; url-encode emits %2F while the client
+                                             ;; leaves slashes bare. The difference
+                                             ;; otherwise causes a hydration mismatch.
+                                             (str/replace "%2F" "/"))
+                  qname              (if (keyword? subject*)
+                                       (prefix/kw->qname subject*)
+                                       subject*)
+                  expand?            (expand-content-types content-type)
+                  raw-entity         (if expand?
+                                       (q/expanded-entity g subject*)
+                                       (q/entity g subject*))
+                  ;; Apply truncation only for content types that support deferred loading
+                  truncate?          (truncate-content-types content-type)
+                  deferred?          (and truncate? deferred)
+                  ;; De-duplicate entailed superproperty rows (display only).
+                  k->supers          @instance/superproperty-closure
+                  {pruned-entity :entity
+                   folded        :folded}
+                  (if (and truncate? (not-empty raw-entity))
+                    (-> (ent/prune-entailed-superproperties k->supers raw-entity)
+                        (update :entity #(ent/prune-embedded-entities
+                                           k->supers %)))
+                    {:entity raw-entity :folded nil})
+                  {:keys           [truncated has-deferred]
+                   deferred-entity :deferred}
+                  (if (and truncate? (not-empty pruned-entity))
+                    (ent/truncate-semantic-relations pruned-entity)
+                    {:truncated pruned-entity :deferred {} :has-deferred false})
+                  ;; Return truncated on initial request, deferred portion on deferred request.
+                  ;; If there's nothing deferred (entity was small, or was re-fetched from
+                  ;; scratch), return the full entity to avoid an empty response.
+                  entity             (if deferred?
+                                       (if (not-empty deferred-entity)
+                                         deferred-entity
+                                         truncated)
+                                       truncated)
+                  ;; Two independent hyponym sunburst trees (real vs
+                  ;; orthogonal-only), only for synsets on the initial
+                  ;; (non-deferred) browser request.
+                  synset?            (and truncate?
+                                          (not deferred?)
+                                          (shared/synset? subject* raw-entity))
+                  orthogonal-only    (:orthogonal-only @instance/hyponym-graph)
+                  ->tree             (fn [root-filter]
+                                       (when synset?
+                                         (hyponymy/hyponym-tree
+                                           g @instance/hyponym-graph languages
+                                           root-filter subject*)))
+                  hyponym            (->tree (complement orthogonal-only))
+                  orthogonal-hyponym (->tree orthogonal-only)
+                  ;; Whole->part sunburst tree over the meronym graph, reusing
+                  ;; the hyponym subtree machinery unchanged.
+                  meronym            (when synset?
+                                       (hyponymy/hyponym-tree
+                                         g @instance/meronym-graph languages
+                                         any? subject*))]
+              (if (not-empty entity)
+                (assoc ctx
+                  :content (-> (meta raw-entity)
+                               (update :entities dissoc subject*)
+                               (assoc :languages languages
+                                      :href (str (:uri request)
+                                                 (when (not-empty qs)
+                                                   (str "?" qs)))
+                                      :subject subject*
+                                      :entity entity)
+                               (cond->
+                                 (not-empty folded) (assoc :folded folded)
+                                 (some? hyponym) (assoc :hyponym-tree hyponym)
+                                 (some? orthogonal-hyponym)
+                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)
+                                 (some? meronym) (assoc :meronym-tree meronym)))
+                  :page-meta (cond-> {:title qname
+                                      :page  "entity"}
+                               (and has-deferred (not deferred?))
+                               (assoc :has-deferred "true")))
+                (let [alt (alt-resource qname)]
+                  (cond
+                    (and alt (not-empty (q/entity g alt)))
+                    (assoc ctx :replace alt)
+
+                    (keyword? subject*)
+                    (assoc ctx :redirect (prefix/kw->uri subject*))
+
+                    (string? subject*)
+                    (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
 
 (defn prefix->entity-route
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
@@ -1088,6 +453,63 @@
            response-body-ic]
      :route-name (keyword (str *ns*) (str prefix "-dataset-entity"))]))
 
+(defn look-up-any-case
+  [g lemma]
+  (or (not-empty (search/look-up g lemma))
+      ;; TODO: attempt to ignore case entirely...?
+      ;; Also check for a lower-case version
+      (when (and (first lemma)
+                 (Character/isUpperCase ^Character (first lemma)))
+        (not-empty (search/look-up g (str/lower-case lemma))))))
+
+(def search-ic
+  "Presents search results as synsets matching a given lemma.
+
+  In cases where one-and-only-one search result is returned, the interceptor
+  automatically redirects to that specific synset, skipping the list.
+
+  When provided with a QName or RDF resource URI in place of a lemma, the
+  relevant redirect is performed instead."
+  {:name  ::search
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [query-params (:query-params request)
+                  languages    (resp/request->languages request)
+                  ;; TODO: why is decoding necessary?
+                  ;; You would think that the path-params-decoder handled this.
+                  lemma        (-> request
+                                   (get-in [:query-params :lemma])
+                                   (decode-query-part))]
+              (cond
+                (prefix/rdf-resource? lemma)
+                (assoc ctx
+                  :redirect lemma
+                  :redirect-params query-params)
+
+                (and (string? lemma) (re-find #"^https?://" lemma))
+                (assoc ctx
+                  :redirect (prefix/uri->rdf-resource lemma)
+                  :redirect-params query-params)
+
+                (prefix/qname? lemma)
+                (assoc ctx
+                  :redirect (prefix/qname->kw lemma)
+                  :redirect-params query-params)
+
+                :else
+                (let [results (look-up-any-case (:graph @instance/db) lemma)]
+                  (if (= (count results) 1)
+                    (assoc ctx
+                      :replace (ffirst results)
+                      :redirect-params query-params)
+                    (assoc ctx
+                      :content {:languages      languages
+                                :lemma          lemma
+                                :search-results results}
+                      :page-meta {:title (i18n/da-en languages
+                                           (str "Søgning: " lemma)
+                                           (str "Search: " lemma))
+                                  :page  "search"}))))))})
+
 (def search-route
   [prefix/search-path
    :get [content-negotiation-ic
@@ -1098,92 +520,8 @@
          response-body-ic]
    :route-name ::search])
 
-(defn frontpage-redirect
-  [_]
-  {:status  301
-   :headers {"Location" (shared/page-href "frontpage")}})
-
-(def root-route
-  ["/" :get [frontpage-redirect] :route-name ::root])
-
-(def dannet-route
-  ["/dannet" :get [frontpage-redirect] :route-name ::dannet])
-
-(defn page-langstrings
-  "Return Markdown pages as a set of LangStrings for the `document`."
-  [document]
-  (let [md-pattern' (re-pattern (str document "-(.+)\\.md"))
-        xf          (comp
-                      (map (fn [f]
-                             (some->> (.getName ^File f)
-                                      (re-matches md-pattern')
-                                      (second)
-                                      (lstr/->LangStr (slurp f)))))
-                      (remove nil?))]
-    (into #{} xf (file-seq (io/file "pages/")))))
-
-(def markdown-ic
-  "Returns a generic, localised markdown page for the given given page."
-  {:name  ::markdown
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [document  (-> request :path-params :document)
-                  languages (request->languages request)
-                  md-pages  (page-langstrings document)]
-              (when (not-empty md-pages)
-                (assoc ctx
-                  :content {:languages languages
-                            :content   md-pages}
-                  :page-meta {:page "markdown"}))))})
-
-(def markdown-route
-  [prefix/markdown-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
-         markdown-ic
-         response-body-ic]
-   :route-name ::markdown])
-
-(def cookie-opts
-  {:max-age (* 60 60 12 365)                                ; one year
-   :path    "/"
-   :domain  (if shared/development?
-              false
-              "wordnet.dk")})
-
-(def cookies-route
-  ["/cookies"
-   :put [(body-params)
-         (fn [{:keys [transit-params] :as request}]
-           ;; The ring cookie interceptor takes care of actual cookie storage.
-           {:status  204
-            :cookies (update-vals transit-params (fn [v]
-                                                   (assoc cookie-opts
-                                                     :value (str v))))})]
-   :route-name ::cookies])
-
 (def autocomplete-path
   (str (prefix/uri->path prefix/dannet-root) "autocomplete"))
-
-;; TODO: ... include COR writtenRep too? Other labels?
-;; TODO: should be transformed into a tightly packed tried (currently loose)
-(defonce search-trie
-  (delay
-    (let [g      (db/get-graph (:dataset @db) prefix/dn-uri)
-          words  (q/run g '[?writtenRep] op/written-representations)
-          lwords (map (partial map shared/search-string) words)]
-      (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
-                  (apply trie/make-trie (map str (mapcat concat lwords words)))))))
-
-(defn autocomplete
-  "Return auto-completions for `s` found in the graph."
-  [s]
-  (->> (trie/lookup @search-trie s)
-       (remove (comp nil? second))                          ; remove partial
-       (map second)                                         ; grab full words
-       (sort-by str/lower-case)))
-
-(alter-var-root #'autocomplete #(memo/lu % :lu/threshold 500))
 
 (def autocomplete-ic
   {:name  ::autocomplete
@@ -1192,7 +530,7 @@
               (when-let [s' (shared/search-string s)]
                 (when (> (count s') 2)
                   (assoc ctx
-                    :content {:autocompletions (autocomplete s')})))))})
+                    :content {:autocompletions (instance/autocomplete s')})))))})
 
 (def autocomplete-route
   [autocomplete-path
@@ -1201,46 +539,6 @@
          autocomplete-ic
          response-body-ic]
    :route-name ::autocomplete])
-
-(def metadata-ic
-  {:name  ::metadata
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [languages (request->languages request)]
-              (assoc ctx
-                :content {:languages languages
-                          :catalog   (find-catalog-resources (:graph @db))}
-                :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
-                            :page  "metadata"})))})
-
-(def metadata-route
-  [prefix/metadata-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
-         metadata-ic
-         response-body-ic]
-   :route-name ::metadata])
-
-(def relations-ic
-  {:name  ::relations
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [languages (request->languages request)]
-              (assoc ctx
-                :content {:languages languages
-                          :relations @synset-rels}
-                :page-meta {:title (i18n/da-en languages
-                                     "Synset-relationer" "Synset relations")
-                            :page  "relations"})))})
-
-(def relations-route
-  [prefix/relations-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
-         relations-ic
-         response-body-ic]
-   :route-name ::relations])
-
 
 (def sparql-validation-ic
   "Validate and parse SPARQL query parameters, placing results in a single
@@ -1303,7 +601,7 @@
                                :enrichment? (= enrichment "true")}))
                   (catch ExceptionInfo e
                     (let [anomaly   (anomaly/translate e)
-                          languages (request->languages request)
+                          languages (resp/request->languages request)
                           title     (i18n/da-en languages
                                       "SPARQL-valideringsfejl"
                                       "SPARQL validation error")]
@@ -1332,8 +630,8 @@
   Converts the ResultSetMem to rows, resets it for downstream consumers,
   then attaches :blank-nodes and (when `enrichment?`) :k->label to `content`."
   [content ^ResultSetMem sparql-result enrichment?]
-  (let [rows (handle-sparql-result sparql-result)
-        g    (:graph @db)
+  (let [rows (resp/sparql-result->rows sparql-result)
+        g    (:graph @instance/db)
         kws  (collect-keywords rows)]
     (.reset sparql-result)
     (cond-> (assoc content :blank-nodes (q/collect-blank-nodes g rows))
@@ -1354,7 +652,7 @@
   {:name  ::sparql-execution
    :enter (fn [{:keys [sparql request] :as ctx}]
             (let [{:keys [input query-obj noop? limit offset lookahead? enrichment?]} sparql
-                  languages (request->languages request)]
+                  languages (resp/request->languages request)]
               (cond
                 ;; Validation error -> :content already set, pass through.
                 (:content ctx)
@@ -1366,7 +664,7 @@
 
                 ;; Valid query -> execute (with caching) and return results.
                 query-obj
-                (let [result (sparql/execute-cached @db sparql)]
+                (let [result (sparql/execute-cached @instance/db sparql)]
                   (if-let [anomaly (:anomaly result)]
                     (assoc ctx
                       :response-status (:status anomaly)
@@ -1404,11 +702,184 @@
 (def sparql-route
   [prefix/sparql-path
    :any [content-negotiation-ic
+         language-negotiation-ic
          explicit-params-ic
          sparql-validation-ic
          sparql-execution-ic
          response-body-ic]
    :route-name ::sparql])
+
+(defn find-catalog-resources
+  "Find known schemas and datasets referenced in the graph `g`.
+
+  Returns an ordered map of `{rdf-resource -> {:label ... :description ... :prefix ...}}`."
+  [g]
+  (let [results         (->> (q/run g op/catalog-resources)
+                             (filter (comp (some-fn keyword? prefix/rdf-resource?) '?source))
+                             (remove (fn [{:syms [?source]}]
+                                       (when (string? ?source)
+                                         (str/includes? ?source "www.w3.org/TR/"))))
+                             (map (fn [{:syms [?source] :as m}]
+                                    (if (keyword? ?source)
+                                      (update m '?source prefix/kw->rdf-resource)
+                                      m))))
+        ;; Collect unique sources, normalized to remove trailing separators
+        sources         (->> results
+                             (map '?source)
+                             (set))
+        ;; NB: only sources ALREADY in normalized form count as canonical.
+        ;; Deriving this set by normalizing every source would unconditionally
+        ;; drop sources with trailing separators, e.g. the OEWN dataset
+        ;; resource <https://en-word.net/> (GitHub issue #178).
+        normalized-keys (set (filter #(= % (prefix/normalize-rdf-resource %))
+                                     sources))
+        ;; Remove entries with trailing separators when normalized version exists
+        unique-sources  (remove (fn [src]
+                                  (let [normalized (prefix/normalize-rdf-resource src)]
+                                    (and (not= src normalized)
+                                         (contains? normalized-keys normalized))))
+                                sources)]
+    ;; Fetch label, description, and prefix for each catalog resource
+    (->> unique-sources
+         (map (fn [rdf-resource]
+                (let [uri    (prefix/rdf-resource->uri rdf-resource)
+                      entity (q/entity g rdf-resource)
+                      label  (or (:dc11/title entity)
+                                 (:dc/title entity)
+                                 (:rdfs/label entity))
+                      desc   (reduce q/set-merge nil
+                                     (keep entity [:rdfs/comment
+                                                   :dc/description
+                                                   :dc11/description]))
+                      ;; Try to get prefix: from entity, from known schemas, or nil
+                      pfx    (or (:vann/preferredNamespacePrefix entity)
+                                 ;; Datasets whose resource URI doesn't share a
+                                 ;; namespace with their resources, e.g. COR.
+                                 (prefix/rdf-resource->prefix rdf-resource)
+                                 (prefix/uri->prefix uri)
+                                 (prefix/uri->prefix (str uri "#"))
+                                 (prefix/uri->prefix (str uri "/")))]
+                  [rdf-resource {:label       label
+                                 :description desc
+                                 :prefix      pfx}])))
+         (sort-by (comp str first))
+         (into (ordered/ordered-map)))))
+
+(def metadata-ic
+  {:name  ::metadata
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [languages (resp/request->languages request)]
+              (assoc ctx
+                :content {:languages languages
+                          :catalog   (find-catalog-resources (:graph @instance/db))}
+                :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
+                            :page  "metadata"})))})
+
+(def metadata-route
+  [prefix/metadata-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         explicit-params-ic
+         metadata-ic
+         response-body-ic]
+   :route-name ::metadata])
+
+(def relations-ic
+  {:name  ::relations
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [languages (resp/request->languages request)]
+              (assoc ctx
+                :content {:languages languages
+                          :relations @instance/synset-rels}
+                :page-meta {:title (i18n/da-en languages
+                                     "Synset-relationer" "Synset relations")
+                            :page  "relations"})))})
+
+(def relations-route
+  [prefix/relations-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         explicit-params-ic
+         relations-ic
+         response-body-ic]
+   :route-name ::relations])
+
+(defn page-langstrings
+  "Return Markdown pages as a set of LangStrings for the `document`."
+  [document]
+  (let [md-pattern' (re-pattern (str document "-(.+)\\.md"))
+        xf          (comp
+                      (map (fn [f]
+                             (some->> (.getName ^File f)
+                                      (re-matches md-pattern')
+                                      (second)
+                                      (lstr/->LangStr (slurp f)))))
+                      (remove nil?))]
+    (into #{} xf (file-seq (io/file "pages/")))))
+
+(def markdown-ic
+  "Returns a generic, localised markdown page for the given given page."
+  {:name  ::markdown
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [document  (-> request :path-params :document)
+                  languages (resp/request->languages request)
+                  md-pages  (page-langstrings document)]
+              (when (not-empty md-pages)
+                (assoc ctx
+                  :content {:languages languages
+                            :content   md-pages}
+                  :page-meta {:page "markdown"}))))})
+
+(def markdown-route
+  [prefix/markdown-path
+   :get [content-negotiation-ic
+         language-negotiation-ic
+         explicit-params-ic
+         markdown-ic
+         response-body-ic]
+   :route-name ::markdown])
+
+(def cookie-opts
+  {:max-age (* 60 60 12 365)                                ; one year
+   :path    "/"
+   :domain  (if shared/development?
+              false
+              "wordnet.dk")})
+
+(def cookies-route
+  ["/cookies"
+   :put [(body-params)
+         (fn [{:keys [transit-params] :as request}]
+           ;; The ring cookie interceptor takes care of actual cookie storage.
+           {:status  204
+            :cookies (update-vals transit-params (fn [v]
+                                                   (assoc cookie-opts
+                                                     :value (str v))))})]
+   :route-name ::cookies])
+
+(def schema-download-route
+  (let [handler (fn [{:keys [path-params] :as request}]
+                  (let [{:keys [prefix]} path-params
+                        path     (prefix/prefix->schema-path (symbol prefix))
+                        filename (last (str/split path #"/"))
+                        cd       (str "attachment; filename=\"" filename "\"")]
+                    (-> (ring/resource-response path)
+                        (assoc-in [:headers "Cache-Control"] resp/one-day-cache)
+                        (assoc-in [:headers "Content-Disposition"] cd))))]
+    ["/schema/:prefix" :get handler :route-name ::schema-download]))
+
+(def export-route
+  (let [handler (fn [{:keys [path-params query-params] :as request}]
+                  (let [{:keys [prefix type variant]} (merge path-params
+                                                             query-params)
+                        file (prefix/export-file type (symbol prefix) variant)
+                        root (str "export/" type "/")
+                        cd   (str "attachment; filename=\"" file "\"")]
+                    (-> (ring/file-response file {:root root})
+                        (assoc-in [:headers "Content-Type"] "text/turtle")
+                        (assoc-in [:headers "Cache-Control"] resp/one-day-cache)
+                        (assoc-in [:headers "Content-Disposition"] cd))))]
+    ["/export/:type/:prefix" :get handler :route-name ::export]))
 
 (def not-in-theme
   "Predicate for filtering colours with a certain HSV distance from theme."
@@ -1437,7 +908,7 @@
                          (map col/int24)
                          (filter not-in-theme)
                          (map col/as-css))
-        rels        (->> (q/run (:graph @db) op/synset-relation-types)
+        rels        (->> (q/run (:graph @instance/db) op/synset-relation-types)
                          (map '?rel)
                          (remove (set fixed-rels))
                          (remove (set other-rels)))
@@ -1452,41 +923,38 @@
           (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
 
 (comment
-  (find-catalog-resources (:graph @db))
+  (find-catalog-resources (:graph @instance/db))
 
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 
-  (meta (q/expanded-entity (:graph @db) metadata/<dn>))
-  (meta (q/expanded-entity (:graph @db) :ontolex/isEvokedBy))
-  (q/entity (:graph @db) :dn/synset-78300)
+  (meta (q/expanded-entity (:graph @instance/db) :ontolex/isEvokedBy))
+  (q/entity (:graph @instance/db) :dn/synset-78300)
+  (require '[dk.cst.dannet.db.export.rdf :as export.rdf])
   (let [subject :dn/synset-78300
-        entity  (q/expanded-entity (:graph @db) subject)]
+        entity  (q/expanded-entity (:graph @instance/db) subject)]
     (export.rdf/ttl-entity entity))
 
-  (q/entity (:graph @db) :dn/synset-46015)
+  (q/entity (:graph @instance/db) :dn/synset-46015)
 
   ;; Test for existence of duplicate ontotypes
-  (->> (q/run (:graph @db) '[:bgp
-                             [?s1 :dns/ontologicalType ?o1]
-                             [?s1 :dns/ontologicalType ?o2]])
+  (->> (q/run (:graph @instance/db) '[:bgp
+                                      [?s1 :dns/ontologicalType ?o1]
+                                      [?s1 :dns/ontologicalType ?o2]])
        (filter (fn [{:syms [?o1 ?o2]}] (not= ?o1 ?o2))))
 
-  ;; 51 cases of true duplicates
-  (count (db/find-duplicates (:graph @db)))
-
   ;; TODO: systematic polysemy
-  (-> (->> (q/run (:graph @db) op/synset-intersection)
+  (-> (->> (q/run (:graph @instance/db) op/synset-intersection)
            (group-by (fn [{:syms [?ontotype ?otherOntotype]}]
                        (into #{} [?ontotype ?otherOntotype])))))
 
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
-  (q/run (:graph @db) [:bgp
-                       ['?word :ontolex/canonicalForm '?form]
-                       ['?form :ontolex/writtenRep "fandens karl"]])
+  (q/run (:graph @instance/db) [:bgp
+                                ['?word :ontolex/canonicalForm '?form]
+                                ['?form :ontolex/writtenRep "fandens karl"]])
 
   ;; Return all DanNet words that have identical PoS and writtenRep (issue #35)
-  (->> (q/run (:graph @db) op/word-clones)
+  (->> (q/run (:graph @instance/db) op/word-clones)
        (filter (fn [{:syms [?w1 ?w2]}]
                  (and (= "dn" (namespace ?w1))
                       (= "dn" (namespace ?w2)))))
@@ -1495,39 +963,16 @@
 
   ;; Store the synset indegrees (the file is used during bootstrap).
   ;; The default lands among the export artifacts, ready to attach to the release.
-  (q/save-synset-indegrees! (:graph @db))
+  (q/save-synset-indegrees! (:graph @instance/db))
 
   ;; Or write it straight to a location that gets read: the legacy db/ override
   ;; (which takes precedence), or the version dir of the release being produced,
   ;; where the next cycle will look for it once release/from is bumped.
-  (q/save-synset-indegrees! (:graph @db) (first q/indegrees-files))
-  (q/save-synset-indegrees! (:graph @db) (q/indegrees-file release/to))
+  (require '[dk.cst.dannet.release :as release])
+  (q/save-synset-indegrees! (:graph @instance/db) (first q/indegrees-files))
+  (q/save-synset-indegrees! (:graph @instance/db) (q/indegrees-file release/to))
 
   ;; Find unlabeled senses (count: 0)
-  (count (q/run (:graph @db) op/unlabeled-senses))
+  (count (q/run (:graph @instance/db) op/unlabeled-senses))
 
-  ;; SHACL-validate the asserted graph against base shapes + baseline.
-  ;; Logs a summary; :exceeded should be {} on a healthy system (~1 min).
-  (shapes/validate-db @db)
-
-  ;; Same, but keeping the result around for closer inspection.
-  (def validation-result (shapes/validate-db @db))
-  (shapes/by-shape (:entries validation-result))
-  (shapes/by-severity (:entries validation-result))
-
-  ;; SHACL-validate a single synset (cheap) -- e.g. against the editorial
-  ;; shapes, the same call that will eventually gate writes.
-  (require '[dk.cst.dannet.db.transaction :as txn])
-  (txn/transact-read (:dataset @db)
-    (shapes/validate-node (.getGraph (:base-model @db))
-                          @shapes/editorial-shapes
-                          :dn/synset-1522))
-
-  ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.
-  (shapes/validate-inferred-db @db)
-
-  ;; Testing autocompletion
-  (autocomplete "sar")
-  (autocomplete "spo")
-  (autocomplete "tran")
   #_.)

@@ -487,9 +487,9 @@
     (println "Exported" (count output-rows) "rows to" (str path))))
 
 (comment
-  (require '[dk.cst.dannet.web.resources :as res])
+  (require '[dk.cst.dannet.web.instance :as instance])
 
-  (def model (:model @res/db))
+  (def model (:model @instance/db))
 
   ;; Fetch all senses (bulk, ~2 min)
   (def senses-by-lemma (fetch-all-senses model))

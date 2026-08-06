@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.prefix
   "Prefix registration for the various schemas used by DanNet."
   (:require #?(:clj [arachne.aristotle.registry :as reg])
+            #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.shared :as shared]
@@ -236,6 +237,25 @@
   [prefix]
   (doto (get-in schemas [prefix :alt])
     (assert)))
+
+(def schema-uris
+  "URIs where relevant schemas can be fetched."
+  (->> (for [{:keys [alt uri export]} (vals schemas)]
+         (when-not export
+           (if alt
+             (cond
+               (= alt :no-schema)
+               nil
+
+               (or (str/starts-with? alt "http://")
+                   (str/starts-with? alt "https://"))
+               alt
+
+               :else
+               #?(:clj  (io/resource alt)
+                  :cljs nil))
+             uri)))
+       (filter some?)))
 
 (defn prefix->uri
   "Return the URI registered for a `prefix`."

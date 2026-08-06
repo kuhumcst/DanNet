@@ -2,7 +2,7 @@
   "Bounded, localised hyponym subtree construction for the synset sunburst.
 
   The inverted (hyponym) graph itself is assembled and cached in
-  `dk.cst.dannet.web.resources` (it closes over the live database); these
+  `dk.cst.dannet.web.instance` (it closes over the live database); these
   functions are pure and take that graph as an argument."
   (:require [clojure.string :as str]
             [dk.cst.dannet.shared :as shared]

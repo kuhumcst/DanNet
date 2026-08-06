@@ -366,7 +366,7 @@
            (vals))))
 
 (comment
-  (entity (:graph @dk.cst.dannet.web.resources/db) :dn/synset-1771)
-  (synset-examples (:graph @dk.cst.dannet.web.resources/db) :dn/synset-3047)
-  (hypernym-ancestry (:graph @dk.cst.dannet.web.resources/db) :dn/synset-3047)
+  (entity (:graph @dk.cst.dannet.web.instance/db) :dn/synset-1771)
+  (synset-examples (:graph @dk.cst.dannet.web.instance/db) :dn/synset-3047)
+  (hypernym-ancestry (:graph @dk.cst.dannet.web.instance/db) :dn/synset-3047)
   #_.)

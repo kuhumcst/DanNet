@@ -9,7 +9,7 @@
   Path-finding runs over a precomputed hypernym graph `hg`, a
   {child #{parents}} map built once from the base (asserted) graph by
   `build-hypernym-graph` and held by the caller (see
-  `dk.cst.dannet.web.resources/hypernym-graph`). This is the single source
+  `dk.cst.dannet.web.instance/hypernym-graph`). This is the single source
   of truth for hypernymy, replacing per-synset `q/entity` look-ups.
 
   Each measure comes in two flavours: a convenience `[hg a b]` arity, and a
@@ -362,7 +362,7 @@
 
   `ctx-fn` is a 0-arg fn returning the similarity context map (hypernym graph,
   per-node depths, taxonomy depths and a memoized `ancestor-distances`; see
-  `dk.cst.dannet.web.resources/hypernym-graph`); it is derefed lazily, on first
+  `dk.cst.dannet.web.instance/hypernym-graph`); it is derefed lazily, on first
   use."
   [ctx-fn]
   (function/register-functions!
@@ -373,9 +373,9 @@
 
 (comment
   ;; Build the graph from the base (asserted) model; see
-  ;; dk.cst.dannet.web.resources/hypernym-graph for the boot-time delay.
-  (require '[dk.cst.dannet.web.resources :as res])
-  (def bg (.getGraph (:base-model @res/db)))
+  ;; dk.cst.dannet.web.instance/hypernym-graph for the boot-time delay.
+  (require '[dk.cst.dannet.web.instance :as instance])
+  (def bg (.getGraph (:base-model @instance/db)))
   (def hg (build-hypernym-graph bg))                        ; ~1.9s, ~154k entries
 
   ;; Known chain: synset-54219 -> 5619 -> 2355 -> 20633 (root).

@@ -274,13 +274,13 @@
   (validate "ELECT * WHERE { ?s ?p ?o } LIMIT 10")
 
   ;; Test with real model (requires data to be loaded)
-  (let [db    @dk.cst.dannet.web.resources/db
+  (let [db    @dk.cst.dannet.web.instance/db
         model (:model db)
         query (validate "SELECT ?s ?p ?o WHERE { ?s ?p ?o }")]
     (execute model query 10000 100))
 
   ;; Test cached execution (run twice — second should be instant)
-  (let [db @dk.cst.dannet.web.resources/db]
+  (let [db @dk.cst.dannet.web.instance/db]
     (time (execute-cached db
                           {:query-obj  (validate "SELECT ?s WHERE { ?s a ?o }")
                            :timeout    10000

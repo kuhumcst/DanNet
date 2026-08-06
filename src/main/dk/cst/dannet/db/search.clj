@@ -53,6 +53,6 @@
 
 (comment
   ;; Look up synsets based on the lemma "have"
-  (look-up (:graph @dk.cst.dannet.web.resources/db) "have")
-  (label-lookup (:graph @dk.cst.dannet.web.resources/db))
+  (look-up (:graph @dk.cst.dannet.web.instance/db) "have")
+  (label-lookup (:graph @dk.cst.dannet.web.instance/db))
   #_.)
