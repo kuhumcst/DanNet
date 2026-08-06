@@ -17,7 +17,7 @@
   "The version being produced. Defaults to `from`, i.e. during development we
   reproduce the release we bootstrap from; set to a new version only at the
   moment a release is cut, which is also what enables make-release-changes!."
-  from)
+  "SNAPSHOT")
 
 (def bootstrap-root
   "Parent of the version-named bootstrap directories."
