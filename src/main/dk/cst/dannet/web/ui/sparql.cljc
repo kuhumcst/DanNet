@@ -4,6 +4,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.error :as error]
             [dk.cst.dannet.web.ui.form :as form]
             [rum.core :as rum]
@@ -75,7 +76,7 @@
                             {:query-params        {:query   query
                                                    :noop    true
                                                    :transit true}
-                             :transit-json-reader shared/reader})
+                             :transit-json-reader app/transit-reader})
              (.then (fn [{:keys [body]}]
                       (if-let [nq (:normalized-query body)]
                         (do

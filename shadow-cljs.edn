@@ -7,7 +7,7 @@
                        :output-dir        "resources/public/js/compiled"
                        :asset-path        "/js/compiled"
                        :module-hash-names true
-                       :modules           {:main {:init-fn dk.cst.dannet.web.client/init!}}}
+                       :modules           {:main {:init-fn dk.cst.dannet.web.router/init!}}}
                 :test {:target   :browser-test
                        :test-dir "resources/public/js/test"
                        :devtools {:http-port 7776

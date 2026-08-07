@@ -5,6 +5,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.relations :as relations]
             #?(:cljs [dk.cst.dannet.web.d3 :as d3])))
@@ -69,7 +70,7 @@
                  :title    (if full-screen
                              (i18n/da-en languages "Minimér" "Minimize")
                              (i18n/da-en languages "Maksimér" "Maximize"))
-                 :on-click (fn [_] (shared/toggle-full-screen!))}])
+                 :on-click (fn [_] (app/toggle-full-screen!))}])
 
 (rum/defc diagram-legend
   "Right-hand column shell shared by the radial and sunburst diagrams: holds the
@@ -195,7 +196,7 @@
         ortho-available?   (boolean (:children orthogonal-hyponym-tree))
         meronym-available? (boolean (:children meronym-tree))
         ;; Fall back to the radial when the selected sunburst has nothing to show.
-        mode               (case (get-in opts shared/diagram-mode-path)
+        mode               (case (get-in opts app/diagram-mode-path)
                              :sunburst-orthogonal (if ortho-available?
                                                     :sunburst-orthogonal
                                                     :radial)
@@ -220,8 +221,8 @@
                                       "Meronym-soldiagram for det aktuelle synset"
                                       "Meronym sunburst for the current synset")))
         set-mode!          (fn [mode]
-                             (fn [_] (swap! shared/state assoc-in
-                                            shared/diagram-mode-path mode)))]
+                             (fn [_] (swap! app/session assoc-in
+                                            app/diagram-mode-path mode)))]
     [:div.synset-diagram {:key (str (hash subentity))}
      ;; Shared top bar above both columns: mode radios centred, full-screen
      ;; toggle pinned right. Keeping it out of the diagram column means swapping

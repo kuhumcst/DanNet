@@ -5,19 +5,10 @@
             [clojure.math :as math]
             [reitit.impl :refer [form-decode]]
             [ont-app.vocabulary.core :as voc]
-            [taoensso.telemere :as t]
-            [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.i18n :as i18n]
-            #?(:cljs [reitit.frontend.easy :as rfe])
-            #?(:cljs [reitit.frontend.history :as rfh])
             #?(:clj [clojure.core.memoize :as memo])
             #?(:clj [clojure.java.io :as io])
-            #?(:cljs [cognitect.transit :as transit])
-            #?(:cljs [reagent.cookies :as cookie])
-            #?(:cljs [lambdaisland.fetch :as fetch])
-            #?(:cljs [lambdaisland.uri :as uri])
-            #?(:cljs [ont-app.vocabulary.lstr :as lstr])
-            #?(:cljs [applied-science.js-interop :as j])))
+            #?(:cljs [reagent.cookies :as cookie])))
 
 #?(:clj
    (def main-js
@@ -68,46 +59,6 @@
               (form-decode)
               (edn/read-string)))))
 
-(def default-languages
-  #?(:clj  nil
-     :cljs (or
-             (get-cookie :languages)
-             (if (exists? js/negotiatedLanguages)
-               (edn/read-string js/negotiatedLanguages)
-               ["en" nil "da"]))))
-
-(def default-full-screen
-  #?(:clj  false
-     :cljs (boolean (get-cookie :full-screen))))
-
-(def default-detail-level
-  #?(:clj  :normal
-     :cljs (or (get-cookie :detail-level)
-               :normal)))
-
-;; Page state used in the single-page app; completely unused server-side.
-(defonce state
-  (atom {:languages    default-languages
-         :search       {:completion {}
-                        :s          ""}
-         :full-screen  default-full-screen
-         :detail-level default-detail-level
-         :section      {section/semantic-title
-                        {:display {:selected     "diagram"
-                                   :diagram-mode :radial}}}}))
-
-;; Temporary store for special behaviour after navigating to a new page.
-(defonce post-navigate
-  (atom nil))
-
-(def diagram-mode-path
-  ;; The synset section shows as a table or a diagram (`:display :selected`);
-  ;; when it's a diagram, `:diagram-mode` picks which one (:radial, :sunburst,
-  ;; :sunburst-orthogonal, or :sunburst-meronym). Co-located under :display so
-  ;; the relationship is clear in `state`, reachable via `opts` (state is
-  ;; merged in) and reset to :radial on a full page load.
-  [:section section/semantic-title :display :diagram-mode])
-
 (def windows?
   #?(:cljs (and (exists? js/navigator.appVersion)
                 (str/includes? js/navigator.appVersion "Windows"))))
@@ -128,94 +79,6 @@
   "Normalize search string `s`."
   [s]
   (some-> s str str/trim str/lower-case))
-
-;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
-(defn remove-trailing-separator
-  "Remove trailing separator (/ or #) from `uri`."
-  [uri]
-  (let [last-char (last uri)]
-    (if (or (= \/ last-char) (= \# last-char))
-      (subs uri 0 (dec (count uri)))
-      uri)))
-
-#?(:cljs
-   (do
-     (def transit-read-handlers
-       {"lstr"         lstr/read-LangStr
-        "rdfdatatype"  identity
-        "f"            parse-double                         ; BigDecimal
-        "sparqlresult" identity
-        "datetime"     identity})
-
-     ;; TODO: handle datetime more satisfyingly typewise and in the web UI
-     (def reader
-       (transit/reader :json {:handlers transit-read-handlers}))
-
-     (defn clear-current-fetch
-       "Clear `url` from the ongoing fetch table (done after fetches complete)."
-       [url]
-       (swap! state update :fetch dissoc url))
-
-     (defn abort-current-fetch
-       "Abort an ongoing fetch for `url`."
-       [url]
-       (when-let [controller (get-in @state [:fetch url])]
-         (.abort controller)
-         (clear-current-fetch url)))
-
-     (defn abort-stale-fetches
-       "Abort all in-flight fetches. Called on navigation to prevent stale data
-       from previous pages being processed after the user has moved on."
-       []
-       (doseq [[url controller] (:fetch @state)]
-         (.abort controller))
-       (swap! state assoc :fetch {}))
-
-     ;; Currently lambdaisland/fetch silently loses query strings, so the
-     ;; `from-query-string` is needed to keep the query string intact.
-     ;; The reason that `:transit true` is assoc'd is to circumvent the browser
-     ;; caching the transit data instead of an HTML page, which can result in a weird
-     ;; situation where clicking the back button and then forward sometimes results
-     ;; in transit data being displayed rather than an HTML page.
-     (defn api
-       "Do a GET request for the resource at `url`, returning the response body."
-       [url & [{:keys [query-params method] :or {method :get} :as opts}]]
-
-       ;; Cancel any existing fetches (ignoring nil state, i.e. the first run).
-       (when-not (nil? (:fetch @state))
-         (abort-current-fetch url))
-
-       (let [string-params (uri/query-string->map (:query (uri/uri url)))
-             query-params' (assoc (merge string-params query-params)
-                             :transit true)
-             controller    (new js/AbortController)
-             signal        (.-signal controller)
-             opts*         (merge {:method              method
-                                   :transit-json-reader reader
-                                   :signal              signal}
-                                  (assoc opts
-                                    :query-params query-params'))]
-         (swap! state assoc-in [:fetch url] controller)
-         (-> (fetch/request (normalize-url url) opts*)
-             ;; Aborted fetches throw an AbortError. This is expected behaviour
-             ;; when looking up search suggestions, so we don't need to litter
-             ;; our console with these false positives.
-             (.catch #(when-not (= "AbortError" (.-name %))
-                        (throw %))))))
-
-     (defn response->url
-       [response]
-       (-> response meta :lambdaisland.fetch/request (j/get :url)))
-
-     (defn update-cookie!
-       "Apply `f` to cookie at key `k`, storing the result in the client state."
-       [k f]
-       (let [url "/cookies"
-             v   (get (swap! state update k f) k)]
-         (.then (api url {:method :put
-                          :body   {k v}})
-                (clear-current-fetch url))
-         v))))
 
 (defn setify
   [x]
@@ -295,6 +158,29 @@
   [subject entity]
   (and (synset? subject entity)
        (= "dn" (namespace subject))))
+
+(defn with-prefix
+  "Return predicate accepting keywords with `prefix` (`except` set of keywords)."
+  [prefix & {:keys [except]}]
+  (fn [[k v]]
+    (when (keyword? k)
+      (and (not (except k))
+           (= (namespace k) (name prefix))))))
+
+(def semantic-rels?
+  (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech
+                                      :wn/definition
+                                      :wn/ili
+                                      :wn/eq_synonym
+                                      :wn/lexfile
+                                      :wn/example})
+           (comp #{:dns/usedFor
+                   :dns/usedForObject
+                   :dns/nearAntonym
+                   :dns/crossPoSHyponym
+                   :dns/crossPoSHypernym
+                   :dns/orthogonalHyponym
+                   :dns/orthogonalHypernym} first)))
 
 (def omitted
   "…")
@@ -416,43 +302,6 @@
                   weights-kvs)]
       (with-meta (persistent! result)
                  {:highlight (persistent! highlight)}))))
-
-(defn x-header
-  "Get the custom `header` in the HTTP `headers`.
-
-  See also: dk.cst.dannet.web.resources/x-headers"
-  [headers header]
-  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
-  (get headers (str "x-" (str/lower-case (name header)))))
-
-(defn navigate-to
-  "Navigate to internal `url` using reitit.
-
-  Optionally, specify whether to `replace` the state in history."
-  [url & [replace]]
-  #?(:cljs (if (not-empty url)
-             (let [history @rfe/history]
-               (if replace
-                 (.replaceState js/window.history nil "" (rfh/-href history url))
-                 (.pushState js/window.history nil "" (rfh/-href history url)))
-               (rfh/-on-navigate history url))
-             (t/log! {:level :warn
-                      :data  {:url      url
-                              :from     js/window.location.href
-                              :referrer js/document.referrer
-                              :stack    (.-stack (js/Error.))}}
-                     "navigate-to called with empty URL"))))
-
-(defn toggle-full-screen!
-  "Toggle the `:full-screen` cookie and scroll the content pane to the top.
-
-  Shared by both diagram modes' full-screen controls; scrolling to the top
-  makes entering/leaving full-screen read like a page change."
-  []
-  #?(:cljs (do
-             (update-cookie! :full-screen not)
-             (some-> (js/document.getElementById "content")
-                     (.scroll #js {:top 0})))))
 
 (defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.

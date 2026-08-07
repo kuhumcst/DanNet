@@ -215,7 +215,7 @@
 (defn x-headers
   "Encode `page-meta` for a given page as custom HTTP headers.
 
-  See also: dk.cst.dannet.web.ui/x-header"
+  See also: dk.cst.dannet.web.router/x-header"
   [page-meta]
   (update-keys page-meta (fn [k] (str "X-" (str/capitalize (name k))))))
 

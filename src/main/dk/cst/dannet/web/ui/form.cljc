@@ -1,9 +1,6 @@
 (ns dk.cst.dannet.web.ui.form
-  (:require [dk.cst.dannet.shared :as shared]
-            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
-               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
-            #?(:cljs [lambdaisland.uri :as uri])
-            #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
+  (:require [dk.cst.dannet.web.app :as app]
+            #?(:cljs [lambdaisland.uri :as uri])))
 
 (defn- form-elements->query-params
   "Retrieve a map of query parameters from HTML `form-elements`, mimicking how
@@ -29,7 +26,7 @@
                  url       (str action (when query-str
                                          (str "?" query-str)))]
              (js/document.activeElement.blur)
-             (shared/navigate-to url))))
+             (app/navigate-to url))))
 
 ;; TODO: handle other methods (only handles GET for now)
 (defn on-submit

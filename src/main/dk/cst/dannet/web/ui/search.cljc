@@ -6,6 +6,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.entity :as entity]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
@@ -21,13 +22,13 @@
                  s'               (shared/search-string s)
                  path             [:search :completion s']
                  autocomplete-url "/dannet/autocomplete"]
-             (swap! shared/state assoc-in [:search :s] s')
-             (when-not (get-in @shared/state path)
-               (.then (shared/api autocomplete-url {:query-params {:s s'}})
+             (swap! app/session assoc-in [:search :s] s')
+             (when-not (get-in @app/session path)
+               (.then (app/fetch! autocomplete-url {:query-params {:s s'}})
                       #(do
-                         (shared/clear-current-fetch autocomplete-url)
+                         (app/clear-current-fetch autocomplete-url)
                          (when-let [v (not-empty (:autocompletions (:body %)))]
-                           (swap! shared/state assoc-in path v))))))))
+                           (swap! app/session assoc-in path v))))))))
 
 (defn completion-item-id
   [v]
@@ -141,10 +142,10 @@
                               (str "Go to " label))
            :on-click        (fn [e]
                               #?(:cljs (when-not (.closest (.-target e) "a")
-                                         (shared/navigate-to href))))
+                                         (app/navigate-to href))))
            :on-key-down     (fn [e]
                               #?(:cljs (when (= "Enter" (.-key e))
-                                         (shared/navigate-to href))))}
+                                         (app/navigate-to href))))}
      [:dt {:id dt-id}
       (error/try-render
         (rdf/entity-link subject opts') (str subject))]

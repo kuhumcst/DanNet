@@ -4,7 +4,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.section :as section]
+            [dk.cst.dannet.web.app :as app]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.page :as page]
@@ -94,7 +94,7 @@
                                                (.-value)
                                                (not-empty)
                                                (i18n/lang-prefs))]
-                                     (shared/update-cookie! :languages (constantly v))
+                                     (app/update-cookie! :languages (constantly v))
                                      ;; Keep <html lang> in sync since no page
                                      ;; reload occurs; the SSR'ed attribute is
                                      ;; semantic and drives the CSS rule hiding
@@ -114,7 +114,7 @@
 (defn- change-detail-level!
   [e]
   #?(:cljs (let [v (keyword (.-value (.-target e)))]
-             (shared/update-cookie! :detail-level (constantly v))
+             (app/update-cookie! :detail-level (constantly v))
              ;; Keep <html data-detail-level> in sync since no page reload
              ;; occurs; at the :high detail level the CSS keeps all language
              ;; tag superscripts visible regardless of the UI language.
@@ -190,11 +190,11 @@
                             page/not-found)
         ;; The backend also needs access to user-specific state to be able to
         ;; subsequently hydrate the HTML on the client-side with no errors.
-        state' #?(:clj (assoc @shared/state
+        state' #?(:clj (assoc @app/session
                          :languages languages
                          :full-screen full-screen
                          :detail-level (or (:detail-level opts) :normal))
-                  :cljs (rum/react shared/state))
+                  :cljs (rum/react app/session))
         languages'     (:languages state')
         comments       {:inference
                         (i18n/da-en languages'
@@ -218,7 +218,7 @@
         entity-label*  (shared/->entity-label-fn detail-level)
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)
-        synset?        (some section/semantic-rels? entity)
+        synset?        (some shared/semantic-rels? entity)
         full-diagram?  (and synset? (:full-screen state'))
         ;; Merge frontend state and backend state into a complete product.
         opts'          (assoc (merge opts state')

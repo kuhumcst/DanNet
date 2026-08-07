@@ -1,10 +1,7 @@
 (ns dk.cst.dannet.entity
   "Display-only reduction of entity data: de-duplication of relations entailed
   by others and truncation of the large ones. Never affects negotiated RDF."
-  ;; TODO: the web.section dependency is the only thing tying this namespace to
-  ;;       web; resolve if section is ever split.
-  (:require [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.section :as section]))
+  (:require [dk.cst.dannet.shared :as shared]))
 
 (defn prune-entailed-superproperties
   "Remove relations from `entity` whose values are fully covered by present
@@ -93,7 +90,7 @@
         {:truncated    (persistent! truncated)
          :deferred     (persistent! deferred)
          :has-deferred @has-deferred?}
-        (if (and (section/semantic-rels? [k])
+        (if (and (shared/semantic-rels? [k])
                  (coll? v)
                  (> (count v) shared/semantic-relation-limit))
           ;; Use subvec for O(1) splitting when possible, avoiding full traversal.

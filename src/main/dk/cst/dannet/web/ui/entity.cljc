@@ -7,6 +7,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
+            [dk.cst.dannet.web.app :as app]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.rdf :as rdf]
@@ -129,7 +130,7 @@
             "Display as ")
    [:select {:value     (get-in opts [:section title :display :selected])
              :on-change (fn [e]
-                          (swap! shared/state assoc-in
+                          (swap! app/session assoc-in
                                  [:section title :display :selected]
                                  (.-value (.-target e))))}
     (let [m (get-in ui-descriptions [:section title :display :options])]
@@ -328,7 +329,7 @@
     :as   opts}]
   (error/try-render
     (viz/expanded-diagram
-      (ordered-subentity opts section/semantic-rels? entity)
+      (ordered-subentity opts shared/semantic-rels? entity)
       opts)))
 
 (rum/defc entity-content

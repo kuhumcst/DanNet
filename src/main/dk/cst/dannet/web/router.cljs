@@ -1,18 +1,21 @@
-(ns dk.cst.dannet.web.client
-  "The central namespace of the frontend app."
+(ns dk.cst.dannet.web.router
+  "Turns route changes into rendered pages: the reitit routes, the navigation
+  callback that fetches page data, and the Rum mounting it triggers."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
             [reitit.frontend.history :as rfh]
             [taoensso.telemere :as t]
+            [applied-science.js-interop :as j]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
             [dk.cst.dannet.web.ui.page :as page]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.shared :as shared])
   (:import [goog Uri]))
 
-;; The React root element.
+;; The React root, once mounted; see mount-page! for the states it holds.
 (defonce root (atom nil))
 
 (defonce location
@@ -22,8 +25,20 @@
   (atom {:back    '()
          :forward '()}))
 
-(def app
+(def app-element
   (js/document.getElementById "app"))
+
+(defn x-header
+  "Get the custom `header` in the HTTP `headers`.
+
+  See also: dk.cst.dannet.web.response/x-headers"
+  [headers header]
+  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
+  (get headers (str "x-" (str/lower-case (name header)))))
+
+(defn response->url
+  [response]
+  (-> response meta :lambdaisland.fetch/request (j/get :url)))
 
 (def fallback
   "Catastrophic error fallback for when page-shell itself fails."
@@ -35,23 +50,18 @@
   ;; Protects the React render phase. Errors during hiccup generation
   ;; (in the let binding before this call) are not caught, but those
   ;; are unlikely since it's just data manipulation.
-  ;;
-  ;; The @root state tracks mounting status:
-  ;;   nil               → first load, attempt hydration
-  ;;   :hydration-failed → hydration failed, fall back to fresh mount
-  ;;   other             → normal re-mount to existing React root
-  (error/try-static-render app
+  (error/try-static-render app-element
     (case @root
       nil
       (do
         ;; Set before hydrate so if it throws, @root reflects the failure.
         (reset! root :hydration-failed)
-        (reset! root (rum/hydrate page-component app)))
+        (reset! root (rum/hydrate page-component app-element)))
 
       :hydration-failed
       (do
         (t/log! :warn "Hydration failed previously - mounting fresh React root")
-        (reset! root (rum/mount page-component app)))
+        (reset! root (rum/mount page-component app-element)))
 
       (rum/mount page-component @root))
     fallback))
@@ -124,17 +134,17 @@
   [{:keys [path query-params] :as m}]
   ;; Abort in-flight fetches from previous pages to prevent race conditions
   ;; that cause queued pages to load unexpectedly in quick succession.
-  (shared/abort-stale-fetches)
+  (app/abort-stale-fetches)
 
   ;; Record the target path. Callbacks later compare their closed-over path
   ;; against (:path @location) to detect if they've become stale.
   (swap! location assoc :path path)
 
   ;; Fetch the page data.
-  (-> (shared/api path {:query-params query-params})
+  (-> (app/fetch! path {:query-params query-params})
       (.then
         #(do
-           (shared/clear-current-fetch path)
+           (app/clear-current-fetch path)
 
            ;; Check staleness. If user clicked multiple links quickly,
            ;; this callback's `path` won't match the current target from step 2.
@@ -142,21 +152,21 @@
 
              ;; We cannot intercept 30x redirects from JS, so the server sends
              ;; redirect info in a custom header instead.
-             (if-let [redirect-path (shared/x-header (:headers %) :redirect)]
+             (if-let [redirect-path (x-header (:headers %) :redirect)]
                ;; Further distinguish between internal and external redirects.
                (if (str/starts-with? redirect-path "/")
-                 (let [replace? (= "T" (shared/x-header (:headers %) :replace))]
-                   (shared/navigate-to redirect-path replace?))
+                 (let [replace? (= "T" (x-header (:headers %) :replace))]
+                   (app/navigate-to redirect-path replace?))
                  (js/window.location.replace redirect-path))
 
                ;; The normal (i.e. non-redirect) navigation flow follows below.
-               (let [{:keys [scroll]} @shared/post-navigate
+               (let [{:keys [scroll]} @app/post-navigate
                      headers        (:headers %)
-                     page           (shared/x-header headers :page)
+                     page           (x-header headers :page)
                      body           (not-empty (:body %))
                      page-component (ui/page-shell page body)
-                     page-title     (shared/x-header headers :title)
-                     has-deferred   (shared/x-header headers :has-deferred)]
+                     page-title     (x-header headers :title)
+                     has-deferred   (x-header headers :has-deferred)]
                  (set! js/document.title page-title)
                  (reset! location {:path    path
                                    :headers headers
@@ -165,8 +175,8 @@
                  ;; for new navigations - except when clicking radial diagram
                  ;; labels, where scrolling away is disorienting.
                  (when-not (and (= scroll :diagram)
-                                (not (:full-screen @shared/state)))
-                   (when-let [url (shared/response->url %)]
+                                (not (:full-screen @app/session)))
+                   (when-let [url (response->url %)]
                      (update-scroll-state! url)))
 
                  ;; Ensure that the search overlay closes when clicking 'back'.
@@ -191,10 +201,10 @@
                  ;; TODO: this causes word clouds to re-render every time.
                  ;;       Investigate whether we can skip re-mount.
                  (when has-deferred
-                   (-> (shared/api path {:query-params (assoc query-params
+                   (-> (app/fetch! path {:query-params (assoc query-params
                                                          :deferred true)})
                        (.then (fn [deferred-response]
-                                (shared/clear-current-fetch path)
+                                (app/clear-current-fetch path)
                                 ;; The user may have navigated away while
                                 ;; this deferred request was in flight. If so,
                                 ;; @location now reflects a different page an
@@ -222,18 +232,18 @@
                                          "Deferred fetch failed")))))
 
                  ;; Reset special page change behaviour now that we're done.
-                 (reset! shared/post-navigate nil))))))
+                 (reset! app/post-navigate nil))))))
       (.catch
         (fn [err]
           (when-not (= "AbortError" (some-> err .-name))
-            (shared/clear-current-fetch path)
+            (app/clear-current-fetch path)
             (t/log! {:level :error
                      :error err
                      :data  {:path path}}
                     "Page fetch failed")
             (when (= path (:path @location))
               (mount-page! (ui/page-shell "error"
-                                          {:languages (or (:languages @shared/state)
+                                          {:languages (or (:languages @app/session)
                                                           ["en" nil "da"])}))))))))
 
 (defn init!
@@ -248,7 +258,7 @@
 ;; This function is only used by the shadow-cljs watch process!
 (defn ^:dev/after-load render []
   (let [{:keys [data headers]} @location
-        page-component (ui/page-shell (shared/x-header headers :page) data)]
+        page-component (ui/page-shell (x-header headers :page) data)]
     ;; Call both again to ensure that we keep up-to-date with code changes
     (init!)
     (mount-page! page-component)))

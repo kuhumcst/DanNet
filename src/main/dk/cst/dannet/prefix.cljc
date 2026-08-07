@@ -4,7 +4,6 @@
             #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [ont-app.vocabulary.core :as voc]
-            [dk.cst.dannet.shared :as shared]
             [reitit.impl :refer [url-encode]]))             ; CLJC url-encode
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
@@ -195,6 +194,15 @@
     (let [[prefix local-name] (str/split qname #":")]
       (keyword prefix local-name))))
 
+;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
+(defn remove-trailing-separator
+  "Remove trailing separator (/ or #) from `uri`."
+  [uri]
+  (let [last-char (last uri)]
+    (if (or (= \/ last-char) (= \# last-char))
+      (subs uri 0 (dec (count uri)))
+      uri)))
+
 (defn rdf-resource->uri
   "Remove < and > from `resource` to return its URI."
   [resource]
@@ -346,7 +354,7 @@
   [rdf-resource]
   (if (rdf-resource? rdf-resource)
     (-> (rdf-resource->uri rdf-resource)
-        (shared/remove-trailing-separator)
+        (remove-trailing-separator)
         (uri->rdf-resource))
     rdf-resource))
 

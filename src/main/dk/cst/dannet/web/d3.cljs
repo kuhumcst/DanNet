@@ -5,6 +5,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
             [dk.cst.dannet.web.ui.relations :as relations]
             ["d3" :as d3]
@@ -145,8 +146,8 @@
   text)
 
 (defn- build-cloud!*
-  [state {:keys [displayed] :as opts} synsets node]
-  (when (and node (not= @state displayed))
+  [rendered {:keys [displayed] :as opts} synsets node]
+  (when (and node (not= @rendered displayed))
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     (when-let [existing-svg (.-firstChild node)]
       (.remove existing-svg))
@@ -193,7 +194,7 @@
                                 (str "translate(" (.-x d) "," (.-y d) ")")))
                        (.text (fn [d] (.-text d)))
                        (.on "click" (fn [_ d]
-                                      (shared/navigate-to (.-href d))))
+                                      (app/navigate-to (.-href d))))
 
                        ;; Insert subscript paragraph, returning parent text
                        #_(append-subscript-tspan)
@@ -213,19 +214,20 @@
                      ;; Trigger draw when layout computation completes
                      (.on "end" draw))]
       (.start layout))
-    (reset! state displayed)))
+    (reset! rendered displayed)))
 
 (defn build-cloud!
-  "Build word cloud in `node` from `synsets`, storing render state in `state`.
+  "Build word cloud in `node` from `synsets`, tracking what was last drawn in
+  the `rendered` atom.
   
   Computes :displayed for build-cloud!* to use as cache key, ensuring
   deferred synset data doesn't trigger unnecessary re-renders."
-  [state {:keys [cloud-limit] :as opts} synsets node]
+  [rendered {:keys [cloud-limit] :as opts} synsets node]
   ;; Uses try-static-render since this runs in a ref callback, outside React's
   ;; render cycle where try-render and error boundaries can't catch errors.
   (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)]
     (error/try-static-render node
-      (build-cloud!* state (assoc opts :displayed displayed) synsets node))))
+      (build-cloud!* rendered (assoc opts :displayed displayed) synsets node))))
 
 ;; NOTE: memoized for performance.
 (def expand-sense-labels
@@ -832,8 +834,8 @@
                          s))))))
         (.on "click" (fn [_ d]
                        (when-let [href (.-href (.-data d))]
-                         (reset! shared/post-navigate {:scroll :diagram})
-                         (shared/navigate-to href))))
+                         (reset! app/post-navigate {:scroll :diagram})
+                         (app/navigate-to href))))
         (add-title)
 
         ;; Render subject labels with horizontal layout
@@ -943,7 +945,7 @@
             (.attr "r" radius)
             (.attr "fill" "transparent")
             (.style "cursor" (if (:full-screen opts) "zoom-out" "zoom-in"))
-            (.on "click" (fn [_] (shared/toggle-full-screen!)))
+            (.on "click" (fn [_] (app/toggle-full-screen!)))
             (.append "title")
             (.text (if (:full-screen opts)
                      (i18n/da-en languages "Minimér" "Minimize")
@@ -1263,13 +1265,13 @@
                 ;; Root centre toggles full-screen; a zoomed-in centre navigates
                 ;; to that synset's own page.
                 (if (identical? @focus root)
-                  (shared/toggle-full-screen!)
+                  (app/toggle-full-screen!)
                   (when-let [href (.. @focus -data -href)]
                     ;; Reset to the radial so navigating reads as a page change,
                     ;; not a silent re-root.
-                    (swap! shared/state assoc-in shared/diagram-mode-path :radial)
-                    (reset! shared/post-navigate {:scroll :diagram})
-                    (shared/navigate-to href))))
+                    (swap! app/session assoc-in app/diagram-mode-path :radial)
+                    (reset! app/post-navigate {:scroll :diagram})
+                    (app/navigate-to href))))
               (render-centre! [p]
                 ;; Root → its short-label senses stacked with a faded dot between
                 ;; them; deeper → the focused node's own name, prefixed with the

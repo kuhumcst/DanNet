@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.section
   (:require #?(:clj [clojure.core.memoize :as memo])
-            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]])
+            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
+            [dk.cst.dannet.shared :as shared])
   #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
 
 (def core-shapes
@@ -42,30 +43,6 @@
   #{(->LangStr "External links" "en")
     (->LangStr "Eksterne forbindelser" "da")})
 
-(defn with-prefix
-  "Return predicate accepting keywords with `prefix` (`except` set of keywords).
-  The returned predicate function is used to filter keywords based on prefixes."
-  [prefix & {:keys [except]}]
-  (fn [[k v]]
-    (when (keyword? k)
-      (and (not (except k))
-           (= (namespace k) (name prefix))))))
-
-(def semantic-rels?
-  (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech
-                                      :wn/definition
-                                      :wn/ili
-                                      :wn/eq_synonym
-                                      :wn/lexfile
-                                      :wn/example})
-           (comp #{:dns/usedFor
-                   :dns/usedForObject
-                   :dns/nearAntonym
-                   :dns/crossPoSHyponym
-                   :dns/crossPoSHypernym
-                   :dns/orthogonalHyponym
-                   :dns/orthogonalHypernym} first)))
-
 (def top-section
   [nil [:rdf/type
         :skos/definition
@@ -77,7 +54,7 @@
         :dcat/downloadURL]])
 
 (def semantic-section
-  [semantic-title semantic-rels?])
+  [semantic-title shared/semantic-rels?])
 
 (def cross-link-section
   [cross-link-title

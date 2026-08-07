@@ -30,7 +30,7 @@ The system includes:
 
 ### Web Application
 - **Backend** (`dk.cst.dannet.web.service`): Pedestal-based HTTP service with SPARQL endpoint
-- **Frontend** (`dk.cst.dannet.web.client`): ClojureScript SPA with Rum components
+- **Frontend**: ClojureScript SPA with Rum components — `dk.cst.dannet.web.router` wires reitit routes to page fetching and mounting, `dk.cst.dannet.web.app` holds the session state and fetch layer, and `dk.cst.dannet.web.ui` (+ `web.ui.*`) are the components themselves
 - Progressive enhancement: works with or without JavaScript
 - Content negotiation for multiple data formats (HTML, JSON, RDF, etc.)
 - Internationalization support (Danish/English)
@@ -39,10 +39,10 @@ The system includes:
 - Full-screen visualization mode with persistent user preferences
 
 ### Synset Diagrams (`dk.cst.dannet.web.ui.visualization` + `dk.cst.dannet.web.d3` + `dk.cst.dannet.web.hyponymy`)
-- The synset section can render as a table or a diagram; when in diagram mode, a mode toggle switches between two D3 visualizations sharing one toolbar/legend shell (`synset-diagram`, `diagram-legend`):
-  - **Radial relation diagram** — the existing radial layout of a synset's relations (legend with relation filtering via `radial-tree-legend` / `radial-item--*` classes; built by `d3/build-radial!`)
-  - **Hyponym sunburst** — a zoomable D3 partition (sunburst) of the synset's hyponym subtree, with click-to-zoom, a three-ring focus window, branch-coloured arcs, label truncation/fitting, a zoom-history breadcrumb (`hyponym-sunburst-history`), and `<title>` tooltips; built by `d3/build-sunburst!`
-- Diagram mode lives in shared state at `shared/diagram-mode-path` (`[:section section/semantic-title :display :diagram-mode]`, `:radial` or `:sunburst`), reset to `:radial` on full page load. The sunburst falls back to the radial when a (non-synset) entity has no subtree.
+- The synset section can render as a table or a diagram; when in diagram mode, a mode toggle switches between the radial diagram and up to three sunbursts, all sharing one toolbar/legend shell (`synset-diagram`, `diagram-legend`):
+  - **Radial relation diagram** (`:radial`) — the existing radial layout of a synset's relations (legend with relation filtering via `radial-tree-legend` / `radial-item--*` classes; built by `d3/build-radial!`)
+  - **Sunbursts** (`:sunburst` hyponyms, `:sunburst-orthogonal` ortho-hyponyms, `:sunburst-meronym` parts) — zoomable D3 partitions of the corresponding subtree, with click-to-zoom, a three-ring focus window, branch-coloured arcs, label truncation/fitting, a zoom-history breadcrumb (`hyponym-sunburst-history`), and `<title>` tooltips; all built by `d3/build-sunburst!` over `hyponym-tree`, `orthogonal-hyponym-tree` or `meronym-tree` from `opts`
+- Diagram mode lives in the session at `app/diagram-mode-path` (`[:section section/semantic-title :display :diagram-mode]`), reset to `:radial` on full page load. Each sunburst radio only appears when its tree has children, and a selected sunburst falls back to the radial when its subtree is empty.
 - **Relation ordering** (`dk.cst.dannet.web.ui.relations`): `group-order` is the single source of truth for the canonical display order of relation groups (taxonomic, part–whole, similarity/opposition, roles, domain, cross-link, other) and the member relations within each group. Derived helpers (`relation-order`, `relation->group`, `relation->rank`, `relation-sort-key`, `relation->class`) drive the relations page `table`, the radial diagram's group ordering (`d3/prepare-radial-children` via `insert-theme-spacers`), and `radial-tree-legend` — which lists relations in the same order within a single `<ul>`, tagging each `<li>` with a generic group class via `relation->class` (e.g. `taxonomic-rel`, falling back to `other-rel`) so the grouping can be expressed in CSS without splitting the list. Relations not covered by any group sort alphabetically at the end. The within-group label placement in the radial diagram (size/corner optimization) is independent and unchanged.
 - **Accessibility**: the sunburst SVG is `aria-hidden` (arc geometry isn't meaningfully navigable by screen readers); the table view and the zoom-history breadcrumb are the accessible alternatives. Reduced motion is honoured by checking `matchMedia("(prefers-reduced-motion: reduce)")` in JS, since the zoom is a D3-driven transition that CSS `prefers-reduced-motion` can't reach.
 - **`dk.cst.dannet.web.hyponymy`**: pure, bounded hyponym-subtree construction. `hyponym-subtree` builds a nested `{:id :children}` skeleton from the inverted hyponym graph, ranking children by descendant count so the largest branches survive `:max-children`/`:max-depth`/`:max-nodes` caps; multiple inheritance is tree-ified and single-path cycles are broken. `hyponym-tree` labels and localises the skeleton (one batched label query, trimmed to a single clean lemma per arc). The inverted graph itself is assembled and cached in `web/resources` (see below).
@@ -142,7 +142,8 @@ src/main/dk/cst/dannet/web/
 ├── sparql.clj                # SPARQL endpoint: validation, execution, result caching
 ├── hyponymy.clj              # Pure bounded hyponym-subtree construction for the sunburst
 ├── anomaly.cljc              # Exception translation to cognitect.anomalies (bilingual error pages)
-├── client.cljs               # ClojureScript SPA entry point
+├── router.cljs               # SPA entry point: routes, navigation callback, Rum mounting
+├── app.cljc                  # Client-side session state, cookie-backed defaults, fetch layer
 ├── d3.cljs                   # D3 visualization components (radial relation diagram + hyponym sunburst)
 ├── ui.cljc                   # Core Rum UI components
 ├── ui/
@@ -291,10 +292,10 @@ payloads as the client actually sees them, and pixel-level CSS work.
 ;; 3. Everything now evaluates inside the live browser tab:
 
 ;; Inspect client state, e.g. the current page data:
-(:data @dk.cst.dannet.web.client/location)
+(:data @dk.cst.dannet.web.router/location)
 
 ;; Drive navigation to reproduce a bug on a specific page:
-(dk.cst.dannet.shared/navigate-to "/dannet/data/synset-52")
+(dk.cst.dannet.web.app/navigate-to "/dannet/data/synset-52")
 
 ;; Query and measure the DOM, incl. glyph-level baseline comparisons:
 (.querySelector js/document "tr[property=\"dns:inherited\"]")
