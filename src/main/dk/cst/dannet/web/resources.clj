@@ -2,7 +2,6 @@
   "Pedestal interceptors and their associated routes."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [flatland.ordered.map :as ordered]
             [dk.cst.dannet.web.sparql :as sparql]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
@@ -21,6 +20,7 @@
             [dk.cst.dannet.entity :as ent]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.search :as search]
+            [dk.cst.dannet.db.catalog :as catalog]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.web.hyponymy :as hyponymy])
@@ -709,69 +709,13 @@
          response-body-ic]
    :route-name ::sparql])
 
-(defn find-catalog-resources
-  "Find known schemas and datasets referenced in the graph `g`.
-
-  Returns an ordered map of `{rdf-resource -> {:label ... :description ... :prefix ...}}`."
-  [g]
-  (let [results         (->> (q/run g op/catalog-resources)
-                             (filter (comp (some-fn keyword? prefix/rdf-resource?) '?source))
-                             (remove (fn [{:syms [?source]}]
-                                       (when (string? ?source)
-                                         (str/includes? ?source "www.w3.org/TR/"))))
-                             (map (fn [{:syms [?source] :as m}]
-                                    (if (keyword? ?source)
-                                      (update m '?source prefix/kw->rdf-resource)
-                                      m))))
-        ;; Collect unique sources, normalized to remove trailing separators
-        sources         (->> results
-                             (map '?source)
-                             (set))
-        ;; NB: only sources ALREADY in normalized form count as canonical.
-        ;; Deriving this set by normalizing every source would unconditionally
-        ;; drop sources with trailing separators, e.g. the OEWN dataset
-        ;; resource <https://en-word.net/> (GitHub issue #178).
-        normalized-keys (set (filter #(= % (prefix/normalize-rdf-resource %))
-                                     sources))
-        ;; Remove entries with trailing separators when normalized version exists
-        unique-sources  (remove (fn [src]
-                                  (let [normalized (prefix/normalize-rdf-resource src)]
-                                    (and (not= src normalized)
-                                         (contains? normalized-keys normalized))))
-                                sources)]
-    ;; Fetch label, description, and prefix for each catalog resource
-    (->> unique-sources
-         (map (fn [rdf-resource]
-                (let [uri    (prefix/rdf-resource->uri rdf-resource)
-                      entity (q/entity g rdf-resource)
-                      label  (or (:dc11/title entity)
-                                 (:dc/title entity)
-                                 (:rdfs/label entity))
-                      desc   (reduce q/set-merge nil
-                                     (keep entity [:rdfs/comment
-                                                   :dc/description
-                                                   :dc11/description]))
-                      ;; Try to get prefix: from entity, from known schemas, or nil
-                      pfx    (or (:vann/preferredNamespacePrefix entity)
-                                 ;; Datasets whose resource URI doesn't share a
-                                 ;; namespace with their resources, e.g. COR.
-                                 (prefix/rdf-resource->prefix rdf-resource)
-                                 (prefix/uri->prefix uri)
-                                 (prefix/uri->prefix (str uri "#"))
-                                 (prefix/uri->prefix (str uri "/")))]
-                  [rdf-resource {:label       label
-                                 :description desc
-                                 :prefix      pfx}])))
-         (sort-by (comp str first))
-         (into (ordered/ordered-map)))))
-
 (def metadata-ic
   {:name  ::metadata
    :enter (fn [{:keys [request] :as ctx}]
             (let [languages (resp/request->languages request)]
               (assoc ctx
                 :content {:languages languages
-                          :catalog   (find-catalog-resources (:graph @instance/db))}
+                          :catalog   (catalog/find-resources (:graph @instance/db))}
                 :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
                             :page  "metadata"})))})
 
@@ -881,6 +825,7 @@
                         (assoc-in [:headers "Content-Disposition"] cd))))]
     ["/export/:type/:prefix" :get handler :route-name ::export]))
 
+;; TODO: move elsewhere, it's not the right ns for this
 (def not-in-theme
   "Predicate for filtering colours with a certain HSV distance from theme."
   (let [dist-check (fn [theme-color]
@@ -888,6 +833,7 @@
                        (> (col/dist-hsv theme-color other-color) 0.33)))]
     (apply every-pred (map (comp dist-check col/css) shared/theme))))
 
+;; TODO: move elsewhere, it's not the right ns for this
 (defn generate-synset-rels-theme
   "Generate list of in-use synset relation types and map it to unique colours."
   []
@@ -922,9 +868,8 @@
     (into (sorted-map)
           (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
 
+;; TODO: clean up this comment block, e.g. move some lines to other namespaces
 (comment
-  (find-catalog-resources (:graph @instance/db))
-
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 
