@@ -22,10 +22,10 @@ Two populations are involved. Do not conflate them.
 | `2a-verb-phrase-pos-flip.xlsx` | 110 pairs, record of an applied decision (§B1) |
 
 `dk.cst.dannet.crosspos-review/regenerate!` regenerates the workbooks from the
-graph. Reviewer columns are in Danish and described in `vejledning-da.md`; the
-regeneration preserves whatever has been entered in them. If the counts below
-have drifted, it refuses to write. §B2 adds 149 more pairs that no workbook holds yet, so the
-review backlog is 538.
+graph. `vejledning-da.md` describes the Danish reviewer columns. The
+regeneration preserves whatever the reviewer entered in them. If the counts
+below have drifted, it refuses to write. §B2 adds 149 more pairs that no
+workbook holds yet, so the review backlog is 538.
 
 ## Summary of decisions
 
@@ -102,8 +102,8 @@ decision then applies mechanically to every triple that points at it.
 
 **Justification.** GWA defines `attribute` as a relation between a nominal and
 an adjectival concept, where one is an attribute of the other. The relation is
-self-reciprocal, and the documentation states that it must link only adjectives
-to nouns and the reverse. The diagnostic is EuroWordNet test 14: *A is an
+self-reciprocal, and the documentation says to link only adjectives to nouns
+and the reverse. The diagnostic is EuroWordNet test 14: *A is an
 attribute of B* / *B is an attribute of A*, with A a singular noun and B an
 adjective. Princeton treats the same idea from the other side. It organises
 adjectives around attribute nouns, with `=` linking a value adjective to the
@@ -206,12 +206,12 @@ for *koreansk*.
 
 The heuristic also merged three unrelated phenomena:
 
-| group | pairs | example | what it actually is |
+| `gruppe` | pairs | example | what it actually is |
 |---|---|---|---|
-| `sprog`, languages and dialects | 62 | {koreansk} → {sprog}, {skånsk} → {dialekt} | substantivised adjective; *koreansk* as a noun genuinely **is** a language |
-| `person`, people | 13 | {hjemløs} → {person}, {deltidsansat} → {ansat} | substantivised adjective; nominal hypernymy once the PoS is corrected |
-| `brugsmarkering`, swear words and abuse | 26 | {helvedes} → {bandeord; ed; kraftudtryk}, {dum} → {skældsord} | not hypernymy at all; a register label, candidate for `wn:exemplifies` |
-| `fast udtryk`, nominal idioms | 3 | {en lille sort} → {kaffe}, {de gamle} → {forældre} | lexicalised nominal; hypernymy after PoS correction |
+| `sprog`, languages and dialects | 62 | {koreansk} → {sprog}, {skånsk} → {dialekt} | substantivised adjective. *koreansk* as a noun genuinely **is** a language |
+| `person`, people | 13 | {hjemløs} → {person}, {deltidsansat} → {ansat} | substantivised adjective. Nominal hypernymy once the PoS is corrected |
+| `brugsmarkering`, swear words and abuse | 26 | {helvedes} → {bandeord; ed; kraftudtryk}, {dum} → {skældsord} | not hypernymy at all. A register label, candidate for `wn:exemplifies` |
+| `fast udtryk`, nominal idioms | 3 | {en lille sort} → {kaffe}, {de gamle} → {forældre} | lexicalised nominal. Hypernymy after PoS correction |
 
 The 78 substantivisation pairs are mechanically the same as the A2 cases. But
 to apply that treatment at scale asserts an established nominal reading for
@@ -285,8 +285,9 @@ relation, or both. Only 2 of the 596 sources have an alternative hypernym,
 so deletion orphans them.
 
 `2d-cross-pos-taxonomy.xlsx` holds them, grouped by target. The top 15 targets
-cover over half the pairs. Same-lemma candidates are precomputed into `forslag`
-where they exist. `nyt hypernym` and `ny relation` are independent columns,
+cover over half the pairs. The script precomputes same-lemma candidates into
+`forslag` where they exist. `nyt hypernym` and `ny relation` are independent
+columns,
 since a pair can need both a new target and a different relation.
 
 ---
@@ -359,7 +360,7 @@ are deep links:
 | claim | where |
 |---|---|
 | `attribute` corresponds to EuroWordNet's `XPOS_Hyponymy`, and to Princeton's `=` pointer | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), table "Project-specific Names" |
-| `attribute` holds between a nominal and an adjectival concept, and must link only adjectives to nouns and the reverse | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), definition and comments |
+| `attribute` holds between a nominal and an adjectival concept, and links only adjectives to nouns and the reverse | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), definition and comments |
 | EuroWordNet test 14, the *A is an attribute of B* diagnostic | [#attribute](https://globalwordnet.github.io/gwadoc/#attribute), test section |
 | `classified_by` is a numeral classifier relation ('head' of cattle, 匹 for 猫) | [#classified_by](https://globalwordnet.github.io/gwadoc/#classified_by) and [#classifies](https://globalwordnet.github.io/gwadoc/#classifies) |
 | `exemplifies` is the Usage subtype of Domain, Princeton's usage-domain pointer | [#exemplifies](https://globalwordnet.github.io/gwadoc/#exemplifies) |
