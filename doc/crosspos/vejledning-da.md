@@ -14,99 +14,126 @@ relationstype? Eller er ordklassen på selve ordet forkert?
 
 ## Filerne
 
-Gennemgangen ligger i tre CSV-filer i `doc/crosspos/`. De erstatter det
-tidligere regneark. Du kan åbne filerne i Excel eller LibreOffice. To af dem
-skal du udfylde.
+Gennemgangen ligger i tre regneark i `doc/crosspos/`. De erstatter det
+regneark, vi tidligere lavede i hånden. Åbn filerne i Excel eller
+LibreOffice. To af dem skal du udfylde.
 
 | fil | par | din opgave |
 |---|---|---|
-| `2d-cross-pos-taxonomy.csv` | 285 | udfyld *decision* og *retarget to* |
-| `a4-deferred-crosspos.csv` | 104 | udfyld *decision* |
-| `2a-verb-phrase-pos-flip.csv` | 110 | ingen: filen dokumenterer en beslutning, vi allerede har truffet |
+| `2d-cross-pos-taxonomy.xlsx` | 285 | udfyld de gule kolonner |
+| `a4-deferred-crosspos.xlsx` | 104 | udfyld de gule kolonner |
+| `2a-verb-phrase-pos-flip.xlsx` | 110 | ingen: filen dokumenterer en beslutning, vi allerede har truffet |
 
-Et script gendanner filerne fra databasen. Scriptet bevarer kolonnerne
-*decision*, *retarget to* og *comment*, så dit arbejde ikke går tabt.
+De fire kolonner, du skal udfylde, står ved siden af hinanden og har gul
+baggrund: *nyt hypernym*, *ny relation*, *status* og *kommentar*. *status* og
+*ny relation* har rullemenuer. Navnene i *synset* og *nuværende hypernym* er
+klikbare links til wordnet.dk. De to URI-kolonner yderst til højre bruger
+scriptet til at genkende rækkerne; dem skal du ikke røre.
 
-## `2d-cross-pos-taxonomy.csv`
+Et script gendanner filerne fra databasen. Scriptet bevarer alt, du har
+skrevet i de gule kolonner, så dit arbejde ikke går tabt.
 
-Hver **række** er ét par: et kilde-synset (*source*) og dets nuværende hypernym
-(*target*). Filen grupperer rækkerne efter *target*. Alle synsets, der peger på
-det samme hypernym, står derfor samlet. De største grupper står først. Du kan
-ofte træffe **én beslutning for en hel gruppe**. Kolonnen *n* viser gruppens
+## `2d-cross-pos-taxonomy.xlsx`
+
+Hver **række** er ét par: et synset og det hypernym, det peger på i dag. Filen
+grupperer rækkerne efter hypernym. Alle synsets, der peger på det samme
+hypernym, står derfor samlet. De største grupper står først. Du kan ofte træffe
+**én beslutning for en hel gruppe**. Kolonnen *antal i gruppen* viser gruppens
 størrelse.
 
 | kolonne | betydning |
 |---|---|
-| *target* / *target URI* / *target PoS* | Det nuværende hypernym, dets link til wordnet.dk og dets ordklasse. |
-| *n* | Antal rækker i gruppen. Tallet viser, hvor mange synsets der peger på dette target. |
-| *source* / *source URI* / *source PoS* | Synsettet med den problematiske relation, dets link og dets ordklasse. |
-| *retarget candidates* | Alternativer fundet af scriptet: synsets med samme lemma som target, men med kildens ordklasse. Efterse altid forslaget. |
-| *decision* | **Du udfylder den.** Se listen nedenfor. |
-| *retarget to* | **Du udfylder den ved *retarget*.** Indsæt URI'en på det nye hypernym. Er der præcis én oplagt kandidat, står den der på forhånd. Er forslaget forkert, så ret det. |
-| *comment* | Fri tekst til forbehold, tvivl eller begrundelse. |
+| *synset* | Synsettet med den problematiske relation. Klik på navnet for at se opslaget på wordnet.dk. |
+| *ordklasser* | Uoverensstemmelsen, for eksempel `vb. → sb.`: synsettets ordklasse til venstre, hypernymets til højre. |
+| *nuværende hypernym* | Det hypernym, relationen peger på i dag. Klikbart. |
+| *antal i gruppen* | Hvor mange synsets der peger på det samme hypernym. Filen er sorteret efter dette tal, så de store grupper står først. |
+| *forslag* | Alternativer fundet af scriptet: synsets med samme lemma som hypernymet, men med synsettets ordklasse. Efterse altid forslaget. |
+| *nyt hypernym* | Indsæt URI'en på det nye hypernym, hvis relationen skal pege et andet sted hen. Er der præcis én oplagt kandidat, står den der på forhånd. Er forslaget forkert, så ret det. |
+| *ny relation* | Vælg en relation i rullemenuen, hvis relationen skal skifte type. Lad den stå tom, hvis den forbliver `wn:hypernym`. |
+| *status* | Vælg en værdi i rullemenuen. Se listen nedenfor. |
+| *kommentar* | Fri tekst til forbehold, tvivl eller begrundelse. |
 
-Klik på linkene i URI-kolonnerne. Så ser du synsettets fulde opslag på
-wordnet.dk med definition og relationer.
+Klik på navnet i *synset* eller *nuværende hypernym*. Så ser du synsettets
+fulde opslag på wordnet.dk med definition og relationer.
 
-### Værdier i *decision*
+### Sådan retter du en række
 
-- **retarget**: relationen er reel, men den skal pege på et andet synset med
-  samme ordklasse som kilden. Skriv det nye synsets URI i *retarget to*.
-  Eksempel: substantiver under adjektivet {sindssyg} flytter til substantivet
-  {sindslidende}.
-- **attribute**: target er et egenskabssubstantiv, og kilden er et adjektiv,
-  der udtrykker en værdi af det. Relationen skifter til `wn:attribute`. Det er
-  samme behandling som de omkring 5.400 tilfælde, vi allerede har rettet.
-- **pos-fix**: relationen er korrekt, men ordklassen på kilden eller på target
-  er forkert. Det er typisk en verbalfrase mærket som substantiv. Ordklassen
-  rettes, og relationen består. Skriv i *comment*, hvilket ord det gælder.
-- **exemplifies**: kilden er ikke en type af target. Kilden er et *eksempel på
-  en brugsmarkering*, for eksempel {helvedes} under {bandeord}. Relationen
-  skifter til `wn:exemplifies`.
-- **delete**: relationen er forkert, og der findes ingen brugbar erstatning på
-  synset-niveau. Det er typisk pertainym-agtige eller participium-agtige
-  forbindelser. Kilden mister som regel sit eneste hypernym. Brug kun *delete*,
-  når hverken *retarget* eller en anden relationstype giver mening.
-- **keep**: relationen består uændret. Undtagelsen er dermed bekræftet.
+Der er to slags rettelser, og en række kan have brug for begge:
 
-Er du i tvivl, så lad *decision* stå tom og skriv i *comment*. Tomme rækker
-kommer med i næste runde.
+- **Skal relationen pege et andet sted hen?** Indsæt URI'en på det nye synset i
+  *nyt hypernym*. Eksempel: substantiver under adjektivet {sindssyg} flytter
+  til substantivet {sindslidende}.
+- **Skal relationen skifte type?** Vælg relationen i *ny relation*. Vælg
+  `wn:attribute`, når hypernymet er et egenskabssubstantiv og synsettet er et
+  adjektiv, der udtrykker en værdi af det. Det er samme behandling som de
+  omkring 5.400 tilfælde, vi allerede har rettet. Vælg `wn:exemplifies`, når
+  synsettet er et eksempel på en brugsmarkering, for eksempel {helvedes} under
+  {bandeord}.
+
+Du behøver ikke skrive noget i *status*, når du har udfyldt en af de to
+kolonner. At du har skrevet noget dér, betyder i sig selv, at rækken skal
+rettes.
+
+### Værdier i *status*
+
+Brug *status* til de rækker, hvor der ikke skal rettes noget:
+
+- **ordklassefejl**: relationen er korrekt, men ordklassen på synsettet eller på
+  hypernymet er forkert. Det er typisk en verbalfrase mærket som substantiv.
+  Ordklassen rettes, og relationen består. Skriv i *kommentar*, hvilket ord det
+  gælder.
+- **slettes**: relationen er forkert, og der findes ingen brugbar erstatning.
+  Det er typisk pertainym-agtige eller participium-agtige forbindelser.
+  Synsettet mister som regel sit eneste hypernym. Brug kun **slettes**, når
+  hverken et nyt hypernym eller en anden relationstype giver mening.
+- **beholdes**: relationen består uændret. Undtagelsen er dermed bekræftet.
+- **i tvivl**: du har set på rækken, men kan ikke afgøre den. Skriv hvorfor i
+  *kommentar*.
+
+En tom *status* betyder, at ingen har set på rækken endnu. Både tomme rækker og
+**i tvivl** kommer med i næste runde.
 
 > **Bemærk:** `classified_by` var tidligere en mulighed. Vi har trukket den
 > tilbage. I GWA-standarden betegner relationen *numeralklassifikatorer*, for
 > eksempel 'head' i 'head of cattle'. Den dækker ikke substantiverede
 > adjektiver og passer derfor ikke på vores tilfælde.
 
-## `a4-deferred-crosspos.csv`
+## `a4-deferred-crosspos.xlsx`
 
 Filen indeholder 104 par. Et script omsatte dem tidligere til
 `wn:classified_by`. Den relation viste sig at være forkert, og parrene afventer
 nu en beslutning. De står stadig som `dns:crossPoSHypernym` i datasættet.
 
-Kolonnen *group* deler parrene i fire mønstre. Hvert mønster kræver sin egen
-behandling.
+Kolonnen *gruppe* deler parrene i fire mønstre. Hvert mønster kræver sin egen
+behandling, og kolonnen *forslag* viser den på forhånd.
 
-| group | par | eksempel | forslag til behandling |
+| gruppe | par | eksempel | forslag |
 |---|---|---|---|
-| language | 62 | {koreansk} → {sprog} | pos-fix (substantiveret adjektiv) |
-| register | 26 | {helvedes} → {bandeord} | exemplifies |
-| person | 13 | {hjemløs} → {person} | pos-fix |
-| nominal idiom | 3 | {en lille sort} → {kaffe} | pos-fix |
+| sprog | 62 | {koreansk} → {sprog} | ordklassefejl (substantiveret adjektiv) |
+| brugsmarkering | 26 | {helvedes} → {bandeord} | ny relation: `wn:exemplifies` |
+| person | 13 | {hjemløs} → {person} | ordklassefejl |
+| fast udtryk | 3 | {en lille sort} → {kaffe} | ordklassefejl |
 
-Brug samme værdier i *decision* som ovenfor. **pos-fix** betyder her, at ordet
-har en veletableret substantivisk brug på dansk. Den påstand skal du bekræfte i
-DDO for hvert enkelt ord. Derfor rettede vi ikke parrene automatisk.
+Kolonnerne er de samme som ovenfor. *forslag* er scriptets bud, ikke en
+afgørelse: du skal stadig selv skrive i *status* eller *ny relation*.
 
-## `2a-verb-phrase-pos-flip.csv`
+For de 26 rækker i **brugsmarkering** er `wn:exemplifies` allerede sat i *ny
+relation*. Bekræft den, eller ret den.
+
+**ordklassefejl** betyder her, at ordet har en veletableret substantivisk brug
+på dansk. Den påstand skal du bekræfte i DDO for hvert enkelt ord. Derfor
+rettede vi ikke parrene automatisk, og derfor står *status* tom.
+
+## `2a-verb-phrase-pos-flip.xlsx`
 
 Denne fil kræver **ingen indsats**. Den dokumenterer 110 par, hvor
-hypernym-relationen var korrekt, men kilde-synsettets ordklasse var forkert.
+hypernym-relationen var korrekt, men synsettets ordklasse var forkert.
 Det var flerordsudtryk mærket som substantiver med et verbum som hypernym, for
 eksempel {gøre kål på} → {spise; æde} og {slå mønt} → {fremstille}.
 
 Et script rettede 107 af parrene. Det ændrede ordklassen til verbum og bevarede
-relationen. Kolonnen *ok?* viser udfaldet. Tre par har værdien **nej**, fordi
-de ikke er verbalfraser:
+relationen. Kolonnen *rettet?* viser udfaldet. Tre par har værdien **nej**,
+fordi de ikke er verbalfraser:
 
 - {over kors} og {i pleje}: præpositionsled, der hænger ved fra hypernymets
   idiom
@@ -119,6 +146,6 @@ dette arbejde.
 
 Hver udfyldt række bliver til en automatisk rettelse i næste DanNet-udgivelse.
 Det er samme fremgangsmåde som for de omkring 5.600 relationer, vi allerede har
-behandlet. *decision* må derfor kun indeholde værdier fra listen ovenfor.
-*retarget to* skal indeholde en gyldig URI. Du kan kopiere URI'en fra browserens
-adresselinje på wordnet.dk.
+behandlet. *status* og *ny relation* må derfor kun indeholde værdier fra
+rullemenuerne. *nyt hypernym* skal indeholde en gyldig URI. Du kan kopiere
+URI'en fra browserens adresselinje på wordnet.dk.

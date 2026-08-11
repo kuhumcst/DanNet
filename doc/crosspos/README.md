@@ -16,14 +16,15 @@ Two populations are involved. Do not conflate them.
 | file | contents |
 |---|---|
 | `README.md` | this document |
-| `vejledning-da.md` | reviewer's guide in Danish, for filling in the CSVs |
-| `2d-cross-pos-taxonomy.csv` | 285 pairs awaiting judgement (§B4) |
-| `a4-deferred-crosspos.csv` | 104 pairs awaiting judgement (§A4) |
-| `2a-verb-phrase-pos-flip.csv` | 110 pairs, record of an applied decision (§B1) |
+| `vejledning-da.md` | reviewer's guide in Danish, for filling in the workbooks |
+| `2d-cross-pos-taxonomy.xlsx` | 285 pairs awaiting judgement (§B4) |
+| `a4-deferred-crosspos.xlsx` | 104 pairs awaiting judgement (§A4) |
+| `2a-verb-phrase-pos-flip.xlsx` | 110 pairs, record of an applied decision (§B1) |
 
-`dk.cst.dannet.crosspos-review/regenerate!` regenerates the CSVs from the
-graph. It preserves manually entered columns. If the counts below have drifted,
-it refuses to write. §B2 adds 149 more pairs that no CSV holds yet, so the
+`dk.cst.dannet.crosspos-review/regenerate!` regenerates the workbooks from the
+graph. Reviewer columns are in Danish and described in `vejledning-da.md`; the
+regeneration preserves whatever has been entered in them. If the counts below
+have drifted, it refuses to write. §B2 adds 149 more pairs that no workbook holds yet, so the
 review backlog is 538.
 
 ## Summary of decisions
@@ -174,7 +175,7 @@ question. Two further entries are verbal but are full clauses rather than
 phrases ({han (hun, ..) snakker, og røven går}, {munden står ikke stille på
 nogen}). We include them, because the alternative is to call them nouns.
 
-`2a-verb-phrase-pos-flip.csv` cannot come from a built database. After the fix
+`2a-verb-phrase-pos-flip.xlsx` cannot come from a built database. After the fix
 runs, the 107 corrected synsets are verbs and no longer match the noun-source
 criterion. So `regenerate!` leaves that file alone. It only makes sure that the
 3 still matching are exactly the excluded ones.
@@ -207,10 +208,10 @@ The heuristic also merged three unrelated phenomena:
 
 | group | pairs | example | what it actually is |
 |---|---|---|---|
-| languages and dialects | 62 | {koreansk} → {sprog}, {skånsk} → {dialekt} | substantivised adjective; *koreansk* as a noun genuinely **is** a language |
-| people | 13 | {hjemløs} → {person}, {deltidsansat} → {ansat} | substantivised adjective; nominal hypernymy once the PoS is corrected |
-| swear words and abuse | 26 | {helvedes} → {bandeord; ed; kraftudtryk}, {dum} → {skældsord} | not hypernymy at all; a register label, candidate for `wn:exemplifies` |
-| nominal idioms | 3 | {en lille sort} → {kaffe}, {de gamle} → {forældre} | lexicalised nominal; hypernymy after PoS correction |
+| `sprog`, languages and dialects | 62 | {koreansk} → {sprog}, {skånsk} → {dialekt} | substantivised adjective; *koreansk* as a noun genuinely **is** a language |
+| `person`, people | 13 | {hjemløs} → {person}, {deltidsansat} → {ansat} | substantivised adjective; nominal hypernymy once the PoS is corrected |
+| `brugsmarkering`, swear words and abuse | 26 | {helvedes} → {bandeord; ed; kraftudtryk}, {dum} → {skældsord} | not hypernymy at all; a register label, candidate for `wn:exemplifies` |
+| `fast udtryk`, nominal idioms | 3 | {en lille sort} → {kaffe}, {de gamle} → {forældre} | lexicalised nominal; hypernymy after PoS correction |
 
 The 78 substantivisation pairs are mechanically the same as the A2 cases. But
 to apply that treatment at scale asserts an established nominal reading for
@@ -238,7 +239,7 @@ therefore split first by whether the two synsets' PoS sets are disjoint:
 | B1 (2a) mistagged verb phrases | 110 | 107 fixed in the pipeline, 3 excluded |
 | B2 (2b) mixed-PoS synsets, not disjoint | 149 | deferred |
 | B3 (2c) malformed placeholder word | 52 | technical fix, no lexicography |
-| B4 (2d) genuine cross-PoS taxonomy | 285 | review CSV |
+| B4 (2d) genuine cross-PoS taxonomy | 285 | review workbook |
 
 The four groups are disjoint and sum to 596 exactly, verified against the live
 graph. B1 and B3 are classifiable automatically because the data itself shows
@@ -279,13 +280,14 @@ mistakes it for a EuroWordNet structural decision.
 
 Genuinely cross-PoS taxonomy: deverbal nouns under verbs ({filtrering} →
 {fjerne}), verbs under nouns ({tilsvine} → {talehandling}), nouns under
-adjectives ({karmin} → {rød}). Each pair needs a retargeting decision or a
-re-relation decision. Only 2 of the 596 sources have an alternative hypernym,
+adjectives ({karmin} → {rød}). Each pair needs a new target, a different
+relation, or both. Only 2 of the 596 sources have an alternative hypernym,
 so deletion orphans them.
 
-`2d-cross-pos-taxonomy.csv` holds them, grouped by target. The top 15 targets
-cover over half the pairs. Same-lemma retarget candidates are precomputed where
-they exist.
+`2d-cross-pos-taxonomy.xlsx` holds them, grouped by target. The top 15 targets
+cover over half the pairs. Same-lemma candidates are precomputed into `forslag`
+where they exist. `nyt hypernym` and `ny relation` are independent columns,
+since a pair can need both a new target and a different relation.
 
 ---
 

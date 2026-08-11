@@ -1,25 +1,108 @@
 (ns dk.cst.dannet.crosspos-review
-  "Regenerate the cross-PoS review CSVs in doc/crosspos/ from the live graph.
+  "Regenerate the cross-PoS review workbooks in doc/crosspos/ from the live
+  graph.
 
   These replace a hand-assembled spreadsheet that had silently drifted from the
   data (it was missing two rows of the 2d set). Everything here is derived from
   the graph instead, with manually entered columns merged forward from the
-  existing CSVs so review work is never lost.
+  existing workbooks so review work is never lost.
 
   Usage from the REPL, with a built database:
 
     (regenerate! (:dataset @dk.cst.dannet.web.instance/db))"
-  (:require [clojure.data.csv :as csv]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
+            [dk.ative.docjure.spreadsheet :as xl]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.prefix :as prefix]))
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared])
+  (:import [org.apache.poi.common.usermodel HyperlinkType]
+           [org.apache.poi.ss.usermodel BorderStyle CellType FillPatternType
+                                        Font IndexedColors]
+           [org.apache.poi.ss.util CellRangeAddressList]
+           [org.apache.poi.xssf.usermodel XSSFDataValidationHelper]))
 
 (def files
-  {:2d "doc/crosspos/2d-cross-pos-taxonomy.csv"
-   :a4 "doc/crosspos/a4-deferred-crosspos.csv"})
+  {:2d "doc/crosspos/2d-cross-pos-taxonomy.xlsx"
+   :a4 "doc/crosspos/a4-deferred-crosspos.xlsx"})
+
+(def headers
+  "Reviewer-facing columns first, machinery last. Both files open on the synset
+  being judged, so the reviewer does not have to reorient between them."
+  {:2d ["synset" "ordklasser" "nuværende hypernym" "antal i gruppen"
+        "forslag" "nyt hypernym" "ny relation" "status" "kommentar"
+        "synset URI" "hypernym URI"]
+   :a4 ["synset" "ordklasser" "nuværende hypernym" "gruppe"
+        "forslag" "nyt hypernym" "ny relation" "status" "kommentar"
+        "synset URI" "hypernym URI"]})
+
+(def header-aliases
+  "Old English headers, for reading workbooks written before the rename.
+  Delete once the Danish workbooks are committed."
+  {"source"              "synset"
+   "source URI"          "synset URI"
+   "target"              "nuværende hypernym"
+   "target URI"          "hypernym URI"
+   "n"                   "antal i gruppen"
+   "group"               "gruppe"
+   "retarget candidates" "forslag"
+   "suggestion"          "forslag"
+   "retarget to"         "nyt hypernym"
+   "new relation"        "ny relation"
+   "decision"            "status"
+   "comment"             "kommentar"})
+
+(def statuses
+  "Dropdown values for the status column.
+
+  Filling in `nyt hypernym` or `ny relation` already says the row changes, so
+  status only covers the cases with no edit to make. Blank means nobody has
+  looked at the row yet."
+  ["" "beholdes" "slettes" "ordklassefejl" "i tvivl"])
+
+(def relations
+  "Dropdown values for the new relation column, taken from the relations
+  actually in use. The two dns:crossPoS* relations are omitted: replacing them
+  is the point of the exercise."
+  (->> (keys shared/synset-rel-theme)
+       (remove #{:dns/crossPoSHypernym :dns/crossPoSHyponym})
+       (map #(str (namespace %) ":" (name %)))
+       (sort)
+       (into [""])))
+
+(def column-widths
+  {"synset"             34
+   "ordklasser"         12
+   "nuværende hypernym" 34
+   "antal i gruppen"    9
+   "gruppe"             14
+   "forslag"            40
+   "nyt hypernym"       34
+   "ny relation"        22
+   "status"             15
+   "kommentar"          40
+   "synset URI"         30
+   "hypernym URI"       30})
+
+(def link-columns
+  "Label column -> the URI column its hyperlink comes from. The reviewer clicks
+  the readable name, so the URI columns stay out of the way on the right."
+  {"synset"             "synset URI"
+   "nuværende hypernym" "hypernym URI"})
+
+(def pos-abbr
+  "wn:partOfSpeech names to Danish abbreviations.
+
+  Not shared/pos-abbr-da: that map is keyed on \"adj\", while wn:partOfSpeech
+  gives \"adjective\", so adjectives would silently render blank. The empty
+  string is the malformed {2ndOrder} placeholder, see README §B3."
+  {"noun"      "sb."
+   "verb"      "vb."
+   "adjective" "adj."
+   "adverb"    "adv."
+   ""          "(ingen)"})
 
 ;; Mirrors the exclusions in bootstrap/fix-verb-phrase-pos!, kept in step by
 ;; check-counts! rather than by a shared def: the pipeline hashes that
@@ -35,11 +118,24 @@
   :dn/synset-42970)
 
 (def a4-groups
-  {:dn/synset-8143   "language" :dn/synset-8091 "language" :dn/synset-8109 "language"
-   :dn/synset-7878   "register" :dn/synset-8079 "register"
+  {:dn/synset-8143   "sprog" :dn/synset-8091 "sprog" :dn/synset-8109 "sprog"
+   :dn/synset-7878   "brugsmarkering" :dn/synset-8079 "brugsmarkering"
    :dn/synset-48279  "person" :dn/synset-2119 "person" :dn/synset-6217 "person"
-   :dn/synset-48734  "nominal idiom" :dn/synset-1478 "nominal idiom"
-   :dn/synset-116    "nominal idiom"})
+   :dn/synset-48734  "fast udtryk" :dn/synset-1478 "fast udtryk"
+   :dn/synset-116    "fast udtryk"})
+
+(def a4-suggestions
+  "What each a4 group probably wants, per doc/crosspos/README.md §A4.
+
+  A proposal, not a decision: the three ordklassefejl groups each assert an
+  established nominal reading that needs DDO evidence per item, which is why
+  they were deferred rather than batched. Only the register group's relation is
+  prefilled, on the same basis as 2d prefilling a sole retarget candidate."
+  {"sprog"      {"forslag" "ordklassefejl"}
+   "person"     {"forslag" "ordklassefejl"}
+   "fast udtryk" {"forslag" "ordklassefejl"}
+   "brugsmarkering" {"forslag"     "ny relation: wn:exemplifies"
+                     "ny relation" "wn:exemplifies"}})
 
 (defn- index
   "Build {synset {:label .. :pos #{..} :lemmas #{..}}}.
@@ -102,31 +198,152 @@
 
 (defn- uri [k] (str (prefix/kw->uri k)))
 
-(defn- read-csv
-  "Existing CSV as {[source-uri target-uri] row-map}, for merging manual columns."
+(defn- cell->str
+  "Cell value as a string. Excel stores the count column as a double and may turn
+  a URI into a formula, so neither can be read as a string cell directly."
+  [cell]
+  (if (nil? cell)
+    ""
+    (condp = (.getCellType cell)
+      CellType/STRING (.getStringCellValue cell)
+      CellType/NUMERIC (let [d (.getNumericCellValue cell)]
+                         (if (== d (Math/rint d))
+                           (str (long d))
+                           (str d)))
+      CellType/FORMULA (try (.getStringCellValue cell) (catch Exception _ ""))
+      CellType/BOOLEAN (str (.getBooleanCellValue cell))
+      "")))
+
+(defn- read-sheet
+  "Existing workbook as {[synset-uri hypernym-uri] row-map}, for merging manual
+  columns. Old English headers are translated on the way in, so a pre-rename
+  workbook still merges forward. Rows Excel leaves behind without a synset URI
+  are skipped."
   [path]
   (when (.exists (io/file path))
-    (with-open [r (io/reader path)]
-      (let [[hdr & rows] (doall (csv/read-csv r))]
-        (into {} (for [row rows
-                       :let [m (zipmap hdr row)]]
-                   [[(get m "source URI") (get m "target URI")] m]))))))
+    (with-open [in (io/input-stream path)]
+      (let [sheet (first (xl/sheet-seq (xl/load-workbook in)))
+            rows  (xl/row-seq sheet)
+            n     (.getLastCellNum (first rows))
+            ->row #(mapv (fn [i] (cell->str (.getCell % i))) (range n))
+            hdr   (mapv #(get header-aliases % %) (->row (first rows)))]
+        (into {} (for [r (rest rows)
+                       :let [m (zipmap hdr (->row r))]
+                       :when (not (str/blank? (get m "synset URI")))]
+                   [[(get m "synset URI") (get m "hypernym URI")] m]))))))
 
-(defn- write-csv! [path hdr rows]
+(defn- style-sheet!
+  "Hyperlinks on the readable label cells, a highlight on the columns the
+  reviewer fills in, a frozen header row, dropdowns on status and ny relation,
+  and fixed column widths."
+  [sheet hdr n manual]
+  (let [wb       (.getWorkbook sheet)
+        ch       (.getCreationHelper wb)
+        link     (doto (.createCellStyle wb)
+                   (.setFont (doto (.createFont wb)
+                               (.setUnderline Font/U_SINGLE)
+                               (.setColor (.getIndex IndexedColors/BLUE)))))
+        action   (doto (.createCellStyle wb)
+                   (.setFillForegroundColor (.getIndex IndexedColors/LEMON_CHIFFON))
+                   (.setFillPattern FillPatternType/SOLID_FOREGROUND))
+        header   (doto (.createCellStyle wb)
+                   (.setFont (doto (.createFont wb) (.setBold true)))
+                   (.setFillForegroundColor (.getIndex IndexedColors/GREY_25_PERCENT))
+                   (.setFillPattern FillPatternType/SOLID_FOREGROUND)
+                   (.setBorderBottom BorderStyle/MEDIUM))
+        idx-of   (fn [h] (first (keep-indexed (fn [i x] (when (= h x) i)) hdr)))
+        col-idx  (fn [pred] (keep-indexed (fn [i h] (when (pred h) i)) hdr))
+        act-cols (col-idx manual)
+        pairs    (keep (fn [[label uri]]
+                         (when-let [li (idx-of label)]
+                           (when-let [ui (idx-of uri)] [li ui])))
+                       link-columns)]
+
+    (doseq [i (range 1 (inc n))
+            :let [r (.getRow sheet i)]
+            :when r]
+      (doseq [[li ui] pairs
+              :let [lc (.getCell r li) uc (.getCell r ui)]
+              :when (and lc uc (= CellType/STRING (.getCellType uc)))
+              :let [v (.getStringCellValue uc)]
+              :when (str/starts-with? v "http")]
+        (doto lc
+          (.setHyperlink (doto (.createHyperlink ch HyperlinkType/URL)
+                           (.setAddress v)))
+          (.setCellStyle link)))
+      (doseq [ci act-cols]
+        (.setCellStyle (or (.getCell r ci) (.createCell r ci)) action)))
+
+    (doseq [ci (range (count hdr))
+            :let [cell (.getCell (.getRow sheet 0) ci)]
+            :when cell]
+      (.setCellStyle cell header))
+    (.createFreezePane sheet 1 1)
+
+    (when-let [si (idx-of "status")]
+      (let [dvh        (XSSFDataValidationHelper. sheet)
+            constraint (.createExplicitListConstraint dvh (into-array String statuses))
+            validation (.createValidation dvh constraint
+                                          (CellRangeAddressList. 1 n si si))]
+        (.setShowErrorBox validation false)
+        (.addValidationData sheet validation)))
+
+    ;; The relation list is well past Excel's 255-char limit for an inline
+    ;; list, so the values go on a hidden sheet and the constraint points there.
+    (when-let [ri (idx-of "ny relation")]
+      (let [ref-sheet  (.createSheet wb "relations")
+            _          (doseq [[i v] (map-indexed vector relations)]
+                         (-> (.createRow ref-sheet i)
+                             (.createCell 0)
+                             (.setCellValue (str v))))
+            _          (.setSheetHidden wb (.getSheetIndex wb "relations") true)
+            dvh        (XSSFDataValidationHelper. sheet)
+            constraint (.createFormulaListConstraint
+                         dvh (str "relations!$A$1:$A$" (count relations)))
+            validation (.createValidation dvh constraint
+                                          (CellRangeAddressList. 1 n ri ri))]
+        (.setShowErrorBox validation false)
+        (.addValidationData sheet validation)))
+
+    (doseq [[i h] (map-indexed vector hdr)]
+      (.setColumnWidth sheet i (* 256 (get column-widths h 18))))))
+
+(defn- write-sheet!
+  "Write `rows` to an .xlsx workbook at `path`, styled for review."
+  [path sheet-name hdr manual rows]
   (io/make-parents path)
-  (with-open [w (io/writer path)]
-    (csv/write-csv w (cons hdr (map (fn [m] (mapv #(get m % "") hdr)) rows)))))
+  (let [data (into [hdr] (map (fn [m] (mapv #(get m % "") hdr))) rows)
+        wb   (xl/create-workbook sheet-name data)
+        sh   (.getSheetAt wb 0)]
+    (style-sheet! sh hdr (count rows) manual)
+    (xl/save-workbook! (str path) wb)))
 
-(def ^:private manual-2d ["retarget candidates" "decision" "retarget to" "comment"])
+(def ^:private editable
+  "Columns the reviewer fills in, highlighted in both files. `forslag` is not
+  among them: it is what the script proposes, not what she decides."
+  ["nyt hypernym" "ny relation" "status" "kommentar"])
+
+(def ^:private carry-2d
+  "Columns merged forward in 2d. Includes `forslag`, whose candidates exist
+  only in the workbook and cannot be recomputed from the graph."
+  (into ["forslag"] editable))
+
+(def ^:private carry-a4
+  "Columns merged forward in a4. Excludes `forslag`, which a4-suggestions
+  recomputes from the group on every run."
+  editable)
 
 (defn- row [idx {:keys [source target]} extra]
-  (merge {"source"     (get-in idx [source :label])
-          "source URI" (uri source)
-          "source PoS" (str/join "+" (sort (map name (get-in idx [source :pos]))))
-          "target"     (get-in idx [target :label])
-          "target URI" (uri target)
-          "target PoS" (str/join "+" (sort (map name (get-in idx [target :pos]))))}
-         extra))
+  (let [pos #(->> (get-in idx [% :pos])
+                  (map (fn [p] (let [n (name p)] (get pos-abbr n n))))
+                  (sort)
+                  (str/join "+"))]
+    (merge {"synset"             (get-in idx [source :label])
+            "synset URI"         (uri source)
+            "nuværende hypernym" (get-in idx [target :label])
+            "hypernym URI"       (uri target)
+            "ordklasser"         (str (pos source) " → " (pos target))}
+           extra)))
 
 (defn- check-counts!
   "Fail loudly if the graph no longer matches the counts the pipeline asserts
@@ -149,7 +366,7 @@
     actual))
 
 (defn regenerate!
-  "Rewrite all three review CSVs from `dataset`, preserving manual columns."
+  "Rewrite both review workbooks from `dataset`, preserving manual columns."
   [dataset]
   (let [g        (db/get-graph dataset prefix/dn-uri)
         idx      (index g)
@@ -157,43 +374,49 @@
         deferred (deferred-crosspos g)
         groups   (partition-pairs idx flagged)
         counts   (check-counts! groups deferred)
+        ;; Blank cells must not wipe a prefill, so only non-blank reviewer
+        ;; values override what the script proposes.
+        carried  (fn [prev p cols]
+                   (into {} (remove (comp str/blank? val))
+                         (select-keys (get prev [(uri (:source p)) (uri (:target p))])
+                                      cols)))
 
-        ;; --- 2d: merge the precomputed retarget columns forward ---
-        prev   (read-csv (:2d files))
+        ;; --- 2d: merge the precomputed candidate columns forward ---
+        prev   (read-sheet (:2d files))
         n-by   (frequencies (map (comp uri :target) (:2d groups)))
         rows2d (->> (:2d groups)
                     (map (fn [p]
-                           (let [k [(uri (:source p)) (uri (:target p))]
-                                 m (get prev k)]
-                             (row idx p (merge (select-keys m manual-2d)
-                                               {"n" (str (n-by (uri (:target p))))})))))
-                    (sort-by (juxt #(- (parse-long (get % "n"))) #(get % "target") #(get % "source"))))
+                           (row idx p (merge (carried prev p carry-2d)
+                                             {"antal i gruppen"
+                                              (n-by (uri (:target p)))}))))
+                    (sort-by (juxt #(- (get % "antal i gruppen"))
+                                   #(get % "nuværende hypernym")
+                                   #(get % "synset"))))
 
         ;; --- 2a: NOT regenerated ---
         ;; Once fix-verb-phrase-pos! has run, the 107 corrected synsets are
         ;; verbs and no longer match the criterion, so the 110-row candidate
-        ;; list cannot be reconstructed from a built database. The CSV is a
-        ;; static record of a decision already applied; check-counts! verifies
-        ;; that the 3 synsets still matching are exactly the excluded ones.
+        ;; list cannot be reconstructed from a built database. The workbook is
+        ;; a static record of a decision already applied; check-counts!
+        ;; verifies that the 3 synsets still matching are exactly the excluded
+        ;; ones.
 
         ;; --- a4: the retained dns:crossPoSHypernym pairs ---
-        prevA4 (read-csv (:a4 files))
+        prevA4 (read-sheet (:a4 files))
         rowsA4 (->> deferred
                     (map (fn [{:keys [target] :as p}]
-                           (let [m (get prevA4 [(uri (:source p)) (uri target)])]
-                             (row idx p {"group"    (get a4-groups target "?")
-                                         "decision" (get m "decision" "")
-                                         "comment"  (get m "comment" "")}))))
-                    (sort-by (juxt #(get % "group") #(get % "target") #(get % "source"))))]
+                           (let [grp (get a4-groups target "?")]
+                             (row idx p (merge (get a4-suggestions grp)
+                                               (carried prevA4 p carry-a4)
+                                               {"gruppe" grp})))))
+                    (sort-by (juxt #(get % "gruppe")
+                                   #(get % "nuværende hypernym")
+                                   #(get % "synset"))))]
 
-    (write-csv! (:2d files)
-                ["target" "target URI" "target PoS" "n" "source" "source URI" "source PoS"
-                 "retarget candidates" "decision" "retarget to" "comment"]
-                rows2d)
-    (write-csv! (:a4 files)
-                ["source" "source URI" "source PoS" "target" "target URI" "target PoS"
-                 "group" "decision" "comment"]
-                rowsA4)
+    (write-sheet! (:2d files) "2d cross-PoS taksonomi" (:2d headers)
+                  (set editable) rows2d)
+    (write-sheet! (:a4 files) "a4 udskudte cross-PoS" (:a4 headers)
+                  (set editable) rowsA4)
     counts))
 
 (comment
