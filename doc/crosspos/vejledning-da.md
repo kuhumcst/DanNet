@@ -27,8 +27,8 @@ LibreOffice. To af dem skal du udfylde.
 De fire kolonner, du skal udfylde, står ved siden af hinanden og har gul
 baggrund: *nyt hypernym*, *ny relation*, *status* og *kommentar*. *status* og
 *ny relation* har rullemenuer. Navnene i *synset* og *nuværende hypernym* er
-klikbare links til wordnet.dk. De to URI-kolonner yderst til højre bruger
-scriptet til at genkende rækkerne; dem skal du ikke røre.
+klikbare links til wordnet.dk. Scriptet bruger de to URI-kolonner yderst til
+højre til at genkende rækkerne. Dem skal du ikke røre.
 
 Et script gendanner filerne fra databasen. Scriptet bevarer alt, du har
 skrevet i de gule kolonner, så dit arbejde ikke går tabt.
@@ -47,46 +47,43 @@ størrelse.
 | *ordklasser* | Uoverensstemmelsen, for eksempel `vb. → sb.`: synsettets ordklasse til venstre, hypernymets til højre. |
 | *nuværende hypernym* | Det hypernym, relationen peger på i dag. Klikbart. |
 | *antal i gruppen* | Hvor mange synsets der peger på det samme hypernym. Filen er sorteret efter dette tal, så de store grupper står først. |
-| *forslag* | Alternativer fundet af scriptet: synsets med samme lemma som hypernymet, men med synsettets ordklasse. Efterse altid forslaget. |
+| *forslag* | Alternativer, scriptet har fundet. Det er synsets med samme lemma som hypernymet, men med synsettets ordklasse. Efterse altid forslaget. |
 | *nyt hypernym* | Indsæt URI'en på det nye hypernym, hvis relationen skal pege et andet sted hen. Er der præcis én oplagt kandidat, står den der på forhånd. Er forslaget forkert, så ret det. |
 | *ny relation* | Vælg en relation i rullemenuen, hvis relationen skal skifte type. Lad den stå tom, hvis den forbliver `wn:hypernym`. |
 | *status* | Vælg en værdi i rullemenuen. Se listen nedenfor. |
 | *kommentar* | Fri tekst til forbehold, tvivl eller begrundelse. |
 
-Klik på navnet i *synset* eller *nuværende hypernym*. Så ser du synsettets
-fulde opslag på wordnet.dk med definition og relationer.
-
 ### Sådan retter du en række
 
 Der er to slags rettelser, og en række kan have brug for begge:
 
-- **Skal relationen pege et andet sted hen?** Indsæt URI'en på det nye synset i
-  *nyt hypernym*. Eksempel: substantiver under adjektivet {sindssyg} flytter
-  til substantivet {sindslidende}.
-- **Skal relationen skifte type?** Vælg relationen i *ny relation*. Vælg
-  `wn:attribute`, når hypernymet er et egenskabssubstantiv og synsettet er et
-  adjektiv, der udtrykker en værdi af det. Det er samme behandling som de
-  omkring 5.400 tilfælde, vi allerede har rettet. Vælg `wn:exemplifies`, når
-  synsettet er et eksempel på en brugsmarkering, for eksempel {helvedes} under
-  {bandeord}.
+- **Hvis relationen skal pege et andet sted hen:** indsæt URI'en på det nye
+  synset i *nyt hypernym*. Eksempel: substantiver under adjektivet {sindssyg}
+  flytter til substantivet {sindslidende}.
+- **Hvis relationen skal skifte type:** vælg relationen i *ny relation*. De to
+  hyppigste er:
+  - `wn:attribute`, når hypernymet er et egenskabssubstantiv og synsettet er et
+    adjektiv, der udtrykker en værdi af det. Det er samme behandling som de
+    omkring 5.400 tilfælde, vi allerede har rettet.
+  - `wn:exemplifies`, når synsettet er et eksempel på en brugsmarkering, for
+    eksempel {helvedes} under {bandeord}.
 
-Du behøver ikke skrive noget i *status*, når du har udfyldt en af de to
-kolonner. At du har skrevet noget dér, betyder i sig selv, at rækken skal
-rettes.
+Lad *status* stå tom, når du har udfyldt en af de to kolonner. En udfyldt
+kolonne betyder i sig selv, at rækken skal rettes.
 
 ### Værdier i *status*
 
-Brug *status* til de rækker, hvor der ikke skal rettes noget:
+Brug *status* til de rækker, hvor du ikke retter noget:
 
 - **ordklassefejl**: relationen er korrekt, men ordklassen på synsettet eller på
   hypernymet er forkert. Det er typisk en verbalfrase mærket som substantiv.
-  Ordklassen rettes, og relationen består. Skriv i *kommentar*, hvilket ord det
-  gælder.
+  Vi retter ordklassen og beholder relationen. Skriv i *kommentar*, hvilket ord
+  det gælder.
 - **slettes**: relationen er forkert, og der findes ingen brugbar erstatning.
   Det er typisk pertainym-agtige eller participium-agtige forbindelser.
   Synsettet mister som regel sit eneste hypernym. Brug kun **slettes**, når
   hverken et nyt hypernym eller en anden relationstype giver mening.
-- **beholdes**: relationen består uændret. Undtagelsen er dermed bekræftet.
+- **beholdes**: relationen består uændret. Du bekræfter dermed undtagelsen.
 - **i tvivl**: du har set på rækken, men kan ikke afgøre den. Skriv hvorfor i
   *kommentar*.
 
@@ -105,7 +102,7 @@ Filen indeholder 104 par. Et script omsatte dem tidligere til
 nu en beslutning. De står stadig som `dns:crossPoSHypernym` i datasættet.
 
 Kolonnen *gruppe* deler parrene i fire mønstre. Hvert mønster kræver sin egen
-behandling, og kolonnen *forslag* viser den på forhånd.
+behandling, og kolonnen *forslag* viser behandlingen på forhånd.
 
 | gruppe | par | eksempel | forslag |
 |---|---|---|---|
@@ -115,7 +112,7 @@ behandling, og kolonnen *forslag* viser den på forhånd.
 | fast udtryk | 3 | {en lille sort} → {kaffe} | ordklassefejl |
 
 Kolonnerne er de samme som ovenfor. *forslag* er scriptets bud, ikke en
-afgørelse: du skal stadig selv skrive i *status* eller *ny relation*.
+afgørelse. Du skal stadig selv skrive i *status* eller *ny relation*.
 
 For de 26 rækker i **brugsmarkering** er `wn:exemplifies` allerede sat i *ny
 relation*. Bekræft den, eller ret den.
@@ -139,13 +136,13 @@ fordi de ikke er verbalfraser:
   idiom
 - {skåret (bygget, ..) over samme læst}: participial eller adjektivisk
 
-De to første ligner selv fejlagtige synsets. De skal ses efter uafhængigt af
-dette arbejde.
+De to første ligner selv fejlagtige synsets. Vi ser dem efter i et andet
+forløb.
 
 ## Hvad sker der bagefter?
 
 Hver udfyldt række bliver til en automatisk rettelse i næste DanNet-udgivelse.
 Det er samme fremgangsmåde som for de omkring 5.600 relationer, vi allerede har
-behandlet. *status* og *ny relation* må derfor kun indeholde værdier fra
-rullemenuerne. *nyt hypernym* skal indeholde en gyldig URI. Du kan kopiere
-URI'en fra browserens adresselinje på wordnet.dk.
+behandlet. Skriv derfor kun værdier fra rullemenuerne i *status* og *ny
+relation*. Skriv en gyldig URI i *nyt hypernym*. Du kan kopiere URI'en fra
+browserens adresselinje på wordnet.dk.
