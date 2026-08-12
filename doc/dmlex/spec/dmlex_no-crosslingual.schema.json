@@ -1,0 +1,796 @@
+{
+  "$id": "http://docs.oasis-open.org/lexidma/ns/dmlex-1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DMLex",
+  "description": "DMLex JSON serialization. This variant of the schema is for documents *not* implementing the Crosslingual Module (but possibly implementing some other modules).",
+  "$comment": "This schema can only establish uniqueness for arrays in which the item is the key, i.e. labels, partsOfSpeech, and sameAs. Uniqueness of IDs and validity of ID references cannot be checked at all.",
+  "type": "object",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/lexicographicResource"
+    },
+    {
+      "$ref": "#/$defs/entry"
+    }
+  ],
+  "$defs": {
+    "lexicographicResource": {
+      "type": "object",
+      "required": ["langCode"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "langCode": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        },
+        "definitionTypeTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/definitionTypeTag"
+          }
+        },
+        "inflectedFormTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inflectedFormTag"
+          }
+        },
+        "labelTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/labelTag"
+          }
+        },
+        "labelTypeTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/labelTypeTag"
+          }
+        },
+        "partOfSpeechTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/partOfSpeechTag"
+          }
+        },
+        "sourceIdentityTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceIdentityTag"
+          }
+        },
+        "transcriptionSchemeTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transcriptionSchemeTag"
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relation"
+          }
+        },
+        "relationTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationType"
+          }
+        },
+        "etymonLanguages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/etymonLanguage"
+          }
+        },
+        "etymonTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/etymonType"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "entry": {
+      "type": "object",
+      "required": ["headword"],
+      "properties": {
+        "headword": {
+          "type": "string",
+          "minLength": 1
+        },
+        "homographNumber": {
+          "type": "string"
+        },
+        "partsOfSpeech": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/partOfSpeech"
+          },
+          "uniqueItems": true
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          },
+          "uniqueItems": true
+        },
+        "pronunciations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pronunciation"
+          }
+        },
+        "inflectedForms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inflectedForm"
+          }
+        },
+        "senses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sense"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "placeholderMarkers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/placeholderMarker"
+          }
+        },
+        "etymologies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/etymology"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inflectedForm": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          },
+          "uniqueItems": true
+        },
+        "pronunciations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pronunciation"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "sense": {
+      "type": "object",
+      "properties": {
+        "indicator": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          },
+          "uniqueItems": true
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/definition"
+          }
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          }
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "definition": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "definitionType": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headwordMarkers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/headwordMarker"
+          }
+        },
+        "collocateMarkers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/collocateMarker"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pronunciation": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["soundFile"]
+        },
+        {
+          "required": ["transcriptions"],
+          "properties": {
+            "transcriptions": {
+              "minItems": 1
+            }
+          }
+        }
+      ],
+      "properties": {
+        "soundFile": {
+          "type": "string"
+        },
+        "transcriptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transcription"
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "transcription": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "scheme": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "example": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "sourceIdentity": {
+          "type": "string"
+        },
+        "sourceElaboration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "soundFile": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+          },
+          "uniqueItems": true
+        },
+        "headwordMarkers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/headwordMarker"
+          }
+        },
+        "collocateMarkers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/collocateMarker"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "partOfSpeechTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "for": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "inflectedFormTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "for": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "definitionTypeTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "labelTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "typeTag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "for": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "labelTypeTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceIdentityTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "transcriptionSchemeTag": {
+      "type": "object",
+      "required": ["tag"],
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "for": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "relation": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/member"
+          },
+          "minItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "member": {
+      "type": "object",
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "obverseListingOrder": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "relationType": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scopeRestriction": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["sameEntry", "sameResource", "any"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "memberTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/memberType"
+          }
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "memberType": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["sense", "entry", "collocate"]
+        },
+        "min": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hint": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["embed", "navigate", "none"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "placeholderMarker": {
+      "type": "object",
+      "required": ["startIndex", "endIndex"],
+      "properties": {
+        "startIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "headwordMarker": {
+      "type": "object",
+      "required": ["startIndex", "endIndex"],
+      "properties": {
+        "startIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "collocateMarker": {
+      "type": "object",
+      "required": ["startIndex", "endIndex"],
+      "properties": {
+        "startIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lemma": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/label"
+           },
+          "uniqueItems": true
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "etymology": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "etymons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/etymon"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "etymon": {
+      "type": "object",
+      "required": ["etymonUnits"],
+      "properties": {
+        "when": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "etymonUnits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/etymonUnit"
+          },
+          "minItems": 1
+        }      },
+      "additionalProperties": false
+    },
+    "etymonUnit": {
+      "type": "object",
+      "required": ["langCode", "text"],
+      "properties": {
+        "langCode": {
+          "type": "string"
+        },
+        "reconstructed": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "partsOfSpeech": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/partOfSpeech"
+          },
+          "uniqueItems": true
+        },
+        "translation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "etymonType": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "etymonLanguage": {
+      "type": "object",
+      "required": ["langCode"],
+      "properties": {
+        "langCode": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "sameAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sameAs"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "partOfSpeech": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sameAs": {
+      "type": "string"
+    }
+  }
+}
+

@@ -1,0 +1,683 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This variant of the schema is for documents implementing the Crosslingual Module (and possibly some other modules). -->
+<!--
+Shortcomings of the proposed XML Schema:
+
+XML Schema apparently does not allow for an arbitrary global (root) element, cf. https://stackoverflow.com/questions/26003982/xml-schema-that-allows-anything-xsdany
+This prevents the proposed schema from correctly implementing a part of chapter 5.1 of the specification: "a valid DMLex XML document is […] one with an arbitrary document element other than lexicographicResource or entry containing a concatenation of one (and only one) of these two element types". Instead, the current schema enforces such an element to be called verbatim "root" (or any other name explicitly that is explicitely defined in the schema).
+
+The proposed schema covers all the optional modules. Within the structure of <lexicographicResource>, child elements are grouped into <sequence>s to hint at their belonging to individual modules, but there is currently no way to enforce from the document or from the outside that a particular module is implemented.
+
+It is not sure if uniqueness checks will always work as expected for optional elements – exact behavior may depend on the validator.
+Better support could probably be achieved by turning <unique> into <assert> even if it makes the code less readable: see https://stackoverflow.com/a/20520572
+
+Uniqueness cannot be based on properties that are allowed to appear more than once (XML Schema specification says that "Each XPath expression in the {fields} property must identify a single node").
+In the current schema, such uniqueness constraints (there are 6 of them) are commented out and therefore inactive.
+It might be possible to re-write them as <assert>s using concatenation of values for all elements of the same name, cf. https://forums.parasoft.com/discussion/5575/using-concat-in-xpath-to-node-that-occurs-more-than-once
+-->
+<xs:schema version="1.0" xml:lang="en"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning"
+    vc:minVersion="1.1"
+    targetNamespace="http://docs.oasis-open.org/lexidma/ns/dmlex-1.0"
+    xpathDefaultNamespace="http://docs.oasis-open.org/lexidma/ns/dmlex-1.0"
+    xmlns="http://docs.oasis-open.org/lexidma/ns/dmlex-1.0"
+    xmlns:xml="http://www.w3.org/XML/1998/namespace"
+    elementFormDefault="qualified">
+
+  <xs:simpleType name="nonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="root" type="rootType">
+    <xs:unique ref="entryUnique"/>
+  </xs:element>
+
+  <xs:complexType name="rootType">
+    <xs:choice>
+      <xs:element ref="lexicographicResource" maxOccurs="unbounded"/>    
+      <xs:element ref="entry" maxOccurs="unbounded"/>    
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:element name="lexicographicResource" type="lexicographicResourceType">
+    <xs:unique name="entryUnique">
+      <xs:selector xpath="entry"/>
+      <xs:field xpath="headword"/>
+      <xs:field xpath="@homographNumber"/>
+      <xs:field xpath="partOfSpeech/@tag"/>
+    </xs:unique>
+    <xs:unique name="translationLanguageUnique">
+      <xs:selector xpath="translationLanguage"/>
+      <xs:field xpath="@langCode"/>
+    </xs:unique>
+    <xs:unique name="definitionTypeTagUnique">
+      <xs:selector xpath="definitionTypeTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="inflectedFormTagUnique">
+      <xs:selector xpath="inflectedFormTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="labelTagUnique">
+      <xs:selector xpath="labelTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="labelTypeTagUnique">
+      <xs:selector xpath="labelTypeTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="partOfSpeechTagUnique">
+      <xs:selector xpath="partOfSpeechTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="sourceIdentityTagUnique">
+      <xs:selector xpath="sourceIdentityTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="transcriptionSchemeTagUnique">
+      <xs:selector xpath="transcriptionSchemeTag"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="relationTypeUnique">
+      <xs:selector xpath="relationType"/>
+      <xs:field xpath="@type"/>
+    </xs:unique>
+    <xs:unique name="etymonTypeUnique">
+      <xs:selector xpath="etymonType"/>
+      <xs:field xpath="@type"/>
+    </xs:unique>
+    <xs:unique name="entryOrSenseOrCollocateMarkerKey">
+      <xs:selector xpath=".//entry | .//sense | .//collocateMarker"/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+    <xs:keyref name="memberRef" refer="entryOrSenseOrCollocateMarkerKey">
+      <xs:selector xpath=".//member"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+  
+  <xs:complexType name="lexicographicResourceType">
+    <xs:sequence>
+      <xs:element name="entry" minOccurs="0" maxOccurs="unbounded" type="entryType">
+        <!-- the following uniqueness checks have been copied from the global entry element: -->
+        <xs:unique ref="partOfSpeechUnique"/>
+        <xs:unique ref="inflectedFormUnique"/>
+        <xs:unique ref="senseUniqueByIndicator"/>
+        <xs:unique ref="labelUnique"/>
+        <xs:unique ref="pronunciationUniqueBySoundFile"/>
+      </xs:element>
+      <xs:sequence>
+        <xs:element ref="translationLanguage" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence minOccurs="0">
+        <xs:element ref="definitionTypeTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="inflectedFormTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="labelTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="labelTypeTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="partOfSpeechTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="sourceIdentityTag" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="transcriptionSchemeTag" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence minOccurs="0">
+        <xs:element ref="relation" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="relationType" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence minOccurs="0">
+        <xs:element ref="etymonLanguage" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="etymonType" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:sequence>
+    <xs:attribute name="title" use="optional" type="nonEmptyString"/>
+    <xs:attribute name="uri" use="optional" type="xs:anyURI"/>
+    <xs:attribute name="langCode" use="required" type="xs:language"/>
+    <!-- @langCode is required as long as there is not exactly one translationLanguage -->
+    <xs:assert test="count(translationLanguage)=1 or (count(.//headwordTranslation[not(@langCode)])=0 and count(.//headwordExplanation[not(@langCode)])=0 and count(.//exampleTranslation[not(@langCode)])=0)"/>
+  </xs:complexType>
+
+  <xs:element name="entry" type="entryTypeRequiredLangCode">
+    <!-- @langCode is required when there is no lexicographicResource above entry -->
+    <xs:unique name="partOfSpeechUnique">
+      <xs:selector xpath="partOfSpeech"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="inflectedFormUnique">
+      <xs:selector xpath="inflectedForm"/>
+      <xs:field xpath="text"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="senseUniqueByIndicator">
+      <xs:selector xpath="sense"/>
+      <xs:field xpath="indicator"/>
+    </xs:unique>
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique name="senseUniqueByDefinition">
+      <xs:selector xpath="sense"/>
+      <xs:field xpath="definition"/>
+    </xs:unique>
+    -->
+    <xs:unique name="labelUnique">
+      <xs:selector xpath="label"/>
+      <xs:field xpath="@tag"/>
+    </xs:unique>
+    <xs:unique name="pronunciationUniqueBySoundFile">
+      <xs:selector xpath="pronunciation"/>
+      <xs:field xpath="@soundFile"/>
+    </xs:unique>
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique name="pronunciationUniqueByTranscription">
+      <xs:selector xpath="pronunciation"/>
+      <xs:field xpath="transcription"/>
+    </xs:unique>
+    -->
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique name="etymologyUnique">
+      <xs:selector xpath="etymology"/>
+      <xs:field xpath="description"/>
+    </xs:unique>
+    -->
+  </xs:element>
+  
+  <xs:complexType name="entryType">
+    <xs:sequence>
+      <xs:sequence>
+        <xs:element name="headword">
+          <xs:complexType mixed="true">
+            <xs:sequence>
+              <xs:element ref="placeholderMarker" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element ref="partOfSpeech" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="pronunciation" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="inflectedForm" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="sense" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence minOccurs="0">
+        <xs:element ref="etymology" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:sequence>
+    <xs:attribute name="homographNumber" use="optional" type="xs:integer"/>
+    <xs:attribute name="id" use="optional" type="xs:string"/>
+    <xs:assert test="string-length(headword)>0"/>
+  </xs:complexType>
+
+  <xs:complexType name="entryTypeRequiredLangCode">
+    <xs:complexContent>
+      <xs:extension base="entryType">
+        <xs:assert test="count(.//headwordTranslation[not(@langCode)])=0 and count(.//headwordExplanation[not(@langCode)])=0 and count(.//exampleTranslation[not(@langCode)])=0"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="partOfSpeech" type="partOfSpeechType">
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+
+  <xs:complexType name="partOfSpeechType">
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="inflectedForm" type="inflectedFormType">
+    <xs:unique ref="labelUnique"/>
+    <xs:unique ref="pronunciationUniqueBySoundFile"/>
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique ref="pronunciationUniqueByTranscription"/>
+    -->
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+
+  <xs:complexType name="inflectedFormType">
+    <xs:sequence>
+      <xs:element name="text" type="nonEmptyString"/>
+      <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="pronunciation" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="optional" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="sense" type="senseType">
+    <xs:unique name="definitionUnique">
+      <xs:selector xpath="definition"/>
+      <xs:field xpath="text"/>
+    </xs:unique>
+    <xs:unique ref="labelUnique"/>
+    <xs:unique name="exampleUnique">
+      <xs:selector xpath="example"/>
+      <xs:field xpath="text"/>
+    </xs:unique>
+    <xs:unique name="headwordTranslationUnique">
+      <xs:selector xpath="headwordTranslation"/>
+      <xs:field xpath="text"/>
+      <xs:field xpath="@langCode"/>
+    </xs:unique>
+    <xs:unique name="headwordExplanationUnique">
+      <xs:selector xpath="headwordExplanation"/>
+      <xs:field xpath="text"/>
+      <xs:field xpath="@langCode"/>
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="senseType">
+    <xs:sequence>
+      <xs:sequence>
+        <xs:element name="indicator" minOccurs="0" maxOccurs="unbounded" type="xs:string"/>
+        <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="definition" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="example" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence minOccurs="0">
+        <xs:element ref="headwordExplanation" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="headwordTranslation" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:sequence>
+    <xs:attribute name="id" use="optional" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:element name="definition" type="definitionType"/>
+
+  <xs:complexType name="definitionType" mixed="true">
+    <xs:sequence>
+      <xs:element name="text">
+        <xs:complexType mixed="true">
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="headwordMarker"/>
+            <xs:element ref="collocateMarker"/>
+          </xs:choice>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="definitionType" use="optional" type="xs:string"/>
+    <xs:assert test="string-length(text)>0"/>
+  </xs:complexType>
+
+  <xs:element name="label" type="labelType"/>
+
+  <xs:complexType name="labelType">
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="pronunciation" type="pronunciationType">
+    <xs:unique ref="labelUnique"/>
+    <xs:unique name="transcriptionUnique">
+      <xs:selector xpath="transcription"/>
+      <xs:field xpath="text"/>
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="pronunciationType">
+    <xs:sequence>
+      <xs:element ref="transcription" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="soundFile" use="optional" type="xs:string"/>
+    <xs:assert test="transcription or @soundFile"/>
+  </xs:complexType>
+
+  <xs:element name="transcription" type="transcriptionType"/>
+
+  <xs:complexType name="transcriptionType">
+    <xs:sequence>
+      <xs:element name="text" type="nonEmptyString"/>
+    </xs:sequence>
+    <xs:attribute name="scheme" use="optional" type="xs:language"/>
+  </xs:complexType>
+
+  <xs:element name="example" type="exampleType">
+    <xs:unique ref="labelUnique"/>
+    <xs:unique name="exampleTranslationUnique">
+      <xs:selector xpath="exampleTranslation"/>
+      <xs:field xpath="text"/>
+      <xs:field xpath="@langCode"/>
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="exampleType">
+    <xs:sequence>
+      <xs:sequence>
+        <xs:element name="text">
+          <xs:complexType mixed="true">
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:element ref="headwordMarker"/>
+              <xs:element ref="collocateMarker"/>
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+        <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:sequence>
+        <xs:element ref="exampleTranslation" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:sequence>
+    <xs:attribute name="sourceIdentity" use="optional" type="xs:string"/>
+    <xs:attribute name="sourceElaboration" use="optional" type="nonEmptyString"/>
+    <xs:attribute name="soundFile" use="optional" type="xs:string"/>
+    <xs:assert test="string-length(text)>0"/>
+  </xs:complexType>
+
+  <xs:element name="translationLanguage" type="translationLanguageType"/>
+  
+  <xs:complexType name="translationLanguageType">
+    <xs:attribute name="langCode" use="required" type="xs:language"/>
+  </xs:complexType>
+
+  <xs:element name="headwordTranslation" type="headwordTranslationType">
+    <xs:unique ref="partOfSpeechUnique"/>
+    <xs:unique ref="inflectedFormUnique"/>
+    <xs:unique ref="labelUnique"/>
+    <xs:unique ref="pronunciationUniqueBySoundFile"/>
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique ref="pronunciationUniqueByTranscription"/>
+    -->
+  </xs:element>
+
+  <xs:complexType name="headwordTranslationType">
+    <xs:sequence>
+      <xs:element name="text">
+        <xs:complexType mixed="true">
+          <xs:sequence>
+            <xs:element ref="placeholderMarker" minOccurs="0" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element ref="partOfSpeech" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="pronunciation" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="inflectedForm" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="langCode" use="optional" type="xs:language"/>
+    <xs:assert test="string-length(text)>0"/>
+  </xs:complexType>
+
+  <xs:element name="headwordExplanation" type="headwordExplanationType"/>
+
+  <xs:complexType name="headwordExplanationType">
+    <xs:sequence>
+      <xs:element name="text" type="nonEmptyString"/>
+    </xs:sequence>
+    <xs:attribute name="langCode" use="optional" type="xs:language"/>
+  </xs:complexType>
+
+  <xs:element name="exampleTranslation" type="exampleTranslationType">
+    <xs:unique ref="labelUnique"/>
+  </xs:element>
+
+  <xs:complexType name="exampleTranslationType">
+    <xs:sequence>
+      <xs:element name="text">
+        <xs:complexType mixed="true">
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="headwordMarker"/>
+            <xs:element ref="collocateMarker"/>
+          </xs:choice>
+        </xs:complexType>
+      </xs:element>
+      <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="langCode" use="optional" type="xs:language"/>
+    <xs:attribute name="soundFile" use="optional" type="xs:string"/>
+    <xs:assert test="string-length(text)>0"/>
+  </xs:complexType>
+
+  <xs:element name="partOfSpeechTag" type="partOfSpeechTagType"/>
+
+  <xs:complexType name="partOfSpeechTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="xs:string"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+    <xs:attribute name="for" use="optional" type="nonEmptyString"/>
+    <xs:assert test="string-length(description)>0"/>
+  </xs:complexType>
+
+  <xs:element name="inflectedFormTag" type="inflectedFormTagType"/>
+
+  <xs:complexType name="inflectedFormTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+    <xs:attribute name="for" use="optional" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="definitionTypeTag" type="definitionTypeTagType">
+    <xs:unique name="sameAsUnique">
+      <xs:selector xpath="sameAs"/>
+      <xs:field xpath="@uri"/>
+    </xs:unique>
+  </xs:element>
+  
+  <xs:complexType name="definitionTypeTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+  
+  <xs:element name="labelTag" type="labelTagType">
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+  
+  <xs:complexType name="labelTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+    <xs:attribute name="typeTag" use="optional" type="nonEmptyString"/>
+    <xs:attribute name="for" use="optional" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="labelTypeTag" type="labelTypeTagType">
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+  
+  <xs:complexType name="labelTypeTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="sourceIdentityTag" type="sourceIdentityTagType">
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+
+  <xs:complexType name="sourceIdentityTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="transcriptionSchemeTag" type="transcriptionSchemeTagType"/>
+
+  <xs:complexType name="transcriptionSchemeTagType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+    </xs:sequence>
+    <xs:attribute name="tag" use="required" type="xs:language"/>
+    <xs:attribute name="for" use="optional" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="sameAs" type="sameAsType"/>
+
+  <xs:complexType name="sameAsType">
+    <xs:attribute name="uri" use="required" type="xs:anyURI"/>
+  </xs:complexType>
+
+  <xs:element name="relation" type="relationType">
+    <xs:unique name="memberUnique">
+      <xs:selector xpath="member"/>
+      <xs:field xpath="@ref"/>
+      <xs:field xpath="@role"/>
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="relationType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="member" minOccurs="2" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="type" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="member" type="memberType"/>
+
+  <xs:complexType name="memberType">
+    <xs:attribute name="ref" use="required" type="xs:string"/>
+    <xs:attribute name="role" use="optional" type="nonEmptyString"/>
+    <xs:attribute name="obverseListingOrder" use="optional" type="xs:integer"/>
+  </xs:complexType>
+
+  <xs:element name="relationType" type="relationTypeType">
+    <xs:unique ref="sameAsUnique"/>
+    <xs:unique name="memberTypeUnique">
+      <xs:selector xpath="memberType"/>
+      <xs:field xpath="@role"/>
+      <xs:field xpath="@type"/>
+    </xs:unique>
+  </xs:element>
+  
+  <xs:complexType name="relationTypeType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="memberType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="type" use="required" type="nonEmptyString"/>
+    <xs:attribute name="scopeRestriction" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="nonEmptyString">
+          <xs:enumeration value="sameEntry"/>
+          <xs:enumeration value="sameResource"/>
+          <xs:enumeration value="any"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="memberType" type="memberTypeType">
+    <xs:unique ref="sameAsUnique"/>
+  </xs:element>
+  
+  <xs:complexType name="memberTypeType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="role" use="optional" type="xs:string"/>
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="nonEmptyString">
+          <xs:enumeration value="sense"/>
+          <xs:enumeration value="entry"/>
+          <xs:enumeration value="collocate"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="min" use="optional" type="xs:integer"/>
+    <xs:attribute name="max" use="optional" type="xs:integer"/>
+    <xs:attribute name="hint" use="optional">
+      <xs:simpleType>
+        <xs:restriction base="nonEmptyString">
+          <xs:enumeration value="embed"/>
+          <xs:enumeration value="navigate"/>
+          <xs:enumeration value="none"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="placeholderMarker" type="xs:string"/>
+
+  <xs:element name="headwordMarker" type="xs:string"/>
+
+  <xs:element name="collocateMarker" type="collocateMarkerType">
+    <xs:unique ref="labelUnique"/>
+  </xs:element>
+
+  <xs:complexType name="collocateMarkerType" mixed="true">
+    <xs:sequence>
+      <xs:element ref="label" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="lemma" use="optional" type="nonEmptyString"/>
+    <xs:attribute name="id" use="optional" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:element name="etymology" type="etymologyType">
+    <!-- impossible to establish uniqueness by properties that can occur more than once:
+    <xs:unique name="etymonUnique">
+      <xs:selector xpath="etymon"/>
+      <xs:field xpath="@when"/>
+      <xs:field xpath="etymonUnit"/>
+    </xs:unique>
+    -->
+  </xs:element>
+
+  <xs:complexType name="etymologyType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="xs:string"/>
+      <xs:element ref="etymon" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="etymon" type="etymonType">
+    <xs:unique name="etymonUnitUnique">
+      <xs:selector xpath="etymonUnit"/>
+      <xs:field xpath="@langCode"/>
+      <xs:field xpath="text"/>
+    </xs:unique>
+  </xs:element>
+
+  <xs:complexType name="etymonType">
+    <xs:sequence>
+      <xs:element name="note" minOccurs="0" type="xs:string"/>
+      <xs:element ref="etymonUnit" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="when" use="optional" type="xs:string"/>
+    <xs:attribute name="type" use="optional" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:element name="etymonUnit" type="etymonUnitType">
+    <xs:unique ref="partOfSpeechUnique"/>
+  </xs:element>
+
+  <xs:complexType name="etymonUnitType">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string"/>
+      <xs:element ref="partOfSpeech" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="translation" minOccurs="0" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="langCode" use="required" type="xs:language"/>
+    <xs:attribute name="reconstructed" use="optional" type="xs:boolean"/>
+  </xs:complexType>
+
+  <xs:element name="etymonType" type="etymonTypeType"/>
+
+  <xs:complexType name="etymonTypeType">
+    <xs:sequence>
+      <xs:element name="description" minOccurs="0" type="nonEmptyString"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="type" use="required" type="nonEmptyString"/>
+  </xs:complexType>
+
+  <xs:element name="etymonLanguage" type="etymonLanguageType"/>
+
+  <xs:complexType name="etymonLanguageType">
+    <xs:sequence>
+      <xs:element name="displayName" minOccurs="0" type="xs:string"/>
+      <xs:element ref="sameAs" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="langCode" use="required" type="xs:language"/>
+  </xs:complexType>
+</xs:schema>
