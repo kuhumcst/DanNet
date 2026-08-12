@@ -1,7 +1,7 @@
 (ns dk.cst.dannet.chainnet
   "Build a ChainNet annotation layer on top of DanNet.
 
-  Provides tooling to match metaphorical senses from the METALLM input
+  Provides tooling to match metaphorical senses from the DAMETA input
   spreadsheet against DanNet sense data, producing lemma groups for
   annotation in a flat one-row-per-sense output format."
   (:require [clojure.java.io :as io]
@@ -15,33 +15,31 @@
            [org.apache.poi.ss.util CellRangeAddressList]
            [org.apache.poi.xssf.usermodel XSSFDataValidationHelper]))
 
-;; Matching overview (SN-DDO sheet: 1068 rows, 1007 distinct lemmas)
-;; ------------------------------------------------------------------
-;; Matched    338 (31.6%) — DDO ref maps directly to a DanNet sense
-;; Unmatched  353 (33.1%) — lemma in DanNet, but target sense missing
-;; No senses  377 (35.3%) — lemma not in DanNet at all
-;;   (of which 34 are recoverable by stripping trailing homograph digits
-;;    and ~5 are multi-word expressions)
+(def dameta-file
+  "bootstrap/other/chainnet/DAMETA Nyt ark.xlsx")
 
-(defn truncate-title
-  "Truncate title `s` to the maximum allowed 31 chars in Excel."
-  [s]
-  (subs s 0 (min (count s) 31)))
+(def dameta-columns
+  {:A :id
+   :B :lemma
+   :C :sentence
+   :E :exp1
+   :H :exp4
+   :K :entry
+   :M :annotator})
 
-(def sheets
-  (update-vals
-    {:NS        "NS DaFig Korpusdata"
-     :SN-DDO    "SN Metaforer DDO emnebaseret"
-     :SN-adhoc  "SN ad hoc-metaf. fra ofø-citater i DDO (mest type2"
-     :BSP       "BSP adhoc-metaforer fra Politikens anmeldelser"
-     :SO        "SO Unikke danske metaforer fra NODALIDA-data og korpus.dk"
-     :statistik "statistik"}
-    truncate-title))
+(def old-export-dir
+  "The ChainNet spreadsheets exported from the earlier, faulty input data."
+  "doc/chainnet/old")
 
-(def SN-columns
-  {:A :lemma
-   :D :entry
-   :F :sentence})
+(defn selected?
+  "Is this DAMETA `row` part of the usable selection? Rows with no annotator,
+  rows marked kasseret, and rows missing exp1 or exp4 are all excluded."
+  [{:keys [annotator exp1 exp4]}]
+  (let [annotator (str/trim (str annotator))]
+    (and (not (str/blank? annotator))
+         (not= "kasseret" (str/lower-case annotator))
+         (not (str/blank? (str exp1)))
+         (not (str/blank? (str exp4))))))
 
 ;; DDO entry values come in mixed formats across sheets: "1.a", "1a", "1A",
 ;; "1.a.", 2.0, and free text like "ordet mangler" or "Ikke i DDO".
@@ -54,24 +52,64 @@
                       (when (re-matches #"\d+[a-z.]*" s) s))
     :else           nil))
 
-(defn load-sheet
-  [id columns]
-  (->> (io/file "bootstrap/other/chainnet/Danish_metaphor_benchmark.xlsx")
+(defn merge-lemma-rows
+  "Reduce the DAMETA `rows` of a single lemma to one row per DDO entry. Rows
+  sharing an entry collapse into the one with an example sentence, and rows
+  without an entry fold into the surviving entry when only one survives. Every
+  source identifier is kept in :id so annotations can be traced back to DAMETA."
+  [rows]
+  (let [entryless (remove :entry rows)
+        by-entry  (or (not-empty (group-by :entry (filter :entry rows)))
+                      {nil entryless})
+        folded    (when (= 1 (count by-entry))
+                    (map :id entryless))]
+    (for [[_ same] (sort-by (comp str key) by-entry)
+          :let [sentenced (remove #(str/blank? (str (:sentence %))) same)]]
+      (assoc (or (first sentenced) (first same))
+        :id (str/join "+" (distinct (concat (map :id same) folded)))))))
+
+(defn annotated-lemmas
+  "Lemmas from the previously exported ChainNet spreadsheets in `dir` whose
+  groups were fully resolved, i.e. the green category an annotator has already
+  worked through. These are kept in the new export even when the DAMETA
+  selection excludes them."
+  [dir]
+  (->> (.listFiles (io/file dir))
+       (filter #(str/ends-with? (.getName %) ".xlsx"))
+       (mapcat (fn [f]
+                 (->> (xl/load-workbook-from-file f)
+                      (xl/sheet-seq)
+                      (first)
+                      (xl/select-columns {:A :lemma :C :sense-id :D :derived-from})
+                      (rest)
+                      (group-by :lemma)
+                      (keep (fn [[lemma rows]]
+                              (when (and (every? #(str/starts-with? (str (:sense-id %)) "http") rows)
+                                         (every? :derived-from rows))
+                                lemma))))))
+       (set)))
+
+(defn load-dameta
+  "Load the DAMETA input rows, keeping the selection plus every lemma in
+  `rescued`. Rows are grouped by lemma and reduced to one row per DDO entry;
+  a lemma that survives only by rescue is marked :selected? false."
+  [rescued]
+  (->> (io/file dameta-file)
        (xl/load-workbook-from-file)
-       (xl/select-sheet (get sheets id))
-       (xl/select-columns columns)
+       (xl/select-sheet "Data")
+       (xl/select-columns dameta-columns)
        (rest)
-       (map #(update % :entry normalize-entry))
-       ;; Deduplicate by lemma, preferring rows with a sentence
-       (reduce (fn [acc {:keys [lemma] :as row}]
-                 (let [existing (get acc lemma)]
-                   (if (or (nil? existing)
-                           (and (nil? (:sentence existing))
-                                (some? (:sentence row))))
-                     (assoc acc lemma row)
-                     acc)))
-               {})
-       (vals)))
+       (remove #(str/blank? (str (:lemma %))))
+       (map #(assoc % :lemma (str/trim (str (:lemma %)))
+               :entry (normalize-entry (:entry %))
+               :selected? (selected? %)))
+       (group-by :lemma)
+       (sort-by key)
+       (mapcat (fn [[lemma rows]]
+                 (let [in? (boolean (some :selected? rows))]
+                   (when (or in? (rescued lemma))
+                     (map #(assoc % :selected? in?)
+                          (merge-lemma-rows (if in? (filter :selected? rows) rows)))))))))
 
 ;; DDO references use dot notation (1.a, 1.b) while DanNet labels use
 ;; § notation (§1a, §1b). These functions convert between the two and
@@ -148,14 +186,22 @@
                         acc))))))]
     (update-vals (group-by :lemma raw) dedup-senses)))
 
+(defn lemma-senses
+  "The DanNet senses of `lemma` in `senses-by-lemma`, falling back to a
+  lower-case lookup since the odd DAMETA lemma is capitalised."
+  [senses-by-lemma lemma]
+  (or (get senses-by-lemma lemma)
+      (get senses-by-lemma (str/lower-case lemma))))
+
 ;; Root rows are marked with "-" in derived-from, qualia-role, and relation
 ;; since those fields only apply to the metaphor sense. Virtual sense IDs
 ;; (unknown_root, unknown_metaphor, unknown_sense) mark senses that don't
 ;; exist in DanNet yet.
 (defn make-output-row
-  [lemma sense-id description example derived-from task]
+  [{:keys [lemma id selected?]} sense-id description example derived-from task]
   (let [root? (= derived-from "-")]
     {:lemma        lemma
+     :id           id
      :sense-id     sense-id
      :derived-from derived-from
      :task         task
@@ -164,7 +210,8 @@
      :annotator    nil
      :qualia-role  (when root? "-")
      :relation     (when root? "-")
-     :comment      nil}))
+     :comment      nil
+     :in-selection selected?}))
 
 (defn generate-rows
   "Generate output rows for a single spreadsheet `row` and `senses-by-lemma`.
@@ -173,8 +220,8 @@
   sense IDs (unknown_root, unknown_metaphor, unknown_sense) are used when
   a sense doesn't exist in DanNet. The :derived-from field is pre-filled
   when the relationship is known, and :task explains provenance."
-  [{:keys [lemma entry sentence]} senses-by-lemma]
-  (let [senses    (dedup-senses (get senses-by-lemma (str lemma)))
+  [{:keys [lemma entry sentence] :as row} senses-by-lemma]
+  (let [senses    (dedup-senses (lemma-senses senses-by-lemma (str lemma)))
         suffix    (ddo-entry->suffix entry)
         p-suffix  (parent-suffix suffix)
         by-suffix (fn [s] (label->suffix (:label s)))
@@ -185,19 +232,19 @@
     (cond
       ;; lemma not in DanNet at all.
       (empty? senses)
-      [(make-output-row lemma "unknown_root" nil nil "-" "not in DanNet")
-       (make-output-row lemma "unknown_metaphor" nil sentence "unknown_root" "not in DanNet")]
+      [(make-output-row row "unknown_root" nil nil "-" "not in DanNet")
+       (make-output-row row "unknown_metaphor" nil sentence "unknown_root" "not in DanNet")]
 
       ;; both metaphor (e.g. §1a) and base (e.g. §1) found.
       (and metaphor base)
-      [(make-output-row lemma (:sense base) (:def base) nil "-" nil)
-       (make-output-row lemma (:sense metaphor) (:def metaphor) sentence (:sense base) nil)]
+      [(make-output-row row (:sense base) (:def base) nil "-" nil)
+       (make-output-row row (:sense metaphor) (:def metaphor) sentence (:sense base) nil)]
 
       ;; metaphor found (e.g. only §1a exists), but expected
       ;; root is missing from DanNet. Virtual root row.
       (and metaphor p-suffix (nil? base))
-      [(make-output-row lemma "unknown_root" nil nil "-" "root not in DanNet")
-       (make-output-row lemma (:sense metaphor) (:def metaphor) sentence "unknown_root" nil)]
+      [(make-output-row row "unknown_root" nil nil "-" "root not in DanNet")
+       (make-output-row row (:sense metaphor) (:def metaphor) sentence "unknown_root" nil)]
 
       ;; nil DDO ref but DanNet has §1/§1a pair.
       ;; Assume §1a = metaphor, §1 = root (e.g. festfyrværkeri, kalejdoskop).
@@ -206,8 +253,8 @@
              (and (contains? suffixes "§1") (contains? suffixes "§1a"))))
       (let [root (first (filter #(= "§1" (by-suffix %)) senses))
             met  (first (filter #(= "§1a" (by-suffix %)) senses))]
-        [(make-output-row lemma (:sense root) (:def root) nil "-" "verify inferred IDs")
-         (make-output-row lemma (:sense met) (:def met) sentence
+        [(make-output-row row (:sense root) (:def root) nil "-" "verify inferred IDs")
+         (make-output-row row (:sense met) (:def met) sentence
                           (:sense root) "verify inferred IDs")])
 
       ;; Sub-sense sought but only parent exists (e.g. §10a sought, only §10;
@@ -217,8 +264,8 @@
            (not metaphor)
            (= 1 (count (filter #(= (parent-suffix suffix) (by-suffix %)) senses))))
       (let [root (first (filter #(= (parent-suffix suffix) (by-suffix %)) senses))]
-        [(make-output-row lemma (:sense root) (:def root) nil "-" nil)
-         (make-output-row lemma "unknown_metaphor" nil sentence (:sense root)
+        [(make-output-row row (:sense root) (:def root) nil "-" nil)
+         (make-output-row row "unknown_metaphor" nil sentence (:sense root)
                           "metaphor not in DanNet")])
 
       ;; Top-level entry (e.g. "2") matched a sense but we don't know if
@@ -231,10 +278,10 @@
             known  (if (> (count family) 1) family senses)]
         (if (= 1 (count known))
           (let [s (first known)]
-            [(make-output-row lemma (:sense s) (:def s) nil nil "assign roles")
-             (make-output-row lemma "unknown_sense" nil sentence nil "assign roles")])
+            [(make-output-row row (:sense s) (:def s) nil nil "assign roles")
+             (make-output-row row "unknown_sense" nil sentence nil "assign roles")])
           (let [rows (mapv (fn [s]
-                             (make-output-row lemma (:sense s)
+                             (make-output-row row (:sense s)
                                               (:def s) nil nil "assign roles"))
                            known)]
             (update rows 0 assoc :example sentence))))
@@ -244,8 +291,8 @@
       ;; annotator decides which is root vs metaphor.
       (= 1 (count senses))
       (let [known (first senses)]
-        [(make-output-row lemma (:sense known) (:def known) nil nil "assign roles")
-         (make-output-row lemma "unknown_sense" nil sentence nil "assign roles")])
+        [(make-output-row row (:sense known) (:def known) nil nil "assign roles")
+         (make-output-row row "unknown_sense" nil sentence nil "assign roles")])
 
       ;; multiple senses, none matching the target suffix.
       ;; Includes _(N) split-senses (e.g. afpillet_(1)/_(2)), nil-entry
@@ -253,22 +300,22 @@
       ;; §1b. Annotator assigns roles.
       :else
       (let [known (mapv (fn [s]
-                          (make-output-row lemma (:sense s)
+                          (make-output-row row (:sense s)
                                            (:def s) nil nil "assign roles"))
                         senses)]
         (update known 0 assoc :example sentence)))))
 
 (def output-columns
-  [:lemma :task :sense-id :derived-from :qualia-role :relation
-   :description :example :annotator :comment])
+  [:lemma :id :task :sense-id :derived-from :qualia-role :relation
+   :description :example :annotator :comment :in-selection])
 
 (def output-headers
-  ["lemma" "task" "sense ID" "derived from" "qualia role" "relation"
-   "description" "example" "annotator" "comment"])
+  ["lemma" "id" "task" "sense ID" "derived from" "qualia role" "relation"
+   "description" "example" "annotator" "comment" "in DAMETA selection"])
 
 (def output-column-widths
-  ;;  lemma  task  sense-id  derived-from  qualia  relation  description  example  annotator  comment
-  [20       22    55        55            15      15        50           60       12         25])
+  ;;  lemma  id  task  sense-id  derived-from  qualia  relation  description  example  annotator  comment  in-selection
+  [20       14  22    55        55            15      15        50           60       12         25       20])
 
 (def ^:private col-idx
   "Column indices by key, derived from output-columns."
@@ -288,13 +335,31 @@
       (some uri? rows)            :partial
       :else                       :missing)))
 
-(defn sort-by-status
-  "Sort output rows by group status: complete → partial → missing."
+(def input-notes
+  "Known problems in the DAMETA input, keyed by identifier. Rather than
+  special-casing a handful of rows in code, the note is appended to the task
+  column so the annotator can see what is wrong."
+  {"n410" "NB: vente also has a second group above, from DDO 1b"
+   "s358" "NB: the word column holds a stray quotation; the lemma looks like belejre"})
+
+(defn note-input-issues
+  "Append any `input-notes` entry to the task column of the matching rows."
   [output-rows]
-  (let [statuses (update-vals (group-by :lemma output-rows) group-status)
+  (map (fn [{:keys [id task] :as row}]
+         (if-let [note (input-notes id)]
+           (assoc row :task (str/join "; " (remove nil? [task note])))
+           row))
+       output-rows))
+
+(defn sort-by-status
+  "Sort output rows by group status (complete → partial → missing), then by
+  lemma so that regenerating the export produces a stable ordering."
+  [output-rows]
+  (let [groups   (group-by :lemma output-rows)
+        statuses (update-vals groups group-status)
         order    {:complete 0 :partial 1 :missing 2}]
-    (->> (group-by :lemma output-rows)
-         (sort-by (fn [[lemma _]] (order (statuses lemma))))
+    (->> groups
+         (sort-by (fn [[lemma _]] [(order (statuses lemma)) lemma]))
          (mapcat val)
          (vec))))
 
@@ -476,11 +541,11 @@
   highlighted. Lemma groups are separated by thin borders."
   [output-rows path]
   (io/make-parents path)
-  (let [sorted (sort-by-status output-rows)
+  (let [sorted (sort-by-status (note-input-issues output-rows))
         data   (into [output-headers]
                      (map (fn [row] (mapv #(get row %) output-columns)))
                      sorted)
-        wb     (xl/create-workbook "ChainNet SN-DDO" data)
+        wb     (xl/create-workbook "ChainNet" data)
         sh     (.getSheetAt wb 0)]
     (style-sheet! sh sorted)
     (xl/save-workbook! (str path) wb)
@@ -495,7 +560,7 @@
   (def senses-by-lemma (fetch-all-senses model))
 
   ;; Load spreadsheet and generate output
-  (def rows (load-sheet :SN-DDO SN-columns))
+  (def rows (load-dameta (annotated-lemmas old-export-dir)))
   (def output (vec (mapcat #(generate-rows % senses-by-lemma) rows)))
   (count output)
 
@@ -503,6 +568,6 @@
   (filter #(= "kulde" (:lemma %)) output)
 
   ;; Export
-  (export-spreadsheet! output "export/chainnet/chainnet-sn-ddo.xlsx")
+  (export-spreadsheet! output "export/chainnet/chainnet.xlsx")
 
   #_.)
