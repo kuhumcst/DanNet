@@ -90,6 +90,10 @@
    :wn/subevent
    :wn/target_direction])
 
+;; TODO: derive these IDs from a validation query instead of listing them
+;; Unlike excluded-hypernymy and remove-bad-ili-links, this exclusion is a list
+;; rather than a condition, so it needs deleting by hand once DanNet is fixed.
+
 ;; See #146 - caught by WN-LMF validation
 ;; W203: redundant lexical entry with the same lemma and synset
 (def excluded-synsets

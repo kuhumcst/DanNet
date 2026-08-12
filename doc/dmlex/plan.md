@@ -28,6 +28,11 @@ These decisions are firm.
 4. The export must be valid against the DMLex schemas. A complete conversion of
    all DanNet data is not a goal.
 5. The tag inventories are Clojure data next to the export code. They are not RDF.
+6. Every member reference points to an object in the same file. Identity and
+   external mapping use the Controlled Values module. Section 12 gives the reason.
+7. The export leaves out inconsistent DanNet data. It does not repair it. A
+   correction in DanNet propagates into the export at the next release. The
+   WN-LMF export works the same way.
 
 Reason for decision 2: DanNet already publishes its data as RDF. A DMLex RDF
 export adds a second RDF view of the same data. It gives no new capability. The
@@ -52,19 +57,58 @@ use the Linking module.
 | written form of the word | `headword` |
 | `lexinfo:partOfSpeech` | `partOfSpeech` with a `tag` |
 | `ontolex:LexicalSense` | `sense` |
-| `ontolex:LexicalConcept` (synset) | no direct equivalent, see section 5 |
+| `ontolex:LexicalConcept` (synset) | a `labelTag` and a `synonym` relation, see section 5 |
 | synset definition | `definition` |
 | synset example | `example` |
 | `wn:` and `dns:` relations | `relation` with `member` objects |
 | ontological type | `label` with a `tag` |
+
+### 4.1 Form and meaning
+
+DMLex keeps the form of a headword apart from its meaning. The formal properties
+stay on the `entry`. These are the orthography, the morphology and the phonology.
+The semantic properties stay on the `sense`. A part of speech on a sense is not
+permitted.
+
+The entry and its senses are the only tree in the model. Every other structure is
+a `relation` between entries or between senses.
+
+DanNet agrees with this separation. `wn:partOfSpeech` is a property of the word.
+The definition, the examples and the ontological type are properties of the
+synset or of the sense.
+
+Three rules follow for the export:
+
+1. The part of speech becomes a property of the entry.
+2. The synset label, the definition, the examples and the ontological types
+   become properties of the sense.
+3. A relation between two synsets becomes a relation between their senses.
+
+NOTE: An entry with no senses is permitted. DMLex uses such an entry as a member
+in a relation, for example for a spelling variant.
+
+### 4.2 Multiword expressions
+
+A DMLex `headword` is a string. A multiword expression therefore becomes an
+ordinary entry with a space in its headword. DanNet has 3126 of these. It also
+has 48 affixes, which become ordinary entries in the same way.
+
+DMLex also has a subentry method. That method puts a multiword entry inside the
+entry of one of its words at display time, with a `relation` between the two.
+DanNet does not record which word an expression belongs under. Therefore the
+export does not use the subentry method.
 
 ## 5. Synsets
 
 DMLex has no object for a synset. A DanNet synset with five members becomes five
 `sense` objects. Each of these five senses belongs to a different entry.
 
-The Linking module can still express the meaning of a synset. Section 5.2 gives
-the method.
+The standard gives a method for synonymy. The Linking module builds relations
+between senses that are synonyms. Section A.1.15 of the standard shows this
+method. This document uses this method.
+
+NOTE: DMLex models dictionaries. A shared concept object is out of the scope of
+DMLex. DanNet keeps the concept-centric view in its OntoLex RDF.
 
 ### 5.1 Relations between synsets
 
@@ -81,23 +125,56 @@ Option 2 is the plan. It keeps the meaning of the original relation. It also
 keeps the output small. Option 1 makes very large files. Option 3 loses
 information that a consumer cannot recover.
 
-### 5.2 Synset membership and synset identity
+### 5.2 Synset membership
 
-Synset membership becomes a separate relation of type `synonym`. This relation
-holds all senses of the synset. The XML schema makes each pair of `ref` and
-`role` unique. Therefore the members are a set, as in a synset.
+Synset membership becomes a `relation` of type `synonym`. This relation holds all
+senses of the synset. Each member has the role `synonym`.
+
+The `relationType` declaration for `synonym` holds one `memberType`. This
+`memberType` has the role `synonym`, the type `sense` and a `min` value of 2.
+
+A relation needs a minimum of two members. Therefore a synset with one sense has
+no relation. Section 5.3 gives a method that keeps the identity of these synsets.
+
+The XML schema makes each pair of `ref` and `role` unique. Therefore the members
+are a set, as in a synset.
+
+The definition of a synset is repeated in each member sense. This repetition is
+correct DMLex.
+
+### 5.3 Synset identity
 
 A `relation` has no identifier of its own. It has a `type` attribute, an optional
 `description` and its members. Without more data, a consumer can rebuild the
 groups but cannot address one group or match it to a DanNet synset.
 
-To keep the identity, give each `synonym` relation one more member. Give this
-member the role `synsetIdentity`. Put the DanNet synset URI in its `ref`
-attribute. The `synonym` relationType therefore needs a `scopeRestriction` value
-of `any`. Section 13 gives the same pattern for external identifiers.
+A member reference cannot hold a DanNet URI. Section 12 gives the reason.
 
-The definition of a synset is repeated in each member sense. This repetition is
-correct DMLex.
+The Controlled Values module gives the identity. Declare one `labelTag` for each
+exported synset:
+
+- `tag` is the local name of the synset URI, for example `synset-1876`.
+- `typeTag` is `synset`.
+- `for` is `sense`.
+- `description` is the short label of the synset.
+- `sameAs` is the DanNet synset URI.
+
+Each sense of the synset then carries a `label` with this tag.
+
+```xml
+<labelTag tag="synset-1876" typeTag="synset" for="sense">
+  <description>hund, køter, vovhund</description>
+  <sameAs uri="https://wordnet.dk/dannet/data/synset-1876"/>
+</labelTag>
+```
+
+This method has three results. A consumer reads the identity from the `sameAs`
+URI. A synset with one sense keeps its identity. Membership is available from the
+labels and from the `synonym` relations.
+
+NOTE: The standard describes a label as a restriction such as a domain or a
+register. A synset label is a wider use of the object. The `typeTag` value
+separates these labels from the labels of section 7.
 
 ## 6. Identifiers
 
@@ -117,24 +194,64 @@ Rules for identifiers:
 2. Use the same identifier in the XML output and in the JSON output.
 3. Record the mapping from identifier to DanNet URI in a separate file.
 
+DMLex also makes the combination of headword, homograph number and part of
+speech unique. DanNet has 1384 groups of words that share a headword and a part
+of speech. Give each word in such a group a `homographNumber`. Order the group
+by the DanNet word URI, so that the numbers stay the same between releases.
+
 ## 7. Controlled values
 
 The Controlled Values module declares the tag inventories inside the resource.
 Each declaration holds a tag, a description and zero or more `sameAs` URIs. A
 consumer therefore reads the meaning of a tag from the export itself.
 
-DanNet needs four inventories.
+DanNet needs seven inventories.
 
 | Inventory | DMLex object | External mapping |
 |---|---|---|
 | parts of speech | `partOfSpeechTag` | LexInfo URIs |
-| ontological types | `labelTag` | DanNet schema URIs |
-| other labels | `labelTag` and `labelTypeTag` | open question 5 |
+| synsets | `labelTag` and `labelTypeTag` | DanNet synset URIs and ILI URIs |
+| ontological types | `labelTag` | none, see below |
+| gender | `labelTag` and `labelTypeTag` | DanNet schema URIs |
+| register, dating and frequency | `labelTag` and `labelTypeTag` | LexInfo URIs |
+| usage notes | `labelTag` and `labelTypeTag` | none |
 | relation types | `relationType` and `memberType` | `wn:` and `dns:` URIs |
+
+The synset inventory holds one tag for each exported synset. This inventory is
+therefore much larger than the other four. This inventory also replaces one
+`synonym` relation for each synset. Therefore the total size of the output does
+not increase much.
+
+`dns:gender` is a property of a DanNet synset, not of a word. It gives the
+gender of the person that the synset denotes. It is not the grammatical gender
+of the headword. Therefore its label goes on the sense, not on the entry, and
+the export does not put it into the part of speech tag. The two tags are
+`Female` and `Male`. 721 senses carry one of them.
+
+The ontological type of a synset is an `rdf:Bag` of DanNet concepts. The export
+keeps the bag together as one tag, written as DanNet writes it, for example
+`{LanguageRepresentation; Artifact; Object}`. The `rdf:_N` index of the bag
+gives the order. DanNet has 203 of these composite types.
+
+A composite tag gets no `sameAs` URI. A `sameAs` URI for each member concept
+would say that the composite is the same as each of its parts. A consumer that
+needs the concepts reads them from the tag, or from the DanNet concept ontology
+at `https://wordnet.dk/dannet/concepts`.
 
 The `memberType` object also declares constraints. It gives the object type of a
 member, the minimum count, the maximum count and a display hint. Use these fields
 to declare the arity of each DanNet relation.
+
+DanNet marks some senses with `lexinfo:register`, `lexinfo:dating` and
+`lexinfo:frequency`. The standard names these categories in its definition of a
+label, so each value becomes a `labelTag` with the LexInfo URI as `sameAs`. The
+tags are `slangRegister`, `inHouseRegister`, `old` and `rarelyUsed`.
+
+`lexinfo:usageNote` is free text, for example `sj.` or `især børn`. However,
+DanNet uses only 86 different notes, and 1270 senses share the most common one.
+The notes are therefore an inventory in practice, and each one becomes a
+`labelTag` with the type `usage`. These tags get no `sameAs` URI, because the
+notes have no URI.
 
 ## 8. Modules
 
@@ -142,7 +259,7 @@ to declare the arity of each DanNet relation.
 |---|---|---|
 | Core | yes | entries, senses, definitions, examples |
 | Linking | yes | all semantic relations |
-| Controlled Values | yes | tag inventories and external mappings |
+| Controlled Values | yes | tag inventories, synset identity, external mappings |
 | Crosslingual | no | DanNet content is Danish only |
 | Annotation | no | DanNet has no inline markers |
 | Etymology | no | DanNet has no etymology |
@@ -172,11 +289,45 @@ schema examination.
 
 ### 9.3 Build the extraction
 
+Read every value from the raw DanNet graph.
+
+CAUTION: Do not read the relations from the inference graph. That graph
+materializes both directions of each inverse relation and the transitive closure
+of `wn:hypernym`. A lexicographer stated none of these triples. The raw graph
+holds 58739 `wn:hypernym` triples. The inference graph holds 146841.
+
 1. Read the words, senses, synsets and relations from the graph.
 2. Group the senses under their entries.
 3. Copy each synset definition into each member sense.
-4. Build one `relation` of type `synonym` for each synset.
-5. Build one `relation` for each semantic relation between two synsets.
+4. Build one `labelTag` for each synset.
+5. Give each member sense a `label` with the tag of its synset.
+6. Build one `relation` of type `synonym` for each synset of two or more senses.
+7. Build one `relation` for each semantic relation between two synsets.
+
+The obverse of each relation needs no table of its own. The DanNet schema
+declares `owl:inverseOf` for 50 pairs of relations. One query gives the pairs.
+A symmetric relation is a pair that maps to itself, for example `wn:similar`.
+Only the direction of each pair is a decision for the export.
+
+The roles of the members come from the pair. For `A wn:hypernym B`, the senses
+of A get the role `hyponym` and the senses of B get the role `hypernym`. A
+symmetric relation gives both ends the same role. Three DanNet relations have no
+declared obverse: `dns:usedFor`, `dns:usedForObject` and `dns:subsumed`. These
+have no second name available, so their ends get the roles `source` and
+`target`.
+
+The export keeps the direction that the lexicographers used. `wn:meronym` and
+`wn:mero_location` are the exceptions, where the meronymy relations stay
+consistent instead. This flips 2947 statements into a direction that DanNet
+does not state, which is a change of form and not of meaning.
+
+Both directions of a relation are present in the raw data:
+
+- `wn:mero_part` has 13736 triples and `wn:holo_part` has 5865. Only 72 pairs
+  are stated in both directions. Therefore the export must flip the obverse
+  into the canonical direction and then remove the duplicates.
+- `wn:similar` is stated in both directions 42176 times out of 55795. Therefore
+  the export must give each pair of synsets a canonical order.
 
 ### 9.4 Build the serializers
 
@@ -185,11 +336,26 @@ schema examination.
 3. Use document order and array order for `listingOrder`. The standard permits
    this.
 
+DMLex keeps the listing order of everything: the entries, the senses, the
+examples and the members of a relation. Therefore the export must give the same
+order at each release. Sort the entries and the senses by their DanNet URI.
+
+The XML shape and the JSON shape of some objects are different. In XML, a label
+is `<label tag="x"/>`. In JSON, a label is the string `"x"` in a `labels` array.
+The same difference applies to `partOfSpeech` and to `sameAs`.
+
+The two schemas also disagree on the type of `homographNumber`. The XSD makes it
+an `xs:integer` and the JSON schema makes it a string. Therefore the JSON
+serializer converts the value. This is a fault in the standard, and a report to
+the LEXIDMA committee can remove it.
+
 ### 9.5 Validate
 
 1. Validate the XML output against `dmlex_no-crosslingual.xsd`.
 2. Validate the JSON output against the matching JSON schema.
 3. Compare the counts in the output with the counts in the graph.
+
+Section 12 lists the validators that these schemas need.
 
 ### 9.6 Release
 
@@ -203,15 +369,23 @@ For the ELEXAI project:
 
 1. Which serialization does ELEXAI want: XML, JSON, or both?
 2. Is the sense-level encoding of synset relations acceptable? See section 5.
-3. Does ELEXAI need a link from each DanNet sense to its ILI identifier? Section 13
-   gives the only conformant method. The ILI identifier arrives as an opaque
-   string in a relation. It is not a property of the sense.
-4. Does ELEXAI want COR and DSL next? Both fit the DMLex model better than DanNet.
+3. Is the label-based encoding of synset identity acceptable? See section 5.3.
+   DMLex has no object for synset identity. The ELEXAI project can report this
+   finding to the LEXIDMA committee.
+4. Does ELEXAI need the ILI identifier of each synset? Section 13 gives the
+   method.
+5. Does ELEXAI want COR and DSL next? Both fit the DMLex model better than
+   DanNet.
 
 Internal:
 
-5. Which DanNet labels become `labelTag` objects?
 6. Where does the identifier mapping file live?
+7. Is the composite ontological type tag the better choice? One tag for each
+   DanNet concept keeps a `sameAs` URI and a description on every concept, but
+   loses the bag as a unit and its order. See section 7.
+8. `dns:source` gives the Den Danske Ordbog URL of 66725 senses. DMLex holds a
+   source only on an `example`, so these URLs have no home. Does the export need
+   them?
 
 ## 11. Out of scope
 
@@ -219,6 +393,11 @@ Internal:
 - The DMLex relational database serialization.
 - A DMLex import into DanNet.
 - Changes to the DanNet OntoLex model.
+- The relations to other datasets: `wn:eq_synonym`, `dns:eqHypernym`,
+  `dns:eqHyponym` and `dns:eqSimilar`. Section 14.1 gives the reason.
+- The Crosslingual module. DanNet holds no words of another language.
+- The sentiment data. `dns:sentiment` comes from Det Danske Sentimentleksikon
+  and not from DanNet. A later release can add it.
 
 ## 12. Schema examination
 
@@ -233,6 +412,9 @@ are the full XML and JSON schemas, and the two no-crosslingual variants.
 | Does `dmlex.schema.json` permit extra keys? | No. All 30 object definitions set `additionalProperties` to `false` |
 | Does `dmlex_no-crosslingual.schema.json` permit extra keys? | No. The same for all 27 definitions |
 | Which objects accept `sameAs`? | The tag objects only |
+| Does the XML schema constrain `member/@ref`? | Yes. A `keyref` makes each value match the `id` of an `entry`, a `sense` or a `collocateMarker` in the same document |
+| Does the JSON schema constrain `ref`? | No. JSON Schema cannot express this rule |
+| Do the two schemas agree on the types? | No. `homographNumber` is an `xs:integer` in the XSD and a string in the JSON schema |
 
 The XML target namespace is `http://docs.oasis-open.org/lexidma/ns/dmlex-1.0`.
 
@@ -244,20 +426,122 @@ Conformance clause 1.b of the standard permits custom extensions. However, both
 schemas are closed. Therefore an extension makes the output invalid. Do not use
 custom extensions.
 
+### 12.1 The member reference rule
+
+The `keyref` is stricter than the text of the standard. The standard defines the
+member reference as a reference to an object such as an entry or a sense, does
+not prescribe the form of the identifier, and lets a relation hold members in a
+different lexicographic resource. A `scopeRestriction` value of `any` means no
+restriction at all.
+
+The XML schema permits none of this. Every `ref` must match an `id` in the same
+document. Therefore an external URI in a `ref` attribute is not valid XML, and
+the export cannot use one.
+
+This rule removes two earlier methods from this document. A synset URI cannot be
+a member of a `synonym` relation. An ILI identifier cannot be a member of a
+relation. Section 5.3 and section 13 give the replacement methods.
+
+### 12.2 Validators
+
+The XML schemas are XSD 1.1. They use `xs:assert` and `xs:unique` with a `ref`
+attribute. `xmllint` and the default `SchemaFactory` of the JDK read XSD 1.0
+only. Neither tool can read these schemas.
+
+The XML validation needs Xerces 2.12 or later with the XSD 1.1 factory. The JSON
+validation needs a library for JSON Schema draft 2020-12. Neither library is in
+`deps.edn`.
+
 ## 13. External identifiers
 
-DanNet senses carry ILI identifiers. A DMLex sense has no `sameAs` property, and
-section 12 removes the extension method. The Linking module is the only
-conformant method.
+DanNet synsets carry ILI identifiers. A DMLex `sense` has no `sameAs` property.
+Section 12 removes the extension method and the member method. The Controlled
+Values module is the conformant method.
 
-Use this pattern for each external identifier system:
+Use these rules for each external identifier system:
 
-1. Declare a `relationType`. Give it a `scopeRestriction` value of `any`.
-2. Give the `relationType` a `sameAs` URI for the external vocabulary.
-3. Declare a `memberType` for the DanNet side. Give it the type `sense`.
-4. Declare a `memberType` for the external side.
-5. Build one `relation` for each link. Put the external identifier in the second
-   `memberID`.
+1. If the identifier belongs to a synset, add one more `sameAs` to the synset
+   `labelTag` of section 5.3. ILI works this way.
+2. If the identifier belongs to a word, declare a `labelTag` with a `for` value
+   of `entry`. Then give the entry a `label` with this tag. COR can work this
+   way.
+3. If two identifier systems must stay apart, give each system its own
+   `labelTypeTag`.
 
-CAUTION: The external identifier is an opaque string. A consumer cannot resolve
-it without the `relationType` declaration.
+```xml
+<labelTag tag="synset-1876" typeTag="synset" for="sense">
+  <sameAs uri="https://wordnet.dk/dannet/data/synset-1876"/>
+  <sameAs uri="http://globalwordnet.org/ili/i35958"/>
+</labelTag>
+```
+
+NOTE: A `sameAs` URI has no type. A consumer separates the DanNet URI from the
+ILI URI by the namespace of the URI.
+
+## 14. Findings from the data
+
+Date of examination: 12 August 2026. The numbers come from the raw DanNet graph
+of the 2025-07-03 release.
+
+NOTE: `findings.md` gives the same findings in plain language, with the reasons
+and the examples. Read that document first.
+
+### 14.1 Relations to other datasets
+
+Five DanNet properties point at objects in other datasets. `wn:eq_synonym`
+points at Open English WordNet. `dns:eqSimilar` points at ILI. `dns:eqHypernym`
+and `dns:eqHyponym` point at both. `wn:ili` points at ILI.
+
+The test is not the dataset. The test is the claim. DMLex has one conformant
+method for an external object, the `sameAs` URI of section 13. A `sameAs` URI
+says that the two objects are the same. It says nothing else.
+
+The DanNet schema separates the five properties:
+
+| Property | Declaration in the schema | Method |
+|---|---|---|
+| `wn:ili` | a sub-property of `skos:exactMatch` | `sameAs` on the synset `labelTag` |
+| `dns:eqHypernym` | a sub-property of `skos:broadMatch` | none |
+| `dns:eqHyponym` | a sub-property of `skos:narrowMatch` | none |
+| `dns:eqSimilar` | a mapping relation, not an exact match | none |
+| `wn:eq_synonym` | a `wn:SynsetRelType`, with no mapping declaration | none |
+
+`wn:ili` is an identity claim, so `sameAs` holds it without loss. The other four
+are not identity claims. A `sameAs` URI for a broader concept in another dataset
+would say something that DanNet does not say.
+
+These four properties also cannot become DMLex relations. A member reference
+must point at an object in the same file (see section 12.1). The Crosslingual
+module does not help, because that module models the translations of a headword.
+
+NOTE: `wn:eq_synonym` says that the object is synonymous with the subject. A
+translation of the Danish headword would be a use for this property. However,
+DanNet holds only a pointer to an Open English WordNet synset, not the English
+words of that synset. The Crosslingual module needs the words. Therefore this
+property becomes useful only if the export also reads Open English WordNet.
+
+### 14.2 Data faults
+
+These faults are in DanNet, not in the conversion. Decision 7 applies to all of
+them. The export leaves the data out. A correction in DanNet removes the fault
+from the export at the next release, with no change to the export code.
+
+A fault removes only the part of the data that it makes unusable. A word that
+keeps a usable headword and a usable sense keeps its entry.
+
+| Fault | Count | Treatment in the export |
+|---|---|---|
+| A word has an `ontolex:canonicalForm` blank node with no properties, and therefore no written form | 15 | The word gets no entry, because DMLex requires a headword |
+| A word has `wn:partOfSpeech` with an empty local name | 1 | The word keeps its entry and gets no `partOfSpeech`, which DMLex permits |
+| A synset has more than one ILI identifier, up to five | 385 | The synset gets no ILI `sameAs` URI |
+| One ILI identifier is claimed by more than one synset | 580 | These synsets get no ILI `sameAs` URI |
+| A synset has an ILI but no lexicalized sense | 8 | The synset gets no `labelTag` |
+| Every `dns:subsumed` statement points at a sense that has no statements of its own | 188 | `dns:subsumed` gets no relation type |
+
+An ILI identifier is an identity claim. Two ILI identifiers on one synset
+therefore say that the synset is two concepts. One ILI identifier on two synsets
+says that the two synsets are one concept. The WN-LMF export already removes the
+second fault.
+
+Of the 8024 ILI statements in DanNet, 6085 are free of both faults. The export
+holds these 6085.

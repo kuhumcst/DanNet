@@ -50,6 +50,15 @@
                       :main-opts   ["-m" "cognitect.test-runner"]
                       :exec-fn     cognitect.test-runner.api/test}
 
+           ;; The DMLex schemas need an XSD 1.1 validator and a JSON Schema
+           ;; 2020-12 validator, neither of which ships with the JDK. The XSD
+           ;; 1.1 work never merged into the Xerces trunk, so the only build on
+           ;; Maven Central is this repackaging of the xml-schema-1.1-dev branch.
+           ;; Its XPath 2.0 processor needs ICU4J but does not declare it.
+           :validate {:extra-deps {org.opengis.cite.xerces/xercesImpl-xsd11 {:mvn/version "2.12-beta-r1667115"}
+                                   com.ibm.icu/icu4j                        {:mvn/version "77.1"}
+                                   com.networknt/json-schema-validator      {:mvn/version "1.5.9"}}}
+
            ;; https://github.com/bhauman/clojure-mcp?tab=readme-ov-file#step-1-configure-your-target-projects-nrepl-connection
            :nrepl    {:extra-paths ["test" "src" "resources"]
                       :extra-deps  {nrepl/nrepl {:mvn/version "1.3.1"}}
