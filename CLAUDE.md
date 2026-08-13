@@ -8,7 +8,9 @@
 - Generally, you will need explicit permission from me to restart the web service we're developing.
   - Again, try to test newly developed fixes/functionality in an isolated way using the REPL.
 - After editing CLJ or CLJC files, reload the affected namespaces using `(require '[namespace] :reload)` so the changes take effect in the running REPL.
-- For frontend-only bugs (hydration errors, CLJS/CLJ differences, CSS/layout issues), debug in the LIVE BROWSER via the shadow-cljs nREPL rather than guessing from source:
-  - Jack in with `(shadow.cljs.devtools.api/repl :app)` on the shadow nREPL port, then evaluate CLJS directly in the connected browser tab: inspect client state, navigate with `dk.cst.dannet.shared/navigate-to`, measure the DOM, instrument functions via `set!`, and trial CSS through injected `<style>` elements before touching main.css.
-  - See "Browser REPL Debugging (shadow-cljs)" in PROJECT_SUMMARY.md for the full recipe.
-  - NB: this drives my actual browser tab, and any instrumentation/injected styles must be reverted when done.
+- For frontend-only bugs (hydration errors, CLJS/CLJ differences, CSS/layout issues), debug in the LIVE BROWSER via the shadow-cljs nREPL rather than guessing from source — follow the `browser-repl-debug` skill (it loads on demand).
+- REPL access: use the `clj-nrepl-eval` command to evaluate Clojure code via nREPL.
+  - Discover running nREPL servers with `clj-nrepl-eval --discover-ports`.
+  - Evaluate with `clj-nrepl-eval -p <port> "<clojure-code>"` (JVM nREPL: port 7888 via the `:nrepl` alias; shadow-cljs runs its own auto-discoverable nREPL port).
+  - REPL sessions persist per port: namespaces and state are maintained between evaluations.
+- When writing, editing, or reviewing Clojure code, follow the `clojure-style` skill (it loads on demand).

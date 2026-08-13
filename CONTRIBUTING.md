@@ -27,4 +27,4 @@ You can then connect to this REPL from your editor (e.g., IntelliJ IDEA) and sha
 
 ### Configuration
 
-See [mcp-stuff](https://github.com/simongray/mcp-stuff) for documentation, including `LLM_CODE_STYLE.md` and example `config.edn` files.
+See [ai-stuff](https://github.com/simongray/ai-stuff) for AI/LLM setup documentation.
