@@ -1,27 +1,29 @@
-# What we learned about DMLex by implementing it
+# What we learned about DMLex when we implemented it
 
-This is the plain-language companion to `plan.md`. The plan says what the export
-does; this document says what surprised us on the way there and why. Each entry
-is written to be readable cold, months later, by someone who has not been
-staring at the schemas.
+This document is the companion to `plan.md`. The plan says what the export
+does. This document says what surprised us on the way, and why. Each entry must
+be readable months later, by a reader who does not know the schemas.
 
-Four of the six findings are faults in the standard rather than in DanNet. Those
-are collected at the end as feedback for the LEXIDMA committee.
+Seven of the eight findings are faults in the artifacts of the standard or in
+its wording. They are not related to DanNet. Finding 1 is a design limitation,
+which the editors made on purpose. The end of this document collects all of
+them as feedback for the LEXIDMA committee.
 
 ## 1. There is no synset in DMLex
 
-DMLex models dictionaries, so its world is entries and senses. An entry has one
-headword and holds its senses. There is no object for a shared concept, which
-means DanNet's central object has nowhere to live.
+DMLex models dictionaries. Its world is entries and senses. An entry has one
+headword and holds its senses. The standard has no object for a shared
+concept. Therefore the central object of DanNet has no home.
 
-The standard's answer, shown in its own example A.1.15, is that a synset is a
-`relation` of type synonymy between the member senses. That works, and it is
-what the export does. What the standard does not give you is a *name* for that
-group: a `relation` has a type and members and no identifier. So a consumer can
-rebuild the groups but cannot point at one and say "this is `dn:synset-1876`".
+The standard gives an answer in its own example A.1.15: a synset becomes a
+`relation` of the type `synonym` between the member senses. The export uses
+this method. But the standard gives no name for the group. A `relation` has a
+type and members, and no identifier. A consumer can rebuild the groups, but
+cannot point at one group and say "this is `dn:synset-1876`".
 
-Our answer is the Controlled Values module. Each synset gets a `labelTag`, whose
-`sameAs` holds the DanNet URI, and every sense of that synset carries the label:
+Our answer is the Controlled Values module. Each synset gets a `labelTag`. The
+`sameAs` of the tag holds the DanNet URI. Each sense of the synset carries the
+label:
 
 ```xml
 <labelTag tag="synset-1876" typeTag="synset" for="sense">
@@ -30,23 +32,24 @@ Our answer is the Controlled Values module. Each synset gets a `labelTag`, whose
 </labelTag>
 ```
 
-This is a slightly wider use of a label than the standard imagines, since labels
-are meant for things like register and domain markers. It is fully valid, and it
-is the only place in the model where an object can be declared once, attached to
-a sense, and carry an external URI.
+This use of a label is wider than the standard intends. The standard describes
+labels as restrictions, for example a register or a domain. But the method is
+fully valid. It is also the only place in the model where one declared object
+can attach to a sense and carry an external URI.
 
-Worth knowing: this is not an oversight by the DMLex authors. John McCrae, who
-is behind OntoLex and the ILI, is one of the editors. From that vantage point a
-concept object in DMLex would duplicate OntoLex, which DanNet already publishes.
-The concept-centric view stays in the RDF; DMLex is the dictionary view.
+This gap is not an oversight by the DMLex authors. John McCrae, the author of
+OntoLex and of the ILI, is one of the editors. A concept object in DMLex is a
+copy of OntoLex, which DanNet already publishes. The concept-centric view
+stays in the RDF. DMLex is the dictionary view.
 
 ## 2. A relation member must point inside the same file
 
-This one cost us a plan rewrite, because we got it wrong first.
+This finding caused a rewrite of the plan, because our first method was not
+correct.
 
-A `relation` holds `member` objects, and each member has a `ref`. We assumed a
-`ref` could hold any string, including a DanNet URI or an ILI identifier, and
-built two parts of the plan on that. It cannot. The XML schema enforces it:
+A `relation` holds `member` objects, and each member has a `ref`. Our first
+method put a DanNet URI or an ILI identifier into a `ref`, as a free string.
+Two parts of the plan used this method. The XML schema rejects it:
 
 ```xml
 <xs:keyref name="memberRef" refer="entryOrSenseOrCollocateMarkerKey">
@@ -55,21 +58,20 @@ built two parts of the plan on that. It cannot. The XML schema enforces it:
 </xs:keyref>
 ```
 
-Every `ref` must match the `id` of an entry or sense in the same document. That
-is the schema. The prose says something looser: a member reference points at an
-object such as an entry or a sense, DMLex "does not prescribe the exact form of
-these IDs", and the Linking Module explicitly advertises relations "between
-objects residing in different lexicographic resources", with a recommended IRI
-scheme for exactly that purpose in section 3.2.1.
+Each `ref` must be equal to the `id` of an entry or of a sense in the same
+document. That is the schema. The prose of the standard is less strict. It
+says that DMLex "does not prescribe the exact form of these IDs". The Linking
+module advertises relations "between objects residing in different
+lexicographic resources". Section 3.2.1 of the standard gives a recommended
+IRI scheme for that exact purpose.
 
-So the XSD is stricter than the standard it implements: cross-resource linking
-is a documented feature of the Linking Module that the XML serialization cannot
-express. `scopeRestriction="any"`, which the prose defines as "no restriction",
-cannot be honoured in XML at all.
+Therefore the XSD is more strict than the standard that it implements.
+Cross-resource links are a documented feature of the Linking module, and the
+XML serialization cannot express them. The prose defines the value
+`scopeRestriction="any"` as "no restriction". No XML document can obey it.
 
-Concretely, the standard says you can write a relation whose two members live in
-two different dictionaries, using the IRI scheme of section 3.2.1 for the far
-one:
+As a concrete example, the standard permits one relation with members in two
+different dictionaries. The far member uses the IRI scheme of section 3.2.1:
 
 ```xml
 <relation type="translation">
@@ -78,86 +80,97 @@ one:
 </relation>
 ```
 
-The second member is exactly what section 3.2.1 was written for, and the XML
-schema rejects it, because no entry or sense inside this file has that id. The
-feature exists in the prose and is unreachable in XML.
+The second member is the exact use case of section 3.2.1. The XML schema
+rejects it, because no entry or sense in the file has that id. The feature
+exists in the prose and is not available in XML.
 
-For us the practical outcome is the same either way, because the things DanNet
-would want to point at are not DMLex objects in another lexicographic resource.
-They are OEWN synsets and ILI concepts, published as RDF. So any DanNet relation
-pointing outside DanNet still cannot be a DMLex relation. But note the reason:
-it is the XSD that forbids it, not the standard.
+For the export, the result is the same in each case. The objects that DanNet
+points at are not DMLex objects in another lexicographic resource. They are
+OEWN synsets and ILI concepts, published as RDF. Therefore a DanNet relation
+that points out of DanNet cannot become a DMLex relation. But the reason is
+important: the XSD forbids it, not the standard.
 
-The one external thing that does survive is `wn:ili`, and the reason is worth
-holding onto: it is not about the dataset, it is about the kind of claim. DMLex
-has exactly one way to reference something external, the `sameAs` URI, and a
-`sameAs` URI asserts that two things are the same. The DanNet schema declares
-`wn:ili` a sub-property of `skos:exactMatch`, so it is an identity claim and
-fits. `dns:eqHypernym` is a sub-property of `skos:broadMatch`, so putting it in
-`sameAs` would assert something DanNet does not say. Identity claims can cross
-the file boundary; other relations cannot.
+One external claim survives: `wn:ili`. The reason is important to keep. The
+test is the type of the claim, not the dataset. DMLex has one method for an
+external reference, the `sameAs` URI, and a `sameAs` URI says that two things
+are the same. The DanNet schema declares `wn:ili` as a sub-property of
+`skos:exactMatch`. That is an identity claim, and it fits. The schema declares
+`dns:eqHypernym` as a sub-property of `skos:broadMatch`. A `sameAs` URI for it
+says something that DanNet does not say. An identity claim can cross the file
+boundary. Other relations cannot.
 
-Note also that the JSON schema cannot express this rule at all, since JSON
-Schema has no referential integrity. So the same mistake would have produced a
-valid JSON file and an invalid XML one.
+NOTE: The JSON schema cannot express this rule, because JSON Schema has no
+referential integrity. The same error gives a valid JSON file and an invalid
+XML file.
 
-## 3. Only about two validators in the world can read the XML schema
+## 3. About two validators in the world can read the XML schema
 
 The DMLex XSD files are XSD 1.1. They use `xs:assert` and the 1.1-only
-`xpathDefaultNamespace` attribute.
+attribute `xpathDefaultNamespace`.
 
-XSD 1.1 became a W3C Recommendation in 2012, by which time interest in XML
-schema languages had faded, and almost nobody implemented it. The practical set
-is Xerces-J and Saxon EE. The JDK ships a fork of Xerces that only does XSD 1.0,
-`xmllint` and libxml2 never implemented 1.1, and neither did .NET or the usual
-Python libraries. So the file cannot be validated by any of the tools a person
-would normally reach for.
+XSD 1.1 became a W3C Recommendation in 2012. By that time, interest in XML
+schema languages was small, and almost nobody implemented the new version. The
+practical set of processors is Xerces-J and Saxon EE. The JDK contains a fork
+of Xerces that reads only XSD 1.0. The tools `xmllint` and libxml2 did not
+implement 1.1, and .NET and the usual Python libraries also did not.
+Therefore no common tool can validate the file.
 
-Worse, the XSD 1.1 work never merged into the Xerces trunk. `xerces:xercesImpl`
-on Maven Central, at any version, is 1.0 only. The 1.1 build lives on the
-`xml-schema-1.1-dev` branch, and the only copy published to Maven is a
-third-party repackaging by the OGC conformance-testing project:
+The XSD 1.1 work also never merged into the Xerces trunk. Each version of
+`xerces:xercesImpl` on Maven Central is 1.0 only. The 1.1 build lives on the
+branch `xml-schema-1.1-dev`. The only copy on Maven Central is a third-party
+package from the OGC conformance-test project:
 
 ```clojure
 org.opengis.cite.xerces/xercesImpl-xsd11 {:mvn/version "2.12-beta-r1667115"}
 com.ibm.icu/icu4j                        {:mvn/version "77.1"}
 ```
 
-It is a 2015 beta built for JDK 7. It works. The ICU4J line is needed because
-assertions are XPath 2.0, which Xerces delegates to an Eclipse XPath processor
-that uses ICU4J and declares no dependencies at all in its pom, so you get a
-`NoClassDefFoundError` on the first document you try to validate and no clue
-from the metadata.
+This package is a 2015 beta, built for JDK 7. It works. The ICU4J line is
+necessary because the assertions are XPath 2.0. Xerces sends them to an
+Eclipse XPath processor that uses ICU4J and declares no dependencies in its
+pom. Without ICU4J, the first document gives a `NoClassDefFoundError`, and the
+metadata gives no clue.
 
-These are in the `:validate` alias, so only validation pays for them.
+These dependencies are in the `:validate` alias. Therefore only validation
+pays for them.
 
-## 4. The two schemas disagree about `homographNumber`
+Memory is the other cost, and we learned it late. Xerces checks the identity
+constraints, for example the `keyref` over 753,858 member references, with
+tables that stay in memory for the full document. The 92 MB DanNet-only file
+validated in seconds under a default JVM heap. The 127 MB file with the COR
+inflections needs a heap of approximately 16 GB. If the heap is too small, the
+JVM becomes unresponsive or stops, and an attached REPL is lost with it.
+Therefore validate a full export in its own process, for example with
+`clj -J-Xmx16g -M:validate`.
 
-The XSD says it is a number:
+## 4. The two schemas do not agree about `homographNumber`
+
+The XSD says that the property is a number:
 
 ```xml
 <xs:attribute name="homographNumber" use="optional" type="xs:integer"/>
 ```
 
-The JSON schema says it is a string:
+The JSON schema says that it is a string:
 
 ```json
 "homographNumber": { "type": "string" }
 ```
 
-Same property, same standard, same version, two incompatible types. One
-intermediate data structure therefore cannot serialize into both without
-converting, which is what `json-safe` in `dmlex.clj` exists to do. Delete it if
-the committee ever aligns the two.
+The same property, in the same standard, at the same version, has two types
+that do not agree. Therefore one intermediate data structure cannot serialize
+into both formats without a conversion. The function `json-safe` in
+`dmlex.clj` does this conversion. If the committee aligns the two schemas,
+delete the function.
 
-## 5. Three of the schema's uniqueness rules can never be satisfied
+## 5. No document can satisfy three of the uniqueness rules
 
-This is the big one, and it took a minimal reproduction to be sure of it,
-because the error message points somewhere misleading.
+This finding is the large one. The error message points at the wrong place.
+Therefore only a minimal reproduction made us sure.
 
-What the schema wants to say is reasonable: no two entries may share the same
-headword, homograph number and part of speech. In XSD you write that like a
-UNIQUE index over three columns:
+The intent of the schema is reasonable: two entries must not share one
+headword, one homograph number, and one part of speech. In XSD, this
+constraint is like a UNIQUE index over three columns:
 
 ```xml
 <xs:unique name="entryUnique">
@@ -168,20 +181,20 @@ UNIQUE index over three columns:
 </xs:unique>
 ```
 
-The rule you must obey is that a field has to point at something holding one
-plain value: an attribute, or an element containing nothing but text. The
-validator has to turn it into a single string in order to compare rows.
+The rule to obey is this: a field must point at one plain value, an attribute
+or an element that holds only text. The validator must make one string of the
+field to compare the rows.
 
-DMLex points at `headword`, and declares `headword` as mixed content, so that it
-can hold markers:
+DMLex points the field at `headword`, and declares `headword` as mixed
+content, so that it can hold markers:
 
 ```xml
 <headword>gå <placeholderMarker>rundt</placeholderMarker></headword>
 ```
 
-Now there is no single value to compare. Is the column `gå rundt`, or `gå`, or
-the markup too? XSD does not guess, it errors. And it errors on every entry,
-including the simplest possible one:
+Then no single value is available for the comparison. Is the column
+`gå rundt`, or `gå`, or the markup also? XSD does not guess. XSD gives an
+error, on every entry, and also on the most simple document possible:
 
 ```xml
 <lexicographicResource xmlns="http://docs.oasis-open.org/lexidma/ns/dmlex-1.0" langCode="da">
@@ -189,19 +202,20 @@ including the simplest possible one:
 </lexicographicResource>
 ```
 
-Our export produced 173,564 of these, one per entry and per definition, plus 265
-of a second kind. The second kind is the same fault with a different symptom:
-for `example/text` the validator takes the unusable value as null rather than
-erroring, so two examples under one sense both come out null and look like
-duplicates of each other.
+Our export gave 173,564 of these errors, one per entry and one per definition,
+plus 265 errors of a second type. The second type is the same fault with a
+different symptom. For `example/text`, the validator takes the unusable value
+as null, without an error. Two examples under one sense then both become null
+and look like copies of each other.
 
-The misleading part: the message reads `A field of identity constraint
-'entryUnique' matched element 'lexicographicResource', but this element does not
-have a simple type`. It names the element that *owns* the constraint, not the
-element the field landed on, so it looks like the root element is at fault.
+The message text is the misleading part. It reads `A field of identity
+constraint 'entryUnique' matched element 'lexicographicResource', but this
+element does not have a simple type`. The message names the element that owns
+the constraint, not the element that the field found. Therefore the root
+element looks at fault.
 
-If you ever need to prove this again, here is the whole reproduction. Case A
-fails, case B is identical except the field has a simple type, and it passes:
+If a proof is necessary again, here is the full reproduction. Case A fails.
+Case B is identical, but its field has a simple type, and it passes:
 
 ```xml
 <!-- A: fails -->
@@ -218,37 +232,53 @@ fails, case B is identical except the field has a simple type, and it passes:
 <xs:element name='label' type='xs:string'/>
 ```
 
-The three affected constraints are `entryUnique` on `headword`,
-`definitionUnique` on `definition/text` and `exampleUnique` on `example/text`.
-The committee cannot fix them by making those elements plain text, since the
-markers are the point. They would have to key on something else or drop the
-rules, which is what they already did to seven other constraints, as the comment
-at the top of the XSD explains.
+The three constraints with this fault are `entryUnique` on `headword`,
+`definitionUnique` on `definition/text`, and `exampleUnique` on
+`example/text`. The committee cannot make these elements plain text, because
+the markers are the point. They must key on something else, or remove the
+rules. They already removed seven other constraints, as the comment at the top
+of the XSD explains.
 
-So: our file is otherwise valid, and everything else the validator checks
-passes, including the 753,858 member references of finding 2. The validation
-code separates these known schema errors from real ones rather than hiding them,
-so a genuine error cannot disappear into the pile.
+Our file is otherwise valid. Each other check of the validator passes, which
+includes the 753,858 member references of finding 2. The validation code
+counts these known schema errors apart from the real errors, and does not
+hide them. Therefore a genuine error cannot disappear into the pile.
 
-One caveat: we confirmed this with one processor. The XSD rule is clear enough
-that we believe Xerces is applying it correctly, but Saxon EE is the only other
-implementation and we do not have it.
+One caution: we confirmed this with one processor. The XSD rule is clear, and
+we believe that Xerces applies it correctly. But Saxon EE is the only other
+implementation, and we do not have it.
+
+The other direction is also important. `inflectedFormUnique` keys on `text`
+and on `@tag`. Both fields are simple types, so this constraint operates as
+intended. Therefore the export removes each duplicate pair of code and text
+before serialization. A repeated pair is a genuine error in `:errors`, not one
+of the 173,829 errors that the validator ignores. This generalizes into a
+cheap test: read the fields of a uniqueness constraint. If a field lands on
+mixed content, the constraint is dead, and its checks are your work. If all
+fields are simple types, the constraint applies, and you must satisfy it.
 
 ## 6. An optional description that is not optional
 
-Smaller, same family. `partOfSpeechTagType` declares its description optional
-and then asserts that it is not empty:
+This fault is smaller and of the same family. `partOfSpeechTagType` declares
+its description as optional, and then asserts that the description is not
+empty:
 
 ```xml
 <xs:element name="description" minOccurs="0" type="xs:string"/>
 <xs:assert test="string-length(description)>0"/>
 ```
 
-An absent element has string length 0, so the assertion fails whenever the
-optional element is left out. In effect the description is mandatory. Cheap to
-satisfy: our three part of speech tags carry Danish descriptions.
+An absent element has the string length 0. Therefore the assertion fails when
+the optional element is not present. In effect, the description is mandatory.
+The correction is cheap: our three part-of-speech tags carry Danish
+descriptions.
 
-## 7. You do not have to ship all four serializations
+NOTE: This fault is specific to `partOfSpeechTagType`. `inflectedFormTagType`
+declares its description in the same way and has no assertion. There, the
+optional element is optional. Do not apply the rule of one tag type to another
+tag type. The assertions are hand-written per type and are not consistent.
+
+## 7. One serialization is sufficient for conformance
 
 Section 1.2 of the specification reads:
 
@@ -256,57 +286,152 @@ Section 1.2 of the specification reads:
 > relational databases. An informative serialization specification is provided
 > for: NVH.
 
-Read quickly, that looks like it says a conformant implementation must provide
-all four. It does not, and the conformance section says so plainly:
+A quick read says that a conformant implementation must provide all four
+serializations. That is not correct, and the conformance section says so:
 
 > Conformant DMLex Instances MUST be well formed and valid instances according
 > to **one of** the normative DMLex Serialization Specifications.
 
-with a note underneath that an instance cannot be conformant without being
-conformant to a specific serialization. So conformance is a property of a single
-file in a single serialization. Our XML file is conformant on its own, and so is
-our JSON file, and shipping only one of them would also have been fine.
+A note under it adds that an instance cannot be conformant without conformance
+to one specific serialization. Therefore conformance is a property of one file
+in one serialization. Our XML file is conformant alone, and our JSON file is
+conformant alone. One of the two files is also sufficient.
 
-What "REQUIRED" is doing in section 1.2 is classifying the parts of the
-specification document, not imposing a duty on implementers: those four
-serializations are specified normatively, whereas NVH is an appendix and
-informative. The section headings make it clearer than the sentence does, since
-they read "5 DMLex REQUIRED Serializations (Normative)" against "A.2 DMLex NVH
+In section 1.2, the word "REQUIRED" classifies the parts of the specification
+document. It does not give a duty to implementers. The four serializations are
+normative parts of the document, and NVH is an informative appendix. The
+section headings say this more clearly than the sentence does. They read
+"5 DMLex REQUIRED Serializations (Normative)" against "A.2 DMLex NVH
 serialization (Informative)".
 
-The wording is unfortunate, because REQUIRED is an RFC 2119 keyword, the
-document states in its front matter that these keywords are to be read as in RFC
-2119, and here it is being used to label document sections rather than to place
-a requirement on anybody. If it misled us it will mislead others.
+The wording is unfortunate. REQUIRED is an RFC 2119 keyword. The front matter
+of the document says that these keywords have their RFC 2119 sense. Here the
+keyword classifies document sections and puts a requirement on nobody. It
+misled us, and it will mislead others.
 
-Related, and worth remembering when someone asks for both formats: the standard
-puts round-tripping between serializations out of scope. The two files are
-semantically compatible but their identifiers, uniqueness scopes and addressing
-mechanisms are not guaranteed to match, which is why our export mints the same
-ids for both rather than relying on the standard to relate them.
+One related point is important when a user asks for both formats. The standard
+puts a round trip between serializations out of its scope. The two files are
+compatible in meaning, but their identifiers, uniqueness scopes, and
+addressing mechanisms have no guarantee of a match. Therefore the export mints
+the same identifiers for both files, and does not depend on the standard to
+relate them.
+
+## 8. Nothing in DMLex holds a number that you supply
+
+The sentiment data adds two facts to a word. The first is a direction:
+Positive, Neutral, or Negative. The second is a strength: an integer from -3
+to 3. The direction has an obvious home, because a label is a category tag
+from a declared inventory. The strength has no home.
+
+The first place to look is the Annotation module, because "annotation" is the
+word for this data. The module does not help. It holds inline markers only:
+`headwordMarker` and `collocateMarker` in the text of a definition or of an
+example, and `placeholderMarker` in a headword. No annotation object attaches
+to a sense or to an entry. Core, Linking, and Controlled Values also have no
+numeric property that an exporter can fill. `listingOrder` and
+`homographNumber` are numbers, but they belong to the model, not to your data.
+
+Therefore the label is the only mechanism in the model that attaches a typed
+value to a sense or to an entry, and a label is a category. We used it: a
+second inventory, `sentimentValue`, with one tag per value, and with
+`marl:polarityValue` as the `sameAs` of its `labelTypeTag`. The polarity
+inventory stays separate, so that a consumer can take one inventory and
+ignore the other. The number survives the trip.
+
+The numeric nature does not survive. Nothing in the file says that these
+seven tags are numeric, or which scale they use, or that `-3` is stronger
+than `-2`. The model cannot express the order. A generic DMLex consumer sees
+seven opaque strings, and only a consumer that knows the scheme can decode
+them. For us this trade is acceptable, because our consumer is a knowledge
+graph that also holds the RDF. It is not a general answer.
+
+The limitation is wider than sentiment. A confidence score, a corpus
+frequency, a salience weight, and every other graded annotation hit the same
+wall. DMLex can say that a sense is rare, because `rarelyUsed` is a category.
+DMLex cannot say how rare. We have a workaround, but the finding is worth a
+report to the committee. The workaround is exactly the type of private
+convention that a standard exists to prevent.
+
+## How well the export follows the tenets of DMLex
+
+The full export is complete: DanNet, COR, and the sentiment data, valid in
+both serializations. Therefore we can answer a question that the findings
+above answer only piece by piece. The export is conformant in every part, but
+the fit with the model is not equal in every part. The fit follows the
+distance from the dictionary tradition that DMLex models. The morphology fits
+fully. The labels fit well. The wordnet structure fits by convention. The
+numbers do not fit.
+
+Some parts truly follow the tenets. Serialization independence, "a data model,
+not an encoding format", is real in our pipeline. One intermediate structure
+produces two serializations with identical content. Our pipeline follows this
+tenet more faithfully than the artifacts of the standard do. The two schemas
+give `homographNumber` two different types (finding 4), and referential
+integrity exists only in the XSD (finding 2). Therefore the shared
+intermediate structure, not the schemas, makes sure that the XML and the JSON
+say the same thing.
+
+The discipline of trees plus Linking also fits cleanly. Entry to sense is the
+only hierarchy. All 273,028 relations go through the Linking module, with
+roles from `owl:inverseOf`. The best citizen is the newest arrival. A COR
+inflection lands on `inflectedForm`, with a tag from a declared
+`inflectedFormTag` inventory: a form, its text, its paradigm slot, its
+readable description. This is the exact dictionary use case that the Core
+module models. No part of it is a workaround.
+
+Other parts conform to the letter and lean on convention. The core of DMLex
+is semasiological: from word to meaning. DanNet asserts the opposite
+direction. The inversion loses no content, but the shared concept survives
+only as a `labelTag` with a `sameAs` URI (finding 1). A consumer that does not
+know the convention sees 77,285 senses with copied definitions, and must
+discover that 70,000 of the "controlled values" are really an identity
+register. This stretches the Controlled Values tenet: an inventory with the
+cardinality of the data is not really a controlled vocabulary. The
+`sentimentValue` inventory goes further. Its seven category tags encode an
+ordered numeric scale, and the file cannot state the order (finding 8). Both
+methods are valid, but no generic DMLex consumer can decode them.
+
+One tenet is not available to us at all. The Linking module advertises
+cross-resource relations, but the XSD makes every member reference local
+(finding 2). Therefore the outward claims of DanNet, at Open English WordNet
+and at the non-identity ILI mappings, have no conformant home. Only `wn:ili`
+survives, as the identity claim in `sameAs`.
+
+The summary: as a dictionary, the export is close to a model citizen. The
+headwords, homograph numbers, parts of speech, inflection paradigms, labels,
+definitions, and examples are idiomatic DMLex. As a wordnet carrier, the
+export is a conformant encoding whose meaning lives partly in conventions
+outside the file. This gap is not a fault of the conversion. It is the
+measured distance between two lexicographic traditions. It is also exactly
+what the feedback list below gives to the LEXIDMA committee.
 
 ## Feedback for the LEXIDMA committee
 
-Findings 2 to 7 are defects in the standard's artifacts or its wording, and
-finding 1 is a design limitation worth reporting even though it is deliberate:
+Findings 2 to 8 are faults in the artifacts of the standard or in its wording.
+Finding 1 is a deliberate design limitation that is also worth a report:
 
-1. Synset identity has no home in the model. Wordnet content can be carried, but
-   concept identity survives only by convention, through a Controlled Values
-   tag. See finding 1.
-2. The XSD files require an XSD 1.1 processor, of which roughly two exist, and
-   none of the common command-line tools qualifies. Nothing in the standard
-   warns an implementer of this. See finding 3.
-3. The XML schema forbids the cross-resource linking that the Linking Module
-   documents. A `keyref` makes every `member/@ref` local, so
-   `scopeRestriction="any"` cannot be honoured in XML. See finding 2.
-4. `homographNumber` has contradictory types in the XML and JSON schemas of the
-   same standard, and the JSON schema also contradicts the prose, which says the
-   property is a number. See finding 4.
-5. `entryUnique`, `definitionUnique` and `exampleUnique` cannot be satisfied by
-   any document, because they key on mixed content elements. A minimal
-   reproduction is in finding 5.
-6. `partOfSpeechTagType` asserts a non-empty description while declaring the
-   element optional. See finding 6.
+1. Synset identity has no home in the model. DMLex can carry wordnet content,
+   but concept identity survives only by convention, through a Controlled
+   Values tag. See finding 1.
+2. The XSD files need an XSD 1.1 processor. Approximately two implementations
+   exist, and no common command-line tool is one of them. The standard does
+   not warn an implementer. See finding 3.
+3. The XML schema forbids the cross-resource links that the Linking module
+   documents. A `keyref` makes every `member/@ref` local. Therefore no XML
+   document can obey `scopeRestriction="any"`. See finding 2.
+4. `homographNumber` has two types that do not agree, one in the XML schema
+   and one in the JSON schema of the same standard. The JSON schema also does
+   not agree with the prose, which calls the property a number. See finding 4.
+5. No document can satisfy `entryUnique`, `definitionUnique`, or
+   `exampleUnique`, because they key on mixed-content elements. Finding 5
+   holds a minimal reproduction.
+6. `partOfSpeechTagType` asserts a description that is not empty, and declares
+   the element optional. See finding 6.
 7. Section 1.2 uses the RFC 2119 keyword REQUIRED to classify parts of the
-   specification document, which reads as an obligation to implement all four
+   specification document. This reads as a duty to implement all four
    serializations. See finding 7.
+8. No property in DMLex holds a graded value. A number from the exporter, for
+   example a sentiment strength or a corpus frequency, becomes an inventory of
+   opaque category tags. The order and the scale are lost. The Annotation
+   module does not fill the gap, because it holds inline markers only. See
+   finding 8.

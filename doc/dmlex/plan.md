@@ -1,12 +1,30 @@
-# DMLex export plan for DanNet
+# DMLex export plan for DanNet, COR and the sentiment data
 
 ## 1. Purpose and scope
 
-The ELEXAI project needs Danish lexicographic data in the DMLex format. DanNet is
-the first source. COR and DSL can follow later.
+The ELEXAI project needs Danish lexicographic data in the DMLex format. DMLex is
+the input format of a knowledge graph that an AI model reads from. The format is
+therefore a means and not a goal.
 
-This document describes how to add a DMLex export to DanNet. It also lists the
-open questions for the ELEXAI project.
+This has a consequence for the scope. A knowledge graph is more useful when the
+facts about one word stay together. Therefore the export builds one artefact
+from three sources:
+
+| Source | Contribution | Link to DanNet |
+|---|---|---|
+| DanNet | entries, senses, definitions, examples, relations | the source itself |
+| COR | inflected forms | `owl:sameAs` at word level |
+| Det Danske Sentimentleksikon | polarity of a word or a sense | `dns:sentiment` at word, sense and synset level |
+
+The three sources fit together already. COR points at DanNet words and the
+sentiment data points at DanNet words, senses and synsets. No new alignment work
+is necessary.
+
+This document describes how to build that artefact. It also lists the open
+questions for the ELEXAI project.
+
+NOTE: Work packages 9.1 to 9.6 are complete and hold the DanNet part only. Work
+packages 9.7 and 9.8 add COR and the sentiment data.
 
 ## 2. Reference documents
 
@@ -33,6 +51,12 @@ These decisions are firm.
 7. The export leaves out inconsistent DanNet data. It does not repair it. A
    correction in DanNet propagates into the export at the next release. The
    WN-LMF export works the same way.
+8. The export builds one artefact from DanNet, COR and the sentiment data. It
+   does not build one artefact for each source. Section 1 gives the reason.
+
+Reason for decision 8: the consumer is a knowledge graph, not a dictionary
+reader. With a separate COR file, each consumer must join the inflections back
+onto the words. This export can do that join once, for all consumers.
 
 Reason for decision 2: DanNet already publishes its data as RDF. A DMLex RDF
 export adds a second RDF view of the same data. It gives no new capability. The
@@ -62,6 +86,9 @@ use the Linking module.
 | synset example | `example` |
 | `wn:` and `dns:` relations | `relation` with `member` objects |
 | ontological type | `label` with a `tag` |
+| COR inflected form | `inflectedForm` on the entry, with a `tag` |
+| sentiment polarity | `label` with a `tag` |
+| sentiment value | a second `label` with a `tag` |
 
 ### 4.1 Form and meaning
 
@@ -205,7 +232,7 @@ The Controlled Values module declares the tag inventories inside the resource.
 Each declaration holds a tag, a description and zero or more `sameAs` URIs. A
 consumer therefore reads the meaning of a tag from the export itself.
 
-DanNet needs seven inventories.
+DanNet needs ten inventories.
 
 | Inventory | DMLex object | External mapping |
 |---|---|---|
@@ -215,10 +242,13 @@ DanNet needs seven inventories.
 | gender | `labelTag` and `labelTypeTag` | DanNet schema URIs |
 | register, dating and frequency | `labelTag` and `labelTypeTag` | LexInfo URIs |
 | usage notes | `labelTag` and `labelTypeTag` | none |
+| sentiment polarity | `labelTag` and `labelTypeTag` | MARL class URIs |
+| sentiment value | `labelTag` and `labelTypeTag` | `marl:polarityValue` |
+| COR inflections | `inflectedFormTag` | none, see section 9.7 |
 | relation types | `relationType` and `memberType` | `wn:` and `dns:` URIs |
 
 The synset inventory holds one tag for each exported synset. This inventory is
-therefore much larger than the other four. This inventory also replaces one
+therefore much larger than the others. This inventory also replaces one
 `synonym` relation for each synset. Therefore the total size of the output does
 not increase much.
 
@@ -234,7 +264,7 @@ keeps the bag together as one tag, written as DanNet writes it, for example
 gives the order. DanNet has 203 of these composite types.
 
 A composite tag gets no `sameAs` URI. A `sameAs` URI for each member concept
-would say that the composite is the same as each of its parts. A consumer that
+says that the composite is the same as each of its parts. A consumer that
 needs the concepts reads them from the tag, or from the DanNet concept ontology
 at `https://wordnet.dk/dannet/concepts`.
 
@@ -247,11 +277,32 @@ DanNet marks some senses with `lexinfo:register`, `lexinfo:dating` and
 label, so each value becomes a `labelTag` with the LexInfo URI as `sameAs`. The
 tags are `slangRegister`, `inHouseRegister`, `old` and `rarelyUsed`.
 
-`lexinfo:usageNote` is free text, for example `sj.` or `især børn`. However,
+`lexinfo:usageNote` is free text, for example `sj.` or `især børn`. But
 DanNet uses only 86 different notes, and 1270 senses share the most common one.
 The notes are therefore an inventory in practice, and each one becomes a
 `labelTag` with the type `usage`. These tags get no `sameAs` URI, because the
 notes have no URI.
+
+The sentiment data needs two inventories. The polarity inventory holds three
+tags: `Positive`, `Neutral` and `Negative`. Each tag carries the MARL class URI
+as `sameAs`. The value inventory holds one tag for each value from `-3` to `3`.
+Its `labelTypeTag` carries `marl:polarityValue` as `sameAs`.
+
+The two inventories stay apart, because they hold two different kinds of fact. A
+consumer that needs the direction of the sentiment reads the polarity labels
+only.
+
+A DMLex label is a category and not a number. The value inventory is therefore a
+wider use of the object, like the synset inventory of section 5.3. Finding 8 in
+`findings.md` records this limitation of the model.
+
+A sentiment label goes on an entry and on a sense. See section 9.8. A `for`
+value holds one object type only. Therefore both sentiment inventories declare
+no `for` value, which leaves the tag unrestricted.
+
+The COR inventory holds one `inflectedFormTag` for each inflection code. A code
+has no URI of its own, so these tags get no `sameAs` URI. The description gives
+the meaning of the code. Section 9.7 gives the source of the descriptions.
 
 ## 8. Modules
 
@@ -344,7 +395,7 @@ The XML shape and the JSON shape of some objects are different. In XML, a label
 is `<label tag="x"/>`. In JSON, a label is the string `"x"` in a `labels` array.
 The same difference applies to `partOfSpeech` and to `sameAs`.
 
-The two schemas also disagree on the type of `homographNumber`. The XSD makes it
+The two schemas also do not agree on the type of `homographNumber`. The XSD makes it
 an `xs:integer` and the JSON schema makes it a string. Therefore the JSON
 serializer converts the value. This is a fault in the standard, and a report to
 the LEXIDMA committee can remove it.
@@ -363,6 +414,129 @@ Section 12 lists the validators that these schemas need.
 2. Add the license information for the new files.
 3. Add the export to the release pipeline.
 
+The license of the artefact is not the license of DanNet alone. COR and the
+sentiment data have their own terms. Record all three.
+
+### 9.7 Add the COR inflections
+
+COR holds 623981 `ontolex:otherForm` objects and links to DanNet with 94374
+`owl:sameAs` statements at word level, for example
+`cor:COR.89949 owl:sameAs dn:word-11004954`.
+
+CAUTION: COR states each `owl:sameAs` statement in both directions. The 94374
+statements are 47187 links. Give each pair a canonical direction, as section 9.3
+does for `wn:similar`.
+
+DMLex Core holds an inflected form on the entry:
+
+```xml
+<entry id="word-11004954">
+  <headword>hund</headword>
+  <inflectedForm tag="117"><text>hundenes</text></inflectedForm>
+</entry>
+```
+
+1. Read the COR graph at `https://ordregister.dk/id/`, not the inference graph.
+2. Build a map from DanNet word to COR word with the `owl:sameAs` statements.
+3. Read the `ontolex:otherForm` objects and their `ontolex:writtenRep` values.
+4. Give each form the last segment of its COR identifier as the `tag` value.
+   The identifier `cor:COR.60986.117` gives the code `117`.
+5. Remove the duplicate pairs of code and text from each entry.
+6. Declare one `inflectedFormTag` for each code that the export uses.
+7. Add the forms to the entry of the DanNet word.
+
+A COR identifier has one of two shapes. 448298 forms have the shape
+`COR.NNNNN.CCC`. 175683 forms have the shape `COR.EXT.NNNNNN.CCC`, where `EXT`
+is a part of the resource name and not a subfield of its own. The inflection
+code is the last segment of both shapes. The RDF holds 76 different codes, and
+all of them are numeric.
+
+NOTE: The COR documentation describes a fourth subfield for a spelling variant.
+The DanNet copy of COR holds no such subfield. A spelling variant is instead a
+second `ontolex:writtenRep` value on one form. 28775 forms hold more than one
+value, up to six. Two forms of one entry therefore share one code, which
+`inflectedFormUnique` permits. But a repeated pair of code and text is a
+real error. Step 5 removes it. Finding 5 in `findings.md` gives the reason.
+
+CAUTION: The `inflectedForm` element belongs to the entry, not to the sense. An
+inflection is a property of the form, and section 4.1 keeps the form apart from
+the meaning. COR also holds 67854 senses, but the export does not need them,
+because DanNet gives the senses.
+
+The links give 46790 different DanNet words. 46789 of these words are exported
+entries. The other word holds no headword and no sense. 59 COR words hold no
+forms. No `owl:sameAs` statement points at a word that is absent from DanNet.
+
+The export adds 348848 `inflectedForm` elements to 46775 entries. It declares 50
+`inflectedFormTag` objects.
+
+372 entries link to more than one COR word. Section 14.2 gives the treatment.
+
+NOTE: The export does not compare the lemma of a COR word with the headword of
+the entry in general. The lemmas of a COR word are the `ontolex:writtenRep`
+values of its canonical form. The export keeps 23 entries whose COR word holds
+no lemma equal to the headword, and these links are correct. COR holds the
+normed spelling, for example `Helligånd` against the DanNet headword
+`helligånd`. COR is the authority for the spelling.
+
+The `rdfs:label` of each COR form ends with a readable label for its code in
+parentheses, for example `(vb.perf.part)` for the code 208. Take the
+`inflectedFormTag` descriptions from these labels, not from an external file.
+Then an update of the COR graph also updates the descriptions. A form outside
+the spelling norm has the prefix `unormeret: ` before its code label. This
+prefix is a property of the form, not of the code. Remove it. Every code in the
+graph has a label. If the labels of one code do not agree after the removal of
+the prefix, write no description for that code. An `inflectedFormTag`
+description is optional, and section 12 gives the proof.
+
+NOTE: The export does not keep the norm status of a form. DMLex permits a
+`label` on an `inflectedForm`. Therefore a later release can add this status
+as a label.
+
+### 9.8 Add the sentiment data
+
+The sentiment graph at `https://wordnet.dk/sentiment/` holds 29971
+`dns:sentiment` statements. The subjects are 7797 DanNet words, 11382 DanNet
+senses and 10792 DanNet synsets. The DanNet graph holds 181 more, on synsets.
+The total is 30152.
+
+NOTE: A word and one of its senses often share one blank node. 2487 blank nodes
+are the object of more than one `dns:sentiment` statement. This is not a fault.
+A shared node states one sentiment at both levels.
+
+Each statement points at a blank node with two properties:
+
+```
+marl:hasPolarity   marl:Positive, marl:Neutral or marl:Negative
+marl:polarityValue an integer from -3 to 3
+```
+
+1. Declare a `labelTypeTag` with the tag `sentiment`.
+2. Declare one `labelTag` for each of the three polarities, with the MARL class
+   URI as `sameAs`.
+3. Declare a `labelTypeTag` with the tag `sentimentValue`, with
+   `marl:polarityValue` as `sameAs`.
+4. Declare one `labelTag` for each value from `-3` to `3`.
+5. If the subject is a word, give the labels to the entry.
+6. If the subject is a sense, give the labels to the sense.
+7. If the subject is a synset, give the labels to each sense of the synset.
+
+The 181 statements of the DanNet graph hold a polarity and no value. These
+subjects get a polarity label only.
+
+A sense takes the sentiment of its synset only when the sense holds no sentiment
+of its own. Two different polarities on one sense are nonsense. The current data
+holds no such case, and this rule is a safeguard.
+
+An entry and its senses do not always agree. 437 words state a polarity that
+one of their own senses does not state. The export keeps both statements,
+because the source states both. A consumer therefore sees the difference.
+
+7793 words and 12181 senses get a label. 820 of these senses get the label from
+their synset only. A word that has no entry gets no label.
+
+Section 14.2 gives the treatment of the three faults in the sentiment data.
+
 ## 10. Open questions
 
 For the ELEXAI project:
@@ -374,8 +548,8 @@ For the ELEXAI project:
    finding to the LEXIDMA committee.
 4. Does ELEXAI need the ILI identifier of each synset? Section 13 gives the
    method.
-5. Does ELEXAI want COR and DSL next? Both fit the DMLex model better than
-   DanNet.
+5. Does ELEXAI want DSL as a fourth source? COR and the sentiment data are in
+   scope already.
 
 Internal:
 
@@ -386,6 +560,13 @@ Internal:
 8. `dns:source` gives the Den Danske Ordbog URL of 66725 senses. DMLex holds a
    source only on an `example`, so these URLs have no home. Does the export need
    them?
+9. ANSWERED. What do the COR inflection codes mean? The `rdfs:label` of each
+   COR form gives a readable label for its code. Section 9.7 gives the method.
+10. ANSWERED. What happens to `marl:polarityValue`? The export declares a second
+    inventory with one `labelTag` for each value. Section 7 and section 9.8 give
+    the method. Finding 8 in `findings.md` records the limitation of the model.
+11. ANSWERED. Do the sentiment labels go on the entry, the sense, or both? Both.
+    Section 9.8 gives the method.
 
 ## 11. Out of scope
 
@@ -396,8 +577,10 @@ Internal:
 - The relations to other datasets: `wn:eq_synonym`, `dns:eqHypernym`,
   `dns:eqHyponym` and `dns:eqSimilar`. Section 14.1 gives the reason.
 - The Crosslingual module. DanNet holds no words of another language.
-- The sentiment data. `dns:sentiment` comes from Det Danske Sentimentleksikon
-  and not from DanNet. A later release can add it.
+
+NOTE: The sentiment data and COR were out of scope in an earlier version of this
+document. Decision 8 puts them in scope. Work packages 9.7 and 9.8 describe the
+work.
 
 ## 12. Schema examination
 
@@ -415,6 +598,8 @@ are the full XML and JSON schemas, and the two no-crosslingual variants.
 | Does the XML schema constrain `member/@ref`? | Yes. A `keyref` makes each value match the `id` of an `entry`, a `sense` or a `collocateMarker` in the same document |
 | Does the JSON schema constrain `ref`? | No. JSON Schema cannot express this rule |
 | Do the two schemas agree on the types? | No. `homographNumber` is an `xs:integer` in the XSD and a string in the JSON schema |
+| Does `inflectedFormTagType` assert a non-empty description? | No. The description of an inflected form tag is optional in fact, unlike the description of a part of speech tag |
+| Does `inflectedFormUnique` work? | Yes. It keys on `text` and on `@tag`, and both of these are simple types. Finding 5 in `findings.md` gives the contrast with `entryUnique` |
 
 The XML target namespace is `http://docs.oasis-open.org/lexidma/ns/dmlex-1.0`.
 
@@ -422,7 +607,7 @@ The `sameAs` element is available on `definitionTypeTag`, `inflectedFormTag`,
 `labelTag`, `labelTypeTag`, `partOfSpeechTag`, `sourceIdentityTag`,
 `relationType` and `memberType`. It is not available on `entry` or on `sense`.
 
-Conformance clause 1.b of the standard permits custom extensions. However, both
+Conformance clause 1.b of the standard permits custom extensions. But both
 schemas are closed. Therefore an extension makes the output invalid. Do not use
 custom extensions.
 
@@ -449,8 +634,15 @@ attribute. `xmllint` and the default `SchemaFactory` of the JDK read XSD 1.0
 only. Neither tool can read these schemas.
 
 The XML validation needs Xerces 2.12 or later with the XSD 1.1 factory. The JSON
-validation needs a library for JSON Schema draft 2020-12. Neither library is in
-`deps.edn`.
+validation needs a library for JSON Schema draft 2020-12. The `:validate` alias
+in `deps.edn` holds both libraries. Finding 3 in `findings.md` gives their
+history.
+
+The XML validation of a full export also needs a large JVM heap. Xerces keeps
+the identity-constraint tables in memory for the full document. The 127 MB
+export needs a heap of approximately 16 GB. If the heap is too small, the JVM
+becomes unresponsive, and an attached REPL is lost with it. Validate a full
+export in its own process, for example with `clj -J-Xmx16g -M:validate`.
 
 ## 13. External identifiers
 
@@ -480,10 +672,11 @@ ILI URI by the namespace of the URI.
 
 ## 14. Findings from the data
 
-Date of examination: 12 August 2026. The numbers come from the raw DanNet graph
-of the 2025-07-03 release.
+Date of examination: 12 August 2026 for the DanNet numbers, and 13 August 2026
+for the COR numbers and the sentiment numbers. The numbers come from the raw
+graphs of the 2025-07-03 release, not from the inference graph.
 
-NOTE: `findings.md` gives the same findings in plain language, with the reasons
+NOTE: `findings.md` gives the same findings, with the reasons
 and the examples. Read that document first.
 
 ### 14.1 Relations to other datasets
@@ -508,23 +701,26 @@ The DanNet schema separates the five properties:
 
 `wn:ili` is an identity claim, so `sameAs` holds it without loss. The other four
 are not identity claims. A `sameAs` URI for a broader concept in another dataset
-would say something that DanNet does not say.
+says something that DanNet does not say.
 
 These four properties also cannot become DMLex relations. A member reference
 must point at an object in the same file (see section 12.1). The Crosslingual
 module does not help, because that module models the translations of a headword.
 
 NOTE: `wn:eq_synonym` says that the object is synonymous with the subject. A
-translation of the Danish headword would be a use for this property. However,
+translation of the Danish headword is a possible use for this property. But
 DanNet holds only a pointer to an Open English WordNet synset, not the English
 words of that synset. The Crosslingual module needs the words. Therefore this
 property becomes useful only if the export also reads Open English WordNet.
 
 ### 14.2 Data faults
 
-These faults are in DanNet, not in the conversion. Decision 7 applies to all of
-them. The export leaves the data out. A correction in DanNet removes the fault
-from the export at the next release, with no change to the export code.
+These faults are in the source data, not in the conversion. Decision 7 applies to
+all of them. The export leaves the data out. A correction in the source removes
+the fault from the export at the next release, with no change to the export code.
+
+Each treatment is a condition on the data. No treatment holds a list of
+identifiers. Therefore each exclusion repairs itself.
 
 A fault removes only the part of the data that it makes unusable. A word that
 keeps a usable headword and a usable sense keeps its entry.
@@ -536,7 +732,13 @@ keeps a usable headword and a usable sense keeps its entry.
 | A synset has more than one ILI identifier, up to five | 385 | The synset gets no ILI `sameAs` URI |
 | One ILI identifier is claimed by more than one synset | 580 | These synsets get no ILI `sameAs` URI |
 | A synset has an ILI but no lexicalized sense | 8 | The synset gets no `labelTag` |
+| A relation statement points at a synset with no lexicalized sense | 12 | The pair produces no relation, because every DMLex member is a sense |
 | Every `dns:subsumed` statement points at a sense that has no statements of its own | 188 | `dns:subsumed` gets no relation type |
+| An entry links to more than one COR word, and these COR words hold different lemmas | 128 | The export keeps the COR words whose lemma is the headword of the entry. This condition corrects 112 entries. If no lemma is the headword, the export keeps all of the COR words |
+| A COR word holds no `ontolex:canonicalForm`, and therefore no lemma | 1 | The export takes no forms from this COR word, because the lemma condition above cannot test them |
+| A sentiment blank node states more than one polarity | 13 | The 14 subjects of these nodes get no sentiment label |
+| A sentiment blank node states one polarity and more than one value | 40 | The 41 subjects of these nodes keep the polarity label and get no value label |
+| A sentiment blank node states a polarity and a value that do not agree | 57 | The subject keeps the polarity label and gets no value label |
 
 An ILI identifier is an identity claim. Two ILI identifiers on one synset
 therefore say that the synset is two concepts. One ILI identifier on two synsets
@@ -545,3 +747,58 @@ second fault.
 
 Of the 8024 ILI statements in DanNet, 6085 are free of both faults. The export
 holds these 6085.
+
+Three synsets hold relation statements but no lexicalized sense, for example
+{Republikken Congo}. Their twelve relation pairs produce no relation. Without
+this condition, three of the pairs would produce a relation with members in one
+role only. The `min` constraint of a `memberType` forbids this, but the
+constraint is declarative data, so no schema validator can detect the
+violation.
+
+A COR word holds the paradigm of one lemma. 372 entries link to more than one
+COR word. Most of these links are spelling variants, and a merge of the
+paradigms is correct. 128 entries link to COR words with different lemmas, for
+example the word `holde` to the COR words `holde` and `ved lige`. A merge of
+these paradigms puts the forms of `ved lige` on the entry `holde`. Therefore the
+export keeps the COR words whose lemma is the headword.
+
+One COR word, the word `ret`, holds no `ontolex:canonicalForm` and therefore no
+lemma. The lemma condition cannot test a COR word without a lemma. Therefore
+the forms of this COR word stay out of the export.
+
+A polarity and a value state the same fact twice. The value agrees with the
+polarity in all but 57 statements. Each of these 57 statements holds
+`marl:Positive` with the value 0, and each subject is a synset. The polarity is
+the primary statement of the sentiment data, so the export keeps the polarity.
+
+A blank node with two polarities states two facts about one subject. The export
+cannot choose between them, so the subject gets no sentiment label at all. A
+blank node with one polarity and two values keeps the polarity, because the
+polarity is not in doubt.
+
+## 15. Fit between the export and the DMLex model
+
+The export is valid DMLex. The fit with the model is not equal for all parts of
+the data. The fit follows the distance from the dictionary tradition that DMLex
+models.
+
+| Part of the data | Fit | Reason |
+|---|---|---|
+| COR inflections | full | `inflectedForm` with a declared tag is the DMLex model for morphology |
+| headwords, homograph numbers, parts of speech | full | the core objects of a dictionary |
+| register, dating, frequency, usage, gender labels | full | a label is a category from a declared inventory |
+| semantic relations | full | the Linking module carries them with declared roles |
+| synset identity | by convention | DMLex has no object for a shared concept. See finding 1 |
+| sentiment value | by convention | a number becomes an inventory of category tags. See finding 8 |
+| relations to other datasets | none | a member reference cannot leave the file. See finding 2 |
+
+A convention is valid DMLex. But only a consumer that knows the convention
+can decode it. The `labelTag` inventory of the synsets has the cardinality of
+the data, not of a vocabulary, and the `sentimentValue` tags hold an order that
+the file cannot state.
+
+The two serializations hold the same content because one intermediate structure
+produces both. The schemas do not guarantee this equality. Section 12 gives the
+schema conflicts.
+
+`findings.md` gives this assessment in full.
