@@ -1,0 +1,146 @@
+/* The DanNet entry view for Dictionary.app: Old Style serifs in black, white
+   and grey with a single crimson accent, adapted from the dmlex-viewer
+   stylesheet (https://github.com/kuhumcst/dmlex-viewer). */
+
+:root {
+  --ink:     #1d1d1f;
+  --dark:    #3a3a3c;   /* secondary text: examples, inflections, pos */
+  --grey:    #58585c;   /* small metadata: keys, citations */
+  --light:   #d2d2d7;   /* rules and idle link underlines */
+  --panel:   #fafafb;   /* the relations panel */
+  --accent:  #901a1e;
+  --serif:   'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', P052,
+             serif;
+  --sans:    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica,
+             Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink:    #f5f5f7;
+    --dark:   #d1d1d6;
+    --grey:   #a1a1a6;
+    --light:  #48484a;
+    --panel:  #2c2c2e;
+    --accent: #e58a8e;
+  }
+}
+
+html { color-scheme: light dark; }
+
+body {
+  margin: 0 1rem;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ink);
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--light);
+  text-underline-offset: 2.5px;
+}
+
+a:hover { text-decoration-color: var(--accent); }
+
+/* Entry header */
+
+h1.headword {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--accent);
+  margin: 0.75rem 0 0.2rem;
+}
+
+sup.hom { font-size: 45%; font-weight: 400; color: var(--grey); }
+
+p.pos { font-style: italic; color: var(--dark); margin: 0 0 0.3rem; }
+
+.inflections { color: var(--dark); font-size: 0.9rem; margin: 0.3rem 0 0; }
+.unormeret { color: var(--grey); }
+.unormeret::after { content: "*"; }
+
+/* The small-caps metadata voice: keys and citations. */
+.inflections dt, .labels dt, .relations dt, .example cite {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.04em;
+  color: var(--grey);
+  font-style: normal;
+}
+
+.inflections dt, .labels dt, .relations dt {
+  display: inline;
+  margin-right: 0.4em;
+}
+
+.inflections dl, .inflections div, .inflections dd,
+.labels dl, .labels div, .labels dd,
+.relations dl, .relations dd {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.inflections dd + dd::before,
+.labels dd + dd::before,
+.relations dd + dd::before { content: ", "; }
+
+/* Senses */
+
+ol.senses { list-style: none; counter-reset: sense; margin: 1.25rem 0 0; padding: 0; }
+
+li.sense { position: relative; padding-left: 1.8rem; margin: 0 0 1.25rem; }
+
+li.sense::before {
+  counter-increment: sense;
+  content: counter(sense);
+  position: absolute;
+  left: 0;
+  font-family: var(--sans);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.senses.single li.sense { padding-left: 0; }
+.senses.single li.sense::before { content: none; }
+
+.indicator { color: var(--grey); font-weight: 700; }
+.sep { color: var(--light); margin: 0 0.45em; }
+
+.example { color: var(--dark); font-style: italic; margin: 0.35rem 0 0; }
+.example q { quotes: "“" "”"; }
+.example cite { font-size: 0.8rem; margin-left: 0.45rem; }
+
+.labels {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--grey);
+  line-height: 1.7;
+  margin-top: 0.5rem;
+}
+
+.labels > div { display: block; }
+
+/* Relations */
+
+.relations {
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  background: var(--panel);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.8rem;
+}
+
+.relations > div { display: block; }
+
+/* Front matter */
+
+.front-matter h1 { color: var(--accent); }
+.front-matter { max-width: 34rem; }
