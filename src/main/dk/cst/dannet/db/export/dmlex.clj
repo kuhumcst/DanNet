@@ -13,10 +13,13 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.walk :as walk]
+            [clj-file-zip.core :as zip]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
-            [dk.cst.dannet.prefix :as prefix]))
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.release :as release]))
 
 (def dmlex-uri
   "http://docs.oasis-open.org/lexidma/ns/dmlex-1.0")
@@ -888,15 +891,79 @@
             :relations         (->relations senses-of obverse-of relations)
             :relationTypes     (->relation-types descriptions obverse-of relations)})))
 
+(defn license-comment
+  "An XML comment stating the licence of the DanNet `version` DMLex export.
+
+  DMLex 1.0 has no slot for licence metadata — the XSD only allows title, uri
+  and langCode on lexicographicResource, and the JSON schema closes the object
+  with additionalProperties: false — so the XML carries the licence as a
+  schema-transparent comment."
+  [version]
+  (str "<!--\n"
+       "DanNet " version " as DMLex.\n"
+       "Combines DanNet and DDS (both CC BY-SA 4.0) with the CC0-licensed\n"
+       "parts of COR. The combined dataset is licensed under CC BY-SA 4.0:\n"
+       "https://creativecommons.org/licenses/by-sa/4.0/\n"
+       "Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and Center\n"
+       "for Sprogteknologi (CST), University of Copenhagen. See README.txt\n"
+       "for full attribution.\n"
+       "-->\n"))
+
+(defn export-metadata
+  "Dataset metadata for the DanNet `version` DMLex export, shipped in the zip
+  as metadata.json (see `license-comment` for why nothing can go in-band).
+  Mirrors the RDF metadata of the dn graph in Dublin Core terms so that e.g.
+  a DMLex viewer can consume it next to the DMLex JSON."
+  [version]
+  ;; array-map keeps this authored order in the serialized JSON
+  (array-map
+    "dc:title"       "DanNet"
+    "dc:identifier"  prefix/dn-uri
+    "dc:issued"      version
+    "dc:language"    "da"
+    "dc:description" {"en" (str "The Danish WordNet, combined with inflected "
+                                "forms from COR and sentiment polarities "
+                                "from DDS.")
+                      "da" (str "Det danske WordNet, kombineret med "
+                                "bøjningsformer fra COR og sentiment-"
+                                "annoteringer fra DDS.")}
+    "dc:publisher"   "Centre for Language Technology, University of Copenhagen"
+    "dc:license"     "https://creativecommons.org/licenses/by-sa/4.0/"
+    "dc:rights"      (str "Copyright © Centre for Language Technology "
+                          "(University of Copenhagen) & The Society for Danish "
+                          "Language and Literature; licensed under "
+                          "CC BY-SA 4.0.")
+    "dc:source"      [{"dc:title"   "DanNet"
+                       "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"}
+                      {"dc:title"   "DDS (Det Danske Sentimentleksikon)"
+                       "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"}
+                      {"dc:title"   "COR (Det Centrale Ordregister)"
+                       "dc:license" "https://creativecommons.org/publicdomain/zero/1.0/"}]))
+
+;; TODO: add the zip to the download page and the release pipeline (plan 9.6)
 (defn export-dmlex!
-  "Export a DMLex `resource` into `dir` as both XML and JSON."
+  "Export a DMLex `resource` into `dir` as both XML and JSON, zipped together
+  with the licence information and dataset metadata."
   [dir resource]
   (println "Beginning DMLex export of DanNet into" dir)
-  (let [xml-file  (str dir "dannet-dmlex.xml")
-        json-file (str dir "dannet-dmlex.json")]
+  (let [xml-file     (str dir "dannet-dmlex.xml")
+        json-file    (str dir "dannet-dmlex.json")
+        meta-file    (str dir "metadata.json")
+        license-file (str dir "LICENSE")
+        readme-file  (str dir "README.txt")
+        zip-path     (str dir (prefix/export-file "dmlex" 'dn))]
     (io/make-parents xml-file)
-    (spit xml-file (xml-str resource))
-    (spit json-file (json-str resource)))
+    (spit xml-file (str/replace-first (xml-str resource) "?>\n"
+                                      (str "?>\n" (license-comment release/to))))
+    (spit json-file (json-str resource))
+    (spit meta-file (with-out-str
+                      (json/pprint (export-metadata release/to)
+                                   :escape-slash false
+                                   :escape-unicode false)))
+    (rdf/copy-license! :cc-by-sa license-file)
+    (spit readme-file (rdf/render-readme "dannet-dmlex.txt" release/to))
+    (zip/zip-files [xml-file json-file meta-file license-file readme-file]
+                   zip-path))
   (println "DMLex export of DanNet complete!"))
 
 (comment

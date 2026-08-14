@@ -1,0 +1,32 @@
+DanNet {version} (DMLex)
+========================
+The Danish WordNet — https://wordnet.dk/dannet
+
+A DMLex 1.0 (OASIS) representation of DanNet, available as both XML and
+JSON. It combines data from three source datasets:
+
+  * DanNet — CC BY-SA 4.0
+    Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and
+    Center for Sprogteknologi (CST), University of Copenhagen.
+
+  * DDS (Det Danske Sentimentleksikon / The Danish Sentiment Lexicon)
+    — CC BY-SA 4.0, published by DSL and CST:
+    https://github.com/dsldk/danish-sentiment-lexicon
+
+  * COR (Det Centrale Ordregister / The Central Word Registry)
+    — the CC0-licensed resources COR(1) and COR.EXT published by
+    Dansk Sprognævn (DSN): https://ordregister.dk
+
+The data has been transformed and merged into a single DMLex resource.
+As a derivative of CC BY-SA-licensed data, the combined dataset is
+published under CC BY-SA 4.0 (see LICENSE or
+https://creativecommons.org/licenses/by-sa/4.0/).
+
+When using DanNet, please cite:
+
+  Pedersen, Bolette S., Sanni Nimb, Jørg Asmussen, Nicolai H. Sørensen,
+  Lars Trap-Jensen & Henrik Lorentzen (2009). DanNet – the challenge of
+  compiling a WordNet for Danish by reusing a monolingual dictionary.
+  Language Resources & Evaluation 43:269–299.
+
+This iteration of DanNet is funded by the Carlsberg Foundation.
