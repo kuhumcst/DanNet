@@ -34,6 +34,7 @@ round of changes, which followed the export review of 14 August 2026.
 | XML schemas | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/XML/` |
 | JSON schemas | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/JSON/` |
 | RDF ontology and SHACL file | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/RDF/` |
+| DMLex viewer, a spin-off project that displays this export | `https://github.com/kuhumcst/dmlex-viewer` |
 
 ## 3. Decisions
 

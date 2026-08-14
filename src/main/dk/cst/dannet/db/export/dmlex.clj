@@ -4,7 +4,10 @@
   The intermediate structure is a single map using the DMLex property names as
   keys, e.g. {:langCode \"da\" :entries [{:headword \"hund\" :senses [...]}]}.
   It feeds both the XML and the JSON serializer, which differ in how they
-  represent labels, parts of speech and sameAs URIs."
+  represent labels, parts of speech and sameAs URIs.
+
+  The exported JSON can be browsed as a dictionary with the generic DMLex
+  viewer at https://github.com/kuhumcst/dmlex-viewer."
   (:require [clojure.data.json :as json]
             [clojure.data.xml :as xml]
             [clojure.java.io :as io]
