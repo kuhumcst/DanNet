@@ -45,6 +45,12 @@
    {:tag         "ontologicalType"
     :description "DanNet ontological type"
     :sameAs      [(str (prefix/prefix->uri 'dns) "ontologicalType")]}
+   {:tag         "lexfile"
+    :description "Semantisk felt fra WordNet, fx noun.animal"
+    :sameAs      [(str (prefix/prefix->uri 'wn) "lexfile")]}
+   {:tag         "domain"
+    :description "Fagområde fra Den Danske Ordbog, fx zoo eller med"
+    :sameAs      [(str (prefix/prefix->uri 'dc) "subject")]}
    {:tag         "gender"
     :description "The gender of the person that a DanNet synset denotes"
     :sameAs      [(str (prefix/prefix->uri 'dns) "gender")]}
@@ -60,6 +66,8 @@
    {:tag         "usage"
     :description "Usage note from Den Danske Ordbog"
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "usageNote")]}
+   {:tag         "norm"
+    :description "Retskrivningsstatus for en bøjningsform"}
    {:tag         "sentiment"
     :description "Sentiment polarity from Det Danske Sentimentleksikon"
     :sameAs      [(str (prefix/prefix->uri 'marl) "hasPolarity")]}
@@ -85,13 +93,28 @@
       {:tag     (str value)
        :typeTag "sentimentValue"})))
 
+(def norm-label-tags
+  "The single norm-status tag. COR marks a form outside the spelling norm with
+  an `unormeret: ` prefix on the label of the form."
+  [{:tag         "unormeret"
+    :typeTag     "norm"
+    :for         "inflectedForm"
+    :description "Bøjningsform uden for retskrivningsnormen"}])
+
+(def source-identity-tags
+  "The single source of the DanNet sense examples."
+  [{:tag         "DDO"
+    :description "Den Danske Ordbog"
+    :sameAs      ["https://ordnet.dk/ddo"]}])
+
 (def lexicographic-resource
   "The parts of the DMLex resource that do not come from the graph."
-  {:title            "DanNet"
-   :uri              prefix/dn-uri
-   :langCode         "da"
-   :labelTypeTags    label-type-tags
-   :partOfSpeechTags part-of-speech-tags})
+  {:title              "DanNet"
+   :uri                prefix/dn-uri
+   :langCode           "da"
+   :labelTypeTags      label-type-tags
+   :partOfSpeechTags   part-of-speech-tags
+   :sourceIdentityTags source-identity-tags})
 
 ;; -----------------------------------------------------------------------------
 ;; Serialization
@@ -150,9 +173,10 @@
   [::dmlex/partOfSpeech {:tag tag}])
 
 (defn ->inflected-form
-  [{:keys [text] :as m}]
-  [::dmlex/inflectedForm (attrs m [:tag])
-   [::dmlex/text text]])
+  [{:keys [text labels] :as m}]
+  (into [::dmlex/inflectedForm (attrs m [:tag])
+         [::dmlex/text text]]
+        (map ->label labels)))
 
 (defn ->definition
   [{:keys [text] :as m}]
@@ -187,7 +211,7 @@
   "Build the XML element tree of a DMLex `resource`. The child order follows the
   sequences of dmlex_no-crosslingual.xsd."
   [{:keys [entries inflectedFormTags labelTags labelTypeTags partOfSpeechTags
-           relations relationTypes]
+           sourceIdentityTags relations relationTypes]
     :as   resource}]
   (into [::dmlex/lexicographicResource (merge {:xmlns dmlex-uri}
                                               (attrs resource [:title :uri :langCode]))]
@@ -196,6 +220,7 @@
                 (map (partial ->tag ::dmlex/labelTag [:tag :typeTag :for]) labelTags)
                 (map (partial ->tag ::dmlex/labelTypeTag [:tag]) labelTypeTags)
                 (map (partial ->tag ::dmlex/partOfSpeechTag [:tag :for]) partOfSpeechTags)
+                (map (partial ->tag ::dmlex/sourceIdentityTag [:tag]) sourceIdentityTags)
                 (map ->relation relations)
                 (map ->relation-type relationTypes))))
 
@@ -277,6 +302,25 @@
     "SELECT ?sense ?example
      WHERE { ?sense lexinfo:senseExample ?example . }"))
 
+(def domain-query
+  (op/sparql
+    "SELECT ?synset ?domain
+     WHERE { ?synset dc:subject ?domain . }"))
+
+(def lexfile-query
+  (op/sparql
+    "SELECT ?synset ?lexfile
+     WHERE { ?synset wn:lexfile ?lexfile . }"))
+
+(def variant-query
+  "The written variants of DanNet's own multiword expressions."
+  (op/sparql
+    "SELECT ?word ?variant
+     WHERE {
+       ?word ontolex:otherForm ?form .
+       ?form ontolex:writtenRep ?variant .
+     }"))
+
 (def ontological-type-query
   (op/sparql
     "SELECT ?synset ?member ?class
@@ -287,15 +331,13 @@
      }"))
 
 (defn ontological-type
-  "The ontological type of a synset as DanNet writes it, e.g.
-  {LanguageRepresentation; Artifact; Object}. The `rows` are the members of one
-  rdf:Bag, which the rdf:_N index puts back in order."
+  "The member concepts of one synset's ontological type, e.g.
+  [\"LanguageRepresentation\" \"Artifact\" \"Object\"]. The `rows` are the
+  members of one rdf:Bag, which the rdf:_N index puts back in order."
   [rows]
   (->> rows
        (sort-by #(parse-long (subs (name (get % '?member)) 1)))
-       (map (comp name '?class))
-       (str/join "; ")
-       (format "{%s}")))
+       (mapv (comp name '?class))))
 
 (def synset-label-query
   (op/sparql
@@ -453,7 +495,7 @@
 
 (defn run-queries
   "Fetch the DMLex source data from `db`. Everything but the schema statements
-  comes from the raw graphs, which hold only what a lexicographer stated."
+  comes from the raw graphs, which hold only what the DanNet releases state."
   [{:keys [dataset graph]}]
   (let [g            (db/get-graph dataset prefix/dn-uri)
         cor-g        (db/get-graph dataset prefix/cor-uri)
@@ -462,11 +504,17 @@
         types        (q/run g ontological-type-query)
         genders      (q/run g gender-query)
         sense-labels (q/run g sense-label-query)
-        concepts     (concat (map '?gender genders) (map '?value sense-labels))]
+        concepts     (concat (map '?gender genders)
+                             (map '?value sense-labels)
+                             (map '?class types)
+                             exported-relations)]
     {:words             (q/run g word-query)
      :senses            (q/run g sense-query)
      :definitions       (q/run g definition-query)
      :examples          (q/run g example-query)
+     :domains           (q/run g domain-query)
+     :lexfiles          (q/run g lexfile-query)
+     :word-variants     (q/run g variant-query)
      :ontological-types types
      :synset-labels     (q/run g synset-label-query)
      :short-labels      (q/run g short-label-query)
@@ -562,6 +610,24 @@
                      [code (first labels)]))))
          (into {}))))
 
+(defn ->cor-form
+  "The DMLex inflectedForm of one COR form row, with the norm status of the
+  form as a label. The `unormeret: ` prefix inside the parenthesized part of
+  the rdfs:label marks a form outside the spelling norm."
+  [{:syms [?form ?writtenRep ?label]}]
+  (cond-> {:tag  (inflection-code ?form)
+           :text (str ?writtenRep)}
+    (str/includes? (str ?label) "(unormeret: ") (assoc :labels ["unormeret"])))
+
+(defn merge-forms
+  "Deduplicate the inflected `forms` of one entry on the pair of tag and text,
+  which the XSD makes unique. A merged form stays outside the spelling norm
+  only when every copy is."
+  [forms]
+  (for [[[tag text] copies] (group-by (juxt :tag :text) forms)]
+    (cond-> {:tag tag :text text}
+      (every? :labels copies) (assoc :labels ["unormeret"]))))
+
 (defn sentiment-labels
   "Subject -> its sentiment label tags, e.g. [\"Positive\" \"2\"]. The fault
   conditions of plan section 14.2 apply: a subject with more than one polarity
@@ -593,19 +659,43 @@
            :sameAs  (into [(str prefix/dn-uri (name synset))] ilis)}
     description (assoc :description description)))
 
-;; TODO: reconsider the composite ontological type tag
-;; The alternative is one tag for each DanNet concept, which keeps a sameAs URI
-;; and a Danish description on every concept, but loses the bag as a unit and
-;; its order. Neither option is clearly better.
+(defn synset-indicator
+  "A DMLex sense indicator from a synset `label`: the member words without the
+  braces and the DDO sense markers, e.g. {hund_§1a; køter_§2} -> hund, køter."
+  [label]
+  (-> label
+      (str/replace #"^\{|\}$" "")
+      (str/replace #"_[0-9§]+[a-z]?" "")
+      (str/replace "; " ", ")))
 
-(defn ->ontological-type-label-tag
-  "One labelTag for a composite ontological type. It has no `sameAs` URI: the
-  composite is a set of DanNet concepts, and a `sameAs` URI for each member
-  would claim that the composite is the same as each of its parts."
-  [ontotype]
-  {:tag     ontotype
-   :typeTag "ontologicalType"
-   :for     "sense"})
+(defn marked-indicator
+  "A sense indicator that keeps the DDO sense markers of the synset `label`,
+  e.g. {hund_§1a; køter_§2} -> hund §1a, køter §2."
+  [label]
+  (-> label
+      (str/replace #"^\{|\}$" "")
+      (str/replace "_" " ")
+      (str/replace "; " ", ")))
+
+(defn duplicates
+  "The non-nil values that occur more than once in `xs`."
+  [xs]
+  (->> (remove nil? xs)
+       (frequencies)
+       (into #{} (comp (filter (comp #(> % 1) val)) (map key)))))
+
+(defn indicators
+  "The sense indicators of one entry, from the synset `labels` of its senses.
+  The plain form of a label is preferred; a plain form that collides inside
+  the entry falls back to the marked form; a marked form that also collides
+  is dropped, since the XSD makes the indicators of an entry unique."
+  [labels]
+  (let [plain  (mapv #(some-> % synset-indicator) labels)
+        marked (mapv #(some-> % marked-indicator) labels)
+        dupe?  (duplicates plain)
+        picked (mapv (fn [p m] (if (and p (dupe? p)) m p)) plain marked)
+        dupe?' (duplicates picked)]
+    (mapv (fn [x] (when-not (and x (dupe?' x)) x)) picked)))
 
 (defn ->sense-label-tag
   "A labelTag for a DanNet `resource` that a sense carries, for example a
@@ -654,37 +744,43 @@
        :members (->members senses-of pair roles)})))
 
 (defn ->relation-types
-  "The relationType declaration of each exported relation."
-  [obverse-of relations]
+  "The relationType declaration of each exported relation, with the schema
+  `descriptions` of the DanNet relations."
+  [descriptions obverse-of relations]
   (cons
     {:type             "synonym"
+     :description      "Synonymi: betydningerne i relationen tilhører samme DanNet-synset."
      :scopeRestriction "sameResource"
      :memberTypes      [{:role "synonym" :type "sense" :min 2 :hint "navigate"}]}
     (for [rel (sort-by name (keys relations))
           :let [obverse                  (obverse-of rel)
                 [subject-role object-role] (relation-roles rel obverse)]]
-      {:type             (name rel)
-       :scopeRestriction "sameResource"
-       :sameAs           [(str (prefix/prefix->uri (symbol (namespace rel)))
-                               (name rel))]
-       :memberTypes      (if (= rel obverse)
-                           [{:role subject-role :type "sense" :min 2 :hint "navigate"}]
-                           [{:role subject-role :type "sense" :min 1 :hint "navigate"}
-                            {:role object-role :type "sense" :min 1 :hint "navigate"}])})))
+      (cond-> {:type             (name rel)
+               :scopeRestriction "sameResource"
+               :sameAs           [(str (prefix/prefix->uri (symbol (namespace rel)))
+                                       (name rel))]
+               :memberTypes      (if (= rel obverse)
+                                   [{:role subject-role :type "sense" :min 2 :hint "navigate"}]
+                                   [{:role subject-role :type "sense" :min 1 :hint "navigate"}
+                                    {:role object-role :type "sense" :min 1 :hint "navigate"}])}
+        (descriptions rel) (assoc :description (descriptions rel))))))
 
 (defn ->resource
   "Build the DMLex intermediate structure from `query-results`. A word without a
   written form is left out, since DMLex requires a headword. A word with an
   unusable part of speech keeps its entry, since DMLex does not require one."
-  [{:keys [words senses definitions examples ontological-types
-           synset-labels short-labels genders sense-labels usage-notes
-           ilis cor-links cor-forms sentiment descriptions obverse-of
-           relations]}]
+  [{:keys [words senses definitions examples domains lexfiles word-variants
+           ontological-types synset-labels short-labels genders sense-labels
+           usage-notes ilis cor-links cor-forms sentiment descriptions
+           obverse-of relations]}]
   (let [pos-of         (index words '?word (comp pos-tag '?pos))
         headword-of    (index words '?word (comp str '?writtenRep))
         number-of      (homograph-numbers words)
         definition-of  (index-many definitions '?synset (comp str '?definition))
         examples-of    (index-many examples '?sense (comp str '?example))
+        domains-of     (index-many domains '?synset (comp str '?domain))
+        lexfiles-of    (index-many lexfiles '?synset (comp str '?lexfile))
+        variants-of    (index-many word-variants '?word (comp str '?variant))
         ontotype-of    (update-vals (group-by '?synset ontological-types)
                                     ontological-type)
         gender-of      (index genders '?synset '?gender)
@@ -697,20 +793,16 @@
         senses-of      (index-many senses '?synset (comp name '?sense))
         cors-of        (cor-words cor-links)
         forms-of       (update-vals (group-by '?cor cor-forms)
-                                    (fn [rows]
-                                      (into #{} (map (fn [{:syms [?form ?writtenRep]}]
-                                                       {:tag  (inflection-code ?form)
-                                                        :text (str ?writtenRep)}))
-                                            rows)))
+                                    #(into #{} (map ->cor-form) %))
         description-of (code-descriptions cor-forms)
         sentiment-of   (sentiment-labels sentiment)
         ->sense        (fn [{:syms [?sense ?synset]}]
                          (cond-> {:id     (name ?sense)
                                   :labels (-> [(name ?synset)]
+                                              (into (ontotype-of ?synset))
+                                              (into (lexfiles-of ?synset))
+                                              (into (domains-of ?synset))
                                               (cond->
-                                                (ontotype-of ?synset)
-                                                (conj (ontotype-of ?synset))
-
                                                 (gender-of ?synset)
                                                 (conj (name (gender-of ?synset))))
                                               (into (marks-of ?sense))
@@ -722,21 +814,35 @@
                                                      (definition-of ?synset)))
 
                            (examples-of ?sense)
-                           (assoc :examples (mapv (fn [text] {:text text})
+                           (assoc :examples (mapv (fn [text]
+                                                    {:text           text
+                                                     :sourceIdentity "DDO"})
                                                   (examples-of ?sense)))))
         ->entry        (fn [[word ms]]
                          (let [headword  (headword-of word)
+                               rows      (sort-by (comp str '?sense) ms)
                                inflected (->> (matching-cor-words headword (cors-of word))
                                               (mapcat forms-of)
-                                              (distinct)
-                                              (sort-by (juxt (comp parse-long :tag) :text)))]
+                                              (merge-forms)
+                                              (sort-by (juxt (comp parse-long :tag) :text)))
+                               texts     (into #{headword} (map :text) inflected)
+                               variants  (for [v (distinct (variants-of word))
+                                               :when (not (texts v))]
+                                           {:text v})
+                               forms     (into (vec inflected) variants)]
                            (cond-> {:id       (name word)
                                     :headword headword
-                                    :senses   (mapv ->sense (sort-by (comp str '?sense) ms))}
+                                    :senses   (mapv (fn [sense indicator]
+                                                      (cond-> sense
+                                                        (seq indicator)
+                                                        (assoc :indicator indicator)))
+                                                    (mapv ->sense rows)
+                                                    (indicators (map (comp label-of '?synset)
+                                                                     rows)))}
                              (pos-of word) (assoc :partsOfSpeech [(pos-of word)])
                              (number-of word) (assoc :homographNumber (number-of word))
                              (sentiment-of word) (assoc :labels (sentiment-of word))
-                             (seq inflected) (assoc :inflectedForms (vec inflected)))))
+                             (seq forms) (assoc :inflectedForms forms))))
         entries        (->> (group-by '?word senses)
                             (sort-by (comp str key))
                             (map ->entry)
@@ -744,17 +850,23 @@
     (merge lexicographic-resource
            {:entries           entries
             :inflectedFormTags (->> (mapcat :inflectedForms entries)
-                                    (into #{} (map :tag))
+                                    (into #{} (keep :tag))
                                     (sort-by parse-long)
                                     (mapv (fn [code]
-                                            (cond-> {:tag code}
+                                            (cond-> {:tag code :for "entry"}
                                               (description-of code)
                                               (assoc :description (description-of code))))))
             :labelTags         (concat
                                  (for [synset (sort-by name (keys senses-of))]
                                    (->synset-label-tag synset (label-of synset) (ili-of synset)))
-                                 (for [ontotype (sort (set (vals ontotype-of)))]
-                                   (->ontological-type-label-tag ontotype))
+                                 (for [concept (sort-by name (distinct (map '?class ontological-types)))]
+                                   (->sense-label-tag "ontologicalType"
+                                                      (descriptions concept)
+                                                      concept))
+                                 (for [lexfile (sort (set (map (comp str '?lexfile) lexfiles)))]
+                                   {:tag lexfile :typeTag "lexfile" :for "sense"})
+                                 (for [domain (sort (set (map (comp str '?domain) domains)))]
+                                   {:tag domain :typeTag "domain" :for "sense"})
                                  (for [gender (sort-by name (set (vals gender-of)))]
                                    (->sense-label-tag "gender"
                                                       (descriptions gender)
@@ -768,9 +880,10 @@
                                                       ?value))
                                  (for [note (sort (set (map (comp str '?note) usage-notes)))]
                                    {:tag note :typeTag "usage" :for "sense"})
+                                 norm-label-tags
                                  sentiment-label-tags)
             :relations         (->relations senses-of obverse-of relations)
-            :relationTypes     (->relation-types obverse-of relations)})))
+            :relationTypes     (->relation-types descriptions obverse-of relations)})))
 
 (defn export-dmlex!
   "Export a DMLex `resource` into `dir` as both XML and JSON."

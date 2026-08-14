@@ -23,8 +23,8 @@ is necessary.
 This document describes how to build that artefact. It also lists the open
 questions for the ELEXAI project.
 
-NOTE: Work packages 9.1 to 9.6 are complete and hold the DanNet part only. Work
-packages 9.7 and 9.8 add COR and the sentiment data.
+NOTE: Work packages 9.1 to 9.8 are complete. Work package 9.9 holds the second
+round of changes, which followed the export review of 14 August 2026.
 
 ## 2. Reference documents
 
@@ -85,8 +85,12 @@ use the Linking module.
 | synset definition | `definition` |
 | synset example | `example` |
 | `wn:` and `dns:` relations | `relation` with `member` objects |
-| ontological type | `label` with a `tag` |
+| ontological type | one `label` for each member concept |
+| DDO subject field (`dc:subject`) | `label` with a `tag` |
+| WordNet lexicographer file (`wn:lexfile`) | `label` with a `tag` |
+| synset label | `indicator` on the sense, see section 5.4 |
 | COR inflected form | `inflectedForm` on the entry, with a `tag` |
+| variant form of a multiword expression | `inflectedForm` without a `tag` |
 | sentiment polarity | `label` with a `tag` |
 | sentiment value | a second `label` with a `tag` |
 
@@ -203,6 +207,18 @@ NOTE: The standard describes a label as a restriction such as a domain or a
 register. A synset label is a wider use of the object. The `typeTag` value
 separates these labels from the labels of section 7.
 
+### 5.4 Sense indicators
+
+DMLex gives a sense an optional `indicator`: a short statement that separates
+the senses of one entry. The DanNet synset label is that statement, so each
+sense carries its synset label as the indicator, without the braces and the
+DDO sense markers, for example `hund, køter, vovhund`.
+
+The XML schema makes the indicators of one entry unique. When two senses of an
+entry produce the same indicator, both keep the DDO sense markers instead, for
+example `abe 1§1a` against `abe 1§2`. When even the marked forms collide, the
+senses get no indicator. 77129 of the 77285 senses carry an indicator.
+
 ## 6. Identifiers
 
 DMLex identifiers are local to one serialization. The standard puts exchange
@@ -219,12 +235,19 @@ Rules for identifiers:
 
 1. Derive each identifier from the DanNet URI.
 2. Use the same identifier in the XML output and in the JSON output.
-3. Record the mapping from identifier to DanNet URI in a separate file.
+3. A separate mapping file is not necessary. Each identifier is the local
+   name of its DanNet URI, and the `uri` attribute of the resource gives the
+   base. The concatenation of the two is the URI.
 
 DMLex also makes the combination of headword, homograph number and part of
 speech unique. DanNet has 1384 groups of words that share a headword and a part
 of speech. Give each word in such a group a `homographNumber`. Order the group
 by the DanNet word URI, so that the numbers stay the same between releases.
+
+NOTE: The order is stable, but the numbers are not stable against a change of
+the group. When a release adds or removes a word of such a group, the numbers
+of that group shift. The identifiers are the stable handles, not the homograph
+numbers.
 
 ## 7. Controlled values
 
@@ -232,20 +255,28 @@ The Controlled Values module declares the tag inventories inside the resource.
 Each declaration holds a tag, a description and zero or more `sameAs` URIs. A
 consumer therefore reads the meaning of a tag from the export itself.
 
-DanNet needs ten inventories.
+DanNet needs fourteen inventories.
 
 | Inventory | DMLex object | External mapping |
 |---|---|---|
 | parts of speech | `partOfSpeechTag` | LexInfo URIs |
 | synsets | `labelTag` and `labelTypeTag` | DanNet synset URIs and ILI URIs |
-| ontological types | `labelTag` | none, see below |
+| ontological type concepts | `labelTag` and `labelTypeTag` | DanNet concept URIs, see below |
+| subject fields | `labelTag` and `labelTypeTag` | `dc:subject`, see below |
+| lexicographer files | `labelTag` and `labelTypeTag` | `wn:lexfile`, see below |
 | gender | `labelTag` and `labelTypeTag` | DanNet schema URIs |
 | register, dating and frequency | `labelTag` and `labelTypeTag` | LexInfo URIs |
 | usage notes | `labelTag` and `labelTypeTag` | none |
+| norm status | `labelTag` and `labelTypeTag` | none, see section 9.7 |
 | sentiment polarity | `labelTag` and `labelTypeTag` | MARL class URIs |
 | sentiment value | `labelTag` and `labelTypeTag` | `marl:polarityValue` |
+| example source | `sourceIdentityTag` | the DDO front page |
 | COR inflections | `inflectedFormTag` | none, see section 9.7 |
 | relation types | `relationType` and `memberType` | `wn:` and `dns:` URIs |
+
+Each `relationType` also carries the Danish description of its relation from
+the DanNet schema, so the file explains its relations as well as it constrains
+them.
 
 The synset inventory holds one tag for each exported synset. This inventory is
 therefore much larger than the others. This inventory also replaces one
@@ -258,15 +289,31 @@ of the headword. Therefore its label goes on the sense, not on the entry, and
 the export does not put it into the part of speech tag. The two tags are
 `Female` and `Male`. 721 senses carry one of them.
 
-The ontological type of a synset is an `rdf:Bag` of DanNet concepts. The export
-keeps the bag together as one tag, written as DanNet writes it, for example
-`{LanguageRepresentation; Artifact; Object}`. The `rdf:_N` index of the bag
-gives the order. DanNet has 203 of these composite types.
+The ontological type of a synset is an `rdf:Bag` of DanNet concepts. Each
+member concept becomes one label on each sense of the synset. The export
+declares one `labelTag` for each of the 61 concepts, with the DanNet concept
+URI as `sameAs` and the Danish description of the concept from the schema.
+The labels of a sense keep the order that the `rdf:_N` index of the bag
+gives. Document order is `listingOrder` in DMLex, so the order survives in
+both serializations.
 
-A composite tag gets no `sameAs` URI. A `sameAs` URI for each member concept
-says that the composite is the same as each of its parts. A consumer that
-needs the concepts reads them from the tag, or from the DanNet concept ontology
-at `https://wordnet.dk/dannet/concepts`.
+An earlier version of the export kept the bag together as one composite tag,
+for example `{LanguageRepresentation; Artifact; Object}`. That method
+preserves the bag as one unit, but it needs 203 tags without a `sameAs` URI
+or a description, and a consumer must parse each tag with a private grammar.
+The member concepts are conjunctive features, so separate labels state the
+same facts with a declared vocabulary.
+
+`dc:subject` gives the Den Danske Ordbog subject field of a synset, for
+example `zoo` or `med`. The 154 codes become one `labelTag` each, with the
+type `domain`. A domain is a label use that the standard itself names. The
+codes have no URIs and no expansions in the graph, so these tags get no
+`sameAs` URI and no description.
+
+`wn:lexfile` gives the WordNet lexicographer file of a synset, for example
+`noun.animal`. The 52 values become one `labelTag` each, with the type
+`lexfile`. A lexicographer file has no URI of its own, so these tags get no
+`sameAs` URI.
 
 The `memberType` object also declares constraints. It gives the object type of a
 member, the minimum count, the maximum count and a display hint. Use these fields
@@ -489,9 +536,12 @@ graph has a label. If the labels of one code do not agree after the removal of
 the prefix, write no description for that code. An `inflectedFormTag`
 description is optional, and section 12 gives the proof.
 
-NOTE: The export does not keep the norm status of a form. DMLex permits a
-`label` on an `inflectedForm`. Therefore a later release can add this status
-as a label.
+The norm status of a form becomes a `label` on the `inflectedForm`. A form
+whose code label carries the `unormeret: ` prefix is outside the spelling
+norm and gets the label `unormeret`, declared as a `labelTag` with the type
+`norm`. A pair of code and text that COR holds both inside and outside the
+norm counts as inside: the merged form keeps the label only when every copy
+carries it. The export marks 14596 forms.
 
 ### 9.8 Add the sentiment data
 
@@ -537,6 +587,28 @@ their synset only. A word that has no entry gets no label.
 
 Section 14.2 gives the treatment of the three faults in the sentiment data.
 
+### 9.9 Second round: more DanNet data, better fit
+
+Date: 14 August 2026. This round follows the export review. It adds the data
+that the review found without a home, and it uses more of the standard where
+the standard fits.
+
+1. Export `dc:subject` and `wn:lexfile` as label inventories. See section 7.
+2. Give each sense an `indicator` from its synset label. See section 5.4.
+3. Keep the norm status of each COR form as a label. See section 9.7.
+4. Export the `ontolex:otherForm` variants of DanNet multiword expressions as
+   `inflectedForm` objects without a `tag`. DanNet holds 140 of these variant
+   phrasings. A variant whose text equals the headword or an existing
+   inflected form of the entry is left out.
+5. Mark every example with `sourceIdentity="DDO"` and declare one
+   `sourceIdentityTag`. Every `lexinfo:senseExample` in DanNet is a Den
+   Danske Ordbog citation.
+6. Give every `relationType` the Danish description of its relation from the
+   DanNet schema. See section 7.
+7. Declare the ontological type per member concept instead of per composite.
+   See section 7.
+8. Declare `for="entry"` on each `inflectedFormTag`.
+
 ## 10. Open questions
 
 For the ELEXAI project:
@@ -553,13 +625,15 @@ For the ELEXAI project:
 
 Internal:
 
-6. Where does the identifier mapping file live?
-7. Is the composite ontological type tag the better choice? One tag for each
-   DanNet concept keeps a `sameAs` URI and a description on every concept, but
-   loses the bag as a unit and its order. See section 7.
-8. `dns:source` gives the Den Danske Ordbog URL of 66725 senses. DMLex holds a
-   source only on an `example`, so these URLs have no home. Does the export need
-   them?
+6. ANSWERED. No identifier mapping file is necessary. Each identifier is the
+   local name of its DanNet URI. Section 6 gives the rule.
+7. ANSWERED. One tag for each DanNet concept replaced the composite tag in
+   the second round. Section 7 gives the reason, and the bag order survives
+   as the label order of each sense.
+8. PARTLY ANSWERED. Every example now carries `sourceIdentity="DDO"`. The
+   sense-level DDO URLs stay out: a DMLex sense has no `sameAs`, and one
+   `labelTag` for each URL would double the identity register of section 5.3.
+   They return only if ELEXAI asks for them. See section 14.3.
 9. ANSWERED. What do the COR inflection codes mean? The `rdfs:label` of each
    COR form gives a readable label for its code. Section 9.7 gives the method.
 10. ANSWERED. What happens to `marl:polarityValue`? The export declares a second
@@ -776,6 +850,26 @@ cannot choose between them, so the subject gets no sentiment label at all. A
 blank node with one polarity and two values keeps the polarity, because the
 polarity is not in doubt.
 
+### 14.3 Data that the export leaves out on purpose
+
+Date of examination: 14 August 2026. A predicate census of the raw graph found
+the data below without a home in the export. Each row is a decision on record,
+so that "left out" is never an accident of the query list.
+
+| Data | Count | Reason |
+|---|---|---|
+| `dns:source`, the DDO URL of a sense or a word | 120416 | a DMLex sense has no `sameAs`; see open question 8 |
+| `dns:dslSense`, the DSL id of a sense | 2203 | the same reason |
+| `skos:altLabel` on merged senses | 63 | the same reason |
+| `dns:inherited`, `dns:inheritedRelation`, `dns:inheritedFrom` | 70775 | DMLex has no property for the provenance of a relation |
+
+NOTE: The inheritance markers show that the raw graph does not hold only what
+a lexicographer stated. 70775 of the exported relation statements are
+inherited from ancestor synsets, and the raw graph materialises them next to
+the curated statements. The export keeps them, because DanNet publishes them,
+and drops the markers. A consumer therefore cannot separate a curated relation
+from an inherited one.
+
 ## 15. Fit between the export and the DMLex model
 
 The export is valid DMLex. The fit with the model is not equal for all parts of
@@ -784,9 +878,13 @@ models.
 
 | Part of the data | Fit | Reason |
 |---|---|---|
-| COR inflections | full | `inflectedForm` with a declared tag is the DMLex model for morphology |
+| COR inflections and norm status | full | `inflectedForm` with a declared tag and a label is the DMLex model for morphology |
 | headwords, homograph numbers, parts of speech | full | the core objects of a dictionary |
+| sense indicators | full | a purpose-built property, filled from the synset label |
 | register, dating, frequency, usage, gender labels | full | a label is a category from a declared inventory |
+| subject fields and lexicographer files | full | a domain is the label use that the standard itself names |
+| ontological type concepts | full | one label per declared concept, in bag order |
+| example sources | full | `sourceIdentity` with a declared tag |
 | semantic relations | full | the Linking module carries them with declared roles |
 | synset identity | by convention | DMLex has no object for a shared concept. See finding 1 |
 | sentiment value | by convention | a number becomes an inventory of category tags. See finding 8 |
