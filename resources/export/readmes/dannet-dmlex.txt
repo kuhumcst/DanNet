@@ -22,6 +22,17 @@ As a derivative of CC BY-SA-licensed data, the combined dataset is
 published under CC BY-SA 4.0 (see LICENSE or
 https://creativecommons.org/licenses/by-sa/4.0/).
 
+Two companion files accompany the DMLex data, since DMLex 1.0 has no
+slot for either:
+
+  * metadata.json — the dataset metadata in Dublin Core terms.
+
+  * presentation.json — DanNet's own display taste. The file gives the
+    order and the Danish names of the label types. It also gives the
+    grouping of the relation types and the Danish names of the relation
+    roles. The DMLex viewer (https://github.com/kuhumcst/dmlex-viewer)
+    reads it next to the JSON. Other consumers can ignore it.
+
 When using DanNet, please cite:
 
   Pedersen, Bolette S., Sanni Nimb, Jørg Asmussen, Nicolai H. Sørensen,

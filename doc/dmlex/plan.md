@@ -23,8 +23,8 @@ is necessary.
 This document describes how to build that artefact. It also lists the open
 questions for the ELEXAI project.
 
-NOTE: Work packages 9.1 to 9.8 are complete. Work package 9.9 holds the second
-round of changes, which followed the export review of 14 August 2026.
+NOTE: Work packages 9.1 to 9.9 are complete. Work package 9.10 holds the third
+round of changes, which followed the presentation review of 15 August 2026.
 
 ## 2. Reference documents
 
@@ -610,6 +610,49 @@ the standard fits.
    See section 7.
 8. Declare `for="entry"` on each `inflectedFormTag`.
 
+### 9.10 Third round: how DanNet wants to be read
+
+Date: 15 August 2026. This round follows the review of the presentation config
+of the DMLex viewer. The export stays the same data. The round is about the
+reading of it.
+
+1. Ship `presentation.json` next to the data, as `metadata.json` already is.
+   The file holds DanNet's own display taste. It carries the order and the
+   Danish names of the label types. It also carries the grouping of the
+   relation types and the Danish name of every relation role. DMLex has no
+   slot for any of it. The file lives at
+   `resources/export/dmlex/presentation.json` and goes into the zip.
+2. Give a relation with no declared obverse a distinct name for its subject
+   end. The name is `involved_` plus its own name, instead of the shared pair
+   `source` and `target`. Only `dns:usedFor` and `dns:usedForObject` lack an
+   `owl:inverseOf`, and the shared pair made their rows indistinguishable to a
+   consumer that reads the roles.
+3. Give the three sentiment polarity tags a Danish description. The tags
+   themselves are the MARL class names.
+4. Give every relation member an `obverseListingOrder`, derived from the
+   indegree of its own synset by subtracting it from the highest indegree. A
+   pair states no order of its own, so a consumer that merges many relations
+   into one list has nothing to rank them by. This carries the prominence
+   measure that already ranks the DanNet search results. Synsets of equal
+   indegree get equal positions, which leaves the tie-break to the consumer.
+   The synonym members carry no order: they all belong to the one synset.
+5. Order the senses of an entry the same way, the best-connected synset first.
+   DMLex gives a sense no `listingOrder`, so the document order is the sense
+   order. Before this, an entry listed its senses by sense identifier. That
+   order put `{menneske_§1; menneskebarn_§2}` ahead of
+   `{menneske_§1a; individ_§1}`, while the DanNet search puts them the other
+   way round.
+6. Strip the DDO sense markers from the description of each synset `labelTag`,
+   so that a reader sees `{menneske; individ; …}` rather than
+   `{menneske_§1a; individ_§1; …}`. A stripped label that names a second
+   synset keeps its markers. 71% of the multi-sense entries hold such a pair,
+   and `{abe}` four times over says less than `{abe_1§1a}` once. Section 5.4
+   already uses this rule for the sense indicators. The two agree, because a
+   label keeps its markers exactly where the indicator falls back to its
+   marked form. 50377 of the 70471 labels lose their markers.
+
+The order costs about 20 MB in each serialization and about 1 MB in the zip.
+
 ## 10. Open questions
 
 For the ELEXAI project:
@@ -642,6 +685,16 @@ Internal:
     the method. Finding 8 in `findings.md` records the limitation of the model.
 11. ANSWERED. Do the sentiment labels go on the entry, the sense, or both? Both.
     Section 9.8 gives the method.
+12. OPEN. What do the `dc:subject` domain codes mean? The 154 codes are the Den
+    Danske Ordbog subject-field abbreviations. DanNet holds no expansion of
+    them, so a reader sees `zoo` and `håa` with nothing to read them by. They
+    cannot be derived from the graph. 130 of the codes never co-occur with a
+    `wn:domain_topic`, and the ones that do give the wrong answer. For example,
+    `bot` pairs most often with *drik*. The fix is a map of code to Danish name
+    next to the other tag inventories, filled from the DDO list. Decision 5
+    allows it. A better fix is out of scope here. If DanNet makes the domains
+    resources instead of literals, they can carry an `rdfs:label`. The web UI
+    and the CSV export then gain the names too.
 
 ## 11. Out of scope
 

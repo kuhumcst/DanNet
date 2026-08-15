@@ -89,12 +89,17 @@
 
 (def sentiment-label-tags
   "The two sentiment inventories: the three polarities and the values from -3
-  to 3. Neither declares `for`, since the labels go on entries and on senses."
+  to 3. Neither declares `for`, since the labels go on entries and on senses.
+  The polarity tags are the MARL class names, so each carries a Danish
+  description."
   (concat
-    (for [polarity ["Positive" "Neutral" "Negative"]]
-      {:tag     polarity
-       :typeTag "sentiment"
-       :sameAs  [(str (prefix/prefix->uri 'marl) polarity)]})
+    (for [[polarity description] [["Positive" "positiv"]
+                                  ["Neutral" "neutral"]
+                                  ["Negative" "negativ"]]]
+      {:tag         polarity
+       :typeTag     "sentiment"
+       :description description
+       :sameAs      [(str (prefix/prefix->uri 'marl) polarity)]})
     (for [value (range -3 4)]
       {:tag     (str value)
        :typeTag "sentimentValue"})))
@@ -533,6 +538,7 @@
      :sentiment         (concat (q/run dds-g sentiment-query)
                                 (q/run g sentiment-query))
      :descriptions      (tag-descriptions graph (distinct concepts))
+     :indegrees         @q/synset-indegrees
      :obverse-of        obverse-of
      :relations         (into {}
                               (map (fn [rel]
@@ -665,13 +671,19 @@
            :sameAs  (into [(str prefix/dn-uri (name synset))] ilis)}
     description (assoc :description description)))
 
+(defn strip-sense-markers
+  "The synset `label` without the DDO sense markers, e.g.
+  {hund_§1a; køter_§2} -> {hund; køter}."
+  [label]
+  (str/replace label #"_[0-9§]+[a-z]?" ""))
+
 (defn synset-indicator
   "A DMLex sense indicator from a synset `label`: the member words without the
   braces and the DDO sense markers, e.g. {hund_§1a; køter_§2} -> hund, køter."
   [label]
   (-> label
+      (strip-sense-markers)
       (str/replace #"^\{|\}$" "")
-      (str/replace #"_[0-9§]+[a-z]?" "")
       (str/replace "; " ", ")))
 
 (defn marked-indicator
@@ -703,6 +715,19 @@
         dupe?' (duplicates picked)]
     (mapv (fn [x] (when-not (and x (dupe?' x)) x)) picked)))
 
+(defn synset-descriptions
+  "Synset -> the description of its labelTag, from the synset `labels`.
+
+  The DDO sense markers are bookkeeping that a dictionary reader cannot use, so
+  a label loses them. A stripped label that names a second synset keeps them.
+  The markers are then the only thing that tells the two apart, and without
+  them most multi-sense entries carry the same description twice."
+  [labels]
+  (let [stripped (update-vals labels strip-sense-markers)
+        dupe?    (duplicates (vals stripped))]
+    (into {} (for [[synset s] stripped]
+               [synset (if (dupe? s) (labels synset) s)]))))
+
 (defn ->sense-label-tag
   "A labelTag for a DanNet `resource` that a sense carries, for example a
   gender."
@@ -717,26 +742,51 @@
 (defn relation-roles
   "The member roles of `rel`: the role of the subject end and of the object end.
   A pair of inverse relations uses the two relation names. A symmetric relation
-  uses one name for both ends. A relation with no declared obverse has no second
-  name available, so it uses source and target."
+  uses one name for both ends. A relation with no declared obverse has no name
+  for its subject end, so it borrows the GWA convention and prefixes its own
+  name with `involved_`. A shared pair such as source and target collides
+  between relations, and a consumer cannot tell the two apart."
   [rel obverse]
   (cond
-    (nil? obverse)  ["source" "target"]
+    (nil? obverse)  [(str "involved_" (name rel)) (name rel)]
     (= rel obverse) [(name rel) (name rel)]
     :else           [(name obverse) (name rel)]))
 
+(defn listing-order-fn
+  "Synset -> its DMLex `obverseListingOrder`, from the synset `indegrees`.
+
+  A pair states no order of its own, so a consumer that merges many relations
+  into one list has nothing to rank them by. The inverted indegree gives the
+  ascending position that DMLex asks for, and it carries the prominence
+  measure that ranks the DanNet search results. Synsets of equal indegree get
+  equal positions, which leaves the tie-break to the consumer."
+  [indegrees]
+  (let [ceiling (reduce max 0 (vals indegrees))]
+    (fn [synset]
+      (- ceiling (get indegrees synset 0)))))
+
 (defn ->members
-  [senses-of [subject object] [subject-role object-role]]
+  "The members of one relation pair, from `senses-of`. Despite its name, the
+  `obverseListingOrder` of a member comes from its own synset: it says where
+  this member goes when the pair is listed from the other end."
+  [senses-of listing-order [subject object] [subject-role object-role]]
   (concat (for [sense (senses-of subject)]
-            {:ref sense :role subject-role})
+            {:ref                 sense
+             :role                subject-role
+             :obverseListingOrder (listing-order subject)})
           (for [sense (senses-of object)]
-            {:ref sense :role object-role})))
+            {:ref                 sense
+             :role                object-role
+             :obverseListingOrder (listing-order object)})))
 
 (defn ->relations
   "One DMLex relation for each synset pair, plus one synonym relation for each
   synset of two or more senses. Every member is a sense, so a pair with a
-  senseless synset at one end produces nothing."
-  [senses-of obverse-of relations]
+  senseless synset at one end produces nothing.
+
+  The synonym members carry no `listing-order`. They all belong to the one
+  synset, so the order can only repeat the same number."
+  [senses-of listing-order obverse-of relations]
   (concat
     (for [[synset senses] (sort-by (comp name key) senses-of)
           :when (next senses)]
@@ -747,7 +797,7 @@
           pair (sort-by (partial mapv name) pairs)
           :when (every? (comp seq senses-of) pair)]
       {:type    (name rel)
-       :members (->members senses-of pair roles)})))
+       :members (->members senses-of listing-order pair roles)})))
 
 (defn ->relation-types
   "The relationType declaration of each exported relation, with the schema
@@ -778,8 +828,9 @@
   [{:keys [words senses definitions examples domains lexfiles word-variants
            ontological-types synset-labels short-labels genders sense-labels
            usage-notes ilis cor-links cor-forms sentiment descriptions
-           obverse-of relations]}]
-  (let [pos-of         (index words '?word (comp pos-tag '?pos))
+           indegrees obverse-of relations]}]
+  (let [listing-order  (listing-order-fn indegrees)
+        pos-of         (index words '?word (comp pos-tag '?pos))
         headword-of    (index words '?word (comp str '?writtenRep))
         number-of      (homograph-numbers words)
         definition-of  (index-many definitions '?synset (comp str '?definition))
@@ -797,6 +848,8 @@
         ili-of         (index-many (unambiguous-ilis ilis) '?synset
                                    #(str prefix/ili-uri (name (get % '?ili))))
         senses-of      (index-many senses '?synset (comp name '?sense))
+        plain-label-of (synset-descriptions
+                         (select-keys label-of (keys senses-of)))
         cors-of        (cor-words cor-links)
         forms-of       (update-vals (group-by '?cor cor-forms)
                                     #(into #{} (map ->cor-form) %))
@@ -826,7 +879,13 @@
                                                   (examples-of ?sense)))))
         ->entry        (fn [[word ms]]
                          (let [headword  (headword-of word)
-                               rows      (sort-by (comp str '?sense) ms)
+                               ;; DMLex gives a sense no listingOrder, so the
+                               ;; document order is the sense order. The
+                               ;; best-connected synset leads, as in the
+                               ;; DanNet search results.
+                               rows      (sort-by (juxt (comp listing-order '?synset)
+                                                        (comp str '?sense))
+                                                  ms)
                                inflected (->> (matching-cor-words headword (cors-of word))
                                               (mapcat forms-of)
                                               (merge-forms)
@@ -864,7 +923,7 @@
                                               (assoc :description (description-of code))))))
             :labelTags         (concat
                                  (for [synset (sort-by name (keys senses-of))]
-                                   (->synset-label-tag synset (label-of synset) (ili-of synset)))
+                                   (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
                                  (for [concept (sort-by name (distinct (map '?class ontological-types)))]
                                    (->sense-label-tag "ontologicalType"
                                                       (descriptions concept)
@@ -888,7 +947,7 @@
                                    {:tag note :typeTag "usage" :for "sense"})
                                  norm-label-tags
                                  sentiment-label-tags)
-            :relations         (->relations senses-of obverse-of relations)
+            :relations         (->relations senses-of listing-order obverse-of relations)
             :relationTypes     (->relation-types descriptions obverse-of relations)})))
 
 (defn license-comment
@@ -943,12 +1002,17 @@
 ;; TODO: add the zip to the download page and the release pipeline (plan 9.6)
 (defn export-dmlex!
   "Export a DMLex `resource` into `dir` as both XML and JSON, zipped together
-  with the licence information and dataset metadata."
+  with the licence information, the dataset metadata and the presentation
+  config.
+
+  The presentation config is DanNet's own display taste. DMLex has no slot for
+  it, so it ships as a companion file like metadata.json."
   [dir resource]
   (println "Beginning DMLex export of DanNet into" dir)
   (let [xml-file     (str dir "dannet-dmlex.xml")
         json-file    (str dir "dannet-dmlex.json")
         meta-file    (str dir "metadata.json")
+        present-file (str dir "presentation.json")
         license-file (str dir "LICENSE")
         readme-file  (str dir "README.txt")
         zip-path     (str dir (prefix/export-file "dmlex" 'dn))]
@@ -960,9 +1024,12 @@
                       (json/pprint (export-metadata release/to)
                                    :escape-slash false
                                    :escape-unicode false)))
+    (with-open [in (io/input-stream (io/resource "export/dmlex/presentation.json"))]
+      (io/copy in (io/file present-file)))
     (rdf/copy-license! :cc-by-sa license-file)
     (spit readme-file (rdf/render-readme "dannet-dmlex.txt" release/to))
-    (zip/zip-files [xml-file json-file meta-file license-file readme-file]
+    (zip/zip-files [xml-file json-file meta-file present-file license-file
+                    readme-file]
                    zip-path))
   (println "DMLex export of DanNet complete!"))
 

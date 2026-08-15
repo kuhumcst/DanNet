@@ -4,10 +4,11 @@ This document is the companion to `plan.md`. The plan says what the export
 does. This document says what surprised us on the way, and why. Each entry must
 be readable months later, by a reader who does not know the schemas.
 
-Seven of the eight findings are faults in the artifacts of the standard or in
-its wording. They are not related to DanNet. Finding 1 is a design limitation,
-which the editors made on purpose. The end of this document collects all of
-them as feedback for the LEXIDMA committee.
+Seven of the nine findings are faults in the artifacts of the standard or in
+its wording. They are not related to DanNet. Findings 1 and 9 are limits of the
+model itself. The first is a design limitation which the editors made on
+purpose. The second is a gap that the schemas then close. The end of this
+document collects all of them as feedback for the LEXIDMA committee.
 
 ## 1. There is no synset in DMLex
 
@@ -352,6 +353,53 @@ DMLex cannot say how rare. We have a workaround, but the finding is worth a
 report to the committee. The workaround is exactly the type of private
 convention that a standard exists to prevent.
 
+## 9. A DMLex file cannot say how it wants to be read
+
+DMLex describes itself as a data model and not an encoding format, so a
+silence about presentation is defensible. But the model is not silent about
+names: it obliges an exporter to invent them. Every label type, every relation
+type, and every member role is a tag that the exporter coins. A reader then
+sees those tags. Ours are `slangRegister`, `holo_substance`,
+`co_agent_instrument`, `noun.animal`, `Female` and `zoo`. They are good
+identifiers and poor Danish.
+
+The obvious answer is the `description` of a tag. It does not answer. A tag has
+exactly one, and the model does not say what it is for. Ours are definitions,
+because that is the useful thing to carry: "Dyr, i modsætning til mennesker,
+planter og fantasivæsener; f.eks. dyr, hund." A reader wants the word *dyr* in
+the list and the sentence on hover. One field cannot be both, and nothing marks
+which one it holds.
+
+Direction is the sharper case. A relation type has one name and two ends. The
+name of the type is almost never the name to show a reader, because the reader
+stands at one end of it. `wn:hypernym` reads as *har overbegreb* from below and
+*har underbegreb* from above. DMLex has the right hook, `memberType/@role`, and
+we use it. But a role is again a machine name, and there is nowhere to say what
+to call it in the language of the resource.
+
+Beyond names, four ordinary editorial acts have no expression at all. A
+dataset cannot order the types, and it cannot gather five of them under one
+heading. It cannot hide a type from a reader, and it cannot show a qualifier
+inside its host. The model does have one presentation hook,
+`obverseListingOrder` on a member, and `listingOrder` on senses and other
+objects. We use the first, to carry the prominence measure that ranks the
+DanNet relations. That the editors provided it is the clearest evidence that
+the need is real, but the model stops there.
+
+The gap alone is a small finding, but the schemas then close the door.
+`lexicographicResource` allows fifteen properties, and the JSON schema ends
+the object with `additionalProperties: false`. The XSD fixes the sequence.
+There is no extension point, no `<extension>` element, no namespace for
+private content. An exporter with anything to say beyond the fifteen cannot
+say it in the file at all. Licence and rights hit the same wall, which is why
+this export already ships a `metadata.json` beside the data.
+
+So we ship a second companion, `presentation.json`. It holds the Danish names,
+the order, the grouping, and the display choices. It works, and the viewer
+applies it without knowledge of what any tag means. It is also, once again,
+exactly the sort of private convention that a standard exists to prevent. This
+export now carries two of them. See finding 8 for the first.
+
 ## How well the export follows the tenets of DMLex
 
 The full export is complete: DanNet, COR, and the sentiment data, valid in
@@ -372,7 +420,7 @@ intermediate structure, not the schemas, makes sure that the XML and the JSON
 say the same thing.
 
 The discipline of trees plus Linking also fits cleanly. Entry to sense is the
-only hierarchy. All 273,028 relations go through the Linking module, with
+only hierarchy. All 273,025 relations go through the Linking module, with
 roles from `owl:inverseOf`. The best citizen is the newest arrival. A COR
 inflection lands on `inflectedForm`, with a tag from a declared
 `inflectedFormTag` inventory: a form, its text, its paradigm slot, its
@@ -397,6 +445,14 @@ cross-resource relations, but the XSD makes every member reference local
 and at the non-identity ILI mappings, have no conformant home. Only `wn:ili`
 survives, as the identity claim in `sameAs`.
 
+One question falls outside the tenets altogether. Everything above weighs how
+the content fits, and the content fits. What the file cannot carry is its own
+reading. The Danish names, the order, and the grouping turn 273,025 relations
+into a page a Dane can use. They travel in a companion file, because the model
+has no room for them and both schemas refuse an extension (finding 9). The
+export is therefore conformant and incomplete at the same time, in a way that
+conformance was never asked to measure.
+
 The summary: as a dictionary, the export is close to a model citizen. The
 headwords, homograph numbers, parts of speech, inflection paradigms, labels,
 definitions, and examples are idiomatic DMLex. As a wordnet carrier, the
@@ -408,7 +464,7 @@ what the feedback list below gives to the LEXIDMA committee.
 ## Feedback for the LEXIDMA committee
 
 Findings 2 to 8 are faults in the artifacts of the standard or in its wording.
-Finding 1 is a deliberate design limitation that is also worth a report:
+Findings 1 and 9 are limits of the model that are also worth a report:
 
 1. Synset identity has no home in the model. DMLex can carry wordnet content,
    but concept identity survives only by convention, through a Controlled
@@ -435,3 +491,11 @@ Finding 1 is a deliberate design limitation that is also worth a report:
    opaque category tags. The order and the scale are lost. The Annotation
    module does not fill the gap, because it holds inline markers only. See
    finding 8.
+9. A file cannot say how it wants to be read. The tags of every inventory are
+   machine names that the exporter coins, and a member role has no name in the
+   language of the resource. The single `description` of a tag cannot be both
+   a display name and a definition. Ordering, grouping and hiding have no
+   expression either, although `obverseListingOrder` and `listingOrder` show
+   that the need was recognized. `lexicographicResource` then admits no
+   extension, in either schema, so the information cannot travel in the file.
+   See finding 9.
