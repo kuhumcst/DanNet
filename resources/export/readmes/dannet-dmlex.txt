@@ -3,7 +3,7 @@ DanNet {version} (DMLex)
 The Danish WordNet — https://wordnet.dk/dannet
 
 A DMLex 1.0 (OASIS) representation of DanNet, available as both XML and
-JSON. It combines data from three source datasets:
+JSON. It combines data from four source datasets:
 
   * DanNet — CC BY-SA 4.0
     Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and
@@ -16,6 +16,11 @@ JSON. It combines data from three source datasets:
   * COR (Det Centrale Ordregister / The Central Word Registry)
     — the CC0-licensed resources COR(1) and COR.EXT published by
     Dansk Sprognævn (DSN): https://ordregister.dk
+
+  * OEWN (the Open English Wordnet) — CC BY 4.0, © the Open English
+    Wordnet contributors: https://en-word.net
+    Provides the English sense equivalents, which are included in the
+    JSON serialization only.
 
 The data has been transformed and merged into a single DMLex resource.
 As a derivative of CC BY-SA-licensed data, the combined dataset is

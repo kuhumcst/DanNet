@@ -18,10 +18,14 @@
   "doc/dmlex/spec/")
 
 (def xml-schema
+  "The XML export carries no crosslingual content, so it stays within the
+  no-crosslingual variant of the schema."
   (str spec-dir "dmlex_no-crosslingual.xsd"))
 
 (def json-schema
-  (str spec-dir "dmlex_no-crosslingual.schema.json"))
+  "The JSON export carries crosslingual content (headwordTranslations), which
+  only the full schema accepts."
+  (str spec-dir "dmlex.schema.json"))
 
 (defn error-collector
   "A SAX ErrorHandler that collects messages into `errors` and stops the

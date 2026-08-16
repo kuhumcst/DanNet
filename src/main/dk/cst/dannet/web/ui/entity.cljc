@@ -159,15 +159,6 @@
        (remove #{shared/omitted ""})
        (distinct)))
 
-(defn- lemma-pattern
-  "Regex matching any of the `lemmas` as (the start of) a full word, e.g. the
-  lemma 'hund' also matches inflected forms such as 'hunden' or 'hundes'."
-  [lemmas]
-  (let [alternation (->> (sort-by count > lemmas)           ; longest match wins
-                         (map shared/re-quote)
-                         (str/join "|"))]
-    (shared/ci-pattern (str "(?<!\\p{L})(?:" alternation ")\\p{L}*"))))
-
 (defn- highlight-matches
   "Emphasise the parts of the string `s` matching `re`."
   [re s]
@@ -181,7 +172,7 @@
   [lemmas s]
   (if (empty? lemmas)
     s
-    (highlight-matches (lemma-pattern lemmas) s)))
+    (highlight-matches (shared/lemma-pattern lemmas) s)))
 
 (defn- example-strs
   "The usage examples in a synset `subentity` as [property example] pairs.

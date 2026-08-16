@@ -4,7 +4,9 @@
   The intermediate structure is a single map using the DMLex property names as
   keys, e.g. {:langCode \"da\" :entries [{:headword \"hund\" :senses [...]}]}.
   It feeds both the XML and the JSON serializer, which differ in how they
-  represent labels, parts of speech and sameAs URIs.
+  represent labels, parts of speech and sameAs URIs. The crosslingual and
+  annotation content (translationLanguages, headwordTranslations and
+  headwordMarkers) goes into the JSON serialization only.
 
   The exported JSON can be browsed as a dictionary with the generic DMLex
   viewer at https://github.com/kuhumcst/dmlex-viewer."
@@ -19,7 +21,8 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.release :as release]))
+            [dk.cst.dannet.release :as release]
+            [dk.cst.dannet.shared :as shared]))
 
 (def dmlex-uri
   "http://docs.oasis-open.org/lexidma/ns/dmlex-1.0")
@@ -119,13 +122,16 @@
     :sameAs      ["https://ordnet.dk/ddo"]}])
 
 (def lexicographic-resource
-  "The parts of the DMLex resource that do not come from the graph."
-  {:title              "DanNet"
-   :uri                prefix/dn-uri
-   :langCode           "da"
-   :labelTypeTags      label-type-tags
-   :partOfSpeechTags   part-of-speech-tags
-   :sourceIdentityTags source-identity-tags})
+  "The parts of the DMLex resource that do not come from the graph. The full
+  JSON schema requires `translationLanguages` next to the crosslingual
+  headwordTranslations; the XML serializer ignores it."
+  {:title                "DanNet"
+   :uri                  prefix/dn-uri
+   :langCode             "da"
+   :translationLanguages ["en"]
+   :labelTypeTags        label-type-tags
+   :partOfSpeechTags     part-of-speech-tags
+   :sourceIdentityTags   source-identity-tags})
 
 ;; -----------------------------------------------------------------------------
 ;; Serialization
@@ -473,6 +479,19 @@
     "SELECT ?synset ?ili
      WHERE { ?synset wn:ili ?ili . }"))
 
+(def oewn-lemma-query
+  "The English lemmas of the OEWN synsets; the ILI identifiers join them to
+  the DanNet synsets."
+  (op/sparql
+    "SELECT ?ili ?lemma
+     WHERE {
+       ?synset wn:ili ?ili .
+       ?sense ontolex:isLexicalizedSenseOf ?synset .
+       ?word ontolex:sense ?sense ;
+             ontolex:canonicalForm ?form .
+       ?form ontolex:writtenRep ?lemma .
+     }"))
+
 (def cor-link-query
   "The owl:sameAs links from COR words to DanNet words, with the COR lemmas.
   COR states each link in both directions; selecting the COR-to-DanNet
@@ -511,6 +530,7 @@
   (let [g            (db/get-graph dataset prefix/dn-uri)
         cor-g        (db/get-graph dataset prefix/cor-uri)
         dds-g        (db/get-graph dataset prefix/dds-uri)
+        oewn-g       (db/get-graph dataset prefix/oewn-uri)
         obverse-of   (inverse-relations graph)
         types        (q/run g ontological-type-query)
         genders      (q/run g gender-query)
@@ -533,6 +553,7 @@
      :sense-labels      sense-labels
      :usage-notes       (q/run g usage-note-query)
      :ilis              (q/run g ili-query)
+     :oewn-lemmas       (q/run oewn-g oewn-lemma-query)
      :cor-links         (q/run cor-g cor-link-query)
      :cor-forms         (q/run cor-g cor-form-query)
      :sentiment         (concat (q/run dds-g sentiment-query)
@@ -577,6 +598,14 @@
     (->> ilis
          (remove #(next (by-synset (get % '?synset))))
          (remove #(next (by-ili (get % '?ili)))))))
+
+(defn headword-markers
+  "The DMLex headwordMarkers of the `headword` in the example `text`: one
+  stand-off startIndex/endIndex pair per occurrence, inflected forms included."
+  [headword text]
+  (mapv (fn [[start end]]
+          {:startIndex start :endIndex end})
+        (shared/match-bounds (shared/lemma-pattern [headword]) text)))
 
 (defn inflection-code
   "The inflection code of a COR `resource`, the last dot-segment of its
@@ -827,8 +856,8 @@
   unusable part of speech keeps its entry, since DMLex does not require one."
   [{:keys [words senses definitions examples domains lexfiles word-variants
            ontological-types synset-labels short-labels genders sense-labels
-           usage-notes ilis cor-links cor-forms sentiment descriptions
-           indegrees obverse-of relations]}]
+           usage-notes ilis oewn-lemmas cor-links cor-forms sentiment
+           descriptions indegrees obverse-of relations]}]
   (let [listing-order  (listing-order-fn indegrees)
         pos-of         (index words '?word (comp pos-tag '?pos))
         headword-of    (index words '?word (comp str '?writtenRep))
@@ -845,8 +874,12 @@
         notes-of       (index-many usage-notes '?sense (comp str '?note))
         label-of       (merge (index synset-labels '?synset (comp str '?label))
                               (index short-labels '?synset (comp str '?label)))
-        ili-of         (index-many (unambiguous-ilis ilis) '?synset
+        unambiguous    (unambiguous-ilis ilis)
+        ili-of         (index-many unambiguous '?synset
                                    #(str prefix/ili-uri (name (get % '?ili))))
+        ili-key-of     (index unambiguous '?synset '?ili)
+        english-of     (update-vals (group-by '?ili oewn-lemmas)
+                                    #(vec (sort (distinct (map (comp str '?lemma) %)))))
         senses-of      (index-many senses '?synset (comp name '?sense))
         plain-label-of (synset-descriptions
                          (select-keys label-of (keys senses-of)))
@@ -855,28 +888,39 @@
                                     #(into #{} (map ->cor-form) %))
         description-of (code-descriptions cor-forms)
         sentiment-of   (sentiment-labels sentiment)
-        ->sense        (fn [{:syms [?sense ?synset]}]
-                         (cond-> {:id     (name ?sense)
-                                  :labels (-> [(name ?synset)]
-                                              (into (ontotype-of ?synset))
-                                              (into (lexfiles-of ?synset))
-                                              (into (domains-of ?synset))
-                                              (cond->
-                                                (gender-of ?synset)
-                                                (conj (name (gender-of ?synset))))
-                                              (into (marks-of ?sense))
-                                              (into (notes-of ?sense))
-                                              (into (or (sentiment-of ?sense)
-                                                        (sentiment-of ?synset))))}
-                           (definition-of ?synset)
-                           (assoc :definitions (mapv (fn [text] {:text text})
-                                                     (definition-of ?synset)))
+        ->sense        (fn [{:syms [?word ?sense ?synset]}]
+                         (let [headword (headword-of ?word)
+                               english  (english-of (ili-key-of ?synset))]
+                           (cond-> {:id     (name ?sense)
+                                    :labels (-> [(name ?synset)]
+                                                (into (ontotype-of ?synset))
+                                                (into (lexfiles-of ?synset))
+                                                (into (domains-of ?synset))
+                                                (cond->
+                                                  (gender-of ?synset)
+                                                  (conj (name (gender-of ?synset))))
+                                                (into (marks-of ?sense))
+                                                (into (notes-of ?sense))
+                                                (into (or (sentiment-of ?sense)
+                                                          (sentiment-of ?synset))))}
+                             (definition-of ?synset)
+                             (assoc :definitions (mapv (fn [text] {:text text})
+                                                       (definition-of ?synset)))
 
-                           (examples-of ?sense)
-                           (assoc :examples (mapv (fn [text]
-                                                    {:text           text
-                                                     :sourceIdentity "DDO"})
-                                                  (examples-of ?sense)))))
+                             (examples-of ?sense)
+                             (assoc :examples
+                                    (mapv (fn [text]
+                                            (cond-> {:text           text
+                                                     :sourceIdentity "DDO"}
+                                              headword
+                                              (assoc :headwordMarkers
+                                                     (headword-markers headword text))))
+                                          (examples-of ?sense)))
+
+                             english
+                             (assoc :headwordTranslations
+                                    (mapv (fn [text] {:text text :langCode "en"})
+                                          english)))))
         ->entry        (fn [[word ms]]
                          (let [headword  (headword-of word)
                                ;; DMLex gives a sense no listingOrder, so the
@@ -961,7 +1005,8 @@
   (str "<!--\n"
        "DanNet " version " as DMLex.\n"
        "Combines DanNet and DDS (both CC BY-SA 4.0) with the CC0-licensed\n"
-       "parts of COR. The combined dataset is licensed under CC BY-SA 4.0:\n"
+       "parts of COR and English equivalents from the Open English Wordnet\n"
+       "(CC BY 4.0). The combined dataset is licensed under CC BY-SA 4.0:\n"
        "https://creativecommons.org/licenses/by-sa/4.0/\n"
        "Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and Center\n"
        "for Sprogteknologi (CST), University of Copenhagen. See README.txt\n"
@@ -981,11 +1026,13 @@
     "dc:issued"      version
     "dc:language"    "da"
     "dc:description" {"en" (str "The Danish WordNet, combined with inflected "
-                                "forms from COR and sentiment polarities "
-                                "from DDS.")
+                                "forms from COR, sentiment polarities from "
+                                "DDS and English equivalents from the Open "
+                                "English Wordnet.")
                       "da" (str "Det danske WordNet, kombineret med "
-                                "bøjningsformer fra COR og sentiment-"
-                                "annoteringer fra DDS.")}
+                                "bøjningsformer fra COR, sentiment-"
+                                "annoteringer fra DDS og engelske "
+                                "ækvivalenter fra Open English Wordnet.")}
     "dc:publisher"   "Centre for Language Technology, University of Copenhagen"
     "dc:license"     "https://creativecommons.org/licenses/by-sa/4.0/"
     "dc:rights"      (str "Copyright © Centre for Language Technology "
@@ -997,7 +1044,9 @@
                       {"dc:title"   "DDS (Det Danske Sentimentleksikon)"
                        "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"}
                       {"dc:title"   "COR (Det Centrale Ordregister)"
-                       "dc:license" "https://creativecommons.org/publicdomain/zero/1.0/"}]))
+                       "dc:license" "https://creativecommons.org/publicdomain/zero/1.0/"}
+                      {"dc:title"   "OEWN (Open English Wordnet)"
+                       "dc:license" "https://creativecommons.org/licenses/by/4.0/"}]))
 
 ;; TODO: add the zip to the download page and the release pipeline (plan 9.6)
 (defn export-dmlex!

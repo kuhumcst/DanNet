@@ -1,4 +1,6 @@
 {
+  "memberOrder": "collation",
+  "linkResolver": "https://wordnet.dk/dannet/external?subject=",
   "labelTypes": {
     "order": ["register", "temporal", "frequency", "usage", "sentiment",
               "domain", "lexfile", "ontologicalType", "gender", "synset"],

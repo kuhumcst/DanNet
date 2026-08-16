@@ -96,7 +96,7 @@
   #?(:clj  (re-pattern (str "(?iu)" s))
      :cljs (js/RegExp. s "iu")))
 
-(defn- match-bounds
+(defn match-bounds
   "Return [start end] index pairs for every match of `re` in string `s`.
   This is the only part of regex splitting requiring platform-specific code."
   [re s]
@@ -126,6 +126,15 @@
               kinds
               spans)
          (filterv (comp seq second)))))
+
+(defn lemma-pattern
+  "Regex matching any of the `lemmas` as (the start of) a full word, e.g. the
+  lemma 'hund' also matches inflected forms such as 'hunden' or 'hundes'."
+  [lemmas]
+  (let [alternation (->> (sort-by count > lemmas)           ; longest match wins
+                         (map re-quote)
+                         (str/join "|"))]
+    (ci-pattern (str "(?<!\\p{L})(?:" alternation ")\\p{L}*"))))
 
 (defn sense-labels*
   "Split a `synset` label into sense labels. Work for both old and new formats."
