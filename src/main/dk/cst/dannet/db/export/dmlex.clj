@@ -4,9 +4,8 @@
   The intermediate structure is a single map using the DMLex property names as
   keys, e.g. {:langCode \"da\" :entries [{:headword \"hund\" :senses [...]}]}.
   It feeds both the XML and the JSON serializer, which differ in how they
-  represent labels, parts of speech and sameAs URIs. The crosslingual and
-  annotation content (translationLanguages, headwordTranslations and
-  headwordMarkers) goes into the JSON serialization only.
+  represent labels, parts of speech, sameAs URIs and the annotation markers
+  (stand-off startIndex/endIndex pairs in JSON, inline elements in XML).
 
   The exported JSON can be browsed as a dictionary with the generic DMLex
   viewer at https://github.com/kuhumcst/dmlex-viewer."
@@ -123,8 +122,8 @@
 
 (def lexicographic-resource
   "The parts of the DMLex resource that do not come from the graph. The full
-  JSON schema requires `translationLanguages` next to the crosslingual
-  headwordTranslations; the XML serializer ignores it."
+  schemas require `translationLanguages` next to the crosslingual
+  headwordTranslations."
   {:title                "DanNet"
    :uri                  prefix/dn-uri
    :langCode             "da"
@@ -200,20 +199,44 @@
   [::dmlex/definition (attrs m [:definitionType])
    [::dmlex/text text]])
 
+(defn ->text
+  "The XML text element of `text`, with the stand-off `markers` of the
+  intermediate structure inlined as headwordMarker elements, which is how the
+  XML serialization of the annotation module represents them."
+  [text markers]
+  (let [indices (concat [0]
+                        (mapcat (juxt :startIndex :endIndex) markers)
+                        [(count text)])]
+    (->> (map (fn [kind [start end]]
+                (let [s (subs text start end)]
+                  (if (= kind :marker)
+                    [::dmlex/headwordMarker s]
+                    s)))
+              (cycle [:text :marker])
+              (partition 2 1 indices))
+         (remove #{""})
+         (into [::dmlex/text]))))
+
 (defn ->example
-  [{:keys [text labels] :as m}]
+  [{:keys [text headwordMarkers labels] :as m}]
   (into [::dmlex/example (attrs m [:sourceIdentity :sourceElaboration :soundFile])
-         [::dmlex/text text]]
+         (->text text headwordMarkers)]
         (map ->label labels)))
 
+(defn ->headword-translation
+  [{:keys [text] :as m}]
+  [::dmlex/headwordTranslation (attrs m [:langCode])
+   [::dmlex/text text]])
+
 (defn ->sense
-  [{:keys [indicator labels definitions examples] :as m}]
+  [{:keys [indicator labels definitions examples headwordTranslations] :as m}]
   (into [::dmlex/sense (attrs m [:id])]
         (concat (when indicator
                   [[::dmlex/indicator indicator]])
                 (map ->label labels)
                 (map ->definition definitions)
-                (map ->example examples))))
+                (map ->example examples)
+                (map ->headword-translation headwordTranslations))))
 
 (defn ->entry
   [{:keys [headword partsOfSpeech labels inflectedForms senses] :as m}]
@@ -226,13 +249,16 @@
 
 (defn ->lexicographic-resource
   "Build the XML element tree of a DMLex `resource`. The child order follows the
-  sequences of dmlex_no-crosslingual.xsd."
-  [{:keys [entries inflectedFormTags labelTags labelTypeTags partOfSpeechTags
-           sourceIdentityTags relations relationTypes]
+  sequences of dmlex.xsd."
+  [{:keys [entries translationLanguages inflectedFormTags labelTags
+           labelTypeTags partOfSpeechTags sourceIdentityTags relations
+           relationTypes]
     :as   resource}]
   (into [::dmlex/lexicographicResource (merge {:xmlns dmlex-uri}
                                               (attrs resource [:title :uri :langCode]))]
         (concat (map ->entry entries)
+                (for [lang translationLanguages]
+                  [::dmlex/translationLanguage {:langCode lang}])
                 (map (partial ->tag ::dmlex/inflectedFormTag [:tag :for]) inflectedFormTags)
                 (map (partial ->tag ::dmlex/labelTag [:tag :typeTag :for]) labelTags)
                 (map (partial ->tag ::dmlex/labelTypeTag [:tag]) labelTypeTags)
@@ -241,12 +267,37 @@
                 (map ->relation relations)
                 (map ->relation-type relationTypes))))
 
+(defn indent-sexp
+  "Indent the XML `element` sexp at the nesting `depth` by inserting
+  whitespace text nodes between its children. Only an element whose children
+  are all elements is indented: whitespace is insignificant there, while an
+  element with character data -- e.g. an example text with inline markers --
+  must keep its content untouched. The indenting XML emitters make no such
+  distinction, which is why the indentation is inserted as data instead."
+  ([element]
+   (indent-sexp 0 element))
+  ([depth element]
+   (let [[tag & children] element
+         [attrs kids] (if (map? (first children))
+                        [(first children) (next children)]
+                        [nil children])
+         pad          (fn [n] (apply str "\n" (repeat n "  ")))]
+     (if (and (seq kids) (every? vector? kids))
+       (-> (if attrs [tag attrs] [tag])
+           (into (mapcat (fn [kid]
+                           [(pad (inc depth)) (indent-sexp (inc depth) kid)])
+                         kids))
+           (conj (pad depth)))
+       element))))
+
 (defn xml-str
-  "Create a DMLex XML string from a DMLex `resource`."
+  "Create a DMLex XML string from a DMLex `resource`, indented via
+  `indent-sexp`."
   [resource]
   (-> (->lexicographic-resource resource)
+      (indent-sexp)
       (xml/sexp-as-element)
-      (xml/indent-str)))
+      (xml/emit-str)))
 
 (defn prune
   "Remove nil values and empty collections from the maps inside `x`."
@@ -1066,7 +1117,7 @@
         readme-file  (str dir "README.txt")
         zip-path     (str dir (prefix/export-file "dmlex" 'dn))]
     (io/make-parents xml-file)
-    (spit xml-file (str/replace-first (xml-str resource) "?>\n"
+    (spit xml-file (str/replace-first (xml-str resource) "?>"
                                       (str "?>\n" (license-comment release/to))))
     (spit json-file (json-str resource))
     (spit meta-file (with-out-str

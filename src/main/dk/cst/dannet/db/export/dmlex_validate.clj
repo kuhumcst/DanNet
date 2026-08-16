@@ -1,5 +1,7 @@
 (ns dk.cst.dannet.db.export.dmlex-validate
   "Validation of the DMLex export against the schemas in doc/dmlex/spec/.
+  The export carries crosslingual content (headwordTranslations), so the full
+  schemas are used rather than the no-crosslingual variants.
 
   Needs the :validate alias, since neither validator ships with the JDK. The
   XML schemas are XSD 1.1 and the JSON schemas are draft 2020-12."
@@ -18,13 +20,9 @@
   "doc/dmlex/spec/")
 
 (def xml-schema
-  "The XML export carries no crosslingual content, so it stays within the
-  no-crosslingual variant of the schema."
-  (str spec-dir "dmlex_no-crosslingual.xsd"))
+  (str spec-dir "dmlex.xsd"))
 
 (def json-schema
-  "The JSON export carries crosslingual content (headwordTranslations), which
-  only the full schema accepts."
   (str spec-dir "dmlex.schema.json"))
 
 (defn error-collector

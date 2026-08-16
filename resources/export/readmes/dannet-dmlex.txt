@@ -19,8 +19,7 @@ JSON. It combines data from four source datasets:
 
   * OEWN (the Open English Wordnet) — CC BY 4.0, © the Open English
     Wordnet contributors: https://en-word.net
-    Provides the English sense equivalents, which are included in the
-    JSON serialization only.
+    Provides the English sense equivalents.
 
 The data has been transformed and merged into a single DMLex resource.
 As a derivative of CC BY-SA-licensed data, the combined dataset is
