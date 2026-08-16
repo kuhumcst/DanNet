@@ -314,8 +314,18 @@
                   g                  (:graph @instance/db)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  subject*           (cond->> (decode-query-part subject)
-                                       prefix (keyword (name prefix)))
+                  subject*           (let [s (decode-query-part subject)]
+                                       (cond
+                                         prefix
+                                         (keyword (name prefix) s)
+
+                                         ;; A generic consumer such as the
+                                         ;; DMLex viewer sends a bare URI, not
+                                         ;; a bracketed RDF resource.
+                                         (and s (re-find #"^https?://" s))
+                                         (prefix/uri->rdf-resource s)
+
+                                         :else s))
                   languages          (resp/request->languages request)
                   qs                 (some-> (:query-string request)
                                              remove-internal-params
