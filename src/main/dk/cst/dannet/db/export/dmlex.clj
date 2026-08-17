@@ -946,14 +946,18 @@
                           "(University of Copenhagen) & The Society for Danish "
                           "Language and Literature; licensed under "
                           "CC BY-SA 4.0.")
-    "dc:source"      [{"dc:title"   "DanNet"
-                       "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"}
-                      {"dc:title"   "DDS (Det Danske Sentimentleksikon)"
-                       "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"}
-                      {"dc:title"   "COR (Det Centrale Ordregister)"
-                       "dc:license" "https://creativecommons.org/publicdomain/zero/1.0/"}
-                      {"dc:title"   "OEWN (Open English Wordnet)"
-                       "dc:license" "https://creativecommons.org/licenses/by/4.0/"}]))
+    "dc:source"      [{"dc:title"      "DanNet"
+                       "dc:identifier" prefix/dn-uri
+                       "dc:license"    "https://creativecommons.org/licenses/by-sa/4.0/"}
+                      {"dc:title"      "DDS (Det Danske Sentimentleksikon)"
+                       "dc:identifier" prefix/dds-uri
+                       "dc:license"    "https://creativecommons.org/licenses/by-sa/4.0/"}
+                      {"dc:title"      "COR (Det Centrale Ordregister)"
+                       "dc:identifier" "https://ordregister.dk"
+                       "dc:license"    "https://creativecommons.org/publicdomain/zero/1.0/"}
+                      {"dc:title"      "OEWN (Open English Wordnet)"
+                       "dc:identifier" prefix/oewn-uri
+                       "dc:license"    "https://creativecommons.org/licenses/by/4.0/"}]))
 
 ;; TODO: add the zip to the download page and the release pipeline (plan 9.6)
 (defn export-dmlex!
