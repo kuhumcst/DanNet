@@ -343,61 +343,6 @@
 ;; both directions of every inverse relation as well as the transitive closure
 ;; of e.g. wn:hypernym, none of which was stated by a lexicographer.
 
-(def word-query
-  (op/sparql
-    "SELECT ?word ?pos ?writtenRep
-     WHERE {
-       ?word ontolex:canonicalForm ?form ;
-             wn:partOfSpeech ?pos .
-       ?form ontolex:writtenRep ?writtenRep .
-     }"))
-
-(def sense-query
-  (op/sparql
-    "SELECT ?word ?sense ?synset
-     WHERE {
-       ?word ontolex:sense ?sense .
-       ?synset ontolex:lexicalizedSense ?sense .
-     }"))
-
-(def definition-query
-  (op/sparql
-    "SELECT ?synset ?definition
-     WHERE { ?synset skos:definition ?definition . }"))
-
-(def example-query
-  (op/sparql
-    "SELECT ?sense ?example
-     WHERE { ?sense lexinfo:senseExample ?example . }"))
-
-(def domain-query
-  (op/sparql
-    "SELECT ?synset ?domain
-     WHERE { ?synset dc:subject ?domain . }"))
-
-(def lexfile-query
-  (op/sparql
-    "SELECT ?synset ?lexfile
-     WHERE { ?synset wn:lexfile ?lexfile . }"))
-
-(def variant-query
-  "The written variants of DanNet's own multiword expressions."
-  (op/sparql
-    "SELECT ?word ?variant
-     WHERE {
-       ?word ontolex:otherForm ?form .
-       ?form ontolex:writtenRep ?variant .
-     }"))
-
-(def ontological-type-query
-  (op/sparql
-    "SELECT ?synset ?member ?class
-     WHERE {
-       ?synset dns:ontologicalType ?bag .
-       ?bag ?member ?class .
-       FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
-     }"))
-
 (defn ontological-type
   "The member concepts of one synset's ontological type, e.g.
   [\"LanguageRepresentation\" \"Artifact\" \"Object\"]. The `rows` are the
@@ -406,19 +351,6 @@
   (->> rows
        (sort-by #(parse-long (subs (name (get % '?member)) 1)))
        (mapv (comp name '?class))))
-
-(def synset-label-query
-  (op/sparql
-    "SELECT ?synset ?label
-     WHERE {
-       ?synset rdfs:label ?label .
-       FILTER(STRSTARTS(str(?synset), CONCAT(str(dn:), \"synset\"))) .
-     }"))
-
-(def short-label-query
-  (op/sparql
-    "SELECT ?synset ?label
-     WHERE { ?synset dns:shortLabel ?label . }"))
 
 (def exported-relations
   "The DanNet relations that become DMLex relations, in the direction that the
@@ -469,22 +401,13 @@
                    :when description]
                [?concept (str description)]))))
 
-(def inverse-query
-  (op/sparql
-    "SELECT ?a ?b WHERE { ?a owl:inverseOf ?b . }"))
-
 (defn inverse-relations
   "DanNet relation -> its obverse relation, from the `owl:inverseOf` statements
   of the schema graph `g`. A symmetric relation maps to itself."
   [g]
   (into {} (comp (map (juxt '?a '?b))
                  (filter (fn [[a b]] (and (keyword? a) (keyword? b)))))
-        (q/run g inverse-query)))
-
-(defn relation-query
-  [rel]
-  (op/sparql "SELECT ?subject ?object
-              WHERE { ?subject " (prefix/kw->qname rel) " ?object . }"))
+        (q/run g op/inverse-query)))
 
 (defn dannet-pair?
   "Is every synset of `pair` in DanNet? A relation to another dataset cannot
@@ -497,82 +420,15 @@
   relation are flipped into the direction of `rel`. A symmetric relation gets
   one pair for each unordered pair of synsets."
   [g rel obverse]
-  (let [rows      (map (juxt '?subject '?object) (q/run g (relation-query rel)))
+  (let [rows      (map (juxt '?subject '?object) (q/run g (op/relation-query rel)))
         symmetric (= rel obverse)
         flipped   (when (and obverse (not symmetric))
-                    (map (juxt '?object '?subject) (q/run g (relation-query obverse))))]
+                    (map (juxt '?object '?subject) (q/run g (op/relation-query obverse))))]
     (into #{}
           (comp (filter dannet-pair?)
                 (remove (fn [[a b]] (= a b)))
                 (map (if symmetric #(vec (sort-by name %)) vec)))
           (concat rows flipped))))
-
-(def sense-label-query
-  (op/sparql
-    "SELECT ?sense ?property ?value
-     WHERE {
-       VALUES ?property { lexinfo:register lexinfo:dating lexinfo:frequency }
-       ?sense ?property ?value .
-     }"))
-
-(def usage-note-query
-  (op/sparql
-    "SELECT ?sense ?note
-     WHERE { ?sense lexinfo:usageNote ?note . }"))
-
-(def gender-query
-  (op/sparql
-    "SELECT ?synset ?gender
-     WHERE { ?synset dns:gender ?gender . }"))
-
-(def ili-query
-  (op/sparql
-    "SELECT ?synset ?ili
-     WHERE { ?synset wn:ili ?ili . }"))
-
-(def oewn-lemma-query
-  "The English lemmas of the OEWN synsets; the ILI identifiers join them to
-  the DanNet synsets."
-  (op/sparql
-    "SELECT ?ili ?lemma
-     WHERE {
-       ?synset wn:ili ?ili .
-       ?sense ontolex:isLexicalizedSenseOf ?synset .
-       ?word ontolex:sense ?sense ;
-             ontolex:canonicalForm ?form .
-       ?form ontolex:writtenRep ?lemma .
-     }"))
-
-(def cor-link-query
-  "The owl:sameAs links from COR words to DanNet words, with the COR lemmas.
-  COR states each link in both directions; selecting the COR-to-DanNet
-  direction gives each pair once."
-  (op/sparql
-    "SELECT ?cor ?word ?lemma
-     WHERE {
-       ?cor owl:sameAs ?word ;
-            ontolex:canonicalForm ?canonical .
-       ?canonical ontolex:writtenRep ?lemma .
-       FILTER(STRSTARTS(str(?word), str(dn:))) .
-     }"))
-
-(def cor-form-query
-  (op/sparql
-    "SELECT ?cor ?form ?writtenRep ?label
-     WHERE {
-       ?cor ontolex:otherForm ?form .
-       ?form ontolex:writtenRep ?writtenRep ;
-             rdfs:label ?label .
-     }"))
-
-(def sentiment-query
-  (op/sparql
-    "SELECT ?subject ?polarity ?value
-     WHERE {
-       ?subject dns:sentiment ?opinion .
-       ?opinion marl:hasPolarity ?polarity .
-       OPTIONAL { ?opinion marl:polarityValue ?value . }
-     }"))
 
 (defn run-queries
   "Fetch the DMLex source data from `db`. Everything but the schema statements
@@ -583,32 +439,32 @@
         dds-g        (db/get-graph dataset prefix/dds-uri)
         oewn-g       (db/get-graph dataset prefix/oewn-uri)
         obverse-of   (inverse-relations graph)
-        types        (q/run g ontological-type-query)
-        genders      (q/run g gender-query)
-        sense-labels (q/run g sense-label-query)
+        types        (q/run g op/ontological-type-query)
+        genders      (q/run g op/gender-query)
+        sense-labels (q/run g op/sense-label-query)
         concepts     (concat (map '?gender genders)
                              (map '?value sense-labels)
                              (map '?class types)
                              exported-relations)]
-    {:words             (q/run g word-query)
-     :senses            (q/run g sense-query)
-     :definitions       (q/run g definition-query)
-     :examples          (q/run g example-query)
-     :domains           (q/run g domain-query)
-     :lexfiles          (q/run g lexfile-query)
-     :word-variants     (q/run g variant-query)
+    {:words             (q/run g op/word-query)
+     :senses            (q/run g op/sense-query)
+     :definitions       (q/run g op/definition-query)
+     :examples          (q/run g op/example-query)
+     :domains           (q/run g op/domain-query)
+     :lexfiles          (q/run g op/lexfile-query)
+     :word-variants     (q/run g op/variant-query)
      :ontological-types types
-     :synset-labels     (q/run g synset-label-query)
-     :short-labels      (q/run g short-label-query)
+     :synset-labels     (q/run g op/synset-label-query)
+     :short-labels      (q/run g op/short-label-query)
      :genders           genders
      :sense-labels      sense-labels
-     :usage-notes       (q/run g usage-note-query)
-     :ilis              (q/run g ili-query)
-     :oewn-lemmas       (q/run oewn-g oewn-lemma-query)
-     :cor-links         (q/run cor-g cor-link-query)
-     :cor-forms         (q/run cor-g cor-form-query)
-     :sentiment         (concat (q/run dds-g sentiment-query)
-                                (q/run g sentiment-query))
+     :usage-notes       (q/run g op/usage-note-query)
+     :ilis              (q/run g op/ili-query)
+     :oewn-lemmas       (q/run oewn-g op/oewn-lemma-query)
+     :cor-links         (q/run cor-g op/cor-link-query)
+     :cor-forms         (q/run cor-g op/cor-form-query)
+     :sentiment         (concat (q/run dds-g op/sentiment-query)
+                                (q/run g op/sentiment-query))
      :descriptions      (tag-descriptions graph (distinct concepts))
      :indegrees         @q/synset-indegrees
      :obverse-of        obverse-of

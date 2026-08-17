@@ -44,78 +44,10 @@
          ?resource ?labelRel ?label .
        }")))
 
-(def synset-lemma-freqs
-  (q/build
-    '[:bgp
-      [?synset :ontolex/lexicalizedSense ?sense]
-      [?word :ontolex/sense ?sense]
-      [?word :dns/ddoFrequency ?freq]
-      [?sense :rdfs/label ?lemma]]))
-
-(def synonyms
-  (q/build
-    '[:bgp
-      [?form :ontolex/writtenRep ?lemma]
-      [?word :ontolex/canonicalForm ?form]
-      [?word :ontolex/evokes ?synset]
-      [?word* :ontolex/evokes ?synset]
-      [?word* :ontolex/canonicalForm ?form*]
-      [?form* :ontolex/writtenRep ?synonym]]))
-
-(def alt-representations
-  "Certain words contain alternative written representations."
-  (q/build
-    '[:bgp
-      [?form :ontolex/writtenRep ?written-rep]
-      [?form :ontolex/writtenRep ?alt-rep]]))
-
-(def registers
-  (q/build
-    '[:bgp
-      [?sense :lexinfo/usageNote ?register]]))
-
-(def sense-label-targets
-  "Used during initial graph creation to attach labels to senses."
-  (sparql
-    "SELECT ?sense ?wlabel ?slabel
-     WHERE {
-       ?word ontolex:sense ?sense .
-       FILTER NOT EXISTS { ?sense rdfs:label ?label }
-       ?word rdfs:label ?wlabel .
-       ?synset ontolex:lexicalizedSense ?sense .
-       ?synset rdfs:label ?slabel .
-     }"))
-
-(def example-targets
-  "Used during initial graph creation to attach examples to senses."
-  (q/build
-    '[:bgp
-      [?word :ontolex/evokes ?synset]
-      [?word :ontolex/canonicalForm ?form]
-      [?form :ontolex/writtenRep ?lemma]
-      [?word :ontolex/sense ?sense]
-      [?synset :ontolex/lexicalizedSense ?sense]]))
-
-(def examples
-  (q/build
-    '[:bgp
-      [?form :ontolex/writtenRep ?lemma]
-      [?word :ontolex/canonicalForm ?form]
-      [?word :ontolex/sense ?sense]
-      [?sense :lexinfo/senseExample ?example]
-      [?example :rdf/value ?example-str]]))
-
 (def synsets
   (q/build
     '[:bgp
       [?synset :rdf/type :ontolex/LexicalConcept]]))
-
-(def synset-relations
-  (q/build
-    '[:bgp
-      [?s1 :rdfs/label ?l1]
-      [?s1 ?relation ?s2]
-      [?s2 :rdfs/label ?l2]]))
 
 (defn synset-search-query
   "Look up synsets based on a `lemma`."
@@ -142,24 +74,6 @@
          ?synset wn:lexfile ?lexfile .
        }
      }"))
-
-(def synset-search
-  "Look up synsets based on a lemma."
-  (q/build
-    [:conditional
-     [:conditional
-      [:conditional
-       '[:bgp
-         [?form :ontolex/writtenRep ?lemma]
-         [?word :ontolex/canonicalForm ?form]
-         [?word :ontolex/evokes ?synset]
-         [?word :ontolex/evokes ?synset]]
-       '[:bgp
-         [?synset :rdfs/label ?label]]]
-      '[:bgp
-        [?synset :skos/definition ?definition]]]
-     '[:bgp
-       [?synset :dns/ontologicalType ?ontotype]]]))
 
 (def synset-search-labels
   (q/build
@@ -214,12 +128,6 @@
         }
      }"))
 
-(def self-referential-hypernyms
-  (q/build
-    '[:union
-      [:bgp [?synset :wn/hypernym ?synset]]
-      [:bgp [?synset :wn/hyponym ?synset]]]))
-
 (def unlabeled-senses
   (sparql
     "SELECT ?synset ?sense ?label
@@ -231,71 +139,6 @@
        }
      }"))
 
-(def synset-relabeling
-  (q/build
-    '[:bgp
-      [?synset :rdf/type :ontolex/LexicalConcept]
-      [?synset :rdfs/label ?synsetLabel]
-      [?synset :ontolex/lexicalizedSense ?sense]
-      [?sense :rdfs/label ?label]]))
-
-(def duplicate-synsets
-  "Duplicate synsets based on same label, definition, and ontological type."
-  (q/build
-    '[:filter (not= ?s1 ?s2)
-      [:bgp
-       [?s1 :rdf/type :ontolex/LexicalConcept]
-       [?s2 :rdf/type :ontolex/LexicalConcept]
-       [?s1 :rdfs/label ?label]
-       [?s2 :rdfs/label ?label]
-       [?s1 :skos/definition ?definition]
-       [?s2 :skos/definition ?definition]
-       [?s1 :dns/ontologicalType ?ontotype]
-       [?s2 :dns/ontologicalType ?ontotype]]]))
-
-(def missing-sense-sentiment
-  (sparql
-    "SELECT ?sense ?word ?opinion
-     WHERE {
-       ?sense rdf:type ontolex:LexicalSense .
-       NOT EXISTS {
-         ?sense dns:sentiment ?missing .
-       }
-       ?word ontolex:sense ?sense .
-       ?word dns:sentiment ?opinion .
-     }"))
-
-(def missing-synset-sentiment
-  (sparql
-    "SELECT ?sense ?opinion ?pval ?pclass ?synset
-     WHERE {
-       ?sense rdf:type ontolex:LexicalSense .
-       ?sense dns:sentiment ?opinion .
-       ?opinion marl:hasPolarity ?pclass .
-       ?opinion marl:polarityValue ?pval .
-       ?synset ontolex:lexicalizedSense ?sense .
-     }"))
-
-(def sentiment-dsl-senses
-  "Bridge sentiment data using old sense IDs and new sense IDs."
-  (sparql
-    "SELECT ?sense ?sentiment ?oldSense
-     WHERE {
-       ?sense dns:dslSense ?dslSense .
-       BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
-       ?oldSense dns:sentiment ?sentiment .
-     }"))
-
-(def cor-dsl-senses
-  "Bridge COR data using old sense IDs and new sense IDs."
-  (sparql
-    "SELECT ?sense ?oldSense ?corWord
-     WHERE {
-       ?sense dns:dslSense ?dslSense .
-       BIND(IRI(CONCAT(\"" prefix/dn-uri "sense-\", STR(?dslSense))) as ?oldSense) .
-       ?corWord ontolex:sense ?oldSense .
-     }"))
-
 (def oewn-label-targets
   (sparql
     "SELECT ?synset ?sense ?word ?rep
@@ -304,102 +147,6 @@
        ?word ontolex:canonicalForm ?form .
        ?word ontolex:sense ?sense .
        ?sense ontolex:isLexicalizedSenseOf ?synset .
-     }"))
-
-(def missing-words
-  (sparql
-    "SELECT ?sense ?synset ?label
-     WHERE {
-       ?synset ontolex:lexicalizedSense ?sense .
-       FILTER NOT EXISTS { ?word ontolex:sense ?sense }
-       ?sense rdfs:label ?label
-     }"))
-
-(def missing-inheritance
-  (sparql
-    "SELECT ?synset ?ontotype ?hypernym
-     WHERE {
-       ?synset dns:inherited ?inherit .
-       ?inherit dns:inheritedRelation wn:hypernym .
-       ?inherit dns:inheritedFrom ?parent .
-       ?parent dns:ontologicalType ?ontotype .
-       ?parent wn:hypernym ?hypernym .
-     }"))
-
-(def unknown-inheritance
-  (sparql
-    "SELECT ?synset ?inherit
-     WHERE {
-       ?synset dns:inherited ?inherit .
-       ?inherit dns:inheritedFrom ?parent .
-       FILTER NOT EXISTS { ?parent ?anything ?atAll }
-     }"))
-
-(def superfluous-definitions
-  "Synset definitions that are fully contained within other definitions;
-  this situation occurs due to the merge of the old data with the 2023 data."
-  (sparql
-    "SELECT ?synset ?definition ?otherDefinition
-     WHERE {
-       ?synset skos:definition ?definition .
-       FILTER(CONTAINS(?definition, \"…\"))
-       ?synset skos:definition ?otherDefinition .
-       FILTER(?definition != ?otherDefinition)
-     }"))
-
-(def undefined-synset-triples
-  "Synsets that are objects of other synsets, but do not exist as subjects."
-  (sparql
-    "SELECT ?synset ?p ?otherResource
-     WHERE {
-       ?synset rdf:type ontolex:LexicalConcept .
-       ?synset ?p ?otherResource .
-       FILTER(isIRI(?otherResource)) .
-       FILTER(STRSTARTS(str(?otherResource), str(dn:))) .
-       NOT EXISTS {
-         ?otherResource ?anything ?atAll .
-       }
-     }"))
-
-(def orphan-dn-resources
-  "The COR/DNS data references many resources that are undefined in Dannet."
-  (sparql
-    "SELECT ?resource
-     WHERE {
-       {
-         ?corWord ontolex:sense ?resource .
-         FILTER(isIRI(?resource)) .
-       }
-       UNION
-       {
-         ?corWord owl:sameAs ?resource .
-         FILTER(isIRI(?resource)) .
-       }
-       UNION
-       {
-         ?resource dns:sentiment ?sentiment .
-         FILTER(isIRI(?resource)) .
-       }
-       NOT EXISTS {
-         ?resource rdf:type ?type .
-       }
-     }"))
-
-(def sense-labels
-  (sparql
-    "SELECT ?sense ?label
-     WHERE {
-      ?synset ontolex:lexicalizedSense ?sense .
-      ?sense rdfs:label ?label
-     }"))
-
-;; NOTE: similar query to 'sense-labels' above
-(def synset-labels
-  (sparql
-    "SELECT ?synset ?label
-     WHERE {
-      ?synset ontolex:lexicalizedSense ?sense .
-      ?sense rdfs:label ?label
      }"))
 
 (def csv-synsets
@@ -472,18 +219,6 @@
   (sparql
     (str "SELECT ?s WHERE { ?s " (prefix/kw->qname rel) " ?o } LIMIT 1")))
 
-(def short-label-candidates
-  (sparql
-    "SELECT ?word (STR(?senseLabel) AS ?label)
-     WHERE {
-       ?synset rdf:type ontolex:LexicalConcept .
-       FILTER(STRSTARTS(str(?synset), str(dn:))) .
-       ?synset ontolex:lexicalizedSense ?sense .
-       ?word ontolex:sense ?sense .
-       FILTER(STRSTARTS(str(?word), str(dn:))) .
-       ?sense rdfs:label ?senseLabel .
-     }"))
-
 (def synset-long-short-labels
   (sparql
     "SELECT ?synset ?label ?shortLabel
@@ -508,55 +243,6 @@
        ?word ontolex:sense ?otherSense .
      }
      GROUP BY ?senseLabel"))
-
-(def missing-lexinfo-pos
-  (sparql
-    "SELECT ?word ?pos
-     WHERE {
-       ?word wn:partOfSpeech ?pos .
-       FILTER NOT EXISTS { ?word lexinfo:partOfSpeech ?lexinfoPos }
-     }"))
-
-(def lexical-entries
-  (sparql
-    "SELECT ?word ?rep
-    WHERE {
-      ?word a ontolex:LexicalEntry .
-      ?word ontolex:canonicalForm ?form .
-      ?form ontolex:writtenRep ?rep .
-    }"))
-
-(def different-pos-synsets
-  (sparql
-    "SELECT *
-     WHERE {
-       ?w1 lexinfo:partOfSpeech ?pos1 ;
-          ontolex:evokes ?synset .
-       ?w2 ontolex:evokes ?synset ;
-           lexinfo:partOfSpeech ?pos2 .
-       FILTER ( ?pos1 != ?pos2 )
-       ?synset rdfs:label ?label .
-     }"))
-
-(def adj-cross-pos-hypernymy
-  (sparql
-    "SELECT ?synset ?hypernym
-     WHERE {
-       ?w1 lexinfo:partOfSpeech lexinfo:adjective ;
-           ontolex:evokes ?synset .
-       ?synset wn:hypernym ?hypernym .
-       ?w2 ontolex:evokes ?hypernym .
-       ?w2 lexinfo:partOfSpeech ?pos .
-       FILTER (?pos != lexinfo:adjective )
-
-       # make sure we don't include synsets whose words have multiple PoS
-       FILTER NOT EXISTS {
-         ?w3 ontolex:evokes ?synset .
-         FILTER (?w3 != ?w1) .
-         ?w3 lexinfo:partOfSpeech ?w3pos .
-         FILTER (?w3pos != lexinfo:adjective ) .
-       }
-     }"))
 
 (def cross-pos-hypernymy
   (sparql
@@ -613,4 +299,149 @@
                  dcat:title
                  ?label
        }
+     }"))
+
+(def word-query
+  (sparql
+    "SELECT ?word ?pos ?writtenRep
+     WHERE {
+       ?word ontolex:canonicalForm ?form ;
+             wn:partOfSpeech ?pos .
+       ?form ontolex:writtenRep ?writtenRep .
+     }"))
+
+(def sense-query
+  (sparql
+    "SELECT ?word ?sense ?synset
+     WHERE {
+       ?word ontolex:sense ?sense .
+       ?synset ontolex:lexicalizedSense ?sense .
+     }"))
+
+(def definition-query
+  (sparql
+    "SELECT ?synset ?definition
+     WHERE { ?synset skos:definition ?definition . }"))
+
+(def example-query
+  (sparql
+    "SELECT ?sense ?example
+     WHERE { ?sense lexinfo:senseExample ?example . }"))
+
+(def domain-query
+  (sparql
+    "SELECT ?synset ?domain
+     WHERE { ?synset dc:subject ?domain . }"))
+
+(def lexfile-query
+  (sparql
+    "SELECT ?synset ?lexfile
+     WHERE { ?synset wn:lexfile ?lexfile . }"))
+
+(def variant-query
+  "The written variants of DanNet's own multiword expressions."
+  (sparql
+    "SELECT ?word ?variant
+     WHERE {
+       ?word ontolex:otherForm ?form .
+       ?form ontolex:writtenRep ?variant .
+     }"))
+
+(def ontological-type-query
+  (sparql
+    "SELECT ?synset ?member ?class
+     WHERE {
+       ?synset dns:ontologicalType ?bag .
+       ?bag ?member ?class .
+       FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
+     }"))
+
+(def synset-label-query
+  (sparql
+    "SELECT ?synset ?label
+     WHERE {
+       ?synset rdfs:label ?label .
+       FILTER(STRSTARTS(str(?synset), CONCAT(str(dn:), \"synset\"))) .
+     }"))
+
+(def short-label-query
+  (sparql
+    "SELECT ?synset ?label
+     WHERE { ?synset dns:shortLabel ?label . }"))
+
+(def inverse-query
+  (sparql
+    "SELECT ?a ?b WHERE { ?a owl:inverseOf ?b . }"))
+
+(defn relation-query
+  "Build a query selecting the subject-object pairs of the relation `rel`."
+  [rel]
+  (sparql "SELECT ?subject ?object
+           WHERE { ?subject " (prefix/kw->qname rel) " ?object . }"))
+
+(def sense-label-query
+  (sparql
+    "SELECT ?sense ?property ?value
+     WHERE {
+       VALUES ?property { lexinfo:register lexinfo:dating lexinfo:frequency }
+       ?sense ?property ?value .
+     }"))
+
+(def usage-note-query
+  (sparql
+    "SELECT ?sense ?note
+     WHERE { ?sense lexinfo:usageNote ?note . }"))
+
+(def gender-query
+  (sparql
+    "SELECT ?synset ?gender
+     WHERE { ?synset dns:gender ?gender . }"))
+
+(def ili-query
+  (sparql
+    "SELECT ?synset ?ili
+     WHERE { ?synset wn:ili ?ili . }"))
+
+(def oewn-lemma-query
+  "The English lemmas of the OEWN synsets; the ILI identifiers join them to
+  the DanNet synsets."
+  (sparql
+    "SELECT ?ili ?lemma
+     WHERE {
+       ?synset wn:ili ?ili .
+       ?sense ontolex:isLexicalizedSenseOf ?synset .
+       ?word ontolex:sense ?sense ;
+             ontolex:canonicalForm ?form .
+       ?form ontolex:writtenRep ?lemma .
+     }"))
+
+(def cor-link-query
+  "The owl:sameAs links from COR words to DanNet words, with the COR lemmas.
+  COR states each link in both directions; selecting the COR-to-DanNet
+  direction gives each pair once."
+  (sparql
+    "SELECT ?cor ?word ?lemma
+     WHERE {
+       ?cor owl:sameAs ?word ;
+            ontolex:canonicalForm ?canonical .
+       ?canonical ontolex:writtenRep ?lemma .
+       FILTER(STRSTARTS(str(?word), str(dn:))) .
+     }"))
+
+(def cor-form-query
+  (sparql
+    "SELECT ?cor ?form ?writtenRep ?label
+     WHERE {
+       ?cor ontolex:otherForm ?form .
+       ?form ontolex:writtenRep ?writtenRep ;
+             rdfs:label ?label .
+     }"))
+
+(def sentiment-query
+  (sparql
+    "SELECT ?subject ?polarity ?value
+     WHERE {
+       ?subject dns:sentiment ?opinion .
+       ?opinion marl:hasPolarity ?polarity .
+       OPTIONAL { ?opinion marl:polarityValue ?value . }
      }"))
