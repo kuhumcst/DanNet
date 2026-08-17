@@ -243,16 +243,15 @@
                  (transient {})
                  entity))))
 
-(defn synset-examples
-  "Return usage examples for `synset-kw` in `g` as a set of LangStr values.
-  Gathers examples from all senses of the synset."
-  [g synset-kw]
+(defn gathered-sense-values
+  "Return the set of `k` values gathered from the senses of `synset-kw` in `g`,
+  e.g. usage examples or DDO source links."
+  [g synset-kw k]
   (let [synset    (entity g synset-kw)
         sense-kws (shared/setify (:ontolex/lexicalizedSense synset))]
     (->> sense-kws
          (keep (fn [sense-kw]
-                 (let [sense (entity g sense-kw)]
-                   (shared/setify (:lexinfo/senseExample sense)))))
+                 (shared/setify (k (entity g sense-kw)))))
          (reduce into #{})
          (not-empty))))
 
@@ -285,26 +284,37 @@
   (memo/lru hypernym-ancestry* :lru/threshold 1000))
 
 (defn supplement-synset
-  "Supplement `synset` for `subject` in `g` with examples from its senses.
-  Returns synset with `:lexinfo/senseExample` added and metadata updated with
-  `:supplemented`, `:ancestry`, and additional `:entities` labels."
+  "Supplement `synset` for `subject` in `g` with examples and DDO source links
+  gathered from its senses, plus the English definition of its ILI concept.
+  Returns synset with metadata updated with `:supplemented`, `:ancestry`, and
+  additional `:entities` labels."
   [g synset subject]
-  (let [examples     (synset-examples g subject)
+  (let [examples     (gathered-sense-values g subject :lexinfo/senseExample)
+        sources      (gathered-sense-values g subject :dns/source)
+        ili-def      (some->> (:wn/ili synset)
+                              (entity g)
+                              :skos/definition
+                              (shared/setify))
         ancestry     (hypernym-ancestry g subject)
         synset'      (cond-> synset
-                       examples (assoc :lexinfo/senseExample examples))
-        entities*    (-> synset meta :entities)
-        entities     (if (and examples
-                              (not (contains? entities* :lexinfo/senseExample)))
-                       (let [rel-entity (entity g :lexinfo/senseExample)]
-                         (assoc entities* :lexinfo/senseExample
-                                          (select-keys rel-entity [:rdfs/label])))
-                       entities*)
-        supplemented (when examples
-                       #{:lexinfo/senseExample})]
+                       examples (assoc :lexinfo/senseExample examples)
+                       sources (assoc :dns/source sources)
+                       ili-def (update :skos/definition
+                                       #(into ili-def (shared/setify %))))
+        supplemented (cond-> #{}
+                       examples (conj :lexinfo/senseExample)
+                       sources (conj :dns/source)
+                       ili-def (conj :skos/definition))
+        entities     (reduce (fn [m rel]
+                               (if (contains? m rel)
+                                 m
+                                 (assoc m rel (select-keys (entity g rel)
+                                                           [:rdfs/label]))))
+                             (-> synset meta :entities)
+                             supplemented)]
     (vary-meta synset' merge
                {:entities     entities
-                :supplemented supplemented
+                :supplemented (not-empty supplemented)
                 :ancestry     ancestry})))
 
 ;; TODO: make the word entity page resemble a traditional dictionary entry via
@@ -398,6 +408,7 @@
 
 (comment
   (entity (:graph @dk.cst.dannet.web.instance/db) :dn/synset-1771)
-  (synset-examples (:graph @dk.cst.dannet.web.instance/db) :dn/synset-3047)
+  (gathered-sense-values (:graph @dk.cst.dannet.web.instance/db)
+                         :dn/synset-3047 :lexinfo/senseExample)
   (hypernym-ancestry (:graph @dk.cst.dannet.web.instance/db) :dn/synset-3047)
   #_.)

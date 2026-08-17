@@ -103,7 +103,10 @@
          :wn/example]]                                      ; used by OEWN
    semantic-section
    synset-lexical-section
-   cross-link-section])
+   ;; dns:source (the DDO deep links supplemented from the senses) is kept out
+   ;; of the shared cross-link-section, which doubles as the synset relation
+   ;; probe in web.instance/find-synset-relations.
+   (update cross-link-section 1 #(into [:dns/source] %))])
 
 (defmethod defined-sections :ontolex/LexicalSense
   [entity]

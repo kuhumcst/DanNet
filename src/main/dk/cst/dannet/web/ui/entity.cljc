@@ -224,10 +224,11 @@
                                            :content (str lexfile')))
          pos])
       (if-let [definition (:skos/definition subentity)]
-        (let [definition' (if (set? definition)
-                            (->> (sort (map str definition))
+        (let [definition* (i18n/select-str languages definition)
+              definition' (if (coll? definition*)
+                            (->> (sort (map str definition*))
                                  (str/join "; "))
-                            definition)]
+                            definition*)]
           [:span {:property "skos:definition"
                   :title    "skos:definition"}
            (error/try-render
