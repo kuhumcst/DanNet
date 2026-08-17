@@ -36,18 +36,22 @@
 
 (rum/defc suggestion
   [v on-key-down]
-  (let [handle-click (fn [_]
+  (let [[lemma inflected] (if (vector? v) v [v])
+        display      (if inflected
+                       (str lemma " (" inflected ")")
+                       lemma)
+        handle-click (fn [_]
                        #?(:cljs (let [form  (js/document.getElementById "search-form")
                                       input (js/document.getElementById "search-input")]
-                                  (set! (.-value input) v)
-                                  (form/submit-form form (str "lemma=" v)))
+                                  (set! (.-value input) lemma)
+                                  (form/submit-form form (str "lemma=" lemma)))
                           :clj  nil))]
     [:li {:role        "option"
           :tab-index   "-1"
           :on-key-down on-key-down
-          :id          (completion-item-id v)
+          :id          (completion-item-id display)
           :on-click    handle-click}
-     v]))
+     display]))
 
 (rum/defcs form < (rum/local false ::open)
   [state {:keys [lemma search languages] :as opts}]
@@ -120,7 +124,7 @@
                :id        "search-completion"}
           (when suggestions?
             (for [v completion-items]
-              (rum/with-key (suggestion v on-key-down) v)))]]])]))
+              (rum/with-key (suggestion v on-key-down) (str v))))]]])]))
 
 (rum/defc result
   [k {:keys [dc/subject] :as entity} {:keys [detail-level languages] :as opts}]

@@ -168,6 +168,20 @@
   (and (synset? subject entity)
        (= "dn" (namespace subject))))
 
+(defn word?
+  "Return true if `subject` is a word `entity`, incl. multiword expressions."
+  [subject entity]
+  (and (keyword? subject)
+       (map? entity)
+       (boolean (some #{:ontolex/Word :ontolex/MultiwordExpression}
+                      (setify (:rdf/type entity))))))
+
+(defn dn-word?
+  "Return true if `subject` is a DanNet word specifically."
+  [subject entity]
+  (and (word? subject entity)
+       (= "dn" (namespace subject))))
+
 (defn with-prefix
   "Return predicate accepting keywords with `prefix` (`except` set of keywords)."
   [prefix & {:keys [except]}]

@@ -307,6 +307,32 @@
                 :supplemented supplemented
                 :ancestry     ancestry})))
 
+;; TODO: make the word entity page resemble a traditional dictionary entry via
+;;       custom display elements, e.g. the abbreviated inflected forms found in
+;;       the dmlex-viewer project.
+(defn supplement-word
+  "Supplement `word` in `g` with inflected forms from the COR words it is
+  owl:sameAs. Returns word with `:ontolex/otherForm` added and metadata
+  updated with `:supplemented` and additional `:entities` labels."
+  [g word]
+  (let [cor-word? (fn [k] (and (keyword? k) (= "cor" (namespace k))))
+        forms     (->> (shared/setify (:owl/sameAs word))
+                       (filter cor-word?)
+                       (mapcat #(shared/setify (:ontolex/otherForm (entity g %))))
+                       (set)
+                       (not-empty))]
+    (if forms
+      (let [rel-entity (entity g :ontolex/otherForm)
+            entities   (-> (:entities (meta word))
+                           (merge (resource-labels g forms))
+                           (assoc :ontolex/otherForm
+                                  (select-keys rel-entity [:rdfs/label])))]
+        (-> word
+            (update :ontolex/otherForm #(into forms (shared/setify %)))
+            (vary-meta merge {:entities     entities
+                              :supplemented #{:ontolex/otherForm}})))
+      word)))
+
 (defn- embedded-resources
   "Collect keyword resources (predicates and objects) found in the blank node
   entity maps attached as metadata on symbols within `entity` values."
@@ -339,9 +365,14 @@
                                         :subject  subject}
                                  (instance? BaseInfGraph g)
                                  (assoc :inferred (inferred-entity result (find-raw g subject)))))]
-      (if (shared/dn-synset? subject entity*)
+      (cond
+        (shared/dn-synset? subject entity*)
         (supplement-synset g entity* subject)
-        entity*))
+
+        (shared/dn-word? subject entity*)
+        (supplement-word g entity*)
+
+        :else entity*))
     (with-meta {} {:subject subject})))
 
 ;; Large synsets can have thousands of semantic relations (e.g. synset-2119 has

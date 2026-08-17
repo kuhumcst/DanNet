@@ -537,10 +537,10 @@
   {:name  ::autocomplete
    :enter (fn [ctx]
             (let [s (get-in ctx [:request :query-params :s])]
-              (when-let [s' (shared/search-string s)]
-                (when (> (count s') 2)
-                  (assoc ctx
-                    :content {:autocompletions (instance/autocomplete s')})))))})
+              ;; a blank string would make the trie lookup traverse everything
+              (when-let [s' (not-empty (shared/search-string s))]
+                (assoc ctx
+                  :content {:autocompletions (instance/autocomplete s')}))))})
 
 (def autocomplete-route
   [autocomplete-path

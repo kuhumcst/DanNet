@@ -37,6 +37,7 @@ The system includes:
 - Rate limiting for API endpoints
 - Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
 - Full-screen visualization mode with persistent user preferences
+- COR inflected forms are valid search terms: the search trie/autocomplete suggest them as "lemma (inflected form)" pairs, the synset search query resolves them via `owl:sameAs`, and DanNet word entities are supplemented with the `ontolex:otherForm` forms of their linked COR words
 
 ### Synset Diagrams (`dk.cst.dannet.web.ui.visualization` + `dk.cst.dannet.web.d3` + `dk.cst.dannet.web.hyponymy`)
 - The synset section can render as a table or a diagram; when in diagram mode, a mode toggle switches between the radial diagram and up to three sunbursts, all sharing one toolbar/legend shell (`synset-diagram`, `diagram-legend`):

@@ -117,30 +117,70 @@
 
 (defonce meronym-graph (->meronym-graph))
 
-;; TODO: ... include COR writtenRep too? Other labels?
+(defn- add-word-entry
+  "Register the DanNet written representation `w` as a search word in `m`."
+  [m w]
+  (update m (shared/search-string w) merge {:s w :word? true}))
+
+(defn- add-form-entry
+  "Register the COR `[lemma rep]` inflection pair in `m`. Inflections identical
+  to their lemma and compound stems (e.g. \"plejehjems-\") are skipped."
+  [m [lemma rep]]
+  (let [k (shared/search-string rep)]
+    (if (or (= k (shared/search-string lemma))
+            (str/ends-with? rep "-"))
+      m
+      (-> m
+          (update-in [k :s] #(or % rep))
+          (update-in [k :lemmas] (fnil conj #{}) lemma)))))
+
 ;; TODO: should be transformed into a tightly packed tried (currently loose)
 (defn- ->search-trie
   []
   (delay
-    (let [g      (db/get-graph (:dataset @db) prefix/dn-uri)
-          words  (q/run g '[?writtenRep] op/written-representations)
-          lwords (map (partial map shared/search-string) words)]
+    (let [dataset (:dataset @db)
+          words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
+                              '[?writtenRep] op/written-representations)
+                       (map (comp str first)))
+          forms   (->> (q/run (db/get-graph dataset prefix/cor-uri)
+                              op/cor-word-forms)
+                       (map (juxt (comp str '?lemma) (comp str '?rep))))
+          entries (reduce add-form-entry
+                          (reduce add-word-entry {} words)
+                          forms)]
       (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
-                  (apply trie/make-trie (map str (mapcat concat lwords words)))))))
+                  (apply trie/make-trie (mapcat identity entries))))))
 
 (defonce search-trie (->search-trie))
+
+(defn- completion-items
+  "Convert a search trie entry value `v` into autocompletion items: a string
+  for a word match and `[lemma rep]` pairs for inflected form matches."
+  [{:keys [s word? lemmas] :as v}]
+  (cond-> (mapv (fn [lemma] [lemma s]) lemmas)
+    word? (conj s)))
+
+(defn- completion-sort-key
+  "Sort key for autocompletion `item`: by the matched string, with word
+  matches preceding inflected form matches."
+  [item]
+  (if (string? item)
+    [(str/lower-case item) 0 item]
+    [(str/lower-case (second item)) 1 (first item)]))
 
 (defn- ->autocomplete
   []
   (memo/lu
     (fn [s]
       (->> (trie/lookup @search-trie s)
-           (remove (comp nil? second))                      ; remove partial
-           (map second)                                     ; grab full words
-           (sort-by str/lower-case)))
-    :lu/threshold 500))
+           (keep second)                                    ; remove partial
+           (mapcat completion-items)
+           (sort-by completion-sort-key)
+           (take 200)))                                     ; cap the payload
+    :lu/threshold 2000))
 
-(defonce ^{:doc "Return auto-completions for `s` found in the graph."}
+(defonce ^{:doc "Return auto-completions for `s` found in the graph,
+capped at 200 items."}
   autocomplete
   (->autocomplete))
 

@@ -50,13 +50,14 @@
       [?synset :rdf/type :ontolex/LexicalConcept]]))
 
 (defn synset-search-query
-  "Look up synsets based on a `lemma`."
+  "Look up synsets based on a `lemma`, incl. via the inflected forms of any
+  COR words linked through owl:sameAs."
   [lemma]
   (sparql
     "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType ?lexfile
      WHERE {
        ?form ontolex:writtenRep \"" lemma "\"@da .
-       ?word ontolex:canonicalForm|ontolex:otherForm ?form ;
+       ?word ontolex:canonicalForm|ontolex:otherForm|(owl:sameAs/(ontolex:canonicalForm|ontolex:otherForm)) ?form ;
              ontolex:evokes ?synset .
        OPTIONAL {
          ?synset rdfs:label ?label .
@@ -96,6 +97,17 @@
   (q/build
     [:bgp
      '[?form :ontolex/writtenRep ?writtenRep]]))
+
+(def cor-word-forms
+  "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
+  binds the COR canonical form as ?lemma and each inflected form as ?rep."
+  (sparql
+    "SELECT ?lemma ?rep
+     WHERE {
+       ?word owl:sameAs ?corWord .
+       ?corWord ontolex:canonicalForm/ontolex:writtenRep ?lemma ;
+                ontolex:otherForm/ontolex:writtenRep ?rep .
+     }"))
 
 (def word-clones
   (q/build
