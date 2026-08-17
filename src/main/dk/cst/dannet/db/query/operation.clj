@@ -98,6 +98,30 @@
     [:bgp
      '[?form :ontolex/writtenRep ?writtenRep]]))
 
+(def ddo-sources
+  "All dns:source triples still pointing at the redesigned ordnet.dk
+  (GitHub issue #192); the STRSTARTS filter makes rewriting idempotent."
+  (sparql
+    "SELECT ?s ?src
+     WHERE {
+       ?s dns:source ?src .
+       FILTER(STRSTARTS(STR(?src), \"https://ordnet.dk/ddo\"))
+     }"))
+
+(def missing-dsl-sense-sources
+  "Senses lacking a dns:source whose DDO deep link can be reconstructed from
+  their dns:dslSense (= DDO def_id) and their word's dns:source (issue #192).
+  Uses the asserted ontolex:sense direction since release changes run on the
+  base model, where the inverse ontolex:isSenseOf is not yet inferred."
+  (sparql
+    "SELECT ?sense ?dslSense ?wordSource
+     WHERE {
+       ?sense dns:dslSense ?dslSense .
+       ?word ontolex:sense ?sense ;
+             dns:source ?wordSource .
+       FILTER NOT EXISTS { ?sense dns:source ?senseSource }
+     }"))
+
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
   binds the COR canonical form as ?lemma and each inflected form as ?rep."

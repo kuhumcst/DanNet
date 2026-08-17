@@ -174,6 +174,41 @@
         (when ?shortLabel
           [?synset :dns/shortLabel ?shortLabel])))))
 
+(h/defn rewrite-ddo-source-urls!
+  "Rewrite every DDO dns:source URL to the gammel.ordnet.dk subdomain (GitHub
+  issue #192). The redesigned ordnet.dk redirects the old deep links without
+  their def_id highlighting; the legacy UI at gammel.ordnet.dk retains it."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/rewrite-ddo-source-urls}
+          "Rewriting DDO source URLs to gammel.ordnet.dk")
+  (db/update-triples! prefix/dn-uri dataset op/ddo-sources
+    (fn [{:syms [?s ?src]}]
+      [?s :dns/source (-> (prefix/rdf-resource->uri ?src)
+                          (str/replace-first "https://ordnet.dk/"
+                                             "https://gammel.ordnet.dk/")
+                          (prefix/uri->rdf-resource))])
+    (fn [{:syms [?s ?src]}]
+      [?s :dns/source ?src])))
+
+(h/defn add-missing-sense-sources!
+  "Mint dns:source for senses that lack one but carry a DDO definition ID as
+  dns:dslSense (GitHub issue #192), inserting that ID as the def_id in the
+  deep link of the sense's word. Runs after `rewrite-ddo-source-urls!` so the
+  minted URLs inherit the rewritten subdomain."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/add-missing-sense-sources}
+          "Minting dns:source for senses with a dns:dslSense ID")
+  (db/update-triples! prefix/dn-uri dataset op/missing-dsl-sense-sources
+    (fn [{:syms [?sense ?dslSense ?wordSource]}]
+      (let [url (prefix/rdf-resource->uri ?wordSource)]
+        (when (str/includes? url "&query=")
+          [?sense :dns/source
+           (-> url
+               (str/replace-first "&query=" (str "&def_id=" ?dslSense "&query="))
+               (prefix/uri->rdf-resource))])))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -190,6 +225,8 @@
             "Applying release changes")
 
     ;; ==== Changes for this particular release. ====
+    (rewrite-ddo-source-urls! dataset)
+    (add-missing-sense-sources! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
