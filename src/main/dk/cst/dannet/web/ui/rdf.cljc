@@ -40,6 +40,27 @@
       [:a {:href path} (str label)]
       [:a.rdf-uri {:href path} (break-up-uri uri)])))
 
+(def ddo-ordbog-query
+  "Matches the query (headword) param of a DDO dictionary deep link."
+  #"https://(?:gammel\.)?ordnet\.dk/ddo/ordbog\?[^ ]*query=([^&]+)")
+
+(defn- url-decode
+  [s]
+  #?(:clj  (java.net.URLDecoder/decode ^String s "UTF-8")
+     :cljs (js/decodeURIComponent s)))
+
+(rum/defc ddo-hyperlink
+  "Display a DDO dictionary deep link `uri` as a faux QName, e.g.
+  ddo:plejehjem, since its query params make an actual RDF prefix impossible."
+  [uri]
+  (let [query (second (re-find ddo-ordbog-query uri))]
+    [:span.qname
+     [:span.prefix {:title "Den Danske Ordbog"}
+      "ddo" [:span.prefix__sep ":"]]
+     [:a.unknown {:href  (prefix/uri->internal-path uri)
+                  :title uri}
+      (url-decode query)]]))
+
 (defn- local-entity-prefix?
   "Is this `prefix` the same as the local entity in `opts`?"
   [prefix {:keys [attr-key entity subject] :as opts}]
@@ -167,6 +188,9 @@
                    (some-> mwe subscript-markers)]
                   label))))
       [:span.set__right-bracket]]
+
+     (and rdf-resource (re-find ddo-ordbog-query uri))
+     (ddo-hyperlink uri)
 
      rdf-resource
      (rdf-uri-hyperlink uri opts)
