@@ -4,16 +4,17 @@
   Provides tooling to match metaphorical senses from the DAMETA input
   spreadsheet against DanNet sense data, producing lemma groups for
   annotation in a flat one-row-per-sense output format."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
             [dk.cst.dannet.db.transaction :as tx]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.query QueryFactory QueryExecutionFactory]
            [org.apache.poi.common.usermodel HyperlinkType]
-           [org.apache.poi.ss.usermodel BorderStyle CellType FillPatternType Font IndexedColors]
-           [org.apache.poi.ss.util CellRangeAddressList]
-           [org.apache.poi.xssf.usermodel XSSFDataValidationHelper]))
+           [org.apache.poi.ss.usermodel BorderStyle CellType FillPatternType Font IndexedColors PatternFormatting]
+           [org.apache.poi.ss.util CellRangeAddress CellRangeAddressList CellReference]
+           [org.apache.poi.xssf.usermodel XSSFColor XSSFDataValidationHelper]))
 
 (def dameta-file
   "bootstrap/other/chainnet/DAMETA Nyt ark.xlsx")
@@ -30,6 +31,10 @@
 (def old-export-dir
   "The ChainNet spreadsheets exported from the earlier, faulty input data."
   "doc/chainnet/old")
+
+(def annotations-file
+  "Annotator work extracted from the annotated old-format SN-DDO spreadsheet."
+  "bootstrap/other/chainnet/annot-chainnet-sn-ddo.edn")
 
 (defn selected?
   "Is this DAMETA `row` part of the usable selection? Rows with no annotator,
@@ -210,6 +215,8 @@
      :annotator    nil
      :qualia-role  (when root? "-")
      :relation     (when root? "-")
+     :relation-to  (when root? "-")
+     :relation-to-synset-id (when root? "-")
      :comment      nil
      :in-selection selected?}))
 
@@ -307,19 +314,40 @@
 
 (def output-columns
   [:lemma :id :task :sense-id :derived-from :qualia-role :relation
+   :relation-to :relation-to-synset-id
    :description :example :annotator :comment :in-selection])
 
 (def output-headers
   ["lemma" "id" "task" "sense ID" "derived from" "qualia role" "relation"
+   "relation to" "relation to synset ID"
    "description" "example" "annotator" "comment" "in DAMETA selection"])
 
 (def output-column-widths
-  ;;  lemma  id  task  sense-id  derived-from  qualia  relation  description  example  annotator  comment  in-selection
-  [20       14  22    55        55            15      15        50           60       12         25       20])
+  ;;  lemma  id  task  sense-id  derived-from  qualia  relation  rel-to  rel-to-synset  description  example  annotator  comment  in-selection
+  [20       14  22    55        55            15      15        20      55             50           60       12         25       20])
 
 (def ^:private col-idx
   "Column indices by key, derived from output-columns."
   (into {} (map-indexed (fn [i k] [k i]) output-columns)))
+
+(defn load-annotations
+  "Load annotator work from `edn-file`, indexed by [lemma sense-id]."
+  [edn-file]
+  (->> (edn/read-string (slurp edn-file))
+       (map (juxt (juxt :lemma :sense-id) identity))
+       (into {})))
+
+(defn merge-annotations
+  "Fill the annotation fields of `output-rows` with any matching annotator
+  work in `annotations` (a map indexed by [lemma sense-id])."
+  [output-rows annotations]
+  (map (fn [{:keys [lemma sense-id] :as row}]
+         (if-let [ann (get annotations [lemma sense-id])]
+           (merge row (select-keys ann [:qualia-role :relation :relation-to
+                                        :relation-to-synset-id :annotator
+                                        :comment]))
+           row))
+       output-rows))
 
 ;; Groups are classified by how much data we already have: :complete means
 ;; all sense IDs are real URIs and derived-from is resolved, :partial means
@@ -412,8 +440,10 @@
         ch       (.getCreationHelper wb)
         styles   (make-styles wb)
         statuses (update-vals (group-by :lemma output-rows) group-status)
-        id-cols  [(col-idx :sense-id) (col-idx :derived-from)]
-        task-cols [(col-idx :qualia-role) (col-idx :relation)]
+        id-cols  [(col-idx :sense-id) (col-idx :derived-from)
+                  (col-idx :relation-to-synset-id)]
+        task-cols [(col-idx :qualia-role) (col-idx :relation)
+                   (col-idx :relation-to)]
         n        (count output-rows)
 
         ;; Bordering clones an existing style and adds a bottom border.
@@ -531,6 +561,26 @@
       (.setShowErrorBox validation false)
       (.addValidationData sheet validation))
 
+    ;; Conditional formatting marks rows still missing the minimum
+    ;; annotation (a qualia role); Excel re-evaluates the rule live, so
+    ;; the mark disappears as the annotator works through the sheet.
+    ;; Root rows are prefilled with "-" and thus never marked, and the
+    ;; lemma column is left out to keep the status colour visible.
+    (let [qualia-col (CellReference/convertNumToColString (col-idx :qualia-role))
+          last-col   (CellReference/convertNumToColString (dec (count output-columns)))
+          scf        (.getSheetConditionalFormatting sheet)
+          rule       (.createConditionalFormattingRule scf (str "$" qualia-col "2=\"\""))
+          fill       (.createPatternFormatting rule)]
+      ;; explicit RGB (pale blue) since indexed colours render
+      ;; inconsistently in conditional formatting across Excel versions
+      (.setFillBackgroundColor fill
+        (XSSFColor. (byte-array (map unchecked-byte [0xDD 0xEB 0xF7]))))
+      (.setFillPattern fill PatternFormatting/SOLID_FOREGROUND)
+      (.addConditionalFormatting scf
+        (into-array CellRangeAddress
+                    [(CellRangeAddress/valueOf (str "B2:" last-col (inc n)))])
+        rule))
+
     (doseq [[i w] (map-indexed vector output-column-widths)]
       (.setColumnWidth sheet i (* w 256)))))
 
@@ -561,7 +611,8 @@
 
   ;; Load spreadsheet and generate output
   (def rows (load-dameta (annotated-lemmas old-export-dir)))
-  (def output (vec (mapcat #(generate-rows % senses-by-lemma) rows)))
+  (def output (-> (vec (mapcat #(generate-rows % senses-by-lemma) rows))
+                  (merge-annotations (load-annotations annotations-file))))
   (count output)
 
   ;; Inspect a lemma group
