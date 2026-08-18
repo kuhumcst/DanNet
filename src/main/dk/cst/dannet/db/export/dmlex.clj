@@ -42,9 +42,9 @@
            :sameAs      [(str (prefix/prefix->uri 'lexinfo) tag)]})
         ;; The XSD asserts a non-empty description even though it also declares
         ;; the element optional, so every partOfSpeechTag needs one.
-        [["noun" "substantiv"]
-         ["verb" "verbum"]
-         ["adjective" "adjektiv"]]))
+        [["noun" {"da" "substantiv" "en" "noun"}]
+         ["verb" {"da" "verbum" "en" "verb"}]
+         ["adjective" {"da" "adjektiv" "en" "adjective"}]]))
 
 (def label-type-tags
   [{:tag         "synset"
@@ -54,10 +54,12 @@
     :description "DanNet ontological type"
     :sameAs      [(str (prefix/prefix->uri 'dns) "ontologicalType")]}
    {:tag         "lexfile"
-    :description "Semantisk felt fra WordNet, fx noun.animal"
+    :description {"da" "Semantisk felt fra WordNet, fx noun.animal"
+                  "en" "Semantic field from WordNet, e.g. noun.animal"}
     :sameAs      [(str (prefix/prefix->uri 'wn) "lexfile")]}
    {:tag         "domain"
-    :description "Fagområde fra Den Danske Ordbog, fx zoo eller med"
+    :description {"da" "Fagområde fra Den Danske Ordbog, fx zoo eller med"
+                  "en" "Subject domain from Den Danske Ordbog, e.g. zoo or med"}
     :sameAs      [(str (prefix/prefix->uri 'dc) "subject")]}
    {:tag         "gender"
     :description "The gender of the person that a DanNet synset denotes"
@@ -75,7 +77,8 @@
     :description "Usage note from Den Danske Ordbog"
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "usageNote")]}
    {:tag         "norm"
-    :description "Retskrivningsstatus for en bøjningsform"}
+    :description {"da" "Retskrivningsstatus for en bøjningsform"
+                  "en" "Spelling-norm status of an inflected form"}}
    {:tag         "sentiment"
     :description "Sentiment polarity from Det Danske Sentimentleksikon"
     :sameAs      [(str (prefix/prefix->uri 'marl) "hasPolarity")]}
@@ -92,12 +95,12 @@
 (def sentiment-label-tags
   "The two sentiment inventories: the three polarities and the values from -3
   to 3. Neither declares `for`, since the labels go on entries and on senses.
-  The polarity tags are the MARL class names, so each carries a Danish
+  The polarity tags are the MARL class names, so each carries a readable
   description."
   (concat
-    (for [[polarity description] [["Positive" "positiv"]
+    (for [[polarity description] [["Positive" {"da" "positiv" "en" "positive"}]
                                   ["Neutral" "neutral"]
-                                  ["Negative" "negativ"]]]
+                                  ["Negative" {"da" "negativ" "en" "negative"}]]]
       {:tag         polarity
        :typeTag     "sentiment"
        :description description
@@ -112,25 +115,51 @@
   [{:tag         "unormeret"
     :typeTag     "norm"
     :for         "inflectedForm"
-    :description "Bøjningsform uden for retskrivningsnormen"}])
+    :description {"da" "Bøjningsform uden for retskrivningsnormen"
+                  "en" "Inflected form outside the official spelling norm"}}])
 
 (def source-identity-tags
   "The single source of the DanNet sense examples."
   [{:tag         "DDO"
-    :description "Den Danske Ordbog"
+    :description {"da" "Den Danske Ordbog"
+                  "en" "Den Danske Ordbog (The Danish Dictionary)"}
     :sameAs      ["https://ordnet.dk/ddo"]}])
 
-(def lexicographic-resource
-  "The parts of the DMLex resource that do not come from the graph. The full
-  schemas require `translationLanguages` next to the crosslingual
-  headwordTranslations."
+(def definition-type-tags
+  "The single definition-type tag, only used by the English variant: a synset
+  with an unambiguous ILI link carries the English definition of its
+  interlingual concept next to the Danish definition."
+  [{:tag         "ili"
+    :description {"da" "Engelsk definition af det interlingvale begreb (CILI)"
+                  "en" "English definition of the interlingual concept (CILI)"}
+    :sameAs      [(prefix/prefix->uri 'ili)]}])
+
+(defn localize
+  "The Controlled Values `tags` with each bilingual :description map resolved
+  to `lang`. A plain-string description is the same in both languages and
+  passes through untouched."
+  [lang tags]
+  (mapv (fn [{:keys [description] :as tag}]
+          (cond-> tag
+            (map? description) (assoc :description (get description lang))))
+        tags))
+
+(defn lexicographic-resource
+  "The parts of the DMLex resource in `lang` that do not come from the graph.
+  The full schemas require `translationLanguages` next to the crosslingual
+  headwordTranslations.
+
+  The langCode names the language of the whole resource, not just of the
+  headwords, since the DMLex viewer keys its UI language on it. The headwords
+  stay Danish in the English variant."
+  [lang]
   {:title                "DanNet"
    :uri                  prefix/dn-uri
-   :langCode             "da"
+   :langCode             lang
    :translationLanguages ["en"]
-   :labelTypeTags        label-type-tags
-   :partOfSpeechTags     part-of-speech-tags
-   :sourceIdentityTags   source-identity-tags})
+   :labelTypeTags        (localize lang label-type-tags)
+   :partOfSpeechTags     (localize lang part-of-speech-tags)
+   :sourceIdentityTags   (localize lang source-identity-tags)})
 
 ;; -----------------------------------------------------------------------------
 ;; Serialization
@@ -250,15 +279,16 @@
 (defn ->lexicographic-resource
   "Build the XML element tree of a DMLex `resource`. The child order follows the
   sequences of dmlex.xsd."
-  [{:keys [entries translationLanguages inflectedFormTags labelTags
-           labelTypeTags partOfSpeechTags sourceIdentityTags relations
-           relationTypes]
+  [{:keys [entries translationLanguages definitionTypeTags inflectedFormTags
+           labelTags labelTypeTags partOfSpeechTags sourceIdentityTags
+           relations relationTypes]
     :as   resource}]
   (into [::dmlex/lexicographicResource (merge {:xmlns dmlex-uri}
                                               (attrs resource [:title :uri :langCode]))]
         (concat (map ->entry entries)
                 (for [lang translationLanguages]
                   [::dmlex/translationLanguage {:langCode lang}])
+                (map (partial ->tag ::dmlex/definitionTypeTag [:tag]) definitionTypeTags)
                 (map (partial ->tag ::dmlex/inflectedFormTag [:tag :for]) inflectedFormTags)
                 (map (partial ->tag ::dmlex/labelTag [:tag :typeTag :for]) labelTags)
                 (map (partial ->tag ::dmlex/labelTypeTag [:tag]) labelTypeTags)
@@ -381,23 +411,25 @@
     :dns/usedForObject})
 
 (defn tag-descriptions
-  "Descriptions of `concepts`, from the schema statements in `g`. A comment is
-  more informative than a label, and Danish beats English in a Danish resource."
-  [g concepts]
-  (let [values (str/join " " (map prefix/kw->qname concepts))
+  "Descriptions of `concepts` in `lang`, from the schema statements in `g`. A
+  comment is more informative than a label, and a label in the other export
+  language fills in when `lang` has neither."
+  [g lang concepts]
+  (let [other  (if (= lang "da") "en" "da")
+        values (str/join " " (map prefix/kw->qname concepts))
         rows   (q/run g (op/sparql
-                          "SELECT ?concept ?comment ?label ?enLabel
+                          "SELECT ?concept ?comment ?label ?otherLabel
                            WHERE {
                              VALUES ?concept { " values " }
                              OPTIONAL { ?concept rdfs:comment ?comment .
-                                        FILTER(LANG(?comment) = \"da\") . }
+                                        FILTER(LANG(?comment) = \"" lang "\") . }
                              OPTIONAL { ?concept rdfs:label ?label .
-                                        FILTER(LANG(?label) = \"da\") . }
-                             OPTIONAL { ?concept rdfs:label ?enLabel .
-                                        FILTER(LANG(?enLabel) = \"en\") . }
+                                        FILTER(LANG(?label) = \"" lang "\") . }
+                             OPTIONAL { ?concept rdfs:label ?otherLabel .
+                                        FILTER(LANG(?otherLabel) = \"" other "\") . }
                            }"))]
-    (into {} (for [{:syms [?concept ?comment ?label ?enLabel]} rows
-                   :let [description (or ?comment ?label ?enLabel)]
+    (into {} (for [{:syms [?concept ?comment ?label ?otherLabel]} rows
+                   :let [description (or ?comment ?label ?otherLabel)]
                    :when description]
                [?concept (str description)]))))
 
@@ -438,14 +470,15 @@
         cor-g        (db/get-graph dataset prefix/cor-uri)
         dds-g        (db/get-graph dataset prefix/dds-uri)
         oewn-g       (db/get-graph dataset prefix/oewn-uri)
+        ili-g        (db/get-graph dataset prefix/ili-uri)
         obverse-of   (inverse-relations graph)
         types        (q/run g op/ontological-type-query)
         genders      (q/run g op/gender-query)
         sense-labels (q/run g op/sense-label-query)
-        concepts     (concat (map '?gender genders)
-                             (map '?value sense-labels)
-                             (map '?class types)
-                             exported-relations)]
+        concepts     (distinct (concat (map '?gender genders)
+                                       (map '?value sense-labels)
+                                       (map '?class types)
+                                       exported-relations))]
     {:words             (q/run g op/word-query)
      :senses            (q/run g op/sense-query)
      :definitions       (q/run g op/definition-query)
@@ -460,12 +493,14 @@
      :sense-labels      sense-labels
      :usage-notes       (q/run g op/usage-note-query)
      :ilis              (q/run g op/ili-query)
+     :ili-definitions   (q/run ili-g op/ili-definition-query)
      :oewn-lemmas       (q/run oewn-g op/oewn-lemma-query)
      :cor-links         (q/run cor-g op/cor-link-query)
      :cor-forms         (q/run cor-g op/cor-form-query)
      :sentiment         (concat (q/run dds-g op/sentiment-query)
                                 (q/run g op/sentiment-query))
-     :descriptions      (tag-descriptions graph (distinct concepts))
+     :descriptions      {"da" (tag-descriptions graph "da" concepts)
+                         "en" (tag-descriptions graph "en" concepts)}
      :indegrees         @q/synset-indegrees
      :obverse-of        obverse-of
      :relations         (into {}
@@ -736,12 +771,16 @@
        :members (->members senses-of listing-order pair roles)})))
 
 (defn ->relation-types
-  "The relationType declaration of each exported relation, with the schema
-  `descriptions` of the DanNet relations."
-  [descriptions obverse-of relations]
+  "The relationType declaration of each exported relation in `lang`, with the
+  schema `descriptions` of the DanNet relations."
+  [lang descriptions obverse-of relations]
   (cons
     {:type             "synonym"
-     :description      "Synonymi: betydningerne i relationen tilhører samme DanNet-synset."
+     :description      (get {"da" (str "Synonymi: betydningerne i relationen "
+                                       "tilhører samme DanNet-synset.")
+                             "en" (str "Synonymy: the senses in the relation "
+                                       "belong to the same DanNet synset.")}
+                            lang)
      :scopeRestriction "sameResource"
      :memberTypes      [{:role "synonym" :type "sense" :min 2 :hint "navigate"}]}
     (for [rel (sort-by name (keys relations))
@@ -758,14 +797,16 @@
         (descriptions rel) (assoc :description (descriptions rel))))))
 
 (defn ->resource
-  "Build the DMLex intermediate structure from `query-results`. A word without a
-  written form is left out, since DMLex requires a headword. A word with an
-  unusable part of speech keeps its entry, since DMLex does not require one."
-  [{:keys [words senses definitions examples domains lexfiles word-variants
-           ontological-types synset-labels short-labels genders sense-labels
-           usage-notes ilis oewn-lemmas cor-links cor-forms sentiment
-           descriptions indegrees obverse-of relations]}]
-  (let [listing-order  (listing-order-fn indegrees)
+  "Build the DMLex intermediate structure in `lang` from `query-results`. A
+  word without a written form is left out, since DMLex requires a headword. A
+  word with an unusable part of speech keeps its entry, since DMLex does not
+  require one."
+  [lang {:keys [words senses definitions examples domains lexfiles word-variants
+                ontological-types synset-labels short-labels genders sense-labels
+                usage-notes ilis ili-definitions oewn-lemmas cor-links cor-forms
+                sentiment descriptions indegrees obverse-of relations]}]
+  (let [descriptions   (get descriptions lang)
+        listing-order  (listing-order-fn indegrees)
         pos-of         (index words '?word (comp pos-tag '?pos))
         headword-of    (index words '?word (comp str '?writtenRep))
         number-of      (homograph-numbers words)
@@ -785,6 +826,12 @@
         ili-of         (index-many unambiguous '?synset
                                    #(str prefix/ili-uri (name (get % '?ili))))
         ili-key-of     (index unambiguous '?synset '?ili)
+        ;; The English ILI definitions only supplement the English variant;
+        ;; they describe the interlingual concept, not the DanNet sense.
+        ili-def-of     (if (= lang "en")
+                         (comp (index ili-definitions '?ili (comp str '?definition))
+                               ili-key-of)
+                         (constantly nil))
         english-of     (update-vals (group-by '?ili oewn-lemmas)
                                     #(vec (sort (distinct (map (comp str '?lemma) %)))))
         senses-of      (index-many senses '?synset (comp name '?sense))
@@ -796,8 +843,14 @@
         description-of (code-descriptions cor-forms)
         sentiment-of   (sentiment-labels sentiment)
         ->sense        (fn [{:syms [?word ?sense ?synset]}]
-                         (let [headword (headword-of ?word)
-                               english  (english-of (ili-key-of ?synset))]
+                         (let [headword    (headword-of ?word)
+                               english     (english-of (ili-key-of ?synset))
+                               ili-def     (ili-def-of ?synset)
+                               definitions (cond-> (mapv (fn [text] {:text text})
+                                                         (definition-of ?synset))
+                                             ili-def
+                                             (conj {:text           ili-def
+                                                    :definitionType "ili"}))]
                            (cond-> {:id     (name ?sense)
                                     :labels (-> [(name ?synset)]
                                                 (into (ontotype-of ?synset))
@@ -810,9 +863,8 @@
                                                 (into (notes-of ?sense))
                                                 (into (or (sentiment-of ?sense)
                                                           (sentiment-of ?synset))))}
-                             (definition-of ?synset)
-                             (assoc :definitions (mapv (fn [text] {:text text})
-                                                       (definition-of ?synset)))
+                             (seq definitions)
+                             (assoc :definitions definitions)
 
                              (examples-of ?sense)
                              (assoc :examples
@@ -863,43 +915,45 @@
                             (sort-by (comp str key))
                             (map ->entry)
                             (filterv :headword))]
-    (merge lexicographic-resource
-           {:entries           entries
-            :inflectedFormTags (->> (mapcat :inflectedForms entries)
-                                    (into #{} (keep :tag))
-                                    (sort-by parse-long)
-                                    (mapv (fn [code]
-                                            (cond-> {:tag code :for "entry"}
-                                              (description-of code)
-                                              (assoc :description (description-of code))))))
-            :labelTags         (concat
-                                 (for [synset (sort-by name (keys senses-of))]
-                                   (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
-                                 (for [concept (sort-by name (distinct (map '?class ontological-types)))]
-                                   (->sense-label-tag "ontologicalType"
-                                                      (descriptions concept)
-                                                      concept))
-                                 (for [lexfile (sort (set (map (comp str '?lexfile) lexfiles)))]
-                                   {:tag lexfile :typeTag "lexfile" :for "sense"})
-                                 (for [domain (sort (set (map (comp str '?domain) domains)))]
-                                   {:tag domain :typeTag "domain" :for "sense"})
-                                 (for [gender (sort-by name (set (vals gender-of)))]
-                                   (->sense-label-tag "gender"
-                                                      (descriptions gender)
-                                                      gender))
-                                 (for [{:syms [?property ?value]}
-                                       (sort-by (comp name '?value)
-                                                (distinct (map #(select-keys % '[?property ?value])
-                                                               sense-labels)))]
-                                   (->sense-label-tag (label-type-of ?property)
-                                                      (descriptions ?value)
-                                                      ?value))
-                                 (for [note (sort (set (map (comp str '?note) usage-notes)))]
-                                   {:tag note :typeTag "usage" :for "sense"})
-                                 norm-label-tags
-                                 sentiment-label-tags)
-            :relations         (->relations senses-of listing-order obverse-of relations)
-            :relationTypes     (->relation-types descriptions obverse-of relations)})))
+    (merge (lexicographic-resource lang)
+           {:entries            entries
+            :definitionTypeTags (when (= lang "en")
+                                  (localize lang definition-type-tags))
+            :inflectedFormTags  (->> (mapcat :inflectedForms entries)
+                                     (into #{} (keep :tag))
+                                     (sort-by parse-long)
+                                     (mapv (fn [code]
+                                             (cond-> {:tag code :for "entry"}
+                                               (description-of code)
+                                               (assoc :description (description-of code))))))
+            :labelTags          (concat
+                                  (for [synset (sort-by name (keys senses-of))]
+                                    (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
+                                  (for [concept (sort-by name (distinct (map '?class ontological-types)))]
+                                    (->sense-label-tag "ontologicalType"
+                                                       (descriptions concept)
+                                                       concept))
+                                  (for [lexfile (sort (set (map (comp str '?lexfile) lexfiles)))]
+                                    {:tag lexfile :typeTag "lexfile" :for "sense"})
+                                  (for [domain (sort (set (map (comp str '?domain) domains)))]
+                                    {:tag domain :typeTag "domain" :for "sense"})
+                                  (for [gender (sort-by name (set (vals gender-of)))]
+                                    (->sense-label-tag "gender"
+                                                       (descriptions gender)
+                                                       gender))
+                                  (for [{:syms [?property ?value]}
+                                        (sort-by (comp name '?value)
+                                                 (distinct (map #(select-keys % '[?property ?value])
+                                                                sense-labels)))]
+                                    (->sense-label-tag (label-type-of ?property)
+                                                       (descriptions ?value)
+                                                       ?value))
+                                  (for [note (sort (set (map (comp str '?note) usage-notes)))]
+                                    {:tag note :typeTag "usage" :for "sense"})
+                                  (localize lang norm-label-tags)
+                                  (localize lang sentiment-label-tags))
+            :relations          (->relations senses-of listing-order obverse-of relations)
+            :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
 
 (defn license-comment
   "An XML comment stating the licence of the DanNet `version` DMLex export.
@@ -921,17 +975,17 @@
        "-->\n"))
 
 (defn export-metadata
-  "Dataset metadata for the DanNet `version` DMLex export, shipped in the zip
-  as metadata.json (see `license-comment` for why nothing can go in-band).
-  Mirrors the RDF metadata of the dn graph in Dublin Core terms so that e.g.
-  a DMLex viewer can consume it next to the DMLex JSON."
-  [version]
+  "Dataset metadata for the DanNet `version` DMLex export in `lang`, shipped in
+  the zip as metadata.json (see `license-comment` for why nothing can go
+  in-band). Mirrors the RDF metadata of the dn graph in Dublin Core terms so
+  that e.g. a DMLex viewer can consume it next to the DMLex JSON."
+  [version lang]
   ;; array-map keeps this authored order in the serialized JSON
   (array-map
     "dc:title"       "DanNet"
     "dc:identifier"  prefix/dn-uri
     "dc:issued"      version
-    "dc:language"    "da"
+    "dc:language"    lang
     "dc:description" {"en" (str "The Danish WordNet, combined with inflected "
                                 "forms from COR, sentiment polarities from "
                                 "DDS and English equivalents from the Open "
@@ -963,28 +1017,31 @@
 (defn export-dmlex!
   "Export a DMLex `resource` into `dir` as both XML and JSON, zipped together
   with the licence information, the dataset metadata and the presentation
-  config.
+  config. The :langCode of the resource picks the language variant of the
+  companions and the name of the zip.
 
   The presentation config is DanNet's own display taste. DMLex has no slot for
   it, so it ships as a companion file like metadata.json."
-  [dir resource]
+  [dir {:keys [langCode] :as resource}]
   (println "Beginning DMLex export of DanNet into" dir)
-  (let [xml-file     (str dir "dannet-dmlex.xml")
-        json-file    (str dir "dannet-dmlex.json")
+  (let [xml-file     (str dir "dannet-dmlex-" langCode ".xml")
+        json-file    (str dir "dannet-dmlex-" langCode ".json")
         meta-file    (str dir "metadata.json")
         present-file (str dir "presentation.json")
         license-file (str dir "LICENSE")
         readme-file  (str dir "README.txt")
-        zip-path     (str dir (prefix/export-file "dmlex" 'dn))]
+        zip-path     (str dir (prefix/export-file "dmlex" 'dn langCode))]
     (io/make-parents xml-file)
     (spit xml-file (str/replace-first (xml-str resource) "?>"
                                       (str "?>\n" (license-comment release/to))))
     (spit json-file (json-str resource))
     (spit meta-file (with-out-str
-                      (json/pprint (export-metadata release/to)
+                      (json/pprint (export-metadata release/to langCode)
                                    :escape-slash false
                                    :escape-unicode false)))
-    (with-open [in (io/input-stream (io/resource "export/dmlex/presentation.json"))]
+    (with-open [in (io/input-stream
+                     (io/resource (str "export/dmlex/presentation-" langCode
+                                       ".json")))]
       (io/copy in (io/file present-file)))
     (rdf/copy-license! :cc-by-sa license-file)
     (spit readme-file (rdf/render-readme "dannet-dmlex.txt" release/to))
@@ -998,7 +1055,10 @@
     (time (run-queries @dk.cst.dannet.web.instance/db)))
 
   (def resource
-    (time (->resource query-results)))
+    (time (->resource "da" query-results)))
+
+  (def resource-en
+    (time (->resource "en" query-results)))
 
   (count (:entries resource))
   (count (:labelTags resource))
@@ -1006,4 +1066,5 @@
   (first (:entries resource))
 
   (time (export-dmlex! "export/dmlex/" resource))
+  (time (export-dmlex! "export/dmlex/" resource-en))
   #_.)

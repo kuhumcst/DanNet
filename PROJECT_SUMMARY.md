@@ -7,7 +7,7 @@ The system includes:
 - A full RDF triplestore implementation using Apache Jena
 - A web application (https://wordnet.dk) with both server-side and client-side rendering
 - A full-featured SPARQL query editor with CodeMirror 6, pagination, caching, and result enrichment
-- Multiple export formats (RDF/Turtle, CSV, WN-LMF XML, JSON-LD)
+- Multiple export formats (RDF/Turtle, CSV, WN-LMF XML, JSON-LD, DMLex XML/JSON in Danish and English variants)
 - Bootstrap system for versioning and data migrations, with on-demand dataset downloads
 - Rich query capabilities via SPARQL and Clojure DSL
 - Taxonomy-based synset similarity metrics exposed as custom `dnf:` SPARQL functions
@@ -100,10 +100,17 @@ The system includes:
 - Loads previous RDF releases from the `./bootstrap` directory
 - Applies version migrations and schema updates, but only when cutting a release (`to` differs from `from`)
 - Generates new releases with full data validation
-- Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD)
+- Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD, DMLex)
 - **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release assets via the GitHub releases API, the Open English WordNet (OEWN), and the CILI interlingual index (ILI). Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`), so manual placement is no longer required. The release assets (dataset zips plus the synset-indegree cache) land in a version-named directory under `bootstrap/from/`; the English datasets live in the shared `bootstrap/other/english`, where several OEWN editions may coexist since the edition is part of the filename.
 - **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`). `update-metadata!` swaps old metadata for current during bootstrap.
 - **`dk.cst.dannet.release`**: the `from`/`to` release versions plus the version-named bootstrap layout derived from them (`version-dir`). `to` defaults to `from`, so it only needs setting when a release is cut. Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
+
+### DMLex Export (`dk.cst.dannet.db.export.dmlex`)
+- Converts the raw DanNet graphs (DanNet + DDS + COR + OEWN equivalents) into a single DMLex 1.0 (OASIS) lexicographic resource, serialized as both XML and JSON; conversion rules in `doc/dmlex/plan.md`
+- Exported per language (`->resource` takes `"da"` or `"en"`): the entries stay Danish in both variants, while inventory-tag descriptions (from bilingual literals in the code and `rdfs:comment`/`rdfs:label` in the graph), the presentation config (`resources/export/dmlex/presentation-{da,en}.json`) and `dc:language` in metadata.json follow the language; zips are named `dannet-dmlex-{da,en}.zip`. The English variant additionally supplements each sense of an unambiguously ILI-linked synset with the English CILI definition, typed `"ili"`
+- Each zip is self-contained: DMLex XML + JSON, metadata.json (Dublin Core), presentation.json (display config for the DMLex viewer, incl. the Apple dictionary bundle identifier), LICENSE and README.txt
+- `dk.cst.dannet.db.export.dmlex-validate` validates the two files of one language variant against the DMLex schemas in `doc/dmlex/spec/` (requires the `:validate` alias)
+- Browsable with the generic DMLex viewer (https://github.com/kuhumcst/dmlex-viewer), which also builds the Apple Dictionary bundles
 
 ## File Structure
 
@@ -122,7 +129,9 @@ src/main/dk/cst/dannet/
 │   │   ├── csv.clj           # CSV/CSVW export functionality
 │   │   ├── rdf.clj           # RDF/Turtle export
 │   │   ├── wn_lmf.clj        # WN-LMF XML export
-│   │   └── json_ld.clj       # JSON-LD export
+│   │   ├── json_ld.clj       # JSON-LD export
+│   │   ├── dmlex.clj         # DMLex 1.0 (OASIS) export, XML + JSON, da/en variants
+│   │   └── dmlex_validate.clj # DMLex schema validation (needs :validate alias)
 │   ├── query.clj             # Main query interface and navigation
 │   ├── query/
 │   │   ├── operation.clj     # Query operations and transformations

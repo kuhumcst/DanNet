@@ -3,7 +3,10 @@ DanNet {version} (DMLex)
 The Danish WordNet — https://wordnet.dk/dannet
 
 A DMLex 1.0 (OASIS) representation of DanNet, available as both XML and
-JSON. It combines data from four source datasets:
+JSON. The export comes in a Danish and an English variant; the entries
+are the same Danish content in both, while the descriptions of the tag
+inventories and the presentation config differ in language. It combines
+data from four source datasets:
 
   * DanNet — CC BY-SA 4.0
     Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and
@@ -32,8 +35,8 @@ slot for either:
   * metadata.json — the dataset metadata in Dublin Core terms.
 
   * presentation.json — DanNet's own display taste. The file gives the
-    order and the Danish names of the label types. It also gives the
-    grouping of the relation types and the Danish names of the relation
+    order and the display names of the label types. It also gives the
+    grouping of the relation types and the display names of the relation
     roles. The DMLex viewer (https://github.com/kuhumcst/dmlex-viewer)
     reads it next to the JSON. Other consumers can ignore it.
 

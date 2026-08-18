@@ -438,6 +438,11 @@
     "SELECT ?synset ?ili
      WHERE { ?synset wn:ili ?ili . }"))
 
+(def ili-definition-query
+  (sparql
+    "SELECT ?ili ?definition
+     WHERE { ?ili skos:definition ?definition . }"))
+
 (def oewn-lemma-query
   "The English lemmas of the OEWN synsets; the ILI identifiers join them to
   the DanNet synsets."

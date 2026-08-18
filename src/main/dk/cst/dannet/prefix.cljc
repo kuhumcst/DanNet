@@ -103,7 +103,9 @@
                                   "complete" "dannet-complete.zip"}
                         "csv"    {:default "dannet-csv.zip"}
                         "wn-lmf" {:default "dannet-wn-lmf.xml.gz"}
-                        "dmlex"  {:default "dannet-dmlex.zip"}}}
+                        "dmlex"  {:default "dannet-dmlex-da.zip"
+                                  "da"     "dannet-dmlex-da.zip"
+                                  "en"     "dannet-dmlex-en.zip"}}}
    'dnc     {:uri      (str dannet-root "concepts/")
              :resource (str "<" dannet-root "concepts>")
              :alt      "schemas/internal/dannet-concepts.ttl"}

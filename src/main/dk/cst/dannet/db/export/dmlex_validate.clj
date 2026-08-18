@@ -88,10 +88,11 @@
           (vec)))))
 
 (defn validate-dmlex!
-  "Validate both DMLex files in `dir` and print the outcome."
-  [dir]
-  (let [xml-file  (str dir "dannet-dmlex.xml")
-        json-file (str dir "dannet-dmlex.json")
+  "Validate the two DMLex files of the `lang` variant in `dir` and print the
+  outcome."
+  [dir lang]
+  (let [xml-file  (str dir "dannet-dmlex-" lang ".xml")
+        json-file (str dir "dannet-dmlex-" lang ".json")
         {:keys [errors schema-defects]} (validate-xml xml-file)
         json-errors (validate-json json-file)]
     (println "Validating" xml-file)
@@ -108,7 +109,8 @@
         (println "  " error)))))
 
 (comment
-  (validate-json "export/dmlex/dannet-dmlex.json")
-  (validate-xml "export/dmlex/dannet-dmlex.xml")
-  (validate-dmlex! "export/dmlex/")
+  (validate-json "export/dmlex/dannet-dmlex-da.json")
+  (validate-xml "export/dmlex/dannet-dmlex-da.xml")
+  (validate-dmlex! "export/dmlex/" "da")
+  (validate-dmlex! "export/dmlex/" "en")
   #_.)
