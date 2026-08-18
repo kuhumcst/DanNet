@@ -653,6 +653,21 @@ reading of it.
 
 The order costs about 20 MB in each serialization and about 1 MB in the zip.
 
+### 9.11 Fourth round: per-member listing order
+
+Date: 18 August 2026. One refinement of item 4 of the third round.
+
+1. Make the `obverseListingOrder` per member instead of per synset. The value
+   is now rank times largest-synset-size plus position: the inverted-indegree
+   rank of the member's own synset, and the position of the sense in the
+   native sense order of that synset. The native order is the one behind the
+   synset labels -- the `shared/canonical` entry-ID heuristic with word
+   polysemy breaking ties -- so `{menneske_§1a; individ_§1; …}` lists
+   menneske before individ. Before this, every member of a synset carried the
+   same number, and a consumer had nothing to order the members of one synset
+   by. The synonym members now carry an order too: within their one synset,
+   the position alone separates them.
+
 ## 10. Open questions
 
 For the ELEXAI project:

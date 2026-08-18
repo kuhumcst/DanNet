@@ -208,7 +208,7 @@
 (def omitted
   "…")
 
-(defn- entry-sort-key
+(defn entry-sort-key
   "Sort key for a sense label `s` based on its DSL entry ID.
 
   Lower sense numbers rank first (parsed numerically, so §2 < §12). The first
@@ -271,6 +271,15 @@
   The \"…\" truncation marker is ignored, as it is never a sense label."
   #?(:clj  (memo/lu canonical* :lu/threshold 1000)
      :cljs (memoize canonical*)))
+
+(defn polysemy-tiebreak
+  "A `canonical` tiebreak keyfn from `polysemy`, a map of sense label to the
+  sense count of its word.
+
+  A commoner word -- more senses -- ranks first; the label itself breaks the
+  remaining ties."
+  [polysemy]
+  (fn [s] [(- (get polysemy (str s) 0)) (str s)]))
 
 (defn short-label
   "Return an abridged version of a synset `label` keeping only the canonical

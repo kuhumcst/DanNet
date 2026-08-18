@@ -166,7 +166,7 @@
         polysemy (->> (q/run g op/sense-label-polysemy)
                       (map (juxt (comp str '?senseLabel) '?polysemy))
                       (into {}))
-        tiebreak (fn [s] [(- (get polysemy (str s) 0)) (str s)])]
+        tiebreak (shared/polysemy-tiebreak polysemy)]
     (db/update-triples! prefix/dn-uri dataset op/synset-long-short-labels
       (fn [{:syms [?synset ?label]}]
         (when-let [short (shared/short-label tiebreak ?label)]

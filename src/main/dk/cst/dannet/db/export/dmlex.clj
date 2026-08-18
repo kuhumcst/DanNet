@@ -489,6 +489,8 @@
      :ontological-types types
      :synset-labels     (q/run g op/synset-label-query)
      :short-labels      (q/run g op/short-label-query)
+     :member-labels     (q/run g op/synset-sense-label-query)
+     :polysemy          (q/run g op/sense-label-polysemy)
      :genders           genders
      :sense-labels      sense-labels
      :usage-notes       (q/run g op/usage-note-query)
@@ -724,51 +726,84 @@
     :else           [(name obverse) (name rel)]))
 
 (defn listing-order-fn
-  "Synset -> its DMLex `obverseListingOrder`, from the synset `indegrees`.
+  "Synset -> its rank among all synsets, from the synset `indegrees`.
 
   A pair states no order of its own, so a consumer that merges many relations
   into one list has nothing to rank them by. The inverted indegree gives the
-  ascending position that DMLex asks for, and it carries the prominence
-  measure that ranks the DanNet search results. Synsets of equal indegree get
-  equal positions, which leaves the tie-break to the consumer."
+  ascending rank that DMLex asks for, and it carries the prominence measure
+  that ranks the DanNet search results. Synsets of equal indegree get equal
+  ranks, which leaves the tie-break to the consumer."
   [indegrees]
   (let [ceiling (reduce max 0 (vals indegrees))]
     (fn [synset]
       (- ceiling (get indegrees synset 0)))))
 
+(defn member-positions
+  "Sense -> its position in its own synset, from `polysemy` and `label-rows`.
+
+  The order is the one behind the synset labels: the `shared/canonical`
+  entry-ID heuristic with word polysemy as the tiebreak. A sense with more
+  than one label takes the position of its best one."
+  [polysemy label-rows]
+  (let [tiebreak (shared/polysemy-tiebreak polysemy)
+        keyfn    (comp (juxt shared/entry-sort-key tiebreak) '?label)]
+    (into {}
+          (for [[_ rows] (group-by '?synset label-rows)
+                :let [senses (distinct (map (comp name '?sense)
+                                            (sort-by keyfn rows)))]
+                [position sense] (map-indexed vector senses)]
+            [sense position]))))
+
+(defn member-order-fn
+  "Build the function that gives a relation member its `obverseListingOrder`
+  from the member's synset and sense, using `listing-order` and `positions`.
+
+  The rank of the synset is the major component and the position of the
+  sense within it the minor one. A sense without a position goes last."
+  [listing-order positions]
+  (let [size (inc (reduce max 0 (vals positions)))]
+    (fn [synset sense]
+      (+ (* (listing-order synset) size)
+         (get positions sense (dec size))))))
+
 (defn ->members
-  "The members of one relation pair, from `senses-of`. Despite its name, the
-  `obverseListingOrder` of a member comes from its own synset: it says where
-  this member goes when the pair is listed from the other end."
-  [senses-of listing-order [subject object] [subject-role object-role]]
+  "The members of one relation pair, from `senses-of` and `member-order`.
+
+  Despite its name, the `obverseListingOrder` of a member comes from its own
+  end of the pair: it says where this member goes when the pair is listed
+  from the other end."
+  [senses-of member-order [subject object] [subject-role object-role]]
   (concat (for [sense (senses-of subject)]
             {:ref                 sense
              :role                subject-role
-             :obverseListingOrder (listing-order subject)})
+             :obverseListingOrder (member-order subject sense)})
           (for [sense (senses-of object)]
             {:ref                 sense
              :role                object-role
-             :obverseListingOrder (listing-order object)})))
+             :obverseListingOrder (member-order object sense)})))
 
 (defn ->relations
-  "One DMLex relation for each synset pair, plus one synonym relation for each
-  synset of two or more senses. Every member is a sense, so a pair with a
-  senseless synset at one end produces nothing.
+  "One DMLex relation for each synset pair, plus one synonym relation for
+  each synset of two or more senses.
 
-  The synonym members carry no `listing-order`. They all belong to the one
-  synset, so the order can only repeat the same number."
-  [senses-of listing-order obverse-of relations]
+  Every member is a sense, so a pair with a senseless synset at one end
+  produces nothing. The synonym members share one synset, so only the
+  sense-position component of their `member-order` separates them."
+  [senses-of member-order obverse-of relations]
   (concat
     (for [[synset senses] (sort-by (comp name key) senses-of)
           :when (next senses)]
       {:type    "synonym"
-       :members (for [sense senses] {:ref sense :role "synonym"})})
+       :members (for [sense senses]
+                  {:ref                 sense
+                   :role                "synonym"
+                   :obverseListingOrder (member-order synset sense)})})
     (for [[rel pairs] (sort-by (comp name key) relations)
           :let [roles (relation-roles rel (obverse-of rel))]
           pair (sort-by (partial mapv name) pairs)
           :when (every? (comp seq senses-of) pair)]
       {:type    (name rel)
-       :members (->members senses-of listing-order pair roles)})))
+       :members (->members senses-of member-order pair roles)})))
 
 (defn ->relation-types
   "The relationType declaration of each exported relation in `lang`, with the
@@ -802,11 +837,17 @@
   word with an unusable part of speech keeps its entry, since DMLex does not
   require one."
   [lang {:keys [words senses definitions examples domains lexfiles word-variants
-                ontological-types synset-labels short-labels genders sense-labels
-                usage-notes ilis ili-definitions oewn-lemmas cor-links cor-forms
-                sentiment descriptions indegrees obverse-of relations]}]
+                ontological-types synset-labels short-labels member-labels
+                polysemy genders sense-labels usage-notes ilis ili-definitions
+                oewn-lemmas cor-links cor-forms sentiment descriptions indegrees
+                obverse-of relations]}]
   (let [descriptions   (get descriptions lang)
         listing-order  (listing-order-fn indegrees)
+        member-order   (member-order-fn
+                         listing-order
+                         (member-positions
+                           (index polysemy (comp str '?senseLabel) '?polysemy)
+                           member-labels))
         pos-of         (index words '?word (comp pos-tag '?pos))
         headword-of    (index words '?word (comp str '?writtenRep))
         number-of      (homograph-numbers words)
@@ -952,7 +993,7 @@
                                     {:tag note :typeTag "usage" :for "sense"})
                                   (localize lang norm-label-tags)
                                   (localize lang sentiment-label-tags))
-            :relations          (->relations senses-of listing-order obverse-of relations)
+            :relations          (->relations senses-of member-order obverse-of relations)
             :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
 
 (defn license-comment

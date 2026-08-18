@@ -323,6 +323,16 @@
        }
      }"))
 
+(def synset-sense-label-query
+  "The rdfs:label of every member sense of a synset; the raw material for the
+  native sense order behind the synset labels."
+  (sparql
+    "SELECT ?synset ?sense ?label
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?sense rdfs:label ?label .
+     }"))
+
 (def sense-label-polysemy
   "The polysemy (number of senses) of the word behind every dn: sense label;
   used as a proxy for word commonness when ranking canonical sense labels."
