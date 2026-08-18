@@ -72,9 +72,12 @@
                              :titles      "Written representation"
                              :propertyUrl :ontolex/writtenRep}
 
+                            ;; The values have always come from wn:partOfSpeech
+                            ;; (see op/csv-words), which is also the sole
+                            ;; asserted PoS since GitHub issue #17.
                             {:name        "pos"
                              :titles      "Part-of-speech"
-                             :propertyUrl :lexinfo/partOfSpeech}
+                             :propertyUrl :wn/partOfSpeech}
 
                             {:virtual     true
                              :propertyUrl "rdf:type"

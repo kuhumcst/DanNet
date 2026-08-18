@@ -122,6 +122,13 @@
        FILTER NOT EXISTS { ?sense dns:source ?senseSource }
      }"))
 
+(def asserted-lexinfo-pos
+  "Asserted lexinfo:partOfSpeech triples, which duplicate wn:partOfSpeech 1:1
+  (GitHub issue #17); after their deletion the lexinfo triple is derived by
+  the value-translating rules in dannet.rules instead."
+  (q/build
+    '[:bgp [?w :lexinfo/partOfSpeech ?pos]]))
+
 (def missing-written-reps
   "Words whose ontolex:canonicalForm node lacks an ontolex:writtenRep (issue
   #203), i.e. the form is a dangling blank node; the word's rdfs:label binds
@@ -307,10 +314,12 @@
      GROUP BY ?senseLabel"))
 
 (def cross-pos-hypernymy
+  ;; NB: uses wn:partOfSpeech since it runs on the BASE graph, where the
+  ;; lexinfo equivalent is no longer asserted (GitHub issue #17).
   (sparql
     "SELECT ?synset ?hypernym
      WHERE {
-       ?w1 lexinfo:partOfSpeech ?pos1 ;
+       ?w1 wn:partOfSpeech ?pos1 ;
            ontolex:evokes ?synset .
        ?synset wn:hypernym ?hypernym .
 
@@ -318,7 +327,7 @@
        #FILTER (?hypernym NOT IN (dn:synset-42970, dn:synset-42971, dn:synset-3290))
 
        ?w2 ontolex:evokes ?hypernym .
-       ?w2 lexinfo:partOfSpeech ?pos2 .
+       ?w2 wn:partOfSpeech ?pos2 .
        FILTER (?pos1 != ?pos2 )
      }"))
 

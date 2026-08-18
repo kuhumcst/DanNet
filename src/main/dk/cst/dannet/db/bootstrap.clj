@@ -280,6 +280,29 @@
       (fn [{:syms [?synset ?rel ?ili]}]
         [?synset ?rel ?ili]))))
 
+(h/defn remove-asserted-lexinfo-pos!
+  "Delete the asserted lexinfo:partOfSpeech triples, which duplicate every
+  word's wn:partOfSpeech 1:1 (GitHub issue #17). The lexinfo triple is now
+  derived at query time by the value-translating rules in dannet.rules, so
+  wn:partOfSpeech becomes the sole asserted -- and sole exported -- PoS.
+
+  The count is asserted: one triple per word, including the defective
+  empty-valued pair on dn:word-temporary_3."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/remove-asserted-lexinfo-pos}
+          "Deleting asserted lexinfo:partOfSpeech duplicates")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        expected 62043
+        found    (count (q/run g op/asserted-lexinfo-pos))]
+    (assert (= expected found)
+            (str "expected " expected " asserted lexinfo:partOfSpeech "
+                 "triples, found " found)))
+  (db/update-triples! prefix/dn-uri dataset op/asserted-lexinfo-pos
+    (constantly nil)
+    (fn [{:syms [?w ?pos]}]
+      [?w :lexinfo/partOfSpeech ?pos])))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -300,6 +323,7 @@
     (add-missing-sense-sources! dataset)
     (add-missing-written-reps! dataset)
     (retarget-eq-ili-relations! dataset)
+    (remove-asserted-lexinfo-pos! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)

@@ -25,6 +25,9 @@
 #     e.g. `wn:hypernym+` or `skos:broader+`
 #------------------------------------------------------------------
 
+@prefix wn:      <https://globalwordnet.github.io/schemas/wn#>.
+@prefix lexinfo: <http://www.lexinfo.net/ontology/3.0/lexinfo#>.
+
 #------------------------------------------------------------------
 # Tabling directives
 #------------------------------------------------------------------
@@ -57,5 +60,28 @@
 
 # Property assertions entail assertions of their superproperties (rdfs6),
 # e.g. (?A wn:hypernym ?B) entails (?A skos:broader ?B).
-[rdfs6: (?P rdfs:subPropertyOf ?Q), notEqual(?P, ?Q) -> table(?P), table(?Q),
+# wn:partOfSpeech is excluded: its superproperty entailment would copy the
+# wn: VALUE unchanged (sameAs reasoning is omitted, see the header), so it
+# is handled by the value-translating rules below instead.
+[rdfs6: (?P rdfs:subPropertyOf ?Q), notEqual(?P, ?Q), notEqual(?P, wn:partOfSpeech)
+        -> table(?P), table(?Q),
         [rdfs6b: (?A ?Q ?B) <- (?A ?P ?B)] ]
+
+#------------------------------------------------------------------
+# wn:partOfSpeech -> lexinfo:partOfSpeech (GitHub issue #17)
+#
+# Only the wn: PoS triple is asserted in the data; the lexinfo:
+# equivalent is derived here, translating the value along the
+# owl:sameAs pairs declared in the GWA schema -- one rule per pair.
+# wn:adjective_satellite, wn:named_entity, wn:other_pos and
+# wn:unknown_pos have no lexinfo equivalent and derive nothing.
+#------------------------------------------------------------------
+
+-> table(lexinfo:partOfSpeech).
+
+[posNoun:        (?W lexinfo:partOfSpeech lexinfo:noun)        <- (?W wn:partOfSpeech wn:noun) ]
+[posVerb:        (?W lexinfo:partOfSpeech lexinfo:verb)        <- (?W wn:partOfSpeech wn:verb) ]
+[posAdjective:   (?W lexinfo:partOfSpeech lexinfo:adjective)   <- (?W wn:partOfSpeech wn:adjective) ]
+[posAdverb:      (?W lexinfo:partOfSpeech lexinfo:adverb)      <- (?W wn:partOfSpeech wn:adverb) ]
+[posConjunction: (?W lexinfo:partOfSpeech lexinfo:conjunction) <- (?W wn:partOfSpeech wn:conjunction) ]
+[posAdposition:  (?W lexinfo:partOfSpeech lexinfo:adposition)  <- (?W wn:partOfSpeech wn:adposition) ]
