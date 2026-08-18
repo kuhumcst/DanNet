@@ -122,6 +122,19 @@
        FILTER NOT EXISTS { ?sense dns:source ?senseSource }
      }"))
 
+(def missing-written-reps
+  "Words whose ontolex:canonicalForm node lacks an ontolex:writtenRep (issue
+  #203), i.e. the form is a dangling blank node; the word's rdfs:label binds
+  as ?label since the missing representation can be recovered from it."
+  (sparql
+    "SELECT ?word ?label ?form
+     WHERE {
+       ?word wn:partOfSpeech ?pos ;
+             rdfs:label ?label ;
+             ontolex:canonicalForm ?form .
+       FILTER NOT EXISTS { ?form ontolex:writtenRep ?rep }
+     }"))
+
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
   binds the COR canonical form as ?lemma and each inflected form as ?rep."

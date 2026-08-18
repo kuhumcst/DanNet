@@ -209,6 +209,36 @@
                (str/replace-first "&query=" (str "&def_id=" ?dslSense "&query="))
                (prefix/uri->rdf-resource))])))))
 
+(h/defn add-missing-written-reps!
+  "Add the ontolex:writtenRep missing from the canonicalForm of 15 words
+  (GitHub issue #203). The form nodes exist but are empty blank nodes, so any
+  query joining word -> form -> writtenRep silently drops these words. The
+  representation is recovered from the word's rdfs:label, which for every
+  other DDO word equals the writtenRep wrapped in literal quotes; none of the
+  15 labels contain the slash-alternative notation that is the only exception.
+
+  The count is asserted so that a future bootstrap dataset silently growing or
+  shrinking this set fails loudly instead.
+
+  NB: adding reps makes these words newly visible to rep-joining queries, so
+  this must run BEFORE any fix whose criteria join word -> form -> writtenRep
+  (e.g. fix-verb-phrase-pos! on feature/cross-pos-changes), and such fixes
+  should re-verify their expected-count asserts against the repaired data."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/add-missing-written-reps}
+          "Adding missing ontolex:writtenRep to dangling canonical forms")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        expected 15
+        found    (count (q/run g op/missing-written-reps))]
+    (assert (= expected found)
+            (str "expected " expected " words with a dangling canonicalForm, "
+                 "found " found)))
+  (db/update-triples! prefix/dn-uri dataset op/missing-written-reps
+    (fn [{:syms [?form ?label]}]
+      [?form :ontolex/writtenRep
+       (md/da (str/replace (str ?label) #"^\"|\"$" ""))])))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -227,6 +257,7 @@
     ;; ==== Changes for this particular release. ====
     (rewrite-ddo-source-urls! dataset)
     (add-missing-sense-sources! dataset)
+    (add-missing-written-reps! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)

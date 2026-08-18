@@ -85,6 +85,7 @@ dns:LexicalEntryShape a sh:NodeShape ;
                 dns:LexicalEntryShape-partOfSpeech ,
                 dns:LexicalEntryShape-sense ,
                 dns:LexicalEntryShape-canonicalForm ,
+                dns:LexicalEntryShape-writtenRep ,
                 dns:LexicalEntryShape-inScheme .
 
 dns:LexicalEntryShape-label a sh:PropertyShape ;
@@ -112,6 +113,15 @@ dns:LexicalEntryShape-canonicalForm a sh:PropertyShape ;
     sh:nodeKind sh:BlankNodeOrIRI ;
     sh:severity sh:Violation ;
     sh:message "LexicalEntry must have exactly one ontolex:canonicalForm." .
+
+## The sequence path also covers dangling canonicalForm blank nodes (GitHub
+## issue #203): the shape above only checks that the canonicalForm triple
+## exists, not that its object carries a written representation.
+dns:LexicalEntryShape-writtenRep a sh:PropertyShape ;
+    sh:path ( ontolex:canonicalForm ontolex:writtenRep ) ;
+    sh:minCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalEntry must have an ontolex:writtenRep reachable via ontolex:canonicalForm." .
 
 ## skos:inScheme (GitHub issue #175) is added to every dn: resource during
 ## bootstrapping (see add-in-scheme! in the bootstrap ns); a missing value

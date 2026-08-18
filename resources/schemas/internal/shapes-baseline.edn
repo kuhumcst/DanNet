@@ -9,6 +9,11 @@
 ;;
 ;; Counts EXCEEDING these values indicate a regression (validate-db logs :error).
 ;; Counts below them mean data was fixed: lower the value here accordingly.
+;; The writtenRep shape was added 2026-08-18 along with a release change
+;; (add-missing-written-reps!) supplying the 15 dangling canonical forms it
+;; found in the live data (GitHub issue #203): lower its count to 0 once that
+;; release ships.
 {:dns/LexicalSenseShape-label      17
+ :dns/LexicalEntryShape-writtenRep 15
  :dns/MeronymyHierarchyShape       0
  :dns/MeronymyContradictionShape   0}

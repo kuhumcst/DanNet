@@ -34,6 +34,7 @@ dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:form-1 ontolex:writtenRep \"hund\"@da .
 dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
 dn:synset-1 a ontolex:LexicalConcept ; rdfs:label \"{hund}\" ;
@@ -77,7 +78,14 @@ dn:e a ontolex:LexicalEntry ; rdfs:label \"hund\" ;
   wn:partOfSpeech wn:noun ; ontolex:sense dn:s ;
   ontolex:canonicalForm \"hund\" .")
                    [:dns/LexicalEntryShape-canonicalForm
-                    :sh/NodeKindConstraintComponent]))))
+                    :sh/NodeKindConstraintComponent])))
+  (testing "canonical form without a written representation (issue #203)"
+    (is (contains? (shape+constraint "
+dn:e a ontolex:LexicalEntry ; rdfs:label \"hund\" ;
+  wn:partOfSpeech wn:noun ; ontolex:sense dn:s ;
+  ontolex:canonicalForm dn:f .")
+                   [:dns/LexicalEntryShape-writtenRep
+                    :sh/MinCountConstraintComponent]))))
 
 (deftest lexical-sense-shape
   (testing "missing rdfs:label, flagged with its focus node"
@@ -128,7 +136,9 @@ dn:sense-3 a ontolex:LexicalSense ; rdfs:label \"b\" .
 dn:word-2 a ontolex:Word ; rdfs:label \"a\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-2 ; ontolex:canonicalForm dn:form-2 .
 dn:word-3 a ontolex:Word ; rdfs:label \"b\" ; wn:partOfSpeech wn:verb ;
-  ontolex:sense dn:sense-3 ; ontolex:canonicalForm dn:form-3 ."
+  ontolex:sense dn:sense-3 ; ontolex:canonicalForm dn:form-3 .
+dn:form-2 ontolex:writtenRep \"a\"@da .
+dn:form-3 ontolex:writtenRep \"b\"@da ."
             result (validate-ttl ttl)]
         (is (contains? (->> (:entries result)
                             (map (juxt :shape :severity :focus-node)) set)
@@ -150,6 +160,7 @@ dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:form-1 ontolex:writtenRep \"hund\"@da .
 dn:sense-2 a ontolex:LexicalSense ;
   skos:inScheme <https://wordnet.dk/dannet/data> ."))]
       ;; the graph as a whole has a violation...
@@ -174,6 +185,7 @@ dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:form-1 ontolex:writtenRep \"hund\"@da .
 dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
   skos:inScheme <https://wordnet.dk/dannet/data> .")))]
         (is (empty? (:exceeded result)))
