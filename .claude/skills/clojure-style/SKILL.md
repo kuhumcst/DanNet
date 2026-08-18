@@ -59,6 +59,8 @@ means.
 
 Every public var gets a docstring; it is part of the API.
 
+- Structure: a 1-2 line summary first; any further description goes in a
+  separate paragraph after a blank line. Never one long run-on paragraph.
 - Mention every parameter in the first line, wrapped in backticks:
   "Convert `xml` (String, File, or InputStream) into Hiccup data."
 - Present tense, active voice ("Convert", not "Converts").
