@@ -1035,12 +1035,21 @@
                                 "bøjningsformer fra COR, sentiment-"
                                 "annoteringer fra DDS og engelske "
                                 "ækvivalenter fra Open English Wordnet.")}
-    "dc:publisher"   "Centre for Language Technology, University of Copenhagen"
+    "dc:publisher"   (get {"en" (str "Centre for Language Technology, "
+                                     "University of Copenhagen")
+                           "da" (str "Center for Sprogteknologi, "
+                                     "Københavns Universitet")}
+                          lang)
     "dc:license"     "https://creativecommons.org/licenses/by-sa/4.0/"
-    "dc:rights"      (str "Copyright © Centre for Language Technology "
-                          "(University of Copenhagen) & The Society for Danish "
-                          "Language and Literature; licensed under "
-                          "CC BY-SA 4.0.")
+    "dc:rights"      (get {"en" (str "Copyright © Centre for Language Technology "
+                                     "(University of Copenhagen) & The Society "
+                                     "for Danish Language and Literature; "
+                                     "licensed under CC BY-SA 4.0.")
+                           "da" (str "Copyright © Center for Sprogteknologi "
+                                     "(Københavns Universitet) & Det Danske "
+                                     "Sprog- og Litteraturselskab; licenseret "
+                                     "under CC BY-SA 4.0.")}
+                          lang)
     "dc:source"      [{"dc:title"      "DanNet"
                        "dc:identifier" prefix/dn-uri
                        "dc:license"    "https://creativecommons.org/licenses/by-sa/4.0/"}
