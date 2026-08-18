@@ -352,6 +352,11 @@
        (str/starts-with? s "<")
        (str/ends-with? s ">")))
 
+(defn resource?
+  "Is `x` a reference to a resource, i.e. a keyword or RDF resource string?"
+  [x]
+  (or (keyword? x) (rdf-resource? x)))
+
 (defn normalize-rdf-resource
   "Remove trailing separator from `rdf-resource`."
   [rdf-resource]

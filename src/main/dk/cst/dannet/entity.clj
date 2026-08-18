@@ -1,7 +1,8 @@
 (ns dk.cst.dannet.entity
   "Display-only reduction of entity data: de-duplication of relations entailed
   by others and truncation of the large ones. Never affects negotiated RDF."
-  (:require [dk.cst.dannet.shared :as shared]))
+  (:require [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared]))
 
 (defn- ->set
   "Coerce the entity value `v` into a set, wrapping single values."
@@ -104,6 +105,22 @@
   entity maps embedded as metadata on symbols within the values of `entity`."
   [k->supers entity]
   (update-vals entity #(prune-blank-nodes k->supers %)))
+
+(defn displayed-resources
+  "Collect the set of resources rendered for `entity`: its relation keys, the
+  keyword and RDF-resource values, and the resources found inside blank node
+  entity maps attached as metadata on symbols.
+
+  Used to trim the label map sent to the client down to the displayed part."
+  [entity]
+  (let [xf (comp (mapcat ->set)
+                 (mapcat #(if-let [m (and (symbol? %) (meta %))]
+                            (concat (keys m) (mapcat ->set (vals m)))
+                            [%]))
+                 (filter prefix/resource?))]
+    (into (set (filter prefix/resource? (keys entity)))
+          xf
+          (vals entity))))
 
 (defn- split-relation
   "Split the value `v` of the relation `k` at 'semantic-relation-limit' into

@@ -397,7 +397,25 @@
                                       :subject subject*
                                       :entity entity)
                                (cond->
-                                 (not-empty folded) (assoc :folded folded)
+                                 ;; Display-only payload trimming: the deferred
+                                 ;; response carries the overflow labels, and
+                                 ;; the UI checks :inferred keys, never values.
+                                 truncate?
+                                 (update :entities select-keys
+                                         (cond-> (ent/displayed-resources entity)
+                                           (not deferred?)
+                                           (into (mapcat #(cons (key %) (val %))
+                                                         folded))))
+
+                                 (and truncate? (not deferred?))
+                                 (update :inferred (comp set keys))
+
+                                 deferred?
+                                 (dissoc :inferred :supplemented :ancestry)
+
+                                 (and (not deferred?) (not-empty folded))
+                                 (assoc :folded folded)
+
                                  (some? hyponym) (assoc :hyponym-tree hyponym)
                                  (some? orthogonal-hyponym)
                                  (assoc :orthogonal-hyponym-tree orthogonal-hyponym)

@@ -498,6 +498,10 @@ WHERE {
 - Batch operations preferred in bootstrap process
 - Synset-indegree cache is fetched from the release rather than recomputed (regeneration is slow)
 - Deferred loading of large semantic relations - synsets with many hyponyms/hypernyms are truncated server-side; clients fetch the remainder on demand
+- Browser payloads (HTML/Transit) are display-trimmed: the `:entities` label map only covers displayed resources (deferred responses carry the overflow labels, merged client-side) and `:inferred` is reduced to its relation keys; negotiated RDF formats keep full data
+- Entity labels are fetched in one batched VALUES query per entity rather than OPTIONAL-joined onto every triple
+- The expanded-entity cache is pre-warmed at boot for the synsets with most hyponyms (`instance/warm-entity-cache!`)
+- Caddy compresses `application/transit+json` explicitly (not part of its default gzip matcher)
 - Component modularization improves rendering performance
 
 ## Related Documentation

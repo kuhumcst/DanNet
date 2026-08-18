@@ -141,17 +141,23 @@
   (t/add-handler! :default/console
                   (t/handler:console {:output-fn concise-signal})))
 
+(defn init-db!
+  "Initialise the database and its derived structures on a background thread,
+  pre-warming the expanded-entity cache for the largest synsets."
+  []
+  (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph
+                (instance/warm-entity-cache! 25)))
+
 (defn start []
   (init-logging!)
   (let [service-map (->service-map @conf)]
-    ;; Compute in-use synset relations after the database is ready.
-    (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph)
+    (init-db!)
     (http/start (http/create-server service-map))))
 
 (defn start-dev []
   (init-logging!)
   (set! NodeValue/VerboseWarnings false)                    ; annoying warnings
-  (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph) ; init database
+  (init-db!)
   (reset! server (http/start (http/create-server (assoc (->service-map @conf)
                                                    ::http/join? false)))))
 

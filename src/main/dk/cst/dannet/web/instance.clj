@@ -210,6 +210,21 @@ capped at 200 items."}
 
 (defonce synset-rels (->synset-rels))
 
+(defn warm-entity-cache!
+  "Pre-compute the expanded entities of the `n` synsets with most hyponyms.
+
+  Their entity look-ups are by far the slowest (multiple seconds when cold),
+  so warming the LRU cache at boot spares the first visitor of each page."
+  [n]
+  (let [g (:graph @db)]
+    (tel/trace! {:id      :dannet.graph/warm-entity-cache
+                 :run-val :elided
+                 :data    {:n n}}
+                (doseq [[synset _] (->> (:graph @hyponym-graph)
+                                        (sort-by (comp count val) >)
+                                        (take n))]
+                  (q/expanded-entity g synset)))))
+
 (defn reset-indices!
   "Replace every structure derived from the db with a freshly built one.
 

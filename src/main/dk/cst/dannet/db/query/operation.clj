@@ -15,27 +15,14 @@
   (q/build
     '[:bgp [?s ?p ?o]]))
 
-(def expanded-entity
-  (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))]
-    (sparql
-      "SELECT ?s ?p ?o ?pl ?ol ?plr ?olr
-       WHERE {
-         ?s ?p ?o .
-       OPTIONAL {
-         VALUES ?plr { " label-rels " }
-         ?p ?plr ?pl .
-       }
-       OPTIONAL {
-         VALUES ?olr { " label-rels " }
-         ?o ?olr ?ol .
-       }
-     }")))
-
 (defn resource-labels-query
-  "Build a SPARQL Op that fetches labels for a collection of keyword `resources`."
+  "Build a SPARQL Op that fetches labels for a collection of `resources`,
+  given as keywords or bracketed RDF resource strings."
   [resources]
   (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))
-        values     (str/join " " (map #(str "<" (prefix/kw->uri %) ">") resources))]
+        values     (->> resources
+                        (map #(if (keyword? %) (prefix/kw->rdf-resource %) %))
+                        (str/join " "))]
     (sparql
       "SELECT ?resource ?labelRel ?label
        WHERE {

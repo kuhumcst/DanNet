@@ -13,7 +13,21 @@ wordnet.dk, localhost {
     # additional rate limiting should occur WITHIN the web service itself
     rate_limit {remote.ip} 1200r/m
 
-    encode gzip
+    # The default content-type matcher does NOT include Transit, so entity
+    # data payloads (~1 MB for the largest synsets) went uncompressed.
+    encode gzip {
+        match {
+            header Content-Type text/*
+            header Content-Type application/json*
+            header Content-Type application/ld+json*
+            header Content-Type application/transit+json*
+            header Content-Type application/edn*
+            header Content-Type application/sparql-results+json*
+            header Content-Type application/javascript*
+            header Content-Type application/xml*
+            header Content-Type image/svg+xml*
+        }
+    }
 
     # MCP Registry HTTP verification
     handle /.well-known/mcp-registry-auth {

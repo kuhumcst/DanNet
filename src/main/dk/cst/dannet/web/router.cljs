@@ -213,9 +213,16 @@
                                 ;; with data from the previous one.
                                 (if (= path (:path @location))
                                   (when-let [deferred-body (:body deferred-response)]
-                                    (let [merged-body   (update body :entity
-                                                                shared/merge-deferred-entity
-                                                                (:entity deferred-body))
+                                    ;; The deferred response also carries the
+                                    ;; labels of the overflow values, since the
+                                    ;; initial :entities map is trimmed to the
+                                    ;; displayed resources.
+                                    (let [merged-body   (-> body
+                                                            (update :entity
+                                                                    shared/merge-deferred-entity
+                                                                    (:entity deferred-body))
+                                                            (update :entities merge
+                                                                    (:entities deferred-body)))
                                           new-component (ui/page-shell page merged-body)]
                                       (reset! location {:path    path
                                                         :headers headers

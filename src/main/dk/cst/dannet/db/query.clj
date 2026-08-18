@@ -7,6 +7,7 @@
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
             [arachne.aristotle.query :as q]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.transaction :as txn]
@@ -188,41 +189,18 @@
   []
   (alter-var-root #'synset-indegrees (constantly (delay (read-synset-indegrees)))))
 
-(defn- assoc-resource-label!
-  "Conj `label-value` into the set at (get-in acc [resource label-type])."
-  [acc resource label-type label-value]
-  (let [resource-labels (get acc resource {})
-        label-set       (get resource-labels label-type #{})
-        updated-labels  (assoc resource-labels
-                          label-type (conj label-set label-value))]
-    (assoc! acc resource updated-labels)))
-
-(defn other-entities
-  "Restructure the `expanded-entity-result` as a mapping from resource->entity,
-  not including the subject resource itself, e.g:
-
-    {resource {label-type #{label-values}}}"
-  [expanded-entity-result]
-  (when (seq expanded-entity-result)
-    (persistent!
-      (reduce
-        (fn [acc {:syms [?p ?o ?pl ?plr ?ol ?olr]}]
-          (cond-> acc
-            ?plr (assoc-resource-label! ?p ?plr ?pl)
-            ?olr (assoc-resource-label! ?o ?olr ?ol)))
-        (transient {})
-        expanded-entity-result))))
-
 (defn resource-labels
-  "Fetch labels for a set of keyword `resources` from graph `g`.
-  Returns `{resource {label-type #{label-values}}}` like `other-entities`."
+  "Fetch labels for a set of `resources` (keywords or bracketed RDF resource
+  strings) from graph `g`. Returns `{resource {label-type #{label-values}}}`."
   [g resources]
   (when (seq resources)
     (let [result (run g (op/resource-labels-query resources))]
       (persistent!
         (reduce
           (fn [acc {:syms [?resource ?labelRel ?label]}]
-            (assoc-resource-label! acc ?resource ?labelRel ?label))
+            (assoc! acc ?resource
+                    (update (get acc ?resource {}) ?labelRel
+                            (fnil conj #{}) ?label)))
           (transient {})
           result)))))
 
@@ -359,14 +337,19 @@
 (defn- expanded-entity*
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
-  (if-let [result (not-empty (run g op/expanded-entity {'?s subject}))]
+  (if-let [result (not-empty (run g op/entity {'?s subject}))]
     (let [entity+   (->> (basic-entity result)
                          (weighted-relations)
                          (attach-blank-nodes g subject))
-          entities  (other-entities result)
-          ;; Labels for resources inside blank node entity maps are not part
-          ;; of the expanded entity query, so they are fetched separately for
-          ;; use in the nested attr-val tables.
+          ;; Labels are fetched in one batched VALUES query; joining them onto
+          ;; every entity triple multiplied result rows for large synsets.
+          resources (into #{}
+                          (comp (mapcat (juxt '?p '?o))
+                                (filter prefix/resource?))
+                          result)
+          entities  (resource-labels g resources)
+          ;; Labels for resources inside blank node entity maps are fetched
+          ;; separately for use in the nested attr-val tables.
           entities+ (merge entities
                            (resource-labels
                              g (remove entities (embedded-resources entity+))))
