@@ -135,6 +135,19 @@
        FILTER NOT EXISTS { ?form ontolex:writtenRep ?rep }
      }"))
 
+(def eq-ili-relations
+  "dns:eq* relations targeting an Interlingual Index entry rather than an OEWN
+  synset (GitHub issue #205). The eq* relations hold between concepts in
+  separate datasets, so the ILI id should be swapped for the OEWN synset
+  carrying it; wn:ili remains the only relation that may target the ILI."
+  (sparql
+    "SELECT ?synset ?rel ?ili
+     WHERE {
+       VALUES ?rel { dns:eqHypernym dns:eqHyponym dns:eqSimilar }
+       ?synset ?rel ?ili .
+       FILTER(STRSTARTS(STR(?ili), STR(ili:)))
+     }"))
+
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
   binds the COR canonical form as ?lemma and each inflected form as ?rep."

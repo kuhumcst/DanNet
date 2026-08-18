@@ -46,6 +46,10 @@
 dns:DanNetPrefixes
     sh:declare [ sh:prefix "dn" ;
                  sh:namespace "https://wordnet.dk/dannet/data/"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "dns" ;
+                 sh:namespace "https://wordnet.dk/dannet/schema/"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "ili" ;
+                 sh:namespace "http://globalwordnet.org/ili/"^^xsd:anyURI ] ;
     sh:declare [ sh:prefix "ontolex" ;
                  sh:namespace "http://www.w3.org/ns/lemon/ontolex#"^^xsd:anyURI ] ;
     sh:declare [ sh:prefix "wn" ;
@@ -282,4 +286,27 @@ SELECT DISTINCT $this ?value WHERE {
   VALUES ?h { wn:holo_part wn:holo_member wn:holo_substance wn:holo_location wn:holonym }
   $this ?m ?value .
   $this ?h ?value .
+}""" .
+
+## ---------------------------------------------------------------------------
+## Interlingual Index links (GitHub issue #205): eq* relations hold between
+## synsets in separate datasets, so only wn:ili may link a synset to an ILI
+## entry. The constraint names the three eq* relations rather than flagging
+## "any predicate but wn:ili" so that it stays valid against the INFERRED
+## model too, where each eq* triple also surfaces as its skos:*Match
+## superproperty.
+## ---------------------------------------------------------------------------
+dns:IliRelationShape a sh:NodeShape ;
+    sh:target dns:DanNetConceptTarget ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:IliRelationShape-eqTargetsIli .
+
+dns:IliRelationShape-eqTargetsIli a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "An eq* relation must target a synset, not an Interlingual Index entry; only wn:ili may link to the ILI." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  VALUES ?rel { dns:eqHypernym dns:eqHyponym dns:eqSimilar }
+  $this ?rel ?value .
+  FILTER(strstarts(str(?value), str(ili:)))
 }""" .

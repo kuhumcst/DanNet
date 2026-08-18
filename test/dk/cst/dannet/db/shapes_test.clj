@@ -16,6 +16,8 @@
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dn:      <https://wordnet.dk/dannet/data/> .
+@prefix dns:     <https://wordnet.dk/dannet/schema/> .
+@prefix ili:     <http://globalwordnet.org/ili/> .
 ")
 
 (defn- validate-ttl
@@ -152,6 +154,22 @@ dn:form-3 ontolex:writtenRep \"b\"@da ."
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:hypernym dn:synset-3 .
 dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."))))))))
+
+(deftest ili-relation-shape
+  ;; SPARQL constraint, so identified by :severity + :message like the
+  ;; hypernym shapes above.
+  (testing "eq* relation targeting an ILI entry is a violation (issue #205)"
+    (is (contains? (->> (validate-ttl "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  dns:eqHyponym ili:i48720 .")
+                        :entries (map (juxt :shape :severity :focus-node)) set)
+                   [:dns/IliRelationShape :sh/Violation :dn/synset-2])))
+  (testing "wn:ili and eq* to a synset produce no ILI entries"
+    (is (empty? (filter (comp #{:dns/IliRelationShape} :shape)
+                        (:entries (validate-ttl "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:ili ili:i48720 ;
+  dns:eqHyponym <https://en-word.net/id/oewn-02486953-n> .")))))))
 
 (deftest validate-node-targeting
   (testing "targeted validation only checks the given focus node"

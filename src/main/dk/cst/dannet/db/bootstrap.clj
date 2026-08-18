@@ -239,6 +239,47 @@
       [?form :ontolex/writtenRep
        (md/da (str/replace (str ?label) #"^\"|\"$" ""))])))
 
+(h/defn retarget-eq-ili-relations!
+  "Retarget dns:eq* relations that link synsets to Interlingual Index entries
+  instead of OEWN synsets (GitHub issue #205). The eq* relations hold between
+  concepts in separate datasets, so every ILI target carried by exactly one
+  OEWN synset is replaced with that synset -- the reading confirmed by all 77
+  synsets that already carry the same relation to both an OEWN synset and its
+  ILI. The remaining 25 triples are deleted: 2 target the WN-LMF placeholder
+  ili:in (no identifiable concept) and 23 target retired ILI ids whose
+  synsets -- mostly named entities and biological genera -- are absent from
+  the current OEWN edition, leaving nothing to retarget to.
+
+  Must run after add-open-english-wordnet!, which supplies the ILI -> synset
+  mapping."
+  [dataset]
+  (let [oewn-g    (db/get-graph dataset prefix/oewn-uri)
+        ;; ili:in maps to thousands of synsets and drops out via the
+        ;; exactly-one requirement.
+        ili->oewn (->> (q/run oewn-g '[:bgp [?synset :wn/ili ?ili]])
+                       (group-by '?ili)
+                       (into {} (keep (fn [[ili ms]]
+                                        (when (= 1 (count ms))
+                                          [ili (get (first ms) '?synset)])))))
+        g         (db/get-graph dataset prefix/dn-uri)
+        counts    (->> (q/run g op/eq-ili-relations)
+                       (map (fn [{:syms [?ili]}]
+                              (if (ili->oewn ?ili) :retarget :delete)))
+                       (frequencies))
+        expected  {:retarget 2620 :delete 25}]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/retarget-eq-ili-relations
+             :data  counts}
+            "Retargeting eq* relations from ILI entries to OEWN synsets")
+    (assert (= expected counts)
+            (str "expected eq*-to-ILI triples " expected ", found " counts))
+    (db/update-triples! prefix/dn-uri dataset op/eq-ili-relations
+      (fn [{:syms [?synset ?rel ?ili]}]
+        (when-let [oewn-synset (ili->oewn ?ili)]
+          [?synset ?rel oewn-synset]))
+      (fn [{:syms [?synset ?rel ?ili]}]
+        [?synset ?rel ?ili]))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -258,6 +299,7 @@
     (rewrite-ddo-source-urls! dataset)
     (add-missing-sense-sources! dataset)
     (add-missing-written-reps! dataset)
+    (retarget-eq-ili-relations! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -436,16 +478,18 @@
                   (db/import-files dataset model-uri [ttl-file] changefn)
                   (zip/delete-file ttl-file)))
 
+              ;; The English is always explicitly added as it is not part of our
+              ;; own latest export (only the DanNet-like labels we produce are).
+              ;; It is imported BEFORE the release changes, some of which need
+              ;; the OEWN graph for lookups (e.g. retarget-eq-ili-relations!).
+              (add-open-english-wordnet! dataset)
+
               ;; Effectuate changes for the current release.
               (make-release-changes! dataset)
 
               ;; Runs after the release changes so that the dataset
               ;; statistics reflect the data actually being exported.
               (md/add-dataset-statistics! dataset)
-
-              ;; The English is always explicitly added as it is not part of our
-              ;; own latest export (only the DanNet-like labels we produce are).
-              (add-open-english-wordnet! dataset)
 
               (t/log! {:level :info
                        :id    :dannet.bootstrap/db-created

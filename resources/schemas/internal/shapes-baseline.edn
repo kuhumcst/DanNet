@@ -13,7 +13,15 @@
 ;; (add-missing-written-reps!) supplying the 15 dangling canonical forms it
 ;; found in the live data (GitHub issue #203): lower its count to 0 once that
 ;; release ships.
+;;
+;; The ILI relation shape was added 2026-08-18 along with a release change
+;; (retarget-eq-ili-relations!) rewriting 2620 of the 2645 eq*-to-ILI triples
+;; in the live data to their OEWN synsets and deleting the remaining 25 --
+;; 2 ili:in placeholders + 23 retired ILI ids with no synset in the current
+;; OEWN edition (GitHub issue #205; the deleted links are listed in the commit
+;; message): lower its count to 0 once that release ships.
 {:dns/LexicalSenseShape-label      17
  :dns/LexicalEntryShape-writtenRep 15
+ :dns/IliRelationShape             2645
  :dns/MeronymyHierarchyShape       0
  :dns/MeronymyContradictionShape   0}
