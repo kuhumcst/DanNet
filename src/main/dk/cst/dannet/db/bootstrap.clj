@@ -25,7 +25,8 @@
            [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
-           [org.apache.jena.tdb2 TDB2Factory]))
+           [org.apache.jena.tdb2 TDB2Factory]
+           [org.apache.jena.util ResourceUtils]))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from.
@@ -303,6 +304,111 @@
     (fn [{:syms [?w ?pos]}]
       [?w :lexinfo/partOfSpeech ?pos])))
 
+(h/defn remove-scaffolding-words!
+  "Delete the artificial words \"TOP\", \"1stOrder\" and \"2ndOrder\" -- and
+  their senses and canonical forms -- from `dataset`. These words lexicalize
+  the EuroWordNet scaffolding synsets and are not Danish lemmas; \"2ndOrder\"
+  is also the only word in DanNet whose PoS values are empty IRIs (wn: and
+  lexinfo:), which is resolved by its deletion. The synsets remain as valuable
+  synthetic parents, though without lexicalizations they are no longer picked
+  up by the WN-LMF export -- deliberately so."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/remove-scaffolding-words}
+          "Removing artificial words from EuroWordNet scaffolding synsets")
+  (let [g     (db/get-graph dataset prefix/dn-uri)
+        model (db/get-model dataset prefix/dn-uri)
+        cf    (.getProperty model (prefix/kw->uri :ontolex/canonicalForm))
+        rows  (q/run g op/scaffolding-lexicalizations)]
+    (assert (= 3 (count rows))
+            (str "expected 3 scaffolding words, found " (count rows)))
+    (txn/transact-exec model
+      (doseq [{:syms [?sense ?word]} rows]
+        (let [word (.getResource model (prefix/kw->uri ?word))]
+          ;; The canonical forms are blank nodes, only reachable via interop.
+          (doseq [stmt (doall (iterator-seq (.listStatements model word cf nil)))]
+            (.removeAll model (.asResource (.getObject stmt)) nil nil))
+          (db/remove! model [?word '_ '_])
+          (db/remove! model [?sense '_ '_])
+          (db/remove! model ['_ '_ ?sense]))))))
+
+(h/defn mint-temporary-word-ids!
+  "Replace the placeholder dn:word-temporary_N identifiers in `dataset` with
+  dn:word-s<senseId> identifiers, reusing the scheme of the 3256 words
+  synthesized for the 2023 adjective import. The temporary numbers are
+  renumbered between DSL's CSV exports (e.g. temporary_3 was \"Fjerritslev\"
+  in DanNet 2.2 but \"2ndOrder\" in 2.5.1) while the sense ids are stable,
+  so each word's single sense id serves as its anchor.
+
+  NB: two identical \"tinglysningskontor\" words share a sense and so merge
+  into a single word; hence 950 words yield 949 identifiers. The merged word
+  keeps just one of its two identical canonical forms, while the duplicated
+  {tinglysningskontor} synsets it evokes are in turn merged by
+  merge-tinglysningskontor-synsets!.
+
+  Must run after remove-scaffolding-words!, which deletes 3 of the 953
+  temporary words and is assumed by the expected count."
+  [dataset]
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        renames  (->> (q/run g op/temporary-words)
+                      (map (fn [{:syms [?word ?sense]}]
+                             [(prefix/kw->uri ?word)
+                              (->> (subs (name ?sense) (count "sense-"))
+                                   (str "word-s")
+                                   (keyword "dn")
+                                   (prefix/kw->uri))])))
+        expected 950]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/mint-temporary-word-ids
+             :data  {:count (count renames)}}
+            "Minting stable identifiers for temporary words")
+    (assert (= expected (count renames))
+            (str "expected " expected " temporary words, found " (count renames)))
+    ;; Renaming uses Jena interop since the words' canonical forms are blank
+    ;; nodes, which Aristotle cannot round-trip (adding them back as literals).
+    (txn/transact-exec model
+      (doseq [[old-uri new-uri] renames]
+        (ResourceUtils/renameResource (.getResource model old-uri) new-uri))
+      ;; The merged word inherits a canonical form from each source word.
+      (let [word  (.getResource model (prefix/kw->uri :dn/word-s24000079))
+            cf    (.getProperty model (prefix/kw->uri :ontolex/canonicalForm))
+            forms (doall (iterator-seq (.listStatements model word cf nil)))]
+        (doseq [stmt (rest forms)]
+          (.removeAll model (.asResource (.getObject stmt)) nil nil)
+          (.remove model stmt))))))
+
+(h/defn merge-tinglysningskontor-synsets!
+  "Merge dn:synset-48184 into its duplicate dn:synset-48286 in `dataset`.
+  DSL's CSV exports contain two degenerate {tinglysningskontor} synsets --
+  absent from synsets.csv and thus without type or definition -- which are
+  triple-for-triple identical, sharing their single sense. Each is referenced
+  once by {tingbog_§1}, via wn:co_instrument_agent resp. wn:holo_location;
+  both relations are kept on the surviving synset, which is also finally
+  typed as an ontolex:LexicalConcept.
+
+  Must run after mint-temporary-word-ids!, which merges the two words evoking
+  the duplicates into the single word assumed by the expected count."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/merge-tinglysningskontor-synsets}
+          "Merging duplicate {tinglysningskontor} synsets")
+  (let [g     (db/get-graph dataset prefix/dn-uri)
+        model (db/get-model dataset prefix/dn-uri)
+        query '[:bgp [?s ?p :dn/synset-48184]]
+        found (count (q/run g query))]
+    (assert (= 2 found)
+            (str "expected 2 references to dn:synset-48184, found " found))
+    (db/update-triples! prefix/dn-uri dataset query
+      (fn [{:syms [?s ?p]}]
+        [?s ?p :dn/synset-48286])
+      (fn [{:syms [?s ?p]}]
+        [?s ?p :dn/synset-48184]))
+    (txn/transact-exec model
+      (db/remove! model [:dn/synset-48184 '_ '_]))
+    (txn/transact-exec g
+      (db/safe-add! g [[:dn/synset-48286 :rdf/type :ontolex/LexicalConcept]]))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -324,6 +430,9 @@
     (add-missing-written-reps! dataset)
     (retarget-eq-ili-relations! dataset)
     (remove-asserted-lexinfo-pos! dataset)
+    (remove-scaffolding-words! dataset)
+    (mint-temporary-word-ids! dataset)
+    (merge-tinglysningskontor-synsets! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)

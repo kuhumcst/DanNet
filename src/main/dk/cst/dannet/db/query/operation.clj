@@ -155,6 +155,29 @@
        FILTER(STRSTARTS(STR(?ili), STR(ili:)))
      }"))
 
+(def scaffolding-lexicalizations
+  "The artificial words lexicalizing the EuroWordNet scaffolding synsets {TOP},
+  {1stOrder} and {2ndOrder}, along with their senses. The words and senses are
+  deleted while the synsets remain as synthetic parents."
+  (sparql
+    "SELECT ?sense ?word
+     WHERE {
+       VALUES ?synset { dn:synset-20633 dn:synset-42971 dn:synset-42970 }
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?word ontolex:sense ?sense .
+     }"))
+
+(def temporary-words
+  "Words carrying a placeholder dn:word-temporary_N identifier, i.e. words
+  without a DDO lemma id in DSL's CSV exports; binds each word's single sense
+  as ?sense since its stable id is used to mint a proper word id."
+  (sparql
+    "SELECT ?word ?sense
+     WHERE {
+       ?word ontolex:sense ?sense .
+       FILTER(STRSTARTS(STR(?word), CONCAT(STR(dn:), \"word-temporary_\")))
+     }"))
+
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
   binds the COR canonical form as ?lemma and each inflected form as ?rep."
