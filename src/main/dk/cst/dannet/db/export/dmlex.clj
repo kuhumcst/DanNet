@@ -13,7 +13,6 @@
             [clojure.data.xml :as xml]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.walk :as walk]
             [clj-file-zip.core :as zip]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.export.rdf :as rdf]
@@ -180,16 +179,12 @@
   (when description
     [::dmlex/description description]))
 
-(defn tag-children
-  "The shared child elements of the Controlled Values tag objects."
-  [{:keys [description sameAs]}]
-  (remove nil? (cons (->description description) (map ->same-as sameAs))))
-
 (defn ->tag
   "The Controlled Values tag object `m` as the XML `element`, with the `ks` of
   `m` as its attributes."
-  [element ks m]
-  (into [element (attrs m ks)] (tag-children m)))
+  [element ks {:keys [description sameAs] :as m}]
+  (into [element (attrs m ks)]
+        (remove nil? (cons (->description description) (map ->same-as sameAs)))))
 
 (defn ->relation-type
   [{:keys [description memberTypes sameAs] :as m}]
@@ -276,26 +271,24 @@
                 (map ->inflected-form inflectedForms)
                 (map ->sense senses))))
 
-(defn ->lexicographic-resource
-  "Build the XML element tree of a DMLex `resource`. The child order follows the
-  sequences of dmlex.xsd."
+(defn resource-children
+  "The child hiccup elements of the lexicographicResource of `resource`. The
+  child order follows the sequences of dmlex.xsd. Kept lazy so the XML
+  serialization can stream one child element at a time."
   [{:keys [entries translationLanguages definitionTypeTags inflectedFormTags
            labelTags labelTypeTags partOfSpeechTags sourceIdentityTags
-           relations relationTypes]
-    :as   resource}]
-  (into [::dmlex/lexicographicResource (merge {:xmlns dmlex-uri}
-                                              (attrs resource [:title :uri :langCode]))]
-        (concat (map ->entry entries)
-                (for [lang translationLanguages]
-                  [::dmlex/translationLanguage {:langCode lang}])
-                (map (partial ->tag ::dmlex/definitionTypeTag [:tag]) definitionTypeTags)
-                (map (partial ->tag ::dmlex/inflectedFormTag [:tag :for]) inflectedFormTags)
-                (map (partial ->tag ::dmlex/labelTag [:tag :typeTag :for]) labelTags)
-                (map (partial ->tag ::dmlex/labelTypeTag [:tag]) labelTypeTags)
-                (map (partial ->tag ::dmlex/partOfSpeechTag [:tag :for]) partOfSpeechTags)
-                (map (partial ->tag ::dmlex/sourceIdentityTag [:tag]) sourceIdentityTags)
-                (map ->relation relations)
-                (map ->relation-type relationTypes))))
+           relations relationTypes]}]
+  (concat (map ->entry entries)
+          (for [lang translationLanguages]
+            [::dmlex/translationLanguage {:langCode lang}])
+          (map (partial ->tag ::dmlex/definitionTypeTag [:tag]) definitionTypeTags)
+          (map (partial ->tag ::dmlex/inflectedFormTag [:tag :for]) inflectedFormTags)
+          (map (partial ->tag ::dmlex/labelTag [:tag :typeTag :for]) labelTags)
+          (map (partial ->tag ::dmlex/labelTypeTag [:tag]) labelTypeTags)
+          (map (partial ->tag ::dmlex/partOfSpeechTag [:tag :for]) partOfSpeechTags)
+          (map (partial ->tag ::dmlex/sourceIdentityTag [:tag]) sourceIdentityTags)
+          (map ->relation relations)
+          (map ->relation-type relationTypes)))
 
 (defn indent-sexp
   "Indent the XML `element` sexp at the nesting `depth` by inserting
@@ -308,63 +301,83 @@
    (indent-sexp 0 element))
   ([depth element]
    (let [[tag & children] element
-         [attrs kids] (if (map? (first children))
-                        [(first children) (next children)]
-                        [nil children])
-         pad          (fn [n] (apply str "\n" (repeat n "  ")))]
+         [attr-map kids] (if (map? (first children))
+                           [(first children) (next children)]
+                           [nil children])
+         pad             (fn [n] (apply str "\n" (repeat n "  ")))]
      (if (and (seq kids) (every? vector? kids))
-       (-> (if attrs [tag attrs] [tag])
+       (-> (if attr-map [tag attr-map] [tag])
            (into (mapcat (fn [kid]
                            [(pad (inc depth)) (indent-sexp (inc depth) kid)])
                          kids))
            (conj (pad depth)))
        element))))
 
-(defn xml-str
-  "Create a DMLex XML string from a DMLex `resource`, indented via
-  `indent-sexp`."
-  [resource]
-  (-> (->lexicographic-resource resource)
-      (indent-sexp)
-      (xml/sexp-as-element)
-      (xml/emit-str)))
+(defn write-xml!
+  "Write a DMLex `resource` to file `f` as indented XML, with the text of
+  `license` preceding the root element as a schema-transparent comment.
+
+  The root's children are built, indented and converted to elements lazily,
+  one child at a time, and `xml/emit` drops each as soon as it is written,
+  so the whole element tree is never materialized at once."
+  [f license resource]
+  (with-open [w (io/writer f)]
+    (xml/emit ["\n" (xml/xml-comment license) "\n"
+               (xml/element* ::dmlex/lexicographicResource
+                             (merge {:xmlns dmlex-uri}
+                                    (attrs resource [:title :uri :langCode]))
+                             (concat
+                               (mapcat (fn [kid]
+                                         ["\n  " (xml/sexp-as-element
+                                                   (indent-sexp 1 kid))])
+                                       (resource-children resource))
+                               ["\n"]))]
+              w)))
 
 (defn prune
-  "Remove nil values and empty collections from the maps inside `x`."
+  "Remove nil values and empty collections from the maps inside `x`.
+
+  Unchanged substructure is returned as-is rather than rebuilt, so pruning a
+  mostly clean resource shares almost all of its structure."
   [x]
-  (walk/postwalk
-    (fn [v]
-      (if (map? v)
-        (into (empty v)
-              (remove (fn [[_ v']]
-                        (or (nil? v')
-                            (and (coll? v') (empty? v')))))
-              v)
-        v))
-    x))
+  (cond
+    (map? x)
+    (reduce-kv (fn [m k v]
+                 (let [v' (prune v)]
+                   (cond
+                     (or (nil? v') (and (coll? v') (empty? v')))
+                     (dissoc m k)
+
+                     (identical? v' v) m
+                     :else (assoc m k v'))))
+               x
+               x)
+
+    (vector? x)
+    (let [x' (mapv prune x)]
+      (if (every? true? (map identical? x' x)) x x'))
+
+    (seq? x)
+    (map prune x)
+
+    :else x))
 
 ;; TODO: report the homographNumber mismatch to the LEXIDMA committee
 ;; dmlex_no-crosslingual.xsd types the attribute as xs:integer while
 ;; dmlex_no-crosslingual.schema.json types the property as a string, so no
-;; single value serializes into both. Drop this coercion once they agree.
+;; single value serializes into both. Drop the :value-fn once they agree.
 
-(defn json-safe
-  "The two schemas disagree on one property: `homographNumber` is an integer in
-  the XSD and a string in the JSON schema."
-  [resource]
-  (update resource :entries
-          (fn [entries]
-            (mapv #(cond-> %
-                     (:homographNumber %) (update :homographNumber str))
-                  entries))))
-
-(defn json-str
-  "Create a DMLex JSON string from a DMLex `resource`."
-  [resource]
-  (json/write-str (prune (json-safe resource))
-                  :key-fn name
-                  :escape-slash false
-                  :escape-unicode false))
+(defn write-json!
+  "Write a DMLex `resource` to file `f` as JSON, streamed through `json/write`.
+  The `homographNumber` of an entry is coerced during the write: it is an
+  integer in the XSD but a string in the JSON schema."
+  [f resource]
+  (with-open [w (io/writer f)]
+    (json/write (prune resource) w
+                :key-fn name
+                :value-fn (fn [k v] (if (= k :homographNumber) (str v) v))
+                :escape-slash false
+                :escape-unicode false)))
 
 ;; -----------------------------------------------------------------------------
 ;; Extraction
@@ -831,131 +844,160 @@
                                     {:role object-role :type "sense" :min 1 :hint "navigate"}])}
         (descriptions rel) (assoc :description (descriptions rel))))))
 
+(defn ->indices
+  "Index the raw rows of `query-results` into the compact structures consumed
+  by both language variants of the export.
+
+  The symbol-keyed rows dominate the memory footprint of `run-queries` and can
+  be released as soon as this returns; the indices share their strings and
+  keywords."
+  [{:keys [words senses definitions examples domains lexfiles word-variants
+           ontological-types synset-labels short-labels member-labels
+           polysemy genders sense-labels usage-notes ilis ili-definitions
+           oewn-lemmas cor-links cor-forms sentiment descriptions indegrees
+           obverse-of relations]}]
+  (let [listing-order (listing-order-fn indegrees)
+        label-of      (merge (index synset-labels '?synset (comp str '?label))
+                             (index short-labels '?synset (comp str '?label)))
+        senses-of     (index-many senses '?synset (comp name '?sense))
+        unambiguous   (unambiguous-ilis ilis)]
+    {:descriptions      descriptions
+     :obverse-of        obverse-of
+     :relations         relations
+     :member-order      (member-order-fn
+                          listing-order
+                          (member-positions
+                            (index polysemy (comp str '?senseLabel) '?polysemy)
+                            member-labels))
+     :pos-of            (index words '?word (comp pos-tag '?pos))
+     :headword-of       (index words '?word (comp str '?writtenRep))
+     :number-of         (homograph-numbers words)
+     :definition-of     (index-many definitions '?synset (comp str '?definition))
+     :examples-of       (index-many examples '?sense (comp str '?example))
+     :domains-of        (index-many domains '?synset (comp str '?domain))
+     :domain-strings    (sort (set (map (comp str '?domain) domains)))
+     :lexfiles-of       (index-many lexfiles '?synset (comp str '?lexfile))
+     :lexfile-strings   (sort (set (map (comp str '?lexfile) lexfiles)))
+     :variants-of       (index-many word-variants '?word (comp str '?variant))
+     :ontotype-of       (update-vals (group-by '?synset ontological-types)
+                                     ontological-type)
+     :ontotype-concepts (sort-by name (distinct (map '?class ontological-types)))
+     :gender-of         (index genders '?synset '?gender)
+     :marks-of          (index-many sense-labels '?sense (comp name '?value))
+     :sense-label-pairs (sort-by (comp name second)
+                                 (distinct (map (juxt '?property '?value)
+                                                sense-labels)))
+     :notes-of          (index-many usage-notes '?sense (comp str '?note))
+     :note-strings      (sort (set (map (comp str '?note) usage-notes)))
+     :label-of          label-of
+     :plain-label-of    (synset-descriptions
+                          (select-keys label-of (keys senses-of)))
+     :ili-of            (index-many unambiguous '?synset
+                                    #(str prefix/ili-uri (name (get % '?ili))))
+     :ili-key-of        (index unambiguous '?synset '?ili)
+     :ili-definition-of (index ili-definitions '?ili (comp str '?definition))
+     :english-of        (update-vals (group-by '?ili oewn-lemmas)
+                                     #(vec (sort (distinct (map (comp str '?lemma) %)))))
+     :senses-of         senses-of
+     :cors-of           (cor-words cor-links)
+     :forms-of          (update-vals (group-by '?cor cor-forms)
+                                     #(into #{} (map ->cor-form) %))
+     :description-of    (code-descriptions cor-forms)
+     :sentiment-of      (sentiment-labels sentiment)
+     ;; DMLex gives a sense no listingOrder, so the document order is the
+     ;; sense order. The best-connected synset leads, as in the DanNet
+     ;; search results.
+     :word->senses      (->> (group-by '?word senses)
+                             (sort-by (comp str key))
+                             (mapv (fn [[word rows]]
+                                     [word (->> rows
+                                                (sort-by (juxt (comp listing-order '?synset)
+                                                               (comp str '?sense)))
+                                                (mapv (juxt '?sense '?synset)))])))}))
+
 (defn ->resource
-  "Build the DMLex intermediate structure in `lang` from `query-results`. A
+  "Build the DMLex intermediate structure in `lang` from the `indices`. A
   word without a written form is left out, since DMLex requires a headword. A
   word with an unusable part of speech keeps its entry, since DMLex does not
   require one."
-  [lang {:keys [words senses definitions examples domains lexfiles word-variants
-                ontological-types synset-labels short-labels member-labels
-                polysemy genders sense-labels usage-notes ilis ili-definitions
-                oewn-lemmas cor-links cor-forms sentiment descriptions indegrees
-                obverse-of relations]}]
-  (let [descriptions   (get descriptions lang)
-        listing-order  (listing-order-fn indegrees)
-        member-order   (member-order-fn
-                         listing-order
-                         (member-positions
-                           (index polysemy (comp str '?senseLabel) '?polysemy)
-                           member-labels))
-        pos-of         (index words '?word (comp pos-tag '?pos))
-        headword-of    (index words '?word (comp str '?writtenRep))
-        number-of      (homograph-numbers words)
-        definition-of  (index-many definitions '?synset (comp str '?definition))
-        examples-of    (index-many examples '?sense (comp str '?example))
-        domains-of     (index-many domains '?synset (comp str '?domain))
-        lexfiles-of    (index-many lexfiles '?synset (comp str '?lexfile))
-        variants-of    (index-many word-variants '?word (comp str '?variant))
-        ontotype-of    (update-vals (group-by '?synset ontological-types)
-                                    ontological-type)
-        gender-of      (index genders '?synset '?gender)
-        marks-of       (index-many sense-labels '?sense (comp name '?value))
-        notes-of       (index-many usage-notes '?sense (comp str '?note))
-        label-of       (merge (index synset-labels '?synset (comp str '?label))
-                              (index short-labels '?synset (comp str '?label)))
-        unambiguous    (unambiguous-ilis ilis)
-        ili-of         (index-many unambiguous '?synset
-                                   #(str prefix/ili-uri (name (get % '?ili))))
-        ili-key-of     (index unambiguous '?synset '?ili)
+  [lang {:keys [descriptions obverse-of relations member-order pos-of
+                headword-of number-of definition-of examples-of domains-of
+                domain-strings lexfiles-of lexfile-strings variants-of
+                ontotype-of ontotype-concepts gender-of marks-of
+                sense-label-pairs notes-of note-strings label-of
+                plain-label-of ili-of ili-key-of ili-definition-of english-of
+                senses-of cors-of forms-of description-of sentiment-of
+                word->senses]}]
+  (let [descriptions (get descriptions lang)
         ;; The English ILI definitions only supplement the English variant;
         ;; they describe the interlingual concept, not the DanNet sense.
-        ili-def-of     (if (= lang "en")
-                         (comp (index ili-definitions '?ili (comp str '?definition))
-                               ili-key-of)
-                         (constantly nil))
-        english-of     (update-vals (group-by '?ili oewn-lemmas)
-                                    #(vec (sort (distinct (map (comp str '?lemma) %)))))
-        senses-of      (index-many senses '?synset (comp name '?sense))
-        plain-label-of (synset-descriptions
-                         (select-keys label-of (keys senses-of)))
-        cors-of        (cor-words cor-links)
-        forms-of       (update-vals (group-by '?cor cor-forms)
-                                    #(into #{} (map ->cor-form) %))
-        description-of (code-descriptions cor-forms)
-        sentiment-of   (sentiment-labels sentiment)
-        ->sense        (fn [{:syms [?word ?sense ?synset]}]
-                         (let [headword    (headword-of ?word)
-                               english     (english-of (ili-key-of ?synset))
-                               ili-def     (ili-def-of ?synset)
-                               definitions (cond-> (mapv (fn [text] {:text text})
-                                                         (definition-of ?synset))
-                                             ili-def
-                                             (conj {:text           ili-def
-                                                    :definitionType "ili"}))]
-                           (cond-> {:id     (name ?sense)
-                                    :labels (-> [(name ?synset)]
-                                                (into (ontotype-of ?synset))
-                                                (into (lexfiles-of ?synset))
-                                                (into (domains-of ?synset))
-                                                (cond->
-                                                  (gender-of ?synset)
-                                                  (conj (name (gender-of ?synset))))
-                                                (into (marks-of ?sense))
-                                                (into (notes-of ?sense))
-                                                (into (or (sentiment-of ?sense)
-                                                          (sentiment-of ?synset))))}
-                             (seq definitions)
-                             (assoc :definitions definitions)
+        ili-def-of   (if (= lang "en")
+                       (comp ili-definition-of ili-key-of)
+                       (constantly nil))
+        ->sense-map  (fn [headword [sense synset]]
+                       (let [english     (english-of (ili-key-of synset))
+                             ili-def     (ili-def-of synset)
+                             definitions (cond-> (mapv (fn [text] {:text text})
+                                                       (definition-of synset))
+                                           ili-def
+                                           (conj {:text           ili-def
+                                                  :definitionType "ili"}))]
+                         (cond-> {:id     (name sense)
+                                  :labels (-> [(name synset)]
+                                              (into (ontotype-of synset))
+                                              (into (lexfiles-of synset))
+                                              (into (domains-of synset))
+                                              (cond->
+                                                (gender-of synset)
+                                                (conj (name (gender-of synset))))
+                                              (into (marks-of sense))
+                                              (into (notes-of sense))
+                                              (into (or (sentiment-of sense)
+                                                        (sentiment-of synset))))}
+                           (seq definitions)
+                           (assoc :definitions definitions)
 
-                             (examples-of ?sense)
-                             (assoc :examples
-                                    (mapv (fn [text]
-                                            (cond-> {:text           text
-                                                     :sourceIdentity "DDO"}
-                                              headword
-                                              (assoc :headwordMarkers
-                                                     (headword-markers headword text))))
-                                          (examples-of ?sense)))
+                           (examples-of sense)
+                           (assoc :examples
+                                  (mapv (fn [text]
+                                          (cond-> {:text           text
+                                                   :sourceIdentity "DDO"}
+                                            headword
+                                            (assoc :headwordMarkers
+                                                   (headword-markers headword text))))
+                                        (examples-of sense)))
 
-                             english
-                             (assoc :headwordTranslations
-                                    (mapv (fn [text] {:text text :langCode "en"})
-                                          english)))))
-        ->entry        (fn [[word ms]]
-                         (let [headword  (headword-of word)
-                               ;; DMLex gives a sense no listingOrder, so the
-                               ;; document order is the sense order. The
-                               ;; best-connected synset leads, as in the
-                               ;; DanNet search results.
-                               rows      (sort-by (juxt (comp listing-order '?synset)
-                                                        (comp str '?sense))
-                                                  ms)
-                               inflected (->> (matching-cor-words headword (cors-of word))
-                                              (mapcat forms-of)
-                                              (merge-forms)
-                                              (sort-by (juxt (comp parse-long :tag) :text)))
-                               texts     (into #{headword} (map :text) inflected)
-                               variants  (for [v (distinct (variants-of word))
-                                               :when (not (texts v))]
-                                           {:text v})
-                               forms     (into (vec inflected) variants)]
-                           (cond-> {:id       (name word)
-                                    :headword headword
-                                    :senses   (mapv (fn [sense indicator]
-                                                      (cond-> sense
-                                                        (seq indicator)
-                                                        (assoc :indicator indicator)))
-                                                    (mapv ->sense rows)
-                                                    (indicators (map (comp label-of '?synset)
-                                                                     rows)))}
-                             (pos-of word) (assoc :partsOfSpeech [(pos-of word)])
-                             (number-of word) (assoc :homographNumber (number-of word))
-                             (sentiment-of word) (assoc :labels (sentiment-of word))
-                             (seq forms) (assoc :inflectedForms forms))))
-        entries        (->> (group-by '?word senses)
-                            (sort-by (comp str key))
-                            (map ->entry)
-                            (filterv :headword))]
+                           english
+                           (assoc :headwordTranslations
+                                  (mapv (fn [text] {:text text :langCode "en"})
+                                        english)))))
+        ->entry-map  (fn [[word rows]]
+                       (let [headword  (headword-of word)
+                             inflected (->> (matching-cor-words headword (cors-of word))
+                                            (mapcat forms-of)
+                                            (merge-forms)
+                                            (sort-by (juxt (comp parse-long :tag) :text)))
+                             texts     (into #{headword} (map :text) inflected)
+                             variants  (for [v (distinct (variants-of word))
+                                             :when (not (texts v))]
+                                         {:text v})
+                             forms     (into (vec inflected) variants)]
+                         (cond-> {:id       (name word)
+                                  :headword headword
+                                  :senses   (mapv (fn [sense indicator]
+                                                    (cond-> sense
+                                                      (seq indicator)
+                                                      (assoc :indicator indicator)))
+                                                  (mapv #(->sense-map headword %) rows)
+                                                  (indicators (map (comp label-of second)
+                                                                   rows)))}
+                           (pos-of word) (assoc :partsOfSpeech [(pos-of word)])
+                           (number-of word) (assoc :homographNumber (number-of word))
+                           (sentiment-of word) (assoc :labels (sentiment-of word))
+                           (seq forms) (assoc :inflectedForms forms))))
+        entries      (->> word->senses
+                          (map ->entry-map)
+                          (filterv :headword))]
     (merge (lexicographic-resource lang)
            {:entries            entries
             :definitionTypeTags (when (= lang "en")
@@ -970,26 +1012,23 @@
             :labelTags          (concat
                                   (for [synset (sort-by name (keys senses-of))]
                                     (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
-                                  (for [concept (sort-by name (distinct (map '?class ontological-types)))]
+                                  (for [concept ontotype-concepts]
                                     (->sense-label-tag "ontologicalType"
                                                        (descriptions concept)
                                                        concept))
-                                  (for [lexfile (sort (set (map (comp str '?lexfile) lexfiles)))]
+                                  (for [lexfile lexfile-strings]
                                     {:tag lexfile :typeTag "lexfile" :for "sense"})
-                                  (for [domain (sort (set (map (comp str '?domain) domains)))]
+                                  (for [domain domain-strings]
                                     {:tag domain :typeTag "domain" :for "sense"})
                                   (for [gender (sort-by name (set (vals gender-of)))]
                                     (->sense-label-tag "gender"
                                                        (descriptions gender)
                                                        gender))
-                                  (for [{:syms [?property ?value]}
-                                        (sort-by (comp name '?value)
-                                                 (distinct (map #(select-keys % '[?property ?value])
-                                                                sense-labels)))]
-                                    (->sense-label-tag (label-type-of ?property)
-                                                       (descriptions ?value)
-                                                       ?value))
-                                  (for [note (sort (set (map (comp str '?note) usage-notes)))]
+                                  (for [[property value] sense-label-pairs]
+                                    (->sense-label-tag (label-type-of property)
+                                                       (descriptions value)
+                                                       value))
+                                  (for [note note-strings]
                                     {:tag note :typeTag "usage" :for "sense"})
                                   (localize lang norm-label-tags)
                                   (localize lang sentiment-label-tags))
@@ -997,23 +1036,22 @@
             :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
 
 (defn license-comment
-  "An XML comment stating the licence of the DanNet `version` DMLex export.
+  "The text of an XML comment stating the licence of the DanNet `version`
+  DMLex export.
 
   DMLex 1.0 has no slot for licence metadata — the XSD only allows title, uri
   and langCode on lexicographicResource, and the JSON schema closes the object
   with additionalProperties: false — so the XML carries the licence as a
   schema-transparent comment."
   [version]
-  (str "<!--\n"
-       "DanNet " version " as DMLex.\n"
+  (str "\nDanNet " version " as DMLex.\n"
        "Combines DanNet and DDS (both CC BY-SA 4.0) with the CC0-licensed\n"
        "parts of COR and English equivalents from the Open English Wordnet\n"
        "(CC BY 4.0). The combined dataset is licensed under CC BY-SA 4.0:\n"
        "https://creativecommons.org/licenses/by-sa/4.0/\n"
        "Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and Center\n"
        "for Sprogteknologi (CST), University of Copenhagen. See README.txt\n"
-       "for full attribution.\n"
-       "-->\n"))
+       "for full attribution.\n"))
 
 (defn export-metadata
   "Dataset metadata for the DanNet `version` DMLex export in `lang`, shipped in
@@ -1082,9 +1120,8 @@
         readme-file  (str dir "README.txt")
         zip-path     (str dir (prefix/export-file "dmlex" 'dn langCode))]
     (io/make-parents xml-file)
-    (spit xml-file (str/replace-first (xml-str resource) "?>"
-                                      (str "?>\n" (license-comment release/to))))
-    (spit json-file (json-str resource))
+    (write-xml! xml-file (license-comment release/to) resource)
+    (write-json! json-file resource)
     (spit meta-file (with-out-str
                       (json/pprint (export-metadata release/to langCode)
                                    :escape-slash false
@@ -1100,15 +1137,25 @@
                    zip-path))
   (println "DMLex export of DanNet complete!"))
 
+(defn export-dmlex-variants!
+  "Export both language variants of the DMLex zip into `dir` from `db`.
+
+  The raw query rows are indexed once and shared between the variants, and
+  each variant's resource is built and released in turn."
+  [dir db]
+  (let [indices (->indices (run-queries db))]
+    (doseq [lang ["da" "en"]]
+      (export-dmlex! dir (->resource lang indices)))))
+
 (comment
-  (def query-results
-    (time (run-queries @dk.cst.dannet.web.instance/db)))
+  (time (export-dmlex-variants! "export/dmlex/" @dk.cst.dannet.web.instance/db))
+
+  ;; Exploring the intermediate structure.
+  (def indices
+    (time (->indices (run-queries @dk.cst.dannet.web.instance/db))))
 
   (def resource
-    (time (->resource "da" query-results)))
-
-  (def resource-en
-    (time (->resource "en" query-results)))
+    (time (->resource "da" indices)))
 
   (count (:entries resource))
   (count (:labelTags resource))
@@ -1116,5 +1163,4 @@
   (first (:entries resource))
 
   (time (export-dmlex! "export/dmlex/" resource))
-  (time (export-dmlex! "export/dmlex/" resource-en))
   #_.)
