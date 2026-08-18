@@ -130,3 +130,15 @@ Reader conditionals (`#?`) only in genuinely cross-platform code; complex
 destructuring only for tree/Hiccup shapes; metadata only when something
 actually consumes it; dynamic vars only for infrastructure (connections,
 servers). Most code should use the simpler alternative.
+
+## No better-cond inside rum/defc bodies
+
+Never use better-cond's special keywords (`:let`, `:when-let`, `:when`)
+inside a `rum/defc` body. The CLJ expansion is correct, but rum/daiquiri's
+hiccup compilation macroexpands the CLJS body in an environment that loses
+the better-cond refer, so `cond` silently degrades to `clojure.core/cond`:
+the keyword becomes a truthy test and the binding vector is rendered as the
+branch. SSR looks fine while the browser renders garbage, so the bug is
+invisible from the backend. Hoist the bindings into a plain `let` above the
+`cond` instead. Plain `defn`s are unaffected (e.g. `transform-val*` uses
+better-cond in CLJC without issue).
