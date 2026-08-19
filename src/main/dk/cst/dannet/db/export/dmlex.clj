@@ -118,7 +118,9 @@
                   "en" "Inflected form outside the official spelling norm"}}])
 
 (def source-identity-tags
-  "The single source of the DanNet sense examples."
+  "The single source of the DanNet sense examples. The deep link to the DDO
+  definition of a sense travels on each of its examples as the
+  sourceElaboration attribute."
   [{:tag         "DDO"
     :description {"da" "Den Danske Ordbog"
                   "en" "Den Danske Ordbog (The Danish Dictionary)"}
@@ -496,6 +498,7 @@
      :senses            (q/run g op/sense-query)
      :definitions       (q/run g op/definition-query)
      :examples          (q/run g op/example-query)
+     :sources           (q/run g op/source-query)
      :domains           (q/run g op/domain-query)
      :lexfiles          (q/run g op/lexfile-query)
      :word-variants     (q/run g op/variant-query)
@@ -851,11 +854,11 @@
   The symbol-keyed rows dominate the memory footprint of `run-queries` and can
   be released as soon as this returns; the indices share their strings and
   keywords."
-  [{:keys [words senses definitions examples domains lexfiles word-variants
-           ontological-types synset-labels short-labels member-labels
-           polysemy genders sense-labels usage-notes ilis ili-definitions
-           oewn-lemmas cor-links cor-forms sentiment descriptions indegrees
-           obverse-of relations]}]
+  [{:keys [words senses definitions examples sources domains lexfiles
+           word-variants ontological-types synset-labels short-labels
+           member-labels polysemy genders sense-labels usage-notes ilis
+           ili-definitions oewn-lemmas cor-links cor-forms sentiment
+           descriptions indegrees obverse-of relations]}]
   (let [listing-order (listing-order-fn indegrees)
         label-of      (merge (index synset-labels '?synset (comp str '?label))
                              (index short-labels '?synset (comp str '?label)))
@@ -874,6 +877,12 @@
      :number-of         (homograph-numbers words)
      :definition-of     (index-many definitions '?synset (comp str '?definition))
      :examples-of       (index-many examples '?sense (comp str '?example))
+     ;; A handful of subjects carry two dns:source URLs; the sorted vector of
+     ;; index-many makes the pick of the first deterministic.
+     :source-of         (update-vals (index-many sources '?s
+                                                 (comp prefix/rdf-resource->uri
+                                                       '?source))
+                                     first)
      :domains-of        (index-many domains '?synset (comp str '?domain))
      :domain-strings    (sort (set (map (comp str '?domain) domains)))
      :lexfiles-of       (index-many lexfiles '?synset (comp str '?lexfile))
@@ -921,8 +930,8 @@
   word with an unusable part of speech keeps its entry, since DMLex does not
   require one."
   [lang {:keys [descriptions obverse-of relations member-order pos-of
-                headword-of number-of definition-of examples-of domains-of
-                domain-strings lexfiles-of lexfile-strings variants-of
+                headword-of number-of definition-of examples-of source-of
+                domains-of domain-strings lexfiles-of lexfile-strings variants-of
                 ontotype-of ontotype-concepts gender-of marks-of
                 sense-label-pairs notes-of note-strings label-of
                 plain-label-of ili-of ili-key-of ili-definition-of english-of
@@ -962,6 +971,10 @@
                                   (mapv (fn [text]
                                           (cond-> {:text           text
                                                    :sourceIdentity "DDO"}
+                                            (source-of sense)
+                                            (assoc :sourceElaboration
+                                                   (source-of sense))
+
                                             headword
                                             (assoc :headwordMarkers
                                                    (headword-markers headword text))))

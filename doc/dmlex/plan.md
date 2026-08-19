@@ -668,6 +668,19 @@ Date: 18 August 2026. One refinement of item 4 of the third round.
    by. The synonym members now carry an order too: within their one synset,
    the position alone separates them.
 
+### 9.12 Fifth round: DDO deep links on the examples
+
+Date: 19 August 2026. GitHub issue #208.
+
+1. Put the DDO deep link of each sense on each of its examples as the
+   `sourceElaboration` attribute. The `dns:source` URL of a sense points at
+   the full definition in the legacy DDO interface at gammel.ordnet.dk
+   (GitHub issue #192), and `sourceElaboration` is the one DMLex property on
+   an example that can hold it. 38656 of the 44014 senses with examples carry
+   the link. A handful of subjects state two `dns:source` URLs; the export
+   picks the alphabetically first. The sense URLs without examples and the
+   word URLs still have no home; see open question 8.
+
 ## 10. Open questions
 
 For the ELEXAI project:
@@ -689,10 +702,12 @@ Internal:
 7. ANSWERED. One tag for each DanNet concept replaced the composite tag in
    the second round. Section 7 gives the reason, and the bag order survives
    as the label order of each sense.
-8. PARTLY ANSWERED. Every example now carries `sourceIdentity="DDO"`. The
-   sense-level DDO URLs stay out: a DMLex sense has no `sameAs`, and one
-   `labelTag` for each URL would double the identity register of section 5.3.
-   They return only if ELEXAI asks for them. See section 14.3.
+8. PARTLY ANSWERED. Every example carries `sourceIdentity="DDO"`, and since
+   the fifth round (GitHub issue #208) the DDO deep link of the sense rides
+   on each of its examples as `sourceElaboration`. A sense without examples
+   and a word still have no home for their URL: a DMLex sense has no
+   `sameAs`, and one `labelTag` for each URL would double the identity
+   register of section 5.3. See section 14.3.
 9. ANSWERED. What do the COR inflection codes mean? The `rdfs:label` of each
    COR form gives a readable label for its code. Section 9.7 gives the method.
 10. ANSWERED. What happens to `marl:polarityValue`? The export declares a second
@@ -927,7 +942,7 @@ so that "left out" is never an accident of the query list.
 
 | Data | Count | Reason |
 |---|---|---|
-| `dns:source`, the DDO URL of a sense or a word | 120416 | a DMLex sense has no `sameAs`; see open question 8 |
+| `dns:source`, the DDO URL of a sense or a word | 120416 | partly exported since the fifth round: a sense with examples carries its URL as their `sourceElaboration`; the rest stays out, because a DMLex sense has no `sameAs`. See open question 8 |
 | `dns:dslSense`, the DSL id of a sense | 2203 | the same reason |
 | `skos:altLabel` on merged senses | 63 | the same reason |
 | `dns:inherited`, `dns:inheritedRelation`, `dns:inheritedFrom` | 70775 | DMLex has no property for the provenance of a relation |
@@ -953,7 +968,7 @@ models.
 | register, dating, frequency, usage, gender labels | full | a label is a category from a declared inventory |
 | subject fields and lexicographer files | full | a domain is the label use that the standard itself names |
 | ontological type concepts | full | one label per declared concept, in bag order |
-| example sources | full | `sourceIdentity` with a declared tag |
+| example sources | full | `sourceIdentity` with a declared tag, the DDO deep link as `sourceElaboration` |
 | semantic relations | full | the Linking module carries them with declared roles |
 | synset identity | by convention | DMLex has no object for a shared concept. See finding 1 |
 | sentiment value | by convention | a number becomes an inventory of category tags. See finding 8 |

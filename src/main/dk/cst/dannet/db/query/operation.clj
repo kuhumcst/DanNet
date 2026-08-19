@@ -419,6 +419,12 @@
     "SELECT ?sense ?example
      WHERE { ?sense lexinfo:senseExample ?example . }"))
 
+(def source-query
+  "The DDO source URL of a sense or a word."
+  (sparql
+    "SELECT ?s ?source
+     WHERE { ?s dns:source ?source . }"))
+
 (def domain-query
   (sparql
     "SELECT ?synset ?domain
