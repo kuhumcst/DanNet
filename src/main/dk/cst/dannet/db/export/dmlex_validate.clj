@@ -4,7 +4,9 @@
   schemas are used rather than the no-crosslingual variants.
 
   Needs the :validate alias, since neither validator ships with the JDK. The
-  XML schemas are XSD 1.1 and the JSON schemas are draft 2020-12."
+  XML schemas are XSD 1.1 and the JSON schemas are draft 2020-12. Validating
+  the full export needs roughly a 12 GB heap (clojure -J-Xmx12g -M:validate),
+  mostly for the identity-constraint tables over the label register."
   (:require [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [com.fasterxml.jackson.databind ObjectMapper]

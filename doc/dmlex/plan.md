@@ -668,7 +668,7 @@ Date: 18 August 2026. One refinement of item 4 of the third round.
    by. The synonym members now carry an order too: within their one synset,
    the position alone separates them.
 
-### 9.12 Fifth round: DDO deep links on the examples
+### 9.12 Fifth round: the DDO source hyperlinks
 
 Date: 19 August 2026. GitHub issue #208.
 
@@ -678,8 +678,19 @@ Date: 19 August 2026. GitHub issue #208.
    (GitHub issue #192), and `sourceElaboration` is the one DMLex property on
    an example that can hold it. 38656 of the 44014 senses with examples carry
    the link. A handful of subjects state two `dns:source` URLs; the export
-   picks the alphabetically first. The sense URLs without examples and the
-   word URLs still have no home; see open question 8.
+   picks the alphabetically first.
+
+2. Declare a source register next to the identity register of section 5.3:
+   one `labelTag` per sourced sense and per sourced word, under a new
+   labelTypeTag `source` that carries `dns:source` as its own `sameAs`. The
+   tag is the resource name, which equals the id of the entry or sense that
+   carries the label, and the `sameAs` of the tag is the URL. The register
+   covers the sourced senses without examples and every word-level URL,
+   which item 1 cannot reach: 53688 entry tags and 68195 sense tags next to
+   the 70479 synset tags -- the size that kept the URLs out until issue #208
+   asked for them. The DanNet
+   presentation config lists no `source` label type, so the web viewer hides
+   the register and navigates via the example citations instead.
 
 ## 10. Open questions
 
@@ -702,12 +713,12 @@ Internal:
 7. ANSWERED. One tag for each DanNet concept replaced the composite tag in
    the second round. Section 7 gives the reason, and the bag order survives
    as the label order of each sense.
-8. PARTLY ANSWERED. Every example carries `sourceIdentity="DDO"`, and since
-   the fifth round (GitHub issue #208) the DDO deep link of the sense rides
-   on each of its examples as `sourceElaboration`. A sense without examples
-   and a word still have no home for their URL: a DMLex sense has no
-   `sameAs`, and one `labelTag` for each URL would double the identity
-   register of section 5.3. See section 14.3.
+8. ANSWERED. Every example carries `sourceIdentity="DDO"`, and since the
+   fifth round (GitHub issue #208) the DDO URLs are in the export twice
+   over: the deep link of a sense rides on each of its examples as
+   `sourceElaboration`, and a source register of one `labelTag` per sourced
+   sense and word carries every URL as a `sameAs`. Section 9.12 gives the
+   method and the cost.
 9. ANSWERED. What do the COR inflection codes mean? The `rdfs:label` of each
    COR form gives a readable label for its code. Section 9.7 gives the method.
 10. ANSWERED. What happens to `marl:polarityValue`? The export declares a second
@@ -942,9 +953,8 @@ so that "left out" is never an accident of the query list.
 
 | Data | Count | Reason |
 |---|---|---|
-| `dns:source`, the DDO URL of a sense or a word | 120416 | partly exported since the fifth round: a sense with examples carries its URL as their `sourceElaboration`; the rest stays out, because a DMLex sense has no `sameAs`. See open question 8 |
-| `dns:dslSense`, the DSL id of a sense | 2203 | the same reason |
-| `skos:altLabel` on merged senses | 63 | the same reason |
+| `dns:dslSense`, the DSL id of a sense | 2203 | no DMLex home for a bare external id; 1530 of the ids also sit inside the `def_id` of the sense's exported source URL |
+| `skos:altLabel` on merged senses | 63 | a DMLex sense has no property for an alternative label |
 | `dns:inherited`, `dns:inheritedRelation`, `dns:inheritedFrom` | 70775 | DMLex has no property for the provenance of a relation |
 
 NOTE: The inheritance markers show that the raw graph does not hold only what
@@ -971,6 +981,7 @@ models.
 | example sources | full | `sourceIdentity` with a declared tag, the DDO deep link as `sourceElaboration` |
 | semantic relations | full | the Linking module carries them with declared roles |
 | synset identity | by convention | DMLex has no object for a shared concept. See finding 1 |
+| sense and entry source URLs | by convention | one labelTag per sourced sense or entry, like the synset identity. See section 9.12 |
 | sentiment value | by convention | a number becomes an inventory of category tags. See finding 8 |
 | relations to other datasets | none | a member reference cannot leave the file. See finding 2 |
 

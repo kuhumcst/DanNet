@@ -83,7 +83,11 @@
     :sameAs      [(str (prefix/prefix->uri 'marl) "hasPolarity")]}
    {:tag         "sentimentValue"
     :description "Sentiment value from -3 (negative) to 3 (positive)"
-    :sameAs      [(str (prefix/prefix->uri 'marl) "polarityValue")]}])
+    :sameAs      [(str (prefix/prefix->uri 'marl) "polarityValue")]}
+   {:tag         "source"
+    :description {"da" "Kildehenvisning til den fulde definition i Den Danske Ordbog"
+                  "en" "Source link to the full definition in Den Danske Ordbog (DDO)"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "source")]}])
 
 (def label-type-of
   "DanNet sense property -> the DMLex labelTypeTag it belongs under."
@@ -728,6 +732,18 @@
                           (name resource))]}
     description (assoc :description description)))
 
+(defn ->source-label-tag
+  "The labelTag that carries the DDO source `url` of a DanNet `resource` --
+  a sense or a word -- as its sameAs, following the identity-register
+  convention of plan section 5.3. The tag is the resource name, which equals
+  the id of the DMLex object that carries the label; `for` names that object
+  kind."
+  [for resource url]
+  {:tag     (name resource)
+   :typeTag "source"
+   :for     for
+   :sameAs  [url]})
+
 (defn relation-roles
   "The member roles of `rel`: the role of the subject end and of the object end.
   A pair of inverse relations uses the two relation names. A symmetric relation
@@ -962,7 +978,10 @@
                                               (into (marks-of sense))
                                               (into (notes-of sense))
                                               (into (or (sentiment-of sense)
-                                                        (sentiment-of synset))))}
+                                                        (sentiment-of synset)))
+                                              (cond->
+                                                (source-of sense)
+                                                (conj (name sense))))}
                            (seq definitions)
                            (assoc :definitions definitions)
 
@@ -994,7 +1013,9 @@
                              variants  (for [v (distinct (variants-of word))
                                              :when (not (texts v))]
                                          {:text v})
-                             forms     (into (vec inflected) variants)]
+                             forms     (into (vec inflected) variants)
+                             labels    (cond-> (vec (sentiment-of word))
+                                         (source-of word) (conj (name word)))]
                          (cond-> {:id       (name word)
                                   :headword headword
                                   :senses   (mapv (fn [sense indicator]
@@ -1006,7 +1027,7 @@
                                                                    rows)))}
                            (pos-of word) (assoc :partsOfSpeech [(pos-of word)])
                            (number-of word) (assoc :homographNumber (number-of word))
-                           (sentiment-of word) (assoc :labels (sentiment-of word))
+                           (seq labels) (assoc :labels labels)
                            (seq forms) (assoc :inflectedForms forms))))
         entries      (->> word->senses
                           (map ->entry-map)
@@ -1044,7 +1065,23 @@
                                   (for [note note-strings]
                                     {:tag note :typeTag "usage" :for "sense"})
                                   (localize lang norm-label-tags)
-                                  (localize lang sentiment-label-tags))
+                                  (localize lang sentiment-label-tags)
+                                  ;; The DDO source register of section 9.12:
+                                  ;; one tag per sourced entry and sense, in
+                                  ;; the order of the entries.
+                                  (for [[word _] word->senses
+                                        :when (and (headword-of word)
+                                                   (source-of word))]
+                                    (->source-label-tag "entry" word
+                                                        (source-of word)))
+                                  (for [sense (->> word->senses
+                                                   (filter (comp headword-of first))
+                                                   (mapcat (fn [[_ rows]]
+                                                             (map first rows)))
+                                                   (distinct))
+                                        :when (source-of sense)]
+                                    (->source-label-tag "sense" sense
+                                                        (source-of sense))))
             :relations          (->relations senses-of member-order obverse-of relations)
             :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
 
