@@ -13,6 +13,7 @@
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.bootstrap.cor :as cor]
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.hash :as h]
@@ -571,6 +572,111 @@
                                  [copy :dns/dslSense dsl-id]]
                                 (for [[p o] own] [copy p o]))))))))
 
+(h/defn rebuild-cor-graph!
+  "Rebuild the cor: graph of `dataset` from the published COR source files.
+
+  The graph has been carried forward as data since the 2022 import of COR₁
+  1.02; rebuilding derives every word and form from the current edition
+  instead. The links tying COR words to DanNet words and senses have no such
+  source: the COR.EXT links still come from DSL's link file, while the COR₁
+  link file is lost, so those links survive from the graph being replaced.
+  Links whose COR word is gone from the sources are remapped via the official
+  changelogs, links to senses divided by a split are retargeted through
+  dns:dslSense (cf. 493db1c and issue #146), and links whose word or sense no
+  longer exists on either side are pruned.
+
+  Must run after split-shared-senses!, so that retargeting sees the final
+  sense IDs, and before add-in-scheme!, which re-adds skos:inScheme to the
+  rebuilt graph."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/rebuild-cor-graph
+           :data  {:version release/cor-version}}
+          "Rebuilding COR graph from source files")
+  (let [cor-graph   (db/get-graph dataset prefix/cor-uri)
+        cor-model   (db/get-model dataset prefix/cor-uri)
+        dn-graph    (db/get-graph dataset prefix/dn-uri)
+        cor-word?   (fn [x] (and (keyword? x) (= "cor" (namespace x))))
+        cor1?       (fn [x] (and (cor-word? x)
+                                 (not (str/starts-with? (name x) "COR.EXT."))))
+        ;; Every read happens before the first write -- see split-shared-senses!.
+        word-links  (->> (q/run cor-graph '[:bgp [?w :owl/sameAs ?dn]])
+                         (filter (comp cor1? '?w))
+                         (map (juxt '?w '?dn)))
+        sense-links (->> (q/run cor-graph '[:bgp [?w :ontolex/sense ?s]])
+                         (filter (comp cor1? '?w))
+                         (map (juxt '?w '?s)))
+        dn-words    (->> [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]
+                         (mapcat #(q/run dn-graph [:bgp ['?w :rdf/type %]]))
+                         (map '?w)
+                         (set))
+        dn-senses   (->> (q/run dn-graph '[:bgp [?s :rdf/type :ontolex/LexicalSense]])
+                         (map '?s)
+                         (set))
+        dsl-senses  (->> (q/run dn-graph '[:bgp [?s :dns/dslSense ?id]])
+                         (reduce (fn [m {:syms [?s ?id]}]
+                                   (update m ?id (fnil conj #{}) ?s))
+                                 {}))
+        source      (cor/source-triples)
+        cor-words   (into #{}
+                          (keep (fn [[s p _]]
+                                  (when (#{:ontolex/canonicalForm
+                                           :ontolex/otherForm} p)
+                                    s)))
+                          source)
+        remap       (cor/id-remap)
+        new-words   (fn [w]
+                      (if (cor-words w)
+                        [w]
+                        (->> (remap (name w))
+                             (map (partial keyword "cor"))
+                             (filter cor-words))))
+        new-senses  (fn [s]
+                      (if (dn-senses s)
+                        [s]
+                        (get dsl-senses (subs (name s) (count "sense-")))))
+        ext-links   (cor/ext-link-triples)
+        word-pairs  (into (set word-links)
+                          (for [[s p o] ext-links
+                                :when (and (= :owl/sameAs p) (cor-word? s))]
+                            [s o]))
+        sense-pairs (into (set sense-links)
+                          (for [[s p o] ext-links
+                                :when (= :ontolex/sense p)]
+                            [s o]))]
+    (t/trace! {:id :dannet.bootstrap/drop-cor-graph}
+      (txn/transact-exec cor-model
+        (.removeAll ^Model cor-model)))
+    ;; The source triples go in first, in bounded transactions, so that the
+    ;; multi-million member set is released before the link triples are
+    ;; computed -- holding both at once puts the 8 GB production heap under
+    ;; enough GC pressure to slow the whole rebuild by an order of magnitude.
+    (t/trace! {:id :dannet.bootstrap/add-cor-source}
+      (doseq [chunk (partition-all 500000 source)]
+        (txn/transact-exec cor-graph
+          (db/safe-add! cor-graph chunk))))
+    (let [word-triples  (set (for [[w dn] word-pairs
+                                   :when (dn-words dn)
+                                   w' (new-words w)
+                                   t [[w' :owl/sameAs dn] [dn :owl/sameAs w']]]
+                               t))
+          sense-triples (set (for [[w s] sense-pairs
+                                   w' (new-words w)
+                                   s' (new-senses s)]
+                               [w' :ontolex/sense s']))]
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/carry-cor-links
+               :data  {:in  {:word-links  (count word-pairs)
+                             :sense-links (count sense-pairs)}
+                       :out {:word-links  (/ (count word-triples) 2)
+                             :sense-links (count sense-triples)}}}
+              "Carrying COR links over to the rebuilt graph")
+      (t/trace! {:id :dannet.bootstrap/add-cor-links}
+        (txn/transact-exec cor-graph
+          (db/safe-add! cor-graph (into word-triples sense-triples))))
+      (txn/transact-exec cor-model
+        (md/update-metadata! (get md/metadata 'cor) cor-model)))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -597,6 +703,7 @@
     (merge-tinglysningskontor-synsets! dataset)
     (merge-duplicate-synsets! dataset)
     (split-shared-senses! dataset)
+    (rebuild-cor-graph! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -697,6 +804,11 @@
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
                             (:hash (meta #'make-release-changes!))
+                            (:hash (meta #'rebuild-cor-graph!))
+                            (:hash (meta #'cor/->cor-triples))
+                            (:hash (meta #'cor/->cor-ext-triples))
+                            (:hash (meta #'cor/->cor-link-triples))
+                            (:hash (meta #'cor/id-remap))
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
                             (:hash (meta #'md/add-dataset-statistics!))
@@ -716,7 +828,11 @@
                             ;; ttl isn't among the hashed input zips, so it is
                             ;; included explicitly -- otherwise bumping the
                             ;; edition wouldn't trigger a rebuild.
-                            downloads/oewn-version]
+                            downloads/oewn-version
+                            ;; The COR editions for the same reason: their
+                            ;; source files aren't among the hashed input zips.
+                            release/cor-version
+                            release/cor-ext-version]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (h/pos-hash files)
             bootstrap-hash (h/pos-hash fn-hashes)

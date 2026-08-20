@@ -19,6 +19,16 @@
   moment a release is cut, which is also what enables make-release-changes!."
   "SNAPSHOT")
 
+(def cor-version
+  "The COR₁ edition the cor: graph is built from; named in the source file
+  fetched from https://ordregister.dk/files/."
+  "1.5.1.0")
+
+(def cor-ext-version
+  "The COR.EXT edition the cor: graph is built from, versioned separately
+  from COR₁."
+  "1.0")
+
 (def bootstrap-root
   "Parent of the version-named bootstrap directories."
   "bootstrap/from")

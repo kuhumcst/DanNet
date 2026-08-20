@@ -169,12 +169,16 @@
           [<cor> :dc/title "COR"]
           [<cor> :dc/issued release/to]
           [<cor> :owl/versionInfo release/to]
+          ;; The graph itself is versioned by the DanNet release above; the
+          ;; upstream editions it is built from are stated separately.
+          [<cor> :dc/hasVersion (str "COR₁ " release/cor-version)]
+          [<cor> :dc/hasVersion (str "COR.EXT " release/cor-ext-version)]
           [<cor> :dc/contributor <cst>]
           [<cor> :dc/contributor <dsl>]
           [<cor> :dc/contributor <dsn>]
           ;; COR upstream is only partly CC0: we consume ONLY the CC0 resources
-          ;; (COR₁ 1.02 and COR.EXT 1.0). COR.SEM.EXT is CC BY-NC-ND and must NOT
-          ;; be added here without revisiting the licence (issue #96).
+          ;; (COR₁ and COR.EXT). COR.SEM.EXT is CC BY-NC-ND and must NOT be
+          ;; added here without revisiting the licence (issue #96).
           [<cor> :dc/license "<https://creativecommons.org/publicdomain/zero/1.0/>"]
           ["<https://creativecommons.org/publicdomain/zero/1.0/>" :rdfs/label "CC0 1.0"]
           [<cor> :dc/description (en "The Central Word Registry.")]

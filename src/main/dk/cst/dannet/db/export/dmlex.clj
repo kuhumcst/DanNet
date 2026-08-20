@@ -113,13 +113,19 @@
        :typeTag "sentimentValue"})))
 
 (def norm-label-tags
-  "The single norm-status tag. COR marks a form outside the spelling norm with
-  an `unormeret: ` prefix on the label of the form."
+  "The norm-status tags. COR states the norm status of a form in the
+  rdfs:comment of the ontolex:Form; the two possible comments map to these
+  tags via norm-comment->tag."
   [{:tag         "unormeret"
     :typeTag     "norm"
     :for         "inflectedForm"
     :description {"da" "Bøjningsform uden for retskrivningsnormen"
-                  "en" "Inflected form outside the official spelling norm"}}])
+                  "en" "Inflected form outside the official spelling norm"}}
+   {:tag         "sandsynligvis korrekt"
+    :typeTag     "norm"
+    :for         "inflectedForm"
+    :description {"da" "Bøjningsform som ikke er normeret, men sandsynligvis korrekt"
+                  "en" "Inflected form not formally normed, yet probably correct"}}])
 
 (def source-identity-tags
   "The single source of the DanNet sense examples. The deep link to the DDO
@@ -601,13 +607,11 @@
 
 (defn code-descriptions
   "Inflection code -> readable label, parsed from the rdfs:label of each COR
-  form, e.g. \"hundenes\"-form (sb.fk.pl.best.gen). An `unormeret: ` prefix
-  marks a form outside the spelling norm and is not part of the code, so it is
-  removed. A code whose labels disagree gets no description."
+  form, e.g. \"hundenes\"-form (sb.fk.pl.best.gen). A code whose labels
+  disagree gets no description."
   [cor-forms]
   (let [label #(some-> (re-find #"\(([^)]*)\)\s*$" (str (get % '?label)))
-                       (second)
-                       (str/replace #"^unormeret: " ""))]
+                       (second))]
     (->> (group-by (comp inflection-code '?form) cor-forms)
          (keep (fn [[code rows]]
                  (let [labels (into #{} (keep label) rows)]
@@ -615,23 +619,35 @@
                      [code (first labels)]))))
          (into {}))))
 
+(def norm-comment->tag
+  "The rdfs:comment a COR form carries for its norm status (see the
+  normativity table in dk.cst.dannet.db.bootstrap.cor) mapped to the
+  matching norm-status label tag."
+  {"unormeret"                                 "unormeret"
+   "ikke normeret, men sandsynligvis korrekt" "sandsynligvis korrekt"})
+
 (defn ->cor-form
   "The DMLex inflectedForm of one COR form row, with the norm status of the
-  form as a label. The `unormeret: ` prefix inside the parenthesized part of
-  the rdfs:label marks a form outside the spelling norm."
-  [{:syms [?form ?writtenRep ?label]}]
+  form -- the rdfs:comment of the ontolex:Form -- as a label."
+  [{:syms [?form ?writtenRep ?comment]}]
   (cond-> {:tag  (inflection-code ?form)
            :text (str ?writtenRep)}
-    (str/includes? (str ?label) "(unormeret: ") (assoc :labels ["unormeret"])))
+    (norm-comment->tag (str ?comment))
+    (assoc :labels [(norm-comment->tag (str ?comment))])))
 
 (defn merge-forms
   "Deduplicate the inflected `forms` of one entry on the pair of tag and text,
-  which the XSD makes unique. A merged form stays outside the spelling norm
-  only when every copy is."
+  which the XSD makes unique. A merged form keeps the strongest norm status
+  among its copies: fully normed beats probably correct, which in turn beats
+  unnormed."
   [forms]
-  (for [[[tag text] copies] (group-by (juxt :tag :text) forms)]
+  (for [[[tag text] copies] (group-by (juxt :tag :text) forms)
+        :let [statuses (map (comp first :labels) copies)]]
     (cond-> {:tag tag :text text}
-      (every? :labels copies) (assoc :labels ["unormeret"]))))
+      (every? some? statuses)
+      (assoc :labels [(if (some #{"sandsynligvis korrekt"} statuses)
+                        "sandsynligvis korrekt"
+                        "unormeret")]))))
 
 (defn sentiment-labels
   "Subject -> its sentiment label tags, e.g. [\"Positive\" \"2\"]. The fault

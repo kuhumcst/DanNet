@@ -17,8 +17,9 @@ data from four source datasets:
     https://github.com/dsldk/danish-sentiment-lexicon
 
   * COR (Det Centrale Ordregister / The Central Word Registry)
-    — the CC0-licensed resources COR(1) and COR.EXT published by
-    Dansk Sprognævn (DSN): https://ordregister.dk
+    — the CC0-licensed resources COR(1) {cor-version} and COR.EXT
+    {cor-ext-version} published by Dansk Sprognævn (DSN):
+    https://ordregister.dk
 
   * OEWN (the Open English Wordnet) — CC BY 4.0, © the Open English
     Wordnet contributors: https://en-word.net

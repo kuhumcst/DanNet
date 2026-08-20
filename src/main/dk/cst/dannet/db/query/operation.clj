@@ -552,11 +552,12 @@
 
 (def cor-form-query
   (sparql
-    "SELECT ?cor ?form ?writtenRep ?label
+    "SELECT ?cor ?form ?writtenRep ?label ?comment
      WHERE {
        ?cor ontolex:otherForm ?form .
        ?form ontolex:writtenRep ?writtenRep ;
              rdfs:label ?label .
+       OPTIONAL { ?form rdfs:comment ?comment }
      }"))
 
 (def sentiment-query

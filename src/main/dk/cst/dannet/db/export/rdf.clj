@@ -92,11 +92,14 @@
 (defn render-readme
   "Read the README template `readme` (under resources/export/readmes/) and fill
   in the `version` placeholders. The OEWN labels track the DanNet release, so
-  {version} and {oewn-version} resolve to the same string."
+  {version} and {oewn-version} resolve to the same string; the COR editions
+  are versioned upstream and resolve from dk.cst.dannet.release."
   [readme version]
   (-> (slurp (io/resource (str "export/readmes/" readme)))
       (str/replace "{version}" version)
-      (str/replace "{oewn-version}" version)))
+      (str/replace "{oewn-version}" version)
+      (str/replace "{cor-version}" release/cor-version)
+      (str/replace "{cor-ext-version}" release/cor-ext-version)))
 
 (defn copy-license!
   "Copy the bundled licence text for `license-key` to `dest` (typically a file
