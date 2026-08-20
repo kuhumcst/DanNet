@@ -28,5 +28,7 @@ jobs:
           key: clj-${{ hashFiles('deps.edn') }}
           restore-keys: clj-
 
+      # :validate carries the XSD 1.1 and JSON Schema validators that the
+      # DMLex validation tests need; see dmlex_validate.clj
       - name: Run tests
-        run: clojure -X:test
+        run: clojure -X:validate:test

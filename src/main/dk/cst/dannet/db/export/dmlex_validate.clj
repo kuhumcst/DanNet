@@ -6,12 +6,16 @@
   Needs the :validate alias, since neither validator ships with the JDK. The
   XML schemas are XSD 1.1 and the JSON schemas are draft 2020-12.
 
-  The XSD asserts are stripped from the schema before it is compiled and are
-  re-checked in a streaming pass instead; see `strip-asserts!` for why."
+  Neither file is ever held in memory whole. The XSD asserts are stripped from
+  the schema before it is compiled and re-checked in a streaming pass instead,
+  for the reason `strip-asserts!` gives, and the JSON is validated an item at a
+  time as `validate-json` describes."
   (:require [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import [com.fasterxml.jackson.databind ObjectMapper]
-           [com.networknt.schema JsonSchemaFactory SpecVersion$VersionFlag]
+  (:import [com.fasterxml.jackson.core JsonParser JsonProcessingException JsonToken]
+           [com.fasterxml.jackson.databind JsonNode ObjectMapper]
+           [com.fasterxml.jackson.databind.node ArrayNode ObjectNode]
+           [com.networknt.schema JsonSchema JsonSchemaFactory SpecVersion$VersionFlag]
            [javax.xml.parsers DocumentBuilderFactory]
            [javax.xml.stream XMLInputFactory XMLStreamConstants XMLStreamException
             XMLStreamReader]
@@ -305,20 +309,239 @@
        {:errors         (into (vec errors) (take limit) (validate-asserts f))
         :schema-defects (count defects)}))))
 
+(def item-only-keywords
+  "The JSON Schema keywords an array property may use and still be validated
+  one item at a time.
+
+  Anything else, uniqueItems above all, weighs the array as a whole and so
+  needs every item in memory at once. Such an array is kept whole, which is
+  safe but not cheap: were a later schema to put one of those keywords on
+  entries, validation would stay correct and quietly grow again."
+  #{"type" "items" "description" "$comment"})
+
+(defn ^JsonSchemaFactory json-schema-factory
+  "A factory for the 2020-12 dialect that the DMLex JSON schemas declare."
+  []
+  (JsonSchemaFactory/getInstance SpecVersion$VersionFlag/V202012))
+
+(defn field-names
+  "The names of the fields of the JSON object `node`."
+  [^JsonNode node]
+  (iterator-seq (.fieldNames node)))
+
+(defn ^JsonSchema sub-schema
+  "Compile the `fragments` of the root schema node `root` into one schema.
+
+  The $defs of `root` come along, so a $ref inside a fragment still resolves."
+  [^JsonNode root fragments]
+  (let [mapper (ObjectMapper.)
+        array  (reduce (fn [^ArrayNode a ^JsonNode f] (.add a f))
+                       (.createArrayNode mapper) fragments)
+        node   (doto (.createObjectNode mapper)
+                 (.set "$schema" (.get root "$schema"))
+                 (.set "$defs" (.get root "$defs"))
+                 (.set "allOf" array))]
+    (.getSchema (json-schema-factory) ^JsonNode node)))
+
+(defn ^JsonNode resource-properties
+  "The properties of a lexicographicResource in the root schema node `root`."
+  [^JsonNode root]
+  (-> root (.get "$defs") (.get "lexicographicResource") (.get "properties")))
+
+(defn ^JsonNode resource-branch
+  "The oneOf branch of the root schema node `root` that covers a
+  lexicographicResource, the other one being a standalone entry."
+  [^JsonNode root]
+  (->> (.get root "oneOf")
+       (filter #(= "#/$defs/lexicographicResource"
+                   (some-> ^JsonNode % (.get "$ref") (.asText))))
+       (first)))
+
+(defn streamable?
+  "Does per-item validation cover the array property `property` in full?"
+  [^JsonNode property]
+  (and (= "array" (some-> (.get property "type") (.asText)))
+       (every? item-only-keywords (field-names property))))
+
+(defn streamable-properties
+  "The names of the array properties of the root schema node `root` that can be
+  read and validated one item at a time."
+  [^JsonNode root]
+  (let [properties (resource-properties root)]
+    (into #{}
+          (filter (fn [^String k] (streamable? (.get properties k))))
+          (field-names properties))))
+
+(defn applied-conditions
+  "The extra per-property constraints that the root schema node `root` puts on
+  the document `doc`, by property name, or nil when there is no condition or
+  it does not hold.
+
+  The schema only compels a translation to name its langCode when the resource
+  does not declare exactly one translationLanguage. Nothing short of the whole
+  document settles that, which is why the skeleton is read first."
+  [^JsonNode root ^JsonNode doc]
+  ;; the answer is sound because the condition weighs translationLanguages,
+  ;; which the skeleton keeps whole; one weighing a streamed property would
+  ;; meet an empty array here, which is what streaming-obstacle refuses. A
+  ;; schema may also carry no condition at all, as the no-crosslingual
+  ;; variant does.
+  (when-let [condition (some-> (resource-branch root) (.get "if"))]
+    (when (empty? (.validate (sub-schema root [condition]) doc))
+      (let [properties (-> (resource-branch root) (.get "then") (.get "properties"))]
+        (into {}
+              (map (juxt identity (fn [^String k] (.get properties k))))
+              (field-names properties))))))
+
+(defn item-schemas
+  "The schema for one item of each array property named in `streamed`, by that
+  name, drawn from the root schema node `root` and the `conditions` in force."
+  [^JsonNode root streamed conditions]
+  (let [properties (resource-properties root)]
+    (into {} (for [^String k streamed]
+               [k (sub-schema root (keep identity
+                                         [(.get ^JsonNode (.get properties k) "items")
+                                          (some-> ^JsonNode (get conditions k) (.get "items"))]))]))))
+
+(defn node-seq
+  "The JSON node `node` and every node below it."
+  [^JsonNode node]
+  (tree-seq #(.isContainerNode ^JsonNode %)
+            #(iterator-seq (.elements ^JsonNode %))
+            node))
+
+(defn foreign-refs
+  "The $ref targets of the schema node `root` that point outside its $defs."
+  [^JsonNode root]
+  (->> (node-seq root)
+       (keep #(some-> ^JsonNode % (.get "$ref") (.asText)))
+       (remove #(str/starts-with? % "#/$defs/"))
+       (distinct)))
+
+(defn condition-names
+  "Every name the condition of the root schema node `root` mentions.
+
+  A condition can name a property as a field, under properties, or as a plain
+  string, under required. Both are gathered, since either would mean the
+  condition weighs it."
+  [^JsonNode root]
+  (if-let [condition (some-> (resource-branch root) (.get "if"))]
+    (let [nodes (node-seq condition)]
+      (distinct (concat (mapcat field-names nodes)
+                        (keep #(when (.isTextual ^JsonNode %) (.asText ^JsonNode %))
+                              nodes))))
+    ()))
+
+(defn streaming-obstacle
+  "What stops the schema node `root` from being validated one item at a time,
+  as a sentence, or nil when nothing does.
+
+  Reading the document item by item rests on two properties of the schema.
+  Every $ref must point into $defs, because an item is judged by a subschema
+  that carries the $defs and nothing else. And the root condition must weigh
+  no property that the skeleton empties, or it would be settled against an
+  empty array. Both hold for DMLex 1.0; checking them means a later schema
+  fails loudly rather than passing documents nobody looked at."
+  [^JsonNode root streamed]
+  (let [refs      (foreign-refs root)
+        condition (filter streamed (condition-names root))]
+    (cond
+      (seq refs)
+      (str "these $ref targets point outside $defs: " (str/join ", " refs))
+
+      (seq condition)
+      (str "the root condition weighs " (str/join ", " condition)
+           ", which is read one item at a time and so reaches it empty"))))
+
+(defn skeleton
+  "The JSON document in the file `f` with every property named in `streamed`
+  emptied out.
+
+  What remains carries the constraints that no single item can answer for:
+  the required properties, additionalProperties, and the array keywords that
+  weigh a whole array."
+  [f streamed]
+  (let [mapper (ObjectMapper.)]
+    (with-open [parser (.createParser mapper (io/file f))]
+      (if-not (= JsonToken/START_OBJECT (.nextToken parser))
+        ;; nothing to leave out of a document that is not even an object, so
+        ;; hand the schema the value itself and let it say what it is
+        (.readTree mapper (io/file f))
+        (loop [^ObjectNode node (.createObjectNode mapper)]
+          (if-not (= JsonToken/FIELD_NAME (.nextToken parser))
+            node
+            (let [k (.currentName parser)
+                  v (do (.nextToken parser)
+                        (if (streamed k)
+                          (do (.skipChildren parser)
+                              (.createArrayNode mapper))
+                          (.readValueAsTree parser)))]
+              (recur (doto node (.set k ^JsonNode v))))))))))
+
+(defn array-errors
+  "The errors of the array that `parser` points at, validated item by item
+  against `schema`.
+
+  Every message names the `property` and the index it came from, since the
+  schema itself only ever sees one item."
+  [^JsonParser parser ^JsonSchema schema property]
+  (loop [i      0
+         errors []]
+    (if (= JsonToken/END_ARRAY (.nextToken parser))
+      errors
+      (recur (inc i)
+             (into errors
+                   (map #(str property "[" i "] " %))
+                   (.validate schema ^JsonNode (.readValueAsTree parser)))))))
+
+(defn item-errors
+  "The errors of every item of the array properties in `schemas`, read from the
+  JSON file `f` one item at a time."
+  [f schemas]
+  (with-open [parser (.createParser (ObjectMapper.) (io/file f))]
+    (.nextToken parser)                                     ; the opening brace
+    (loop [errors []]
+      (if-not (= JsonToken/FIELD_NAME (.nextToken parser))
+        errors
+        (let [k (.currentName parser)]
+          (.nextToken parser)
+          (if-let [schema (schemas k)]
+            (recur (into errors (array-errors parser schema k)))
+            (do (.skipChildren parser)
+                (recur errors))))))))
+
 (defn validate-json
   "Validate the DMLex JSON file `f` against the 2020-12 schema. Returns the
-  first `limit` messages, or an empty vector when the file is valid."
+  first `limit` messages, or an empty vector when the file is valid.
+
+  The file is read twice and never held whole: a skeleton pass for what the
+  document says as a whole, then an item pass that judges each entry, relation
+  and tag on its own and drops it again. `streaming-obstacle` guards the two
+  properties of the schema that this rests on.
+
+  One document defeats the item pass: JSON that names a top-level property
+  twice. A whole-document reader keeps the last of them, while a pass that
+  goes forward only sees both, so duplicate entries arrays are reported rather
+  than shadowed. The DMLex export writes from a map and cannot produce one."
   ([f]
    (validate-json f 25))
   ([f limit]
-   (let [factory (JsonSchemaFactory/getInstance SpecVersion$VersionFlag/V202012)
-         schema  (with-open [in (io/input-stream json-schema)]
-                   (.getSchema factory in))
-         node    (.readTree (ObjectMapper.) (io/file f))]
-     (->> (.validate schema node)
-          (map str)
-          (take limit)
-          (vec)))))
+   (let [root     (.readTree (ObjectMapper.) (io/file json-schema))
+         streamed (streamable-properties root)]
+     (when-let [obstacle (streaming-obstacle root streamed)]
+       (throw (ex-info (str "cannot validate " json-schema " one item at a "
+                            "time: " obstacle)
+                       {:schema json-schema :obstacle obstacle})))
+     (try
+       (let [doc        (skeleton f streamed)
+             conditions (applied-conditions root doc)
+             schemas    (item-schemas root streamed conditions)]
+         (->> (concat (map str (.validate (.getSchema (json-schema-factory) ^JsonNode root) doc))
+                      (item-errors f schemas))
+              (take limit)
+              (vec)))
+       (catch JsonProcessingException e
+         [(str "could not parse the file: " (.getMessage e))])))))
 
 (defn validate-dmlex!
   "Validate the two DMLex files of the `lang` variant in `dir` and print the
