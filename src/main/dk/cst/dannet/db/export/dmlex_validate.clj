@@ -22,7 +22,7 @@
            [javax.xml.transform.dom DOMSource]
            [javax.xml.transform.stream StreamSource]
            [javax.xml.validation Schema SchemaFactory]
-           [org.w3c.dom Document Node]
+           [org.w3c.dom Document Element Node]
            [org.xml.sax ErrorHandler]))
 
 (def xsd11-uri
@@ -63,7 +63,9 @@
   "Xerces error codes that a defect in the DMLex XSD causes, not our document.
   Every identity constraint of the schema keys on a mixed content element, e.g.
   entryUnique on headword, and XSD needs a simple type there. A field then
-  gives cvc-id.3, or a null value that looks like a duplicate."
+  gives cvc-id.3, or a null value that looks like a duplicate. Filtering them
+  also throws away what the constraints were for, which is why
+  `validate-identity` checks the ids and references itself."
   #{"cvc-id.3" "cvc-identity-constraint.4.1"})
 
 (defn schema-defect?
@@ -71,6 +73,55 @@
   [{:keys [message] :as error}]
   ;; boolean, since validate-xml groups the errors by this very value
   (boolean (some #(str/starts-with? message %) schema-defect-codes)))
+
+(def checked-asserts
+  "Every xs:assert of dmlex.xsd, as the complexType that carries it and the
+  test it reads, that `validate-asserts` re-checks in full.
+
+  `strip-asserts!` takes every assert out of the schema, so one that nobody
+  transcribed into `validate-asserts` would quietly stop being checked at all.
+  Holding the schema against this list turns that silence into a refusal. The
+  entryTypeRequiredLangCode assert is listed as covered by omission: it only
+  bites in a standalone <entry> document, which the export never writes."
+  #{["lexicographicResourceType"
+     (str "count(translationLanguage)=1 or "
+          "(count(.//headwordTranslation[not(@langCode)])=0 and "
+          "count(.//headwordExplanation[not(@langCode)])=0 and "
+          "count(.//exampleTranslation[not(@langCode)])=0)")]
+    ["entryType" "string-length(headword)>0"]
+    ["entryTypeRequiredLangCode"
+     (str "count(.//headwordTranslation[not(@langCode)])=0 and "
+          "count(.//headwordExplanation[not(@langCode)])=0 and "
+          "count(.//exampleTranslation[not(@langCode)])=0")]
+    ["definitionType" "string-length(text)>0"]
+    ["exampleType" "string-length(text)>0"]
+    ["headwordTranslationType" "string-length(text)>0"]
+    ["exampleTranslationType" "string-length(text)>0"]
+    ["pronunciationType" "transcription or @soundFile"]
+    ["partOfSpeechTagType" "string-length(description)>0"]})
+
+(defn assert-owner
+  "The name of the complexType that the xs:assert `node` sits in."
+  [^Node node]
+  (loop [^Node parent (.getParentNode node)]
+    (cond
+      (nil? parent)                     nil
+      (= "complexType" (.getLocalName parent)) (.getAttribute ^Element parent "name")
+      :else                             (recur (.getParentNode parent)))))
+
+(defn schema-asserts
+  "Every xs:assert of the schema document `doc`, as a [complexType test] pair."
+  [^Document doc]
+  (let [nodes (.getElementsByTagNameNS doc xs-uri "assert")]
+    (into #{} (for [i (range (.getLength nodes))
+                    :let [^Element node (.item nodes i)]]
+                [(assert-owner node) (.getAttribute node "test")]))))
+
+(defn unchecked-asserts
+  "The xs:asserts of the schema document `doc` that nothing re-checks once
+  `strip-asserts!` has taken them out."
+  [^Document doc]
+  (remove checked-asserts (schema-asserts doc)))
 
 (defn strip-asserts!
   "Remove every xs:assert from the schema document `doc` and return the number
@@ -91,12 +142,19 @@
     (count asserts)))
 
 (defn ^Schema assert-free-schema
-  "Compile the XSD 1.1 schema in the file `f` with its xs:asserts stripped."
+  "Compile the XSD 1.1 schema in the file `f` with its xs:asserts stripped.
+
+  Refuses a schema that carries an assert `validate-asserts` does not cover,
+  rather than dropping it from validation without a word."
   [f]
   (let [factory (doto (DocumentBuilderFactory/newInstance)
                   ;; getElementsByTagNameNS only matches in an aware document
                   (.setNamespaceAware true))
         doc     (.parse (.newDocumentBuilder factory) (io/file f))]
+    (when-let [unchecked (seq (unchecked-asserts doc))]
+      (throw (ex-info (str "refusing to strip asserts from " f
+                           " that nothing re-checks: " (pr-str unchecked))
+                      {:schema f :unchecked unchecked})))
     (strip-asserts! doc)
     (.newSchema (SchemaFactory/newInstance xsd11-uri) (DOMSource. doc))))
 
@@ -159,14 +217,38 @@
   "The lexicographicResource assert violation in `resource`, or nil.
 
   A translation may only omit its @langCode when the resource declares exactly
-  one <translationLanguage>."
-  [{:keys [line langs langless] :as resource}]
-  (when (and (not= 1 langs) (pos? langless))
+  one <translationLanguage>. A document that is not one lexicographicResource
+  is reported as such instead, since these counts then say nothing: they run
+  across the whole document rather than per resource."
+  [{:keys [line langs langless resources] :as resource}]
+  (cond
+    (not= 1 resources)
+    {:severity :fatal
+     :line     line
+     :message  (str "found " resources " <lexicographicResource> where this "
+                    "check covers exactly one, so its asserts went unchecked")}
+
+    (and (not= 1 langs) (pos? langless))
     {:severity :error
      :line     line
      :message  (str "<lexicographicResource> declares " langs
                     " <translationLanguage>, but holds " langless
                     " translations without a @langCode")}))
+
+(defn ^XMLInputFactory input-factory
+  "A StAX factory for reading a DMLex export.
+
+  Coalescing gives one CHARACTERS event per run of text, CDATA included, which
+  keeps a running character count a plain sum. The entity limits are lifted
+  because the DDO URLs escape their & as &amp;, and a document holding enough
+  of those trips the accounting the JDK keeps against entity-expansion
+  attacks. These are files we wrote ourselves."
+  []
+  (doto (XMLInputFactory/newInstance)
+    (.setProperty XMLInputFactory/IS_COALESCING true)
+    (.setProperty "jdk.xml.maxGeneralEntitySizeLimit" "0")
+    (.setProperty "jdk.xml.totalEntitySizeLimit" "0")
+    (.setProperty "jdk.xml.entityExpansionLimit" "0")))
 
 (defn stream-error
   "The fatal error that the parse failure `e` represents."
@@ -202,7 +284,8 @@
   [resource ^XMLStreamReader r el]
   (cond-> resource
     (= "lexicographicResource" el)
-    (assoc :line (.getLineNumber (.getLocation r)))
+    (-> (assoc :line (.getLineNumber (.getLocation r)))
+        (update :resources inc))
 
     (= "translationLanguage" el)
     (update :langs inc)
@@ -270,13 +353,9 @@
   before it can be trusted."
   [f]
   (with-open [in (io/input-stream f)]
-    (let [factory (doto (XMLInputFactory/newInstance)
-                    ;; one CHARACTERS event per run of text, CDATA included,
-                    ;; which keeps :chars a plain running total
-                    (.setProperty XMLInputFactory/IS_COALESCING true))
-          r       (.createXMLStreamReader factory in)]
+    (let [r (.createXMLStreamReader (input-factory) in)]
       (try
-        (loop [scan {:frames [] :resource {:langs 0 :langless 0} :errors []}]
+        (loop [scan {:frames [] :resource {:resources 0 :langs 0 :langless 0} :errors []}]
           (if-not (.hasNext r)
             (scan-errors scan)
             (recur (condp = (.next r)
@@ -287,13 +366,78 @@
         (catch XMLStreamException e
           [(stream-error e)])))))
 
+(def identified-elements
+  "The DMLex elements whose @id the schema requires to be unique, and which a
+  <member> may name."
+  #{"entry" "sense" "collocateMarker"})
+
+(defn note-identity
+  "The `scan` updated for the element that `r` just opened, gathering the ids
+  it declares and the references it makes."
+  [{:keys [ids] :as scan} ^XMLStreamReader r]
+  (let [el   (dmlex-name r)
+        line (delay (.getLineNumber (.getLocation r)))]
+    (cond
+      (identified-elements el)
+      (if-let [id (.getAttributeValue r nil "id")]
+        (if (ids id)
+          (update scan :errors conj
+                  {:severity :error
+                   :line     @line
+                   :message  (str "<" el "> repeats the id \"" id "\"")})
+          (update scan :ids conj id))
+        scan)
+
+      (= "member" el)
+      (if-let [ref (.getAttributeValue r nil "ref")]
+        (update scan :refs #(if (% ref) % (assoc % ref @line)))
+        scan)
+
+      :else scan)))
+
+(defn dangling-errors
+  "The errors of the finished `scan` for every @ref that names no id."
+  [{:keys [ids refs]}]
+  (for [[ref line] (sort-by val refs)
+        :when      (not (ids ref))]
+    {:severity :error
+     :line     line
+     :message  (str "<member> refers to \"" ref "\", which names no id")}))
+
+(defn validate-identity
+  "Check that the ids of the XML file `f` are unique and that every <member>
+  names one, in a single streaming pass. Returns a vector of errors shaped
+  like the Xerces ones.
+
+  The schema states both rules, as entryOrSenseOrCollocateMarkerKey and the
+  memberRef keyref, but Xerces never gets to apply them: every identity
+  constraint of the schema keys on a mixed content element, so the machinery
+  collapses into the cvc-id.3 errors that `schema-defect-codes` filters away,
+  and duplicate ids and references to nothing pass unseen. Doing it here costs
+  a set of the ids and a map of the references.
+
+  A malformed document yields the parse failure alone, since nothing found
+  before it can be trusted."
+  [f]
+  (with-open [in (io/input-stream f)]
+    (let [r (.createXMLStreamReader (input-factory) in)]
+      (try
+        (loop [scan {:ids #{} :refs {} :errors []}]
+          (if-not (.hasNext r)
+            (into (:errors scan) (dangling-errors scan))
+            (recur (if (= XMLStreamConstants/START_ELEMENT (.next r))
+                     (note-identity scan r)
+                     scan))))
+        (catch XMLStreamException e
+          [(stream-error e)])))))
+
 (defn validate-xml
   "Validate the DMLex XML file `f` against the XSD 1.1 schema. Returns the
   errors in :errors, at most `limit` from either pass, and the number of
   errors that the schema itself causes in :schema-defects.
 
   The schema is compiled without its asserts, so :errors holds what Xerces
-  found followed by what `validate-asserts` found."
+  found, then what `validate-asserts` and `validate-identity` found."
   ([f]
    (validate-xml f 500000))
   ([f limit]
@@ -306,7 +450,8 @@
          (when (empty? @errors)
            (swap! errors conj {:severity :fatal :message (.getMessage e)}))))
      (let [{defects true errors false} (group-by schema-defect? @errors)]
-       {:errors         (into (vec errors) (take limit) (validate-asserts f))
+       {:errors         (into (vec errors) (take limit)
+                              (concat (validate-asserts f) (validate-identity f)))
         :schema-defects (count defects)}))))
 
 (def item-only-keywords

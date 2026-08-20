@@ -254,6 +254,101 @@
     (let [f (temp-file ".xml" "<lexicographicResource><entry>")]
       (is (= [:fatal] (map :severity (v/validate-asserts f)))))))
 
+(defn- schema-document
+  []
+  (let [factory (doto (javax.xml.parsers.DocumentBuilderFactory/newInstance)
+                  (.setNamespaceAware true))]
+    (.parse (.newDocumentBuilder factory) (io/file v/xml-schema))))
+
+(deftest identity-catches-what-the-schema-cannot
+  (testing "duplicate ids and references to nothing, which Xerces reports as
+            cvc-id.3 defects and validate-xml filters away"
+    (let [f (xml-fixture
+              (str "<entry id=\"e1\"><headword>hund</headword>"
+                   "<sense id=\"s1\"><definition><text>d1</text></definition></sense></entry>"
+                   "<entry id=\"e1\"><headword>kat</headword>"
+                   "<sense id=\"s1\"><definition><text>d2</text></definition></sense></entry>"
+                   "<translationLanguage langCode=\"en\"/>"
+                   "<relation type=\"hypernym\">"
+                   "<member ref=\"s1\" role=\"a\"/>"
+                   "<member ref=\"NO-SUCH-ID\" role=\"b\"/></relation>"))]
+      (is (= #{"<entry> repeats the id \"e1\""
+               "<sense> repeats the id \"s1\""
+               "<member> refers to \"NO-SUCH-ID\", which names no id"}
+             (set (map :message (v/validate-identity f)))))
+      (testing "and the schema itself still says nothing about them"
+        (is (empty? (xerces-assert-failures f)))))))
+
+(deftest identity-accepts-a-forward-reference
+  (testing "a member may name an id declared later in the document"
+    (let [f (xml-fixture
+              (str "<entry id=\"e1\"><headword>hund</headword>"
+                   "<sense id=\"s1\"><definition><text>d</text></definition></sense></entry>"
+                   "<translationLanguage langCode=\"en\"/>"
+                   "<relation type=\"hypernym\">"
+                   "<member ref=\"s1\" role=\"a\"/>"
+                   "<member ref=\"e1\" role=\"b\"/></relation>"))]
+      (is (empty? (v/validate-identity f))))))
+
+(deftest identity-reports-a-broken-file
+  (testing "an unparseable document is reported, not thrown"
+    (let [f (temp-file ".xml" "<lexicographicResource><entry id=\"a\">")]
+      (is (= [:fatal] (map :severity (v/validate-identity f)))))))
+
+(deftest every-assert-is-accounted-for
+  (testing "the schema carries no assert that validate-asserts leaves unchecked"
+    (is (empty? (v/unchecked-asserts (schema-document))))
+    (is (= (count v/checked-asserts)
+           (count (v/schema-asserts (schema-document)))))))
+
+(deftest assert-owners-are-used-by-the-elements-we-check
+  (testing "each assert-bearing type is used by the one element name the
+            streaming pass keys on, so no element carries an assert unseen"
+    (let [doc      (schema-document)
+          elements (.getElementsByTagNameNS doc v/xs-uri "element")
+          by-type  (reduce (fn [m i]
+                             (let [^org.w3c.dom.Element e (.item elements i)]
+                               (cond-> m
+                                 (.hasAttribute e "type")
+                                 (update (.getAttribute e "type")
+                                         (fnil conj #{}) (.getAttribute e "name")))))
+                           {}
+                           (range (.getLength elements)))
+          ;; the element names the streaming pass looks for, by owning type
+          expected {"lexicographicResourceType" #{"lexicographicResource"}
+                    "entryType"                 #{"entry"}
+                    "definitionType"            #{"definition"}
+                    "exampleType"               #{"example"}
+                    "headwordTranslationType"   #{"headwordTranslation"}
+                    "exampleTranslationType"    #{"exampleTranslation"}
+                    "pronunciationType"         #{"pronunciation"}
+                    "partOfSpeechTagType"       #{"partOfSpeechTag"}}]
+      (doseq [[type names] expected]
+        (is (= names (get by-type type)) (str type " is used by other elements"))))))
+
+(deftest schema-with-an-unknown-assert-is-refused
+  (testing "an assert nobody transcribed stops validation rather than vanishing"
+    (let [doc  (schema-document)
+          root (.getDocumentElement doc)
+          node (doto (.createElementNS doc v/xs-uri "xs:assert")
+                 (.setAttribute "test" "string-length(nonsense)>0"))]
+      (.appendChild (.item (.getElementsByTagNameNS doc v/xs-uri "complexType") 0) node)
+      (is (seq (v/unchecked-asserts doc))))))
+
+(deftest asserts-refuse-a-document-of-many-resources
+  (testing "counts that run across the whole document are reported, not used"
+    (let [f (temp-file ".xml"
+                       (str "<?xml version=\"1.0\"?>"
+                            "<root xmlns=\"http://docs.oasis-open.org/lexidma/ns/dmlex-1.0\">"
+                            "<lexicographicResource langCode=\"da\">"
+                            "<entry><headword>a</headword></entry>"
+                            "<translationLanguage langCode=\"en\"/></lexicographicResource>"
+                            "<lexicographicResource langCode=\"da\">"
+                            "<entry><headword>b</headword></entry>"
+                            "<translationLanguage langCode=\"en\"/></lexicographicResource>"
+                            "</root>"))]
+      (is (= [:fatal] (map :severity (v/validate-asserts f)))))))
+
 (deftest every-assert-is-stripped
   (testing "the schema compiles with no assert left to cost a whole-document tree"
     (let [factory (doto (javax.xml.parsers.DocumentBuilderFactory/newInstance)
