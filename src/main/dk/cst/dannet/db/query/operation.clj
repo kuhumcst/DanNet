@@ -154,6 +154,26 @@
        ?word ontolex:sense ?sense .
      }"))
 
+(def shared-senses
+  "Senses lexicalized by more than one synset, bound with the single word that
+  owns them and with each of the synsets sharing them.
+
+  A sense pairs one word with one synset, so every sense here is a modelling
+  violation (GitHub issue #209); the query yields one row per synset, i.e. two
+  rows per shared sense."
+  (sparql
+    "SELECT ?sense ?word ?synset
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?word ontolex:sense ?sense .
+       {
+         SELECT ?sense
+         WHERE { ?other ontolex:lexicalizedSense ?sense . }
+         GROUP BY ?sense
+         HAVING (COUNT(DISTINCT ?other) > 1)
+       }
+     }"))
+
 (def temporary-words
   "Words carrying a placeholder dn:word-temporary_N identifier, i.e. words
   without a DDO lemma id in DSL's CSV exports; binds each word's single sense

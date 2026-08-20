@@ -4,6 +4,7 @@
   Inverse relations are not explicitly created, but rather handled by way of
   inference using a Jena OWL reasoner."
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
@@ -409,6 +410,167 @@
     (txn/transact-exec g
       (db/safe-add! g [[:dn/synset-48286 :rdf/type :ontolex/LexicalConcept]]))))
 
+(def synset-identity-properties
+  "The properties left out when two synsets are compared: the blank nodes of
+  dns:inherited and dns:ontologicalType differ by identity even where their
+  contents match, and labels and definitions are what a comparison looks past."
+  #{:ontolex/lexicalizedSense :rdf/type :skos/inScheme :dc/subject
+    :dns/shortLabel :rdfs/label :skos/definition :dns/inherited
+    :dns/ontologicalType})
+
+(defn synset-relations
+  "The relations placing `synset` in the wordnet, as [property object] pairs."
+  [g synset]
+  (->> (q/run g [:bgp [synset '?p '?o]])
+       (remove (comp synset-identity-properties '?p))
+       (map (juxt '?p '?o))
+       (set)))
+
+(defn synset-ontological-type
+  "The ontological concepts of `synset`, read through its blank node so that
+  two synsets can be compared by content."
+  [g synset]
+  (->> (q/run g [:bgp [synset :dns/ontologicalType '?bnode] ['?bnode '?p '?concept]])
+       (map '?concept)
+       (filter keyword?)
+       (set)))
+
+(defn duplicate-synsets
+  "[survivor doomed] when one of the synsets `a` and `b` in `g` holds
+  everything the other does, or nil when the two model different concepts.
+
+  The survivor is the richer of the pair. Where each holds exactly what the
+  other does, the one carrying a definition survives, and failing that the
+  lower id."
+  [g a b]
+  (let [profile  (fn [synset] [(synset-relations g synset)
+                               (synset-ontological-type g synset)])
+        holds?   (fn [[relations ontotype] [relations' ontotype']]
+                   (and (set/subset? relations' relations)
+                        (set/subset? ontotype' ontotype)))
+        defined? (fn [synset] (seq (q/run g [:bgp [synset :skos/definition '?o]])))
+        id       (fn [synset] (parse-long (re-find #"\d+" (name synset))))
+        pa       (profile a)
+        pb       (profile b)]
+    (cond
+      (and (holds? pa pb) (holds? pb pa)) (cond
+                                            (defined? a) [a b]
+                                            (defined? b) [b a]
+                                            :else        (vec (sort-by id [a b])))
+      (holds? pa pb)                      [a b]
+      (holds? pb pa)                      [b a])))
+
+(h/defn merge-duplicate-synsets!
+  "Merge the synset pairs of `dataset` that share a sense while modelling one
+  and the same concept (GitHub issue #209).
+
+  A sense pairs one word with one synset, so a sense lexicalized by two
+  synsets is a modelling violation. In 10 of the 78 cases the pair is not two
+  concepts at all: one synset holds everything the other does, being either an
+  exact copy of it or a stub minted to anchor a few relations. Those merge the
+  way the {tinglysningskontor} duplicates do -- every reference to the poorer
+  synset is retargeted at the survivor, a definition only it carried is moved
+  across, and it is then deleted.
+
+  Runs before split-shared-senses!, which divides the senses of the other 68
+  pairs, those modelling genuinely different concepts."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/merge-duplicate-synsets}
+          "Merging synsets that share a sense and model one concept")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        merges   (->> (q/run g op/shared-senses)
+                      (group-by '?sense)
+                      (vals)
+                      (keep (fn [rows]
+                              (let [[a b] (sort-by name (distinct (map '?synset rows)))]
+                                (duplicate-synsets g a b)))))
+        expected 10]
+    (assert (= expected (count merges))
+            (str "expected " expected " duplicate synset pairs, found "
+                 (count merges)))
+    (doseq [[survivor doomed] merges]
+      (db/update-triples! prefix/dn-uri dataset [:bgp ['?s '?p doomed]]
+        (fn [{:syms [?s ?p]}] [?s ?p survivor])
+        (fn [{:syms [?s ?p]}] [?s ?p doomed]))
+      ;; A definition carried only by the doomed synset would otherwise go
+      ;; down with it, since only its references are retargeted above.
+      (when-let [definition (and (empty? (q/run g [:bgp [survivor :skos/definition '?o]]))
+                                 (first (map '?o (q/run g [:bgp [doomed :skos/definition '?o]]))))]
+        (txn/transact-exec g
+          (db/safe-add! g [[survivor :skos/definition definition]])))
+      (txn/transact-exec model
+        (db/remove! model [doomed '_ '_])))))
+
+(h/defn split-shared-senses!
+  "Divide each sense of `dataset` still shared by two synsets into one sense
+  per synset (GitHub issue #209).
+
+  Where the two synsets model different concepts -- the 68 pairs left once
+  merge-duplicate-synsets! has dealt with the other 10 -- the shared sense
+  cannot simply move to one of them, so it becomes two.
+
+  The division follows the convention DSL already uses, e.g. for
+  dn:sense-23000002: dn:sense-<id>-i1 and -i2, each carrying dns:dslSense with
+  the original DDO sense id, and a label ending in (1) resp. (2), as in
+  \"Afghanistan_§1(1)\", since the two would otherwise read alike wherever a
+  sense is shown without its synset. The unsuffixed sense disappears, as it
+  does there. The disambiguator joins the sense marker rather than following a
+  second underscore, a shape shared/sense-label cannot parse and which
+  therefore renders blank.
+
+  Renaming the sense to -i1 carries the word and both synsets along with it,
+  after which the second synset is moved onto the -i2 copy.
+
+  Must run after merge-duplicate-synsets!, whose 10 merges the count below
+  assumes."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/split-shared-senses}
+          "Dividing senses shared by two synsets")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        uri      (fn [kw] (.getResource model (prefix/kw->uri kw)))
+        ;; Every read happens before the first write: a query issued inside a
+        ;; write transaction comes back empty, and db/safe-add! logs such a
+        ;; failure rather than raising it.
+        splits   (->> (q/run g op/shared-senses)
+                      (group-by '?sense)
+                      (into (sorted-map)
+                            (map (fn [[sense rows]]
+                                   (let [triples (q/run g [:bgp [sense '?p '?o]])]
+                                     [sense {:word  (some '?word rows)
+                                             :moved (second (sort-by name (distinct (map '?synset rows))))
+                                             :label (str (some (fn [{:syms [?p ?o]}]
+                                                                 (when (= :rdfs/label ?p) ?o))
+                                                               triples))
+                                             :own   (vec (for [{:syms [?p ?o]} triples
+                                                               :when (not= :rdfs/label ?p)]
+                                                           [?p ?o]))}])))))
+        expected 68]
+    (assert (= expected (count splits))
+            (str "expected " expected " shared senses, found " (count splits)))
+    (doseq [[sense {:keys [word moved label own]}] splits]
+      (let [dsl-id  (subs (name sense) (count "sense-"))
+            renamed (keyword "dn" (str (name sense) "-i1"))
+            copy    (keyword "dn" (str (name sense) "-i2"))]
+        (txn/transact-exec model
+          (ResourceUtils/renameResource (uri sense) (prefix/kw->uri renamed))
+          (.removeAll model (uri renamed)
+                      (.getProperty model (prefix/kw->uri :rdfs/label)) nil)
+          (.removeAll model (uri moved)
+                      (.getProperty model (prefix/kw->uri :ontolex/lexicalizedSense))
+                      (uri renamed)))
+        (txn/transact-exec g
+          (db/safe-add! g (into [[moved :ontolex/lexicalizedSense copy]
+                                 [word :ontolex/sense copy]
+                                 [renamed :rdfs/label (md/da label "(1)")]
+                                 [copy :rdfs/label (md/da label "(2)")]
+                                 [renamed :dns/dslSense dsl-id]
+                                 [copy :dns/dslSense dsl-id]]
+                                (for [[p o] own] [copy p o]))))))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -433,6 +595,8 @@
     (remove-scaffolding-words! dataset)
     (mint-temporary-word-ids! dataset)
     (merge-tinglysningskontor-synsets! dataset)
+    (merge-duplicate-synsets! dataset)
+    (split-shared-senses! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
