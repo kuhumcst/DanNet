@@ -21,7 +21,8 @@
                "lexfile": "semantic field",
                "ontologicalType": "ontological type",
                "gender": "gender",
-               "synset": "DanNet concept"}
+               "synset": "DanNet concept"},
+    "inline": ["sentiment"]
   },
   "relationTypes": {
     "groups": [

@@ -21,7 +21,8 @@
                "lexfile": "semantisk felt",
                "ontologicalType": "ontologisk type",
                "gender": "køn",
-               "synset": "DanNet-begreb"}
+               "synset": "DanNet-begreb"},
+    "inline": ["sentiment"]
   },
   "relationTypes": {
     "groups": [
