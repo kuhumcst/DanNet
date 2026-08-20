@@ -1,0 +1,334 @@
+{
+  "memberOrder": "collation",
+  "linkResolver": "https://wordnet.dk/dannet/external?subject=",
+  "labelTypes": {
+    "order": [
+      "register",
+      "temporal",
+      "frequency",
+      "usage",
+      "sentiment",
+      "domain",
+      "lexfile",
+      "ontologicalType",
+      "gender",
+      "synset",
+      "source"
+    ],
+    "unlisted": "hide",
+    "cite": [
+      "source"
+    ],
+    "combine": {
+      "sentiment": "sentimentValue"
+    },
+    "show": {
+      "register": "description",
+      "temporal": "description",
+      "frequency": "description",
+      "gender": "description",
+      "sentiment": "description",
+      "synset": "description"
+    },
+    "rename": {
+      "source": {
+        "da": "kilde",
+        "en": "source"
+      },
+      "register": {
+        "da": "stilleje",
+        "en": "register"
+      },
+      "temporal": {
+        "da": "datering",
+        "en": "dating"
+      },
+      "frequency": {
+        "da": "frekvens",
+        "en": "frequency"
+      },
+      "usage": {
+        "da": "sprogbrug",
+        "en": "usage"
+      },
+      "sentiment": {
+        "da": "valør",
+        "en": "sentiment"
+      },
+      "domain": {
+        "da": "fagområde",
+        "en": "subject domain"
+      },
+      "lexfile": {
+        "da": "semantisk felt",
+        "en": "semantic field"
+      },
+      "ontologicalType": {
+        "da": "ontologisk type",
+        "en": "ontological type"
+      },
+      "gender": {
+        "da": "køn",
+        "en": "gender"
+      },
+      "synset": {
+        "da": "DanNet-begreb",
+        "en": "DanNet concept"
+      }
+    },
+    "inline": [
+      "sentiment"
+    ]
+  },
+  "relationTypes": {
+    "groups": [
+      {
+        "types": [
+          "synonym"
+        ]
+      },
+      {
+        "title": {
+          "da": "taksonomi",
+          "en": "taxonomy"
+        },
+        "description": {
+          "da": "Over- og underbegreber: hyperonymi og hyponymi i DanNets forskellige varianter.",
+          "en": "Broader and narrower concepts: hypernymy and hyponymy in DanNet's different variants."
+        },
+        "types": [
+          "hypernym",
+          "instance_hypernym",
+          "orthogonalHypernym",
+          "crossPoSHypernym"
+        ]
+      },
+      {
+        "title": {
+          "da": "del og helhed",
+          "en": "part and whole"
+        },
+        "description": {
+          "da": "Meronymi og holonymi: relationer mellem dele og de helheder de indgår i.",
+          "en": "Meronymy and holonymy: relations between parts and the wholes they belong to."
+        },
+        "types": [
+          "meronym",
+          "mero_part",
+          "mero_member",
+          "mero_substance",
+          "mero_location"
+        ]
+      },
+      {
+        "title": {
+          "da": "lighed og modsætning",
+          "en": "similarity and opposition"
+        },
+        "description": {
+          "da": "Begreber der ligger tæt på hinanden i betydning, eller som står i modsætning til hinanden.",
+          "en": "Concepts that are close to each other in meaning, or that stand in opposition to each other."
+        },
+        "types": [
+          "similar",
+          "nearAntonym"
+        ]
+      },
+      {
+        "title": {
+          "da": "roller og funktion",
+          "en": "roles and function"
+        },
+        "description": {
+          "da": "Deltagerroller og funktion: hvem der udfører handlingen, hvad den er rettet mod, hvad der kommer ud af den, og hvad noget bruges til.",
+          "en": "Participant roles and function: who performs the action, what it is directed at, what comes out of it, and what something is used for."
+        },
+        "types": [
+          "agent",
+          "patient",
+          "result",
+          "co_instrument_agent",
+          "usedFor",
+          "usedForObject"
+        ]
+      },
+      {
+        "title": {
+          "da": "emneområde",
+          "en": "subject area"
+        },
+        "description": {
+          "da": "Relationer der knytter begreber til det emneområde de hører hjemme i.",
+          "en": "Relations that tie concepts to the subject area they belong to."
+        },
+        "types": [
+          "domain_topic"
+        ]
+      },
+      {
+        "title": {
+          "da": "andet",
+          "en": "other"
+        },
+        "description": {
+          "da": "Øvrige relationer, fx løse krydshenvisninger.",
+          "en": "Remaining relations, e.g. loose cross-references."
+        }
+      }
+    ]
+  },
+  "roles": {
+    "rename": {
+      "synonym": {
+        "da": "synonymer",
+        "en": "synonyms"
+      },
+      "hypernym": {
+        "da": "overbegreber",
+        "en": "broader concepts"
+      },
+      "hyponym": {
+        "da": "underbegreber",
+        "en": "narrower concepts"
+      },
+      "instance_hypernym": {
+        "da": "er instans af",
+        "en": "is an instance of"
+      },
+      "instance_hyponym": {
+        "da": "instanser",
+        "en": "instances"
+      },
+      "orthogonalHypernym": {
+        "da": "orto-overbegreber",
+        "en": "orthogonal broader concepts"
+      },
+      "orthogonalHyponym": {
+        "da": "orto-underbegreber",
+        "en": "orthogonal narrower concepts"
+      },
+      "crossPoSHypernym": {
+        "da": "overbegreber (anden ordklasse)",
+        "en": "broader concepts (other word class)"
+      },
+      "crossPoSHyponym": {
+        "da": "underbegreber (anden ordklasse)",
+        "en": "narrower concepts (other word class)"
+      },
+      "meronym": {
+        "da": "har del",
+        "en": "has part"
+      },
+      "holonym": {
+        "da": "del af",
+        "en": "part of"
+      },
+      "mero_part": {
+        "da": "har bestanddel",
+        "en": "has component"
+      },
+      "holo_part": {
+        "da": "bestanddel af",
+        "en": "component of"
+      },
+      "mero_member": {
+        "da": "har medlem",
+        "en": "has member"
+      },
+      "holo_member": {
+        "da": "medlem af",
+        "en": "member of"
+      },
+      "mero_substance": {
+        "da": "består af",
+        "en": "consists of"
+      },
+      "holo_substance": {
+        "da": "indgår i",
+        "en": "substance of"
+      },
+      "mero_location": {
+        "da": "kan rumme",
+        "en": "can contain"
+      },
+      "holo_location": {
+        "da": "beliggende i",
+        "en": "located in"
+      },
+      "similar": {
+        "da": "nær-synonymer",
+        "en": "near-synonyms"
+      },
+      "nearAntonym": {
+        "da": "nær-antonymer",
+        "en": "near-antonyms"
+      },
+      "also": {
+        "da": "se også",
+        "en": "see also"
+      },
+      "agent": {
+        "da": "udfører",
+        "en": "performs"
+      },
+      "involved_agent": {
+        "da": "udføres af",
+        "en": "performed by"
+      },
+      "patient": {
+        "da": "genstand for",
+        "en": "object of"
+      },
+      "involved_patient": {
+        "da": "rettet mod",
+        "en": "directed at"
+      },
+      "result": {
+        "da": "resultat af",
+        "en": "result of"
+      },
+      "involved_result": {
+        "da": "har resultat",
+        "en": "has result"
+      },
+      "co_instrument_agent": {
+        "da": "bruges af",
+        "en": "used by"
+      },
+      "co_agent_instrument": {
+        "da": "bruger",
+        "en": "uses"
+      },
+      "usedFor": {
+        "da": "bruges til",
+        "en": "used for"
+      },
+      "involved_usedFor": {
+        "da": "bruges til dette",
+        "en": "used for this"
+      },
+      "usedForObject": {
+        "da": "bruges til objektet",
+        "en": "used for the object"
+      },
+      "involved_usedForObject": {
+        "da": "objekt for",
+        "en": "object for"
+      },
+      "domain_topic": {
+        "da": "tilhører emneområde",
+        "en": "belongs to subject area"
+      },
+      "has_domain_topic": {
+        "da": "emneområde for",
+        "en": "subject area of"
+      }
+    }
+  },
+  "appledict": {
+    "identifier": {
+      "da": "dk.wordnet.dannet.dictionary",
+      "en": "dk.wordnet.dannet.en.dictionary"
+    }
+  }
+}

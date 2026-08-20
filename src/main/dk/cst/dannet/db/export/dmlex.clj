@@ -1159,7 +1159,9 @@
   companions and the name of the zip.
 
   The presentation config is DanNet's own display taste. DMLex has no slot for
-  it, so it ships as a companion file like metadata.json."
+  it, so it ships as a companion file like metadata.json. One file serves both
+  variants: it names each tag in every language it has, and the viewer resolves
+  the names to the language its reader picked."
   [dir {:keys [langCode] :as resource}]
   (println "Beginning DMLex export of DanNet into" dir)
   (let [xml-file     (str dir "dannet-dmlex-" langCode ".xml")
@@ -1177,8 +1179,7 @@
                                    :escape-slash false
                                    :escape-unicode false)))
     (with-open [in (io/input-stream
-                     (io/resource (str "export/dmlex/presentation-" langCode
-                                       ".json")))]
+                     (io/resource "export/dmlex/presentation.json"))]
       (io/copy in (io/file present-file)))
     (rdf/copy-license! :cc-by-sa license-file)
     (spit readme-file (rdf/render-readme "dannet-dmlex.txt" release/to))
