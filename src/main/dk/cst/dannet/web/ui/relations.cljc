@@ -59,7 +59,7 @@
     {:da "Relationer der forbinder DanNets begreber med begreber i andre datasæt; disse vises også separat på den enkelte synset-side."
      :en "Relations connecting DanNet concepts to concepts in other datasets; these are also displayed separately on the individual synset page."}
     ;; Local display order; any other cross-link relations are appended.
-    (vec (distinct (concat [:wn/ili :dns/linkedConcept
+    (vec (distinct (concat [:wn/ili :dns/iliOf
                             :wn/eq_synonym :dns/eqHypernym
                             :dns/eqHyponym :dns/eqSimilar
                             :owl/sameAs]

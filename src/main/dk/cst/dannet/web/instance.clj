@@ -187,6 +187,10 @@ capped at 200 items."}
   autocomplete
   (->autocomplete))
 
+;; TODO: the relations overview page built from this only knows the wordnet
+;;       relations and the external-link relations probed below; the newer
+;;       dns: relations (e.g. the alternation links) are not explained
+;;       anywhere on the site -- consider including them here.
 (defn- find-synset-relations
   "Find the synset relations in use in the graph `g`, including the relations
   used to link to other datasets (these are not typed as wn:SynsetRelType and

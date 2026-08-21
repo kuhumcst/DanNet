@@ -78,6 +78,7 @@
   (or (= :rdf/about attr-key)
       ;; TODO: don't hardcode ontologicalType (get from input config instead)
       (= :dns/ontologicalType attr-key)
+      (= :dns/simpleOntologicalType attr-key)
       ;; TODO: remove the :dns/inherited special case once #182 has shipped
       ;;       (inheritance values are now blank nodes, never dn: resources)
       (and (not= :dns/inherited attr-key)                   ; special case
@@ -195,10 +196,17 @@
      rdf-resource
      (rdf-uri-hyperlink uri opts)
 
-     (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
+     ;; Labels that don't parse as sense labels -- e.g. the FrameNet frame
+     ;; names displayed on COR.SEM senses -- render verbatim.
+     (or (get #{:ontolex/sense
+                :ontolex/lexicalizedSense
+                :dns/linkedSynsetOf
+                :dns/linkedSense
+                :dns/simpleOntologicalTypeOf} attr-key)
          (= (:rdf/type entity) :ontolex/LexicalSense))
-     (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word [:sub sub] (some-> mwe subscript-markers)])
+     (if-let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
+       [:<> word [:sub sub] (some-> mwe subscript-markers)]
+       s)
 
      (re-matches #"https?://[^\s]+" s)
      (break-up-uri s)
@@ -291,7 +299,7 @@
   "Performs convenient transformations of `coll` informed by `opts`."
   [coll {:keys [attr-key] :as opts}]
   (cond
-    (and (= :dns/ontologicalType attr-key)
+    (and (#{:dns/ontologicalType :rdfs/member} attr-key)
          (every? #(and (qualified-ident? %)
                        (= "dnc" (namespace %))) coll))
     (let [vs     (sort-by name coll)
@@ -446,11 +454,33 @@
   [opts coll]
   (expandable-list* opts (take 3 coll) (drop 3 coll)))
 
+(defn- disambiguate-labels
+  "Override the k->label entries of the keyword items in `coll` whose display
+  label collides with another item's, so that they render their QName instead
+  -- e.g. the many frame elements all labeled \"Agent\" listed under
+  dns:inheritedByRole. Mirrors the QName fallback used for colliding relation
+  labels in 'attr-name-extras', minus the prefix half already supplied by the
+  badge; labels come from external sources and are deliberately not qualified
+  in the data itself."
+  [{:keys [languages k->label] :as opts} coll]
+  (let [kws      (filter keyword? coll)
+        label-of (fn [k]
+                   (str (or (i18n/select-label languages (get k->label k))
+                            (name k))))
+        freqs    (frequencies (map label-of kws))
+        override (into {}
+                       (comp (filter #(> (get freqs (label-of %) 0) 1))
+                             (map (juxt identity name)))
+                       kws)]
+    (cond-> opts
+      (seq override) (update :k->label merge override))))
+
 (rum/defc list-items
   [opts coll]
-  (if (<= (count coll) expandable-list-cutoff)
-    [:ol (render-list-items opts coll)]
-    (expandable-list opts coll)))
+  (let [opts (disambiguate-labels opts coll)]
+    (if (<= (count coll) expandable-list-cutoff)
+      [:ol (render-list-items opts coll)]
+      (expandable-list opts coll))))
 
 (defn hypernym-chain
   "Render nested `ancestry` in `opts` as arrow-separated hyperlinks.

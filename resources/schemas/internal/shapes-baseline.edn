@@ -20,8 +20,14 @@
 ;; 2 ili:in placeholders + 23 retired ILI ids with no synset in the current
 ;; OEWN edition (GitHub issue #205; the deleted links are listed in the commit
 ;; message): lower its count to 0 once that release ships.
+;; The cross-dataset link shapes were added 2026-08-24 alongside the COR.SEM
+;; integration (GitHub issue #207); the bootstrap prunes unresolvable links,
+;; so their accepted counts are 0: any nonzero count is a regression.
 {:dns/LexicalSenseShape-label      17
  :dns/LexicalEntryShape-writtenRep 15
  :dns/IliRelationShape             2645
  :dns/MeronymyHierarchyShape       0
- :dns/MeronymyContradictionShape   0}
+ :dns/MeronymyContradictionShape   0
+ :dns/LinkedSenseShape-object      0
+ :dns/LinkedSynsetShape            0
+ :dns/HypernymAnchorShape          0}

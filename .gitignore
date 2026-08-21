@@ -31,6 +31,8 @@ bootstrap/other/dannet-new/missing_supersenses_BSP.xlsx
 bootstrap/other/cor/cor1.02.tsv
 bootstrap/other/cor/cor1.5.1.0.tsv
 bootstrap/other/cor/corext1.0.tsv
+bootstrap/other/cor/cor.sem.1.0.tsv
+bootstrap/other/cor/COR.SEM_1.0_specifikation.html
 bootstrap/other/cor/ddo_bet_corlink.csv
 bootstrap/other/cor/ddo_bet_corextlink.csv
 bootstrap/other/cor/*.cordiff
@@ -45,6 +47,9 @@ bootstrap/other/english/ili.ttl
 bootstrap/other/english/ili-map-pwn20.tab
 bootstrap/other/english/yaml
 bootstrap/other/english/senseidx.edn
+
+# The PreMOn FrameNet 1.7 dump (downloaded via ensure-framenet-dataset!)
+bootstrap/other/framenet/
 
 # Elexis
 bootstrap/other/elexis-wsd-1.1

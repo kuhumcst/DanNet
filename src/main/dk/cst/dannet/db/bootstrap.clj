@@ -14,8 +14,10 @@
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap.cor :as cor]
+            [dk.cst.dannet.db.bootstrap.corsem :as corsem]
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
+            [dk.cst.dannet.db.bootstrap.premon :as premon]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
@@ -24,11 +26,10 @@
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
            [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.rdf.model Model ModelFactory]
+           [org.apache.jena.rdf.model Model ModelFactory ResourceFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
            [org.apache.jena.tdb TDBFactory]
-           [org.apache.jena.tdb2 TDB2Factory]
-           [org.apache.jena.util ResourceUtils]))
+           [org.apache.jena.tdb2 TDB2Factory]))
 
 (defn assert-expected-dannet-release!
   "Assert that the DanNet `model` is the expected release to bootstrap from.
@@ -128,23 +129,43 @@
       (db/import-files dataset prefix/ili-uri [downloads/ili-path])))
   (add-open-english-wordnet-labels! dataset))
 
-(h/defn add-in-scheme!
-  "Add skos:inScheme to all DanNet and COR resources (GitHub issue #175),
-  mirroring how the OEWN marks scheme membership on its resources. Every URI
-  subject residing in the namespace of its containing model is linked to the
-  RDF resource of the relevant dataset. The DDS dataset is deliberately left
-  out since it contains no resources of its own, only annotations of dn:
-  resources; the OEWN label extensions don't need it either."
+(h/defn add-framenet!
+  "Add the framenet graph to `dataset`: the FrameNet 1.7 frame inventory
+  converted from the PreMOn dump by the premon ns."
   [dataset]
-  (doseq [[model-uri scheme] [[prefix/dn-uri md/<dn>]
-                              [prefix/cor-uri md/<cor>]]]
+  (t/trace! {:id :dannet.bootstrap/import-framenet :run-val :elided}
+    (let [graph (db/get-graph dataset prefix/framenet-uri)
+          model (db/get-model dataset prefix/framenet-uri)]
+      (doseq [chunk (partition-all 500000 (premon/source-triples))]
+        (txn/transact-exec graph
+          (db/safe-add! graph chunk)))
+      (txn/transact-exec model
+        (md/update-metadata! (get md/metadata 'frame) model)))))
+
+(h/defn add-in-scheme!
+  "Add skos:inScheme to all DanNet, COR and COR.SEM resources (GitHub issue
+  #175), mirroring how the OEWN marks scheme membership on its resources.
+  Every URI subject residing in the resource namespace of its containing model
+  is linked to the RDF resource of the relevant dataset. The COR.SEM IDs share
+  the cor: namespace, so the sense inventory is set apart by its full COR.SEM.
+  prefix; this also leaves the cor: words and frame: resources appearing as
+  subjects in the cor-sem: graph unmarked, as they belong to other schemes
+  (the frame: resources are marked in the framenet graph instead).
+  The DDS dataset is deliberately left out since it contains no resources of
+  its own, only annotations of dn: resources; the OEWN label extensions don't
+  need it either."
+  [dataset]
+  (doseq [[model-uri ns-uri scheme] [[prefix/dn-uri prefix/dn-uri md/<dn>]
+                                     [prefix/cor-uri prefix/cor-uri md/<cor>]
+                                     [prefix/cor-sem-uri (str prefix/cor-uri "COR.SEM.") md/<cor-sem>]
+                                     [prefix/framenet-uri prefix/framenet-uri md/<framenet>]]]
     (let [model    (db/get-model dataset model-uri)
           g        (db/get-graph dataset model-uri)
           subjects (txn/transact model
                      (->> (iterator-seq (.listSubjects model))
                           (filter #(.isURIResource %))
                           (map #(.getURI %))
-                          (filter #(str/starts-with? % model-uri))
+                          (filter #(str/starts-with? % ns-uri))
                           (doall)))]
       (txn/transact-exec g
         (t/log! {:level :info
@@ -177,505 +198,342 @@
         (when ?shortLabel
           [?synset :dns/shortLabel ?shortLabel])))))
 
-(h/defn rewrite-ddo-source-urls!
-  "Rewrite every DDO dns:source URL to the gammel.ordnet.dk subdomain (GitHub
-  issue #192). The redesigned ordnet.dk redirects the old deep links without
-  their def_id highlighting; the legacy UI at gammel.ordnet.dk retains it."
+(h/defn name-ontological-types!
+  "Replace the anonymous rdf:Bag values of dns:ontologicalType in the dn:
+  graph of `dataset` with named dnt: ontological types: the same bags,
+  deduplicated and named after their sorted atoms, so that ontological types
+  can be linked, browsed, and compared -- in particular against the COR.SEM
+  simple ontotypes, which share the dnt: resources whenever the atom sets
+  coincide."
   [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/rewrite-ddo-source-urls}
-          "Rewriting DDO source URLs to gammel.ordnet.dk")
-  (db/update-triples! prefix/dn-uri dataset op/ddo-sources
-    (fn [{:syms [?s ?src]}]
-      [?s :dns/source (-> (prefix/rdf-resource->uri ?src)
-                          (str/replace-first "https://ordnet.dk/"
-                                             "https://gammel.ordnet.dk/")
-                          (prefix/uri->rdf-resource))])
-    (fn [{:syms [?s ?src]}]
-      [?s :dns/source ?src])))
-
-(h/defn add-missing-sense-sources!
-  "Mint dns:source for senses that lack one but carry a DDO definition ID as
-  dns:dslSense (GitHub issue #192), inserting that ID as the def_id in the
-  deep link of the sense's word. Runs after `rewrite-ddo-source-urls!` so the
-  minted URLs inherit the rewritten subdomain."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/add-missing-sense-sources}
-          "Minting dns:source for senses with a dns:dslSense ID")
-  (db/update-triples! prefix/dn-uri dataset op/missing-dsl-sense-sources
-    (fn [{:syms [?sense ?dslSense ?wordSource]}]
-      (let [url (prefix/rdf-resource->uri ?wordSource)]
-        (when (str/includes? url "&query=")
-          [?sense :dns/source
-           (-> url
-               (str/replace-first "&query=" (str "&def_id=" ?dslSense "&query="))
-               (prefix/uri->rdf-resource))])))))
-
-(h/defn add-missing-written-reps!
-  "Add the ontolex:writtenRep missing from the canonicalForm of 15 words
-  (GitHub issue #203). The form nodes exist but are empty blank nodes, so any
-  query joining word -> form -> writtenRep silently drops these words. The
-  representation is recovered from the word's rdfs:label, which for every
-  other DDO word equals the writtenRep wrapped in literal quotes; none of the
-  15 labels contain the slash-alternative notation that is the only exception.
-
-  The count is asserted so that a future bootstrap dataset silently growing or
-  shrinking this set fails loudly instead.
-
-  NB: adding reps makes these words newly visible to rep-joining queries, so
-  this must run BEFORE any fix whose criteria join word -> form -> writtenRep
-  (e.g. fix-verb-phrase-pos! on feature/cross-pos-changes), and such fixes
-  should re-verify their expected-count asserts against the repaired data."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/add-missing-written-reps}
-          "Adding missing ontolex:writtenRep to dangling canonical forms")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        expected 15
-        found    (count (q/run g op/missing-written-reps))]
-    (assert (= expected found)
-            (str "expected " expected " words with a dangling canonicalForm, "
-                 "found " found)))
-  (db/update-triples! prefix/dn-uri dataset op/missing-written-reps
-    (fn [{:syms [?form ?label]}]
-      [?form :ontolex/writtenRep
-       (md/da (str/replace (str ?label) #"^\"|\"$" ""))])))
-
-(h/defn retarget-eq-ili-relations!
-  "Retarget dns:eq* relations that link synsets to Interlingual Index entries
-  instead of OEWN synsets (GitHub issue #205). The eq* relations hold between
-  concepts in separate datasets, so every ILI target carried by exactly one
-  OEWN synset is replaced with that synset -- the reading confirmed by all 77
-  synsets that already carry the same relation to both an OEWN synset and its
-  ILI. The remaining 25 triples are deleted: 2 target the WN-LMF placeholder
-  ili:in (no identifiable concept) and 23 target retired ILI ids whose
-  synsets -- mostly named entities and biological genera -- are absent from
-  the current OEWN edition, leaving nothing to retarget to.
-
-  Must run after add-open-english-wordnet!, which supplies the ILI -> synset
-  mapping."
-  [dataset]
-  (let [oewn-g    (db/get-graph dataset prefix/oewn-uri)
-        ;; ili:in maps to thousands of synsets and drops out via the
-        ;; exactly-one requirement.
-        ili->oewn (->> (q/run oewn-g '[:bgp [?synset :wn/ili ?ili]])
-                       (group-by '?ili)
-                       (into {} (keep (fn [[ili ms]]
-                                        (when (= 1 (count ms))
-                                          [ili (get (first ms) '?synset)])))))
-        g         (db/get-graph dataset prefix/dn-uri)
-        counts    (->> (q/run g op/eq-ili-relations)
-                       (map (fn [{:syms [?ili]}]
-                              (if (ili->oewn ?ili) :retarget :delete)))
-                       (frequencies))
-        expected  {:retarget 2620 :delete 25}]
+  (let [dn-graph     (db/get-graph dataset prefix/dn-uri)
+        dn-model     (db/get-model dataset prefix/dn-uri)
+        rows         (q/run dn-graph '[:bgp
+                                       [?syn :dns/ontologicalType ?bag]
+                                       [?bag ?p ?atom]])
+        replacements (for [[bag rows] (group-by '?bag rows)
+                           :when (symbol? bag)              ; blank nodes only
+                           :let [atoms (into #{}
+                                             (keep (fn [{:syms [?p ?atom]}]
+                                                     (when (shared/member-property? ?p)
+                                                       ?atom)))
+                                             rows)]
+                           :when (seq atoms)]
+                       (conj (corsem/->ontotype atoms)
+                             (into #{} (map '?syn) rows)))
+        ontotypes    (into #{} (map first) replacements)
+        otype-prop   (ResourceFactory/createProperty
+                       (prefix/kw->uri :dns/ontologicalType))]
     (t/log! {:level :info
-             :id    :dannet.bootstrap/retarget-eq-ili-relations
+             :id    :dannet.bootstrap/name-ontological-types
+             :data  {:bags (count replacements) :ontotypes (count ontotypes)}}
+            "Naming the ontological type bags")
+    ;; The blank bags fall outside db/remove!'s pattern language, so removal
+    ;; happens through the Jena API instead.
+    (txn/transact-exec dn-model
+      (doseq [stmt (vec (iterator-seq (.listStatements dn-model nil otype-prop nil)))
+              :let [bag (.getObject stmt)]
+              :when (.isAnon bag)]
+        (.removeAll dn-model (.asResource bag) nil nil)
+        (.remove dn-model stmt)))
+    (txn/transact-exec dn-graph
+      (db/safe-add! dn-graph (into #{}
+                                   (mapcat (fn [[ontotype triples syns]]
+                                             (into triples
+                                                   (map (fn [syn]
+                                                          [syn :dns/ontologicalType ontotype]))
+                                                   syns)))
+                                   replacements)))))
+
+(h/defn rename-cor-sense-links!
+  "Reassert the cor: graph's links to DanNet senses in `dataset` -- originally
+  [cor-word ontolex:sense dn-sense] from DSL's link files -- as the
+  dns:linkedSense subproperty, keeping the links into DanNet's sense inventory
+  apart from COR's own senses (COR.SEM); the word-level counterpart of
+  dns:linkedSynset. Inference still entails ontolex:sense for interop."
+  [dataset]
+  (let [cor-graph (db/get-graph dataset prefix/cor-uri)
+        cor-model (db/get-model dataset prefix/cor-uri)
+        links     (q/run cor-graph '[:bgp [?w :ontolex/sense ?s]])]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/rename-cor-sense-links
+             :data  {:count (count links)}}
+            "Renaming COR sense links to dns:linkedSense")
+    (txn/transact-exec cor-model
+      (db/remove! cor-model '[_ :ontolex/sense _]))
+    (txn/transact-exec cor-graph
+      (db/safe-add! cor-graph (map (fn [{:syms [?w ?s]}]
+                                     [?w :dns/linkedSense ?s])
+                                   links)))))
+
+(h/defn sense-correspondences
+  "Compute the sense-level SKOS matches linking the COR.SEM senses of the
+  fixed link `triples` to the DanNet senses of `dn-graph`, joining the two
+  inventories on shared word -- via the cor: words' owl:sameAs links in
+  `cor-graph` -- and shared synset.
+
+  A pairing unique in both directions is a dns:eqSense; the rest are
+  dns:eqNearSense, i.e. COR.SEM merging DDO senses that DanNet keeps apart or
+  splitting apart senses that DanNet merged. Both properties are self-inverse
+  subproperties of the SKOS matches, so dn: sense pages show the matches back
+  by inference. Pairs whose source URLs disagree on the DDO entry_id are
+  returned under :mismatched instead of asserted; a missing source on either
+  side is not counted as disagreement."
+  [dn-graph cor-graph triples]
+  (let [entry-id       (fn [x] (re-find #"entry_id=\d+" (str x)))
+        links          (reduce (fn [acc [s p o]]
+                                 (case p
+                                   :ontolex/sense
+                                   (update-in acc [:words o] (fnil conj #{}) s)
+
+                                   :dns/linkedSynset
+                                   (update-in acc [:synsets s] (fnil conj #{}) o)
+
+                                   :dns/source
+                                   (assoc-in acc [:entry s] (entry-id o))
+
+                                   acc))
+                               {} triples)
+        cor->dn-words  (reduce (fn [acc {:syms [?cw ?dw]}]
+                                 (if (keyword? ?dw)
+                                   (update acc ?cw (fnil conj #{}) ?dw)
+                                   acc))
+                               {} (q/run cor-graph '[:bgp [?cw :owl/sameAs ?dw]]))
+        dn-sense->syns (reduce (fn [acc {:syms [?syn ?s]}]
+                                 (update acc ?s (fnil conj #{}) ?syn))
+                               {} (q/run dn-graph '[:bgp [?syn :ontolex/lexicalizedSense ?s]]))
+        dn-index       (reduce (fn [acc {:syms [?w ?s]}]
+                                 (reduce #(update %1 [?w %2] (fnil conj #{}) ?s)
+                                         acc (dn-sense->syns ?s)))
+                               {} (q/run dn-graph '[:bgp [?w :ontolex/sense ?s]]))
+        dn-entries     (reduce (fn [acc {:syms [?s ?url]}]
+                                 (update acc ?s (fnil conj #{}) (entry-id ?url)))
+                               {} (q/run dn-graph '[:bgp [?s :dns/source ?url]]))
+        entry-ok?      (fn [[sem ds]]
+                         (let [e  (get-in links [:entry sem])
+                               es (dn-entries ds)]
+                           (or (nil? e) (empty? es) (contains? es e))))
+        raw-pairs      (set (for [[sem syns] (:synsets links)
+                                  :let [dws (into #{}
+                                                  (mapcat #(cor->dn-words % #{}))
+                                                  (get-in links [:words sem] #{}))]
+                                  syn syns
+                                  ds (into #{} (mapcat #(dn-index [% syn] #{})) dws)]
+                              [sem ds]))
+        pairs          (set (filter entry-ok? raw-pairs))
+        sem-degree     (frequencies (map first pairs))
+        dn-degree      (frequencies (map second pairs))
+        exact?         (fn [[sem ds]]
+                         (and (= 1 (sem-degree sem)) (= 1 (dn-degree ds))))]
+    {:exact      (set (filter exact? pairs))
+     :close      (set (remove exact? pairs))
+     :mismatched (set (remove entry-ok? raw-pairs))}))
+
+;; TODO: the alternation links between two DanNet synsets currently ship only
+;;       with the COR.SEM dataset and show up only on the website; decide
+;;       whether they should also be part of the DanNet downloads (the CSV
+;;       and DMLex exports read the dn: graph alone and so skip them).
+(h/defn sense-alternations
+  "Compute the sense alternation pairs derivable from the fixed link
+  `triples`: the two senses of a word sharing a systematic polysemy pattern,
+  and the two distinct DanNet synsets such senses link unambiguously.
+
+  Words with more than two senses in the same pattern are skipped -- the
+  pairing is ambiguous -- as are synsets when either sense links no synset,
+  several, or the two senses link the same one.
+
+  A pair is ordered by the reading order of the pattern's name (asserted as
+  dns:alternatesTo) where ontotype discrimination decides it: exactly one
+  member's ontological type contains a reading's concept, the second reading
+  taking precedence over the first. The remaining pairs come sorted and
+  undirected under :plain (dns:alternatesWith); synset pairs whose two sense
+  pairs order both ways are demoted to :plain."
+  [triples]
+  (let [links        (reduce (fn [acc [s p o]]
+                               (cond
+                                 (= p :ontolex/sense)
+                                 (update-in acc [:senses o] (fnil conj #{}) s)
+
+                                 (= p :dns/polysemyPattern)
+                                 (update-in acc [:patterns s] (fnil conj #{}) o)
+
+                                 (= p :dns/linkedSynset)
+                                 (update-in acc [:synsets s] (fnil conj #{}) o)
+
+                                 (= p :dns/simpleOntologicalType)
+                                 (update-in acc [:stypes s] (fnil conj #{}) o)
+
+                                 (and (shared/member-property? p)
+                                      (keyword? s)
+                                      (= "dnt" (namespace s)))
+                                 (update-in acc [:type-atoms s] (fnil conj #{}) o)
+
+                                 :else acc))
+                             {} triples)
+        p->readings  (into {}
+                           (map (fn [[s {:keys [readings]}]]
+                                  [(first (corsem/->polysemy-pattern s))
+                                   readings]))
+                           corsem/polysemy-pattern-info)
+        atoms-of     (fn [sense]
+                       (into #{}
+                             (mapcat #(get-in links [:type-atoms %] #{}))
+                             (get-in links [:stypes sense] #{})))
+        order-pair   (fn [[a b]]
+                       (let [aa   (atoms-of a)
+                             bb   (atoms-of b)
+                             disc (fn [r first-reading?]
+                                    (when (keyword? r)
+                                      (let [ia (contains? aa r)
+                                            ib (contains? bb r)]
+                                        (cond
+                                          (and ia (not ib)) (if first-reading? [a b] [b a])
+                                          (and ib (not ia)) (if first-reading? [b a] [a b])))))
+                             try-p (fn [p]
+                                     (when-let [[r1 r2] (p->readings p)]
+                                       (or (disc r2 false) (disc r1 true))))]
+                         (->> (set/intersection (get-in links [:patterns a] #{})
+                                                (get-in links [:patterns b] #{}))
+                              (sort)
+                              (some try-p))))
+        wp->senses   (reduce (fn [acc [sense words]]
+                               (reduce (fn [acc [w p]]
+                                         (update acc [w p] (fnil conj #{}) sense))
+                                       acc
+                                       (for [w words
+                                             p (get-in links [:patterns sense] #{})]
+                                         [w p])))
+                             {} (:senses links))
+        sense-pairs  (into (sorted-set)
+                           (comp (filter #(= 2 (count %)))
+                                 (map (comp vec sort)))
+                           (vals wp->senses))
+        ordered      (into {} (keep (fn [pair]
+                                      (when-let [o (order-pair pair)]
+                                        [pair o])))
+                           sense-pairs)
+        syn-of       (fn [sense]
+                       (let [syns (get-in links [:synsets sense] #{})]
+                         (when (= 1 (count syns))
+                           (first syns))))
+        syn-pair     (fn [[a b]]
+                       (let [sa (syn-of a) sb (syn-of b)]
+                         (when (and sa sb (not= sa sb))
+                           [sa sb])))
+        syn-ordered  (into (sorted-set) (keep syn-pair) (vals ordered))
+        conflicted   (into #{} (filter (fn [[x y]] (syn-ordered [y x]))) syn-ordered)
+        syn-plain    (into (sorted-set)
+                           (comp (remove ordered)
+                                 (keep syn-pair)
+                                 (map (comp vec sort)))
+                           sense-pairs)
+        syn-plain    (into syn-plain (map (comp vec sort)) conflicted)
+        syn-ordered  (reduce disj syn-ordered conflicted)
+        syn-plain    (reduce disj syn-plain (map (comp vec sort) syn-ordered))]
+    {:senses  {:ordered (into (sorted-set) (vals ordered))
+               :plain   (reduce disj sense-pairs (keys ordered))}
+     :synsets {:ordered syn-ordered
+               :plain   syn-plain}}))
+
+(h/defn add-cor-sem-graph!
+  "Add the cor-sem: graph to `dataset`, built from the published COR.SEM
+  source file (GitHub issue #207).
+
+  The links carried by the source get the treatment the COR links got: word
+  links whose cor: word is gone from the current COR edition are remapped via
+  the official changelogs (5) or pruned (27), and synset links whose dn:
+  synset no longer resolves are pruned -- just 8, all trailing values of the
+  irregular \"; \"-separated DanNet-link rows. The 551 nominally DSL-internal
+  synset-s* ids resolve fine, their synsets having since been published with
+  the 2023 adjective supplement. The frame resources and the payload anchored
+  directly on the senses are kept as-is.
+
+  The fixed links are then enriched with the sense-correspondences, stating
+  which COR.SEM and DanNet senses describe the same meaning.
+
+  Must run before add-in-scheme!, which marks scheme membership on the new
+  graph."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/add-cor-sem-graph
+           :data  {:version release/cor-sem-version}}
+          "Building COR.SEM graph from source file")
+  (let [sem-graph (db/get-graph dataset prefix/cor-sem-uri)
+        sem-model (db/get-model dataset prefix/cor-sem-uri)
+        dn-graph  (db/get-graph dataset prefix/dn-uri)
+        cor-graph (db/get-graph dataset prefix/cor-uri)
+        ;; Typing alone misses the handful of degenerate synsets absent from
+        ;; DSL's synsets.csv, so lexicalization also counts as existence.
+        synsets   (into (->> (q/run dn-graph '[:bgp [?synset :rdf/type :ontolex/LexicalConcept]])
+                             (map '?synset)
+                             (set))
+                        (->> (q/run dn-graph '[:bgp [?synset :ontolex/lexicalizedSense ?sense]])
+                             (map '?synset)))
+        cor-words (->> [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]
+                       (mapcat #(q/run cor-graph [:bgp ['?w :rdf/type %]]))
+                       (map '?w)
+                       (set))
+        remap     (cor/id-remap)
+        fix-link  (fn [[s p o :as triple]]
+                    (case p
+                      :ontolex/sense
+                      (if (cor-words s)
+                        [triple]
+                        (for [w (->> (remap (name s))
+                                     (map (partial keyword "cor"))
+                                     (filter cor-words))]
+                          [w p o]))
+
+                      (:dns/linkedSynset :dns/hypernymAnchor)
+                      (when (synsets o)
+                        [triple])
+
+                      [triple]))
+        source    (corsem/source-triples)
+        triples   (into #{} (mapcat fix-link) source)
+        {:keys [exact close mismatched]} (sense-correspondences
+                                           dn-graph cor-graph triples)
+        alt       (sense-alternations triples)
+        triples'  (-> triples
+                      (into (map (fn [[s ds]] [s :dns/eqSense ds])) exact)
+                      (into (map (fn [[s ds]] [s :dns/eqNearSense ds])) close)
+                      (into (map (fn [[a b]] [a :dns/alternatesTo b]))
+                            (concat (get-in alt [:senses :ordered])
+                                    (get-in alt [:synsets :ordered])))
+                      (into (map (fn [[a b]] [a :dns/alternatesWith b]))
+                            (concat (get-in alt [:senses :plain])
+                                    (get-in alt [:synsets :plain]))))
+        counts    {:in          (count source)
+                   :out         (count triples)
+                   :exact       (count exact)
+                   :close       (count close)
+                   :mismatched  (count mismatched)
+                   :alt-senses  {:ordered (count (get-in alt [:senses :ordered]))
+                                 :plain   (count (get-in alt [:senses :plain]))}
+                   :alt-synsets {:ordered (count (get-in alt [:synsets :ordered]))
+                                 :plain   (count (get-in alt [:synsets :plain]))}}
+        ;; :in/:out include the minimal frame: resources of the 5 post-1.7
+        ;; frames (the rest live in the framenet graph) and the triples of
+        ;; the named dnt: ontological types and dnp: polysemy patterns in
+        ;; the source.
+        expected  {:in          386189
+                   :out         386150
+                   :exact       34561
+                   :close       4860
+                   :mismatched  2
+                   :alt-senses  {:ordered 298 :plain 64}
+                   :alt-synsets {:ordered 126 :plain 32}}]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/fix-cor-sem-links
              :data  counts}
-            "Retargeting eq* relations from ILI entries to OEWN synsets")
+            "Carrying COR.SEM links after remapping/pruning")
     (assert (= expected counts)
-            (str "expected eq*-to-ILI triples " expected ", found " counts))
-    (db/update-triples! prefix/dn-uri dataset op/eq-ili-relations
-      (fn [{:syms [?synset ?rel ?ili]}]
-        (when-let [oewn-synset (ili->oewn ?ili)]
-          [?synset ?rel oewn-synset]))
-      (fn [{:syms [?synset ?rel ?ili]}]
-        [?synset ?rel ?ili]))))
-
-(h/defn remove-asserted-lexinfo-pos!
-  "Delete the asserted lexinfo:partOfSpeech triples, which duplicate every
-  word's wn:partOfSpeech 1:1 (GitHub issue #17). The lexinfo triple is now
-  derived at query time by the value-translating rules in dannet.rules, so
-  wn:partOfSpeech becomes the sole asserted -- and sole exported -- PoS.
-
-  The count is asserted: one triple per word, including the defective
-  empty-valued pair on dn:word-temporary_3."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/remove-asserted-lexinfo-pos}
-          "Deleting asserted lexinfo:partOfSpeech duplicates")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        expected 62043
-        found    (count (q/run g op/asserted-lexinfo-pos))]
-    (assert (= expected found)
-            (str "expected " expected " asserted lexinfo:partOfSpeech "
-                 "triples, found " found)))
-  (db/update-triples! prefix/dn-uri dataset op/asserted-lexinfo-pos
-    (constantly nil)
-    (fn [{:syms [?w ?pos]}]
-      [?w :lexinfo/partOfSpeech ?pos])))
-
-(h/defn remove-scaffolding-words!
-  "Delete the artificial words \"TOP\", \"1stOrder\" and \"2ndOrder\" -- and
-  their senses and canonical forms -- from `dataset`. These words lexicalize
-  the EuroWordNet scaffolding synsets and are not Danish lemmas; \"2ndOrder\"
-  is also the only word in DanNet whose PoS values are empty IRIs (wn: and
-  lexinfo:), which is resolved by its deletion. The synsets remain as valuable
-  synthetic parents, though without lexicalizations they are no longer picked
-  up by the WN-LMF export -- deliberately so."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/remove-scaffolding-words}
-          "Removing artificial words from EuroWordNet scaffolding synsets")
-  (let [g     (db/get-graph dataset prefix/dn-uri)
-        model (db/get-model dataset prefix/dn-uri)
-        cf    (.getProperty model (prefix/kw->uri :ontolex/canonicalForm))
-        rows  (q/run g op/scaffolding-lexicalizations)]
-    (assert (= 3 (count rows))
-            (str "expected 3 scaffolding words, found " (count rows)))
-    (txn/transact-exec model
-      (doseq [{:syms [?sense ?word]} rows]
-        (let [word (.getResource model (prefix/kw->uri ?word))]
-          ;; The canonical forms are blank nodes, only reachable via interop.
-          (doseq [stmt (doall (iterator-seq (.listStatements model word cf nil)))]
-            (.removeAll model (.asResource (.getObject stmt)) nil nil))
-          (db/remove! model [?word '_ '_])
-          (db/remove! model [?sense '_ '_])
-          (db/remove! model ['_ '_ ?sense]))))))
-
-(h/defn mint-temporary-word-ids!
-  "Replace the placeholder dn:word-temporary_N identifiers in `dataset` with
-  dn:word-s<senseId> identifiers, reusing the scheme of the 3256 words
-  synthesized for the 2023 adjective import. The temporary numbers are
-  renumbered between DSL's CSV exports (e.g. temporary_3 was \"Fjerritslev\"
-  in DanNet 2.2 but \"2ndOrder\" in 2.5.1) while the sense ids are stable,
-  so each word's single sense id serves as its anchor.
-
-  NB: two identical \"tinglysningskontor\" words share a sense and so merge
-  into a single word; hence 950 words yield 949 identifiers. The merged word
-  keeps just one of its two identical canonical forms, while the duplicated
-  {tinglysningskontor} synsets it evokes are in turn merged by
-  merge-tinglysningskontor-synsets!.
-
-  Must run after remove-scaffolding-words!, which deletes 3 of the 953
-  temporary words and is assumed by the expected count."
-  [dataset]
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        model    (db/get-model dataset prefix/dn-uri)
-        renames  (->> (q/run g op/temporary-words)
-                      (map (fn [{:syms [?word ?sense]}]
-                             [(prefix/kw->uri ?word)
-                              (->> (subs (name ?sense) (count "sense-"))
-                                   (str "word-s")
-                                   (keyword "dn")
-                                   (prefix/kw->uri))])))
-        expected 950]
-    (t/log! {:level :info
-             :id    :dannet.bootstrap/mint-temporary-word-ids
-             :data  {:count (count renames)}}
-            "Minting stable identifiers for temporary words")
-    (assert (= expected (count renames))
-            (str "expected " expected " temporary words, found " (count renames)))
-    ;; Renaming uses Jena interop since the words' canonical forms are blank
-    ;; nodes, which Aristotle cannot round-trip (adding them back as literals).
-    (txn/transact-exec model
-      (doseq [[old-uri new-uri] renames]
-        (ResourceUtils/renameResource (.getResource model old-uri) new-uri))
-      ;; The merged word inherits a canonical form from each source word.
-      (let [word  (.getResource model (prefix/kw->uri :dn/word-s24000079))
-            cf    (.getProperty model (prefix/kw->uri :ontolex/canonicalForm))
-            forms (doall (iterator-seq (.listStatements model word cf nil)))]
-        (doseq [stmt (rest forms)]
-          (.removeAll model (.asResource (.getObject stmt)) nil nil)
-          (.remove model stmt))))))
-
-(h/defn merge-tinglysningskontor-synsets!
-  "Merge dn:synset-48184 into its duplicate dn:synset-48286 in `dataset`.
-  DSL's CSV exports contain two degenerate {tinglysningskontor} synsets --
-  absent from synsets.csv and thus without type or definition -- which are
-  triple-for-triple identical, sharing their single sense. Each is referenced
-  once by {tingbog_§1}, via wn:co_instrument_agent resp. wn:holo_location;
-  both relations are kept on the surviving synset, which is also finally
-  typed as an ontolex:LexicalConcept.
-
-  Must run after mint-temporary-word-ids!, which merges the two words evoking
-  the duplicates into the single word assumed by the expected count."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/merge-tinglysningskontor-synsets}
-          "Merging duplicate {tinglysningskontor} synsets")
-  (let [g     (db/get-graph dataset prefix/dn-uri)
-        model (db/get-model dataset prefix/dn-uri)
-        query '[:bgp [?s ?p :dn/synset-48184]]
-        found (count (q/run g query))]
-    (assert (= 2 found)
-            (str "expected 2 references to dn:synset-48184, found " found))
-    (db/update-triples! prefix/dn-uri dataset query
-      (fn [{:syms [?s ?p]}]
-        [?s ?p :dn/synset-48286])
-      (fn [{:syms [?s ?p]}]
-        [?s ?p :dn/synset-48184]))
-    (txn/transact-exec model
-      (db/remove! model [:dn/synset-48184 '_ '_]))
-    (txn/transact-exec g
-      (db/safe-add! g [[:dn/synset-48286 :rdf/type :ontolex/LexicalConcept]]))))
-
-(def synset-identity-properties
-  "The properties left out when two synsets are compared: the blank nodes of
-  dns:inherited and dns:ontologicalType differ by identity even where their
-  contents match, and labels and definitions are what a comparison looks past."
-  #{:ontolex/lexicalizedSense :rdf/type :skos/inScheme :dc/subject
-    :dns/shortLabel :rdfs/label :skos/definition :dns/inherited
-    :dns/ontologicalType})
-
-(defn synset-relations
-  "The relations placing `synset` in the wordnet, as [property object] pairs."
-  [g synset]
-  (->> (q/run g [:bgp [synset '?p '?o]])
-       (remove (comp synset-identity-properties '?p))
-       (map (juxt '?p '?o))
-       (set)))
-
-(defn synset-ontological-type
-  "The ontological concepts of `synset`, read through its blank node so that
-  two synsets can be compared by content."
-  [g synset]
-  (->> (q/run g [:bgp [synset :dns/ontologicalType '?bnode] ['?bnode '?p '?concept]])
-       (map '?concept)
-       (filter keyword?)
-       (set)))
-
-(defn duplicate-synsets
-  "[survivor doomed] when one of the synsets `a` and `b` in `g` holds
-  everything the other does, or nil when the two model different concepts.
-
-  The survivor is the richer of the pair. Where each holds exactly what the
-  other does, the one carrying a definition survives, and failing that the
-  lower id."
-  [g a b]
-  (let [profile  (fn [synset] [(synset-relations g synset)
-                               (synset-ontological-type g synset)])
-        holds?   (fn [[relations ontotype] [relations' ontotype']]
-                   (and (set/subset? relations' relations)
-                        (set/subset? ontotype' ontotype)))
-        defined? (fn [synset] (seq (q/run g [:bgp [synset :skos/definition '?o]])))
-        id       (fn [synset] (parse-long (re-find #"\d+" (name synset))))
-        pa       (profile a)
-        pb       (profile b)]
-    (cond
-      (and (holds? pa pb) (holds? pb pa)) (cond
-                                            (defined? a) [a b]
-                                            (defined? b) [b a]
-                                            :else        (vec (sort-by id [a b])))
-      (holds? pa pb)                      [a b]
-      (holds? pb pa)                      [b a])))
-
-(h/defn merge-duplicate-synsets!
-  "Merge the synset pairs of `dataset` that share a sense while modelling one
-  and the same concept (GitHub issue #209).
-
-  A sense pairs one word with one synset, so a sense lexicalized by two
-  synsets is a modelling violation. In 10 of the 78 cases the pair is not two
-  concepts at all: one synset holds everything the other does, being either an
-  exact copy of it or a stub minted to anchor a few relations. Those merge the
-  way the {tinglysningskontor} duplicates do -- every reference to the poorer
-  synset is retargeted at the survivor, a definition only it carried is moved
-  across, and it is then deleted.
-
-  Runs before split-shared-senses!, which divides the senses of the other 68
-  pairs, those modelling genuinely different concepts."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/merge-duplicate-synsets}
-          "Merging synsets that share a sense and model one concept")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        model    (db/get-model dataset prefix/dn-uri)
-        merges   (->> (q/run g op/shared-senses)
-                      (group-by '?sense)
-                      (vals)
-                      (keep (fn [rows]
-                              (let [[a b] (sort-by name (distinct (map '?synset rows)))]
-                                (duplicate-synsets g a b)))))
-        expected 10]
-    (assert (= expected (count merges))
-            (str "expected " expected " duplicate synset pairs, found "
-                 (count merges)))
-    (doseq [[survivor doomed] merges]
-      (db/update-triples! prefix/dn-uri dataset [:bgp ['?s '?p doomed]]
-        (fn [{:syms [?s ?p]}] [?s ?p survivor])
-        (fn [{:syms [?s ?p]}] [?s ?p doomed]))
-      ;; A definition carried only by the doomed synset would otherwise go
-      ;; down with it, since only its references are retargeted above.
-      (when-let [definition (and (empty? (q/run g [:bgp [survivor :skos/definition '?o]]))
-                                 (first (map '?o (q/run g [:bgp [doomed :skos/definition '?o]]))))]
-        (txn/transact-exec g
-          (db/safe-add! g [[survivor :skos/definition definition]])))
-      (txn/transact-exec model
-        (db/remove! model [doomed '_ '_])))))
-
-(h/defn split-shared-senses!
-  "Divide each sense of `dataset` still shared by two synsets into one sense
-  per synset (GitHub issue #209).
-
-  Where the two synsets model different concepts -- the 68 pairs left once
-  merge-duplicate-synsets! has dealt with the other 10 -- the shared sense
-  cannot simply move to one of them, so it becomes two.
-
-  The division follows the convention DSL already uses, e.g. for
-  dn:sense-23000002: dn:sense-<id>-i1 and -i2, each carrying dns:dslSense with
-  the original DDO sense id, and a label ending in (1) resp. (2), as in
-  \"Afghanistan_§1(1)\", since the two would otherwise read alike wherever a
-  sense is shown without its synset. The unsuffixed sense disappears, as it
-  does there. The disambiguator joins the sense marker rather than following a
-  second underscore, a shape shared/sense-label cannot parse and which
-  therefore renders blank.
-
-  Renaming the sense to -i1 carries the word and both synsets along with it,
-  after which the second synset is moved onto the -i2 copy.
-
-  Must run after merge-duplicate-synsets!, whose 10 merges the count below
-  assumes."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/split-shared-senses}
-          "Dividing senses shared by two synsets")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        model    (db/get-model dataset prefix/dn-uri)
-        uri      (fn [kw] (.getResource model (prefix/kw->uri kw)))
-        ;; Every read happens before the first write: a query issued inside a
-        ;; write transaction comes back empty, and db/safe-add! logs such a
-        ;; failure rather than raising it.
-        splits   (->> (q/run g op/shared-senses)
-                      (group-by '?sense)
-                      (into (sorted-map)
-                            (map (fn [[sense rows]]
-                                   (let [triples (q/run g [:bgp [sense '?p '?o]])]
-                                     [sense {:word  (some '?word rows)
-                                             :moved (second (sort-by name (distinct (map '?synset rows))))
-                                             :label (str (some (fn [{:syms [?p ?o]}]
-                                                                 (when (= :rdfs/label ?p) ?o))
-                                                               triples))
-                                             :own   (vec (for [{:syms [?p ?o]} triples
-                                                               :when (not= :rdfs/label ?p)]
-                                                           [?p ?o]))}])))))
-        expected 68]
-    (assert (= expected (count splits))
-            (str "expected " expected " shared senses, found " (count splits)))
-    (doseq [[sense {:keys [word moved label own]}] splits]
-      (let [dsl-id  (subs (name sense) (count "sense-"))
-            renamed (keyword "dn" (str (name sense) "-i1"))
-            copy    (keyword "dn" (str (name sense) "-i2"))]
-        (txn/transact-exec model
-          (ResourceUtils/renameResource (uri sense) (prefix/kw->uri renamed))
-          (.removeAll model (uri renamed)
-                      (.getProperty model (prefix/kw->uri :rdfs/label)) nil)
-          (.removeAll model (uri moved)
-                      (.getProperty model (prefix/kw->uri :ontolex/lexicalizedSense))
-                      (uri renamed)))
-        (txn/transact-exec g
-          (db/safe-add! g (into [[moved :ontolex/lexicalizedSense copy]
-                                 [word :ontolex/sense copy]
-                                 [renamed :rdfs/label (md/da label "(1)")]
-                                 [copy :rdfs/label (md/da label "(2)")]
-                                 [renamed :dns/dslSense dsl-id]
-                                 [copy :dns/dslSense dsl-id]]
-                                (for [[p o] own] [copy p o]))))))))
-
-(h/defn rebuild-cor-graph!
-  "Rebuild the cor: graph of `dataset` from the published COR source files.
-
-  The graph has been carried forward as data since the 2022 import of COR₁
-  1.02; rebuilding derives every word and form from the current edition
-  instead. The links tying COR words to DanNet words and senses have no such
-  source: the COR.EXT links still come from DSL's link file, while the COR₁
-  link file is lost, so those links survive from the graph being replaced.
-  Links whose COR word is gone from the sources are remapped via the official
-  changelogs, links to senses divided by a split are retargeted through
-  dns:dslSense (cf. 493db1c and issue #146), and links whose word or sense no
-  longer exists on either side are pruned.
-
-  Must run after split-shared-senses!, so that retargeting sees the final
-  sense IDs, and before add-in-scheme!, which re-adds skos:inScheme to the
-  rebuilt graph."
-  [dataset]
-  (t/log! {:level :info
-           :id    :dannet.bootstrap/rebuild-cor-graph
-           :data  {:version release/cor-version}}
-          "Rebuilding COR graph from source files")
-  (let [cor-graph   (db/get-graph dataset prefix/cor-uri)
-        cor-model   (db/get-model dataset prefix/cor-uri)
-        dn-graph    (db/get-graph dataset prefix/dn-uri)
-        cor-word?   (fn [x] (and (keyword? x) (= "cor" (namespace x))))
-        cor1?       (fn [x] (and (cor-word? x)
-                                 (not (str/starts-with? (name x) "COR.EXT."))))
-        ;; Every read happens before the first write -- see split-shared-senses!.
-        word-links  (->> (q/run cor-graph '[:bgp [?w :owl/sameAs ?dn]])
-                         (filter (comp cor1? '?w))
-                         (map (juxt '?w '?dn)))
-        sense-links (->> (q/run cor-graph '[:bgp [?w :ontolex/sense ?s]])
-                         (filter (comp cor1? '?w))
-                         (map (juxt '?w '?s)))
-        dn-words    (->> [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]
-                         (mapcat #(q/run dn-graph [:bgp ['?w :rdf/type %]]))
-                         (map '?w)
-                         (set))
-        dn-senses   (->> (q/run dn-graph '[:bgp [?s :rdf/type :ontolex/LexicalSense]])
-                         (map '?s)
-                         (set))
-        dsl-senses  (->> (q/run dn-graph '[:bgp [?s :dns/dslSense ?id]])
-                         (reduce (fn [m {:syms [?s ?id]}]
-                                   (update m ?id (fnil conj #{}) ?s))
-                                 {}))
-        source      (cor/source-triples)
-        cor-words   (into #{}
-                          (keep (fn [[s p _]]
-                                  (when (#{:ontolex/canonicalForm
-                                           :ontolex/otherForm} p)
-                                    s)))
-                          source)
-        remap       (cor/id-remap)
-        new-words   (fn [w]
-                      (if (cor-words w)
-                        [w]
-                        (->> (remap (name w))
-                             (map (partial keyword "cor"))
-                             (filter cor-words))))
-        new-senses  (fn [s]
-                      (if (dn-senses s)
-                        [s]
-                        (get dsl-senses (subs (name s) (count "sense-")))))
-        ext-links   (cor/ext-link-triples)
-        word-pairs  (into (set word-links)
-                          (for [[s p o] ext-links
-                                :when (and (= :owl/sameAs p) (cor-word? s))]
-                            [s o]))
-        sense-pairs (into (set sense-links)
-                          (for [[s p o] ext-links
-                                :when (= :ontolex/sense p)]
-                            [s o]))]
-    (t/trace! {:id :dannet.bootstrap/drop-cor-graph}
-      (txn/transact-exec cor-model
-        (.removeAll ^Model cor-model)))
-    ;; The source triples go in first, in bounded transactions, so that the
-    ;; multi-million member set is released before the link triples are
-    ;; computed -- holding both at once puts the 8 GB production heap under
-    ;; enough GC pressure to slow the whole rebuild by an order of magnitude.
-    (t/trace! {:id :dannet.bootstrap/add-cor-source}
-      (doseq [chunk (partition-all 500000 source)]
-        (txn/transact-exec cor-graph
-          (db/safe-add! cor-graph chunk))))
-    (let [word-triples  (set (for [[w dn] word-pairs
-                                   :when (dn-words dn)
-                                   w' (new-words w)
-                                   t [[w' :owl/sameAs dn] [dn :owl/sameAs w']]]
-                               t))
-          sense-triples (set (for [[w s] sense-pairs
-                                   w' (new-words w)
-                                   s' (new-senses s)]
-                               [w' :ontolex/sense s']))]
-      (t/log! {:level :info
-               :id    :dannet.bootstrap/carry-cor-links
-               :data  {:in  {:word-links  (count word-pairs)
-                             :sense-links (count sense-pairs)}
-                       :out {:word-links  (/ (count word-triples) 2)
-                             :sense-links (count sense-triples)}}}
-              "Carrying COR links over to the rebuilt graph")
-      (t/trace! {:id :dannet.bootstrap/add-cor-links}
-        (txn/transact-exec cor-graph
-          (db/safe-add! cor-graph (into word-triples sense-triples))))
-      (txn/transact-exec cor-model
-        (md/update-metadata! (get md/metadata 'cor) cor-model)))))
+            (str "expected COR.SEM triple counts " expected ", found " counts))
+    (doseq [chunk (partition-all 500000 triples')]
+      (txn/transact-exec sem-graph
+        (db/safe-add! sem-graph chunk)))
+    (txn/transact-exec sem-model
+      (md/update-metadata! (get md/metadata 'cor-sem) sem-model))))
 
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
@@ -693,17 +551,9 @@
             "Applying release changes")
 
     ;; ==== Changes for this particular release. ====
-    (rewrite-ddo-source-urls! dataset)
-    (add-missing-sense-sources! dataset)
-    (add-missing-written-reps! dataset)
-    (retarget-eq-ili-relations! dataset)
-    (remove-asserted-lexinfo-pos! dataset)
-    (remove-scaffolding-words! dataset)
-    (mint-temporary-word-ids! dataset)
-    (merge-tinglysningskontor-synsets! dataset)
-    (merge-duplicate-synsets! dataset)
-    (split-shared-senses! dataset)
-    (rebuild-cor-graph! dataset)
+    (name-ontological-types! dataset)
+    (rename-cor-sense-links! dataset)
+    (add-cor-sem-graph! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -803,12 +653,28 @@
                                 (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
                             (:hash (meta #'add-open-english-wordnet-labels!))
+                            (:hash (meta #'add-framenet!))
+                            (:hash (meta #'premon/premon-index))
+                            (:hash (meta #'premon/source-triples))
+                            (hash premon/fe-status)
+                            (hash premon/frame-relations)
+                            (hash premon/fe-relations)
                             (:hash (meta #'make-release-changes!))
-                            (:hash (meta #'rebuild-cor-graph!))
-                            (:hash (meta #'cor/->cor-triples))
-                            (:hash (meta #'cor/->cor-ext-triples))
-                            (:hash (meta #'cor/->cor-link-triples))
+                            (:hash (meta #'add-cor-sem-graph!))
+                            (:hash (meta #'sense-correspondences))
+                            (:hash (meta #'sense-alternations))
+                            (:hash (meta #'corsem/->polysemy-pattern))
+                            (hash corsem/polysemy-pattern-info)
+                            (:hash (meta #'name-ontological-types!))
+                            (:hash (meta #'rename-cor-sense-links!))
+                            (:hash (meta #'corsem/->corsem-triples))
+                            (:hash (meta #'corsem/->frame-triples))
+                            (:hash (meta #'corsem/->ontotype))
+                            (:hash (meta #'corsem/ontotype-atoms))
                             (:hash (meta #'cor/id-remap))
+                            ;; Value hashes: the converter's lookup data isn't
+                            ;; captured by the hashed forms above.
+                            (hash corsem/restriction-notes)
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
                             (:hash (meta #'md/add-dataset-statistics!))
@@ -827,12 +693,17 @@
                             ;; The OEWN edition is likewise only a value: its
                             ;; ttl isn't among the hashed input zips, so it is
                             ;; included explicitly -- otherwise bumping the
-                            ;; edition wouldn't trigger a rebuild.
+                            ;; edition wouldn't trigger a rebuild. The same
+                            ;; goes for the PreMOn release behind the framenet
+                            ;; graph.
                             downloads/oewn-version
-                            ;; The COR editions for the same reason: their
-                            ;; source files aren't among the hashed input zips.
+                            release/premon-version
+                            ;; The COR editions likewise: they only figure as
+                            ;; values, in the dc:hasVersion dataset metadata
+                            ;; and (for COR.SEM) the source filename.
                             release/cor-version
-                            release/cor-ext-version]
+                            release/cor-ext-version
+                            release/cor-sem-version]
             ;; Undo potentially negative number by bit-shifting.
             files-hash     (h/pos-hash files)
             bootstrap-hash (h/pos-hash fn-hashes)
@@ -896,9 +767,14 @@
 
               ;; The English is always explicitly added as it is not part of our
               ;; own latest export (only the DanNet-like labels we produce are).
-              ;; It is imported BEFORE the release changes, some of which need
-              ;; the OEWN graph for lookups (e.g. retarget-eq-ili-relations!).
+              ;; It is imported BEFORE the release changes, some of which may
+              ;; need the OEWN graph for lookups.
               (add-open-english-wordnet! dataset)
+
+              ;; The FrameNet frame inventory likewise arrives by download
+              ;; rather than as part of our own export; the dns:frame links
+              ;; added by the release changes below resolve against it.
+              (add-framenet! dataset)
 
               ;; Effectuate changes for the current release.
               (make-release-changes! dataset)

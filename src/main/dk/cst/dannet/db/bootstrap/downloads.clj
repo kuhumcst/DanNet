@@ -1,5 +1,5 @@
 (ns dk.cst.dannet.db.bootstrap.downloads
-  "Functions for fetching the bootstrap datasets (DanNet, OEWN, CILI).
+  "Functions for fetching the bootstrap datasets (DanNet, OEWN, CILI, PreMOn).
 
   Every fetch fails fast and writes atomically, so a network error, a missing
   release asset or a failed decompression throws rather than leaving behind a
@@ -49,7 +49,12 @@
 
 (def bootstrap-files
   "The set of DanNet release assets that constitute a bootstrap. Shared by the
-  fetch and the missing-file check so the two can't drift apart."
+  fetch and the missing-file check so the two can't drift apart.
+
+  NB: add \"cor-sem.zip\" when bumping release/from past the release that
+  debuts the cor-sem: graph; the 2026-08-21 release bootstrapped from now has
+  no such asset, so the graph is built from source by add-cor-sem-graph!
+  instead."
   #{"dannet.zip"
     "cor.zip"
     "dds.zip"
@@ -141,6 +146,23 @@
   (when-not (.exists (io/file ili-path))
     (download-to-file! ili-url ili-path)))
 
+(def premon-fn17-path
+  "The PreMOn FrameNet 1.7 dump; .tql upstream, but the content is N-Quads,
+  so the decompressed file is named .nq for Jena to auto-detect the syntax."
+  (str "bootstrap/other/framenet/premon-" release/premon-version "-fn17-noinf.nq"))
+
+(def premon-fn17-url
+  (str "https://premon.fbk.eu/files/dataset/" release/premon-version
+       "/premon-" release/premon-version "-fn17-noinf.tql.gz"))
+
+(defn ensure-framenet-dataset!
+  "Download the PreMOn FrameNet 1.7 dump if missing, like the OEWN gunzipped
+  as it streams."
+  []
+  (when-not (.exists (io/file premon-fn17-path))
+    (download-to-file! premon-fn17-url premon-fn17-path
+                       :wrap #(GZIPInputStream. %))))
+
 (defn assert-input-dir!
   "Fail before any work if `dir` takes part in the version-dir naming scheme but
   isn't named after the `version` being bootstrapped from. A dir outside
@@ -164,12 +186,13 @@
   incomplete database. This is the normal, non-refetch start path.
 
   No version is checked: the DanNet release is encoded in `dir` and the OEWN
-  edition in its filename, so both are already covered."
+  and PreMOn editions in their filenames, so all are already covered."
   [dir]
   (let [missing (mapv str (concat (map #(io/file dir %) (missing-bootstrap-files dir))
                                   (remove #(.exists ^File %)
                                           [(io/file oewn-ttl-path)
-                                           (io/file ili-path)])))]
+                                           (io/file ili-path)
+                                           (io/file premon-fn17-path)])))]
     (when (seq missing)
       (t/log! {:level :error
                :id    :dannet.bootstrap/datasets-incomplete
@@ -206,10 +229,12 @@
                        :source   ili-url}}
               "ILI is unversioned (CILI master) and kept as-is on refetch")))
   (ensure-bootstrap-datasets! dir version)
-  (ensure-english-datasets!))
+  (ensure-english-datasets!)
+  (ensure-framenet-dataset!))
 
 (comment
   (ensure-english-datasets!)                                ; ILI and OEWN
+  (ensure-framenet-dataset!)                                ; PreMOn FrameNet 1.7
 
   (fetch-bootstrap-datasets!)                               ; latest version
   (fetch-bootstrap-datasets! :version "2024-08-09")         ; specific version

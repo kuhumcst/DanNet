@@ -47,7 +47,7 @@
        (> (count v) expandable-list-cutoff)
        ;; A word cloud is only relevant in cases where the content has been
        ;; presorted by weight, e.g. synset relations currently in use in DanNet.
-       (get shared/synset-rel-theme attr-key)))
+       (shared/weight-sorted-rel? attr-key)))
 
 (rum/defc list-cell
   "A list of ordered content; hidden by default when there are too many items."
@@ -125,8 +125,10 @@
        ;; Longer lists of synsets can be displayed as a word cloud.
        (when cloud?
          ;; Default to word cloud only for collections exceeding the limit.
+         ;; The empty string is the list option; nil would make React warn
+         ;; about a null `value` prop on the <select>.
          (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
-               value          (or display-opt (when exceeds-limit? "cloud"))
+               value          (or display-opt (when exceeds-limit? "cloud") "")
                change         (fn [e]
                                 (swap! display-opts assoc-in [subject attr-key]
                                        (.-value (.-target e))))]
@@ -214,10 +216,31 @@
          [:td {:lang (i18n/lang v) :key v}
           (rdf/transform-val v opts+attr-key)]))]))
 
+(defn- fold-member-rows
+  "Fold the rdf:_N container membership rows of `subentity` into a single
+  :rdfs/member row in place of the first of them, with the members in
+  ordinal order."
+  [subentity]
+  (let [rows     (seq subentity)
+        ordinals (filter (comp shared/member-property? key) rows)]
+    (if (seq ordinals)
+      (let [member-row [:rdfs/member (->> ordinals
+                                          (sort-by (comp parse-long #(subs % 1) name key))
+                                          (mapv (comp shared/unwrap val)))]
+            first-k    (key (first ordinals))]
+        (keep (fn [[k _ :as row]]
+                (cond
+                  (= k first-k) member-row
+                  (shared/member-property? k) nil
+                  :else row))
+              rows))
+      subentity)))
+
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
   [state {:keys [subject languages inherited inferred supplemented] :as opts} subentity]
-  (let [display-opts (::display-opts state)]
+  (let [display-opts (::display-opts state)
+        subentity    (fold-member-rows subentity)]
     [:table.attr-val (cond-> {}
                        (:table-component opts)
                        (assoc :class "attr-val--nested")

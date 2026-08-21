@@ -155,12 +155,20 @@
 (def synset-sep
   #"\{|;|\}")
 
+(defn frame?
+  "Return true if `subject` is a FrameNet frame resource."
+  [subject]
+  (and (keyword? subject)
+       (= "frame" (namespace subject))))
+
 (defn synset?
-  "Return true if `subject` is a synset `entity` in DanNet, OEWN, etc."
+  "Return true if `subject` is a synset `entity` in DanNet, OEWN, etc.
+  FrameNet frames are also typed as lexical concepts, but are not synsets."
   [subject entity]
   (and (keyword? subject)
        (map? entity)
-       (= :ontolex/LexicalConcept (:rdf/type entity))))
+       (= :ontolex/LexicalConcept (:rdf/type entity))
+       (not (frame? subject))))
 
 (defn dn-synset?
   "Return true if `subject` is a DanNet synset specifically."
@@ -180,6 +188,24 @@
   "Return true if `subject` is a DanNet word specifically."
   [subject entity]
   (and (word? subject entity)
+       (= "dn" (namespace subject))))
+
+(defn cor-word?
+  "Return true if `subject` is a COR word `entity`; unlike DanNet, COR also
+  types some of its words as affixes."
+  [subject entity]
+  (and (keyword? subject)
+       (map? entity)
+       (= "cor" (namespace subject))
+       (boolean (some #{:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix}
+                      (setify (:rdf/type entity))))))
+
+(defn dn-sense?
+  "Return true if `subject` is a DanNet sense `entity` specifically."
+  [subject entity]
+  (and (keyword? subject)
+       (map? entity)
+       (= :ontolex/LexicalSense (:rdf/type entity))
        (= "dn" (namespace subject))))
 
 (defn with-prefix
@@ -204,6 +230,19 @@
                    :dns/crossPoSHypernym
                    :dns/orthogonalHyponym
                    :dns/orthogonalHypernym} first)))
+
+(def oversized-rels?
+  "Non-semantic relations that also need entity page truncation: the inverse
+  ontotype relations list every usage of a type, reaching into the thousands."
+  ;; TODO: consider letting the codomain of a relation decide ordering and
+  ;;       rendering in general, so synsets sort by weight wherever listed
+  ;;       rather than via the relation sets behind weight-sorted-rel?.
+  ;; dns:semTypeOf is deliberately absent although its lists reach ~1000
+  ;; entries: this set doubles as weight-sorted-rel?, whose sorting and word
+  ;; cloud expect indegree-sorted synset values, not frame elements. The
+  ;; generic expandable list handles the length instead.
+  #{:dns/ontologicalTypeOf
+    :dns/simpleOntologicalTypeOf})
 
 (def omitted
   "…")
@@ -605,6 +644,13 @@
    :wn/patient             "#e377c2"
    :wn/result              "#98df8a"
    :wn/similar             "#bcbd22"})
+
+(defn weight-sorted-rel?
+  "Return true if the synset values of relation `k` arrive indegree-sorted from
+  the backend, making weight-based display such as word clouds meaningful."
+  [k]
+  (or (contains? synset-rel-theme k)
+      (contains? oversized-rels? k)))
 
 (defn lexfile->pos
   [lexfile]

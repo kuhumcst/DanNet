@@ -314,7 +314,12 @@
                   g                  (:graph @instance/db)
                   ;; TODO: why is decoding necessary?
                   ;; You would think that the path-params-decoder handled this.
-                  subject*           (let [s (decode-query-part subject)]
+                  ;; NB: the path-params-decoder has already percent-decoded
+                  ;; the subject, so literal + (e.g. dnc:Human+Object) must be
+                  ;; kept out of reach of decode-query-part's +-as-space rule.
+                  subject*           (let [s (some-> subject
+                                                     (str/replace "+" "%2B")
+                                                     (decode-query-part))]
                                        (cond
                                          prefix
                                          (keyword (name prefix) s)
@@ -872,7 +877,7 @@
                      :dns/orthogonalHypernym
                      :dns/orthogonalHyponym]
         other-rels  [:wn/ili
-                     :dns/linkedConcept                     ; inverse of wn:ili
+                     :dns/iliOf                             ; inverse of wn:ili
                      :wn/eq_synonym
                      :dns/eqHyponym
                      :dns/eqHypernym

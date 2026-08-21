@@ -8,6 +8,7 @@
 (def companion-datasets
   "The companion datasets shown in their own catalog group (see group-order)."
   #{(prefix/prefix->rdf-resource 'cor)
+    (prefix/prefix->rdf-resource 'cor-sem)
     (prefix/prefix->rdf-resource 'dds)
     (prefix/uri->rdf-resource prefix/oewn-uri)})
 

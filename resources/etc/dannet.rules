@@ -41,9 +41,14 @@
 # owl:inverseOf
 #------------------------------------------------------------------
 
-[inverseOf1: (?P owl:inverseOf ?Q) -> (?Q owl:inverseOf ?P) ]
+# Anonymous inverses are skipped: the PreMOn ontologies declare
+# owl:inverseOf on blank nodes inside restrictions, and materializing
+# those would put blank-node predicates on every frame element.
+[inverseOf1: (?P owl:inverseOf ?Q), notBNode(?P), notBNode(?Q)
+             -> (?Q owl:inverseOf ?P) ]
 
-[inverseOf2: (?P owl:inverseOf ?Q) -> table(?P), table(?Q),
+[inverseOf2: (?P owl:inverseOf ?Q), notBNode(?P), notBNode(?Q)
+             -> table(?P), table(?Q),
              [inverseOf2b: (?X ?P ?Y) <- (?Y ?Q ?X)] ]
 
 # Propagate domain/range declarations across inverse pairs.
@@ -63,7 +68,12 @@
 # wn:partOfSpeech is excluded: its superproperty entailment would copy the
 # wn: VALUE unchanged (sameAs reasoning is omitted, see the header), so it
 # is handled by the value-translating rules below instead.
-[rdfs6: (?P rdfs:subPropertyOf ?Q), notEqual(?P, ?Q), notEqual(?P, wn:partOfSpeech)
+# The owl top properties are excluded: PreMOn declares e.g.
+# pmo:abbreviation as a subproperty of owl:topDataProperty, and the
+# entailment is pure noise on entity pages.
+[rdfs6: (?P rdfs:subPropertyOf ?Q), notEqual(?P, ?Q), notEqual(?P, wn:partOfSpeech),
+        notBNode(?Q),
+        notEqual(?Q, owl:topDataProperty), notEqual(?Q, owl:topObjectProperty)
         -> table(?P), table(?Q),
         [rdfs6b: (?A ?Q ?B) <- (?A ?P ?B)] ]
 

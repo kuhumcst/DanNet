@@ -83,6 +83,38 @@
                          'lime 'void 'dc 'dcat}
              :download {"rdf" {:default "cor.zip"}}}
 
+   ;; The COR.SEM sense inventory. Its resources live in the cor: namespace
+   ;; (COR.SEM IDs are published by DSN like the other COR IDs), so this URI
+   ;; only names the graph and the dataset resource.
+   'cor-sem {:uri      "https://ordregister.dk/sem/"
+             :resource "<https://ordregister.dk/sem>"
+             :export   #{'dn 'dns 'dnt 'dnp 'cor 'frame
+                         'rdf 'rdfs 'owl
+                         'ontolex 'skos 'marl
+                         'void 'dc 'dcat}
+             :download {"rdf" {:default "cor-sem.zip"}}}
+
+   ;; The PreMOn ontology modules backing the FrameNet dataset below; the
+   ;; bundled copies were fetched from the (still dereferencing) ontology URIs.
+   'pmo     {:uri "http://premon.fbk.eu/ontology/core#"
+             :alt "schemas/external/premon-core.ttl"}
+   'pmofn   {:uri "http://premon.fbk.eu/ontology/fn#"
+             :alt "schemas/external/premon-fn.ttl"}
+
+   ;; Berkeley FrameNet frames and frame elements as resources, linked from
+   ;; COR.SEM senses via dns:frame and shipped as their own dataset, built
+   ;; from the PreMOn rendition of FrameNet 1.7 (each resource keeps an
+   ;; owl:sameAs link to its PreMOn twin, though those no longer dereference).
+   ;; Our own namespace: Berkeley publishes no RDF, and a top-level URI keeps
+   ;; the inventory dataset-neutral. NB: the conventional FrameNet prefix "fn"
+   ;; is avoided since SPARQL preassigns it to the XPath function namespace.
+   'frame   {:uri      "https://wordnet.dk/framenet/"
+             :resource "<https://wordnet.dk/framenet>"
+             :export   #{'frame 'pmo 'pmofn
+                         'rdf 'rdfs 'owl
+                         'ontolex 'skos
+                         'void 'dc 'dcat}}
+
    ;; Sentiment data
    'dds     {:uri      "https://wordnet.dk/sentiment/"
              :resource "<https://wordnet.dk/sentiment>"
@@ -90,10 +122,10 @@
                          'void 'dc 'dcat}
              :download {"rdf" {:default "dds.zip"}}}
 
-   ;; The three internal DanNet namespaces.
+   ;; The four internal DanNet namespaces.
    'dn      {:uri      (str dannet-root "data/")
              :resource (str "<" dannet-root "data>")
-             :export   #{'dn 'dnc 'dns
+             :export   #{'dn 'dnc 'dns 'dnt
                          'rdf 'rdfs 'owl
                          'lime 'wn 'ontolex 'skos 'lexinfo 'marl
                          'dcat 'vann 'foaf 'dc 'void
@@ -112,6 +144,14 @@
    'dns     {:uri      (str dannet-root "schema/")
              :resource (str "<" dannet-root "schema>")
              :alt      "schemas/internal/dannet-schema.ttl"}
+   ;; The dns:OntologicalType bags, named after their sorted dnc: members;
+   ;; data rather than schema, built during bootstrap.
+   'dnt     {:uri (str dannet-root "types/")
+             :alt :no-schema}
+   ;; The dns:PolysemyPattern seqs, named after their ordered readings;
+   ;; data rather than schema, built during bootstrap.
+   'dnp     {:uri (str dannet-root "patterns/")
+             :alt :no-schema}
 
    ;; Various en->da translations included as additional data.
    'tr      {:uri (str dannet-root "translations/")
@@ -131,7 +171,7 @@
              [zip-file uri])))
 
 (def internal-prefixes
-  #{'dn 'dnc 'dns})
+  #{'dn 'dnc 'dns 'dnt 'dnp 'frame})
 
 (def prefixes
   (set (keys schemas)))
@@ -301,6 +341,12 @@
 (def cor-uri
   (prefix->uri 'cor))
 
+(def cor-sem-uri
+  (prefix->uri 'cor-sem))
+
+(def framenet-uri
+  (prefix->uri 'frame))
+
 (def dnf-uri
   "Namespace for custom ARQ SPARQL functions (registered as the `dnf` prefix)."
   (str dannet-root "function/"))
@@ -319,10 +365,10 @@
 (def prefix->class
   "Convert a `prefix` to a CSS class."
   (invert-map
-    {"dannet"  #{'dn 'dnc 'dns}
+    {"dannet"  #{'dn 'dnc 'dns 'dnt 'dnp}
      "w3c"     #{'dcat 'foaf 'owl 'rdf 'rdfs 'skos 'svs}
      "meta"    #{'cc 'dc 'dc11 'vann 'schema}
-     "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia}
+     "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia 'pmo 'pmofn}
      "wordnet" #{'wn}}))
 
 (def uri-parts

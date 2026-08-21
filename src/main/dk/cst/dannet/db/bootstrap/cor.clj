@@ -178,7 +178,7 @@
         dn-sense (sense-uri sense-id)]
     #{[cor-word :owl/sameAs dn-word]
       [dn-word :owl/sameAs cor-word]
-      [cor-word :ontolex/sense dn-sense]}))
+      [cor-word :dns/linkedSense dn-sense]}))
 
 (defn file->triples
   "The triples of the tab-separated `filename` in source-dir, as produced by
