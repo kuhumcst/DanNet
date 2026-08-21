@@ -12,6 +12,8 @@
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix wn: <https://globalwordnet.github.io/schemas/wn#> .
+@prefix pmo: <http://premon.fbk.eu/ontology/core#> .
+@prefix pmofn: <http://premon.fbk.eu/ontology/fn#> .
 
 <https://wordnet.dk/dannet/schema> a owl:Ontology ;
   dc:issued "2023-09-08" ;
@@ -65,13 +67,60 @@
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 # Infer inverse links from the ILI dataset for better navigation of the graph.
-:linkedConcept a owl:ObjectProperty ;
-  rdfs:label "linked concept"@en ;
-  rdfs:label "forbundet begreb"@da ;
-  rdfs:comment "The outgoing link to a lexical concept/synset from its designated Interlingual Index."@en ;
-  rdfs:comment "Den udgående forbindelse til et leksikalsk begreb/synset fra dets noterede Interlingual Index."@da ;
+:iliOf a owl:ObjectProperty ;
+  rdfs:label "ILI of"@en ;
+  rdfs:label "ILI for"@da ;
+  rdfs:comment "A lexical concept/synset identified by the subject Interlingual Index record; the entailed inverse of wn:ili."@en ;
+  rdfs:comment "Et leksikalsk begreb/synset som identificeres af subjektets Interlingual Index-post; den afledte inverse af wn:ili."@da ;
   rdfs:subPropertyOf skos:exactMatch ;
   owl:inverseOf wn:ili ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# The sense-level members of the eq* family: symmetric (self-inverse)
+# counterparts of the SKOS matches, so both directions derive from a single
+# asserted triple -- same machinery as :eqSimilar.
+:eqSense a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalSense ;
+  rdfs:subPropertyOf skos:exactMatch ;
+  owl:inverseOf :eqSense ;
+  rdfs:comment "A relation between two senses in separate datasets that cover the same meaning."@en ;
+  rdfs:comment "En relation mellem to betydninger i separate datasæt med samme betydningsindhold."@da ;
+  rdfs:label "equivalent sense"@en ;
+  rdfs:label "ækvivalent betydning"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:eqNearSense a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalSense ;
+  rdfs:subPropertyOf skos:closeMatch ;
+  owl:inverseOf :eqNearSense ;
+  rdfs:comment "A relation between two senses in separate datasets that cover overlapping but not identical meanings, e.g. one dataset merging senses the other keeps apart."@en ;
+  rdfs:comment "En relation mellem to betydninger i separate datasæt med overlappende men ikke identisk betydningsindhold, fx når det ene datasæt sammenlægger betydninger som det andet holder adskilt."@da ;
+  rdfs:label "near-equivalent sense"@en ;
+  rdfs:label "nær-ækvivalent betydning"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# Deliberately declared without an inverse: the anchor fan-in is extreme (a
+# single synset anchors thousands of COR.SEM senses), so the inverse
+# direction is left to SPARQL property paths (^dns:hypernymAnchor).
+# TODO: "hypernym anchor" is repo-local coinage with no EWN/SKOS precedent;
+#       consider renaming (e.g. :eqBroader) before it ships in a release.
+# TODO: reconsider the property's inclusion/purpose after the planned anchor
+#       audit: 76% of anchors merely mirror the linked synset's own
+#       wn:hypernym, so the value sits in the 4,647 pre-anchored senses
+#       missing from DanNet and the 8,201 placements disagreeing with the
+#       DanNet hierarchy -- if the disagreements prove to be noise, consider
+#       pruning the property to that subset (or dropping it).
+:hypernymAnchor a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:subPropertyOf skos:broadMatch ;
+  rdfs:comment "A synset in another dataset curated as the nearest broader concept of the subject sense; a cross-scheme hierarchical mapping."@en ;
+  rdfs:comment "Et synset i et andet datasæt kurateret som subjekt-betydningens nærmeste overbegreb; en hierarkisk kobling på tværs af datasæt."@da ;
+  rdfs:label "hypernym anchor"@en ;
+  rdfs:label "overbegrebsanker"@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :Gender a owl:Class ;
@@ -189,18 +238,29 @@
 
 :ontologicalType a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalConcept ;
-  rdfs:range :OntologicalConcept ;
-  rdfs:comment "A DanNet/EuroWordNet Concept describing a facet of a synset."@en ;
-  rdfs:comment "Et DanNet/EuroWordNet-koncept der beskriver en facet af et synset."@da ;
+  rdfs:range :OntologicalType ;
+  owl:inverseOf :ontologicalTypeOf ;
+  rdfs:comment "The ontological type describing the facets of a synset: a bag of DanNet/EuroWordNet concepts."@en ;
+  rdfs:comment "Den ontologiske type der beskriver et synsets facetter: en bag af DanNet/EuroWordNet-koncepter."@da ;
   rdfs:label "ontological type"@en ;
   rdfs:label "ontologisk type"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:ontologicalTypeOf a owl:ObjectProperty ;
+  rdfs:domain :OntologicalType ;
+  rdfs:range ontolex:LexicalConcept ;
+  owl:inverseOf :ontologicalType ;
+  rdfs:comment "A synset described by the subject ontological type."@en ;
+  rdfs:comment "Et synset som beskrives af den ontologiske subjekt-type."@da ;
+  rdfs:label "ontological type of"@en ;
+  rdfs:label "ontologisk type for"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :OntologicalConcept a owl:Class ;
   rdfs:label "ontological concept"@en ;
   rdfs:label "ontologisk koncept"@da ;
-  rdfs:comment "An ontological concept found in either DanNet or EuroWordNet."@en ;
-  rdfs:comment "Et ontologisk koncept fundet i enten DanNet eller EuroWordNet."@da ;
+  rdfs:comment "An ontological concept found in DanNet, EuroWordNet or COR.SEM; a member of an ontological type."@en ;
+  rdfs:comment "Et ontologisk koncept fundet i DanNet, EuroWordNet eller COR.SEM; medlem af en ontologisk type."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :DanNetConcept a owl:Class ;
@@ -217,6 +277,23 @@
   rdfs:label "EuroWordNet-koncept"@da ;
   rdfs:comment "An ontological concept based on the 1st, 2nd, and 3rd order entities from EuroWordNet; see <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@en ;
   rdfs:comment "Et ontologisk koncept baseret på første-, anden-, og tredjeordens-enhederne fra EuroWordNet; se <https://archive.illc.uva.nl/EuroWordNet/corebcs/topont.html>."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:CORSEMConcept a owl:Class ;
+  rdfs:subClassOf :OntologicalConcept ;
+  rdfs:label "COR.SEM concept"@en ;
+  rdfs:label "COR.SEM-koncept"@da ;
+  rdfs:comment "An ontological concept from the simplified ontology of the COR.SEM project which has no counterpart among the DanNet/EuroWordNet concepts."@en ;
+  rdfs:comment "Et ontologisk koncept fra COR.SEM-projektets forenklede ontologi som ikke har et modstykke blandt DanNet/EuroWordNet-koncepterne."@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:OntologicalType a owl:Class ;
+  rdfs:subClassOf rdf:Bag ;
+  rdfs:label "ontological type"@en ;
+  rdfs:label "ontologisk type"@da ;
+  rdfs:comment "The ontological type of a synset or sense: an rdf:Bag of one or more ontological concepts, e.g. dnt:Human-Object."@en ;
+  rdfs:comment "Et synsets eller en betydnings ontologiske type: en rdf:Bag af et eller flere ontologiske koncepter, fx dnt:Human-Object."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :source a owl:ObjectProperty ;
@@ -259,4 +336,222 @@
   rdfs:label "ordklasseskift-hyponym"@da ;
   rdfs:subPropertyOf skos:narrower ;
   owl:inverseOf :crossPoSHypernym ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# The sense-level counterpart of ontolex:evokes, which only relates whole
+# lexical entries to concepts: a FrameNet lexical unit pairs a word in one
+# particular sense with the frame it evokes.
+:frame a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalConcept ;
+  owl:inverseOf :frameOf ;
+  rdfs:comment "The Berkeley FrameNet frame evoked by the subject sense."@en ;
+  rdfs:comment "Den Berkeley FrameNet-ramme som subjekt-betydningen fremkalder."@da ;
+  rdfs:label "frame"@en ;
+  rdfs:label "ramme"@da ;
+  rdfs:seeAlso "<https://framenet.icsi.berkeley.edu/>" ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:frameOf a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalSense ;
+  owl:inverseOf :frame ;
+  rdfs:comment "A sense evoking the subject frame; the entailed inverse of dns:frame."@en ;
+  rdfs:comment "En betydning som fremkalder subjekt-rammen; den afledte inverse af dns:frame."@da ;
+  rdfs:label "frame of"@en ;
+  rdfs:label "ramme for"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# Inverses declared on behalf of the reused PreMOn vocabulary, which names no
+# inverses itself: they let a frame element page link back to its frame and a
+# frame page list the frames inheriting from it.
+:roleOf a owl:ObjectProperty ;
+  rdfs:domain pmo:SemanticRole ;
+  rdfs:range pmo:SemanticClass ;
+  owl:inverseOf pmo:semRole ;
+  rdfs:comment "The frame (or other semantic class) defining the subject frame element; the entailed inverse of pmo:semRole."@en ;
+  rdfs:comment "Den ramme (eller anden semantisk klasse) som definerer subjekt-rammeelementet; den afledte inverse af pmo:semRole."@da ;
+  rdfs:label "role in"@en ;
+  rdfs:label "rolle i"@da ;
+  rdfs:seeAlso "<http://premon.fbk.eu/ontology/core>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:inheritedByFrame a owl:ObjectProperty ;
+  rdfs:domain pmofn:Frame ;
+  rdfs:range pmofn:Frame ;
+  owl:inverseOf pmofn:inheritsFrom ;
+  # Mirrors pmofn:inheritsFrom ⊑ skos:broader, so the entailed skos:narrower
+  # rows fold under this property instead of standing alone.
+  rdfs:subPropertyOf skos:narrower ;
+  rdfs:comment "A frame inheriting from the subject frame; the entailed inverse of pmofn:inheritsFrom."@en ;
+  rdfs:comment "En ramme som nedarver fra subjekt-rammen; den afledte inverse af pmofn:inheritsFrom."@da ;
+  rdfs:label "inherited by frame"@en ;
+  rdfs:label "nedarves af ramme"@da ;
+  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:inheritedByRole a owl:ObjectProperty ;
+  rdfs:domain pmofn:FrameElement ;
+  rdfs:range pmofn:FrameElement ;
+  owl:inverseOf pmofn:inheritsFromFER ;
+  rdfs:comment "A frame element inheriting from the subject frame element along the frame inheritance; the entailed inverse of pmofn:inheritsFromFER."@en ;
+  rdfs:comment "Et rammeelement som nedarver fra subjekt-rammeelementet langs rammenedarvningen; den afledte inverse af pmofn:inheritsFromFER."@da ;
+  rdfs:label "inherited by role"@en ;
+  rdfs:label "nedarves af rolle"@da ;
+  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:semTypeOf a owl:ObjectProperty ;
+  rdfs:domain pmofn:SemType ;
+  owl:inverseOf pmofn:semType ;
+  rdfs:comment "A frame or frame element bearing the subject semantic type; the entailed inverse of pmofn:semType."@en ;
+  rdfs:comment "En ramme eller et rammeelement som bærer den semantiske subjekt-type; den afledte inverse af pmofn:semType."@da ;
+  rdfs:label "semantic type of"@en ;
+  rdfs:label "semantisk type for"@da ;
+  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:centrality a owl:DatatypeProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:comment "The centrality of the subject sense in the Danish core vocabulary, carried over from the centralitet field of COR.SEM: 1 = keyword in the Danish thesaurus Den Danske Begrebsordbog, 2 = central concept in DanNet, i.e. linked to Princeton WordNet's Core WordNet, 3 = both; senses central in neither carry no value."@en ;
+  rdfs:comment "Subjekt-betydningens centralitet i det danske kerneordforråd, overført fra COR.SEM-feltet centralitet: 1 = nøgleord i Den Danske Begrebsordbog, 2 = centralt begreb i DanNet, dvs. koblet til Princeton WordNets Core WordNet, 3 = begge dele; betydninger som ikke er centrale i nogen af dem, bærer ingen værdi."@da ;
+  rdfs:label "centrality"@en ;
+  rdfs:label "centralitet"@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:PolysemyPattern a owl:Class ;
+  rdfs:subClassOf rdf:Seq ;
+  rdfs:label "polysemy pattern"@en ;
+  rdfs:label "polysemimønster"@da ;
+  rdfs:comment "A systematic polysemy pattern, e.g. dnp:Plant-Food: an rdf:Seq of the pattern's two readings in order, each either an ontological concept or, where no concept matches, the reading's name in the pattern inventory of COR.SEM 1.0 -- a refinement of the 28-pattern typology published in Sørensen, Nimb & Pedersen (2023), which also records per-pattern sense representation decisions. A concept matches a reading either by name or, as stated in a comment on the pattern, by distributional evidence."@en ;
+  rdfs:comment "Et systematisk polysemimønster, fx dnp:Plant-Food: en rdf:Seq af mønstrets to læsninger i rækkefølge, hver enten et ontologisk koncept eller, hvor intet koncept svarer til læsningen, dens navn i mønsterinventaret fra COR.SEM 1.0 -- en viderebearbejdning af typologien med 28 mønstre publiceret i Sørensen, Nimb & Pedersen (2023), som også fastlægger betydningsrepræsentationen for hvert mønster. Et koncept svarer til en læsning enten ved navn eller, som angivet i en kommentar på mønstret, ved distributionel evidens."@da ;
+  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:seeAlso "<https://github.com/kuhumcst/pycor/tree/master/data/systematic_polysemy>" ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:polysemyPattern a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range :PolysemyPattern ;
+  owl:inverseOf :polysemyPatternOf ;
+  rdfs:comment "A systematic polysemy pattern that the subject sense takes part in, e.g. dnp:Plant-Food: the same word has, or predictably could have, a sense with the pattern's other reading."@en ;
+  rdfs:comment "Et systematisk polysemimønster som subjekt-betydningen indgår i, fx dnp:Plant-Food: det samme ord har, eller kunne forudsigeligt have, en betydning med mønstrets anden læsning."@da ;
+  rdfs:label "polysemy pattern"@en ;
+  rdfs:label "polysemimønster"@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:polysemyPatternOf a owl:ObjectProperty ;
+  rdfs:domain :PolysemyPattern ;
+  rdfs:range ontolex:LexicalSense ;
+  owl:inverseOf :polysemyPattern ;
+  rdfs:comment "A sense taking part in the subject polysemy pattern; the entailed inverse of dns:polysemyPattern."@en ;
+  rdfs:comment "En betydning som indgår i subjekt-polysemimønstret; den afledte inverse af dns:polysemyPattern."@da ;
+  rdfs:label "polysemy pattern of"@en ;
+  rdfs:label "polysemimønster for"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:patternGroup a owl:DatatypeProperty ;
+  rdfs:domain :PolysemyPattern ;
+  rdfs:comment "The group of the subject polysemy pattern in the published typology's partition by Lyons' orders of entities: 1 = both readings first-order (concrete), 2 = second-order (/first-order), 3 = first-/third-order, 4 = second-/third-order, 5 = both third-order (abstract); patterns added to the inventory after publication carry no group."@en ;
+  rdfs:comment "Subjekt-polysemimønstrets gruppe i den publicerede typologis inddeling efter Lyons' ordener af entiteter: 1 = begge læsninger førsteordens (konkrete), 2 = andenordens (/førsteordens), 3 = første-/tredjeordens, 4 = anden-/tredjeordens, 5 = begge tredjeordens (abstrakte); mønstre føjet til inventaret efter publikationen bærer ingen gruppe."@da ;
+  rdfs:label "pattern group"@en ;
+  rdfs:label "mønstergruppe"@da ;
+  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:alternatesWith a owl:ObjectProperty ;
+  owl:inverseOf :alternatesWith ;
+  rdfs:comment "A sense or synset covering one reading of a systematic polysemy pattern for a word, related to the sense or synset covering the word's other reading; derived from COR.SEM senses of the same word sharing a dns:polysemyPattern. Symmetric and undirected, as the source data does not order the readings; pairs whose reading assignment is derivable carry the directed refinement dns:alternatesTo instead, which entails this property."@en ;
+  rdfs:comment "En betydning eller et synset som dækker den ene læsning i et systematisk polysemimønster for et ord, forbundet med betydningen eller synsettet for ordets anden læsning; afledt af COR.SEM-betydninger af samme ord med samme dns:polysemyPattern. Symmetrisk og uden retning, da kildedataene ikke ordner læsningerne; par hvis læsningsfordeling kan afledes, bærer i stedet den orienterede dns:alternatesTo, som medfører denne egenskab."@da ;
+  rdfs:label "alternates with"@en ;
+  rdfs:label "veksler med"@da ;
+  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:alternatesTo a owl:ObjectProperty ;
+  rdfs:subPropertyOf :alternatesWith ;
+  owl:inverseOf :alternatesFrom ;
+  rdfs:comment "The sense or synset covering the second reading of a systematic polysemy pattern, seen from the one covering the first. The direction follows the reading order of the pattern's name and is derived by ontotype discrimination: a pair is ordered only where exactly one member's ontological type contains a reading's concept; pairs that cannot be ordered carry the undirected dns:alternatesWith instead."@en ;
+  rdfs:comment "Betydningen eller synsettet som dækker den anden læsning i et systematisk polysemimønster, set fra den som dækker den første. Retningen følger læsningsrækkefølgen i mønstrets navn og er afledt ved ontotype-diskrimination: et par ordnes kun hvor præcis det ene medlems ontologiske type indeholder en læsnings koncept; par som ikke kan ordnes, bærer i stedet den uorienterede dns:alternatesWith."@da ;
+  rdfs:label "alternates to"@en ;
+  rdfs:label "veksler til"@da ;
+  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:alternatesFrom a owl:ObjectProperty ;
+  rdfs:subPropertyOf :alternatesWith ;
+  owl:inverseOf :alternatesTo ;
+  rdfs:comment "The sense or synset covering the first reading of a systematic polysemy pattern, seen from the one covering the second; the entailed inverse of dns:alternatesTo."@en ;
+  rdfs:comment "Betydningen eller synsettet som dækker den første læsning i et systematisk polysemimønster, set fra den som dækker den anden; den afledte inverse af dns:alternatesTo."@da ;
+  rdfs:label "alternates from"@en ;
+  rdfs:label "veksler fra"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:linkedSynset a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:subPropertyOf ontolex:isLexicalizedSenseOf ;
+  owl:inverseOf :linkedSynsetOf ;
+  rdfs:comment "The synset in another dataset which the subject sense lexicalizes, e.g. a COR.SEM sense linking a DanNet synset; a subproperty keeping the two sense inventories apart."@en ;
+  rdfs:comment "Synsettet i et andet datasæt som subjekt-betydningen leksikaliserer, fx en COR.SEM-betydning forbundet med et DanNet-synset; en underegenskab der holder de to betydningsinventarer adskilt."@da ;
+  rdfs:label "linked synset"@en ;
+  rdfs:label "forbundet synset"@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:linkedSynsetOf a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalConcept ;
+  rdfs:range ontolex:LexicalSense ;
+  rdfs:subPropertyOf ontolex:lexicalizedSense ;
+  owl:inverseOf :linkedSynset ;
+  rdfs:comment "A sense in another dataset lexicalizing the subject synset; the entailed inverse of dns:linkedSynset."@en ;
+  rdfs:comment "En betydning i et andet datasæt som leksikaliserer subjekt-synsettet; den afledte inverse af dns:linkedSynset."@da ;
+  rdfs:label "linked synset of"@en ;
+  rdfs:label "forbundet synset for"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:linkedSense a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalEntry ;
+  rdfs:range ontolex:LexicalSense ;
+  rdfs:subPropertyOf ontolex:sense ;
+  owl:inverseOf :linkedSenseOf ;
+  rdfs:comment "The sense in another dataset which the subject word was matched with, e.g. a COR word linking a DanNet sense; a subproperty keeping the two sense inventories apart."@en ;
+  rdfs:comment "Betydningen i et andet datasæt som subjekt-ordet blev matchet med, fx et COR-ord forbundet med en DanNet-betydning; en underegenskab der holder de to betydningsinventarer adskilt."@da ;
+  rdfs:label "linked sense"@en ;
+  rdfs:label "forbundet betydning"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:linkedSenseOf a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalEntry ;
+  rdfs:subPropertyOf ontolex:isSenseOf ;
+  owl:inverseOf :linkedSense ;
+  rdfs:comment "A word in another dataset matched with the subject sense; the entailed inverse of dns:linkedSense."@en ;
+  rdfs:comment "Et ord i et andet datasæt matchet med subjekt-betydningen; den afledte inverse af dns:linkedSense."@da ;
+  rdfs:label "linked sense of"@en ;
+  rdfs:label "forbundet betydning for"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:simpleOntologicalType a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range :OntologicalType ;
+  owl:inverseOf :simpleOntologicalTypeOf ;
+  rdfs:comment "The ontological type of the subject sense in the simplified COR ontology, e.g. dnt:Human-Object; a reduced version of the DanNet/EuroWordNet ontology served by dns:ontologicalType."@en ;
+  rdfs:comment "Subjekt-betydningens ontologiske type i den forenklede COR-ontologi, fx dnt:Human-Object; en reduceret udgave af den DanNet/EuroWordNet-ontologi som dns:ontologicalType betjener."@da ;
+  rdfs:label "simple ontotype"@en ;
+  rdfs:label "simpel ontotype"@da ;
+  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:simpleOntologicalTypeOf a owl:ObjectProperty ;
+  rdfs:domain :OntologicalType ;
+  rdfs:range ontolex:LexicalSense ;
+  owl:inverseOf :simpleOntologicalType ;
+  rdfs:comment "A sense described by the subject simple ontotype."@en ;
+  rdfs:comment "En betydning som beskrives af den simple subjekt-ontotype."@da ;
+  rdfs:label "simple ontotype of"@en ;
+  rdfs:label "simpel ontotype for"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

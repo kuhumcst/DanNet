@@ -331,3 +331,70 @@
   rdfs:comment "Concrete entities functioning as vehicles; e.g. car, ship."@en ;
   rdfs:comment "Konkrete enheder der fungerer som transportmidler; f.eks. bil, skib."@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+
+# The atoms of COR.SEM's simplified ontology which have no counterpart of the
+# same name among the concepts above; see the ontologisk-type field of the
+# COR.SEM specification at
+# <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>. The ADV_*
+# concepts state the overall meaning of adverbial senses, which the
+# EuroWordNet ontology does not cover.
+:Abstract a dns:CORSEMConcept ;
+  rdfs:label "abstract"@en ;
+  rdfs:comment "Abstract circumstances."@en ;
+  rdfs:comment "Abstrakte forhold."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:Act a dns:CORSEMConcept ;
+  rdfs:label "act"@en ;
+  rdfs:comment "Actions."@en ;
+  rdfs:comment "Handlinger."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:Event a dns:CORSEMConcept ;
+  rdfs:label "event"@en ;
+  rdfs:comment "Events."@en ;
+  rdfs:comment "Hændelser."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:Top a dns:CORSEMConcept ;
+  rdfs:label "top"@en ;
+  rdfs:comment "The top of the simplified ontology."@en ;
+  rdfs:comment "Toppen af den forenklede ontologi."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:Weather a dns:CORSEMConcept ;
+  rdfs:label "weather"@en ;
+  rdfs:comment "Weather phenomena."@en ;
+  rdfs:comment "Vejrfænomener."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Degree a dns:CORSEMConcept ;
+  rdfs:label "degree adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting degree."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver grad."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Direction a dns:CORSEMConcept ;
+  rdfs:label "direction adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting direction."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver retning."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Manner a dns:CORSEMConcept ;
+  rdfs:label "manner adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting manner."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver måde."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Negation a dns:CORSEMConcept ;
+  rdfs:label "negation adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting negation."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver nægtelse."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Place a dns:CORSEMConcept ;
+  rdfs:label "place adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting place."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver sted."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Sentence a dns:CORSEMConcept ;
+  rdfs:label "sentence adverbial"@en ;
+  rdfs:comment "Sentence adverbial senses."@en ;
+  rdfs:comment "Sætningsadverbielle betydninger."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .
+:ADV_Time a dns:CORSEMConcept ;
+  rdfs:label "time adverbial"@en ;
+  rdfs:comment "Adverbial senses denoting time."@en ;
+  rdfs:comment "Adverbielle betydninger der angiver tid."@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/concepts> .

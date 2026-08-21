@@ -45,6 +45,9 @@
       (res/prefix->entity-route 'dn)
       (res/prefix->entity-route 'dnc)
       (res/prefix->entity-route 'dns)
+      (res/prefix->entity-route 'dnt)
+      (res/prefix->entity-route 'dnp)
+      (res/prefix->entity-route 'frame)
       res/external-entity-route
       res/unknown-external-entity-route
 

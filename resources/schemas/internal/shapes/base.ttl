@@ -310,3 +310,57 @@ SELECT $this ?value WHERE {
   $this ?rel ?value .
   FILTER(strstarts(str(?value), str(ili:)))
 }""" .
+
+## ---------------------------------------------------------------------------
+## Cross-dataset membership links (GitHub issue #207): dns:linkedSense and
+## dns:linkedSynset assert links INTO DanNet's sense inventory from companion
+## datasets (currently COR/COR.SEM). The subjects live outside dn: -- a
+## deliberate extension of the SCOPE note above -- but the constraints guard
+## the dn: (object) end of the contract: links must resolve, mirroring the
+## pruning performed by bootstrap/add-cor-sem-graph!. Validated against the
+## union of the asserted graphs, where the dn: type triples are visible.
+## ---------------------------------------------------------------------------
+dns:LinkedSenseShape a sh:NodeShape ;
+    sh:targetSubjectsOf dns:linkedSense ;
+    sh:property dns:LinkedSenseShape-object .
+
+dns:LinkedSenseShape-object a sh:PropertyShape ;
+    sh:path dns:linkedSense ;
+    sh:nodeKind sh:IRI ;
+    sh:class ontolex:LexicalSense ;
+    sh:severity sh:Violation ;
+    sh:message "dns:linkedSense must target an existing, typed sense in the linked dataset." .
+
+## Typing alone misses the degenerate synsets absent from DSL's synsets.csv
+## (388 of the linked synsets), so lexicalization also counts as existence --
+## the same rule the bootstrap pruning applies. dns:hypernymAnchor targets
+## are pruned against the same existence set and get the same check.
+dns:LinkedSynsetShape a sh:NodeShape ;
+    sh:targetSubjectsOf dns:linkedSynset ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:LinkedSynsetShape-resolvableTarget .
+
+dns:LinkedSynsetShape-resolvableTarget a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "dns:linkedSynset must target a known synset (typed as a lexical concept or carrying a lexicalized sense)." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this dns:linkedSynset ?value .
+  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
+  FILTER NOT EXISTS { ?value ontolex:lexicalizedSense ?sense }
+}""" .
+
+dns:HypernymAnchorShape a sh:NodeShape ;
+    sh:targetSubjectsOf dns:hypernymAnchor ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:HypernymAnchorShape-resolvableTarget .
+
+dns:HypernymAnchorShape-resolvableTarget a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "dns:hypernymAnchor must target a known synset (typed as a lexical concept or carrying a lexicalized sense)." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this dns:hypernymAnchor ?value .
+  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
+  FILTER NOT EXISTS { ?value ontolex:lexicalizedSense ?sense }
+}""" .

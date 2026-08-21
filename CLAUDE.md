@@ -5,8 +5,8 @@
   - I generally favour clean and lean git diffs over large refactors of the namespace(s).
 - IMPORTANT: if you encounter something UNUSUAL (e.g. weird output or unexpected errors), report back **immediately** to me!
   - Don't go on a longer tangent trying to analyze an unexpected error yourself (unless it is trivial to do so).
-- Generally, you will need explicit permission from me to restart the web service we're developing.
-  - Again, try to test newly developed fixes/functionality in an isolated way using the REPL.
+- You may start or restart the web service via the REPL (e.g. `(service/restart)`) when the task calls for it — e.g. when setting up the environment or when a change genuinely requires a restart.
+  - For routine fixes, still prefer testing in an isolated way using the REPL rather than restarting.
 - After editing CLJ or CLJC files, reload the affected namespaces using `(require '[namespace] :reload)` so the changes take effect in the running REPL.
 - For frontend-only bugs (hydration errors, CLJS/CLJ differences, CSS/layout issues), debug in the LIVE BROWSER via the shadow-cljs nREPL rather than guessing from source — follow the `browser-repl-debug` skill (it loads on demand).
 - REPL access: use the `clj-nrepl-eval` command to evaluate Clojure code via nREPL.
@@ -14,3 +14,6 @@
   - Evaluate with `clj-nrepl-eval -p <port> "<clojure-code>"` (JVM nREPL: port 7888 via the `:nrepl` alias; shadow-cljs runs its own auto-discoverable nREPL port).
   - REPL sessions persist per port: namespaces and state are maintained between evaluations.
 - When writing, editing, or reviewing Clojure code, follow the `clojure-style` skill (it loads on demand).
+- Database (re)builds:
+  - `bootstrap/other/` holds manually curated source files that are NOT fetched automatically; the COR files (`cor*.tsv`, `*.cordiff`, `cor.sem.*.tsv`) can be re-downloaded from https://ordregister.dk/files/ if missing.
+  - If a DB build fails partway, delete the half-built `db/tdb2/<db-name>` directory (the path is in the build error's `:data`) before restarting — `->dannet` only checks that the directory exists and will otherwise silently reuse the incomplete database ("Skipping build").

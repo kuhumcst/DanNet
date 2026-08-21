@@ -127,7 +127,8 @@
   [kept overflow], or return nil when `k` is not an oversized semantic
   relation and so should be displayed in full."
   [k v]
-  (when (and (shared/semantic-rels? [k])
+  (when (and (or (shared/semantic-rels? [k])
+                 (shared/oversized-rels? k))
              (coll? v)
              (> (count v) shared/semantic-relation-limit))
     ;; Use subvec for O(1) splitting when possible, avoiding full traversal.

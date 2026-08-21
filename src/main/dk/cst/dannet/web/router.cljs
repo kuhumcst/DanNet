@@ -71,7 +71,8 @@
 ;; Please refer to /doc/web.md to see how routing is meant to work.
 (def routes
   [["/dannet" :delegate-root]
-   ["/dannet/{*path}" :delegate-path]])
+   ["/dannet/{*path}" :delegate-path]
+   ["/framenet/{*path}" :delegate-framenet-path]])
 
 ;; TODO: also do this for back/forward button
 (defn- update-scroll-opts

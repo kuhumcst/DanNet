@@ -71,119 +71,25 @@
      [:dns/ontologicalType :rdfs/label '?ontotype]]))
 
 (def ontotype-labels
+  ;; NB: Aristotle's :union is strictly binary and silently DROPS any clause
+  ;; beyond the second, so the nesting below is load-bearing.
   (q/build
     [:union
+     [:union
+      [:bgp
+       ['?ontotype :rdfs/label '?label]
+       ['?ontotype :rdf/type :dns/DanNetConcept]]
+      [:bgp
+       ['?ontotype :rdfs/label '?label]
+       ['?ontotype :rdf/type :dns/EuroWordNetConcept]]]
      [:bgp
       ['?ontotype :rdfs/label '?label]
-      ['?ontotype :rdf/type :dns/DanNetConcept]]
-     [:bgp
-      ['?ontotype :rdfs/label '?label]
-      ['?ontotype :rdf/type :dns/EuroWordNetConcept]]]))
+      ['?ontotype :rdf/type :dns/OntologicalType]]]))
 
 (def written-representations
   (q/build
     [:bgp
      '[?form :ontolex/writtenRep ?writtenRep]]))
-
-(def ddo-sources
-  "All dns:source triples still pointing at the redesigned ordnet.dk
-  (GitHub issue #192); the STRSTARTS filter makes rewriting idempotent."
-  (sparql
-    "SELECT ?s ?src
-     WHERE {
-       ?s dns:source ?src .
-       FILTER(STRSTARTS(STR(?src), \"https://ordnet.dk/ddo\"))
-     }"))
-
-(def missing-dsl-sense-sources
-  "Senses lacking a dns:source whose DDO deep link can be reconstructed from
-  their dns:dslSense (= DDO def_id) and their word's dns:source (issue #192).
-  Uses the asserted ontolex:sense direction since release changes run on the
-  base model, where the inverse ontolex:isSenseOf is not yet inferred."
-  (sparql
-    "SELECT ?sense ?dslSense ?wordSource
-     WHERE {
-       ?sense dns:dslSense ?dslSense .
-       ?word ontolex:sense ?sense ;
-             dns:source ?wordSource .
-       FILTER NOT EXISTS { ?sense dns:source ?senseSource }
-     }"))
-
-(def asserted-lexinfo-pos
-  "Asserted lexinfo:partOfSpeech triples, which duplicate wn:partOfSpeech 1:1
-  (GitHub issue #17); after their deletion the lexinfo triple is derived by
-  the value-translating rules in dannet.rules instead."
-  (q/build
-    '[:bgp [?w :lexinfo/partOfSpeech ?pos]]))
-
-(def missing-written-reps
-  "Words whose ontolex:canonicalForm node lacks an ontolex:writtenRep (issue
-  #203), i.e. the form is a dangling blank node; the word's rdfs:label binds
-  as ?label since the missing representation can be recovered from it."
-  (sparql
-    "SELECT ?word ?label ?form
-     WHERE {
-       ?word wn:partOfSpeech ?pos ;
-             rdfs:label ?label ;
-             ontolex:canonicalForm ?form .
-       FILTER NOT EXISTS { ?form ontolex:writtenRep ?rep }
-     }"))
-
-(def eq-ili-relations
-  "dns:eq* relations targeting an Interlingual Index entry rather than an OEWN
-  synset (GitHub issue #205). The eq* relations hold between concepts in
-  separate datasets, so the ILI id should be swapped for the OEWN synset
-  carrying it; wn:ili remains the only relation that may target the ILI."
-  (sparql
-    "SELECT ?synset ?rel ?ili
-     WHERE {
-       VALUES ?rel { dns:eqHypernym dns:eqHyponym dns:eqSimilar }
-       ?synset ?rel ?ili .
-       FILTER(STRSTARTS(STR(?ili), STR(ili:)))
-     }"))
-
-(def scaffolding-lexicalizations
-  "The artificial words lexicalizing the EuroWordNet scaffolding synsets {TOP},
-  {1stOrder} and {2ndOrder}, along with their senses. The words and senses are
-  deleted while the synsets remain as synthetic parents."
-  (sparql
-    "SELECT ?sense ?word
-     WHERE {
-       VALUES ?synset { dn:synset-20633 dn:synset-42971 dn:synset-42970 }
-       ?synset ontolex:lexicalizedSense ?sense .
-       ?word ontolex:sense ?sense .
-     }"))
-
-(def shared-senses
-  "Senses lexicalized by more than one synset, bound with the single word that
-  owns them and with each of the synsets sharing them.
-
-  A sense pairs one word with one synset, so every sense here is a modelling
-  violation (GitHub issue #209); the query yields one row per synset, i.e. two
-  rows per shared sense."
-  (sparql
-    "SELECT ?sense ?word ?synset
-     WHERE {
-       ?synset ontolex:lexicalizedSense ?sense .
-       ?word ontolex:sense ?sense .
-       {
-         SELECT ?sense
-         WHERE { ?other ontolex:lexicalizedSense ?sense . }
-         GROUP BY ?sense
-         HAVING (COUNT(DISTINCT ?other) > 1)
-       }
-     }"))
-
-(def temporary-words
-  "Words carrying a placeholder dn:word-temporary_N identifier, i.e. words
-  without a DDO lemma id in DSL's CSV exports; binds each word's single sense
-  as ?sense since its stable id is used to mint a proper word id."
-  (sparql
-    "SELECT ?word ?sense
-     WHERE {
-       ?word ontolex:sense ?sense .
-       FILTER(STRSTARTS(STR(?word), CONCAT(STR(dn:), \"word-temporary_\")))
-     }"))
 
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
@@ -249,13 +155,20 @@
      }"))
 
 (def csv-synsets
-  "Columns to export for synsets.csv."
-  (q/build
-    '[:bgp
-      [?synset :rdf/type :ontolex/LexicalConcept]
-      [?synset :skos/definition ?definition]
-      [?synset :dns/ontologicalType ?ontotype]
-      [?ontotype :rdfs/member ?onto]]))
+  "Columns to export for synsets.csv.
+
+  The members are matched on the rdf:_N properties directly: ARQ's rdfs:member
+  expansion only recognises containers by an asserted rdf:Bag typing, which
+  the dnt: types leave to schema inference."
+  (sparql
+    "SELECT ?synset ?definition ?onto
+     WHERE {
+       ?synset rdf:type ontolex:LexicalConcept .
+       ?synset skos:definition ?definition .
+       ?synset dns:ontologicalType ?ontotype .
+       ?ontotype ?member ?onto .
+       FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
+     }"))
 
 (def csv-words
   "Columns to export for words.csv."

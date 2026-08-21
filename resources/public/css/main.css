@@ -1278,10 +1278,11 @@ span.hidden + a {
     display: inline-block;
 }
 
-/* Truncatable prefix - shows ellipsis, expands on hover/focus */
+/* Truncatable prefix - shows ellipsis, expands on hover/focus.
+   The width fits the 5-letter prefixes (frame, pmofn) untruncated. */
 span.prefix.truncatable {
     display: inline-block;
-    max-width: 5ch;
+    max-width: 6ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

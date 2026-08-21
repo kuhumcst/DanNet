@@ -266,11 +266,18 @@
                  "Ontologisk type"
                  "Ontological type")]
           [:dd
-           (if-let [onto-types (some-> (:dns/ontologicalType entity)
-                                       meta
-                                       shared/bag->coll)]
-             (rdf/list-items (assoc opts :attr-key :dns/ontologicalType) onto-types)
-             "–")]
+           (let [onto-type (:dns/ontologicalType entity)
+                 onto-coll (some-> onto-type meta shared/bag->coll)]
+             (cond
+               (keyword? onto-type)
+               (rdf/resource-hyperlink onto-type
+                                       (assoc opts :attr-key :dns/ontologicalType))
+
+               onto-coll
+               (rdf/list-items (assoc opts :attr-key :dns/ontologicalType)
+                               onto-coll)
+
+               :else "–"))]
           [:dt (i18n/da-en languages
                  "Bestanddele"
                  "Constituents")]

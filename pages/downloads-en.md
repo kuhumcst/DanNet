@@ -8,6 +8,7 @@ You can explore DanNet directly on wordnet.dk, but you may also download our dat
 DanNet is integrated with [COR][COR] and [DDS][DDS] too, as well as the [English WordNet][OEWN] (you may download their dataset from that page) which we have extended with RDF labels resembling those used in DanNet. These alternative RDF datasets can also be downloaded on this page, each under its own license:
 
 - [COR integration][COR-integration] (published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/))
+- [COR.SEM integration][COR.SEM-integration] (published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/))
 - [DDS integration][DDS-integration] (published under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
 - [OEWN extension][OEWN-extension] (published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))
 
@@ -32,6 +33,7 @@ All releases of this iteration of DanNet may also be downloaded on our [releases
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
 [DanNet WN-LMF]: /export/wn-lmf/dn "DanNet (WN-LMF)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
+[COR.SEM-integration]: /export/rdf/cor-sem "COR.SEM-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
 [OEWN-extension]: /export/rdf/oewn-extension "OEWN extension (RDF)"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Past releases"

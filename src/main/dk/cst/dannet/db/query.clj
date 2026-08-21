@@ -3,6 +3,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
+            [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
@@ -207,15 +208,15 @@
 (defn weighted-relations
   "Sort synset relation collections in `entity` by their weights.
 
-  Uses synset-rel-theme keys to identify relevant relations and synset-indegrees
-  for weights. Returns entity with sorted collections (highest weight first)."
+  Uses shared/weight-sorted-rel? to identify relevant relations and
+  synset-indegrees for weights. Returns entity with sorted collections
+  (highest weight first)."
   [entity]
-  (let [indegrees     @synset-indegrees
-        synset-rel-ks (set (keys shared/synset-rel-theme))]
+  (let [indegrees @synset-indegrees]
     (persistent!
       (reduce-kv (fn [m k v]
                    (assoc! m k
-                           (if (and (synset-rel-ks k) (coll? v))
+                           (if (and (shared/weight-sorted-rel? k) (coll? v))
                              (sort-by #(get indegrees % 0) > v)
                              v)))
                  (transient {})
@@ -232,6 +233,23 @@
                  (shared/setify (k (entity g sense-kw)))))
          (reduce into #{})
          (not-empty))))
+
+(defn dedupe-ddo-sources
+  "Remove from `urls` any DDO link whose entry_id also appears in a link with
+  a def_id, i.e. an entry-level link duplicating a sense-level one.
+
+  The COR.SEM senses of a synset only carry entry-level DDO links, so without
+  this the synset page would double its DanNet sense sources."
+  [urls]
+  (let [entry-id   (fn [url] (re-find #"entry_id=\d+" url))
+        sense-refs (into #{}
+                         (comp (filter #(str/includes? % "def_id="))
+                               (keep entry-id))
+                         urls)]
+    (into #{}
+          (remove #(and (not (str/includes? % "def_id="))
+                        (sense-refs (entry-id %))))
+          urls)))
 
 (declare hypernym-ancestry)
 
@@ -263,12 +281,43 @@
 
 (defn supplement-synset
   "Supplement `synset` for `subject` in `g` with examples and DDO source links
-  gathered from its senses, plus the English definition of its ILI concept.
+  gathered from its senses, the English definition of its ILI concept, and the
+  FrameNet frames of the COR.SEM senses linking only this synset.
   Returns synset with metadata updated with `:supplemented`, `:ancestry`, and
   additional `:entities` labels."
   [g synset subject]
   (let [examples     (gathered-sense-values g subject :lexinfo/senseExample)
-        sources      (gathered-sense-values g subject :dns/source)
+        sources      (some-> (gathered-sense-values g subject :dns/source)
+                             (dedupe-ddo-sources))
+        ;; The entailed cross-dataset lexicalizations stay under their asserted
+        ;; dns:linkedSynsetOf row rather than doubling DanNet's own senses.
+        cor-senses   (some-> (:dns/linkedSynsetOf synset)
+                             (shared/setify))
+        senses       (when cor-senses
+                       (not-empty
+                         (into #{}
+                               (remove cor-senses)
+                               (shared/setify (:ontolex/lexicalizedSense synset)))))
+        ;; COR.SEM senses can be coarser than DanNet's, and the frames were
+        ;; assigned at COR.SEM's granularity: a sense spanning several synsets
+        ;; may well carry one frame per facet, so distributing several frames
+        ;; over several synsets would fabricate attributions no annotator made
+        ;; (e.g. the efterlade sense pairing Abandonment with "leave behind at
+        ;; one's death" but linking the "bequeath" synset too). Hence a sense
+        ;; contributes its frames only when nothing needs distributing: it
+        ;; links just this synset, or it carries just one frame, which
+        ;; describes its whole meaning and so holds for every synset it spans.
+        ;; TODO: consider asserting these derived links in the cor-sem graph
+        ;;       instead, so they also reach SPARQL and the downloads.
+        frames       (->> cor-senses
+                          (mapcat (fn [sense]
+                                    (let [{:dns/keys [linkedSynset frame]} (entity g sense)
+                                          frames' (shared/setify frame)]
+                                      (when (or (= 1 (count frames'))
+                                                (= #{subject} (shared/setify linkedSynset)))
+                                        frames'))))
+                          (set)
+                          (not-empty))
         ili-def      (some->> (:wn/ili synset)
                               (entity g)
                               :skos/definition
@@ -277,19 +326,23 @@
         synset'      (cond-> synset
                        examples (assoc :lexinfo/senseExample examples)
                        sources (assoc :dns/source sources)
+                       senses (assoc :ontolex/lexicalizedSense senses)
+                       frames (assoc :dns/frame frames)
                        ili-def (update :skos/definition
                                        #(into ili-def (shared/setify %))))
         supplemented (cond-> #{}
                        examples (conj :lexinfo/senseExample)
                        sources (conj :dns/source)
+                       frames (conj :dns/frame)
                        ili-def (conj :skos/definition))
-        entities     (reduce (fn [m rel]
-                               (if (contains? m rel)
-                                 m
-                                 (assoc m rel (select-keys (entity g rel)
-                                                           [:rdfs/label]))))
-                             (-> synset meta :entities)
-                             supplemented)]
+        entities     (cond-> (reduce (fn [m rel]
+                                       (if (contains? m rel)
+                                         m
+                                         (assoc m rel (select-keys (entity g rel)
+                                                                   [:rdfs/label]))))
+                                     (-> synset meta :entities)
+                                     supplemented)
+                       frames (merge (resource-labels g frames)))]
     (vary-meta synset' merge
                {:entities     entities
                 :supplemented (not-empty supplemented)
@@ -320,6 +373,21 @@
             (vary-meta merge {:entities     entities
                               :supplemented #{:ontolex/otherForm}})))
       word)))
+
+(defn subtract-asserted
+  "Remove from the values of `super` in `entity` those already asserted under
+  its subproperty `sub`, dropping the `super` relation when nothing remains.
+
+  Keeps the COR and DanNet inventories apart on entity pages: the entailed
+  links into the other dataset stay under their asserted dns: subproperty row
+  (see dns:linkedSense/dns:linkedSenseOf)."
+  [entity super sub]
+  (if-let [vs (some-> (get entity sub) (shared/setify))]
+    (let [remaining (into #{} (remove vs) (shared/setify (get entity super)))]
+      (if (seq remaining)
+        (assoc entity super remaining)
+        (dissoc entity super)))
+    entity))
 
 (defn- embedded-resources
   "Collect keyword resources (predicates and objects) found in the blank node
@@ -364,6 +432,12 @@
 
         (shared/dn-word? subject entity*)
         (supplement-word g entity*)
+
+        (shared/cor-word? subject entity*)
+        (subtract-asserted entity* :ontolex/sense :dns/linkedSense)
+
+        (shared/dn-sense? subject entity*)
+        (subtract-asserted entity* :ontolex/isSenseOf :dns/linkedSenseOf)
 
         :else entity*))
     (with-meta {} {:subject subject})))

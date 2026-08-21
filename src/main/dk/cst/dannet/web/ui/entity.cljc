@@ -245,8 +245,11 @@
        [:li {:property "dns:ontologicalType"
              :title    "dns:ontologicalType"}
         (error/try-render
-          (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
-                          (meta ontologicalType)))])]))
+          (if (keyword? ontologicalType)
+            (rdf/resource-hyperlink ontologicalType
+                                    (assoc opts :attr-key :dns/ontologicalType))
+            (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
+                            (meta ontologicalType))))])]))
 
 (rum/defc summary-badge
   "Generic dictionary entry-style badge for use in summary components.
@@ -298,7 +301,8 @@
     (semantic-relations-content title subentity opts)
 
     (and (nil? title)
-         (shared/rdf= (:rdf/type subentity) :ontolex/LexicalConcept))
+         (shared/rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
+         (not (shared/frame? (:subject opts))))
     (synset-header-content subentity opts)
 
     :else

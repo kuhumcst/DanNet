@@ -51,6 +51,14 @@
   "The RDF resource URI for the COR dataset."
   (prefix/prefix->rdf-resource 'cor))
 
+(def <cor-sem>
+  "The RDF resource URI for the COR.SEM dataset."
+  (prefix/prefix->rdf-resource 'cor-sem))
+
+(def <framenet>
+  "The RDF resource URI for the FrameNet dataset."
+  (prefix/prefix->rdf-resource 'frame))
+
 (def dn-zip-uri
   (prefix/dataset-uri "rdf" 'dn))
 
@@ -59,6 +67,9 @@
 
 (def cor-zip-uri
   (prefix/dataset-uri "rdf" 'cor))
+
+(def cor-sem-zip-uri
+  (prefix/dataset-uri "rdf" 'cor-sem))
 
 (def dds-zip-uri
   (prefix/dataset-uri "rdf" 'dds))
@@ -90,7 +101,7 @@
 
 (h/def metadata
   {'dn  (set/union
-          (see-also <dn> [<dns> <dnc> <dds> <cor>])
+          (see-also <dn> [<dns> <dnc> <dds> <cor> <cor-sem>])
           (see-also <cst> [<dn> <dsl> <dsn>])
           #{[<dn> :rdf/type :dcat/Dataset]
             [<dn> :rdf/type :lime/Lexicon]
@@ -188,7 +199,58 @@
           [<dsn> :foaf/name (da "Dansk Sprognævn")]
           [<dsn> :foaf/name (en "The Danish Language Council")]
           [<dsn> :foaf/homepage <dsn>]
-          [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}})
+          [<cor> :dcat/downloadURL (prefix/uri->rdf-resource cor-zip-uri)]}
+   'cor-sem #{[<cor-sem> :rdf/type :dcat/Dataset]
+              [<cor-sem> :rdfs/label "COR.SEM"]
+              [<cor-sem> :dc/title "COR.SEM"]
+              [<cor-sem> :dc/issued release/to]
+              [<cor-sem> :owl/versionInfo release/to]
+              ;; The graph itself is versioned by the DanNet release above; the
+              ;; upstream edition it is built from is stated separately.
+              [<cor-sem> :dc/hasVersion (str "COR.SEM " release/cor-sem-version)]
+              [<cor-sem> :dc/contributor <cst>]
+              [<cor-sem> :dc/contributor <dsl>]
+              [<cor-sem> :dc/contributor <dsn>]
+              ;; Covers COR.SEM proper only: COR.SEM.EXT is CC BY-NC-ND and
+              ;; must NOT be ingested without revisiting the licence -- same
+              ;; boundary as noted for <cor> above (issue #96). The CC0 label
+              ;; is asserted in the 'cor map; the licence resource is reused.
+              [<cor-sem> :dc/license "<https://creativecommons.org/publicdomain/zero/1.0/>"]
+              [<cor-sem> :dc/description (en "The COR.SEM sense inventory for the Central Word Registry.")]
+              [<cor-sem> :dc/description (da "Betydningsinventaret COR.SEM til Det Centrale Ordregister.")]
+              [<cor-sem> :foaf/homepage "<https://corsem.dsl.dk/>"]
+              [<cor-sem> :rdfs/seeAlso <cor>]
+              [<cor-sem> :rdfs/seeAlso (prefix/uri->rdf-resource "https://ordregister.dk/doc/COR.SEM.html")]
+              [<cor-sem> :rdfs/seeAlso (prefix/uri->rdf-resource "https://ordregister.dk/doc/COR-SEM-beskrivelse.html")]
+              [<cor-sem> :rdfs/seeAlso (prefix/uri->rdf-resource "https://ordregister.dk/files/COR.SEM_1.0_specifikation.html")]
+              [<cor-sem> :dcat/downloadURL (prefix/uri->rdf-resource cor-sem-zip-uri)]}
+   'frame #{[<framenet> :rdf/type :dcat/Dataset]
+            [<framenet> :rdfs/label "FrameNet"]
+            [<framenet> :dc/title "FrameNet"]
+            [<framenet> :dc/language "en"]
+            [<framenet> :dc/issued release/to]
+            [<framenet> :owl/versionInfo release/to]
+            ;; The graph itself is versioned by the DanNet release above; the
+            ;; upstream editions it is built from are stated separately.
+            [<framenet> :dc/hasVersion "FrameNet 1.7"]
+            [<framenet> :dc/hasVersion (str "PreMOn " release/premon-version)]
+            ;; The CC BY-SA 4.0 rdfs:label is asserted in the 'dn map above;
+            ;; the licence resource is reused.
+            [<framenet> :dc/license "<https://creativecommons.org/licenses/by-sa/4.0/>"]
+            [<framenet> :dc/rights (en "FrameNet data copyright © International Computer Science Institute; "
+                                       "RDF rendition by the PreMOn project (Fondazione Bruno Kessler); "
+                                       "licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
+            [<framenet> :dc/rights (da "FrameNet-data copyright © International Computer Science Institute; "
+                                       "RDF-gengivelse af PreMOn-projektet (Fondazione Bruno Kessler); "
+                                       "udgives under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).")]
+            [<framenet> :dc/description (en "The Berkeley FrameNet frame inventory (version 1.7): "
+                                            "frames, frame elements and frame-to-frame relations, "
+                                            "derived from the PreMOn RDF rendition.")]
+            [<framenet> :dc/description (da "Berkeley FrameNet-rammeinventaret (version 1.7): "
+                                            "rammer, rammeelementer og relationer mellem rammer, "
+                                            "afledt af PreMOn-projektets RDF-gengivelse.")]
+            [<framenet> :foaf/homepage "<https://framenet.icsi.berkeley.edu/>"]
+            [<framenet> :rdfs/seeAlso (prefix/uri->rdf-resource "https://premon.fbk.eu/")]}})
 
 (defn- count-type
   "Count the number of instances of `rdf-type` in `model`."
@@ -211,8 +273,8 @@
     (/ (Math/round (* 100.0 (/ n d))) 100.0)))
 
 (h/defn add-dataset-statistics!
-  "Compute and add statistics for the DanNet, DDS, and COR dataset resources
-  in `dataset`: LIME lexicon metadata mirroring what the OEWN provides for
+  "Compute and add statistics for the DanNet, DDS, COR and COR.SEM dataset
+  resources in `dataset`: LIME lexicon metadata mirroring what the OEWN provides for
   <https://en-word.net/> (GitHub issue #178) plus VoID triple counts.
 
   This is a permanent part of the bootstrap process: it must run AFTER the
@@ -223,6 +285,7 @@
   (let [dn-model  (db/get-model dataset prefix/dn-uri)
         dds-model (db/get-model dataset prefix/dds-uri)
         cor-model (db/get-model dataset prefix/cor-uri)
+        sem-model (db/get-model dataset prefix/cor-sem-uri)
         ;; dn: words are typed ontolex:Word or ontolex:MultiwordExpression --
         ;; never ontolex:LexicalEntry directly; COR additionally has affixes.
         entries   (+ (count-type dn-model :ontolex/Word)
@@ -245,7 +308,11 @@
                           (+ (count-type cor-model :ontolex/Word)
                              (count-type cor-model :ontolex/MultiwordExpression)
                              (count-type cor-model :ontolex/Affix))]
-                         [<cor> :void/triples (triple-count cor-model)]]]]
+                         [<cor> :void/triples (triple-count cor-model)]]]
+             [sem-model [[<cor-sem> :lime/language "da"]
+                         [<cor-sem> :lime/lexicalizations
+                          (count-type sem-model :ontolex/LexicalSense)]
+                         [<cor-sem> :void/triples (triple-count sem-model)]]]]
             :let [triples' (remove nil? triples)]]
       (txn/transact-exec model
         (t/log! {:level :info
