@@ -39,13 +39,16 @@
                  :data    {:opts opts}}
                 (let [dannet (bootstrap/->dannet opts)]
                   ;; Non-fatal SHACL check, run async to stay off the boot
-                  ;; critical path; logs a summary via Telemere. Runs on every
-                  ;; boot (fresh builds *and* reused databases) by design.
-                  (future
-                    (try
-                      (shapes/validate-db dannet)
-                      (catch Exception e
-                        (tel/error! {:id :dannet.shapes/validate-error} e))))
+                  ;; critical path; logs a summary via Telemere. Skipped without
+                  ;; an input dir, i.e. under --no-bootstrap: the check walks the
+                  ;; entire base graph, which on a memory-constrained host evicts
+                  ;; the page cache the service needs to serve requests.
+                  (when (:input-dir opts)
+                    (future
+                      (try
+                        (shapes/validate-db dannet)
+                        (catch Exception e
+                          (tel/error! {:id :dannet.shapes/validate-error} e)))))
                   dannet))))
 
 (defonce db

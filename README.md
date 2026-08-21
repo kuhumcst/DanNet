@@ -243,7 +243,14 @@ When releasing a new version of the database:
    `dannet.zip`, `cor.zip`, `dds.zip`, `oewn-extension.zip` and
    `synset-indegree.edn`. The next cycle fetches these from GitHub.
 
-5. Zip the database on the dev machine, ready for transfer.
+5. Compact the database, then zip it on the dev machine, ready for transfer:
+   ```clojure
+   (dk.cst.dannet.db/compact! (:dataset @dk.cst.dannet.web.instance/db))
+   ```
+   TDB2 only reclaims the space left by in-place updates when compacted, and
+   writes a new `Data-000N` generation, so restart the service afterwards.
+   Before transferring, check that the database size divided by the triple
+   count is in the hundreds of bytes, not the thousands.
 
 6. Stop the service on production:
    ```shell

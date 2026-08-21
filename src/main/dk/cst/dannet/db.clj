@@ -14,7 +14,8 @@
   (:import [java.io File]
            [ont_app.vocabulary.lstr LangStr]
            [org.apache.jena.rdf.model ModelFactory Model ResourceFactory]
-           [org.apache.jena.query Dataset]))
+           [org.apache.jena.query Dataset]
+           [org.apache.jena.tdb2 DatabaseMgr]))
 
 ;; https://jena.apache.org/documentation/io/index.html
 (defn ->schema-model
@@ -51,6 +52,16 @@
   "Idempotently get the graph in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
   (.getGraph (get-model dataset model-uri)))
+
+(defn compact!
+  "Compact the TDB2 database backing `dataset`, reclaiming the space left by
+  in-place updates, and delete the superseded generation.
+
+  Run before zipping a release database: TDB2 only reclaims this space when
+  compacted, and a cycle of `make-release-changes!` can leave the majority of
+  the files as dead space."
+  [^Dataset dataset]
+  (DatabaseMgr/compact (.asDatasetGraph dataset) true))
 
 (defn remove!
   "Remove a `triple` from the Apache Jena `model`.
