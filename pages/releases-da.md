@@ -1,6 +1,19 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **2026-08-21**: COR genopbygget fra kilderne + datarettelser
+* COR-datasættet bygges nu fra de filer, som Dansk Sprognævn udgiver, hvilket opdaterer COR₁ fra version 1.02 (2022) til 1.5.1.0. COR.EXT er fortsat 1.0. Versionerne angives via `dc:hasVersion`.
+  * 683 COR-lemmaer er tilføjet, og 367 er fjernet. Links til DanNet er omdirigeret via DSN's ændringslogger, hvor lemmaer er blevet flettet, flyttet eller erstattet.
+  * En COR-forms normeringsstatus er nu en `rdfs:comment` ("unormeret" eller den nye "ikke normeret, men sandsynligvis korrekt") i stedet for en del af dens etiket.
+  * Suffikser, præfikser og lydord i COR har nu typerne `lexinfo:Suffix`, `lexinfo:Prefix` og `olia:OnomatopoeticWord` i stedet for at have disse klasser som `lexinfo:partOfSpeech`.
+* 10 dublerede synsets, der delte en betydning, er blevet flettet, og 68 betydninger delt af to forskellige synsets er blevet delt op ([Github issue #209](https://github.com/kuhumcst/DanNet/issues/209)).
+* 2620 `eq*`-relationer, der pegede på ILI-ressourcer, er blevet omdirigeret til de tilsvarende OEWN-synsets, og 25 dubletter er fjernet ([Github issue #205](https://github.com/kuhumcst/DanNet/issues/205)).
+* Kun `wn:partOfSpeech` angives nu direkte i datasættet; `lexinfo:partOfSpeech` afledes via inferens ([Github issue #17](https://github.com/kuhumcst/DanNet/issues/17)).
+* Omkring 2000 betydninger uden kildelink har fået et via `dns:source`, og alle DDO-kilde-URL'er peger nu på gammel.ordnet.dk ([Github issue #192](https://github.com/kuhumcst/DanNet/issues/192)).
+* Manglende skriftlige repræsentationer er tilføjet til kanoniske former ([Github issue #203](https://github.com/kuhumcst/DanNet/issues/203)).
+* 950 ord med ustabile midlertidige id'er har fået stabile id'er afledt af deres betydninger.
+* De kunstige ord "TOP", "1stOrder" og "2ndOrder", som er levn fra EuroWordNets topontologi, er blevet fjernet. Deres synsets består.
+
 ## **2026-08-03**: Dataoprydning, licenser og skemaopdateringer
 * 14 tripler med omvendt eller selvmodsigende del-helhed-retning er blevet fjernet, f.eks. pølser angivet som dele af {dyr} frem for stof i det. De blev fundet ved hjælp af nye SHACL-shapes for meronymi.
 * Alle DanNet- og COR-ressourcer har nu `skos:inScheme`, som linker dem til RDF-ressourcen for det datasæt, de tilhører, på samme måde som OEWN markerer skematilhørsforhold. DDS er udeladt, da det kun annoterer DanNet-ressourcer.

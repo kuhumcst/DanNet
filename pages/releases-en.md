@@ -1,6 +1,19 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **2026-08-21**: COR rebuilt from source + data fixes
+* The COR dataset is now built from the files published by Dansk Sprognævn, updating COR₁ from version 1.02 (2022) to 1.5.1.0. COR.EXT remains at 1.0. The versions are stated via `dc:hasVersion`.
+  * 683 COR lemmas have been added and 367 removed. Links to DanNet are remapped via DSN's changelogs where lemmas were merged, moved or replaced.
+  * The normering status of a COR form is now an `rdfs:comment` ("unormeret" or the new "ikke normeret, men sandsynligvis korrekt") rather than part of its label.
+  * COR suffixes, prefixes and onomatopoeia are now typed `lexinfo:Suffix`, `lexinfo:Prefix` and `olia:OnomatopoeticWord` instead of having these classes as `lexinfo:partOfSpeech`.
+* 10 duplicate synsets sharing a sense have been merged and 68 senses shared by two different synsets have been split ([Github issue #209](https://github.com/kuhumcst/DanNet/issues/209)).
+* 2620 `eq*` relations pointing at ILI entries have been retargeted to the corresponding OEWN synsets and 25 duplicates have been removed ([Github issue #205](https://github.com/kuhumcst/DanNet/issues/205)).
+* Only `wn:partOfSpeech` is asserted in the dataset now; `lexinfo:partOfSpeech` is derived through inference ([Github issue #17](https://github.com/kuhumcst/DanNet/issues/17)).
+* Around 2000 senses missing a source link have received one via `dns:source`, and all DDO source URLs now point at gammel.ordnet.dk ([Github issue #192](https://github.com/kuhumcst/DanNet/issues/192)).
+* Missing written representations have been added to canonical forms ([Github issue #203](https://github.com/kuhumcst/DanNet/issues/203)).
+* 950 words with unstable temporary IDs have been given stable IDs derived from their senses.
+* The artificial words "TOP", "1stOrder" and "2ndOrder", left over from EuroWordNet's top ontology, have been removed. Their synsets remain.
+
 ## **2026-08-03**: Data clean-up, licensing, and schema updates
 * 14 triples with reversed or contradictory part-whole directionality have been removed, e.g. sausages asserted as parts of {dyr} rather than substances of it. These were found by way of new SHACL shapes for meronymy.
 * All DanNet and COR resources now carry `skos:inScheme`, linking them to the RDF resource of the dataset they belong to, mirroring how the OEWN marks scheme membership. DDS is left out as it only annotates DanNet resources.
