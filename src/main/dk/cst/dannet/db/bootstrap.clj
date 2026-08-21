@@ -131,16 +131,17 @@
   "Add skos:inScheme to all DanNet, COR and COR.SEM resources (GitHub issue
   #175), mirroring how the OEWN marks scheme membership on its resources.
   Every URI subject residing in the resource namespace of its containing model
-  is linked to the RDF resource of the relevant dataset; for COR.SEM that
-  namespace is the cor: one, since COR.SEM IDs share it, which also leaves the
-  frame: resources of the cor-sem: graph unmarked. The DDS dataset is
-  deliberately left out since it contains no resources of its own, only
-  annotations of dn: resources; the OEWN label extensions don't need it
-  either."
+  is linked to the RDF resource of the relevant dataset. The COR.SEM IDs share
+  the cor: namespace, so the sense inventory is set apart by its full COR.SEM.
+  prefix; this also leaves the cor: words and frame: resources appearing as
+  subjects in the cor-sem: graph unmarked, as they belong to other schemes.
+  The DDS dataset is deliberately left out since it contains no resources of
+  its own, only annotations of dn: resources; the OEWN label extensions don't
+  need it either."
   [dataset]
   (doseq [[model-uri ns-uri scheme] [[prefix/dn-uri prefix/dn-uri md/<dn>]
                                      [prefix/cor-uri prefix/cor-uri md/<cor>]
-                                     [prefix/cor-sem-uri prefix/cor-uri md/<cor-sem>]]]
+                                     [prefix/cor-sem-uri (str prefix/cor-uri "COR.SEM.") md/<cor-sem>]]]
     (let [model    (db/get-model dataset model-uri)
           g        (db/get-graph dataset model-uri)
           subjects (txn/transact model

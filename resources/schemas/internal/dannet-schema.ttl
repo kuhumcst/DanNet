@@ -286,6 +286,6 @@
   rdfs:domain ontolex:LexicalSense ;
   rdfs:comment "The ontological type of the subject sense in the simplified COR ontology, e.g. \"Human+Object\"; a reduced version of the DanNet/EuroWordNet ontology served by dns:ontologicalType."@en ;
   rdfs:comment "Subjekt-betydningens ontologiske type i den forenklede COR-ontologi, fx \"Human+Object\"; en reduceret udgave af den DanNet/EuroWordNet-ontologi som dns:ontologicalType betjener."@da ;
-  rdfs:label "ontological type (COR)"@en ;
-  rdfs:label "ontologisk type (COR)"@da ;
+  rdfs:label "simple ontotype"@en ;
+  rdfs:label "simpel ontotype"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

@@ -195,10 +195,13 @@
      rdf-resource
      (rdf-uri-hyperlink uri opts)
 
+     ;; Labels that don't parse as sense labels -- e.g. the FrameNet frame
+     ;; names displayed on COR.SEM senses -- render verbatim.
      (or (get #{:ontolex/sense :ontolex/lexicalizedSense} attr-key)
          (= (:rdf/type entity) :ontolex/LexicalSense))
-     (let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word [:sub sub] (some-> mwe subscript-markers)])
+     (if-let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
+       [:<> word [:sub sub] (some-> mwe subscript-markers)]
+       s)
 
      (re-matches #"https?://[^\s]+" s)
      (break-up-uri s)

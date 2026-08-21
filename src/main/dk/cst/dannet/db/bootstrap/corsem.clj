@@ -106,7 +106,7 @@
   Every link is emitted whether or not its target resolves; see the ns
   docstring. The skipped columns are kept in the argument vector -- prefixed
   with _ -- so the full source format remains documented here."
-  [[id cor-ids ext-id _ddo-diff entry-id lemma _pos _gender nr _pos-shift
+  [[id cor-ids ext-id _ddo-diff entry-id lemma _pos _gender _nr _pos-shift
     _hypernym-text hypernym-links _related _synonyms ontotypes topics
     polysemy links frames sentiment restrictions centrality _curated
     _ddo-senses _ddo-idioms :as row]]
@@ -116,8 +116,12 @@
         ;; keep the Danish letters raw, escaping only spaces and commas.
         ddo-url (str "https://gammel.ordnet.dk/ddo/ordbog?entry_id=" entry-id
                      "&query=" (str/replace lemma #"[ ,]" {" " "%20" "," "%2C"}))]
+    ;; The label follows the dn: sense convention of lemma + subscripted
+    ;; ordinal; the two-digit ordinal is COR.SEM's own sense number, taken
+    ;; verbatim from the ID, and so deliberately not DDO's §-numbering,
+    ;; which COR.SEM renumbers (and sometimes merges).
     (-> #{[sense :rdf/type :ontolex/LexicalSense]
-          [sense :rdfs/label (md/da (cor/qt lemma) " (betydning " nr ")")]
+          [sense :rdfs/label (md/da lemma "_" sense-nr)]
           [sense :dns/source (prefix/uri->rdf-resource ddo-url)]}
 
         ;; Word links, matching how COR words already link DanNet senses.
