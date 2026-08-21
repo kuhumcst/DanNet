@@ -11,13 +11,14 @@
   "The previous formal release the database is bootstrapped from. The files in
   its version-dir must match it precisely, and it decides which release
   downloads/fetch-bootstrap-datasets! pulls from GitHub."
-  "2026-08-03")
+  "2026-08-21")
 
 (def to
-  "The version being produced. Defaults to `from`, i.e. during development we
-  reproduce the release we bootstrap from; set to a new version only at the
-  moment a release is cut, which is also what enables make-release-changes!."
-  "2026-08-21")
+  "The version being produced. Set while the next release's changes are in
+  development -- \"SNAPSHOT\" until the target date is known -- since a `to`
+  differing from `from` is what enables make-release-changes!; the real
+  version is set at the moment the release is cut."
+  "SNAPSHOT")
 
 (def cor-version
   "The COR₁ edition the cor: graph is built from; named in the source file
@@ -27,6 +28,11 @@
 (def cor-ext-version
   "The COR.EXT edition the cor: graph is built from, versioned separately
   from COR₁."
+  "1.0")
+
+(def cor-sem-version
+  "The COR.SEM edition the cor-sem: graph is built from; named in the source
+  file fetched from https://ordregister.dk/files/."
   "1.0")
 
 (def bootstrap-root

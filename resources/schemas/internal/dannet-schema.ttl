@@ -260,3 +260,32 @@
   rdfs:subPropertyOf skos:narrower ;
   owl:inverseOf :crossPoSHypernym ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+# The sense-level counterpart of ontolex:evokes, which only relates whole
+# lexical entries to concepts: a FrameNet lexical unit pairs a word in one
+# particular sense with the frame it evokes.
+:frame a owl:ObjectProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "The Berkeley FrameNet frame evoked by the subject sense."@en ;
+  rdfs:comment "Den Berkeley FrameNet-ramme som subjekt-betydningen fremkalder."@da ;
+  rdfs:label "frame"@en ;
+  rdfs:label "ramme"@da ;
+  rdfs:seeAlso "<https://framenet.icsi.berkeley.edu/>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:polysemyPattern a owl:DatatypeProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:comment "A systematic polysemy pattern that the subject sense takes part in, e.g. \"PLANT / FOOD\": the same word has, or predictably could have, a sense at the other pole of the pattern."@en ;
+  rdfs:comment "Et systematisk polysemimønster som subjekt-betydningen indgår i, fx \"PLANT / FOOD\": det samme ord har, eller kunne forudsigeligt have, en betydning i mønstrets anden pol."@da ;
+  rdfs:label "polysemy pattern"@en ;
+  rdfs:label "polysemimønster"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
+:corOntologicalType a owl:DatatypeProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:comment "The ontological type of the subject sense in the simplified COR ontology, e.g. \"Human+Object\"; a reduced version of the DanNet/EuroWordNet ontology served by dns:ontologicalType."@en ;
+  rdfs:comment "Subjekt-betydningens ontologiske type i den forenklede COR-ontologi, fx \"Human+Object\"; en reduceret udgave af den DanNet/EuroWordNet-ontologi som dns:ontologicalType betjener."@da ;
+  rdfs:label "ontological type (COR)"@en ;
+  rdfs:label "ontologisk type (COR)"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

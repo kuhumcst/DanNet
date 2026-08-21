@@ -87,6 +87,7 @@
   {'dn             {:license :cc-by-sa :readme "dannet.txt"}
    'dds            {:license :cc-by-sa :readme "dds.txt"}
    'cor            {:license :cc0 :readme "cor.txt"}
+   'cor-sem        {:license :cc0 :readme "cor-sem.txt"}
    'oewn-extension {:license :cc-by :readme "oewn-extension.txt"}})
 
 (defn render-readme
@@ -99,7 +100,8 @@
       (str/replace "{version}" version)
       (str/replace "{oewn-version}" version)
       (str/replace "{cor-version}" release/cor-version)
-      (str/replace "{cor-ext-version}" release/cor-ext-version)))
+      (str/replace "{cor-ext-version}" release/cor-ext-version)
+      (str/replace "{cor-sem-version}" release/cor-sem-version)))
 
 (defn copy-license!
   "Copy the bundled licence text for `license-key` to `dest` (typically a file

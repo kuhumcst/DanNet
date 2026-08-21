@@ -102,9 +102,10 @@ The system includes:
 - Generates new releases with full data validation
 - Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD, DMLex)
 - **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release assets via the GitHub releases API, the Open English WordNet (OEWN), and the CILI interlingual index (ILI). Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`), so manual placement is no longer required. The release assets (dataset zips plus the synset-indegree cache) land in a version-named directory under `bootstrap/from/`; the English datasets live in the shared `bootstrap/other/english`, where several OEWN editions may coexist since the edition is part of the filename.
-- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`). `update-metadata!` swaps old metadata for current during bootstrap.
-- **`dk.cst.dannet.db.bootstrap.cor`**: converts the COR source files (COR₁ + COR.EXT TSVs and the COR.EXT link file, downloaded from ordregister.dk into `bootstrap/other/cor`) into the triples of the `cor:` graph, and parses the official `.cordiff` changelogs into a lemma-ID remap (`id-remap`). The COR₁ link file (a 2022 DSL email attachment) is lost, so those links are carried over from the previous release's graph by `bootstrap/rebuild-cor-graph!`, which drops and rebuilds the `cor:` graph during release changes: links are remapped via the changelogs, retargeted onto post-split sense IDs via `dns:dslSense`, and pruned of targets that no longer exist.
-- **`dk.cst.dannet.release`**: the `from`/`to` release versions, the upstream COR editions (`cor-version`, `cor-ext-version`), plus the version-named bootstrap layout derived from them (`version-dir`). `to` defaults to `from`, so it only needs setting when a release is cut. Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
+- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`, `<cor-sem>`). `update-metadata!` swaps old metadata for current during bootstrap.
+- **`dk.cst.dannet.db.bootstrap.cor`**: converts the COR source files (COR₁ + COR.EXT TSVs and the COR.EXT link file, downloaded from ordregister.dk into `bootstrap/other/cor`) into the triples of the `cor:` graph, and parses the official `.cordiff` changelogs into a lemma-ID remap (`id-remap`). The graph was last rebuilt from source for the 2026-08-21 release and is carried forward as data since; the conversion functions remain for future COR edition bumps.
+- **`dk.cst.dannet.db.bootstrap.corsem`**: converts the COR.SEM sense inventory (`cor.sem.1.0.tsv` from ordregister.dk in `bootstrap/other/cor`) into the triples of the `cor-sem:` graph: one `ontolex:LexicalSense` per row in the `cor:` namespace, linked from `cor:` words via `ontolex:sense` and to `dn:` synsets via `ontolex:isLexicalizedSenseOf` (DanNet-link) and `skos:broadMatch` (hypernym anchors), carrying FrameNet frames (`dns:frame`, materialized as resources in the `frame:` namespace with `owl:sameAs` links to PreMOn), sentiment (`dns:sentiment` + marl, like DDS), ontological types (`dns:corOntologicalType`), systematic polysemy patterns (`dns:polysemyPattern`), topic domains (`dc:subject`) and restriction/centrality comments. Link pruning/remapping happens in `bootstrap/add-cor-sem-graph!`.
+- **`dk.cst.dannet.release`**: the `from`/`to` release versions, the upstream COR editions (`cor-version`, `cor-ext-version`, `cor-sem-version`), plus the version-named bootstrap layout derived from them (`version-dir`). `to` is `"SNAPSHOT"` while the next release's changes are in development (which is what enables `make-release-changes!`) and is set to the real version at cut time. Kept free of DanNet dependencies since it is required from both ends of the namespace graph.
 
 ### DMLex Export (`dk.cst.dannet.db.export.dmlex`)
 - Converts the raw DanNet graphs (DanNet + DDS + COR + OEWN equivalents) into a single DMLex 1.0 (OASIS) lexicographic resource, serialized as both XML and JSON; conversion rules in `doc/dmlex/plan.md`
@@ -125,6 +126,7 @@ src/main/dk/cst/dannet/
 │   ├── bootstrap.clj          # Release bootstrapping, migration, OEWN/ILI integration
 │   ├── bootstrap/
 │   │   ├── cor.clj            # COR source-file conversion + changelog remap
+│   │   ├── corsem.clj         # COR.SEM source-file conversion (senses, frames)
 │   │   ├── downloads.clj      # On-demand fetching of bootstrap datasets (DanNet zips, OEWN, ILI)
 │   │   └── metadata.clj       # Dataset metadata triples, da/en helpers
 │   ├── export/
@@ -376,7 +378,7 @@ npx shadow-cljs compile test
 - Data instances: `https://wordnet.dk/dannet/data/` (prefix: `dn`)
 - Concepts: `https://wordnet.dk/dannet/concepts/` (prefix: `dnc`)
 - Schema: `https://wordnet.dk/dannet/schema/` (prefix: `dns`)
-- Dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`) are defined centrally in `dk.cst.dannet.db.bootstrap.metadata`
+- Dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`, `<cor-sem>`) are defined centrally in `dk.cst.dannet.db.bootstrap.metadata`
 
 ### Release / Version Tracking
 - `dk.cst.dannet.release` is the source of truth for versions:

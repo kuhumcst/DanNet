@@ -49,7 +49,12 @@
 
 (def bootstrap-files
   "The set of DanNet release assets that constitute a bootstrap. Shared by the
-  fetch and the missing-file check so the two can't drift apart."
+  fetch and the missing-file check so the two can't drift apart.
+
+  NB: add \"cor-sem.zip\" when bumping release/from past the release that
+  debuts the cor-sem: graph; the 2026-08-21 release bootstrapped from now has
+  no such asset, so the graph is built from source by add-cor-sem-graph!
+  instead."
   #{"dannet.zip"
     "cor.zip"
     "dds.zip"

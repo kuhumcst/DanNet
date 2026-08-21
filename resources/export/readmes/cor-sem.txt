@@ -1,0 +1,16 @@
+COR.SEM integration for DanNet {version}
+========================================
+An RDF representation of COR.SEM, the manually curated sense inventory for
+COR (Det Centrale Ordregister / The Central Word Registry): one sense per
+COR.SEM ID, linked to COR words and to DanNet synsets, and carrying FrameNet
+frames, sentiment polarity, ontological types, systematic polysemy patterns,
+topic domains, hypernym anchors, usage restrictions and centrality markings.
+
+Based on the CC0-licensed resource COR.SEM {cor-sem-version} published by
+Dansk Sprognævn (DSN): https://ordregister.dk — compiled by Det Danske
+Sprog- og Litteraturselskab (DSL), with the RDF representation by Center for
+Sprogteknologi (CST), University of Copenhagen.
+
+Published under CC0 1.0 (see LICENSE or
+https://creativecommons.org/publicdomain/zero/1.0/). Attribution is not
+required, but credit to DSN, DSL & CST is appreciated.

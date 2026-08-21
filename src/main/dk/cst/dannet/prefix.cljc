@@ -83,6 +83,25 @@
                          'lime 'void 'dc 'dcat}
              :download {"rdf" {:default "cor.zip"}}}
 
+   ;; The COR.SEM sense inventory. Its resources live in the cor: namespace
+   ;; (COR.SEM IDs are published by DSN like the other COR IDs), so this URI
+   ;; only names the graph and the dataset resource.
+   'cor-sem {:uri      "https://ordregister.dk/sem/"
+             :resource "<https://ordregister.dk/sem>"
+             :export   #{'dn 'dns 'cor 'frame
+                         'rdf 'rdfs 'owl
+                         'ontolex 'skos 'marl
+                         'void 'dc 'dcat}
+             :download {"rdf" {:default "cor-sem.zip"}}}
+
+   ;; Berkeley FrameNet frames as resources, linked from COR.SEM senses via
+   ;; dns:frame. Our own namespace: Berkeley publishes no RDF and the PreMOn
+   ;; rendition (linked via owl:sameAs) is dormant, pinned to FrameNet 1.7 and
+   ;; no longer dereferences. NB: the conventional FrameNet prefix "fn" is
+   ;; avoided since SPARQL preassigns it to the XPath function namespace.
+   'frame   {:uri "https://wordnet.dk/framenet/"
+             :alt :no-schema}
+
    ;; Sentiment data
    'dds     {:uri      "https://wordnet.dk/sentiment/"
              :resource "<https://wordnet.dk/sentiment>"
@@ -300,6 +319,9 @@
 
 (def cor-uri
   (prefix->uri 'cor))
+
+(def cor-sem-uri
+  (prefix->uri 'cor-sem))
 
 (def dnf-uri
   "Namespace for custom ARQ SPARQL functions (registered as the `dnf` prefix)."

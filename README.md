@@ -232,8 +232,8 @@ When releasing a new version of the database:
    (dk.cst.dannet.db.query/save-synset-indegrees!
      (:graph @dk.cst.dannet.web.resources/db))
    ```
-   This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `dds.zip`,
-   `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
+   This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `cor-sem.zip`,
+   `dds.zip`, `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
    `export/wn-lmf/dannet-wn-lmf.xml.gz` and `export/synset-indegree.edn`. These
    ship to production (step 7) and become the GitHub release assets that the
    next cycle bootstraps from (step 4).
@@ -260,7 +260,7 @@ When releasing a new version of the database:
 7. Transfer database and export files via SFTP, then:
    ```shell
    unzip -o tdb2.zip -d /dannet/db/
-   mv cor.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
+   mv cor.zip cor-sem.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
    mv dannet-csv.zip /dannet/export/csv/
    mv dannet-wn-lmf.xml.gz /dannet/export/wn-lmf/
    ```
