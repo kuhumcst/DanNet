@@ -297,7 +297,7 @@
 
 ;; TODO: make the word entity page resemble a traditional dictionary entry via
 ;;       custom display elements, e.g. the abbreviated inflected forms found in
-;;       the dmlex-viewer project.
+;;       the DMLex browser project.
 (defn supplement-word
   "Supplement `word` in `g` with inflected forms from the COR words it is
   owl:sameAs. Returns word with `:ontolex/otherForm` added and metadata

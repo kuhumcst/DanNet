@@ -320,7 +320,7 @@
                                          (keyword (name prefix) s)
 
                                          ;; A generic consumer such as the
-                                         ;; DMLex viewer sends a bare URI, not
+                                         ;; DMLex browser sends a bare URI, not
                                          ;; a bracketed RDF resource.
                                          (and s (re-find #"^https?://" s))
                                          (prefix/uri->rdf-resource s)

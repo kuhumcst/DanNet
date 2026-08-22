@@ -8,7 +8,7 @@
   (stand-off startIndex/endIndex pairs in JSON, inline elements in XML).
 
   The exported JSON can be browsed as a dictionary with the generic DMLex
-  viewer at https://github.com/kuhumcst/dmlex-viewer."
+  browser at https://github.com/kuhumcst/DMLex-browser."
   (:require [clojure.data.json :as json]
             [clojure.data.xml :as xml]
             [clojure.java.io :as io]
@@ -161,7 +161,7 @@
   headwordTranslations.
 
   The langCode names the language of the whole resource, not just of the
-  headwords, since the DMLex viewer keys its UI language on it. The headwords
+  headwords, since the DMLex browser keys its UI language on it. The headwords
   stay Danish in the English variant."
   [lang]
   {:title                "DanNet"
@@ -1123,7 +1123,7 @@
   "Dataset metadata for the DanNet `version` DMLex export in `lang`, shipped in
   the zip as metadata.json (see `license-comment` for why nothing can go
   in-band). Mirrors the RDF metadata of the dn graph in Dublin Core terms so
-  that e.g. a DMLex viewer can consume it next to the DMLex JSON."
+  that e.g. a DMLex browser can consume it next to the DMLex JSON."
   [version lang]
   ;; array-map keeps this authored order in the serialized JSON
   (array-map
