@@ -34,7 +34,7 @@ round of changes, which followed the presentation review of 15 August 2026.
 | XML schemas | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/XML/` |
 | JSON schemas | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/JSON/` |
 | RDF ontology and SHACL file | `https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/schemas/RDF/` |
-| DMLex viewer, a spin-off project that displays this export | `https://github.com/kuhumcst/dmlex-viewer` |
+| DMLex browser, a spin-off project that displays this export | `https://github.com/kuhumcst/DMLex-browser` |
 
 ## 3. Decisions
 
@@ -613,7 +613,7 @@ the standard fits.
 ### 9.10 Third round: how DanNet wants to be read
 
 Date: 15 August 2026. This round follows the review of the presentation config
-of the DMLex viewer. The export stays the same data. The round is about the
+of the DMLex browser. The export stays the same data. The round is about the
 reading of it.
 
 1. Ship `presentation.json` next to the data, as `metadata.json` already is.

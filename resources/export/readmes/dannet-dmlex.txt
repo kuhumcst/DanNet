@@ -38,7 +38,7 @@ slot for either:
   * presentation.json — DanNet's own display taste. The file gives the
     order and the display names of the label types. It also gives the
     grouping of the relation types and the display names of the relation
-    roles. The DMLex viewer (https://github.com/kuhumcst/dmlex-viewer)
+    roles. The DMLex browser (https://github.com/kuhumcst/DMLex-browser)
     reads it next to the JSON. Other consumers can ignore it.
 
 When using DanNet, please cite:
