@@ -621,7 +621,7 @@ reading of it.
    Danish names of the label types. It also carries the grouping of the
    relation types and the Danish name of every relation role. DMLex has no
    slot for any of it. The file lives at
-   `resources/export/dmlex/presentation.json` and goes into the zip.
+   `resources/bundled/dmlex/presentation.json` and goes into the zip.
 2. Give a relation with no declared obverse a distinct name for its subject
    end. The name is `involved_` plus its own name, instead of the shared pair
    `source` and `target`. Only `dns:usedFor` and `dns:usedForObject` lack an

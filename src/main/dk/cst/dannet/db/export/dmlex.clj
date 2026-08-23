@@ -1195,7 +1195,7 @@
                                    :escape-slash false
                                    :escape-unicode false)))
     (with-open [in (io/input-stream
-                     (io/resource "export/dmlex/presentation.json"))]
+                     (io/resource "bundled/dmlex/presentation.json"))]
       (io/copy in (io/file present-file)))
     (rdf/copy-license! :cc-by-sa license-file)
     (spit readme-file (rdf/render-readme "dannet-dmlex.txt" release/to))
