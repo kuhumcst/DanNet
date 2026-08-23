@@ -75,9 +75,9 @@
 
 (def license-file
   "Map from CC licence keyword to the bundled plain-text licence resource."
-  {:cc-by-sa "export/licenses/CC-BY-SA-4.0.txt"
-   :cc-by    "export/licenses/CC-BY-4.0.txt"
-   :cc0      "export/licenses/CC0-1.0.txt"})
+  {:cc-by-sa "bundled/licenses/CC-BY-SA-4.0.txt"
+   :cc-by    "bundled/licenses/CC-BY-4.0.txt"
+   :cc0      "bundled/licenses/CC0-1.0.txt"})
 
 (def export-licensing
   "Per download prefix: the licence + README template shipped inside its zip.
@@ -90,12 +90,12 @@
    'oewn-extension {:license :cc-by :readme "oewn-extension.txt"}})
 
 (defn render-readme
-  "Read the README template `readme` (under resources/export/readmes/) and fill
+  "Read the README template `readme` (under resources/bundled/readmes/) and fill
   in the `version` placeholders. The OEWN labels track the DanNet release, so
   {version} and {oewn-version} resolve to the same string; the COR editions
   are versioned upstream and resolve from dk.cst.dannet.release."
   [readme version]
-  (-> (slurp (io/resource (str "export/readmes/" readme)))
+  (-> (slurp (io/resource (str "bundled/readmes/" readme)))
       (str/replace "{version}" version)
       (str/replace "{oewn-version}" version)
       (str/replace "{cor-version}" release/cor-version)

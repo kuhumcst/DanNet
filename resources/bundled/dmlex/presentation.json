@@ -1,6 +1,8 @@
 {
   "memberOrder": "collation",
   "linkResolver": "https://wordnet.dk/dannet/external?subject=",
+  "inflectionLine": {"hide": ["104", "106", "107", "114", "115", "116",
+                              "117", "124", "125", "126", "127"]},
   "labelTypes": {
     "order": [
       "register",
