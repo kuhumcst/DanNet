@@ -840,7 +840,10 @@
             full-db-path   (str db-path "/" db-name)
             zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
             ttl-file?      (comp #(str/ends-with? % ".ttl") #(.getName %))
-            db-exists?     (.exists (io/file full-db-path))
+            ;; Written as the final build step below; a directory without it
+            ;; is a partial build (e.g. an exception mid-build) and is rebuilt.
+            build-complete (io/file full-db-path "build-complete.txt")
+            db-exists?     (.exists build-complete)
             new-entry      (log-entry db-name db-type input-dir)
             dataset        (->dataset db-type full-db-path)
             ;; Include the current build hash to make debugging easier
@@ -909,6 +912,9 @@
                        :data  {:db-name db-name}}
                       "Database created")
               (spit log-path (str new-entry "\n----\n") :append true)
+              ;; The :in-mem db types never create the directory.
+              (when (.isDirectory (io/file full-db-path))
+                (spit build-complete new-entry))
               (dataset->db dataset schema-uris)))))
       (let [db-name      (->> (slurp log-path)
                               (re-seq #"Location: (.+)")
