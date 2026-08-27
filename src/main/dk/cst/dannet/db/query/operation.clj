@@ -481,3 +481,64 @@
        ?opinion marl:hasPolarity ?polarity .
        OPTIONAL { ?opinion marl:polarityValue ?value . }
      }"))
+
+;; The queries below run on the cor-sem: graph and carry the COR.SEM payload
+;; of the DMLex export and the short-label ranking (regenerate-short-labels!);
+;; dns:eqSense joins the two sense inventories.
+
+(def eq-sense-query
+  "The COR.SEM senses and the DanNet senses they exactly match."
+  (sparql
+    "SELECT ?corsem ?sense
+     WHERE { ?corsem dns:eqSense ?sense . }"))
+
+(def eq-sense-match-query
+  "The COR.SEM senses and the DanNet senses they match, exactly or nearly;
+  the channel through which COR.SEM centrality reaches the DanNet senses."
+  (sparql
+    "SELECT ?corsem ?sense
+     WHERE { ?corsem dns:eqSense|dns:eqNearSense ?sense . }"))
+
+(def corsem-frame-query
+  (sparql
+    "SELECT ?corsem ?frame
+     WHERE { ?corsem dns:frame ?frame . }"))
+
+(def linked-synset-query
+  (sparql
+    "SELECT ?corsem ?synset
+     WHERE { ?corsem dns:linkedSynset ?synset . }"))
+
+(def polysemy-pattern-query
+  (sparql
+    "SELECT ?corsem ?pattern
+     WHERE { ?corsem dns:polysemyPattern ?pattern . }"))
+
+(def pattern-label-query
+  (sparql
+    "SELECT ?pattern ?label
+     WHERE {
+       ?pattern rdf:type dns:PolysemyPattern ;
+                rdfs:label ?label .
+     }"))
+
+(def centrality-query
+  (sparql
+    "SELECT ?corsem ?centrality
+     WHERE { ?corsem dns:centrality ?centrality . }"))
+
+(def simple-ontotype-query
+  (sparql
+    "SELECT ?corsem ?ontotype
+     WHERE { ?corsem dns:simpleOntologicalType ?ontotype . }"))
+
+(def ontotype-members-query
+  "The member concepts of the named ontological types, matched on the rdf:_N
+  properties like ontological-type-query."
+  (sparql
+    "SELECT ?ontotype ?member ?class
+     WHERE {
+       ?ontotype rdf:type dns:OntologicalType .
+       ?ontotype ?member ?class .
+       FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
+     }"))

@@ -283,11 +283,18 @@
   ([sense-labels]
    (canonical* nil sense-labels))
   ([tiebreak sense-labels]
-   (let [keyfn (if tiebreak (juxt entry-sort-key tiebreak) entry-sort-key)
-         word  (fn [s] (or (second (re-matches sense-label (str s)))
-                           (str s)))]
-     (->> (remove #{omitted} sense-labels)
-          (sort-by keyfn)
+   (canonical* nil tiebreak sense-labels))
+  ([primary tiebreak sense-labels]
+   (let [keyfn  (apply juxt (remove nil? [primary entry-sort-key tiebreak]))
+         word   (fn [s] (or (second (re-matches sense-label (str s)))
+                            (str s)))
+         ;; Only a stored dns:shortLabel contains the "…" marker, and its
+         ;; labels were ranked at build time using data only the build has
+         ;; (e.g. COR.SEM centrality). Re-sorting them here, typically in
+         ;; the frontend, would undo the better ranking.
+         ranked (some #{omitted} sense-labels)
+         labels (remove #{omitted} sense-labels)]
+     (->> (if ranked labels (sort-by keyfn labels))
           (reduce (fn [[seen out :as acc] s]
                     (let [w (word s)]
                       (if (contains? seen w)
@@ -301,20 +308,38 @@
 (def canonical
   "Return the top (at most 2) canonical `sense-labels`, at most one per word,
   using the DSL entry IDs as a heuristic. Optionally takes a `tiebreak` keyfn
-  as its first argument.
+  as its first argument, or a `primary` and a `tiebreak` keyfn as its first
+  two.
 
   The sense of canonical being applied here is: 'reduced to the simplest and
   most significant form possible without loss of generality'. The maximum of 2
   keeps labels from taking over the UI.
 
-  A `tiebreak` keyfn refines the order among labels with equal entry-ID keys;
-  without one, ties keep their input order (sort-by is stable), so pre-ranked
-  labels such as stored dns:shortLabel values pass through in their stored
-  order.
+  A `primary` keyfn ranks before the entry-ID heuristic, which then only
+  decides among labels with equal primary keys. A `tiebreak` keyfn refines
+  the order among labels with equal keys so far; without one, ties keep
+  their input order (sort-by is stable).
 
-  The \"…\" truncation marker is ignored, as it is never a sense label."
+  Labels accompanied by the \"…\" truncation marker come from a stored
+  dns:shortLabel and are already ranked at build time, so they pass through
+  in their stored order; the marker itself is never a sense label and is
+  dropped."
   #?(:clj  (memo/lu canonical* :lu/threshold 1000)
      :cljs (memoize canonical*)))
+
+(defn centrality-primary
+  "A `canonical` primary keyfn from `centrality`, a map of sense label to its
+  COR.SEM dns:centrality value.
+
+  The value is a bitmask (1 = keyword in Den Danske Begrebsordbog, 2 =
+  central in DanNet, 3 = both), so a sense central in both resources ranks
+  first, one central in either next, and unmarked senses last."
+  [centrality]
+  (fn [s]
+    (case (get centrality (str s) 0)
+      3 -2
+      (1 2) -1
+      0)))
 
 (defn polysemy-tiebreak
   "A `canonical` tiebreak keyfn from `polysemy`, a map of sense label to the
@@ -329,12 +354,14 @@
   "Return an abridged version of a synset `label` keeping only the canonical
   sense labels followed by the \"…\" marker, or nil when nothing is omitted.
 
-  An optional `tiebreak` keyfn is passed on to `canonical`."
+  The optional `primary` and `tiebreak` keyfns are passed on to `canonical`."
   ([label]
    (short-label nil label))
   ([tiebreak label]
+   (short-label nil tiebreak label))
+  ([primary tiebreak label]
    (let [labels (sense-labels synset-sep (str label))
-         kept   (canonical tiebreak labels)]
+         kept   (canonical primary tiebreak labels)]
      (when (< (count kept) (count labels))
        (str "{" (str/join "; " kept) "; " omitted "}")))))
 

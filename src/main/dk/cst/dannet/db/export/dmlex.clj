@@ -84,6 +84,26 @@
    {:tag         "sentimentValue"
     :description "Sentiment value from -3 (negative) to 3 (positive)"
     :sameAs      [(str (prefix/prefix->uri 'marl) "polarityValue")]}
+   {:tag         "frame"
+    :description {"da" "Berkeley FrameNet-ramme fremkaldt af betydningen, via COR.SEM"
+                  "en" "Berkeley FrameNet frame evoked by the sense, via COR.SEM"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "frame")]}
+   {:tag         "simpleOntologicalType"
+    :description {"da" "Ontologisk type i COR.SEM's forenklede ontologi; kun angivet hvor den afviger fra synsettets ontologiske type"
+                  "en" "Ontological type in the simplified COR.SEM ontology; only stated where it differs from the ontological type of the synset"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "simpleOntologicalType")]}
+   {:tag         "polysemyPattern"
+    :description {"da" "Systematisk polysemimønster fra COR.SEM"
+                  "en" "Systematic polysemy pattern from COR.SEM"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "polysemyPattern")]}
+   {:tag         "centrality"
+    :description {"da" "Betydningens centralitet i det danske kerneordforråd, via COR.SEM"
+                  "en" "The centrality of the sense in the Danish core vocabulary, via COR.SEM"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "centrality")]}
+   {:tag         "corsem"
+    :description {"da" "Betydningens id i COR.SEM, betydningsinventaret til Det Centrale Ordregister"
+                  "en" "The id of the sense in COR.SEM, the sense inventory of the Central Word Registry (COR)"}
+    :sameAs      [(str (prefix/prefix->uri 'dns) "eqSense")]}
    {:tag         "source"
     :description {"da" "Kildehenvisning til den fulde definition i Den Danske Ordbog"
                   "en" "Source link to the full definition in Den Danske Ordbog (DDO)"}
@@ -111,6 +131,26 @@
     (for [value (range -3 4)]
       {:tag     (str value)
        :typeTag "sentimentValue"})))
+
+(def centrality-label-tags
+  "The three centrality marks of COR.SEM, carried onto the exactly matched
+  DanNet senses. The bare values collide with the sentimentValue tags, so the
+  tags are prefixed; the descriptions carry the meaning."
+  [{:tag         "centrality-1"
+    :typeTag     "centrality"
+    :for         "sense"
+    :description {"da" "nøgleord i Den Danske Begrebsordbog"
+                  "en" "keyword in the Danish thesaurus Den Danske Begrebsordbog"}}
+   {:tag         "centrality-2"
+    :typeTag     "centrality"
+    :for         "sense"
+    :description {"da" "centralt begreb i DanNet, dvs. koblet til Princeton WordNets Core WordNet"
+                  "en" "central concept in DanNet, i.e. linked to Princeton WordNet's Core WordNet"}}
+   {:tag         "centrality-3"
+    :typeTag     "centrality"
+    :for         "sense"
+    :description {"da" "både nøgleord i Den Danske Begrebsordbog og centralt begreb i DanNet"
+                  "en" "both a keyword in Den Danske Begrebsordbog and a central concept in DanNet"}}])
 
 (def norm-label-tags
   "The norm-status tags. COR states the norm status of a form in the
@@ -429,6 +469,14 @@
     :dns/usedFor
     :dns/usedForObject})
 
+(def cor-sem-relations
+  "The relations read from the cor-sem: graph rather than the dn: graph: the
+  synset alternation pairs derived from COR.SEM's systematic polysemy (GitHub
+  issue #207). The graph also states alternation pairs between its own
+  COR.SEM senses; dannet-pair? keeps those out."
+  #{:dns/alternatesTo
+    :dns/alternatesWith})
+
 (defn tag-descriptions
   "Descriptions of `concepts` in `lang`, from the schema statements in `g`. A
   comment is more informative than a label, and a label in the other export
@@ -490,6 +538,7 @@
         dds-g        (db/get-graph dataset prefix/dds-uri)
         oewn-g       (db/get-graph dataset prefix/oewn-uri)
         ili-g        (db/get-graph dataset prefix/ili-uri)
+        sem-g        (db/get-graph dataset prefix/cor-sem-uri)
         obverse-of   (inverse-relations graph)
         types        (q/run g op/ontological-type-query)
         genders      (q/run g op/gender-query)
@@ -497,7 +546,8 @@
         concepts     (distinct (concat (map '?gender genders)
                                        (map '?value sense-labels)
                                        (map '?class types)
-                                       exported-relations))]
+                                       exported-relations
+                                       cor-sem-relations))]
     {:words             (q/run g op/word-query)
      :senses            (q/run g op/sense-query)
      :definitions       (q/run g op/definition-query)
@@ -521,14 +571,29 @@
      :cor-forms         (q/run cor-g op/cor-form-query)
      :sentiment         (concat (q/run dds-g op/sentiment-query)
                                 (q/run g op/sentiment-query))
+     :eq-senses         (q/run sem-g op/eq-sense-query)
+     :eq-sense-matches  (q/run sem-g op/eq-sense-match-query)
+     :corsem-frames     (q/run sem-g op/corsem-frame-query)
+     :linked-synsets    (q/run sem-g op/linked-synset-query)
+     :corsem-patterns   (q/run sem-g op/polysemy-pattern-query)
+     :pattern-labels    (q/run sem-g op/pattern-label-query)
+     :centralities      (q/run sem-g op/centrality-query)
+     :simple-ontotypes  (q/run sem-g op/simple-ontotype-query)
+     :ontotype-members  (q/run sem-g op/ontotype-members-query)
+     :corsem-notes      (q/run sem-g op/usage-note-query)
      :descriptions      {"da" (tag-descriptions graph "da" concepts)
                          "en" (tag-descriptions graph "en" concepts)}
      :indegrees         @q/synset-indegrees
      :obverse-of        obverse-of
-     :relations         (into {}
-                              (map (fn [rel]
-                                     [rel (relation-pairs g rel (obverse-of rel))]))
-                              exported-relations)}))
+     :relations         (merge
+                          (into {}
+                                (map (fn [rel]
+                                       [rel (relation-pairs g rel (obverse-of rel))]))
+                                exported-relations)
+                          (into {}
+                                (map (fn [rel]
+                                       [rel (relation-pairs sem-g rel (obverse-of rel))]))
+                                cor-sem-relations))}))
 
 (defn index
   "Index the query result `ms` as a map of `kf` to a single `vf` value."
@@ -664,6 +729,26 @@
           [subject (cond-> [(name polarity)]
                      agree? (conj (str value)))])))
 
+(defn frame-labels
+  "Synset -> the FrameNet frames its senses carry as labels, projected from
+  the COR.SEM senses via `corsem-frames` and `linked-synsets`.
+
+  The projection follows query/supplement-synset: a COR.SEM sense contributes
+  its frames to a synset only when nothing needs distributing, i.e. it links
+  just that synset or carries just one frame."
+  [corsem-frames linked-synsets]
+  (let [frames-of (index-many corsem-frames '?corsem (comp name '?frame))
+        links-of  (index-many linked-synsets '?corsem '?synset)]
+    (->> (for [[corsem frames] frames-of
+               :let [links (links-of corsem)]
+               synset links
+               :when (or (= 1 (count frames)) (= 1 (count links)))
+               frame frames]
+           [synset frame])
+         (reduce (fn [m [synset frame]]
+                   (update m synset (fnil conj (sorted-set)) frame))
+                 {}))))
+
 (defn ->synset-label-tag
   "The labelTag that gives a `synset` its identity, with its `description` and
   its `ilis` as extra sameAs URIs."
@@ -781,14 +866,17 @@
       (- ceiling (get indegrees synset 0)))))
 
 (defn member-positions
-  "Sense -> its position in its own synset, from `polysemy` and `label-rows`.
+  "Sense -> its position in its own synset, from `centrality`, `polysemy` and
+  `label-rows`.
 
-  The order is the one behind the synset labels: the `shared/canonical`
-  entry-ID heuristic with word polysemy as the tiebreak. A sense with more
-  than one label takes the position of its best one."
-  [polysemy label-rows]
-  (let [tiebreak (shared/polysemy-tiebreak polysemy)
-        keyfn    (comp (juxt shared/entry-sort-key tiebreak) '?label)]
+  The order is the one behind the synset labels: COR.SEM centrality first,
+  then the `shared/canonical` entry-ID heuristic with word polysemy as the
+  tiebreak. A sense with more than one label takes the position of its best
+  one."
+  [centrality polysemy label-rows]
+  (let [primary  (shared/centrality-primary centrality)
+        tiebreak (shared/polysemy-tiebreak polysemy)
+        keyfn    (comp (juxt primary shared/entry-sort-key tiebreak) '?label)]
     (into {}
           (for [[_ rows] (group-by '?synset label-rows)
                 :let [senses (distinct (map (comp name '?sense)
@@ -884,18 +972,64 @@
            word-variants ontological-types synset-labels short-labels
            member-labels polysemy genders sense-labels usage-notes ilis
            ili-definitions oewn-lemmas cor-links cor-forms sentiment
-           descriptions indegrees obverse-of relations]}]
+           eq-senses eq-sense-matches corsem-frames linked-synsets
+           corsem-patterns pattern-labels centralities simple-ontotypes
+           ontotype-members corsem-notes descriptions indegrees obverse-of
+           relations]}]
   (let [listing-order (listing-order-fn indegrees)
         label-of      (merge (index synset-labels '?synset (comp str '?label))
                              (index short-labels '?synset (comp str '?label)))
         senses-of     (index-many senses '?synset (comp name '?sense))
-        unambiguous   (unambiguous-ilis ilis)]
+        unambiguous   (unambiguous-ilis ilis)
+        marks-of      (index-many sense-labels '?sense (comp name '?value))
+        notes-of      (index-many usage-notes '?sense (comp str '?note))
+        eq-of         (index eq-senses '?corsem '?sense)
+        sense-syn     (index senses '?sense '?synset)
+        centrality    (q/label-centralities centralities eq-sense-matches
+                                            member-labels)
+        ;; The atom sets behind the two ontological type systems, as name
+        ;; sets, so a COR.SEM simple type can be compared with the type of
+        ;; the matched sense's synset.
+        syn-classes   (update-vals (group-by '?synset ontological-types)
+                                   #(into #{} (map (comp name '?class)) %))
+        stype-names   (update-vals (group-by '?ontotype ontotype-members)
+                                   ontological-type)
+        stypes-of     (->> (for [{:syms [?corsem ?ontotype]} simple-ontotypes
+                                 :let [sense (eq-of ?corsem)]
+                                 :when (and sense
+                                            (not= (set (stype-names ?ontotype))
+                                                  (syn-classes (sense-syn sense))))]
+                             [sense (name ?ontotype)])
+                           (reduce (fn [m [sense t]]
+                                     (update m sense (fnil conj (sorted-set)) t))
+                                   {}))
+        patterns-of   (->> (for [{:syms [?corsem ?pattern]} corsem-patterns
+                                 :let [sense (eq-of ?corsem)]
+                                 :when sense]
+                             [sense (name ?pattern)])
+                           (reduce (fn [m [sense p]]
+                                     (update m sense (fnil conj (sorted-set)) p))
+                                   {}))
+        ;; The one usable COR.SEM usage restriction: "frekvens" becomes the
+        ;; note "sj. el. gl." in the corsem bootstrap, carried onto matched
+        ;; senses with no usage information of their own. The "sprogbrug"
+        ;; note only says that some unnamed restriction exists.
+        frek-of       (into {} (for [{:syms [?sense ?note]} corsem-notes
+                                     :let [note  (str ?note)
+                                           sense (eq-of ?sense)]
+                                     :when (and (= "sj. el. gl." note)
+                                                sense
+                                                (not (notes-of sense))
+                                                (not (marks-of sense)))]
+                                 [sense note]))
+        frames-of     (frame-labels corsem-frames linked-synsets)]
     {:descriptions      descriptions
      :obverse-of        obverse-of
      :relations         relations
      :member-order      (member-order-fn
                           listing-order
                           (member-positions
+                            centrality
                             (index polysemy (comp str '?senseLabel) '?polysemy)
                             member-labels))
      :pos-of            (index words '?word (comp pos-tag '?pos))
@@ -918,12 +1052,37 @@
                                      ontological-type)
      :ontotype-concepts (sort-by name (distinct (map '?class ontological-types)))
      :gender-of         (index genders '?synset '?gender)
-     :marks-of          (index-many sense-labels '?sense (comp name '?value))
+     :marks-of          marks-of
      :sense-label-pairs (sort-by (comp name second)
                                  (distinct (map (juxt '?property '?value)
                                                 sense-labels)))
-     :notes-of          (index-many usage-notes '?sense (comp str '?note))
-     :note-strings      (sort (set (map (comp str '?note) usage-notes)))
+     :notes-of          notes-of
+     :note-strings      (sort (into (set (map (comp str '?note) usage-notes))
+                                    (vals frek-of)))
+     :frek-of           frek-of
+     :frames-of         frames-of
+     :frame-strings     (sort (into #{} (mapcat val) frames-of))
+     :stypes-of         stypes-of
+     :stype-strings     (sort (into #{} (mapcat val) stypes-of))
+     :stype-description-of (into {}
+                                 (map (fn [[t names]]
+                                        [(name t) (str/join " + " names)]))
+                                 stype-names)
+     :patterns-of       patterns-of
+     :pattern-strings   (sort (into #{} (mapcat val) patterns-of))
+     :pattern-description-of (into {}
+                                   (map (fn [{:syms [?pattern ?label]}]
+                                          [(name ?pattern) (str ?label)]))
+                                   pattern-labels)
+     :centrality-of     (into {}
+                              (for [{:syms [?corsem ?centrality]} centralities
+                                    :let [sense (eq-of ?corsem)]
+                                    :when sense]
+                                [sense (str "centrality-" ?centrality)]))
+     :corsem-id-of      (into {}
+                              (map (fn [{:syms [?corsem ?sense]}]
+                                     [?sense (name ?corsem)]))
+                              eq-senses)
      :label-of          label-of
      :plain-label-of    (synset-descriptions
                           (select-keys label-of (keys senses-of)))
@@ -962,6 +1121,9 @@
                 sense-label-pairs notes-of note-strings label-of
                 plain-label-of ili-of ili-key-of ili-definition-of english-of
                 senses-of cors-of forms-of description-of sentiment-of
+                frek-of frames-of frame-strings stypes-of stype-strings
+                stype-description-of patterns-of pattern-strings
+                pattern-description-of centrality-of corsem-id-of
                 word->senses]}]
   (let [descriptions (get descriptions lang)
         ;; The English ILI definitions only supplement the English variant;
@@ -980,15 +1142,30 @@
                          (cond-> {:id     (name sense)
                                   :labels (-> [(name synset)]
                                               (into (ontotype-of synset))
+                                              (into (map #(str "dnt:" %))
+                                                    (stypes-of sense))
                                               (into (lexfiles-of synset))
                                               (into (domains-of synset))
+                                              (into (map #(str "frame:" %))
+                                                    (frames-of synset))
+                                              (into (map #(str "dnp:" %))
+                                                    (patterns-of sense))
                                               (cond->
                                                 (gender-of synset)
                                                 (conj (name (gender-of synset))))
                                               (into (marks-of sense))
                                               (into (notes-of sense))
+                                              (cond->
+                                                (frek-of sense)
+                                                (conj (frek-of sense)))
                                               (into (or (sentiment-of sense)
                                                         (sentiment-of synset)))
+                                              (cond->
+                                                (centrality-of sense)
+                                                (conj (centrality-of sense)))
+                                              (cond->
+                                                (corsem-id-of sense)
+                                                (conj (corsem-id-of sense)))
                                               (cond->
                                                 (source-of sense)
                                                 (conj (name sense))))}
@@ -1041,7 +1218,14 @@
                            (seq forms) (assoc :inflectedForms forms))))
         entries      (->> word->senses
                           (map ->entry-map)
-                          (filterv :headword))]
+                          (filterv :headword))
+        ;; The senses of the exported entries, in entry order; shared by the
+        ;; source and COR.SEM identity registers below.
+        exported     (->> word->senses
+                          (filter (comp headword-of first))
+                          (mapcat (fn [[_ rows]]
+                                    (map first rows)))
+                          (distinct))]
     (merge (lexicographic-resource lang)
            {:entries            entries
             :definitionTypeTags (when (= lang "en")
@@ -1076,6 +1260,32 @@
                                     {:tag note :typeTag "usage" :for "sense"})
                                   (localize lang norm-label-tags)
                                   (localize lang sentiment-label-tags)
+                                  (localize lang centrality-label-tags)
+                                  ;; The frame, simple ontotype and pattern
+                                  ;; tags are QNames: the bare names collide
+                                  ;; with other inventories (e.g. the frame
+                                  ;; and the concept both named Substance),
+                                  ;; and the XSD keys every labelTag on its
+                                  ;; tag alone. The description carries the
+                                  ;; readable name.
+                                  (for [frame frame-strings]
+                                    {:tag         (str "frame:" frame)
+                                     :typeTag     "frame"
+                                     :for         "sense"
+                                     :description frame
+                                     :sameAs      [(str prefix/framenet-uri frame)]})
+                                  (for [stype stype-strings]
+                                    {:tag         (str "dnt:" stype)
+                                     :typeTag     "simpleOntologicalType"
+                                     :for         "sense"
+                                     :description (stype-description-of stype)
+                                     :sameAs      [(str (prefix/prefix->uri 'dnt) stype)]})
+                                  (for [pattern pattern-strings]
+                                    {:tag         (str "dnp:" pattern)
+                                     :typeTag     "polysemyPattern"
+                                     :for         "sense"
+                                     :description (pattern-description-of pattern)
+                                     :sameAs      [(str (prefix/prefix->uri 'dnp) pattern)]})
                                   ;; The DDO source register of section 9.12:
                                   ;; one tag per sourced entry and sense, in
                                   ;; the order of the entries.
@@ -1084,14 +1294,20 @@
                                                    (source-of word))]
                                     (->source-label-tag "entry" word
                                                         (source-of word)))
-                                  (for [sense (->> word->senses
-                                                   (filter (comp headword-of first))
-                                                   (mapcat (fn [[_ rows]]
-                                                             (map first rows)))
-                                                   (distinct))
+                                  (for [sense exported
                                         :when (source-of sense)]
                                     (->source-label-tag "sense" sense
-                                                        (source-of sense))))
+                                                        (source-of sense)))
+                                  ;; The COR.SEM identity register: the id of
+                                  ;; the exactly matching COR.SEM sense, with
+                                  ;; the COR resource as sameAs.
+                                  (for [sense exported
+                                        :when (corsem-id-of sense)]
+                                    {:tag     (corsem-id-of sense)
+                                     :typeTag "corsem"
+                                     :for     "sense"
+                                     :sameAs  [(str prefix/cor-uri
+                                                    (corsem-id-of sense))]}))
             :relations          (->relations senses-of member-order obverse-of relations)
             :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
 
@@ -1106,8 +1322,9 @@
   [version]
   (str "\nDanNet " version " as DMLex.\n"
        "Combines DanNet and DDS (both CC BY-SA 4.0) with the CC0-licensed\n"
-       "parts of COR and English equivalents from the Open English Wordnet\n"
-       "(CC BY 4.0). The combined dataset is licensed under CC BY-SA 4.0:\n"
+       "parts of COR and COR.SEM and English equivalents from the Open\n"
+       "English Wordnet (CC BY 4.0). The combined dataset is licensed under\n"
+       "CC BY-SA 4.0:\n"
        "https://creativecommons.org/licenses/by-sa/4.0/\n"
        "Copyright © Det Danske Sprog- og Litteraturselskab (DSL) and Center\n"
        "for Sprogteknologi (CST), University of Copenhagen. See README.txt\n"
@@ -1126,13 +1343,16 @@
     "dc:issued"      version
     "dc:language"    lang
     "dc:description" {"en" (str "The Danish WordNet, combined with inflected "
-                                "forms from COR, sentiment polarities from "
-                                "DDS and English equivalents from the Open "
-                                "English Wordnet.")
+                                "forms from COR, sense ids, FrameNet frames "
+                                "and systematic polysemy from COR.SEM, "
+                                "sentiment polarities from DDS and English "
+                                "equivalents from the Open English Wordnet.")
                       "da" (str "Det danske WordNet, kombineret med "
-                                "bøjningsformer fra COR, sentiment-"
-                                "annoteringer fra DDS og engelske "
-                                "ækvivalenter fra Open English Wordnet.")}
+                                "bøjningsformer fra COR, betydnings-id'er, "
+                                "FrameNet-rammer og systematisk polysemi fra "
+                                "COR.SEM, sentiment-annoteringer fra DDS og "
+                                "engelske ækvivalenter fra Open English "
+                                "Wordnet.")}
     "dc:publisher"   (get {"en" (str "Centre for Language Technology, "
                                      "University of Copenhagen")
                            "da" (str "Center for Sprogteknologi, "
@@ -1156,6 +1376,9 @@
                        "dc:license"    "https://creativecommons.org/licenses/by-sa/4.0/"}
                       {"dc:title"      "COR (Det Centrale Ordregister)"
                        "dc:identifier" "https://ordregister.dk"
+                       "dc:license"    "https://creativecommons.org/publicdomain/zero/1.0/"}
+                      {"dc:title"      "COR.SEM (the COR sense inventory)"
+                       "dc:identifier" "https://ordregister.dk/sem"
                        "dc:license"    "https://creativecommons.org/publicdomain/zero/1.0/"}
                       {"dc:title"      "OEWN (Open English Wordnet)"
                        "dc:identifier" prefix/oewn-uri

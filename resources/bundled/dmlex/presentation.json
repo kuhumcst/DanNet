@@ -10,11 +10,16 @@
       "frequency",
       "usage",
       "sentiment",
+      "centrality",
       "domain",
       "lexfile",
       "ontologicalType",
+      "simpleOntologicalType",
+      "frame",
+      "polysemyPattern",
       "gender",
       "synset",
+      "corsem",
       "source"
     ],
     "unlisted": "hide",
@@ -30,7 +35,11 @@
       "frequency": "description",
       "gender": "description",
       "sentiment": "description",
-      "synset": "description"
+      "synset": "description",
+      "centrality": "description",
+      "frame": "description",
+      "simpleOntologicalType": "description",
+      "polysemyPattern": "description"
     },
     "rename": {
       "source": {
@@ -76,6 +85,26 @@
       "synset": {
         "da": "DanNet-begreb",
         "en": "DanNet concept"
+      },
+      "centrality": {
+        "da": "centralitet",
+        "en": "centrality"
+      },
+      "frame": {
+        "da": "FrameNet-ramme",
+        "en": "FrameNet frame"
+      },
+      "simpleOntologicalType": {
+        "da": "simpel ontotype",
+        "en": "simple ontotype"
+      },
+      "polysemyPattern": {
+        "da": "polysemimønster",
+        "en": "polysemy pattern"
+      },
+      "corsem": {
+        "da": "COR.SEM-id",
+        "en": "COR.SEM id"
       }
     },
     "inline": [
@@ -165,6 +194,20 @@
         },
         "types": [
           "domain_topic"
+        ]
+      },
+      {
+        "title": {
+          "da": "systematisk polysemi",
+          "en": "systematic polysemy"
+        },
+        "description": {
+          "da": "Begreber der dækker hver sin læsning i et systematisk polysemimønster for samme ord, fx plante og fødevare.",
+          "en": "Concepts that cover the two readings of a systematic polysemy pattern for the same word, e.g. plant and foodstuff."
+        },
+        "types": [
+          "alternatesTo",
+          "alternatesWith"
         ]
       },
       {
@@ -324,6 +367,18 @@
       "has_domain_topic": {
         "da": "emneområde for",
         "en": "subject area of"
+      },
+      "alternatesTo": {
+        "da": "veksler til",
+        "en": "alternates to"
+      },
+      "alternatesFrom": {
+        "da": "veksler fra",
+        "en": "alternates from"
+      },
+      "alternatesWith": {
+        "da": "veksler med",
+        "en": "alternates with"
       }
     }
   },

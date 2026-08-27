@@ -256,6 +256,28 @@
                         (sense-refs (ddo-entry-id %))))
           urls)))
 
+(defn label-centralities
+  "Sense label -> COR.SEM centrality, joining the `centralities` and `matches`
+  rows of the cor-sem: graph with the `label-rows` of the dn: graph.
+
+  The matches cover dns:eqSense and dns:eqNearSense alike: a near match still
+  concerns the same word, and the exact matches alone leave too many central
+  senses unmarked to rank by."
+  [centralities matches label-rows]
+  (let [corsem->centrality (into {}
+                                 (map (juxt '?corsem '?centrality))
+                                 centralities)
+        sense->centrality  (into {}
+                                 (keep (fn [{:syms [?corsem ?sense]}]
+                                         (when-let [c (corsem->centrality ?corsem)]
+                                           [?sense c])))
+                                 matches)]
+    (into {}
+          (keep (fn [{:syms [?sense ?label]}]
+                  (when-let [c (sense->centrality ?sense)]
+                    [(str ?label) c])))
+          label-rows)))
+
 (declare hypernym-ancestry)
 
 (defn hypernym-ancestry*
