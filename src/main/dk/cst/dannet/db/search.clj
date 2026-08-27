@@ -11,7 +11,7 @@
    '?ontoType   :dns/ontologicalType
    '?lexfile    :wn/lexfile})
 
-;; TODO: optimize -- seems to just include every ontotype label on every request
+;; TODO: optimize; seems to include every ontotype label on every request
 ;; TODO: does this memoization even accomplish anything?
 (def label-lookup
   (memoize

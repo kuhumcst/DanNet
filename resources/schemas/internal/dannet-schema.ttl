@@ -78,7 +78,7 @@
 
 # The sense-level members of the eq* family: symmetric (self-inverse)
 # counterparts of the SKOS matches, so both directions derive from a single
-# asserted triple -- same machinery as :eqSimilar.
+# asserted triple; same machinery as :eqSimilar.
 :eqSense a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalSense ;
   rdfs:range ontolex:LexicalSense ;
@@ -110,7 +110,7 @@
 #       audit: 76% of anchors merely mirror the linked synset's own
 #       wn:hypernym, so the value sits in the 4,647 pre-anchored senses
 #       missing from DanNet and the 8,201 placements disagreeing with the
-#       DanNet hierarchy -- if the disagreements prove to be noise, consider
+#       DanNet hierarchy; if the disagreements prove to be noise, consider
 #       pruning the property to that subset (or dropping it).
 :hypernymAnchor a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalSense ;
@@ -425,8 +425,8 @@
   rdfs:subClassOf rdf:Seq ;
   rdfs:label "polysemy pattern"@en ;
   rdfs:label "polysemimønster"@da ;
-  rdfs:comment "A systematic polysemy pattern, e.g. dnp:Plant-Food: an rdf:Seq of the pattern's two readings in order, each either an ontological concept or, where no concept matches, the reading's name in the pattern inventory of COR.SEM 1.0 -- a refinement of the 28-pattern typology published in Sørensen, Nimb & Pedersen (2023), which also records per-pattern sense representation decisions. A concept matches a reading either by name or, as stated in a comment on the pattern, by distributional evidence."@en ;
-  rdfs:comment "Et systematisk polysemimønster, fx dnp:Plant-Food: en rdf:Seq af mønstrets to læsninger i rækkefølge, hver enten et ontologisk koncept eller, hvor intet koncept svarer til læsningen, dens navn i mønsterinventaret fra COR.SEM 1.0 -- en viderebearbejdning af typologien med 28 mønstre publiceret i Sørensen, Nimb & Pedersen (2023), som også fastlægger betydningsrepræsentationen for hvert mønster. Et koncept svarer til en læsning enten ved navn eller, som angivet i en kommentar på mønstret, ved distributionel evidens."@da ;
+  rdfs:comment "A systematic polysemy pattern, e.g. dnp:Plant-Food: an rdf:Seq of the pattern's two readings in order, each either an ontological concept or, where no concept matches, the reading's name in the pattern inventory of COR.SEM 1.0, a refinement of the 28-pattern typology published in Sørensen, Nimb & Pedersen (2023), which also records per-pattern sense representation decisions. A concept matches a reading either by name or, as stated in a comment on the pattern, by distributional evidence."@en ;
+  rdfs:comment "Et systematisk polysemimønster, fx dnp:Plant-Food: en rdf:Seq af mønstrets to læsninger i rækkefølge, hver enten et ontologisk koncept eller, hvor intet koncept svarer til læsningen, dens navn i mønsterinventaret fra COR.SEM 1.0, en viderebearbejdning af typologien med 28 mønstre publiceret i Sørensen, Nimb & Pedersen (2023), som også fastlægger betydningsrepræsentationen for hvert mønster. Et koncept svarer til en læsning enten ved navn eller, som angivet i en kommentar på mønstret, ved distributionel evidens."@da ;
   rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
   rdfs:seeAlso "<https://github.com/kuhumcst/pycor/tree/master/data/systematic_polysemy>" ;
   rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;

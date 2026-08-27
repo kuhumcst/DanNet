@@ -6,15 +6,15 @@
   The source is the official premon-2018a-fn17-noinf dump (CC BY-SA 4.0),
   fetched by downloads/ensure-framenet-dataset!. Resources are renamed from
   PreMOn's lowercased IRIs into the frame: namespace using the Berkeley
-  spellings carried by their rdfs:label -- frame:Abandonment, and
+  spellings carried by their rdfs:label: frame:Abandonment, and
   frame:Abandonment@Agent for frame elements, reusing PreMOn's own @
-  separator -- each keeping an owl:sameAs link back to its PreMOn original.
+  separator. Each keeps an owl:sameAs link back to its PreMOn original.
   The COR.SEM frame names match the Berkeley spellings exactly, so the
   dns:frame links emitted by the corsem ns resolve against this graph.
 
   Reused vocabulary: pmo:semRole links a frame to its frame elements, the
   four pmofn: status classes type them, and the seven semantic subproperties
-  of pmofn:frameRelation relate frames -- mirrored between the frames' roles
+  of pmofn:frameRelation relate frames, mirrored between the frames' roles
   by their FER counterparts and the excludes/requires constraints. Core sets
   (pmofn:feCoreSet blank nodes with pmo:item members) group the core roles
   that fill the same slot, and pmofn:semType links frames and roles to the
@@ -56,8 +56,8 @@
          :pmofn/isInchoativeOf]))
 
 (def fe-relations
-  "The frame element counterparts of frame-relations -- which role maps to
-  which along each frame-to-frame relation -- plus the intra-frame
+  "The frame element counterparts of frame-relations (which role maps to
+  which along each frame-to-frame relation) plus the intra-frame
   excludes/requires constraints between roles; by full IRI."
   (into {} (map (juxt prefix/kw->uri identity))
         [:pmofn/inheritsFromFER

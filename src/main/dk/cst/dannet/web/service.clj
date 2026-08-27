@@ -128,7 +128,7 @@
        ;; trace! auto-messages are just "(form) => val" noise; keep only the
        ;; real messages attached to log!/event! signals.
        (when-not (= kind :trace)
-         (when-let [m (force msg_)] (str " — " m)))
+         (when-let [m (force msg_)] (str " - " m)))
        (when run-nsecs (str " (" (format-nsecs run-nsecs) ")"))
        (when (seq data) (str " " (pr-str data)))
        (when error (str " !" (.getSimpleName (class error)) ": " (ex-message error)))

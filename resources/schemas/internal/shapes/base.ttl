@@ -1,19 +1,19 @@
-# DanNet SHACL shapes — BASE (asserted) graph invariants.
+# DanNet SHACL shapes: BASE (asserted) graph invariants.
 #
 # A small, deliberately conservative starter set of structural invariants,
 # chosen by validating against the live data. Accepted violation counts are
 # recorded in shapes-baseline.edn; counts exceeding them indicate regressions.
 #
-# SCOPE — dn: resources only:
+# SCOPE (dn: resources only):
 #   DanNet only controls the dn: dataset, so shapes use SPARQL-based targets
 #   (SHACL-AF) scoped to the dn: namespace rather than sh:targetClass. This
 #   deliberately excludes companion datasets (COR, OEWN) that follow their own
 #   conventions. Note that dn: words are typed ontolex:Word or
-#   ontolex:MultiwordExpression -- never ontolex:LexicalEntry directly -- and
+#   ontolex:MultiwordExpression (never ontolex:LexicalEntry directly), and
 #   the asserted graph contains no ontolex subClassOf triples, so an
 #   sh:targetClass would miss them entirely.
 #
-# IMPORTANT — base vs. inferred graph:
+# IMPORTANT (base vs. inferred graph):
 #   Validate these against the BASE (asserted) model. Relation-completeness
 #   checks (e.g. "every sense links to a synset") do NOT belong here: in DanNet
 #   the sense→synset link is asserted in only one direction (Danish senses carry
@@ -25,7 +25,7 @@
 #
 # NOTE: property shapes are deliberately given explicit IRIs (rather than the
 # usual blank nodes) so that validation reports can group violations by a
-# stable shape identity -- used e.g. for the violation baseline check.
+# stable shape identity, used e.g. for the violation baseline check.
 #
 # NOTE: wn:definition is intentionally NOT required on synsets here; that rule
 # lives in editorial.ttl, gating newly edited data only.
@@ -177,7 +177,7 @@ dns:LexicalConceptShape-inScheme a sh:PropertyShape ;
     sh:message "LexicalConcept (synset) should have skos:inScheme <https://wordnet.dk/dannet/data>." .
 
 ## ---------------------------------------------------------------------------
-## Hypernym hierarchy (dn: synsets) — SPARQL-based semantic checks.
+## Hypernym hierarchy (dn: synsets): SPARQL-based semantic checks.
 ## wn:hypernym is ASSERTED in the base graph (152k+ triples), so these belong
 ## here rather than in inferred.ttl. Severity is a property of the node shape,
 ## hence two shapes: hierarchy errors block, POS disagreement only warns.
@@ -232,13 +232,13 @@ SELECT DISTINCT $this ?value WHERE {
 }""" .
 
 ## ---------------------------------------------------------------------------
-## Meronymy (dn: synsets) — SPARQL-based semantic checks.
+## Meronymy (dn: synsets): SPARQL-based semantic checks.
 ## Both mero_* and holo_* directions are asserted independently in the base
 ## graph, which allows two classes of directionality error (all instances
 ## found in the live data are recorded in shapes-baseline.edn):
 ##   1. the same relation asserted both ways (X mero_part Y, Y mero_part X)
 ##   2. a mero_* and a holo_* edge between the same pair in the same
-##      direction (X mero_substance Y, X holo_part Y) -- contradictory
+##      direction (X mero_substance Y, X holo_part Y); contradictory
 ##      regardless of subtype, since it makes X and Y parts of each other.
 ## Split into two node shapes so the baseline can track them separately.
 ## ---------------------------------------------------------------------------
@@ -314,8 +314,8 @@ SELECT $this ?value WHERE {
 ## ---------------------------------------------------------------------------
 ## Cross-dataset membership links (GitHub issue #207): dns:linkedSense and
 ## dns:linkedSynset assert links INTO DanNet's sense inventory from companion
-## datasets (currently COR/COR.SEM). The subjects live outside dn: -- a
-## deliberate extension of the SCOPE note above -- but the constraints guard
+## datasets (currently COR/COR.SEM). The subjects live outside dn: (a
+## deliberate extension of the SCOPE note above), but the constraints guard
 ## the dn: (object) end of the contract: links must resolve, mirroring the
 ## pruning performed by bootstrap/add-cor-sem-graph!. Validated against the
 ## union of the asserted graphs, where the dn: type triples are visible.

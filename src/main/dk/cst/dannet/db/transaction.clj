@@ -18,18 +18,18 @@
 ;; However, DanNet uses an InfModel backed by a GenericRuleReasoner (OWL, HYBRID
 ;; mode) for deriving inverse relations and transitive closures. When the query
 ;; engine asks the InfGraph for the next matching triple, the reasoner can spend
-;; an arbitrarily long time in its internal forward-chaining rule engine — and
+;; an arbitrarily long time in its internal forward-chaining rule engine, and
 ;; that code never checks the cancellation flag. A single .next() call on the
 ;; query iterator can block for minutes while the reasoner churns.
 ;;
 ;; The newer QueryExec builder API (Jena 4.x) has the same limitation: its
 ;; AlarmClock-based timeout still relies on QueryIterator.cancel(), which only
-;; takes effect when the iterator yields — i.e. it can't interrupt the reasoner.
+;; takes effect when the iterator yields, i.e. it can't interrupt the reasoner.
 ;;
 ;; The solution is a Future-based hard timeout: we submit the work to a thread
 ;; pool and call Future.get(timeout). If the deadline passes, the caller gets a
 ;; TimeoutException immediately. The abandoned thread runs to completion on its
-;; own — we intentionally do NOT interrupt it (cancel(false)), because
+;; own; we intentionally do NOT interrupt it (cancel(false)), because
 ;; Thread.interrupt() would cause NIO's FileChannel.map() to throw
 ;; ClosedChannelException, permanently closing the underlying TDB2 file channels
 ;; and breaking all subsequent requests.
@@ -54,8 +54,8 @@
   if the thread pool is saturated. Any exception thrown by `f` is unwrapped from
   the ExecutionException and rethrown to the caller.
 
-  NOTE: the future is cancelled with cancel(false) — no thread interrupt — to
-  avoid corrupting shared state (see comment block above)."
+  NOTE: the future is cancelled with cancel(false), i.e. no thread interrupt,
+  to avoid corrupting shared state (see comment block above)."
   [^ExecutorService executor timeout f]
   (let [fut (try
               (.submit executor ^Callable f)
