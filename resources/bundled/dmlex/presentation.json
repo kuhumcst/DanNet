@@ -38,6 +38,7 @@
       "synset": "description",
       "centrality": "description",
       "frame": "description",
+      "ontologicalType": "description",
       "simpleOntologicalType": "description",
       "polysemyPattern": "description"
     },
@@ -108,7 +109,15 @@
       }
     },
     "inline": [
-      "sentiment"
+      "domain",
+      "lexfile",
+      "gender",
+      "register",
+      "temporal",
+      "frequency",
+      "usage",
+      "sentiment",
+      "centrality"
     ]
   },
   "relationTypes": {
@@ -230,11 +239,11 @@
       },
       "hypernym": {
         "da": "overbegreber",
-        "en": "broader concepts"
+        "en": "broader"
       },
       "hyponym": {
         "da": "underbegreber",
-        "en": "narrower concepts"
+        "en": "narrower"
       },
       "instance_hypernym": {
         "da": "er instans af",
@@ -246,19 +255,19 @@
       },
       "orthogonalHypernym": {
         "da": "orto-overbegreber",
-        "en": "orthogonal broader concepts"
+        "en": "ortho-broader"
       },
       "orthogonalHyponym": {
         "da": "orto-underbegreber",
-        "en": "orthogonal narrower concepts"
+        "en": "ortho-narrower"
       },
       "crossPoSHypernym": {
         "da": "overbegreber (anden ordklasse)",
-        "en": "broader concepts (other word class)"
+        "en": "broader (other PoS)"
       },
       "crossPoSHyponym": {
         "da": "underbegreber (anden ordklasse)",
-        "en": "narrower concepts (other word class)"
+        "en": "narrower (other PoS)"
       },
       "meronym": {
         "da": "har del",
