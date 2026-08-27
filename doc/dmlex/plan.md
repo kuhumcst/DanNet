@@ -8,13 +8,14 @@ therefore a means and not a goal.
 
 This has a consequence for the scope. A knowledge graph is more useful when the
 facts about one word stay together. Therefore the export builds one artefact
-from three sources:
+from these sources:
 
 | Source | Contribution | Link to DanNet |
 |---|---|---|
 | DanNet | entries, senses, definitions, examples, relations | the source itself |
 | COR | inflected forms | `owl:sameAs` at word level |
 | Det Danske Sentimentleksikon | polarity of a word or a sense | `dns:sentiment` at word, sense and synset level |
+| COR.SEM | sense ids, FrameNet frames, systematic polysemy, simple ontological types, centrality | `dns:eqSense` at sense level, alternation links at synset level |
 
 The three sources fit together already. COR points at DanNet words and the
 sentiment data points at DanNet words, senses and synsets. No new alignment work
@@ -256,7 +257,7 @@ The Controlled Values module declares the tag inventories inside the resource.
 Each declaration holds a tag, a description and zero or more `sameAs` URIs. A
 consumer therefore reads the meaning of a tag from the export itself.
 
-DanNet needs fourteen inventories.
+DanNet needs nineteen inventories.
 
 | Inventory | DMLex object | External mapping |
 |---|---|---|
@@ -274,6 +275,11 @@ DanNet needs fourteen inventories.
 | example source | `sourceIdentityTag` | the DDO front page |
 | COR inflections | `inflectedFormTag` | none, see section 9.7 |
 | relation types | `relationType` and `memberType` | `wn:` and `dns:` URIs |
+| FrameNet frames | `labelTag` and `labelTypeTag` | frame URIs at wordnet.dk/framenet, see section 9.13 |
+| simple ontological types | `labelTag` and `labelTypeTag` | `dnt:` URIs, see section 9.13 |
+| polysemy patterns | `labelTag` and `labelTypeTag` | `dnp:` URIs, see section 9.13 |
+| centrality | `labelTag` and `labelTypeTag` | none, see section 9.13 |
+| COR.SEM sense ids | `labelTag` and `labelTypeTag` | COR.SEM URIs, see section 9.13 |
 
 Each `relationType` also carries the Danish description of its relation from
 the DanNet schema, so the file explains its relations as well as it constrains
@@ -691,6 +697,65 @@ Date: 19 August 2026. GitHub issue #208.
    asked for them. The DanNet
    presentation config lists no `source` label type, so the web viewer hides
    the register and navigates via the example citations instead.
+
+### 9.13 Sixth round: the COR.SEM additions
+
+Date: 27 August 2026. GitHub issue #207 added COR.SEM, the sense inventory of
+the Central Word Registry, to DanNet. The bridge is `dns:eqSense`: 34561
+COR.SEM senses match a DanNet sense exactly, one to one in both directions.
+The export carries the COR.SEM payload over that bridge onto the existing
+sense objects. It creates no new entries and no new senses, because the
+matched senses are the same meanings.
+
+1. Alternation relations. COR.SEM derives systematic polysemy links between
+   DanNet synsets: 126 directed `dns:alternatesTo` pairs and 32 undirected
+   `dns:alternatesWith` pairs. These become ordinary relations with the
+   declared roles `alternatesFrom`/`alternatesTo` resp. `alternatesWith`.
+   The pairs are read from the cor-sem graph; the sense-level alternation
+   pairs of that graph stay out, since their ends are not DanNet objects.
+2. FrameNet frames as labels. A COR.SEM sense names the Berkeley FrameNet
+   frames it evokes. The export projects them onto a DanNet synset under
+   the rule of the website (`query/supplement-synset`): a sense contributes
+   its frames only when it links just that synset or carries just one
+   frame, so no frame lands on a synset that no annotator paired it with.
+   Each sense of the synset gets a label. One `labelTag` per used frame
+   (600), with the frame resource at wordnet.dk/framenet as `sameAs` and
+   the bare frame name as the description.
+3. Simple ontological types as labels. The COR.SEM ontology is a reduction
+   of the DanNet/EuroWordNet ontology, and the two share the named `dnt:`
+   types. A label is stated only where the simple type differs from the
+   type of the sense's synset (14606 senses, 139 types); an identical type
+   would restate the ontological type labels the sense already carries.
+4. Polysemy pattern labels (985 senses, 29 patterns), with the `dnp:` URI
+   as `sameAs` and the pattern name, e.g. "PLANT / FOOD", as description.
+5. Centrality labels (11421 senses): three tags stating membership of the
+   Danish core vocabulary. See the tag descriptions for the meaning.
+6. The COR.SEM identity register: one `labelTag` per matched sense, like
+   the source register of section 9.12. The tag is the COR.SEM id, e.g.
+   `COR.SEM.71368.01`, and the `sameAs` is the COR resource.
+   `dns:eqSense` is a sub-property of `skos:exactMatch`, the same standing
+   that section 14.1 requires of `wn:ili` before `sameAs` may carry it.
+   `dns:eqNearSense` is a `skos:closeMatch` and stays out.
+7. One usage note. The COR.SEM "frekvens" restriction becomes the note
+   "sj. el. gl." on the 20 matched senses that carry no usage information
+   of their own. The "sprogbrug" restriction stays out: it only says that
+   some unnamed restriction exists.
+8. Ordering. The centrality also becomes the first deciding factor of the
+   sense ranking behind the synset labels: the member order and the sense
+   indicators of sections 9.10 and 9.11 now rank by COR.SEM centrality
+   first, with the entry-ID heuristic and the polysemy tiebreak deciding
+   among equally central senses. The ranking reaches through the near
+   matches as well, unlike the labels of item 5, which need an exact
+   match: an ordering is a heuristic, while a label is an assertion.
+
+Tag collisions. The XSD keys every `labelTag` on its tag alone, and the new
+inventories collide with the old ones: a frame and an ontological concept
+are both named Substance, and the centrality values collide with the
+sentiment values. The frame, simple ontotype and pattern tags are therefore
+QNames (`frame:Substance`, `dnt:Human-Object`, `dnp:Plant-Food`) and the
+centrality tags are prefixed (`centrality-1`). The description of each tag
+carries the readable name, and the presentation config shows the
+description for these types.
 
 ## 10. Open questions
 

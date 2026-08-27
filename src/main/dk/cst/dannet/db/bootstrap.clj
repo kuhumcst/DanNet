@@ -177,22 +177,33 @@
                           [(prefix/uri->rdf-resource uri) :skos/inScheme scheme]))))))
 
 (h/defn regenerate-short-labels!
-  "Regenerate every dns:shortLabel from its synset's rdfs:label using the
-  shared/canonical entry-ID heuristic, breaking ties by word polysemy (a proxy
-  for word commonness). A short label is only emitted when canonical omits
-  senses, with the \"…\" marker appended; otherwise rdfs:label suffices as-is."
+  "Regenerate every dns:shortLabel from its synset's rdfs:label, ranking the
+  senses by COR.SEM centrality first and the shared/canonical entry-ID
+  heuristic among equally central senses, breaking remaining ties by word
+  polysemy (a proxy for word commonness). A short label is only emitted when
+  canonical omits senses, with the \"…\" marker appended; otherwise
+  rdfs:label suffices as-is.
+
+  The centrality values reach the dn: senses through the sense matches of the
+  cor-sem: graph, so this must run after `add-cor-sem-graph!`."
   [dataset]
   (t/log! {:level :info
            :id    :dannet.bootstrap/regenerate-short-labels}
           "Regenerating short synset labels")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        polysemy (->> (q/run g op/sense-label-polysemy)
-                      (map (juxt (comp str '?senseLabel) '?polysemy))
-                      (into {}))
-        tiebreak (shared/polysemy-tiebreak polysemy)]
+  (let [g          (db/get-graph dataset prefix/dn-uri)
+        sem-g      (db/get-graph dataset prefix/cor-sem-uri)
+        centrality (q/label-centralities
+                     (q/run sem-g op/centrality-query)
+                     (q/run sem-g op/eq-sense-match-query)
+                     (q/run g op/synset-sense-label-query))
+        polysemy   (->> (q/run g op/sense-label-polysemy)
+                        (map (juxt (comp str '?senseLabel) '?polysemy))
+                        (into {}))
+        primary    (shared/centrality-primary centrality)
+        tiebreak   (shared/polysemy-tiebreak polysemy)]
     (db/update-triples! prefix/dn-uri dataset op/synset-long-short-labels
       (fn [{:syms [?synset ?label]}]
-        (when-let [short (shared/short-label tiebreak ?label)]
+        (when-let [short (shared/short-label primary tiebreak ?label)]
           [?synset :dns/shortLabel (md/da short)]))
       (fn [{:syms [?synset ?shortLabel]}]
         (when ?shortLabel
