@@ -97,8 +97,8 @@
                   "en" "Systematic polysemy pattern from COR.SEM"}
     :sameAs      [(str (prefix/prefix->uri 'dns) "polysemyPattern")]}
    {:tag         "centrality"
-    :description {"da" "Betydningens centralitet i det danske kerneordforråd, via COR.SEM"
-                  "en" "The centrality of the sense in the Danish core vocabulary, via COR.SEM"}
+    :description {"da" "Betydningens centralitet i det danske kerneordforråd, via COR.SEM: nøgleord i Den Danske Begrebsordbog og/eller centralt begreb i DanNet (koblet til Princeton WordNets Core WordNet)"
+                  "en" "The centrality of the sense in the Danish core vocabulary, via COR.SEM: a keyword in the thesaurus Den Danske Begrebsordbog and/or a central DanNet concept (linked to Princeton WordNet's Core WordNet)"}
     :sameAs      [(str (prefix/prefix->uri 'dns) "centrality")]}
    {:tag         "corsem"
     :description {"da" "Betydningens id i COR.SEM, betydningsinventaret til Det Centrale Ordregister"
@@ -139,18 +139,18 @@
   [{:tag         "centrality-1"
     :typeTag     "centrality"
     :for         "sense"
-    :description {"da" "nøgleord i Den Danske Begrebsordbog"
-                  "en" "keyword in the Danish thesaurus Den Danske Begrebsordbog"}}
+    :description {"da" "nøgleord i Begrebsordbogen"
+                  "en" "thesaurus keyword"}}
    {:tag         "centrality-2"
     :typeTag     "centrality"
     :for         "sense"
-    :description {"da" "centralt begreb i DanNet, dvs. koblet til Princeton WordNets Core WordNet"
-                  "en" "central concept in DanNet, i.e. linked to Princeton WordNet's Core WordNet"}}
+    :description {"da" "centralt begreb"
+                  "en" "central concept"}}
    {:tag         "centrality-3"
     :typeTag     "centrality"
     :for         "sense"
-    :description {"da" "både nøgleord i Den Danske Begrebsordbog og centralt begreb i DanNet"
-                  "en" "both a keyword in Den Danske Begrebsordbog and a central concept in DanNet"}}])
+    :description {"da" "nøgleord og centralt begreb"
+                  "en" "keyword and central concept"}}])
 
 (def norm-label-tags
   "The norm-status tags. COR states the norm status of a form in the
@@ -545,7 +545,6 @@
         sense-labels (q/run g op/sense-label-query)
         concepts     (distinct (concat (map '?gender genders)
                                        (map '?value sense-labels)
-                                       (map '?class types)
                                        exported-relations
                                        cor-sem-relations))]
     {:words             (q/run g op/word-query)
@@ -1048,9 +1047,16 @@
      :lexfiles-of       (index-many lexfiles '?synset (comp str '?lexfile))
      :lexfile-strings   (sort (set (map (comp str '?lexfile) lexfiles)))
      :variants-of       (index-many word-variants '?word (comp str '?variant))
-     :ontotype-of       (update-vals (group-by '?synset ontological-types)
-                                     ontological-type)
-     :ontotype-concepts (sort-by name (distinct (map '?class ontological-types)))
+     :ontotype-of       (index ontological-types '?synset (comp name '?bag))
+     :ontotype-strings  (sort (set (map (comp name '?bag) ontological-types)))
+     ;; One row per synset AND member, so the members of one bag repeat
+     ;; once per synset that carries it and need the distinct projection.
+     :ontotype-description-of (update-vals
+                                (group-by (comp name '?bag)
+                                          (distinct
+                                            (map #(select-keys % '[?bag ?member ?class])
+                                                 ontological-types)))
+                                #(str/join " + " (ontological-type %)))
      :gender-of         (index genders '?synset '?gender)
      :marks-of          marks-of
      :sense-label-pairs (sort-by (comp name second)
@@ -1117,7 +1123,8 @@
   [lang {:keys [descriptions obverse-of relations member-order pos-of
                 headword-of number-of definition-of examples-of source-of
                 domains-of domain-strings lexfiles-of lexfile-strings variants-of
-                ontotype-of ontotype-concepts gender-of marks-of
+                ontotype-of ontotype-strings ontotype-description-of
+                gender-of marks-of
                 sense-label-pairs notes-of note-strings label-of
                 plain-label-of ili-of ili-key-of ili-definition-of english-of
                 senses-of cors-of forms-of description-of sentiment-of
@@ -1141,8 +1148,10 @@
                                                   :definitionType "ili"}))]
                          (cond-> {:id     (name sense)
                                   :labels (-> [(name synset)]
-                                              (into (ontotype-of synset))
-                                              (into (map #(str "dnt:" %))
+                                              (cond->
+                                                (ontotype-of synset)
+                                                (conj (str "dnt:" (ontotype-of synset))))
+                                              (into (map #(str "cor.sem:" %))
                                                     (stypes-of sense))
                                               (into (lexfiles-of synset))
                                               (into (domains-of synset))
@@ -1240,10 +1249,13 @@
             :labelTags          (concat
                                   (for [synset (sort-by name (keys senses-of))]
                                     (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
-                                  (for [concept ontotype-concepts]
-                                    (->sense-label-tag "ontologicalType"
-                                                       (descriptions concept)
-                                                       concept))
+                                  (for [otype ontotype-strings]
+                                    {:tag         (str "dnt:" otype)
+                                     :typeTag     "ontologicalType"
+                                     :for         "sense"
+                                     :description (ontotype-description-of otype)
+                                     :sameAs      [(str (prefix/prefix->uri 'dnt)
+                                                        otype)]})
                                   (for [lexfile lexfile-strings]
                                     {:tag lexfile :typeTag "lexfile" :for "sense"})
                                   (for [domain domain-strings]
@@ -1261,13 +1273,16 @@
                                   (localize lang norm-label-tags)
                                   (localize lang sentiment-label-tags)
                                   (localize lang centrality-label-tags)
-                                  ;; The frame, simple ontotype and pattern
-                                  ;; tags are QNames: the bare names collide
-                                  ;; with other inventories (e.g. the frame
-                                  ;; and the concept both named Substance),
-                                  ;; and the XSD keys every labelTag on its
-                                  ;; tag alone. The description carries the
-                                  ;; readable name.
+                                  ;; The frame, ontological type and pattern
+                                  ;; tags are prefixed: the bare names collide
+                                  ;; across inventories (e.g. the frame and
+                                  ;; the concept both named Substance), and
+                                  ;; the XSD keys every labelTag on its tag
+                                  ;; alone. The COR.SEM simple types share the
+                                  ;; dnt: inventory with the standard types,
+                                  ;; so their tags take a cor.sem: prefix and
+                                  ;; state the shared resource in sameAs. The
+                                  ;; description carries the readable name.
                                   (for [frame frame-strings]
                                     {:tag         (str "frame:" frame)
                                      :typeTag     "frame"
@@ -1275,7 +1290,7 @@
                                      :description frame
                                      :sameAs      [(str prefix/framenet-uri frame)]})
                                   (for [stype stype-strings]
-                                    {:tag         (str "dnt:" stype)
+                                    {:tag         (str "cor.sem:" stype)
                                      :typeTag     "simpleOntologicalType"
                                      :for         "sense"
                                      :description (stype-description-of stype)

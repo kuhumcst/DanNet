@@ -379,7 +379,7 @@
 
 (def ontological-type-query
   (sparql
-    "SELECT ?synset ?member ?class
+    "SELECT ?synset ?bag ?member ?class
      WHERE {
        ?synset dns:ontologicalType ?bag .
        ?bag ?member ?class .
