@@ -16,7 +16,7 @@
   `styleTags`: assigns `tags.url` to `IriRef` (overriding the grammar's
   incorrect `tags.namespace`), and `tags.atom` to `PrefixedName`/
   `Pname_ln`/`Pname_ns` (QNames like wn:foo, left untagged upstream).
-  `tags.atom` is used as the most semantically neutral available tag —
+  `tags.atom` is used as the most semantically neutral available tag:
   none of the named tags fit QNames well, and the grammar emits them as
   single tokens so prefix and local name cannot be coloured separately."
   (let [extra-tags (styleTags #js {"IriRef"                         (.-url tags)

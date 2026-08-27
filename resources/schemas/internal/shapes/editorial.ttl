@@ -1,4 +1,4 @@
-# DanNet SHACL shapes — EDITORIAL rules for newly edited data.
+# DanNet SHACL shapes: EDITORIAL rules for newly edited data.
 #
 # Stricter requirements than base.ttl, meant ONLY for targeted validation of
 # individual focus nodes touched by an edit (see `validate-node`) before a
@@ -6,7 +6,7 @@
 # OEWN synsets legitimately lack a wn:definition, so running these against the
 # full graph would drown signal in noise.
 #
-# A deliberately small starter set — extend as editorial policy is decided.
+# A deliberately small starter set; extend as editorial policy is decided.
 #
 # NOTE: property shapes are deliberately given explicit IRIs (rather than the
 # usual blank nodes) so that validation reports can group violations by a
@@ -18,7 +18,7 @@
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
 
 ## ---------------------------------------------------------------------------
-## LexicalConcept (synset) — edited synsets should carry a definition.
+## LexicalConcept (synset): edited synsets should carry a definition.
 ## sh:Warning: surfaces in the editing UI without blocking the write.
 ## ---------------------------------------------------------------------------
 dns:EditorialConceptShape a sh:NodeShape ;

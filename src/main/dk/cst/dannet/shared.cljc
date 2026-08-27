@@ -190,15 +190,18 @@
   (and (word? subject entity)
        (= "dn" (namespace subject))))
 
+(def cor-word-types
+  "The rdf:type values of COR words; unlike DanNet, COR also types some of
+  its words as affixes."
+  #{:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix})
+
 (defn cor-word?
-  "Return true if `subject` is a COR word `entity`; unlike DanNet, COR also
-  types some of its words as affixes."
+  "Return true if `subject` is a COR word `entity`."
   [subject entity]
   (and (keyword? subject)
        (map? entity)
        (= "cor" (namespace subject))
-       (boolean (some #{:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix}
-                      (setify (:rdf/type entity))))))
+       (boolean (some cor-word-types (setify (:rdf/type entity))))))
 
 (defn dn-sense?
   "Return true if `subject` is a DanNet sense `entity` specifically."
@@ -233,14 +236,16 @@
 
 (def oversized-rels?
   "Non-semantic relations that also need entity page truncation: the inverse
-  ontotype relations list every usage of a type, reaching into the thousands."
+  ontotype relations list every usage of a type, reaching into the thousands.
+
+  Only dns:ontologicalTypeOf joins the word-cloud path via weight-sorted-rel?:
+  its values are indegree-sorted synsets, while the senses under
+  dns:simpleOntologicalTypeOf all weigh 0 and so render as the generic
+  expandable list, like the ~1000-entry frame element lists under
+  dns:semTypeOf (deliberately absent here)."
   ;; TODO: consider letting the codomain of a relation decide ordering and
   ;;       rendering in general, so synsets sort by weight wherever listed
   ;;       rather than via the relation sets behind weight-sorted-rel?.
-  ;; dns:semTypeOf is deliberately absent although its lists reach ~1000
-  ;; entries: this set doubles as weight-sorted-rel?, whose sorting and word
-  ;; cloud expect indegree-sorted synset values, not frame elements. The
-  ;; generic expandable list handles the length instead.
   #{:dns/ontologicalTypeOf
     :dns/simpleOntologicalTypeOf})
 
@@ -315,7 +320,7 @@
   "A `canonical` tiebreak keyfn from `polysemy`, a map of sense label to the
   sense count of its word.
 
-  A commoner word -- more senses -- ranks first; the label itself breaks the
+  A commoner word (more senses) ranks first; the label itself breaks the
   remaining ties."
   [polysemy]
   (fn [s] [(- (get polysemy (str s) 0)) (str s)]))
@@ -650,7 +655,7 @@
   the backend, making weight-based display such as word clouds meaningful."
   [k]
   (or (contains? synset-rel-theme k)
-      (contains? oversized-rels? k)))
+      (= :dns/ontologicalTypeOf k)))
 
 (defn lexfile->pos
   [lexfile]

@@ -7,7 +7,8 @@
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.release :as release])
+            [dk.cst.dannet.release :as release]
+            [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.vocabulary RDF]))
 
@@ -212,7 +213,7 @@
               [<cor-sem> :dc/contributor <dsl>]
               [<cor-sem> :dc/contributor <dsn>]
               ;; Covers COR.SEM proper only: COR.SEM.EXT is CC BY-NC-ND and
-              ;; must NOT be ingested without revisiting the licence -- same
+              ;; must NOT be ingested without revisiting the licence; same
               ;; boundary as noted for <cor> above (issue #96). The CC0 label
               ;; is asserted in the 'cor map; the licence resource is reused.
               [<cor-sem> :dc/license "<https://creativecommons.org/publicdomain/zero/1.0/>"]
@@ -305,9 +306,8 @@
              [dds-model [[<dds> :void/triples (triple-count dds-model)]]]
              [cor-model [[<cor> :lime/language "da"]
                          [<cor> :lime/lexicalEntries
-                          (+ (count-type cor-model :ontolex/Word)
-                             (count-type cor-model :ontolex/MultiwordExpression)
-                             (count-type cor-model :ontolex/Affix))]
+                          (transduce (map #(count-type cor-model %))
+                                     + shared/cor-word-types)]
                          [<cor> :void/triples (triple-count cor-model)]]]
              [sem-model [[<cor-sem> :lime/language "da"]
                          [<cor-sem> :lime/lexicalizations

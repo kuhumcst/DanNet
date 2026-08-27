@@ -76,7 +76,7 @@
 
 (def word-type-tags
   "The abbreviations denoting a class of lexical entry rather than a part of
-  speech, mapped to the matching Lexinfo -- or Olia -- class and asserted as
+  speech, mapped to the matching Lexinfo (or Olia) class and asserted as
   rdf:type. Lexinfo has no PartOfSpeech values for these, only classes, and
   lexinfo:partOfSpeech conventionally takes individuals rather than classes."
   {"præfiks" :lexinfo/Prefix
@@ -182,7 +182,7 @@
 
 (defn file->triples
   "The triples of the tab-separated `filename` in source-dir, as produced by
-  `row->triples` from its rows -- optionally rearranged by `preprocess` first."
+  `row->triples` from its rows, optionally rearranged by `preprocess` first."
   [row->triples filename & {:keys [preprocess]
                             :or   {preprocess identity}}]
   (with-open [reader (io/reader (io/file source-dir filename) :encoding "UTF-8")]

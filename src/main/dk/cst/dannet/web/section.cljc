@@ -77,6 +77,21 @@
    :pmofn/isCausativeOf
    :pmofn/isInchoativeOf])
 
+(def fe-relations
+  "The frame element counterparts of frame-relations, including our declared
+  dns:inheritedByRole inverse, plus the intra-frame excludes/requires
+  constraints between roles."
+  [:pmofn/inheritsFromFER
+   :dns/inheritedByRole
+   :pmofn/usesFER
+   :pmofn/subframeOfFER
+   :pmofn/perspectiveOnFER
+   :pmofn/precedesFER
+   :pmofn/isCausativeOfFER
+   :pmofn/isInchoativeOfFER
+   :pmofn/excludesFrameElement
+   :pmofn/requiresFrameElement])
+
 (def top-section
   [nil [:rdf/type
         :skos/definition
@@ -225,16 +240,7 @@
          :dns/roleOf
          :pmofn/semType
          :pmo/abbreviation]]
-   [patterns-title [:pmofn/inheritsFromFER
-                    :dns/inheritedByRole
-                    :pmofn/usesFER
-                    :pmofn/subframeOfFER
-                    :pmofn/perspectiveOnFER
-                    :pmofn/precedesFER
-                    :pmofn/isCausativeOfFER
-                    :pmofn/isInchoativeOfFER
-                    :pmofn/excludesFrameElement
-                    :pmofn/requiresFrameElement]]
+   [patterns-title fe-relations]
    cross-link-section])
 
 (defmethod defined-sections :pmofn/SemType

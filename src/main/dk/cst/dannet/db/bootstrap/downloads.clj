@@ -3,7 +3,7 @@
 
   Every fetch fails fast and writes atomically, so a network error, a missing
   release asset or a failed decompression throws rather than leaving behind a
-  partial file that a later run -- or the import step -- mistakes for finished."
+  partial file that a later run (or the import step) mistakes for finished."
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
             [taoensso.telemere :as t]
@@ -198,7 +198,7 @@
                :id    :dannet.bootstrap/datasets-incomplete
                :data  {:missing missing}}
               "Bootstrap datasets incomplete; restart with refetch to download")
-      (throw (ex-info (str "Bootstrap datasets incomplete -- restart with refetch "
+      (throw (ex-info (str "Bootstrap datasets incomplete; restart with refetch "
                            "(--refetch, or restart-refetch in the REPL) to "
                            "download the required versions. " (pr-str missing))
                       {:missing missing})))))
@@ -212,7 +212,7 @@
   [dir version]
   ;; The English datasets are left alone: OEWN editions carry their version in
   ;; the filename and so coexist, while ILI is unversioned (CILI master) and has
-  ;; no mismatch to act on -- hence the warning rather than a delete.
+  ;; no mismatch to act on; hence the warning rather than a delete.
   (let [files (.listFiles (io/file dir))
         ili   (io/file ili-path)]
     (t/log! {:level :info

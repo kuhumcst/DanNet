@@ -15,7 +15,7 @@
 
 (def to
   "The version being produced. Set while the next release's changes are in
-  development -- \"SNAPSHOT\" until the target date is known -- since a `to`
+  development (\"SNAPSHOT\" until the target date is known), since a `to`
   differing from `from` is what enables make-release-changes!; the real
   version is set at the moment the release is cut."
   "SNAPSHOT")

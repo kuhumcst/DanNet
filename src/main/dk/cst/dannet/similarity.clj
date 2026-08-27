@@ -130,7 +130,7 @@
   This is `wn`'s `max_depth`: the *longest* climb to a root, not the shortest
   (`wn` distinguishes the two, and they diverge under multiple inheritance).
   Both Wu-Palmer and the per-language taxonomy depths measure depth this way.
-  The walk is cycle-safe -- `seen` tracks the current path, since the data
+  The walk is cycle-safe; `seen` tracks the current path, since the data
   contains self-referential and cyclic hypernyms (cf. `self-referential-hypernyms`)."
   [hg synset]
   (letfn [(depth [seen s]
@@ -142,7 +142,7 @@
 
 (defn node-depths
   "Map of {synset max-depth} for every synset that has a hypernym in `hg` (see
-  `max-depth`). Roots have none and are absent -- treat a missing depth as 0.
+  `max-depth`). Roots have none and are absent; treat a missing depth as 0.
 
   Precompute once and reuse: both `taxonomy-depths` and `wup-similarity*` take
   this in place of a live `max-depth` walk, so the depths are computed exactly
@@ -173,7 +173,7 @@
 
 ;; A distance table (keyed by ancestor), not a path: the path/LCS functions
 ;; intersect two of these and look up distances, so they need it keyed. The
-;; actual connecting route isn't recoverable from this -- add parent links if
+;; actual connecting route isn't recoverable from this; add parent links if
 ;; a "how does A relate to B" feature ever needs it.
 (defn ancestor-distances
   "Map of {ancestor edge-distance} for `synset` in `hg`, including `synset`
@@ -203,7 +203,7 @@
   [da db]
   (filter db (keys da)))
 
-;; TODO: support wn's simulate_root option -- a virtual root above all roots,
+;; TODO: support wn's simulate_root option (a virtual root above all roots),
 ;; so any two synsets (incl. cross-tree / cross-POS) always share an ancestor.
 (defn shortest-path-length*
   "Edge length of the shortest hypernym path between two synsets given their
@@ -289,7 +289,7 @@
     (let [i (da lcs)                                        ; shortest a -> LCS
           j (db lcs)                                        ; shortest b -> LCS
           ;; wn measures k by the LCS's *longest* climb to a root (max_depth),
-          ;; not its shortest -- the two differ under multiple inheritance.
+          ;; not its shortest; the two differ under multiple inheritance.
           k (inc (depth lcs))]
       (/ (* 2.0 k) (+ i j (* 2 k))))))
 

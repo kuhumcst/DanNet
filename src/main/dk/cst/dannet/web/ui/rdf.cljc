@@ -196,8 +196,8 @@
      rdf-resource
      (rdf-uri-hyperlink uri opts)
 
-     ;; Labels that don't parse as sense labels -- e.g. the FrameNet frame
-     ;; names displayed on COR.SEM senses -- render verbatim.
+     ;; Labels that don't parse as sense labels (e.g. the FrameNet frame
+     ;; names displayed on COR.SEM senses) render verbatim.
      (or (get #{:ontolex/sense
                 :ontolex/lexicalizedSense
                 :dns/linkedSynsetOf
@@ -456,8 +456,8 @@
 
 (defn- disambiguate-labels
   "Override the k->label entries of the keyword items in `coll` whose display
-  label collides with another item's, so that they render their QName instead
-  -- e.g. the many frame elements all labeled \"Agent\" listed under
+  label collides with another item's, so that they render their QName instead,
+  e.g. the many frame elements all labeled \"Agent\" listed under
   dns:inheritedByRole. Mirrors the QName fallback used for colliding relation
   labels in 'attr-name-extras', minus the prefix half already supplied by the
   badge; labels come from external sources and are deliberately not qualified

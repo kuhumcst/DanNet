@@ -16,10 +16,9 @@
            [org.apache.poi.xssf.usermodel XSSFDataValidationHelper]))
 
 ;; Matching overview (SN-DDO sheet: 1068 rows, 1007 distinct lemmas)
-;; ------------------------------------------------------------------
-;; Matched    338 (31.6%) — DDO ref maps directly to a DanNet sense
-;; Unmatched  353 (33.1%) — lemma in DanNet, but target sense missing
-;; No senses  377 (35.3%) — lemma not in DanNet at all
+;; Matched    338 (31.6%): DDO ref maps directly to a DanNet sense
+;; Unmatched  353 (33.1%): lemma in DanNet, but target sense missing
+;; No senses  377 (35.3%): lemma not in DanNet at all
 ;;   (of which 34 are recoverable by stripping trailing homograph digits
 ;;    and ~5 are multi-word expressions)
 
@@ -364,7 +363,7 @@
                                 (not= lemma (:lemma (nth output-rows (inc i)))))]
             :when sheet-row]
 
-      ;; Lemma cell — green/yellow/red by group status
+      ;; Lemma cell: green/yellow/red by group status
       (when-let [cell (.getCell sheet-row (col-idx :lemma))]
         (.setCellStyle cell (styles (status->style-key status))))
 
@@ -390,7 +389,7 @@
           (.getHyperlink cell)
           (.setCellStyle cell (:link styles))))
 
-      ;; Qualia-role and relation cells — action highlight on non-root rows
+      ;; Qualia-role and relation cells: action highlight on non-root rows
       ;; (root rows have "-" in these fields and need no annotation).
       (doseq [ci task-cols
               :let [cell (.getCell sheet-row ci)]

@@ -256,7 +256,7 @@
         cached? (cache/has? @result-cache k)]
     ;; NOTE: small race window where an error result is briefly
     ;; visible in the cache between `lookup-or-miss` storing it
-    ;; and the subsequent `evict`. Harmless in practice — a
+    ;; and the subsequent `evict`. Harmless in practice: a
     ;; concurrent request would see a real error, and the eviction
     ;; follows immediately so the next request retries.
     (-> (cw/lookup-or-miss
@@ -279,7 +279,7 @@
         query (validate "SELECT ?s ?p ?o WHERE { ?s ?p ?o }")]
     (execute model query 10000 100))
 
-  ;; Test cached execution (run twice — second should be instant)
+  ;; Test cached execution (run twice; the second should be instant)
   (let [db @dk.cst.dannet.web.instance/db]
     (time (execute-cached db
                           {:query-obj  (validate "SELECT ?s WHERE { ?s a ?o }")

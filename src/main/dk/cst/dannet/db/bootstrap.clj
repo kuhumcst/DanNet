@@ -202,7 +202,7 @@
   "Replace the anonymous rdf:Bag values of dns:ontologicalType in the dn:
   graph of `dataset` with named dnt: ontological types: the same bags,
   deduplicated and named after their sorted atoms, so that ontological types
-  can be linked, browsed, and compared -- in particular against the COR.SEM
+  can be linked, browsed, and compared, in particular against the COR.SEM
   simple ontotypes, which share the dnt: resources whenever the atom sets
   coincide."
   [dataset]
@@ -246,8 +246,8 @@
                                    replacements)))))
 
 (h/defn rename-cor-sense-links!
-  "Reassert the cor: graph's links to DanNet senses in `dataset` -- originally
-  [cor-word ontolex:sense dn-sense] from DSL's link files -- as the
+  "Reassert the cor: graph's links to DanNet senses in `dataset` (originally
+  [cor-word ontolex:sense dn-sense] from DSL's link files) as the
   dns:linkedSense subproperty, keeping the links into DanNet's sense inventory
   apart from COR's own senses (COR.SEM); the word-level counterpart of
   dns:linkedSynset. Inference still entails ontolex:sense for interop."
@@ -269,8 +269,8 @@
 (h/defn sense-correspondences
   "Compute the sense-level SKOS matches linking the COR.SEM senses of the
   fixed link `triples` to the DanNet senses of `dn-graph`, joining the two
-  inventories on shared word -- via the cor: words' owl:sameAs links in
-  `cor-graph` -- and shared synset.
+  inventories on shared word (via the cor: words' owl:sameAs links in
+  `cor-graph`) and shared synset.
 
   A pairing unique in both directions is a dns:eqSense; the rest are
   dns:eqNearSense, i.e. COR.SEM merging DDO senses that DanNet keeps apart or
@@ -280,8 +280,7 @@
   returned under :mismatched instead of asserted; a missing source on either
   side is not counted as disagreement."
   [dn-graph cor-graph triples]
-  (let [entry-id       (fn [x] (re-find #"entry_id=\d+" (str x)))
-        links          (reduce (fn [acc [s p o]]
+  (let [links          (reduce (fn [acc [s p o]]
                                  (case p
                                    :ontolex/sense
                                    (update-in acc [:words o] (fnil conj #{}) s)
@@ -290,7 +289,7 @@
                                    (update-in acc [:synsets s] (fnil conj #{}) o)
 
                                    :dns/source
-                                   (assoc-in acc [:entry s] (entry-id o))
+                                   (assoc-in acc [:entry s] (q/ddo-entry-id o))
 
                                    acc))
                                {} triples)
@@ -307,7 +306,7 @@
                                          acc (dn-sense->syns ?s)))
                                {} (q/run dn-graph '[:bgp [?w :ontolex/sense ?s]]))
         dn-entries     (reduce (fn [acc {:syms [?s ?url]}]
-                                 (update acc ?s (fnil conj #{}) (entry-id ?url)))
+                                 (update acc ?s (fnil conj #{}) (q/ddo-entry-id ?url)))
                                {} (q/run dn-graph '[:bgp [?s :dns/source ?url]]))
         entry-ok?      (fn [[sem ds]]
                          (let [e  (get-in links [:entry sem])
@@ -320,14 +319,16 @@
                                   syn syns
                                   ds (into #{} (mapcat #(dn-index [% syn] #{})) dws)]
                               [sem ds]))
-        pairs          (set (filter entry-ok? raw-pairs))
+        {ok-pairs  true
+         bad-pairs false} (group-by entry-ok? raw-pairs)
+        pairs          (set ok-pairs)
         sem-degree     (frequencies (map first pairs))
         dn-degree      (frequencies (map second pairs))
         exact?         (fn [[sem ds]]
                          (and (= 1 (sem-degree sem)) (= 1 (dn-degree ds))))]
     {:exact      (set (filter exact? pairs))
      :close      (set (remove exact? pairs))
-     :mismatched (set (remove entry-ok? raw-pairs))}))
+     :mismatched (set bad-pairs)}))
 
 ;; TODO: the alternation links between two DanNet synsets currently ship only
 ;;       with the COR.SEM dataset and show up only on the website; decide
@@ -338,8 +339,8 @@
   `triples`: the two senses of a word sharing a systematic polysemy pattern,
   and the two distinct DanNet synsets such senses link unambiguously.
 
-  Words with more than two senses in the same pattern are skipped -- the
-  pairing is ambiguous -- as are synsets when either sense links no synset,
+  Words with more than two senses in the same pattern are skipped (the
+  pairing is ambiguous), as are synsets when either sense links no synset,
   several, or the two senses link the same one.
 
   A pair is ordered by the reading order of the pattern's name (asserted as
@@ -420,16 +421,19 @@
                        (let [sa (syn-of a) sb (syn-of b)]
                          (when (and sa sb (not= sa sb))
                            [sa sb])))
-        syn-ordered  (into (sorted-set) (keep syn-pair) (vals ordered))
-        conflicted   (into #{} (filter (fn [[x y]] (syn-ordered [y x]))) syn-ordered)
-        syn-plain    (into (sorted-set)
+        directed     (into (sorted-set) (keep syn-pair) (vals ordered))
+        ;; A synset pair whose two sense pairs order both ways cannot keep a
+        ;; direction and is demoted to the undirected set.
+        conflicted   (into #{} (filter (fn [[x y]] (directed [y x]))) directed)
+        syn-ordered  (reduce disj directed conflicted)
+        undirected   (into (sorted-set)
                            (comp (remove ordered)
                                  (keep syn-pair)
                                  (map (comp vec sort)))
                            sense-pairs)
-        syn-plain    (into syn-plain (map (comp vec sort)) conflicted)
-        syn-ordered  (reduce disj syn-ordered conflicted)
-        syn-plain    (reduce disj syn-plain (map (comp vec sort) syn-ordered))]
+        syn-plain    (reduce disj
+                             (into undirected (map (comp vec sort)) conflicted)
+                             (map (comp vec sort) syn-ordered))]
     {:senses  {:ordered (into (sorted-set) (vals ordered))
                :plain   (reduce disj sense-pairs (keys ordered))}
      :synsets {:ordered syn-ordered
@@ -442,8 +446,8 @@
   The links carried by the source get the treatment the COR links got: word
   links whose cor: word is gone from the current COR edition are remapped via
   the official changelogs (5) or pruned (27), and synset links whose dn:
-  synset no longer resolves are pruned -- just 8, all trailing values of the
-  irregular \"; \"-separated DanNet-link rows. The 551 nominally DSL-internal
+  synset no longer resolves are pruned (just 8, all trailing values of the
+  irregular \"; \"-separated DanNet-link rows). The 551 nominally DSL-internal
   synset-s* ids resolve fine, their synsets having since been published with
   the 2023 adjective supplement. The frame resources and the payload anchored
   directly on the senses are kept as-is.
@@ -469,7 +473,7 @@
                              (set))
                         (->> (q/run dn-graph '[:bgp [?synset :ontolex/lexicalizedSense ?sense]])
                              (map '?synset)))
-        cor-words (->> [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]
+        cor-words (->> shared/cor-word-types
                        (mapcat #(q/run cor-graph [:bgp ['?w :rdf/type %]]))
                        (map '?w)
                        (set))
@@ -611,7 +615,7 @@
           inf-graph (.getGraph inf-model)]
       ;; A plain :info log, not a trace! around createInfModel: Jena builds the
       ;; InfModel lazily, so tracing here would report a near-zero runtime. The
-      ;; real inference cost is realized later, on first traversal -- see the
+      ;; real inference cost is realized later, on first traversal; see the
       ;; :dannet.graph/* traces in dk.cst.dannet.web.instance.
       (t/log! {:level :info
                :id    :dannet.graph/inference-model
@@ -685,14 +689,14 @@
                             ;; The emitted version is baked into the dataset
                             ;; metadata but isn't captured by any hashed form
                             ;; above (those hash source, not values), so include
-                            ;; it explicitly -- otherwise cutting a release
+                            ;; it explicitly; otherwise cutting a release
                             ;; (:to "SNAPSHOT" -> a real version, same :from)
                             ;; wouldn't change db-name and the stale, still
                             ;; SNAPSHOT-labelled database would be reused.
                             release/to
                             ;; The OEWN edition is likewise only a value: its
                             ;; ttl isn't among the hashed input zips, so it is
-                            ;; included explicitly -- otherwise bumping the
+                            ;; included explicitly; otherwise bumping the
                             ;; edition wouldn't trigger a rebuild. The same
                             ;; goes for the PreMOn release behind the framenet
                             ;; graph.
@@ -743,8 +747,8 @@
                       "Building new database")
               (doseq [zip-file (filter zip-file? (file-seq input-dir))]
                 ;; unzip writes to (str output-parent (.getName entry)) with no
-                ;; separator, so output-parent must be a dir path ending in "/"
-                ;; -- otherwise entries get the zip's own path prepended (e.g.
+                ;; separator, so output-parent must be a dir path ending in "/";
+                ;; otherwise entries get the zip's own path prepended (e.g.
                 ;; "oewn-extension.zipoewn-extension.ttl").
                 (zip/unzip zip-file (str (.getParent ^File zip-file) "/"))
                 (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
@@ -799,5 +803,5 @@
             full-db-path (str db-path "/" db-name)
             dataset      (->dataset db-type full-db-path)]
         (t/log! {:level :warn :id :dannet.bootstrap/no-input-dir}
-                "No input dir provided -- reusing existing database from log")
+                "No input dir provided; reusing existing database from log")
         (dataset->db dataset schema-uris)))))

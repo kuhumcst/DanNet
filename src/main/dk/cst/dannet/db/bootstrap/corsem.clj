@@ -10,8 +10,8 @@
 
   The frames referenced by dns:frame live in their own dataset, the framenet
   graph built by the premon ns; only the handful of frames added to the live
-  Berkeley database after FrameNet 1.7 -- and hence outside that graph -- get
-  a minimal frame: resource here.
+  Berkeley database after FrameNet 1.7 (and hence outside that graph) get a
+  minimal frame: resource here.
 
   The link columns targeting dn: synsets (DanNet-link, overbegreb-DanNet) and
   cor: words (COR-basis-id, COR.EXT-id) are converted for every row; pruning
@@ -33,7 +33,7 @@
 
   The documented separator is | but ; also occurs, both in the fields where
   the spec sanctions it (overbegreb-tekst) and in a handful of DanNet-link
-  values, there followed by a space -- hence the trimming."
+  values, there followed by a space; hence the trimming."
   [s]
   (when-not (str/blank? s)
     (->> (str/split s #"[|;]")
@@ -72,8 +72,8 @@
   paired with its triples: a dns:OntologicalType, i.e. an rdf:Bag of one or
   more dnc: concepts, named after its sorted atoms and thereby shareable.
 
-  The IRI separates atoms with a dash -- a + would collide with the +-as-space
-  rule wherever the IRI passes through query-string decoding -- while the
+  The IRI separates atoms with a dash, since a + would collide with the
+  +-as-space rule wherever the IRI passes through query-string decoding. The
   label keeps the conventional + of the EuroWordNet composite types, spaced
   for readability."
   [atoms]
@@ -102,15 +102,15 @@
                 (keyword "dnc" %)))))
 
 ;; TODO: find out what the "sprogbrug" restriction actually pertains to (which
-;;       register, e.g. uformel/nedsættende) -- perhaps recoverable from the
-;;       DDO entry or the eqSense-linked dn: sense's own usage note -- so the
-;;       note can name the register like the DDO-derived notes do.
+;;       register, e.g. uformel/nedsættende) so the note can name the register
+;;       like the DDO-derived notes do; the DDO entry or the eqSense-linked
+;;       dn: sense's own usage note may hold the answer.
 (def polysemy-pattern-info
-  "The COR.SEM systematisk-polysemi patterns mapped to their two readings --
-  a dnc: concept where one plainly matches the reading, otherwise the
-  reading's own name -- and, for the patterns appearing in the published
-  typology, the group in its partition (see dns:patternGroup); the patterns
-  without a group were added to the inventory after publication.
+  "The COR.SEM systematisk-polysemi patterns mapped to their two readings (a
+  dnc: concept where one plainly matches the reading, otherwise the reading's
+  own name) and, for the patterns appearing in the published typology, the
+  group in its partition (see dns:patternGroup); the patterns without a group
+  were added to the inventory after publication.
 
   :derived marks the (1-based) readings whose concept corresponds by
   distributional evidence rather than by name: the concept dominates and
@@ -185,17 +185,16 @@
                              c (prefix/kw->qname (nth readings (dec i)))]
                          [[pattern :rdfs/comment
                            (md/en "The " h " reading is linked to " c
-                                  " on distributional evidence -- the concept"
-                                  " dominates and discriminates the ontological"
-                                  " types of the pattern's senses in COR.SEM"
-                                  " 1.0 -- rather than by a shared name.")]
+                                  " on distributional evidence rather than by"
+                                  " a shared name: the concept dominates and"
+                                  " discriminates the ontological types of the"
+                                  " pattern's senses in COR.SEM 1.0.")]
                           [pattern :rdfs/comment
                            (md/da h "-læsningen er koblet til " c
-                                  " på baggrund af distributionel evidens --"
-                                  " konceptet dominerer og adskiller de"
-                                  " ontologiske typer for mønstrets betydninger"
-                                  " i COR.SEM 1.0 -- og ikke ud fra et fælles"
-                                  " navn.")]])))
+                                  " på baggrund af distributionel evidens og"
+                                  " ikke ud fra et fælles navn: konceptet"
+                                  " dominerer og adskiller de ontologiske typer"
+                                  " for mønstrets betydninger i COR.SEM 1.0.")]])))
              derived))]))
 
 (def restriction-notes
@@ -222,8 +221,11 @@
   "Convert a `row` of the COR.SEM file to triples.
 
   Every link is emitted whether or not its target resolves; see the ns
-  docstring. The skipped columns are kept in the argument vector -- prefixed
-  with _ -- so the full source format remains documented here."
+  docstring. The frame, ontological type and polysemy pattern resources a row
+  references are emitted along with it; rows share these, so building the
+  graph set deduplicates them. The skipped columns are kept in the argument
+  vector (prefixed with _) so the full source format remains documented
+  here."
   [[id cor-ids ext-id _ddo-diff entry-id lemma _pos _gender _nr _pos-shift
     _hypernym-text hypernym-links _related _synonyms ontotypes topics
     polysemy links frames sentiment restrictions centrality _curated
@@ -257,20 +259,24 @@
         (into (for [synset-id (split-field hypernym-links)]
                 [sense :dns/hypernymAnchor (synset-uri synset-id)]))
 
-        (into (for [ontotype (split-field ontotypes)]
-                [sense :dns/simpleOntologicalType
-                 (first (->ontotype (ontotype-atoms ontotype)))]))
+        (into (mapcat (fn [ontotype]
+                        (let [[kw triples] (->ontotype (ontotype-atoms ontotype))]
+                          (conj triples [sense :dns/simpleOntologicalType kw]))))
+              (split-field ontotypes))
 
         ;; DDO topic domains, matching the dc:subject usage in the dn: graph.
         (into (for [topic (split-field topics)]
                 [sense :dc/subject (md/da topic)]))
 
-        (into (for [pattern (split-field polysemy)]
-                [sense :dns/polysemyPattern
-                 (first (->polysemy-pattern pattern))]))
+        (into (mapcat (fn [pattern]
+                        (let [[kw triples] (->polysemy-pattern pattern)]
+                          (conj triples [sense :dns/polysemyPattern kw]))))
+              (split-field polysemy))
 
-        (into (for [frame (split-field frames)]
-                [sense :dns/frame (frame-uri frame)]))
+        (into (mapcat (fn [frame]
+                        (cons [sense :dns/frame (frame-uri frame)]
+                              (->frame-triples frame))))
+              (split-field frames))
 
         (into (when-not (str/blank? sentiment)
                 (sentiment-triples sense sentiment)))
@@ -291,16 +297,9 @@
   (with-open [reader (io/reader (io/file cor/source-dir
                                          (str "cor.sem." release/cor-sem-version ".tsv"))
                                 :encoding "UTF-8")]
-    (let [rows      (rest (csv/read-csv reader :separator \tab))
-          frames    (into #{} (mapcat #(split-field (nth % 18))) rows)
-          ontotypes (into #{} (mapcat #(split-field (nth % 14))) rows)
-          patterns  (into #{} (mapcat #(split-field (nth % 16))) rows)]
-      (-> (into #{} (mapcat ->corsem-triples) rows)
-          (into (mapcat ->frame-triples) frames)
-          (into (mapcat (comp second ->ontotype ontotype-atoms))
-                ontotypes)
-          (into (mapcat (comp second ->polysemy-pattern))
-                patterns)))))
+    (into #{}
+          (mapcat ->corsem-triples)
+          (rest (csv/read-csv reader :separator \tab)))))
 
 (comment
   ;; A fully featured row: two hypernym anchors, frame, sentiment, domain.

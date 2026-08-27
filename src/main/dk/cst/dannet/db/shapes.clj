@@ -2,12 +2,12 @@
   "SHACL validation of the DanNet graph.
 
   Bundles structural shapes (resources/schemas/internal/shapes/) with helpers
-  to validate a graph — or a single focus node — and return violations as
+  to validate a graph (or a single focus node) and return violations as
   Clojure data. The shapes are split by target:
 
-    * base.ttl      — invariants of the asserted (base) graph
-    * inferred.ttl  — relation completeness; INFERRED model only
-    * editorial.ttl — stricter rules gating newly edited data (validate-node)
+    * base.ttl      - invariants of the asserted (base) graph
+    * inferred.ttl  - relation completeness; INFERRED model only
+    * editorial.ttl - stricter rules gating newly edited data (validate-node)
 
   Current uses:
     * clojure.test assertions over small fixtures (see test ns),
@@ -31,7 +31,7 @@
 ;; TODO: shapes are kept internal for now, but since SHACL shapes are plain
 ;; RDF, consider eventually publishing them as Linked Open Data under the dns:
 ;; namespace (alongside dannet-schema.ttl, cf. prefix.cljc) once they have
-;; stabilised — e.g. letting the future editing UI derive required fields from
+;; stabilised, e.g. letting the future editing UI derive required fields from
 ;; the same shapes that gate writes.
 (def shapes-resources
   "SHACL shape files by target; :inferred and :editorial extend :base."
@@ -89,7 +89,7 @@
 
 (defn- entry->map
   [^ReportEntry e]
-  ;; :shape is the stable identity used for baselines and grouping -- the
+  ;; :shape is the stable identity used for baselines and grouping; the
   ;; reason every property shape in the TTL has an explicit IRI instead of
   ;; the usual blank node.
   {:focus-node (node->value (.focusNode e))
@@ -198,7 +198,7 @@
   Logs :error when the baseline is exceeded, :warn on known violations, and
   :info when the graph conforms."
   [db]
-  ;; Called async at boot from dk.cst.dannet.web.instance -- deliberately
+  ;; Called async at boot from dk.cst.dannet.web.instance; deliberately
   ;; non-fatal so a validation problem can never take the service down.
   (let [graph (.getGraph ^Model (:base-model db))
         {:keys [violations exceeded] :as result}

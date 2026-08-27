@@ -1,5 +1,5 @@
 ;; Known SHACL violation counts per property shape (see shapes/base.ttl) against the
-;; live asserted graph -- the accepted status quo, recorded 2026-07-03 after
+;; live asserted graph: the accepted status quo, recorded 2026-07-03 after
 ;; scoping all shapes to the dn: namespace (the previously recorded 64
 ;; label-less synsets turned out to belong to OEWN and are no longer targeted).
 ;;

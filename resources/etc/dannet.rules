@@ -82,7 +82,7 @@
 #
 # Only the wn: PoS triple is asserted in the data; the lexinfo:
 # equivalent is derived here, translating the value along the
-# owl:sameAs pairs declared in the GWA schema -- one rule per pair.
+# owl:sameAs pairs declared in the GWA schema; one rule per pair.
 # wn:adjective_satellite, wn:named_entity, wn:other_pos and
 # wn:unknown_pos have no lexinfo equivalent and derive nothing.
 #------------------------------------------------------------------

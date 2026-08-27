@@ -172,9 +172,6 @@
    :partOfSpeechTags     (localize lang part-of-speech-tags)
    :sourceIdentityTags   (localize lang source-identity-tags)})
 
-;; -----------------------------------------------------------------------------
-;; Serialization
-
 (defn attrs
   "The `ks` of `m` as an XML attribute map, minus the nil values."
   [m ks]
@@ -306,7 +303,7 @@
   "Indent the XML `element` sexp at the nesting `depth` by inserting
   whitespace text nodes between its children. Only an element whose children
   are all elements is indented: whitespace is insignificant there, while an
-  element with character data -- e.g. an example text with inline markers --
+  element with character data (e.g. an example text with inline markers)
   must keep its content untouched. The indenting XML emitters make no such
   distinction, which is why the indentation is inserted as data instead."
   ([element]
@@ -391,9 +388,6 @@
                 :escape-slash false
                 :escape-unicode false)))
 
-;; -----------------------------------------------------------------------------
-;; Extraction
-;;
 ;; Every query runs on the raw DanNet graph. The inference graph materialises
 ;; both directions of every inverse relation as well as the transitive closure
 ;; of e.g. wn:hypernym, none of which was stated by a lexicographer.
@@ -628,7 +622,7 @@
 
 (defn ->cor-form
   "The DMLex inflectedForm of one COR form row, with the norm status of the
-  form -- the rdfs:comment of the ontolex:Form -- as a label."
+  form (the rdfs:comment of the ontolex:Form) as a label."
   [{:syms [?form ?writtenRep ?comment]}]
   (cond-> {:tag  (inflection-code ?form)
            :text (str ?writtenRep)}
@@ -749,8 +743,8 @@
     description (assoc :description description)))
 
 (defn ->source-label-tag
-  "The labelTag that carries the DDO source `url` of a DanNet `resource` --
-  a sense or a word -- as its sameAs, following the identity-register
+  "The labelTag that carries the DDO source `url` of a DanNet `resource` (a
+  sense or a word) as its sameAs, following the identity-register
   convention of plan section 5.3. The tag is the resource name, which equals
   the id of the DMLex object that carries the label; `for` names that object
   kind."
@@ -1105,9 +1099,9 @@
   "The text of an XML comment stating the licence of the DanNet `version`
   DMLex export.
 
-  DMLex 1.0 has no slot for licence metadata — the XSD only allows title, uri
+  DMLex 1.0 has no slot for licence metadata (the XSD only allows title, uri
   and langCode on lexicographicResource, and the JSON schema closes the object
-  with additionalProperties: false — so the XML carries the licence as a
+  with additionalProperties: false), so the XML carries the licence as a
   schema-transparent comment."
   [version]
   (str "\nDanNet " version " as DMLex.\n"

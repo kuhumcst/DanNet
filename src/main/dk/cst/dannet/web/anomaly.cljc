@@ -84,8 +84,6 @@
   (let [lang (if (= "da" (first languages)) :da :en)]
     (assoc anomaly ::anom/message (get-in anomaly [:message lang]))))
 
-;; -- Exception translation (CLJ only) ----------------------------------------
-
 #?(:clj
    (do
      (def ^:private validation-type->category

@@ -80,7 +80,7 @@
   "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`.
 
   Every value is normalised to a set. NB: multi-valued properties are already
-  sets in the entity map and must NOT be wrapped again -- doing so produced
+  sets in the entity map and must NOT be wrapped again; doing so produced
   nested sets, e.g. for the dns:inheritedFrom of inheritance nodes with
   multiple parent synsets, crashing the frontend rendering."
   [g subject predicate blank-object]
@@ -167,7 +167,7 @@
                                 :id    :dannet.query/indegrees-unavailable
                                 :data  {:searched (mapv str indegrees-files)
                                         :why      why}}
-                               (str "SYNSET INDEGREE CACHE UNAVAILABLE -- search "
+                               (str "SYNSET INDEGREE CACHE UNAVAILABLE; search "
                                     "results and entity relations will be "
                                     "UNRANKED. " why))
                        nil)]
@@ -234,6 +234,12 @@
          (reduce into #{})
          (not-empty))))
 
+(defn ddo-entry-id
+  "The entry_id parameter of the DDO source `url`, e.g. \"entry_id=11029335\";
+  nil when absent."
+  [url]
+  (re-find #"entry_id=\d+" (str url)))
+
 (defn dedupe-ddo-sources
   "Remove from `urls` any DDO link whose entry_id also appears in a link with
   a def_id, i.e. an entry-level link duplicating a sense-level one.
@@ -241,14 +247,13 @@
   The COR.SEM senses of a synset only carry entry-level DDO links, so without
   this the synset page would double its DanNet sense sources."
   [urls]
-  (let [entry-id   (fn [url] (re-find #"entry_id=\d+" url))
-        sense-refs (into #{}
+  (let [sense-refs (into #{}
                          (comp (filter #(str/includes? % "def_id="))
-                               (keep entry-id))
+                               (keep ddo-entry-id))
                          urls)]
     (into #{}
           (remove #(and (not (str/includes? % "def_id="))
-                        (sense-refs (entry-id %))))
+                        (sense-refs (ddo-entry-id %))))
           urls)))
 
 (declare hypernym-ancestry)

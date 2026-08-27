@@ -368,7 +368,7 @@
     {"dannet"  #{'dn 'dnc 'dns 'dnt 'dnp}
      "w3c"     #{'dcat 'foaf 'owl 'rdf 'rdfs 'skos 'svs}
      "meta"    #{'cc 'dc 'dc11 'vann 'schema}
-     "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia 'pmo 'pmofn}
+     "ontolex" #{'ontolex 'lexinfo 'lime 'marl 'olia 'pmo 'pmofn 'frame}
      "wordnet" #{'wn}}))
 
 (def uri-parts
@@ -480,7 +480,7 @@
   (str external-path "?subject=" (url-encode rdf-resource)))
 
 (defn uri->dannet-path
-  "Return the local path for DanNet `uri` -- or nil if the URI is external."
+  "Return the local path for DanNet `uri`, or nil if the URI is external."
   [uri]
   (when (or (str/starts-with? uri dannet-root)
             (str/starts-with? uri schema-root)

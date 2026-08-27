@@ -513,7 +513,7 @@
   Takes `node` (DOM node), `width`, `height`, `cx` (center x), `cy` (center y),
   and `aria-label` (accessible name). Exposes the SVG to assistive tech as a
   single labelled image (`role=img` + `aria-label` plus a <title>), since the
-  tree geometry isn't meaningfully navigable by a screen reader — the table view
+  tree geometry isn't meaningfully navigable by a screen reader; the table view
   is the accessible path through the same relations. Returns the SVG selection."
   [node width height cx cy aria-label]
   (let [svg (-> d3
@@ -972,7 +972,7 @@
   power<1 compresses the differences (0.5 = square root).
 
   NOTE: mutates the D3 layout nodes in place (`set!` on x0/x1) and walks the
-  child arrays with `aget`/`alength` — the most imperative spot in the sunburst.
+  child arrays with `aget`/`alength`; the most imperative spot in the sunburst.
   If anything looks off, re-check against a synset with heavy multiple
   inheritance: such synsets are tree-ified into repeated nodes (the same id
   under several parents), and each repeat is laid out independently here."
@@ -994,7 +994,7 @@
 (defn- render-centre-labels!
   "Render sense `parts` stacked one per line and vertically centred in the
   `text-sel` <text> element, with a faded `.subject-label-separator` dot trailing
-  every line but the last — the radial's grey separator, adapted to the narrow
+  every line but the last: the radial's grey separator, adapted to the narrow
   centre where senses can't sit inline. When `link?`, a matching grey → is
   prepended to the first line, marking the centre as a navigable reference."
   [text-sel parts link?]
@@ -1103,7 +1103,7 @@
 
 (defn- reduced-motion?
   "Whether the user has asked for reduced motion. The sunburst zoom is a pure
-  D3 transition (JS-driven), so CSS `prefers-reduced-motion` can't reach it — we
+  D3 transition (JS-driven), so CSS `prefers-reduced-motion` can't reach it; we
   read the media query here and collapse the durations instead."
   []
   (boolean (some-> js/window
@@ -1122,7 +1122,7 @@
   "Append the base sunburst <svg> to `elem`: viewBox-centred on the origin and
   exposed to assistive tech as a single labelled image (`role=img` + `aria-label`
   plus a <title>), since the arc geometry itself isn't meaningfully navigable by
-  a screen reader — the table view and zoom-history breadcrumb are the
+  a screen reader; the table view and zoom-history breadcrumb are the
   accessible paths through the same data."
   [elem aria-label]
   (let [svg (-> (.select d3 elem)
@@ -1181,7 +1181,7 @@
 
   Arc area is proportional to a softened leaf count; click any wedge (or focus
   it and press Enter/Space) to focus it (zoom). The centre acts like the radial's
-  centre when it is the current synset (root) — toggling full-screen — and
+  centre when it is the current synset (root), toggling full-screen, and
   navigates to the synset otherwise. The `nav` atom is reset to the root → focus
   breadcrumb on every zoom, so the legend column can step back up."
   [tree elem nav {:keys [entity languages full-screen]}]
@@ -1358,7 +1358,7 @@
               (.on "blur" hide-link!)))
         (render-centre! root)
         (update-nav! root)
-        ;; Any wedge — leaf or not — just focuses (zooms to) itself; only the
+        ;; Any wedge (leaf or not) just focuses (zooms to) itself; only the
         ;; centre navigates, so behaviour is consistent at the leaves. Arcs are
         ;; focusable so the zoom is reachable by keyboard as well as pointer.
         (-> path
@@ -1378,7 +1378,7 @@
   column can react to it).
 
   Idempotent across resizes: the SVG is viewBox-scaled, so resizing needs no
-  rebuild — and rebuilding would discard the user's zoom. A render-key stashed on
+  rebuild, and rebuilding would discard the user's zoom. A render-key stashed on
   `elem` means we only (re)build when the data (`tree`) or `:full-screen` changes;
   resizes just let CSS scale the existing SVG. (Like build-radial!, this runs in
   a ref callback, so it uses try-static-render.)"

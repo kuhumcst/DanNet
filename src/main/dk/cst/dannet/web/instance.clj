@@ -33,7 +33,7 @@
          :schema-uris prefix/schema-uris}))
 
 ;; build-db! is a named fn (not inlined in the delay) so reset-db! can swap in a
-;; fresh delay to force a rebuild -- a realised delay otherwise caches forever.
+;; fresh delay to force a rebuild; a realised delay otherwise caches forever.
 (defn build-db!
   "Realise the DanNet database from the current dannet-opts. With `refetch?`,
   wipe the stale/version-bound datasets and re-fetch the required versions
@@ -310,7 +310,7 @@ capped at 200 items."}
 ;; TODO: the relations overview page built from this only knows the wordnet
 ;;       relations and the external-link relations probed below; the newer
 ;;       dns: relations (e.g. the alternation links) are not explained
-;;       anywhere on the site -- consider including them here.
+;;       anywhere on the site; consider including them here.
 (defn- find-synset-relations
   "Find the synset relations in use in the graph `g`, including the relations
   used to link to other datasets (these are not typed as wn:SynsetRelType and
@@ -409,7 +409,7 @@ capped at 200 items."}
   (shapes/by-shape (:entries validation-result))
   (shapes/by-severity (:entries validation-result))
 
-  ;; SHACL-validate a single synset (cheap) -- e.g. against the editorial
+  ;; SHACL-validate a single synset (cheap), e.g. against the editorial
   ;; shapes, the same call that will eventually gate writes.
   (require '[dk.cst.dannet.db.transaction :as txn])
   (txn/transact-read (:dataset @db)

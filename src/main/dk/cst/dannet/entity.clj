@@ -93,8 +93,8 @@
     (cond
       (symbol? v) (prune v)
 
-      ;; Values without blank nodes -- e.g. large collections of synset
-      ;; relations -- are returned as-is rather than being needlessly rebuilt.
+      ;; Values without blank nodes (e.g. large collections of synset
+      ;; relations) are returned as-is rather than being needlessly rebuilt.
       (not (and (coll? v) (some symbol? v))) v
 
       (set? v) (into (empty v) (map prune) v)

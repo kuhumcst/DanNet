@@ -1,10 +1,10 @@
-# DanNet SHACL shapes — INFERRED model only.
+# DanNet SHACL shapes: INFERRED model only.
 #
 # Relation-completeness checks that hold only after OWL inference has supplied
 # the missing direction of inverse relations (e.g. `ontolex:isLexicalizedSenseOf`
 # from the asserted `ontolex:lexicalizedSense`).
 #
-# IMPORTANT: never run these against the BASE (asserted) graph — doing so
+# IMPORTANT: never run these against the BASE (asserted) graph; doing so
 # produces ~77k false positives (see base.ttl). These shapes are combined with
 # base.ttl and validated against the inference model via the opt-in
 # `validate-inferred-db`.
@@ -18,7 +18,7 @@
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
 
 ## ---------------------------------------------------------------------------
-## LexicalSense (dn:) — every sense lexicalizes exactly one synset.
+## LexicalSense (dn:): every sense lexicalizes exactly one synset.
 ## ---------------------------------------------------------------------------
 dns:SenseSynsetShape a sh:NodeShape ;
     ## dns:DanNetSenseTarget is defined in base.ttl, which is always loaded
