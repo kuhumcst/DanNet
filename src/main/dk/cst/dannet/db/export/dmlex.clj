@@ -14,6 +14,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
+            [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.db.query :as q]
@@ -47,42 +48,51 @@
 
 (def label-type-tags
   [{:tag         "synset"
-    :description "DanNet synset"
+    :description {"da" "DanNet-synset"
+                  "en" "DanNet synset"}
     :sameAs      [(str (prefix/prefix->uri 'ontolex) "LexicalConcept")]}
    {:tag         "ontologicalType"
-    :description "DanNet ontological type"
+    :description {"da" "DanNets ontologiske type"
+                  "en" "DanNet ontological type"}
     :sameAs      [(str (prefix/prefix->uri 'dns) "ontologicalType")]}
    {:tag         "lexfile"
     :description {"da" "Semantisk felt fra WordNet, fx noun.animal"
                   "en" "Semantic field from WordNet, e.g. noun.animal"}
     :sameAs      [(str (prefix/prefix->uri 'wn) "lexfile")]}
    {:tag         "domain"
-    :description {"da" "Fagområde fra Den Danske Ordbog, fx zoo eller med"
-                  "en" "Subject domain from Den Danske Ordbog, e.g. zoo or med"}
+    :description {"da" "Fagområde fra Den Danske Ordbog, fx zoologi eller medicin"
+                  "en" "Subject domain from Den Danske Ordbog, e.g. zoology or medicine"}
     :sameAs      [(str (prefix/prefix->uri 'dc) "subject")]}
    {:tag         "gender"
-    :description "The gender of the person that a DanNet synset denotes"
+    :description {"da" "Kønnet på den person som et DanNet-synset betegner"
+                  "en" "The gender of the person that a DanNet synset denotes"}
     :sameAs      [(str (prefix/prefix->uri 'dns) "gender")]}
    {:tag         "register"
-    :description "Register, e.g. slang"
+    :description {"da" "Register, fx slang"
+                  "en" "Register, e.g. slang"}
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "register")]}
    {:tag         "temporal"
-    :description "Dating, e.g. old-fashioned"
+    :description {"da" "Datering, fx gammeldags"
+                  "en" "Dating, e.g. old-fashioned"}
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "dating")]}
    {:tag         "frequency"
-    :description "Frequency of use"
+    :description {"da" "Brugsfrekvens"
+                  "en" "Frequency of use"}
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "frequency")]}
    {:tag         "usage"
-    :description "Usage note from Den Danske Ordbog"
+    :description {"da" "Brugsnote fra Den Danske Ordbog"
+                  "en" "Usage note from Den Danske Ordbog"}
     :sameAs      [(str (prefix/prefix->uri 'lexinfo) "usageNote")]}
    {:tag         "norm"
     :description {"da" "Retskrivningsstatus for en bøjningsform"
                   "en" "Spelling-norm status of an inflected form"}}
    {:tag         "sentiment"
-    :description "Sentiment polarity from Det Danske Sentimentleksikon"
+    :description {"da" "Sentiment-polaritet fra Det Danske Sentimentleksikon"
+                  "en" "Sentiment polarity from Det Danske Sentimentleksikon"}
     :sameAs      [(str (prefix/prefix->uri 'marl) "hasPolarity")]}
    {:tag         "sentimentValue"
-    :description "Sentiment value from -3 (negative) to 3 (positive)"
+    :description {"da" "Sentiment-værdi fra -3 (negativ) til 3 (positiv)"
+                  "en" "Sentiment value from -3 (negative) to 3 (positive)"}
     :sameAs      [(str (prefix/prefix->uri 'marl) "polarityValue")]}
    {:tag         "frame"
     :description {"da" "Berkeley FrameNet-ramme fremkaldt af betydningen, via COR.SEM"
@@ -480,7 +490,8 @@
 (defn tag-descriptions
   "Descriptions of `concepts` in `lang`, from the schema statements in `g`. A
   comment is more informative than a label, and a label in the other export
-  language fills in when `lang` has neither."
+  language fills in when `lang` has neither. Lexinfo states some comments
+  twice in one literal, separated by ' // '; only the first copy is kept."
   [g lang concepts]
   (let [other  (if (= lang "da") "en" "da")
         values (str/join " " (map prefix/kw->qname concepts))
@@ -498,7 +509,7 @@
     (into {} (for [{:syms [?concept ?comment ?label ?otherLabel]} rows
                    :let [description (or ?comment ?label ?otherLabel)]
                    :when description]
-               [?concept (str description)]))))
+               [?concept (first (str/split (str description) #" // "))]))))
 
 (defn inverse-relations
   "DanNet relation -> its obverse relation, from the `owl:inverseOf` statements
@@ -1042,8 +1053,13 @@
                                                  (comp prefix/rdf-resource->uri
                                                        '?source))
                                      first)
-     :domains-of        (index-many domains '?synset (comp str '?domain))
-     :domain-strings    (sort (set (map (comp str '?domain) domains)))
+     ;; The domain names are language-tagged full names (see the bootstrap
+     ;; release change name-subject-domains!), so both domain indices key on
+     ;; the language first.
+     :domains-of        (update-vals (group-by (comp lstr/lang '?domain) domains)
+                                     #(index-many % '?synset (comp str '?domain)))
+     :domain-strings    (update-vals (group-by (comp lstr/lang '?domain) domains)
+                                     #(vec (sort (set (map (comp str '?domain) %)))))
      :lexfiles-of       (index-many lexfiles '?synset (comp str '?lexfile))
      :lexfile-strings   (sort (set (map (comp str '?lexfile) lexfiles)))
      :variants-of       (index-many word-variants '?word (comp str '?variant))
@@ -1132,7 +1148,9 @@
                 stype-description-of patterns-of pattern-strings
                 pattern-description-of centrality-of corsem-id-of
                 word->senses]}]
-  (let [descriptions (get descriptions lang)
+  (let [descriptions   (get descriptions lang)
+        domains-of     (get domains-of lang {})
+        domain-strings (get domain-strings lang)
         ;; The English ILI definitions only supplement the English variant;
         ;; they describe the interlingual concept, not the DanNet sense.
         ili-def-of   (if (= lang "en")

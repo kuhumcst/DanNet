@@ -277,6 +277,190 @@
                                      [?w :dns/linkedSense ?s])
                                    links)))))
 
+(def domain-names
+  "DDO sysfag abbreviation -> the full name of the subject domain in each
+  export language. The Danish names follow the sysfag inventory documented in
+  'Lingvistiske specifikationer for DanNet' (CST, 2011); the English names
+  translate them."
+  {"aku" {"da" "akustik" "en" "acoustics"}
+   "akæ" {"da" "arkæologi" "en" "archaeology"}
+   "ana" {"da" "anatomi" "en" "anatomy"}
+   "apo" {"da" "apoteksvæsen" "en" "pharmacy"}
+   "ark" {"da" "arkitektur" "en" "architecture"}
+   "asl" {"da" "astrologi" "en" "astrology"}
+   "ast" {"da" "astronomi" "en" "astronomy"}
+   "aut" {"da" "automobilteknik" "en" "automotive engineering"}
+   "bag" {"da" "bagerhåndværk" "en" "bakery trade"}
+   "bal" {"da" "ballet" "en" "ballet"}
+   "ban" {"da" "bankvæsen" "en" "banking"}
+   "ber" {"da" "beredskabskorps" "en" "emergency services"}
+   "bik" {"da" "biokemi" "en" "biochemistry"}
+   "bio" {"da" "biologi" "en" "biology"}
+   "bog" {"da" "bogvæsen" "en" "book trade"}
+   "bol" {"da" "bolig" "en" "housing"}
+   "bot" {"da" "botanik" "en" "botany"}
+   "byg" {"da" "byggeri" "en" "construction"}
+   "byt" {"da" "byggeteknik" "en" "building technology"}
+   "cyk" {"da" "cykelteknik" "en" "bicycle technology"}
+   "dan" {"da" "dans" "en" "dance"}
+   "dip" {"da" "diplomati" "en" "diplomacy"}
+   "dri" {"da" "driftsøkonomi" "en" "business economics"}
+   "drk" {"da" "drikkevarer" "en" "beverages"}
+   "dyr" {"da" "dyrlægevidenskab" "en" "veterinary science"}
+   "edb" {"da" "it" "en" "IT"}
+   "ele" {"da" "elektronik" "en" "electronics"}
+   "elt" {"da" "elektroteknik" "en" "electrical engineering"}
+   "ene" {"da" "energi" "en" "energy"}
+   "erh" {"da" "erhvervsliv" "en" "business"}
+   "etn" {"da" "etnologi" "en" "ethnology"}
+   "fam" {"da" "familie" "en" "family"}
+   "fil" {"da" "filosofi" "en" "philosophy"}
+   "fis" {"da" "fiskeri og jagt" "en" "fishing and hunting"}
+   "fje" {"da" "fjernsyn" "en" "television"}
+   "flm" {"da" "film" "en" "film"}
+   "fly" {"da" "fly" "en" "aircraft"}
+   "fob" {"da" "forbrugerstof" "en" "consumer affairs"}
+   "fol" {"da" "folkloristik" "en" "folklore studies"}
+   "for" {"da" "forsikring" "en" "insurance"}
+   "fot" {"da" "fotografi" "en" "photography"}
+   "fri" {"da" "fritid og hobby" "en" "leisure and hobbies"}
+   "frm" {"da" "frimærker" "en" "philately"}
+   "frs" {"da" "frisørhåndværk" "en" "hairdressing"}
+   "fsk" {"da" "fiskeri" "en" "fishing"}
+   "fyo" {"da" "fysiologi" "en" "physiology"}
+   "fys" {"da" "fysik" "en" "physics"}
+   "gas" {"da" "gastronomi" "en" "gastronomy"}
+   "geg" {"da" "geografi" "en" "geography"}
+   "gel" {"da" "geologi" "en" "geology"}
+   "gla" {"da" "glarmesterhåndværk" "en" "glazing"}
+   "gra" {"da" "grafisk industri" "en" "graphic industry"}
+   "han" {"da" "handel" "en" "commerce"}
+   "hav" {"da" "havebrug" "en" "horticulture"}
+   "hel" {"da" "helbred" "en" "health"}
+   "her" {"da" "heraldik" "en" "heraldry"}
+   "his" {"da" "historie" "en" "history"}
+   "hvn" {"da" "havnevæsen" "en" "harbour services"}
+   "hyg" {"da" "hygiejne" "en" "hygiene"}
+   "håa" {"da" "håndarbejde" "en" "needlework"}
+   "hån" {"da" "håndværk" "en" "crafts"}
+   "ind" {"da" "industri" "en" "industry"}
+   "jag" {"da" "jagt" "en" "hunting"}
+   "jer" {"da" "jernbanevæsen" "en" "railways"}
+   "jur" {"da" "jura" "en" "law"}
+   "kem" {"da" "kemi" "en" "chemistry"}
+   "kin" {"da" "kemisk industri" "en" "chemical industry"}
+   "kom" {"da" "kommunikation" "en" "communication"}
+   "kon" {"da" "kongehus" "en" "royalty"}
+   "kri" {"da" "kriminalitet" "en" "crime"}
+   "kul" {"da" "kultur" "en" "culture"}
+   "kun" {"da" "kunst" "en" "art"}
+   "lam" {"da" "landmåling" "en" "land surveying"}
+   "lan" {"da" "landbrug" "en" "agriculture"}
+   "leg" {"da" "leg og spil" "en" "games and play"}
+   "lgg" {"da" "leg" "en" "play"}
+   "lit" {"da" "litteraturvidenskab" "en" "literary studies"}
+   "log" {"da" "logik" "en" "logic"}
+   "mad" {"da" "mad" "en" "food"}
+   "mal" {"da" "malerhåndværk" "en" "painting trade"}
+   "mas" {"da" "maskinteknik" "en" "mechanical engineering"}
+   "mat" {"da" "matematik" "en" "mathematics"}
+   "med" {"da" "medicin" "en" "medicine"}
+   "met" {"da" "meteorologi" "en" "meteorology"}
+   "mia" {"da" "mineralogi" "en" "mineralogy"}
+   "mij" {"da" "miljø" "en" "environment"}
+   "mil" {"da" "militær" "en" "military"}
+   "min" {"da" "minedrift" "en" "mining"}
+   "mot" {"da" "motorcykelteknik" "en" "motorcycle technology"}
+   "msk" {"da" "musik" "en" "music"}
+   "mtl" {"da" "metallurgi" "en" "metallurgy"}
+   "mur" {"da" "murerhåndværk" "en" "masonry"}
+   "myt" {"da" "mytologi" "en" "mythology"}
+   "mål" {"da" "måleenheder" "en" "units of measurement"}
+   "møn" {"da" "mønter" "en" "numismatics"}
+   "nat" {"da" "naturvidenskab" "en" "natural science"}
+   "nyd" {"da" "nydelsesmidler" "en" "stimulants"}
+   "nøk" {"da" "nationaløkonomi" "en" "national economy"}
+   "oad" {"da" "offentlig administration" "en" "public administration"}
+   "okk" {"da" "okkultisme" "en" "occultism"}
+   "opt" {"da" "optik" "en" "optics"}
+   "pap" {"da" "papirindustri" "en" "paper industry"}
+   "per" {"da" "personalhistorie" "en" "biography and genealogy"}
+   "pol" {"da" "politik" "en" "politics"}
+   "pom" {"da" "pottemagerhåndværk" "en" "pottery"}
+   "pos" {"da" "postvæsen" "en" "postal services"}
+   "pot" {"da" "politi" "en" "police"}
+   "pre" {"da" "presse" "en" "press"}
+   "psy" {"da" "psykologi" "en" "psychology"}
+   "pæd" {"da" "pædagogik" "en" "pedagogy"}
+   "rad" {"da" "radio" "en" "radio"}
+   "red" {"da" "redningstjeneste" "en" "rescue services"}
+   "rej" {"da" "rejser" "en" "travel"}
+   "rek" {"da" "reklame" "en" "advertising"}
+   "rel" {"da" "religion" "en" "religion"}
+   "rum" {"da" "rumfart" "en" "spaceflight"}
+   "sad" {"da" "sadelmageri" "en" "saddlery"}
+   "sam" {"da" "samfund" "en" "society"}
+   "san" {"da" "sanitet" "en" "sanitation"}
+   "scl" {"da" "sociologi" "en" "sociology"}
+   "sex" {"da" "sex og samliv" "en" "sex and relationships"}
+   "ska" {"da" "skattevæsen" "en" "taxation"}
+   "skb" {"da" "skibe" "en" "ships"}
+   "ski" {"da" "skibsbygning" "en" "shipbuilding"}
+   "skm" {"da" "skomageri" "en" "shoemaking"}
+   "sko" {"da" "skovbrug" "en" "forestry"}
+   "skr" {"da" "skrædderi" "en" "tailoring"}
+   "sla" {"da" "slagterhåndværk" "en" "butchery"}
+   "sme" {"da" "smedehåndværk" "en" "blacksmithing"}
+   "sne" {"da" "snedkerhåndværk" "en" "joinery"}
+   "soc" {"da" "socialforsorg" "en" "social welfare"}
+   "spi" {"da" "spil" "en" "games"}
+   "spo" {"da" "sport" "en" "sports"}
+   "spr" {"da" "sprog og sprogvidenskab" "en" "language and linguistics"}
+   "sta" {"da" "statistik" "en" "statistics"}
+   "sun" {"da" "sundhedsvæsen" "en" "health services"}
+   "søf" {"da" "søfart" "en" "seafaring"}
+   "tan" {"da" "tandlægevidenskab" "en" "dentistry"}
+   "tea" {"da" "teater" "en" "theatre"}
+   "tek" {"da" "teknik" "en" "technology"}
+   "tel" {"da" "telekommunikation" "en" "telecommunications"}
+   "tin" {"da" "tekstilindustri" "en" "textile industry"}
+   "tol" {"da" "toldvæsen" "en" "customs"}
+   "tra" {"da" "transportmidler" "en" "means of transport"}
+   "trf" {"da" "trafik" "en" "traffic"}
+   "typ" {"da" "typografi" "en" "typography"}
+   "tøj" {"da" "tøj" "en" "clothing"}
+   "tøm" {"da" "tømrerhåndværk" "en" "carpentry"}
+   "und" {"da" "undervisning og uddannelse" "en" "education"}
+   "vid" {"da" "videnskab" "en" "science"}
+   "våb" {"da" "våben" "en" "weapons"}
+   "vær" {"da" "værkstedsteknik" "en" "workshop technology"}
+   "zoo" {"da" "zoologi" "en" "zoology"}
+   "øko" {"da" "økonomi" "en" "economy"}})
+
+(h/defn name-subject-domains!
+  "Replace the three-letter DDO dc:subject codes in the dn: and cor-sem:
+  graphs of `dataset` with the full names of domain-names in both export
+  languages, e.g. \"zoo\"@da -> \"zoologi\"@da and \"zoology\"@en. A value
+  without a mapping is kept as-is."
+  [dataset]
+  (doseq [graph-uri [prefix/dn-uri prefix/cor-sem-uri]]
+    (let [g     (db/get-graph dataset graph-uri)
+          model (db/get-model dataset graph-uri)
+          rows  (q/run g '[:bgp [?s :dc/subject ?code]])
+          named (fn [{:syms [?s ?code]}]
+                  (if-let [{:strs [da en]} (domain-names (str ?code))]
+                    [[?s :dc/subject (md/da da)]
+                     [?s :dc/subject (md/en en)]]
+                    [[?s :dc/subject ?code]]))]
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/name-subject-domains
+               :data  {:graph graph-uri :count (count rows)}}
+              "Naming the DDO subject domains")
+      (txn/transact-exec model
+        (db/remove! model '[_ :dc/subject _]))
+      (txn/transact-exec g
+        (db/safe-add! g (into #{} (mapcat named) rows))))))
+
 (h/defn sense-correspondences
   "Compute the sense-level SKOS matches linking the COR.SEM senses of the
   fixed link `triples` to the DanNet senses of `dn-graph`, joining the two
@@ -569,6 +753,7 @@
     (name-ontological-types! dataset)
     (rename-cor-sense-links! dataset)
     (add-cor-sem-graph! dataset)
+    (name-subject-domains! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -682,6 +867,7 @@
                             (hash corsem/polysemy-pattern-info)
                             (:hash (meta #'name-ontological-types!))
                             (:hash (meta #'rename-cor-sense-links!))
+                            (:hash (meta #'name-subject-domains!))
                             (:hash (meta #'corsem/->corsem-triples))
                             (:hash (meta #'corsem/->frame-triples))
                             (:hash (meta #'corsem/->ontotype))
@@ -690,6 +876,7 @@
                             ;; Value hashes: the converter's lookup data isn't
                             ;; captured by the hashed forms above.
                             (hash corsem/restriction-notes)
+                            (hash domain-names)
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
                             (:hash (meta #'md/add-dataset-statistics!))

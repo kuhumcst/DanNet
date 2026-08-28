@@ -75,6 +75,9 @@ lexinfo:interjection rdfs:label "udråbsord"@da .
 lexinfo:pronoun rdfs:label "pronomen"@da .
 lexinfo:dating rdfs:label "datering"@da .
 lexinfo:old rdfs:label "gammeldags"@da .
+lexinfo:frequency rdfs:label "frekvens"@da .
+lexinfo:rarelyUsed rdfs:label "sjældent brugt"@da .
+lexinfo:register rdfs:label "register"@da .
 lexinfo:inHouseRegister rdfs:label "jargon"@da .
 lexinfo:slangRegister rdfs:label "slang"@da .
 lexinfo:usageNote rdfs:label "brugsnote"@da .

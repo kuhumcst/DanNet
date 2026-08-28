@@ -791,16 +791,15 @@ Internal:
     the method. Finding 8 in `findings.md` records the limitation of the model.
 11. ANSWERED. Do the sentiment labels go on the entry, the sense, or both? Both.
     Section 9.8 gives the method.
-12. OPEN. What do the `dc:subject` domain codes mean? The 154 codes are the Den
-    Danske Ordbog subject-field abbreviations. DanNet holds no expansion of
-    them, so a reader sees `zoo` and `håa` with nothing to read them by. They
-    cannot be derived from the graph. 130 of the codes never co-occur with a
-    `wn:domain_topic`, and the ones that do give the wrong answer. For example,
-    `bot` pairs most often with *drik*. The fix is a map of code to Danish name
-    next to the other tag inventories, filled from the DDO list. Decision 5
-    allows it. A better fix is out of scope here. If DanNet makes the domains
-    resources instead of literals, they can carry an `rdfs:label`. The web UI
-    and the CSV export then gain the names too.
+12. ANSWERED. What do the `dc:subject` domain codes mean? The 154 codes were
+    the Den Danske Ordbog subject-field abbreviations. The release change
+    `name-subject-domains!` in `db.bootstrap` replaces them in the dn: and
+    cor-sem: graphs with the full names in both export languages, e.g.
+    "zoo"@da becomes "zoologi"@da plus "zoology"@en. The Danish names follow
+    the sysfag inventory in "Lingvistiske specifikationer for DanNet" (CST,
+    2011); the English names translate them. The export then reads the names
+    off the graph like any other value, one labelTag inventory per language
+    variant, and the web UI and the CSV export gain the names too.
 
 ## 11. Out of scope
 
