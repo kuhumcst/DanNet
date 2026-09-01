@@ -148,7 +148,7 @@ html, body {
     padding: 0;
     margin: 0;
     height: 100%;
-    background: #fff var(--bg-texture);
+    background: #fff;
 }
 
 #app {
@@ -351,14 +351,11 @@ dl.search-results > div {
     cursor: pointer;
     padding: var(--spacing-m);
     margin-bottom: var(--spacing-xxl);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 dl.search-results > div:hover,
 dl.search-results > div:focus-visible {
-    border-color: var(--color-dark);
+    background-color: var(--color-bg-alt);
 }
 
 /* Reset dt/dd spacing — handled by the wrapping div. */
@@ -390,9 +387,6 @@ ul.synset-summary {
 .rdf-resource ul.synset-summary { box-shadow: none; }
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-m);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
     margin: 0 auto;
 }
 
@@ -586,10 +580,7 @@ p.note strong {
     flex-grow: 1;
     overflow-y: auto;
 
-    /* Texture lives on the scroller (not body) and uses `local` attachment so
-       it scrolls along with the content rather than staying fixed behind it. */
-    background: #fff var(--bg-texture);
-    background-attachment: local;
+    background: #fff;
 
     padding: var(--spacing-m);
 
@@ -656,8 +647,7 @@ article.document > div > ul:first-child {
     margin: 0 0 var(--spacing-xl) 0;
     gap: var(--spacing-l);
 
-    border: var(--subtle-border);
-    background: var(--bg-texture);
+    background: var(--color-bg-alt);
     border-radius: var(--border-radius-s);
 }
 
@@ -762,8 +752,7 @@ article.document blockquote { margin: var(--spacing-xl) ;}
 article.document blockquote p {
     padding: var(--spacing-l) var(--spacing-xl);
     margin: var(--spacing-xl) 0;
-    border: var(--subtle-border);
-    background: var(--bg-texture);
+    background: var(--color-bg-alt);
     border-radius: var(--border-radius-s);
 }
 
@@ -1099,18 +1088,6 @@ table.sparql-results {
     width: 100%;
 }
 
-/* A solid background keeps the text legible; the paper texture is too noisy
-   behind dense table content. */
-table.attr-val {
-    background: #fff;
-    box-shadow: var(--shadow-card-subtle);
-}
-
-table.sparql-results {
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-}
-
 article.document table {
     width: fit-content;
     margin: 0 auto;
@@ -1134,7 +1111,7 @@ th {
     font-variant: small-caps;
     font-size: var(--font-size-m);
     border-bottom: var(--subtle-border);
-    background:var(--bg-texture);
+    background: var(--color-bg-alt);
     text-align: left;
     text-shadow: none !important;
 }
@@ -1545,8 +1522,6 @@ span.marker {
     height: 100%;
 
     background: white;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 #content.full-screen .synset-diagram-container {
