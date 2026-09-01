@@ -413,7 +413,7 @@ section.subentity > h2 {
    pushed down with the content; the breathing room follows it. Its select
    renders as an inline text control rather than a browser widget. */
 section.subentity > h2 + .subheading {
-    margin-top: calc(var(--spacing-m) - var(--spacing-xxl));
+    margin-top: calc(var(--spacing-l) - var(--spacing-xxl));
     margin-bottom: var(--spacing-xl);
     margin-left: calc(var(--spacing-l) - var(--spacing-m) + 0.45em);
     text-align: left;
