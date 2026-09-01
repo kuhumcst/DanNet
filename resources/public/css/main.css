@@ -395,7 +395,7 @@ section.subentity:has(> h2) {
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
     margin-top: var(--spacing-xxl);
-    padding: var(--spacing-l) var(--spacing-m) var(--spacing-m);
+    padding: var(--spacing-xxl) var(--spacing-m) var(--spacing-m);
 }
 
 section.subentity > h2 {
