@@ -25,6 +25,7 @@ DanNet is available in multiple formats to maximise compatibility:
 | **RDF (Turtle)** | Native representation. Load into any RDF graph database (such as Apache Jena) and query with [SPARQL](https://en.wikipedia.org/wiki/SPARQL). |
 | **CSV** | Published with column metadata as [CSVW](https://csvw.org/).                                                                                |
 | **WN-LMF** | [XML format](https://globalwordnet.github.io/schemas/#xml) compatible with Python libraries like [wn](https://github.com/goodmami/wn).      |
+| **DMLex** | [OASIS DMLex 1.0](https://docs.oasis-open.org/lexidma/dmlex/v1.0/os/dmlex-v1.0-os.html) representation as both XML and JSON, in a Danish and an English variant. The [DMLex browser](https://github.com/kuhumcst/DMLex-browser) shows it as a dictionary. |
 
 ### Example: Using DanNet with Python
 
@@ -39,9 +40,10 @@ for synset in wn.synsets('kage'):
 
 ### Differences Between Formats
 
-While every format includes all synsets/senses/words, the CSV and WN-LMF variants do *not* include every data point:
+While every format includes all synsets/senses/words, the CSV, WN-LMF and DMLex variants do *not* include every data point:
 - **CSV**: Some data is lost when converting from an open graph to fixed tables.
 - **WN-LMF**: Only official GWA relations are included per the standard (proprietary DanNet relations from the [DanNet schema](/resources/schemas/internal/dannet-schema.ttl) are excluded).
+- **DMLex**: Combines DanNet with COR, DDS and COR.SEM in one file. Relations to other datasets are not included. See [doc/dmlex/plan.md](/doc/dmlex/plan.md) for the conversion rules.
 
 For the complete dataset, use the RDF format or browse at [wordnet.dk](https://wordnet.dk).
 
@@ -186,6 +188,14 @@ python3 -m venv examples/venv
 source examples/venv/bin/activate
 python3 -m pip install wn
 python -m wn validate --output-file examples/wn-lmf-validation.json export/wn-lmf/dannet-wn-lmf.xml
+```
+
+### Validating DMLex
+
+The validator in [dk.cst.dannet.db.export.dmlex-validate](/src/main/dk/cst/dannet/db/export/dmlex_validate.clj) checks both serializations of a variant against the official DMLex schemas. It needs the `:validate` alias:
+
+```shell
+clojure -M:validate -e "((requiring-resolve 'dk.cst.dannet.db.export.dmlex-validate/validate-dmlex!) \"export/dmlex/\" \"da\")"
 ```
 
 ## Deployment

@@ -75,11 +75,15 @@ lexinfo:interjection rdfs:label "udråbsord"@da .
 lexinfo:pronoun rdfs:label "pronomen"@da .
 lexinfo:dating rdfs:label "datering"@da .
 lexinfo:old rdfs:label "gammeldags"@da .
+lexinfo:old rdfs:comment "Brugt i fortiden."@da .
 lexinfo:frequency rdfs:label "frekvens"@da .
 lexinfo:rarelyUsed rdfs:label "sjældent brugt"@da .
+lexinfo:rarelyUsed rdfs:comment "Siges om et udtryk der næsten aldrig bruges."@da .
 lexinfo:register rdfs:label "register"@da .
 lexinfo:inHouseRegister rdfs:label "jargon"@da .
+lexinfo:inHouseRegister rdfs:comment "Register for udtryk der er specifikke for en virksomhed og ikke umiddelbart genkendes uden for dette miljø."@da .
 lexinfo:slangRegister rdfs:label "slang"@da .
+lexinfo:slangRegister rdfs:comment "Et meget uformelt register for et ord, udtryk eller en tekst der bruges i tale- og hverdagssprog og sjældnere i dokumenter."@da .
 lexinfo:usageNote rdfs:label "brugsnote"@da .
 
 skos:note rdfs:label "bemærkning"@da .
@@ -181,6 +185,14 @@ wn:co_agent_instrument rdfs:comment "En relation mellem to begreber hvor begreb 
 
 wn:co_instrument_agent rdfs:label "bruges af"@da .
 wn:co_instrument_agent rdfs:comment "En relation mellem to begreber hvor begreb A bruges af begreb B som instrument."@da .
+
+wn:agent rdfs:comment "Et begreb som typisk er den eller det der udfører handlingen som et givet begreb betegner."@da .
+
+wn:involved_agent rdfs:comment "Et begreb som er handlingen der udføres af en agent udtrykt ved et givet begreb."@da .
+
+wn:patient rdfs:comment "Et begreb som er den eller det der undergår et givet begreb."@da .
+
+wn:involved_patient rdfs:comment "Et begreb som er handlingen som patienten udtrykt ved et givet begreb undergår."@da .
 
 wn:causes rdfs:label "forårsager"@da .
 wn:causes rdfs:comment "En relation mellem to begreber hvor begreb A forårsager begreb B."@da .

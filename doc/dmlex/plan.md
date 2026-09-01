@@ -757,6 +757,44 @@ centrality tags are prefixed (`centrality-1`). The description of each tag
 carries the readable name, and the presentation config shows the
 description for these types.
 
+### 9.14 Seventh round: the language variants stay
+
+Date: 1 September 2026. A single-variant export was built and reverted on
+the same day. Two observations started the attempt. The English variant
+declares `langCode="en"` over Danish headwords, definitions and examples,
+while section 3.3 of the specification says that `langCode` names the
+language of that content. The variants also repeat 150 MB of data to
+differ in about 1 MB of localized text. The merged resource then proved
+impractical for DMLex: a description holds one language. A single file
+loses the English tag and relation-type descriptions and the English
+subject-domain labels. The DMLex browser also loses its English UI. The
+two variants therefore stay, and the `langCode` deviation is accepted as
+the price. Two improvements from the attempt survive:
+
+1. Six concepts had no Danish `rdfs:comment`, so their Danish
+   descriptions were bare labels where the English ones were full
+   sentences: `wn:agent`, `wn:patient`, `lexinfo:old`,
+   `lexinfo:rarelyUsed`, `lexinfo:inHouseRegister` and
+   `lexinfo:slangRegister`. Danish translations of these comments, and
+   of the obverse `wn:involved_agent` and `wn:involved_patient`, are now
+   in `dannet-translations.ttl`.
+2. README.txt is rewritten in Simplified Technical English and gains a
+   "How to read the data" section. The section states the conventions of
+   the export (the synset labels, the identity registers, the prefixed
+   tags, the member order) for consumers outside this repository.
+
+### 9.15 Eighth round: one home for the DDO links
+
+Date: 1 September 2026. The fifth round put the DDO deep link of a sense
+into the export twice: on each of its examples as `sourceElaboration` and
+in the source register of section 9.12. The URL identifies the DDO
+definition of the sense, not the example. The register is therefore its
+proper home. The examples now carry `sourceIdentity="DDO"` alone, and the
+38849 URL copies (about 4 MB of JSON) are gone. In the example citation,
+the DMLex browser now uses the generic DDO link from the source identity
+tag. The deep link of the sense stays visible through the source register
+and the `cite` rule of the presentation config.
+
 ## 10. Open questions
 
 For the ELEXAI project:
@@ -783,7 +821,8 @@ Internal:
    over: the deep link of a sense rides on each of its examples as
    `sourceElaboration`, and a source register of one `labelTag` per sourced
    sense and word carries every URL as a `sameAs`. Section 9.12 gives the
-   method and the cost.
+   method and the cost. The eighth round (section 9.15) later removed the
+   per-example copy again, so the register is the one home of the URLs.
 9. ANSWERED. What do the COR inflection codes mean? The `rdfs:label` of each
    COR form gives a readable label for its code. Section 9.7 gives the method.
 10. ANSWERED. What happens to `marl:polarityValue`? The export declares a second
@@ -1026,7 +1065,8 @@ a lexicographer stated. 70775 of the exported relation statements are
 inherited from ancestor synsets, and the raw graph materialises them next to
 the curated statements. The export keeps them, because DanNet publishes them,
 and drops the markers. A consumer therefore cannot separate a curated relation
-from an inherited one.
+from an inherited one. This is accepted: inherited relations are correct in
+more than 99% of cases, so the export does not mark them.
 
 ## 15. Fit between the export and the DMLex model
 
@@ -1042,7 +1082,7 @@ models.
 | register, dating, frequency, usage, gender labels | full | a label is a category from a declared inventory |
 | subject fields and lexicographer files | full | a domain is the label use that the standard itself names |
 | ontological type concepts | full | one label per declared concept, in bag order |
-| example sources | full | `sourceIdentity` with a declared tag, the DDO deep link as `sourceElaboration` |
+| example sources | full | `sourceIdentity` with a declared tag; the deep links live in the source register |
 | semantic relations | full | the Linking module carries them with declared roles |
 | synset identity | by convention | DMLex has no object for a shared concept. See finding 1 |
 | sense and entry source URLs | by convention | one labelTag per sourced sense or entry, like the synset identity. See section 9.12 |

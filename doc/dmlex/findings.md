@@ -463,39 +463,33 @@ what the feedback list below gives to the LEXIDMA committee.
 
 ## Feedback for the LEXIDMA committee
 
-Findings 2 to 8 are faults in the artifacts of the standard or in its wording.
-Findings 1 and 9 are limits of the model that are also worth a report:
+Ten points worth a report:
 
-1. Synset identity has no home in the model. DMLex can carry wordnet content,
-   but concept identity survives only by convention, through a Controlled
-   Values tag. See finding 1.
-2. The XSD files need an XSD 1.1 processor. Approximately two implementations
-   exist, and no common command-line tool is one of them. The standard does
-   not warn an implementer. See finding 3.
+1. Synset identity has no home in the model. Concept identity survives only
+   by convention, as a Controlled Values tag. See finding 1.
+2. The XSD files need an XSD 1.1 processor. About two implementations exist,
+   and no common command-line tool is one of them. The standard does not
+   warn about this. See finding 3.
 3. The XML schema forbids the cross-resource links that the Linking module
-   documents. A `keyref` makes every `member/@ref` local. Therefore no XML
-   document can obey `scopeRestriction="any"`. See finding 2.
-4. `homographNumber` has two types that do not agree, one in the XML schema
-   and one in the JSON schema of the same standard. The JSON schema also does
-   not agree with the prose, which calls the property a number. See finding 4.
-5. No document can satisfy `entryUnique`, `definitionUnique`, or
-   `exampleUnique`, because they key on mixed-content elements. Finding 5
-   holds a minimal reproduction.
-6. `partOfSpeechTagType` asserts a description that is not empty, and declares
-   the element optional. See finding 6.
+   documents: a `keyref` makes every `member/@ref` local, so no XML document
+   can obey `scopeRestriction="any"`. See finding 2.
+4. `homographNumber` is a number in the XML schema and in the prose, but a
+   string in the JSON schema. See finding 4.
+5. No document can satisfy `entryUnique`, `definitionUnique` or
+   `exampleUnique`: they key on mixed-content elements. See finding 5.
+6. `partOfSpeechTagType` declares the description optional, but asserts that
+   it is not empty. See finding 6.
 7. Section 1.2 uses the RFC 2119 keyword REQUIRED to classify parts of the
-   specification document. This reads as a duty to implement all four
+   specification document. It reads as a duty to implement all four
    serializations. See finding 7.
-8. No property in DMLex holds a graded value. A number from the exporter, for
-   example a sentiment strength or a corpus frequency, becomes an inventory of
-   opaque category tags. The order and the scale are lost. The Annotation
-   module does not fill the gap, because it holds inline markers only. See
-   finding 8.
-9. A file cannot say how it wants to be read. The tags of every inventory are
-   machine names that the exporter coins, and a member role has no name in the
-   language of the resource. The single `description` of a tag cannot be both
-   a display name and a definition. Ordering, grouping and hiding have no
-   expression either, although `obverseListingOrder` and `listingOrder` show
-   that the need was recognized. `lexicographicResource` then admits no
-   extension, in either schema, so the information cannot travel in the file.
-   See finding 9.
+8. No property holds a graded value. A number from the exporter, such as a
+   sentiment strength, becomes an inventory of opaque tags with no order and
+   no scale. See finding 8.
+9. A file cannot say how it wants to be read. Tags are machine names, member
+   roles have no display names, and ordering, grouping and hiding have no
+   expression. Both schemas refuse extensions, so none of this can travel
+   with the file. See finding 9.
+10. The one display hint that the model has is costly. In our JSON file,
+    `obverseListingOrder` takes 21.6 MB of a 155 MB export: a 21-character
+    property name and a number on each of 754044 relation members. A
+    shorter name alone can save most of that.

@@ -179,8 +179,8 @@
 
 (def source-identity-tags
   "The single source of the DanNet sense examples. The deep link to the DDO
-  definition of a sense travels on each of its examples as the
-  sourceElaboration attribute."
+  definition of a sense lives in the source register (`->source-label-tag`),
+  not on the examples."
   [{:tag         "DDO"
     :description {"da" "Den Danske Ordbog"
                   "en" "Den Danske Ordbog (The Danish Dictionary)"}
@@ -1204,10 +1204,6 @@
                                   (mapv (fn [text]
                                           (cond-> {:text           text
                                                    :sourceIdentity "DDO"}
-                                            (source-of sense)
-                                            (assoc :sourceElaboration
-                                                   (source-of sense))
-
                                             headword
                                             (assoc :headwordMarkers
                                                    (headword-markers headword text))))
