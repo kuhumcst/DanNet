@@ -394,19 +394,19 @@ section.subentity:has(> h2) {
     position: relative;
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
-    margin-top: var(--spacing-xxl);
+    margin-top: calc(var(--spacing-xxl) + var(--spacing-l));
     padding: var(--spacing-xxl) var(--spacing-m) var(--spacing-m);
 }
 
 section.subentity > h2 {
     position: absolute;
     top: 0;
-    left: var(--spacing-l);
-    transform: translateY(-52%);
+    left: 50%;
+    transform: translate(-50%, -52%);
+    white-space: nowrap;
     margin: 0;
     padding: 0 0.45em;
     background: #fff;
-    text-align: left;
 }
 
 /* A subheading joins the heading as a fine-print annotation instead of being
@@ -415,8 +415,7 @@ section.subentity > h2 {
 section.subentity > h2 + .subheading {
     margin-top: calc(var(--spacing-l) - var(--spacing-xxl));
     margin-bottom: var(--spacing-xl);
-    margin-left: calc(var(--spacing-l) - var(--spacing-m) + 0.45em);
-    text-align: left;
+    text-align: center;
     font-size: var(--font-size-s);
     font-style: italic;
 }
