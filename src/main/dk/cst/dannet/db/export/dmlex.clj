@@ -210,13 +210,14 @@
   The full schemas require `translationLanguages` next to the crosslingual
   headwordTranslations.
 
-  The langCode names the language of the whole resource, not just of the
-  headwords, since the DMLex browser keys its UI language on it. The headwords
-  stay Danish in the English variant."
+  The langCode names the language of the headwords, which stay Danish in
+  both variants; DMLex defines it as the language the resource describes,
+  and the DMLex browser collates by it. The language of the presentation
+  travels as dc:language in metadata.json instead."
   [lang]
   {:title                "DanNet"
    :uri                  prefix/dn-uri
-   :langCode             lang
+   :langCode             "da"
    :translationLanguages ["en"]
    :labelTypeTags        (localize lang label-type-tags)
    :partOfSpeechTags     (localize lang part-of-speech-tags)
@@ -1417,27 +1418,28 @@
 (defn export-dmlex!
   "Export a DMLex `resource` into `dir` as both XML and JSON, zipped together
   with the licence information, the dataset metadata and the presentation
-  config. The :langCode of the resource picks the language variant of the
-  companions and the name of the zip.
+  config. The variant `lang` picks the language of the companions and the
+  name of the zip; the :langCode of the resource stays the language of the
+  headwords, so it cannot name the variant.
 
   The presentation config is DanNet's own display taste. DMLex has no slot for
   it, so it ships as a companion file like metadata.json. One file serves both
   variants: it names each tag in every language it has, and the viewer resolves
   the names to the language its reader picked."
-  [dir {:keys [langCode] :as resource}]
+  [dir lang resource]
   (println "Beginning DMLex export of DanNet into" dir)
-  (let [xml-file     (str dir "dannet-dmlex-" langCode ".xml")
-        json-file    (str dir "dannet-dmlex-" langCode ".json")
+  (let [xml-file     (str dir "dannet-dmlex-" lang ".xml")
+        json-file    (str dir "dannet-dmlex-" lang ".json")
         meta-file    (str dir "metadata.json")
         present-file (str dir "presentation.json")
         license-file (str dir "LICENSE")
         readme-file  (str dir "README.txt")
-        zip-path     (str dir (prefix/export-file "dmlex" 'dn langCode))]
+        zip-path     (str dir (prefix/export-file "dmlex" 'dn lang))]
     (io/make-parents xml-file)
     (write-xml! xml-file (license-comment release/to) resource)
     (write-json! json-file resource)
     (spit meta-file (with-out-str
-                      (json/pprint (export-metadata release/to langCode)
+                      (json/pprint (export-metadata release/to lang)
                                    :escape-slash false
                                    :escape-unicode false)))
     (with-open [in (io/input-stream
@@ -1458,7 +1460,7 @@
   [dir db]
   (let [indices (->indices (run-queries db))]
     (doseq [lang ["da" "en"]]
-      (export-dmlex! dir (->resource lang indices)))))
+      (export-dmlex! dir lang (->resource lang indices)))))
 
 (comment
   (time (export-dmlex-variants! "export/dmlex/" @dk.cst.dannet.web.instance/db))
@@ -1475,5 +1477,5 @@
   (count (:relations resource))
   (first (:entries resource))
 
-  (time (export-dmlex! "export/dmlex/" resource))
+  (time (export-dmlex! "export/dmlex/" "da" resource))
   #_.)
