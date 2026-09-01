@@ -409,13 +409,26 @@ section.subentity > h2 {
     text-align: left;
 }
 
-/* A subheading joins the heading at the top of the box instead of being
-   pushed down with the content; the breathing room follows it. */
+/* A subheading joins the heading as a fine-print annotation instead of being
+   pushed down with the content; the breathing room follows it. Its select
+   renders as an inline text control rather than a browser widget. */
 section.subentity > h2 + .subheading {
-    margin-top: calc(var(--spacing-l) - var(--spacing-xxl));
-    margin-bottom: var(--spacing-l);
-    margin-left: calc(var(--spacing-l) - var(--spacing-m));
+    margin-top: calc(var(--spacing-m) - var(--spacing-xxl));
+    margin-bottom: var(--spacing-xl);
+    margin-left: calc(var(--spacing-l) - var(--spacing-m) + 0.45em);
     text-align: left;
+    font-size: var(--font-size-s);
+    font-style: italic;
+}
+
+section.subentity > h2 + .subheading select {
+    font: inherit;
+    font-style: italic;
+    border: none;
+    background: transparent;
+    color: var(--color-link);
+    padding: 0;
+    cursor: pointer;
 }
 
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
