@@ -387,6 +387,33 @@ section.subentity:has(ul.synset-summary) {
     margin: 0 auto;
 }
 
+/* A titled section is a quiet fieldset, mirroring the DMLex browser: a
+   bordered box with no fill and the heading sitting on the border like a
+   legend, the page's white behind it. */
+section.subentity:has(> h2) {
+    position: relative;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    margin-top: var(--spacing-xxl);
+    padding: var(--spacing-l) var(--spacing-m) var(--spacing-m);
+}
+
+section.subentity > h2 {
+    position: absolute;
+    top: 0;
+    left: var(--spacing-l);
+    transform: translateY(-52%);
+    margin: 0;
+    padding: 0 0.45em;
+    background: #fff;
+    font-variant: all-small-caps;
+    letter-spacing: 0.04em;
+    font-size: var(--font-size-l);
+    font-weight: 600;
+    color: var(--color-dannet);
+    text-align: left;
+}
+
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
    flex row; any summary badges are pushed to the far right side. */
 ul.synset-summary > li.summary-main {
