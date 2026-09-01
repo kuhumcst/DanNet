@@ -406,11 +406,6 @@ section.subentity > h2 {
     margin: 0;
     padding: 0 0.45em;
     background: #fff;
-    font-variant: all-small-caps;
-    letter-spacing: 0.04em;
-    font-size: var(--font-size-l);
-    font-weight: 600;
-    color: var(--color-dannet);
     text-align: left;
 }
 
