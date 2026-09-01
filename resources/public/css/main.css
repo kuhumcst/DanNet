@@ -409,6 +409,15 @@ section.subentity > h2 {
     text-align: left;
 }
 
+/* A subheading joins the heading at the top of the box instead of being
+   pushed down with the content; the breathing room follows it. */
+section.subentity > h2 + .subheading {
+    margin-top: calc(var(--spacing-l) - var(--spacing-xxl));
+    margin-bottom: var(--spacing-l);
+    margin-left: calc(var(--spacing-l) - var(--spacing-m));
+    text-align: left;
+}
+
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
    flex row; any summary badges are pushed to the far right side. */
 ul.synset-summary > li.summary-main {
