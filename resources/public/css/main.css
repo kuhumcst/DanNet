@@ -1284,6 +1284,13 @@ span.hidden + a {
     display: inline-block;
 }
 
+/* At the default detail level, the prefix badges rest inside the attr-val
+   tables; the basic and high detail levels show them. A missing attribute
+   means the default level, so the rule cannot match "normal" directly. */
+html:not([data-detail-level="basic"]):not([data-detail-level="high"]) table.attr-val span.prefix {
+    display: none;
+}
+
 /* Truncatable prefix - shows ellipsis, expands on hover/focus.
    The width fits the 5-letter prefixes (frame, pmofn) untruncated. */
 span.prefix.truncatable {
