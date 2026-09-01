@@ -488,11 +488,17 @@
   #{:dns/alternatesTo
     :dns/alternatesWith})
 
-(defn tag-descriptions
-  "Descriptions of `concepts` in `lang`, from the schema statements in `g`. A
-  comment is more informative than a label, and a label in the other export
-  language fills in when `lang` has neither. Lexinfo states some comments
-  twice in one literal, separated by ' // '; only the first copy is kept."
+(defn tag-strings
+  "The explanation and the name of each of `concepts` in `lang`, from the
+  schema statements in `g`, as {:description {...} :name {...}}.
+
+  The description prefers the comment: the relation tooltips want the
+  sentence. The name prefers the label: the face of a label tag wants
+  the short name, not the sentence. Each falls back through the other,
+  via a label in the other export language, so neither map loses a
+  concept the schema says anything about. Lexinfo states some comments
+  twice in one literal, separated by ' // '; only the first copy is
+  kept."
   [g lang concepts]
   (let [other  (if (= lang "da") "en" "da")
         values (str/join " " (map prefix/kw->qname concepts))
@@ -506,11 +512,18 @@
                                         FILTER(LANG(?label) = \"" lang "\") . }
                              OPTIONAL { ?concept rdfs:label ?otherLabel .
                                         FILTER(LANG(?otherLabel) = \"" other "\") . }
-                           }"))]
-    (into {} (for [{:syms [?concept ?comment ?label ?otherLabel]} rows
-                   :let [description (or ?comment ?label ?otherLabel)]
-                   :when description]
-               [?concept (first (str/split (str description) #" // "))]))))
+                           }"))
+        first-copy #(first (str/split (str %) #" // "))]
+    (reduce (fn [m {:syms [?concept ?comment ?label ?otherLabel]}]
+              (let [description (or ?comment ?label ?otherLabel)
+                    tag-name    (or ?label ?otherLabel ?comment)]
+                (cond-> m
+                  description (assoc-in [:description ?concept]
+                                        (first-copy description))
+                  tag-name    (assoc-in [:name ?concept]
+                                        (first-copy tag-name)))))
+            {}
+            rows)))
 
 (defn inverse-relations
   "DanNet relation -> its obverse relation, from the `owl:inverseOf` statements
@@ -558,7 +571,9 @@
         concepts     (distinct (concat (map '?gender genders)
                                        (map '?value sense-labels)
                                        exported-relations
-                                       cor-sem-relations))]
+                                       cor-sem-relations))
+        strings-da   (tag-strings graph "da" concepts)
+        strings-en   (tag-strings graph "en" concepts)]
     {:words             (q/run g op/word-query)
      :senses            (q/run g op/sense-query)
      :definitions       (q/run g op/definition-query)
@@ -592,8 +607,10 @@
      :simple-ontotypes  (q/run sem-g op/simple-ontotype-query)
      :ontotype-members  (q/run sem-g op/ontotype-members-query)
      :corsem-notes      (q/run sem-g op/usage-note-query)
-     :descriptions      {"da" (tag-descriptions graph "da" concepts)
-                         "en" (tag-descriptions graph "en" concepts)}
+     :descriptions      {"da" (:description strings-da)
+                         "en" (:description strings-en)}
+     :tag-names         {"da" (:name strings-da)
+                         "en" (:name strings-en)}
      :indegrees         @q/synset-indegrees
      :obverse-of        obverse-of
      :relations         (merge
@@ -985,15 +1002,36 @@
            ili-definitions oewn-lemmas cor-links cor-forms sentiment
            eq-senses eq-sense-matches corsem-frames linked-synsets
            corsem-patterns pattern-labels centralities simple-ontotypes
-           ontotype-members corsem-notes descriptions indegrees obverse-of
-           relations]}]
+           ontotype-members corsem-notes descriptions tag-names indegrees
+           obverse-of relations]}]
   (let [listing-order (listing-order-fn indegrees)
         label-of      (merge (index synset-labels '?synset (comp str '?label))
                              (index short-labels '?synset (comp str '?label)))
         senses-of     (index-many senses '?synset (comp name '?sense))
         unambiguous   (unambiguous-ilis ilis)
         marks-of      (index-many sense-labels '?sense (comp name '?value))
-        notes-of      (index-many usage-notes '?sense (comp str '?note))
+        ;; A bare "sj." or "gl." usage note only restates the frequency
+        ;; or temporal mark beside it — dataset-wide, every bare note
+        ;; has its mark — so the abbreviation is dropped and the mark
+        ;; carries the fact alone, in the structured, localizable form.
+        ;; A nuanced note ("nu sj.", "gl. el. højtideligt") passes
+        ;; through untouched, and so does a bare note on a sense that
+        ;; some day lacks the mark.
+        mark-type-of  (into {} (for [{:syms [?property ?value]} sense-labels]
+                                 [(name ?value) (label-type-of ?property)]))
+        notes-of      (reduce-kv
+                        (fn [m sense notes]
+                          (let [types  (into #{} (map mark-type-of)
+                                             (marks-of sense))
+                                notes' (remove #(or (and (= % "sj.")
+                                                         (types "frequency"))
+                                                    (and (= % "gl.")
+                                                         (types "temporal")))
+                                               notes)]
+                            (cond-> m
+                              (seq notes') (assoc sense (vec notes')))))
+                        {}
+                        (index-many usage-notes '?sense (comp str '?note)))
         eq-of         (index eq-senses '?corsem '?sense)
         sense-syn     (index senses '?sense '?synset)
         centrality    (q/label-centralities centralities eq-sense-matches
@@ -1035,6 +1073,7 @@
                                  [sense note]))
         frames-of     (frame-labels corsem-frames linked-synsets)]
     {:descriptions      descriptions
+     :tag-names         tag-names
      :obverse-of        obverse-of
      :relations         relations
      :member-order      (member-order-fn
@@ -1080,7 +1119,7 @@
                                  (distinct (map (juxt '?property '?value)
                                                 sense-labels)))
      :notes-of          notes-of
-     :note-strings      (sort (into (set (map (comp str '?note) usage-notes))
+     :note-strings      (sort (into (into #{} (mapcat val) notes-of)
                                     (vals frek-of)))
      :frek-of           frek-of
      :frames-of         frames-of
@@ -1137,7 +1176,7 @@
   word without a written form is left out, since DMLex requires a headword. A
   word with an unusable part of speech keeps its entry, since DMLex does not
   require one."
-  [lang {:keys [descriptions obverse-of relations member-order pos-of
+  [lang {:keys [descriptions tag-names obverse-of relations member-order pos-of
                 headword-of number-of definition-of examples-of source-of
                 domains-of domain-strings lexfiles-of lexfile-strings variants-of
                 ontotype-of ontotype-strings ontotype-description-of
@@ -1150,6 +1189,7 @@
                 pattern-description-of centrality-of corsem-id-of
                 word->senses]}]
   (let [descriptions   (get descriptions lang)
+        tag-names      (get tag-names lang)
         domains-of     (get domains-of lang {})
         domain-strings (get domain-strings lang)
         ;; The English ILI definitions only supplement the English variant;
@@ -1277,11 +1317,11 @@
                                     {:tag domain :typeTag "domain" :for "sense"})
                                   (for [gender (sort-by name (set (vals gender-of)))]
                                     (->sense-label-tag "gender"
-                                                       (descriptions gender)
+                                                       (tag-names gender)
                                                        gender))
                                   (for [[property value] sense-label-pairs]
                                     (->sense-label-tag (label-type-of property)
-                                                       (descriptions value)
+                                                       (tag-names value)
                                                        value))
                                   (for [note note-strings]
                                     {:tag note :typeTag "usage" :for "sense"})

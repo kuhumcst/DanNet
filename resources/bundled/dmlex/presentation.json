@@ -110,7 +110,6 @@
     },
     "inline": [
       "domain",
-      "lexfile",
       "gender",
       "register",
       "temporal",
@@ -118,15 +117,24 @@
       "usage",
       "sentiment",
       "centrality"
+    ],
+    "fold": [
+      "lexfile",
+      "synset",
+      "corsem"
+    ]
+  },
+  "translations": "fold",
+  "definitionTypes": {
+    "fold": [
+      "ili"
     ]
   },
   "relationTypes": {
+    "inline": {
+      "synonym": "="
+    },
     "groups": [
-      {
-        "types": [
-          "synonym"
-        ]
-      },
       {
         "title": {
           "da": "taksonomi",
