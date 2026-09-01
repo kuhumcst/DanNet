@@ -1099,6 +1099,13 @@ table.sparql-results {
     width: 100%;
 }
 
+/* A solid background keeps the text legible; the paper texture is too noisy
+   behind dense table content. */
+table.attr-val {
+    background: #fff;
+    box-shadow: var(--shadow-card-subtle);
+}
+
 table.sparql-results {
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
