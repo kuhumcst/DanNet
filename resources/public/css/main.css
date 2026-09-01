@@ -36,17 +36,15 @@
     /* BORDERS */
     --border-opacity-normal: 0.67;
     --border-opacity-subtle: 0.33;
-    --border-opacity-very-subtle: 0.1;
 
     --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
-    --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
+    --subtle-border: var(--normal-border);
 
     --border-radius-s: 2px;
     
     /* SHADOWS */
     --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.25);
     --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
-    --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
     
     /* TYPOGRAPHY */
     --font-family: Georgia, serif;
@@ -212,7 +210,6 @@ h1, h2, h3 {
     font-weight: normal;
     font-variant: small-caps;
     letter-spacing: var(--letter-spacing-base);
-    filter: drop-shadow(var(--shadow-heading));
 }
 
 h1 {
