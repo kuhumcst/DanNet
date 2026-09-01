@@ -1134,7 +1134,7 @@ article.document table {
 }
 
 table.attr-val col:nth-child(2) {
-    min-width: 12ch;
+    width: 15rem;
 }
 
 table.attr-val col:nth-child(3) {
@@ -1165,6 +1165,8 @@ td.attr-prefix {
 
 td.attr-name {
     padding-left: 0;
+    text-align: right;
+    border-right: var(--normal-border);
 }
 
 /* Extra widgets below the relation name: entailed relations + display options.
@@ -1174,6 +1176,7 @@ td.attr-name {
 td.attr-name .attr-name__extras {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: flex-start;
     gap: var(--spacing-xs) var(--spacing-s);
     margin-top: var(--spacing-s);
@@ -1244,17 +1247,15 @@ tr tr:nth-child(odd) {
     background-color: var(--color-bg-alt);
 }
 
-/* The attr-val tables read as dictionary entries: no card chrome and no
-   zebra striping, with a hairline as the only separation between rows. */
+/* The attr-val tables read as dictionary entries, mirroring the DMLex
+   browser's key-value geometry: no card chrome, no zebra striping and no
+   horizontal rules; the keys right-align toward the vertical rule that
+   divides them from the values (see 'td.attr-name'). */
 table.attr-val tr:nth-child(odd),
 table.attr-val tr:nth-child(even),
 table.attr-val tr tr:nth-child(odd),
 table.attr-val tr tr:nth-child(even) {
     background-color: transparent;
-}
-
-table.attr-val tr + tr > td {
-    border-top: var(--subtle-border);
 }
 
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
