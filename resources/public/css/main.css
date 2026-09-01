@@ -395,7 +395,7 @@ section.subentity:has(> h2) {
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
     margin-top: calc(var(--spacing-xxl) + var(--spacing-l));
-    padding: var(--spacing-xxl) var(--spacing-m) var(--spacing-m);
+    padding: var(--spacing-l);
 }
 
 section.subentity > h2 {
@@ -413,7 +413,7 @@ section.subentity > h2 {
    pushed down with the content; the breathing room follows it. Its select
    renders as an inline text control rather than a browser widget. */
 section.subentity > h2 + .subheading {
-    margin-top: calc(var(--spacing-xl) - var(--spacing-xxl));
+    margin-top: 0;
     margin-bottom: var(--spacing-xl);
     text-align: center;
     font-size: var(--font-size-s);
