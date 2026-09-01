@@ -395,7 +395,11 @@ section.subentity:has(> h2) {
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
     margin-top: calc(var(--spacing-xxl) + var(--spacing-l));
-    padding: var(--spacing-l);
+    /* The heading hangs into the box, so the top compensates to appear as
+       deep as the trimmed sides. */
+    padding: calc(var(--spacing-l) + var(--spacing-m))
+             calc(var(--spacing-m) + var(--spacing-xs))
+             calc(var(--spacing-m) + var(--spacing-xs));
 }
 
 section.subentity > h2 {
@@ -1314,6 +1318,11 @@ span.hidden + a {
    means the default level, so the rule cannot match "normal" directly. */
 html:not([data-detail-level="basic"]):not([data-detail-level="high"]) table.attr-val span.prefix {
     display: none;
+}
+
+/* The emptied prefix cell must not add spacing before the key column. */
+html:not([data-detail-level="basic"]):not([data-detail-level="high"]) table.attr-val td.attr-prefix {
+    padding-left: 0;
 }
 
 /* The provenance markers (∴ † ↪), the ⊑ entailment widget, and their legend
