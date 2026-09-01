@@ -106,6 +106,23 @@
   [k->supers entity]
   (update-vals entity #(prune-blank-nodes k->supers %)))
 
+(defn prune-self-references
+  "Remove `subject` from the rdfs:subPropertyOf and rdfs:subClassOf values of
+  `entity`, dropping the relation when the self-reference was its only value.
+
+  RDFS inference entails these reflexive rows for every property and class."
+  [subject entity]
+  (reduce (fn [entity rel]
+            (let [vs (->set (get entity rel))]
+              (if (contains? vs subject)
+                (let [remaining (disj vs subject)]
+                  (if (seq remaining)
+                    (assoc entity rel remaining)
+                    (dissoc entity rel)))
+                entity)))
+          entity
+          [:rdfs/subPropertyOf :rdfs/subClassOf]))
+
 (defn displayed-resources
   "Collect the set of resources rendered for `entity`: its relation keys, the
   keyword and RDF-resource values, and the resources found inside blank node

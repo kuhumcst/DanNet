@@ -355,6 +355,7 @@
                    folded        :folded}
                   (if (and truncate? (not-empty raw-entity))
                     (-> (ent/prune-entailed-superproperties k->supers raw-entity)
+                        (update :entity #(ent/prune-self-references subject* %))
                         (update :entity #(ent/prune-embedded-entities
                                            k->supers %)))
                     {:entity raw-entity :folded nil})
