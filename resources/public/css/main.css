@@ -1299,6 +1299,15 @@ html:not([data-detail-level="basic"]):not([data-detail-level="high"]) table.attr
     display: none;
 }
 
+/* The provenance markers (∴ † ↪), the ⊑ entailment widget, and their legend
+   notes rest at the default detail level too. */
+html:not([data-detail-level="basic"]):not([data-detail-level="high"]) :is(
+    table.attr-val span.marker,
+    table.attr-val details.entailed,
+    aside.notes p.note.desktop-only) {
+    display: none;
+}
+
 /* Truncatable prefix - shows ellipsis, expands on hover/focus.
    The width fits the 5-letter prefixes (frame, pmofn) untruncated. */
 span.prefix.truncatable {
