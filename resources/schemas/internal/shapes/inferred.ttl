@@ -9,9 +9,7 @@
 # base.ttl and validated against the inference model via the opt-in
 # `validate-inferred-db`.
 #
-# NOTE: property shapes are deliberately given explicit IRIs (rather than the
-# usual blank nodes) so that validation reports can group violations by a
-# stable shape identity.
+# NOTE: property shapes get explicit IRIs; see the note in base.ttl.
 
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
