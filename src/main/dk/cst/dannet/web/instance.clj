@@ -3,8 +3,12 @@
 
   Everything here is a process-wide singleton realised lazily on first deref."
   (:require [clojure.string :as str]
+            [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
+            [cognitect.transit :as transit]
             [com.owoga.trie :as trie]
+            [com.owoga.tightly-packed-trie :as tpt]
+            [com.owoga.tightly-packed-trie.encoding :as encoding]
             [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -17,7 +21,10 @@
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.sparql :as sparql]
-            [dk.cst.dannet.web.hyponymy :as hyponymy]))
+            [dk.cst.dannet.web.hyponymy :as hyponymy])
+  (:import [com.owoga.tightly_packed_trie TightlyPackedTrie]
+           [java.io File]
+           [java.nio ByteBuffer]))
 
 (def dannet-opts
   (atom {:db-type     :tdb2
@@ -71,22 +78,79 @@
 
 (defonce superproperty-closure (->superproperty-closure))
 
+(defn- cache-dir
+  "Directory of the on-disk cache of derived structures, next to the database."
+  []
+  (io/file (.getParentFile (io/file (:db-path @dannet-opts))) "cache"))
+
+(defn- cache-file
+  "The on-disk cache file of the derived structure `nm`."
+  [nm]
+  (io/file (cache-dir) (str nm ".transit")))
+
+(defn- read-cache
+  "The derived structure data cached in `file`; nil when there is none or it
+  can't be read."
+  [^File file]
+  (when (.exists file)
+    (tel/trace! {:id      :dannet.graph/read-cache
+                 :run-val :elided
+                 :data    {:file (str file)}}
+                (try
+                  (with-open [in (io/input-stream file)]
+                    (transit/read (transit/reader in :msgpack)))
+                  (catch Exception e
+                    (tel/error! {:id :dannet.graph/cache-read-error} e)
+                    nil)))))
+
+(defn- write-cache!
+  "Cache the derived structure data `x` in `file` as transit msgpack."
+  [^File file x]
+  (io/make-parents file)
+  (with-open [out (io/output-stream file)]
+    (transit/write (transit/writer out :msgpack) x)))
+
+(defn- clear-cache!
+  "Delete the on-disk cache, e.g. when the database it derives from changes."
+  []
+  (run! io/delete-file (.listFiles (cache-dir))))
+
+(defn- ->derived
+  "Delay of the derived structure `nm`: read from the on-disk cache when one
+  exists, otherwise built with `build` and written to the cache. `attach` adds
+  the uncached parts (memoised fns)."
+  [nm build attach]
+  (delay
+    (attach (or (read-cache (cache-file nm))
+                (let [x (build)]
+                  (write-cache! (cache-file nm) x)
+                  x)))))
+
+(defn- build-hypernym-graph
+  "Build the cached part of `hypernym-graph` from the base graph."
+  []
+  (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
+              (let [bg  (.getGraph (:base-model @db))
+                    hg  (sim/build-hypernym-graph bg)
+                    nd  (sim/node-depths hg)
+                    pos (sim/synset->pos bg)]
+                {:graph           hg
+                 :node-depths     nd
+                 :pos             pos
+                 :taxonomy        (sim/taxonomy-depths nd pos)
+                 ;; children with no real hypernym; see sim/build-hypernym-graph
+                 :orthogonal-only (:orthogonal-only (meta hg))})))
+
+(defn- attach-ancestor-distances
+  "Add `:ad` to hypernym graph data `m`, memoised so scoring one synset against
+  many reuses each distance map."
+  [{:keys [graph] :as m}]
+  (assoc m :ad (memo/lru (fn [s] (sim/ancestor-distances graph s))
+                         :lru/threshold 10000)))
+
 (defn- ->hypernym-graph
   []
-  (delay
-    (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
-                (let [bg  (.getGraph (:base-model @db))
-                      hg  (sim/build-hypernym-graph bg)
-                      nd  (sim/node-depths hg)
-                      pos (sim/synset->pos bg)]
-                  {:graph           hg
-                   :node-depths     nd
-                   :pos             pos
-                   :taxonomy        (sim/taxonomy-depths nd pos)
-                   ;; children with no real hypernym; see sim/build-hypernym-graph
-                   :orthogonal-only (:orthogonal-only (meta hg))
-                   ;; memoized so scoring one synset against many reuses each distance map
-                   :ad              (memo/memo (fn [s] (sim/ancestor-distances hg s)))}))))
+  (->derived "hypernym-graph" build-hypernym-graph attach-ancestor-distances))
 
 (defonce hypernym-graph (->hypernym-graph))
 
@@ -94,29 +158,43 @@
 ;; functions. The graph is derefed lazily, on the first call.
 (sim/register! (fn [] @hypernym-graph))
 
+(defn- build-hyponym-graph
+  "Build the cached part of `hyponym-graph` by inverting `hypernym-graph`."
+  []
+  (tel/trace! {:id :dannet.graph/hyponym-graph :run-val :elided}
+              (let [{:keys [graph orthogonal-only]} @hypernym-graph]
+                {:graph           (sim/build-hyponym-graph graph)
+                 :orthogonal-only orthogonal-only})))
+
+(defn- attach-descendant-count
+  "Add `:descendant-count` to hyponym or meronym graph data `m`, memoised so
+  repeated branch-size look-ups during a subtree build (and across requests)
+  don't re-walk the same descendants."
+  [{:keys [graph] :as m}]
+  (assoc m :descendant-count
+         (memo/lru (fn [s] (hyponymy/hyponym-descendant-count graph s))
+                   :lru/threshold 10000)))
+
 (defn- ->hyponym-graph
   []
-  (delay
-    (tel/trace! {:id :dannet.graph/hyponym-graph :run-val :elided}
-                (let [hypo (sim/build-hyponym-graph (:graph @hypernym-graph))]
-                  {:graph            hypo
-                   ;; memoized so repeated branch-size look-ups during a subtree build
-                   ;; (and across requests) don't re-walk the same descendants
-                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count hypo s)))
-                   :orthogonal-only  (:orthogonal-only @hypernym-graph)}))))
+  (->derived "hyponym-graph" build-hyponym-graph attach-descendant-count))
 
 (defonce hyponym-graph (->hyponym-graph))
 
+(defn- build-meronym-graph
+  "Build the cached part of `meronym-graph` from the base graph.
+
+  Same shape as `hyponym-graph` so `hyponymy/hyponym-tree` can build meronym
+  sunburst trees over it unchanged; no meronym is orthogonal-only."
+  []
+  (tel/trace! {:id :dannet.graph/meronym-graph :run-val :elided}
+              (let [bg (.getGraph (:base-model @db))]
+                {:graph           (sim/build-meronym-graph bg)
+                 :orthogonal-only #{}})))
+
 (defn- ->meronym-graph
   []
-  (delay
-    (tel/trace! {:id :dannet.graph/meronym-graph :run-val :elided}
-                (let [mero (sim/build-meronym-graph (.getGraph (:base-model @db)))]
-                  ;; Same shape as `hyponym-graph` so `hyponymy/hyponym-tree`
-                  ;; can build meronym sunburst trees over it unchanged.
-                  {:graph            mero
-                   :descendant-count (memo/memo (fn [s] (hyponymy/hyponym-descendant-count mero s)))
-                   :orthogonal-only  (constantly false)}))))
+  (->derived "meronym-graph" build-meronym-graph attach-descendant-count))
 
 (defonce meronym-graph (->meronym-graph))
 
@@ -137,24 +215,64 @@
           (update-in [k :s] #(or % rep))
           (update-in [k :lemmas] (fnil conj #{}) lemma)))))
 
-;; TODO: should be transformed into a tightly packed tried (currently loose)
+(defn- entry-id->bytes
+  "Encode search trie `entry-id` as bytes; nil (an intermediate node) as 0."
+  [entry-id]
+  (encoding/encode (or entry-id 0)))
+
+(defn- bytes->entry-id
+  "Decode a search trie entry id from `bb`; nil for an intermediate node."
+  [^ByteBuffer bb]
+  (let [entry-id (encoding/decode bb)]
+    (when-not (zero? entry-id) entry-id)))
+
+(defn- pack-search-trie
+  "Pack `entries` ({search-string entry}) into the bytes of a tightly packed
+  trie keyed by char code, whose values index the returned `:entries` vector."
+  [entries]
+  (let [ks      (vec (keys entries))
+        entries (into [nil] (map entries) ks)
+        trie    (tpt/tightly-packed-trie
+                  (apply trie/make-trie (mapcat (fn [id k] [(mapv int k) id])
+                                                (iterate inc 1)
+                                                ks))
+                  entry-id->bytes
+                  bytes->entry-id)]
+    {:entries entries
+     :trie    (.array ^ByteBuffer (.byte-buffer ^TightlyPackedTrie trie))}))
+
+(defn- build-search-trie
+  "Build the cached part of `search-trie`: the packed trie and its entries for
+  every DanNet written representation and COR word form."
+  []
+  (let [dataset (:dataset @db)
+        words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
+                            '[?writtenRep] op/written-representations)
+                     (map (comp str first)))
+        forms   (->> (q/run (db/get-graph dataset prefix/cor-uri)
+                            op/cor-word-forms)
+                     (map (juxt (comp str '?lemma) (comp str '?rep))))
+        entries (reduce add-form-entry
+                        (reduce add-word-entry {} words)
+                        forms)]
+    (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
+                (pack-search-trie entries))))
+
 (defn- ->search-trie
   []
-  (delay
-    (let [dataset (:dataset @db)
-          words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
-                              '[?writtenRep] op/written-representations)
-                       (map (comp str first)))
-          forms   (->> (q/run (db/get-graph dataset prefix/cor-uri)
-                              op/cor-word-forms)
-                       (map (juxt (comp str '?lemma) (comp str '?rep))))
-          entries (reduce add-form-entry
-                          (reduce add-word-entry {} words)
-                          forms)]
-      (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
-                  (apply trie/make-trie (mapcat identity entries))))))
+  (->derived "search-trie" build-search-trie
+             #(update % :trie tpt/load-tightly-packed-trie-from-file
+                      bytes->entry-id)))
 
 (defonce search-trie (->search-trie))
+
+(def derived
+  "The structures cached on disk (see `->derived`) and their constructors, in
+  build order: `hyponym-graph` derives from `hypernym-graph`."
+  [[#'hypernym-graph ->hypernym-graph]
+   [#'hyponym-graph ->hyponym-graph]
+   [#'meronym-graph ->meronym-graph]
+   [#'search-trie ->search-trie]])
 
 (defn- completion-items
   "Convert a search trie entry value `v` into autocompletion items: a string
@@ -175,11 +293,13 @@
   []
   (memo/lu
     (fn [s]
-      (->> (trie/lookup @search-trie s)
-           (keep second)                                    ; remove partial
-           (mapcat completion-items)
-           (sort-by completion-sort-key)
-           (take 200)))                                     ; cap the payload
+      (let [{:keys [trie entries]} @search-trie]
+        (->> (locking trie                                  ; shared byte buffer
+               (into [] (keep second) (trie/lookup trie (map int s))))
+             (map entries)
+             (mapcat completion-items)
+             (sort-by completion-sort-key)
+             (take 200))))                                  ; cap the payload
     :lu/threshold 2000))
 
 (defonce ^{:doc "Return auto-completions for `s` found in the graph,
@@ -228,12 +348,29 @@ capped at 200 items."}
                                         (take n))]
                   (q/expanded-entity g synset)))))
 
+(defn warm-up!
+  "Realise the derived structures from the on-disk cache, then rebuild each
+  from the database, replacing the cached one and refreshing its cache."
+  []
+  (let [cached? (.exists (cache-dir))]
+    (doseq [[v] derived]
+      @@v)
+    (when cached?
+      (try
+        (clear-cache!)
+        (doseq [[v build] derived]
+          (alter-var-root v (constantly (doto (build) deref))))
+        (memo/memo-clear! autocomplete)
+        (catch Exception e
+          (tel/error! {:id :dannet.graph/warm-up-error} e))))))
+
 (defn reset-indices!
   "Replace every structure derived from the db with a freshly built one.
 
   Needed whenever the db underneath them is replaced; a realised delay would
   otherwise keep serving structures derived from the previous database."
   []
+  (clear-cache!)
   (doseq [[v build] {#'superproperty-closure ->superproperty-closure
                      #'hypernym-graph        ->hypernym-graph
                      #'hyponym-graph         ->hyponym-graph

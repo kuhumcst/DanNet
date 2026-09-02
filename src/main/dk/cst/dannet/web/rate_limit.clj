@@ -40,11 +40,19 @@
   (when-let [expiry-ms (get-in @registry [key :expiry-ms])]
     (Instant/ofEpochMilli expiry-ms)))
 
+(defn req->client-ip
+  "Client IP of `req`: the last X-Forwarded-For address, i.e. the one appended
+  by our own reverse proxy, falling back to the remote address."
+  [req]
+  (if-let [xff (get-in req [:headers "x-forwarded-for"])]
+    (str/trim (last (str/split xff #",")))
+    (:remote-addr req)))
+
 ;; TODO: use data structure instead of string?
 (defn req->composite-key
   "Generate composite key from `req` using IP, User-Agent, and Accept-Language."
   [req]
-  (str (:remote-addr req) "-"
+  (str (req->client-ip req) "-"
        (get-in req [:headers "user-agent"]) "-"
        (get-in req [:headers "accept-language"])))
 
@@ -74,38 +82,38 @@
   The config map should contain the following keys:
     :quota     - requests allowed per window.
     :window-ms - window duration in milliseconds.
-    :req->key  - function to generate key from request."
-  [{:keys [quota window-ms req->key]
-    :or   {req->key req->composite-key}}]
+    :req->key  - function to generate key from request.
+    :limit?    - predicate selecting the requests that count (default: all)."
+  [{:keys [quota window-ms req->key limit?]
+    :or   {req->key req->composite-key
+           limit?   (constantly true)}}]
   (interceptor/interceptor
     {:name ::rate-limit
      :enter
-     (fn [ctx]
-       (let [req           (:request ctx)
-             key           (req->key req)
-             current-count (get-hit-count! key)]
+     (fn [{:keys [request] :as ctx}]
+       (if-not (limit? request)
+         ctx
+         (let [key           (req->key request)
+               current-count (get-hit-count! key)]
 
-         (if (>= current-count quota)
-           ;; Rate limit exceeded
-           (let [retry-after-inst    (or (get-expiry key)
-                                         (Instant/ofEpochMilli (+ (now-ms) window-ms)))
-                 retry-after-seconds (int (/ (.toEpochMilli retry-after-inst) 1000))
-                 response            (rate-limit-response quota retry-after-seconds req)]
-             (t/log! {:level :warn
-                      :data  {:key         key
-                              :hits        current-count
-                              :quota       quota
-                              :remote-addr (:remote-addr req)}}
-                     "Rate limit exceeded")
-             (chain/terminate (assoc ctx :response response)))
+           (if (>= current-count quota)
+             ;; Rate limit exceeded
+             (let [expiry   (or (get-expiry key)
+                                (Instant/ofEpochMilli (+ (now-ms) window-ms)))
+                   seconds  (int (/ (.toEpochMilli expiry) 1000))
+                   response (rate-limit-response quota seconds request)]
+               (t/log! {:level :warn
+                        :data  {:key key :hits current-count :quota quota}}
+                       "Rate limit exceeded")
+               (chain/terminate (assoc ctx :response response)))
 
-           ;; Allow request and increment counter
-           (do
-             (inc-hit-count! key window-ms)
-             (when (= 0 (mod (inc current-count) 10))
-               (t/log! {:level :debug
-                        :data  {:key   key
-                                :hits  (inc current-count)
-                                :quota quota}}
-                       "Rate limit status"))
-             ctx))))}))
+             ;; Allow request and increment counter
+             (do
+               (inc-hit-count! key window-ms)
+               (when (= 0 (mod (inc current-count) 10))
+                 (t/log! {:level :debug
+                          :data  {:key   key
+                                  :hits  (inc current-count)
+                                  :quota quota}}
+                         "Rate limit status"))
+               ctx)))))}))

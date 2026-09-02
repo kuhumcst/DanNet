@@ -9,9 +9,16 @@ www.wordnet.dk {
 wordnet.dk, localhost {
     redir / /dannet
 
-    # a reasonably generous OUTER rate limit based solely on the IP address
-    # additional rate limiting should occur WITHIN the web service itself
-    rate_limit {remote.ip} 1200r/m
+    # OUTER rate limits based solely on the IP address; finer rate limiting
+    # occurs WITHIN the web service itself. Entity pages are what crawlers
+    # hammer, so they get a tight limit unless fetched as transit, i.e. by the
+    # frontend app (a classroom shares one IP).
+    @entity {
+        path /dannet/data/* /dannet/external/*
+        not header Accept *transit*
+    }
+    rate_limit @entity {remote.ip} 120r/m
+    rate_limit {remote.ip} 2400r/m
 
     # The default content-type matcher does NOT include Transit, so entity
     # data payloads (~1 MB for the largest synsets) went uncompressed.
@@ -39,8 +46,11 @@ wordnet.dk, localhost {
         reverse_proxy mcp:8000
     }
 
-    # Everything else goes to the DanNet web service
+    # Everything else goes to the DanNet web service; SEO/backlink harvesters
+    # (which ignore robots.txt) get a 403
     handle {
+        @junkbots header_regexp User-Agent (?i)(AhrefsBot|BLEXBot|Barkrowler|DataForSeoBot|DotBot|MJ12bot|SERankingBacklinksBot|SemrushBot|SleepBot)
+        respond @junkbots 403
         reverse_proxy dannet:3456
     }
 }

@@ -11,6 +11,7 @@
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.web.rate-limit :as rl]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
   (:gen-class))
@@ -67,10 +68,17 @@
                   (update-in [:request :uri] remove-trailing-slash)
                   (update-in [:request :path-info] remove-trailing-slash)))}))
 
-;; 400 requests/minute based on fingerprinting
+;; 400 requests/minute based on fingerprinting; only the costly routes count, so
+;; page assets and autocomplete keystrokes don't eat the quota.
 (def dannet-rate-limit-ic
-  (rl/->rate-limit-ic {:quota     400
-                       :window-ms 60000}))
+  (let [costly-paths [(prefix/uri->path prefix/dn-uri)
+                      prefix/external-path
+                      prefix/sparql-path]]
+    (rl/->rate-limit-ic {:quota     400
+                         :window-ms 60000
+                         :limit?    (fn [{:keys [uri]}]
+                                      (some #(str/starts-with? uri %)
+                                            costly-paths))})))
 
 (defn ->service-map
   [conf]
@@ -83,12 +91,14 @@
                :font-src    "'self'"
                :style-src   "'self' 'unsafe-inline'"
                :base-uri    "'self'"})]
-    (-> {::http/routes         #((deref #'routes))
-         ::http/type           :jetty
-         ::http/host           "0.0.0.0"
-         ::http/port           3456
-         ::http/resource-path  "/public"
-         ::http/secure-headers {:content-security-policy-settings csp}}
+    (-> {::http/routes            #((deref #'routes))
+         ::http/type              :jetty
+         ::http/host              "0.0.0.0"
+         ::http/port              3456
+         ;; bounds concurrent requests (and thus peak heap) on the 2-core host
+         ::http/container-options {:max-threads 32}
+         ::http/resource-path     "/public"
+         ::http/secure-headers    {:content-security-policy-settings csp}}
 
         ;; Extending default interceptors here.
         (http/default-interceptors)
@@ -145,7 +155,7 @@
   "Initialise the database and its derived structures on a background thread,
   pre-warming the expanded-entity cache for the largest synsets."
   []
-  (async/thread @instance/db @instance/synset-rels @instance/hypernym-graph
+  (async/thread @instance/db @instance/synset-rels (instance/warm-up!)
                 (instance/warm-entity-cache! 25)))
 
 (defn start []

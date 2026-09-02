@@ -43,10 +43,10 @@
 ;; between bindings.
 
 (defonce query-executor
-  (Executors/newFixedThreadPool 32))
+  (Executors/newFixedThreadPool 8))
 
 (defonce inference-query-executor
-  (Executors/newFixedThreadPool 8))
+  (Executors/newFixedThreadPool 4))
 
 (defn with-hard-timeout
   "Execute `f` on `executor`, enforcing a hard `timeout` (in ms).
