@@ -9,6 +9,16 @@ www.wordnet.dk {
 wordnet.dk, localhost {
     redir / /dannet
 
+    # Access log with client IPs, kept two weeks, for judging crawler traffic
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50mb
+            roll_keep 7
+            roll_keep_for 336h
+        }
+        format json
+    }
+
     # OUTER rate limits based solely on the IP address; finer rate limiting
     # occurs WITHIN the web service itself. Entity pages are what crawlers
     # hammer, so they get a tight limit unless fetched as transit, i.e. by the

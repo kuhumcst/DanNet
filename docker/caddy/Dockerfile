@@ -23,6 +23,7 @@ COPY --from=build /etc/caddy/caddy /usr/bin/caddy
 
 # Add the server configuration containing
 COPY ./docker/caddy/Caddyfile /etc/caddy/Caddyfile
+RUN mkdir -p /var/log/caddy
 
 # Prepare the start script
 COPY ./docker/caddy/start.sh /etc/caddy/start.sh
