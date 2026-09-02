@@ -50,11 +50,11 @@ Add `"env": {"DANNET_MCP_LOCAL": "true"}` to use a local DanNet server.
 
 ## Features
 
-**Tools:** `get_word_synsets`, `get_synset_info`, `get_word_info`, `get_sense_info`, `get_word_synonyms`, `autocomplete_danish_word`, `sparql_query`, `fetch_ddo_definition`
+**Tools:** `get_word_overview`, `get_word_synsets`, `get_entity_info`, `autocomplete_danish_word`, `sparql_query`, `fetch_ddo_definition`
 
-**Resources:** `dannet://schema/{prefix}`, `dannet://schemas`, `dannet://namespaces`, `dannet://ontological-types`
+**Resources:** `dannet://schema/{prefix}`, `dannet://dannet-schema`, `dannet://ontological-types`, `dannet://wordnet-schema`
 
-**Prompts:** `analyze_danish_word`, `compare_danish_words`, `explore_semantic_field`, `analyze_part_whole`, `find_translation_equivalents`, `analyze_verb_roles`, `explore_polysemy`
+**Prompts:** `analyze_danish_word`, `compare_danish_words`, `explore_semantic_field`, `trace_taxonomic_path`, `map_part_whole_relations`, `find_translation_equivalents`, `analyze_verb_roles`, `explore_polysemy`
 
 ## CLI Options
 

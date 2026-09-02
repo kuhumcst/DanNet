@@ -6,11 +6,11 @@ RUN pip install uv
 WORKDIR /app
 
 # Copy the MCP server code
-COPY ./mcp/pyproject.toml /app/
+COPY ./mcp/pyproject.toml ./mcp/uv.lock /app/
 COPY ./mcp/dannet_mcp_server.py /app/
 
-# Install dependencies with uv
-RUN uv sync
+# Install the locked dependencies with uv
+RUN uv sync --frozen
 
 # Run the MCP server in HTTP mode, pointing to the dannet service
 # The --base-url points to the internal docker network hostname

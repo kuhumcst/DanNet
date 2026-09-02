@@ -1,2522 +1,482 @@
 #!/usr/bin/env python3
-"""
-DanNet MCP Server - A Model Context Protocol server for accessing DanNet (Danish WordNet)
-
-This server provides AI applications with access to DanNet's rich Danish linguistic data
-including synsets, semantic relationships, word definitions, and examples.
-
-Server Selection (in order of precedence):
-1. --base-url <url>                   # Explicit custom URL
-2. --local or DANNET_MCP_LOCAL=true  # Force local server (localhost:3456)  
-3. Auto-detect local server          # Default: try local, fallback to remote
-4. Remote server fallback            # Uses wordnet.dk if local unavailable
-
-Usage:
-    python dannet_mcp_server.py                    # Auto-detect (local preferred, remote fallback)
-    python dannet_mcp_server.py --local           # Force localhost:3456 (development)
-    python dannet_mcp_server.py --base-url <url>  # Custom base URL
-"""
+"""DanNet MCP server: Danish WordNet tools, resources and prompts backed by the
+DanNet web service, either wordnet.dk or a local instance (see --help)."""
 
 import argparse
-import logging
+import asyncio
+import html
 import json
+import logging
 import os
+import re
 from functools import lru_cache
-from typing import Dict, List, Optional, Any, Union
-from urllib.parse import urljoin
+from typing import Any
 
 import httpx
-from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+log = logging.getLogger("dannet")
 
-# Global configuration
 REMOTE_URL = "https://wordnet.dk"
 LOCAL_URL = "http://localhost:3456"
-TIMEOUT = 45.0
-MAX_RETRIES = 3
 
-# Session-scoped cache for get_resource calls; keyed on (base_url, resource_id).
-# A plain dict is sufficient — MCP server processes are short-lived and memory is not a concern.
-_resource_cache: Dict[tuple, Dict] = {}
+INSTRUCTIONS = """\
+DanNet is the Danish WordNet, modelled with OntoLex-Lemon and the Global
+WordNet schema: words (ontolex:LexicalEntry) have senses (ontolex:LexicalSense)
+that lexicalize synsets (ontolex:LexicalConcept). The triplestore also holds
+the Open English WordNet (en:) and the COR inflection lexicon (cor:).
 
-# Schema files never change between deployments, so cache them permanently for the process lifetime.
-_schema_cache: Dict[str, str] = {}
+Workflow: get_word_overview(word) gives every sense of a word with synonyms,
+hypernym and ontological types in one call; get_entity_info(id) gives the full
+JSON-LD of any synset, word or sense; sparql_query covers everything else.
+Synset definitions can be truncated (ending in "…"); fetch_ddo_definition
+fetches the full text from DDO.
 
+Key relations: wn:hypernym/wn:hyponym (taxonomy), dns:orthogonalHypernym,
+wn:mero_*/wn:holo_* (part-whole), wn:similar, wn:antonym, dns:usedFor,
+wn:agent/wn:instrument/wn:patient/wn:result (thematic roles), wn:causes,
+wn:ili and wn:eq_synonym (English equivalents). dns:ontologicalType holds the
+EuroWordNet-style semantic types (dnc:Animal, dnc:Human, dnc:Object, ...),
+dns:sentiment the polarity (marl:hasPolarity, marl:polarityValue) and
+dns:inherited marks properties inherited from hypernyms.
 
-class DanNetError(Exception):
-    """Custom exception for DanNet API errors"""
-    pass
+Sense labels follow DDO (Den Danske Ordbog): "hund_1§1" is the word "hund",
+entry 1, definition 1. Synset labels list the member senses, e.g.
+"{hund_1§1; køter_§1; vovhund_§1}".
 
+Prefixes: dn: (data), dns: (schema), dnc: (ontological types), dnf: (similarity
+functions dnf:path, dnf:lch, dnf:wup), wn:, ontolex:, lexinfo:, skos:, rdfs:,
+rdf:, owl:, marl:, dc:, ili:, en:, enl:, cor:. Read dannet://schema/{prefix}
+for the schema behind a prefix.
+"""
 
-def with_retry(entity_not_found_msg=None):
-    """
-    Decorator that adds retry logic with exponential backoff for HTTP requests.
-    
-    
-    Features:
-    - Exponential backoff for rate limiting (starts at 0.5s, doubles each retry)
-    - Intelligent error classification (permanent vs. retryable errors)
-    - Customizable error messages for different contexts
-    - Consistent logging across all retry operations
-    
-    Args:
-        entity_not_found_msg: Custom function to generate 404 error message (optional)
-    
-    Error handling:
-    - 404, 400: Immediate failure (permanent errors)
-    - 429: Retry with exponential backoff (0.5s, 1s, 2s...)  
-    - Network errors: Retry with exponential backoff
-    
-    Usage:
-        @with_retry()
-        def make_request(self, url, params):
-            response = self.client.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-    """
-    import functools
-    import time
-    
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            for attempt in range(MAX_RETRIES):
-                try:
-                    return func(*args, **kwargs)
-                    
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 404:
-                        # 404 errors are permanent - don't retry, but provide context
-                        if entity_not_found_msg and callable(entity_not_found_msg):
-                            error_msg = entity_not_found_msg(*args, **kwargs)
-                        else:
-                            # Default behavior for _make_request
-                            if hasattr(args[0], '__self__') and len(args) > 1:
-                                endpoint = args[1]  # Second argument for _make_request
-                                error_msg = f"Resource not found: {endpoint}"
-                            else:
-                                error_msg = "Resource not found"
-                        raise DanNetError(error_msg)
-                    elif e.response.status_code == 429:
-                        # Rate limiting - retry with backoff
-                        if attempt < MAX_RETRIES - 1:
-                            backoff_time = 0.5 * (2 ** attempt)  # Exponential backoff
-                            logger.warning(f"Rate limited, retrying in {backoff_time:.1f}s... (attempt {attempt + 1})")
-                            time.sleep(backoff_time)
-                            continue
-                        raise DanNetError("Rate limit exceeded")
-                    else:
-                        # Other HTTP errors are permanent - don't retry  
-                        raise DanNetError(f"HTTP error {e.response.status_code}: {e.response.text}")
-                        
-                except Exception as e:
-                    # Network/connection errors - retry with backoff
-                    if attempt < MAX_RETRIES - 1:
-                        backoff_time = 0.5 * (2 ** attempt)  # Exponential backoff
-                        logger.warning(f"Request failed, retrying in {backoff_time:.1f}s... (attempt {attempt + 1}): {e}")
-                        time.sleep(backoff_time)
-                        continue
-                    raise DanNetError(f"Request failed: {e}")
-                    
-            raise DanNetError("Max retries exceeded")
-            
-        return wrapper
-    return decorator
-
-
-class SearchResult(BaseModel):
-    """Search result from DanNet"""
-    word: str = Field(description="The word form")
-    synset_id: Optional[str] = Field(description="Associated synset ID")
-    label: Optional[str] = Field(description="Synset label")
-    definition: Optional[str] = Field(description="Definition")
-
-
-class DanNetClient:
-    """HTTP client for DanNet API with format negotiation support"""
-
-    def __init__(self, base_url: str = REMOTE_URL):
-        """
-        Initialize DanNet client.
-
-        Args:
-            base_url: DanNet service URL
-        """
-        self.base_url = base_url.rstrip('/')
-        self.client = httpx.Client(timeout=TIMEOUT)
-
-    @with_retry()
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
-        """Make HTTP request to DanNet API"""
-        url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
-
-        # Add format=json parameter since DanNet doesn't support Accept header
-        request_params = params or {}
-        request_params["format"] = "json"
-
-        logger.debug(f"Making request to {url} with params {request_params}")
-        # Note: allow_redirects=True handles automatic redirects for single search results
-        response = self.client.get(url, params=request_params, follow_redirects=True)
-        response.raise_for_status()
-
-        return response.json()
-
-    @with_retry()  
-    def _make_entity_request(self, url: str, params: Dict) -> Dict:
-        """Make HTTP request for entity data with retry logic"""
-        logger.debug(f"Making request to {url} with params {params}")
-        response = self.client.get(url, params=params, follow_redirects=True)
-        response.raise_for_status()
-        return response.json()
-
-
-def _entity_not_found_error(identifier: str, namespace: str = "dn") -> str:
-    """Generate entity-specific 404 error message"""
-    return f"Entity not found: {namespace}/{identifier}"
-
-
-@with_retry(entity_not_found_msg=lambda identifier, namespace="dn": _entity_not_found_error(identifier, namespace))
-def _make_entity_request_standalone(client: DanNetClient, url: str, params: Dict) -> Dict:
-    """Standalone entity request function for get_entity_info"""
-    logger.debug(f"Making request to {url} with params {params}")
-    response = client.client.get(url, params=params, follow_redirects=True)
-    response.raise_for_status()
-    return response.json()
-
-
-def _sparql_error_handler(query: str, **kwargs) -> str:
-    """Generate SPARQL-specific error messages"""
-    return "SPARQL endpoint not found - check server configuration"
-
-
-@with_retry(entity_not_found_msg=lambda query, **kwargs: _sparql_error_handler(query, **kwargs))
-def _make_sparql_request(client: DanNetClient, url: str, params: Dict) -> Dict:
-    """Standalone SPARQL request function with custom error handling"""
-    logger.debug(f"Making SPARQL request with params {params}")
-    response = client.client.get(url, params=params, follow_redirects=True)
-    
-    # Handle SPARQL-specific HTTP errors
-    if response.status_code == 400:
-        try:
-            err = response.json()
-            msg = err.get("error", "Invalid SPARQL query")
-            details = err.get("details") or err.get("type")
-            raise DanNetError(f"{msg} ({details})" if details else msg)
-        except (ValueError, KeyError):
-            raise DanNetError(f"Invalid SPARQL query: {response.text}")
-    elif response.status_code == 504:
-        try:
-            err = response.json()
-            msg = err.get("error", {}).get("message", "Query timed out")
-            raise DanNetError(msg)
-        except (ValueError, KeyError):
-            raise DanNetError("SPARQL query timed out")
-    elif response.status_code == 404:
-        raise DanNetError("SPARQL endpoint not found - check server configuration")
-    
-    response.raise_for_status()
-    return response.json()
-
-
-class DanNetClient:
-    """HTTP client for DanNet API with format negotiation support"""
-
-    def __init__(self, base_url: str = REMOTE_URL):
-        """
-        Initialize DanNet client.
-
-        Args:
-            base_url: DanNet service URL
-        """
-        self.base_url = base_url.rstrip('/')
-        self.client = httpx.Client(timeout=TIMEOUT)
-
-    @with_retry()
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
-        """Make HTTP request to DanNet API"""
-        url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
-
-        # Add format=json parameter since DanNet doesn't support Accept header
-        request_params = params or {}
-        request_params["format"] = "json"
-
-        logger.debug(f"Making request to {url} with params {request_params}")
-        # Note: allow_redirects=True handles automatic redirects for single search results
-        response = self.client.get(url, params=request_params, follow_redirects=True)
-        response.raise_for_status()
-
-        return response.json()
-
-    @with_retry()  
-    def _make_entity_request(self, url: str, params: Dict) -> Dict:
-        """Make HTTP request for entity data with retry logic"""
-        logger.debug(f"Making request to {url} with params {params}")
-        response = self.client.get(url, params=params, follow_redirects=True)
-        response.raise_for_status()
-        return response.json()
-
-    def search(self, query: str, language: str = "da") -> Dict:
-        """Search DanNet for words and synsets"""
-        return self._make_request("/dannet/search", {"lemma": query, "lang": language})
-
-    def get_resource(self, resource_id: str) -> Dict:
-        """Get a specific resource (synset, word, etc.) by ID, with session-scoped LRU cache."""
-        cache_key = (self.base_url, resource_id)
-        if cache_key in _resource_cache:
-            return _resource_cache[cache_key]
-        result = self._make_request(f"/dannet/data/{resource_id}")
-        _resource_cache[cache_key] = result
-        return result
-
-    def autocomplete(self, prefix: str) -> List[str]:
-        """Get autocomplete suggestions for a word prefix"""
-        try:
-            # Use _make_request to automatically include format=json parameter
-            data = self._make_request("/dannet/autocomplete", {"s": prefix})
-
-            # Extract autocompletions from the JSON response
-            if isinstance(data, dict) and 'autocompletions' in data:
-                return data['autocompletions']
-            else:
-                return []
-
-        except Exception as e:
-            logger.error(f"Autocomplete failed for '{prefix}': {e}")
-            return []
-
-
-# Initialize the DanNet client (will be set in main())
-dannet_client = None
-
-# Create FastMCP server with helpful instructions
 mcp = FastMCP(
     "DanNet",
+    instructions=INSTRUCTIONS,
     transport_security=TransportSecuritySettings(
-        allowed_hosts=["localhost", "127.0.0.1", "wordnet.dk", "www.wordnet.dk"],
-    ),
-    instructions="""DanNet MCP Server - Danish WordNet with rich semantic relationships
-
-SEMANTIC DATA MODEL:
-DanNet follows OntoLex-Lemon + Global WordNet standards where:
-- Words (LexicalEntry) → Senses → Synsets (LexicalConcept)
-- Synsets represent units of meaning shared by synonymous words
-- Rich semantic network with 10+ major relation categories, 70+ specific types
-
-RDF STORAGE PATTERNS:
-DanNet uses sophisticated RDF structures for complex data:
-- Ontological types (dns:ontologicalType) are stored as RDF Bags with numbered properties (rdf:_0, rdf:_1, etc.)
-- Word connections use ontolex:isEvokedBy pointing to word entities, not direct labels
-- Synset labels contain quoted word forms with DDO notation (e.g., "{\"hund\", \"køter\"}")
-- Some properties may be stored as blank nodes requiring multi-step queries
-
-QUICK START WORKFLOW:
-1. Check resources for context:
-   - dannet://wordnet-schema → core WordNet RDF relations
-   - dannet://dannet-schema → DanNet-specific WordNet relation extensions
-   - dannet://ontological-types → Semantic categories (Animal, Human, Object, etc.)
-   - dannet://namespaces → Understanding prefixes in the data
-   
-2. Search for words to find synsets:
-   - get_word_synsets("hund") → Find all meanings
-   - Note: Danish has high polysemy (words with multiple meanings)
-   
-3. Explore synset details:
-   - get_synset_info() → Full RDF data with relationships
-   - Check dns:ontologicalType for semantic class
-   - Follow wn:hypernym for categories, wn:hyponym for specifics
-   
-4. Navigate semantic relationships:
-   - Taxonomic: hypernym (broader) / hyponym (narrower)
-   - Similarity: similar, near_synonym, antonym
-   - Part-whole: meronym/holonym (part/substance/member)
-   - Functional: used_for, causes, instrument (DanNet-specific)
-
-CORE RELATION CATEGORIES:
-- Taxonomic: hypernym/hyponym chains + orthogonalHyponym for cross-cutting categories
-- Part-Whole: mero_part/holo_part (components), mero_member/holo_member (collections), 
-  mero_substance/holo_substance (materials), mero_location/holo_location (spatial)
-- Thematic Roles: agent/involved_agent (who), instrument/involved_instrument (with what),
-  patient/involved_patient (to what), result/involved_result (outcome)
-- Functional: usedFor/usedForObject (purpose), domain_topic/has_domain_topic (fields)
-- Causal-Temporal: causes/is_caused_by, entails/is_entailed_by, subevent/is_subevent_of
-- Similarity-Opposition: similar, eq_synonym, antonym (+ gradable/simple/converse variants)
-- Co-occurrence: co_agent_instrument, co_patient_agent (systematic co-occurrence patterns)
-
-SEMANTIC PATTERNS BY DOMAIN:
-- Animals: taxonomic hierarchies + agent roles + instrument co-occurrence
-- Artifacts: extensive part-whole decomposition + functional domains
-- Actions: thematic role chains (agent-instrument-patient-result)
-- Body parts: anatomical part-whole hierarchies + location relations
-- Emotions: similarity networks + sentiment annotations
-- Locations: spatial containment + domain classifications
-
-ONTOLOGICAL TYPES (dns:ontologicalType):
-Core: Animal, Human, Object, Physical, Mental, Property
-Events: BoundedEvent, UnboundedEvent, Agentive, Cause
-Artifacts: Vehicle, Instrument, Artifact, Natural, BodyPart
-Domains: Place, Location, Comestible, Occupation
-
-DANNET EXTENSIONS:
-- Sentiment polarity (Positive/Negative) with intensity values
-- Inheritance system (dns:inherited) reduces redundancy
-- DDO integration via synset labels {word_entry§definition}
-- Cross-linguistic via wn:ili (Inter-Lingual Index) + the Open English WordNet
-
-JSON-LD FORMAT GUIDE:
-- All responses use standard JSON-LD with @context, @id, @type
-- Namespace prefixes: dns: (schema), wn: (WordNet), ontolex: (vocabulary)
-- Semantic data directly accessible: dns:ontologicalType["@set"], dns:sentiment["marl:hasPolarity"]
-- Property names use colon format: "dns:sentiment" not ":dns/sentiment"
-- Multi-value properties use arrays: ["dn:synset-1", "dn:synset-2"]
-- Language-tagged literals: {"@value": "text", "@language": "da"}
-
-KEY SEMANTIC PATTERNS:
-- Hypernym chains reveal conceptual hierarchies
-- Multiple hyponyms indicate important category nodes
-- dns:inherited shows properties from parent concepts
-- Cross-linguistic via wn:ili (or wn:eq_synonym to the Open English WordNet)
-
-DATA FORMATS:
-- JSON-LD responses with semantic data directly accessible
-- Clean namespace prefixes (dns: for schema, dn: for data)
-- Raw RDF available via Turtle format for graph operations
-- All properties use standard JSON-LD format with @context
-
-TIPS FOR LLM USAGE:
-- Start broad with word search, then narrow to specific synsets
-- Use ontological types to understand what kind of entity something is
-- Follow relation chains: taxonomic for classification, functional for purpose,
-  part-whole for composition, thematic roles for event structure
-- Check sentiment annotations for emotional concepts
-"""
+        allowed_hosts=["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*",
+                       "wordnet.dk", "www.wordnet.dk"]),
 )
 
 
-def get_client():
-    """Get the DanNet client, initializing with default URL if not already set"""
-    global dannet_client
-    if dannet_client is None:
-        # Fallback initialization - check environment variable
-        is_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
-        base_url = LOCAL_URL if is_local else REMOTE_URL
-        dannet_client = DanNetClient(base_url)
-        logger.info(f"Lazy initialization of DanNet client with base URL: {base_url}")
-    return dannet_client
+class DanNetError(Exception):
+    """An error reported by the DanNet web service."""
 
 
-def parse_resource_id(resource_uri: str) -> str:
-    """
-    Extract resource ID from a DanNet URI.
-    
-    Handles various URI formats:
-    - Prefixed: "dn:synset-1876" → "synset-1876"  
-    - Full URIs: "https://wordnet.dk/dannet/data/synset-1876" → "synset-1876"
-    - Clean IDs: "synset-1876" → "synset-1876"
-    
-    Args:
-        resource_uri: URI or ID string to parse
-        
-    Returns:
-        Clean resource identifier
-    """
-    if isinstance(resource_uri, str):
-        # Handle prefixed URIs like "dn:synset-1876"
-        if resource_uri.startswith('dn:'):
-            return resource_uri[3:]  # Strip "dn:" prefix
-        # Handle full HTTP URIs
-        elif '/' in resource_uri:
-            return resource_uri.split('/')[-1]
-        return resource_uri
-    return str(resource_uri)
-
-def validate_jsonld_structure(data: Dict[str, Any]) -> bool:
-    """
-    Validate that a response has proper JSON-LD structure.
-    
-    Args:
-        data: Response data to validate
-        
-    Returns:
-        True if valid JSON-LD, False otherwise
-    """
-    if not isinstance(data, dict):
-        return False
-    
-    # Check for essential JSON-LD properties
-    required_props = ['@context', '@id', '@type']
-    return all(prop in data for prop in required_props)
-
-
-def get_namespace_prefixes(data: Dict[str, Any]) -> Dict[str, str]:
-    """
-    Extract namespace prefixes from JSON-LD @context.
-    
-    Args:
-        data: JSON-LD data with @context
-        
-    Returns:
-        Dict mapping prefixes to full namespace URLs
-    """
-    context = data.get('@context', {})
-    if isinstance(context, dict):
-        return {k: v for k, v in context.items() if isinstance(v, str)}
-    return {}
-
-
-def resolve_prefixed_uri(uri: str, context: Dict[str, str]) -> str:
-    """
-    Resolve a prefixed URI using JSON-LD context.
-    
-    Args:
-        uri: Prefixed URI like "dns:sentiment" or full URI
-        context: Namespace context mapping
-        
-    Returns:
-        Resolved full URI or original if not prefixed
-    """
-    if ':' in uri and not uri.startswith(('http://', 'https://')):
-        prefix, local = uri.split(':', 1)
-        if prefix in context:
-            return context[prefix] + local
-    return uri
-
-
-def extract_ontological_types(data: Dict[str, Any]) -> List[str]:
-    """
-    Extract ontological types from JSON-LD synset data.
-    
-    Args:
-        data: Synset JSON-LD data
-        
-    Returns:
-        List of ontological type URIs (e.g., ["dnc:Animal", "dnc:Object"])
-    """
-    ont_type = data.get('dns:ontologicalType', {})
-    if isinstance(ont_type, dict) and '@set' in ont_type:
-        return ont_type['@set']
-    elif isinstance(ont_type, list):
-        return ont_type
-    return []
-
-
-def extract_sentiment_data(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
-    """
-    Extract sentiment information from JSON-LD synset data.
-    
-    Args:
-        data: Synset JSON-LD data
-        
-    Returns:
-        Dict with polarity and value, or None if no sentiment
-    """
-    sentiment = data.get('dns:sentiment')
-    if isinstance(sentiment, dict):
-        return {
-            'polarity': sentiment.get('marl:hasPolarity', ''),
-            'value': sentiment.get('marl:polarityValue', '')
-        }
-    return None
-
-
-def get_language_value(data: Union[str, Dict[str, Any], List[Dict[str, Any]]], preferred_lang: str = 'da') -> str:
-    """
-    Extract language-specific value from JSON-LD language object.
-    
-    Args:
-        data: Either a string, language object with @value/@language, or list of such objects
-        preferred_lang: Preferred language code (default: 'da')
-        
-    Returns:
-        String value, preferring the specified language
-    """
-    if isinstance(data, str):
-        return data
-    elif isinstance(data, list):
-        # Handle multiple language variants
-        for item in data:
-            if isinstance(item, dict) and item.get('@language') == preferred_lang:
-                return item.get('@value', '')
-        # Fall back to first available
-        if data and isinstance(data[0], dict):
-            return data[0].get('@value', '')
-        elif data and isinstance(data[0], str):
-            return data[0]
-    elif isinstance(data, dict):
-        if '@value' in data:
-            return data['@value']
-    return str(data) if data else ''
-
-
-def enhanced_error_message(error: Exception, context: str = '') -> str:
-    """
-    Generate enhanced error messages with JSON-LD context.
-    
-    Args:
-        error: Original exception
-        context: Additional context about the operation
-        
-    Returns:
-        Enhanced error message with debugging guidance
-    """
-    base_msg = str(error)
-    
-    # Add JSON-LD specific guidance for common issues
-    if 'KeyError' in str(type(error)) or 'key' in base_msg.lower():
-        guidance = "Tip: Check property names use JSON-LD format (dns:sentiment not :dns/sentiment)"
-    elif 'TypeError' in str(type(error)) or 'type' in base_msg.lower():
-        guidance = "Tip: Verify JSON-LD structure with @context, @id, @type properties"
-    elif 'ConnectionError' in str(type(error)) or 'connection' in base_msg.lower():
-        guidance = "Tip: Check DanNet server availability and network connectivity"
-    else:
-        guidance = "Tip: Verify data format matches expected JSON-LD structure"
-    
-    if context:
-        return f"{context}: {base_msg}. {guidance}"
-    return f"{base_msg}. {guidance}"
-
-
-@mcp.tool()
-def get_word_synsets(query: str, language: str = "da") -> Union[List[SearchResult], Dict[str, Any]]:
-    """
-    Get synsets (word meanings) for a Danish word, returning a sorted list of lexical concepts.
-
-    DanNet follows the OntoLex-Lemon model where:
-    - Words (ontolex:LexicalEntry) evoke concepts through senses
-    - Synsets (ontolex:LexicalConcept) represent units of meaning
-    - Multiple words can share the same synset (synonyms)
-    - One word can have multiple synsets (polysemy)
-
-    This function returns all synsets associated with a word, effectively giving you
-    all the different meanings/senses that word can have. Each synset represents
-    a distinct semantic concept with its own definition and semantic relationships.
-
-    Common patterns in Danish:
-    - Nouns often have multiple senses (e.g., "kage" = cake/lump)
-    - Verbs distinguish motion vs. state (e.g., "løbe" = run/flow)
-    - Check synset's dns:ontologicalType for semantic classification
-
-    DDO CONNECTION AND SYNSET LABELS:
-    Synset labels are compositions of DDO-derived sense labels, showing all words that 
-    express the same meaning. For example:
-    - "{hund_1§1; køter_§1; vovhund_§1; vovse_§1}" = all words meaning "domestic dog"
-    - "{forlygte_§2; babs_§1; bryst_§2; patte_1§1a}" = all words meaning "female breast"
-    
-    Each individual sense label follows DDO structure:
-    - "hund_1§1" = word "hund", entry 1, definition 1 in DDO (ordnet.dk)
-    - "patte_1§1a" = word "patte", entry 1, definition 1, subdefinition a
-    - The § notation connects directly to DDO's definition numbering system
-
-    This composition reveals the semantic relationships between Danish words and their
-    shared meanings, all traceable back to authoritative DDO lexicographic data.
-
-    RETURN BEHAVIOR:
-    This function has two possible return modes depending on search results:
-    
-    1. MULTIPLE RESULTS: Returns List[SearchResult] with basic information for each synset
-    2. SINGLE RESULT (redirect): Returns full synset data Dict when DanNet automatically 
-       redirects to a single synset. This provides immediate access to all semantic 
-       relationships, ontological types, sentiment data, and other rich information 
-       without requiring a separate get_synset_info() call.
-
-    The single-result case is equivalent to calling get_synset_info() on the synset,
-    providing the same comprehensive RDF data structure with all semantic relations.
-
-    Args:
-        query: The Danish word or phrase to search for
-    
-        language: Language for labels and definitions in results (default: "da" for Danish, "en" for English when available)
-        Note: Only Danish words can be searched regardless of this parameter
-        
-    Returns:
-        MULTIPLE RESULTS: List of SearchResult objects with:
-        - word: The lexical form
-        - synset_id: Unique synset identifier (format: synset-NNNNN)
-        - label: Human-readable synset label (e.g., "{kage_1§1}")
-        - definition: Brief semantic definition (may be truncated with "...")
-        
-        SINGLE RESULT: Dict with complete synset data including:
-        - All RDF properties with namespace prefixes (e.g., wn:hypernym)
-        - dns:ontologicalType → semantic types with @set array
-        - dns:sentiment → parsed sentiment (if present)
-        - synset_id → clean identifier for convenience
-        - All semantic relationships and linguistic properties
-
-    Examples:
-        # Multiple results case
-        results = get_word_synsets("hund")
-        # Returns list of search result dictionaries for all meanings of "hund"
-        # => [{"word": "hund", "synset_id": "synset-3047", ...}, ...]
-        
-        # Single result case (redirect)
-        result = get_word_synsets("svinkeærinde")  
-        # Returns complete synset data for unique word
-        # => {'wn:hypernym': 'dn:synset-11677', 'dns:sentiment': {...}, ...}
-    """
+def _error_message(r: httpx.Response) -> str:
+    """The error message of a failed DanNet response `r`."""
     try:
-        results = get_client().search(query, language)
-        search_results = []
-
-        # Handle DanNet's JSON-LD response structure
-        if isinstance(results, dict):
-            # Check if this is a single entity response (redirected from search)
-            if '@id' in results and '@type' in results:
-                # This is a single synset entity response - return full synset data
-                
-                # Extract synset ID from @id (e.g., "dn:synset-68420" -> "synset-68420")
-                synset_id = None
-                entity_id = results.get('@id', '')
-                if entity_id.startswith('dn:'):
-                    synset_id = entity_id[3:]  # Remove "dn:" prefix
-                
-                if synset_id:
-                    # JSON-LD format is already clean - just add convenience field
-                    result = dict(results)
-                    result['synset_id'] = synset_id
-                    return result
-
-            # Check for multiple search results in @graph structure
-            graph_results = results.get('@graph', [])
-            if isinstance(graph_results, list) and graph_results:
-                search_results = []
-                for synset_data in graph_results:
-                    if not isinstance(synset_data, dict):
-                        continue
-
-                    # Extract synset ID from @id
-                    synset_id = None
-                    entity_id = synset_data.get('@id', '')
-                    if entity_id.startswith('dn:'):
-                        synset_id = entity_id[3:]  # Remove "dn:" prefix
-
-                    if synset_id:
-                        # Extract definition using get_language_value helper
-                        definition = get_language_value(synset_data.get('skos:definition', {}))
-                        
-                        # Extract label using get_language_value helper
-                        label = get_language_value(synset_data.get('rdfs:label', {}))
-                        if not label:
-                            label = f"{{{query}_§1}}"  # Default fallback
-
-                        search_results.append(SearchResult(
-                            word=query,
-                            synset_id=synset_id,
-                            label=label,
-                            definition=definition or ""
-                        ))
-
-                return search_results
-
-        # If no results found, return empty list
-        return []
-
-    except Exception as e:
-        raise RuntimeError(f"Search failed: {e}")
+        anomaly = r.json()["anomaly"]
+        message = anomaly["message"]
+        message = message.get("en", "") if isinstance(message, dict) else message
+        return " ".join(filter(None, [message, anomaly.get("details")]))
+    except (ValueError, KeyError, AttributeError, TypeError):
+        return r.text.strip() or f"HTTP {r.status_code}"
 
 
-@mcp.tool()
-def get_entity_info(identifier: str, namespace: str = "dn") -> Dict[str, Any]:
-    """
-    Get comprehensive RDF data for any entity in the DanNet database.
-    
-    Supports both DanNet entities and external vocabulary entities loaded
-    into the triplestore from various schemas and datasets.
+class DanNet:
+    """Async HTTP client for the DanNet web service at `base_url`."""
 
-    UNDERSTANDING THE DATA MODEL:
-    The DanNet database contains entities from multiple sources:
-    - DanNet entities (namespace="dn"): synsets, words, senses, and other resources
-    - External entities (other namespaces): OntoLex vocabulary, Inter-Lingual Index, etc.
-    
-    All entities follow RDF patterns with namespace prefixes for properties and relationships.
+    def __init__(self, base_url: str):
+        self.base_url = base_url.rstrip("/")
+        self.http = httpx.AsyncClient(timeout=45.0, follow_redirects=True)
+        self.entities: dict[str, dict] = {}
 
-    NAVIGATION TIPS:
-    - DanNet synsets have rich semantic relationships (wn:hypernym, wn:hyponym, etc.)
-    - External entities provide vocabulary definitions and cross-references
-    - Use parse_resource_id() on URI references to get clean IDs
-    - Check @type to understand what kind of entity you're working with
+    async def get(self, path: str, **params) -> Any:
+        """GET `path` as JSON, retrying on rate limiting and connection errors."""
+        for attempt in range(3):
+            try:
+                r = await self.http.get(self.base_url + path,
+                                        params={"format": "json", **params})
+            except httpx.TooManyRedirects:
+                raise DanNetError(f"Not found: {path}") from None
+            except httpx.TransportError as e:
+                if attempt == 2:
+                    raise DanNetError(f"Request failed: {e}") from e
+                await asyncio.sleep(0.5 * 2 ** attempt)
+                continue
+            if r.status_code == 429 and attempt < 2:
+                await asyncio.sleep(0.5 * 2 ** attempt)
+                continue
+            if r.is_error or "json" not in r.headers.get("content-type", ""):
+                raise DanNetError(_error_message(r))
+            return r.json()
+        raise DanNetError("Rate limit exceeded")
 
-    Args:
-        identifier: Entity identifier (e.g., "synset-3047", "word-11021628", "LexicalConcept", "i76470")
-        namespace: Namespace for the entity (default: "dn" for DanNet entities)
-                  - "dn": DanNet entities via /dannet/data/ endpoint
-                  - Other values: External entities via /dannet/external/{namespace}/ endpoint
-                  - Common external namespaces: "ontolex", "ili", "wn", "lexinfo", etc.
+    async def entity(self, identifier: str) -> dict:
+        """The JSON-LD of the resource `identifier` (see `_path`), cached."""
+        path = _path(identifier)
+        if path not in self.entities:
+            if len(self.entities) >= 1024:
+                del self.entities[next(iter(self.entities))]
+            self.entities[path] = await self.get(path)
+        return self.entities[path]
 
-    Returns:
-        Dict containing JSON-LD format with:
-        - @context → namespace mappings (if applicable)
-        - @id → entity identifier
-        - @type → entity type
-        - All RDF properties with namespace prefixes (e.g., wn:hypernym, ontolex:evokes)
-        - For DanNet synsets: dns:ontologicalType and dns:sentiment (if applicable)
-        - Entity-specific convenience fields (synset_id, resource_id, etc.)
 
-    Examples:
-        # DanNet entities
-        get_entity_info("synset-3047")  # DanNet synset
-        get_entity_info("word-11021628")  # DanNet word
-        get_entity_info("sense-21033604")  # DanNet sense
-        
-        # External vocabulary entities  
-        get_entity_info("LexicalConcept", namespace="ontolex")  # OntoLex class definition
-        get_entity_info("i76470", namespace="ili")  # Inter-Lingual Index entry
-        get_entity_info("noun", namespace="lexinfo")  # Lexinfo part-of-speech
-    """
-    try:
-        if namespace == "dn":
-            # DanNet entities use the standard data endpoint
-            endpoint_path = f"dannet/data/{identifier}"
-        else:
-            # External entities use the external endpoint
-            endpoint_path = f"dannet/external/{namespace}/{identifier}"
+dannet: DanNet
 
-        # Make the request using the appropriate endpoint
-        client = get_client()
-        url = f"{client.base_url}/{endpoint_path}"
 
-        # Use same request pattern as get_resource but with custom path
-        request_params = {"format": "json"}
+def _path(identifier: str) -> str:
+    """Web service path of `identifier`: "synset-3047", "dn:synset-3047", a full
+    DanNet URI, or a prefixed external resource like "ili:i76470"."""
+    if identifier.startswith("http"):
+        return "/dannet/data/" + identifier.rsplit("/", 1)[-1]
+    prefix, _, local = identifier.rpartition(":")
+    if prefix in ("", "dn"):
+        return f"/dannet/data/{local}"
+    return f"/dannet/external/{prefix}/{local}"
 
-        # Use the standalone retry-enabled function
-        data = _make_entity_request_standalone(client, url, request_params)
 
-        # Check for valid JSON-LD response
-        if not data:
-            raise DanNetError(f"No data found for {namespace}/{identifier}")
+def _local(uri: str) -> str:
+    """Local name of `uri`, e.g. "synset-3047"."""
+    return uri.rsplit("/", 1)[-1]
 
-        # JSON-LD format is already clean - just add convenience field
-        result = dict(data)
-        if namespace == "dn":
-            result['resource_id'] = identifier
-        else:
-            result['resource_id'] = f"{namespace}/{identifier}"
-        
-        return result
 
-    except Exception as e:
-        raise RuntimeError(f"Failed to get entity info: {e}")
+def _list(x: Any) -> list:
+    """`x` as a list: JSON-LD gives single values bare and multiple as lists."""
+    return x if isinstance(x, list) else [] if x is None else [x]
+
+
+def _text(value: Any, language: str = "da") -> str:
+    """The `language` string of a JSON-LD `value`: a plain string, a
+    {"@value", "@language"} object, or a list of those."""
+    values = _list(value)
+    for v in values:
+        if isinstance(v, dict) and v.get("@language") == language:
+            return v["@value"]
+    v = values[0] if values else ""
+    return v.get("@value", "") if isinstance(v, dict) else v
+
+
+def _literal(s: str) -> str:
+    """`s` as a Danish SPARQL string literal (JSON escaping is SPARQL escaping)."""
+    return json.dumps(s, ensure_ascii=False) + "@da"
 
 
 @mcp.tool()
-def get_synset_info(synset_id: str) -> Dict[str, Any]:
-    """
-    Get comprehensive RDF data for a DanNet synset (lexical concept).
-
-    UNDERSTANDING THE DATA MODEL:
-    Synsets are ontolex:LexicalConcept instances representing word meanings.
-    They connect to words via ontolex:isEvokedBy and have rich semantic relations.
-
-    KEY RELATIONSHIPS (by importance):
-
-    1. TAXONOMIC (most fundamental):
-       - wn:hypernym → broader concept (e.g., "hund" → "pattedyr")
-       - wn:hyponym → narrower concepts (e.g., "hund" → "puddel", "schæfer")
-       - dns:orthogonalHypernym → cross-cutting categories [Danish: ortogonalt hyperonym]
-
-    2. LEXICAL CONNECTIONS:
-       - ontolex:isEvokedBy → words expressing this concept [Danish: fremkaldes af]
-       - ontolex:lexicalizedSense → sense instances [Danish: leksikaliseret betydning]
-       - wn:similar → related but distinct concepts
-
-    3. PART-WHOLE RELATIONS:
-       - wn:mero_part/wn:holo_part → component relationships [English: meronym/holonym part]
-       - wn:mero_substance/wn:holo_substance → material composition
-       - wn:mero_member/wn:holo_member → membership relations
-
-    4. SEMANTIC PROPERTIES:
-       - dns:ontologicalType → semantic classification with @set array of dnc: types
-         Common types: dnc:Animal, dnc:Human, dnc:Object, dnc:Physical,
-         dnc:Dynamic (events/actions), dnc:Static (states)
-       - dns:sentiment → emotional polarity with marl:hasPolarity and marl:polarityValue
-       - wn:lexfile → semantic domain (e.g., "noun.food", "verb.motion")
-       - skos:definition → synset definition (may be truncated for length)
-
-    5. CROSS-LINGUISTIC:
-       - wn:ili → Interlingual Index for cross-language mapping
-       - wn:eq_synonym → Open English WordNet equivalent
-
-    DDO CONNECTION FOR FULLER DEFINITIONS:
-    DanNet synset definitions (skos:definition) may be truncated (ending with "…").
-    For complete definitions, use the fetch_ddo_definition() tool which automatically
-    retrieves full DDO text, or manually examine sense source URLs via get_sense_info().
-
-    NAVIGATION TIPS:
-    - Follow wn:hypernym chains to find semantic categories
-    - Check dns:inherited for properties from parent synsets
-    - Use parse_resource_id() on URI references to get clean IDs
-    - For fuller definitions, examine individual sense source URLs via get_sense_info()
-
-    Args:
-        synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
-
-    Returns:
-        Dict containing JSON-LD format with:
-        - @context → namespace mappings
-        - @id → entity identifier (e.g., "dn:synset-1876")
-        - @type → "ontolex:LexicalConcept"
-        - All RDF properties with namespace prefixes (e.g., wn:hypernym)
-        - dns:ontologicalType → {"@set": ["dnc:Animal", ...]} (if applicable)
-        - dns:sentiment → {"marl:hasPolarity": "marl:Positive", "marl:polarityValue": "3"} (if applicable)
-        - synset_id → clean identifier for convenience
-
-    Example:
-        info = get_synset_info("synset-52")  # cake synset
-        # Check info['wn:hypernym'] for parent concepts
-        # Check info['dns:ontologicalType']['@set'] for semantic types
-        # Check info['dns:sentiment']['marl:hasPolarity'] for sentiment
-    """
-    try:
-        # Clean the synset_id and ensure proper prefix
-        clean_id = parse_resource_id(synset_id)
-        if not clean_id.startswith('synset-'):
-            clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
-
-        # Get the JSON-LD data directly from DanNet
-        data = get_client().get_resource(clean_id)
-        if not data:
-            raise DanNetError(f"Synset not found: {clean_id}")
-            
-        # JSON-LD format is already clean - just add convenience field
-        result = dict(data)
-        result['synset_id'] = clean_id
-        return result
-        
-    except Exception as e:
-        raise RuntimeError(f"Failed to get synset info: {e}")
+async def get_word_synsets(word: str) -> list[dict]:
+    """The synsets (senses) of the Danish `word`, as JSON-LD entries with @id
+    (e.g. "dn:synset-3047" for get_entity_info), skos:definition,
+    dns:ontologicalType and wn:lexfile. A word with a single synset gives that
+    synset's full JSON-LD as the only entry."""
+    data = await dannet.get("/dannet/search", lemma=word)
+    if "@type" in data:  # the service redirects a single synset to its page
+        return [data]
+    return data.get("@graph", [])
 
 
 @mcp.tool()
-def get_word_info(word_id: str) -> Dict[str, Any]:
-    """
-    Get comprehensive RDF data for a DanNet word (lexical entry).
-
-    UNDERSTANDING THE DATA MODEL:
-    Words are ontolex:LexicalEntry instances representing lexical forms.
-    They connect to synsets via senses and have morphological information.
-
-    KEY RELATIONSHIPS:
-
-    1. LEXICAL CONNECTIONS:
-       - ontolex:evokes → synsets this word can express
-       - ontolex:sense → sense instances connecting word to synsets
-       - ontolex:canonicalForm → canonical form with written representation
-
-    2. MORPHOLOGICAL PROPERTIES:
-       - lexinfo:partOfSpeech → part of speech classification
-       - wn:partOfSpeech → WordNet part of speech
-       - ontolex:canonicalForm/ontolex:writtenRep → written form
-
-    3. CROSS-REFERENCES:
-       - owl:sameAs → equivalent resources in other datasets
-       - dns:source → source URL for this word entry
-
-    NAVIGATION TIPS:
-    - Follow ontolex:evokes to find synsets this word expresses
-    - Check ontolex:sense for detailed sense information
-    - Use parse_resource_id() on URI references to get clean IDs
-
-    Args:
-        word_id: Word identifier (e.g., "word-11021628" or just "11021628")
-
-    Returns:
-        Dict containing:
-        - All RDF properties with namespace prefixes (e.g., ontolex:evokes)
-        - resource_id → clean identifier for convenience
-        - All linguistic properties and relationships
-
-    Example:
-        info = get_word_info("word-11021628")  # "hund" word
-        # Check info['ontolex:evokes'] for synsets this word can express
-        # Check info['ontolex:sense'] for senses
-    """
-    # Clean the word_id and ensure proper prefix
-    clean_id = parse_resource_id(word_id)
-    if not clean_id.startswith('word-'):
-        clean_id = f"word-{clean_id}" if clean_id.isdigit() else clean_id
-
-    return get_entity_info(clean_id, namespace="dn")
+async def get_entity_info(identifier: str) -> dict:
+    """Full JSON-LD of a DanNet resource: a synset ("synset-3047"), word
+    ("word-11021628") or sense ("sense-21033604"), given bare or prefixed
+    ("dn:synset-3047"), or an external resource by prefix ("ili:i76470",
+    "ontolex:LexicalConcept"). Properties use prefixed names (wn:hypernym,
+    ontolex:isEvokedBy, ...); language-tagged values are
+    {"@value": ..., "@language": ...}."""
+    return await dannet.entity(identifier)
 
 
 @mcp.tool()
-def get_sense_info(sense_id: str) -> Dict[str, Any]:
-    """
-    Get comprehensive RDF data for a DanNet sense (lexical sense).
-
-    UNDERSTANDING THE DATA MODEL:
-    Senses are ontolex:LexicalSense instances connecting words to synsets.
-    They represent specific meanings of words with examples and definitions.
-
-    KEY RELATIONSHIPS:
-
-    1. LEXICAL CONNECTIONS:
-       - ontolex:isSenseOf → word this sense belongs to
-       - ontolex:isLexicalizedSenseOf → synset this sense represents
-
-    2. SEMANTIC INFORMATION:
-       - lexinfo:senseExample → usage examples in context
-       - rdfs:label → sense label (e.g., "hund_1§1")
-
-    3. REGISTER AND STYLISTIC INFORMATION:
-       - lexinfo:register → formal register classification (e.g., ":lexinfo/slangRegister")
-       - lexinfo:usageNote → human-readable usage notes (e.g., "slang", "formal")
-
-    4. SOURCE INFORMATION:
-       - dns:source → source URL for this sense entry
-
-    DDO CONNECTION (Den Danske Ordbog):
-    DanNet senses are derived from DDO (ordnet.dk), the authoritative modern Danish dictionary.
-    
-    SENSE LABELS: The format "word_entry§definition" connects to DDO structure:
-    - "hund_1§1" = word "hund", entry 1, definition 1 in DDO
-    - "forlygte_§2" = word "forlygte", definition 2 in DDO
-    - The § notation directly corresponds to DDO's definition numbering
-
-    SOURCE TRACEABILITY: The dns:source URLs link back to specific DDO entries:
-    - Format: https://ordnet.dk/ddo/ordbog?entry_id=X&def_id=Y&query=word
-    - Note: Some DDO URLs may not resolve correctly if IDs have changed since import
-    - If the DDO page loads correctly, the relevant definition has CSS class "selected"
-
-    METADATA ORIGINS: Usage examples, register information, and definitions flow from DDO's
-    corpus-based lexicographic data, providing authoritative linguistic information.
-
-    NAVIGATION TIPS:
-    - Follow ontolex:isSenseOf to find the parent word
-    - Follow ontolex:isLexicalizedSenseOf to find the synset
-    - Check lexinfo:senseExample for usage examples from DDO corpus
-    - Check lexinfo:register and lexinfo:usageNote for stylistic information
-    - Use dns:source to attempt tracing back to original DDO definition (with caveats)
-    - Use parse_resource_id() on URI references to get clean IDs
-
-    Args:
-        sense_id: Sense identifier (e.g., "sense-21033604" or just "21033604")
-
-    Returns:
-        Dict containing:
-        - All RDF properties with namespace prefixes (e.g., ontolex:isSenseOf)
-        - resource_id → clean identifier for convenience
-        - All sense properties and relationships
-
-    Example:
-        info = get_sense_info("sense-21033604")  # "hund_1§1" sense
-        # Check info['ontolex:isSenseOf'] for parent word
-        # Check info['ontolex:isLexicalizedSenseOf'] for synset
-        # Check info['lexinfo:senseExample'] for usage examples from DDO
-        # Check info['lexinfo:register'] for register classification
-        # Check info['lexinfo:usageNote'] for usage notes like "slang"
-        # Check info['dns:source'] for DDO source URL (may not always work)
-    """
-    # Clean the sense_id and ensure proper prefix
-    clean_id = parse_resource_id(sense_id)
-    if not clean_id.startswith('sense-'):
-        clean_id = f"sense-{clean_id}" if clean_id.isdigit() else clean_id
-
-    return get_entity_info(clean_id, namespace="dn")
-
-
-
-@mcp.tool()
-def get_word_synonyms(word: str) -> str:
-    """
-    Find synonyms for a Danish word through shared synsets (word senses).
-
-    SYNONYM TYPES IN DANNET:
-    - True synonyms: Words sharing the exact same synset
-    - Context-specific: Different synonyms for different word senses
-    Note: Near-synonyms via wn:similar relations are not currently included
-
-    The function returns all words that share synsets with the input word,
-    effectively finding lexical alternatives that express the same concepts.
-
-    Args:
-        word: The Danish word to find synonyms for
-    
-    Returns:
-        Comma-separated string of synonymous words (aggregated across all word senses)
-
-    Example:
-        synonyms = get_word_synonyms("hund")
-        # Returns: "køter, vovhund, vovse"
-
-    Note: Check synset definitions to understand which synonyms apply
-    to which meaning (polysemy is common in Danish).
-    """
-    try:
-        client = get_client()
-        query = f"""
-SELECT DISTINCT ?lemma WHERE {{
-  ?entry ontolex:canonicalForm/ontolex:writtenRep "{word}"@da .
-  ?sense ontolex:isSenseOf ?entry .
-  ?sense ontolex:isLexicalizedSenseOf ?synset .
-  ?synset ontolex:isEvokedBy ?otherEntry .
-  ?otherEntry ontolex:canonicalForm/ontolex:writtenRep ?lemma .
-  FILTER(?otherEntry != ?entry)
-  FILTER(?lemma != "{word}"@da)
-  FILTER(!CONTAINS(STR(?lemma), " "))
-}}
-"""
-        results = _make_sparql_request(client, f"{client.base_url}/dannet/sparql",
-                                       {"query": query, "format": "json"})
-        lemmas = [b["lemma"]["value"] for b in results.get("results", {}).get("bindings", [])]
-        return ", ".join(sorted(lemmas))
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to find synonyms: {e}")
-
-
-@mcp.tool()
-def get_word_overview(word: str) -> List[Dict[str, Any]]:
-    """
-    Get a complete overview of all senses for a Danish word in a single call.
-
-    Replaces the common pattern of calling get_word_synsets → get_synset_info
-    per result → get_word_synonyms, collapsing 5-15 HTTP round-trips into one
-    SPARQL query.
-
-    Only returns synsets where the word is a primary lexical member (i.e. the
-    word itself has a direct sense in the synset), excluding multi-word
-    expressions that merely contain the word as a component.
-
-    Args:
-        word: The Danish word to look up
-
-    Returns:
-        List of dicts, one per synset, each containing:
-        - synset_id: Clean synset identifier (e.g. "synset-3047")
-        - label: Human-readable synset label
-        - definition: Synset definition (may be truncated with "…")
-        - ontological_types: List of dnc: type URIs
-        - synonyms: List of co-member lemmas (true synonyms only)
-        - hypernym: Dict with synset_id and label of the immediate broader concept, or null
-        - lexfile: WordNet lexicographer file name (e.g. "noun.animal"), or null if absent
-
-    Example:
-        overview = get_word_overview("hund")
-        # Returns list of 4 synsets, the first being:
-        # {"synset_id": "synset-3047",
-        #  "label": "{hund_1§1; køter_§1; vovhund_§1; vovse_§1}",
-        #  "definition": "pattedyr som har god lugtesans ...",
-        #  "ontological_types": ["dnc:Animal", "dnc:Object"],
-        #  "synonyms": ["køter", "vovhund", "vovse"],
-        #  "lexfile": "noun.animal"}
-
-        # Pass synset_id to get_synset_info() for full JSON-LD data on any result:
-        # full_data = get_synset_info(overview[0]["synset_id"])
-    """
-    try:
-        client = get_client()
-        query = f"""
-SELECT DISTINCT ?synset ?label ?definition ?ontType ?synonymLemma ?hypernym ?hypernymLabel ?lexfile WHERE {{
-  ?entry ontolex:canonicalForm/ontolex:writtenRep "{word}"@da .
-  ?sense ontolex:isSenseOf ?entry .
-  ?sense rdfs:label ?senseLabel .
-  FILTER(STRSTARTS(STR(?senseLabel), "{word}_"))
-  ?sense ontolex:isLexicalizedSenseOf ?synset .
+async def get_word_overview(word: str) -> list[dict]:
+    """Every sense of the Danish `word` in one call: a list with synset_id,
+    label, definition, lexfile, ontological_types, synonyms (words sharing the
+    synset) and hypernym ({synset_id, label} or null) per synset. Only synsets
+    where the word itself has a sense count, not multi-word expressions
+    containing it."""
+    query = f"""
+SELECT DISTINCT ?synset ?label ?definition ?lexfile ?ontType ?synonym ?hypernym ?hypernymLabel WHERE {{
+  ?entry ontolex:canonicalForm/ontolex:writtenRep {_literal(word)} .
+  ?sense ontolex:isSenseOf ?entry ;
+         rdfs:label ?senseLabel ;
+         ontolex:isLexicalizedSenseOf ?synset .
+  FILTER(STRSTARTS(STR(?senseLabel), {json.dumps(word + "_", ensure_ascii=False)}))
   ?synset rdfs:label ?label .
   OPTIONAL {{ ?synset skos:definition ?definition }}
   OPTIONAL {{ ?synset wn:lexfile ?lexfile }}
   OPTIONAL {{
-    ?synset dns:ontologicalType ?typeNode .
-    ?typeNode ?pos ?ontType .
+    ?synset dns:ontologicalType ?types . ?types ?pos ?ontType .
     FILTER(STRSTARTS(STR(?pos), STR(rdf:_)))
   }}
   OPTIONAL {{
     ?synset ontolex:isEvokedBy ?otherEntry .
-    ?otherEntry ontolex:canonicalForm/ontolex:writtenRep ?synonymLemma .
-    FILTER(?otherEntry != ?entry)
-    FILTER(?synonymLemma != "{word}"@da)
-    FILTER(!CONTAINS(STR(?synonymLemma), " "))
+    ?otherEntry ontolex:canonicalForm/ontolex:writtenRep ?synonym .
+    FILTER(?synonym != {_literal(word)} && !CONTAINS(STR(?synonym), " "))
   }}
-  OPTIONAL {{
-    ?synset wn:hypernym ?hypernym .
-    ?hypernym rdfs:label ?hypernymLabel .
-  }}
-}}
-"""
-        raw = _make_sparql_request(client, f"{client.base_url}/dannet/sparql",
-                                   {"query": query, "format": "json"})
-
-        # Group flat rows by synset URI
-        synsets: Dict[str, Dict] = {}
-        for b in raw.get("results", {}).get("bindings", []):
-            uri = b["synset"]["value"]
-            if uri not in synsets:
-                synset_id = uri.split("/")[-1]
-                synsets[uri] = {
-                    "synset_id": synset_id,
-                    "label": b["label"]["value"],
-                    "definition": b.get("definition", {}).get("value", ""),
-                    "ontological_types": [],
-                    "synonyms": [],
-                    "hypernym": None,
-                    "lexfile": b.get("lexfile", {}).get("value") or None,
-                }
-            entry = synsets[uri]
-            if ont := b.get("ontType"):
-                short = ont["value"].split("/")[-1]
-                t = f"dnc:{short}"
-                if t not in entry["ontological_types"]:
-                    entry["ontological_types"].append(t)
-            if syn := b.get("synonymLemma"):
-                if syn["value"] not in entry["synonyms"]:
-                    entry["synonyms"].append(syn["value"])
-            if entry["hypernym"] is None:
-                if (h := b.get("hypernym")) and (hl := b.get("hypernymLabel")):
-                    entry["hypernym"] = {
-                        "synset_id": h["value"].split("/")[-1],
-                        "label": hl["value"],
-                    }
-
-        return list(synsets.values())
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to get word overview: {e}")
+  OPTIONAL {{ ?synset wn:hypernym ?hypernym . ?hypernym rdfs:label ?hypernymLabel }}
+}}"""
+    result = await dannet.get("/dannet/sparql", query=query, lookahead="false")
+    synsets: dict[str, dict] = {}
+    for binding in result["results"]["bindings"]:
+        row = {k: v["value"] for k, v in binding.items()}
+        synset = synsets.setdefault(row["synset"], {
+            "synset_id": _local(row["synset"]),
+            "label": row["label"],
+            "definition": row.get("definition", ""),
+            "lexfile": row.get("lexfile"),
+            "ontological_types": [],
+            "synonyms": [],
+            "hypernym": ({"synset_id": _local(row["hypernym"]),
+                          "label": row["hypernymLabel"]}
+                         if "hypernymLabel" in row else None),
+        })
+        if "ontType" in row:
+            synset["ontological_types"].append("dnc:" + _local(row["ontType"]))
+        if "synonym" in row:
+            synset["synonyms"].append(row["synonym"])
+    for synset in synsets.values():
+        synset["ontological_types"] = sorted(set(synset["ontological_types"]))
+        synset["synonyms"] = sorted(set(synset["synonyms"]))
+    return list(synsets.values())
 
 
 @mcp.tool()
-def autocomplete_danish_word(prefix: str, max_results: int = 10) -> str:
-    """
-    Get autocomplete suggestions for Danish word prefixes.
-    
-    Useful for discovering Danish vocabulary or finding the correct spelling
-    of words. Returns lemma forms (dictionary forms) of words.
+async def autocomplete_danish_word(prefix: str, max_results: int = 10) -> dict:
+    """Danish words starting with `prefix` (at least 3 characters), at most
+    `max_results`, as {"autocompletions": [...]} where lemmas are plain strings
+    and inflected forms of a matching lemma are [lemma, form] pairs."""
+    data = await dannet.get("/dannet/autocomplete", s=prefix)
+    return {"autocompletions": data["autocompletions"][:max_results]}
 
-    Args:
-        prefix: The beginning of a Danish word (minimum 3 characters required)
-        max_results: Maximum number of suggestions to return (default: 10)
-        
-    Returns:
-        Comma-separated string of word completions in alphabetical order
 
-    Note: Autocomplete requires at least 3 characters to prevent excessive results.
+_DDO_DEFINITION = re.compile(
+    r'class="[^"]*\bdefinitionBox\b[^"]*\bselected\b[^"]*".*?'
+    r'<span[^>]+class="[^"]*\bdefinition\b[^"]*"[^>]*>(.*?)</span>', re.S)
 
-    Example:
-        suggestions = autocomplete_danish_word("hyg", 5)
-        # Returns: "hygge, hyggelig, hygiejne"
-    """
+
+async def _ddo_definition(sense_id: str) -> tuple[str | None, str | None]:
+    """The DDO definition behind the dns:source of `sense_id`, as
+    (definition, error) with one of them None."""
+    source = _list((await dannet.entity(sense_id)).get("dns:source"))
+    if not source:
+        return None, f"{sense_id}: no dns:source"
+    url = source[0].strip("<>")
     try:
-        suggestions = get_client().autocomplete(prefix)
-        limited_suggestions = suggestions[:max_results]
-        return ", ".join(limited_suggestions)
-
-    except Exception as e:
-        raise RuntimeError(f"Autocomplete failed: {e}")
-
-
-@mcp.tool()
-def switch_dannet_server(server: str) -> Dict[str, str]:
-    """
-    Switch between local and remote DanNet servers on the fly.
-    
-    This tool allows you to change the DanNet server endpoint during runtime
-    without restarting the MCP server. Useful for switching between development
-    (local) and production (remote) servers.
-
-    Args:
-        server: Server to switch to. Options:
-               - "local": Use localhost:3456 (development server)
-               - "remote": Use wordnet.dk (production server)
-               - Custom URL: Any valid URL starting with http:// or https://
-    
-    Returns:
-        Dict with status information:
-        - status: "success" or "error"
-        - message: Description of the operation
-        - previous_url: The URL that was previously active
-        - current_url: The URL that is now active
-
-    Example:
-        # Switch to local development server
-        result = switch_dannet_server("local")
-        
-        # Switch to production server
-        result = switch_dannet_server("remote")
-        
-        # Switch to custom server
-        result = switch_dannet_server("https://my-custom-dannet.example.com")
-    """
-    global dannet_client
-
-    try:
-        # Store the previous URL for response
-        previous_url = dannet_client.base_url if dannet_client else "None"
-
-        # Determine the target URL
-        if server.lower() == "local":
-            new_url = LOCAL_URL
-        elif server.lower() == "remote":
-            new_url = REMOTE_URL
-        elif server.startswith(("http://", "https://")):
-            new_url = server
-        else:
-            return {
-                "status": "error",
-                "message": f"Invalid server specification: '{server}'. Use 'local', 'remote', or a valid URL.",
-                "previous_url": previous_url,
-                "current_url": previous_url
-            }
-
-        # Create new client instance
-        dannet_client = DanNetClient(new_url)
-        _resource_cache.clear()
-
-        # Test the connection with a simple request
-        try:
-            # Try to access the base endpoint to verify connectivity
-            test_response = dannet_client.client.get(f"{new_url}/")
-            if test_response.status_code not in [200, 404]:  # 404 is okay for root endpoint
-                logger.warning(f"Server responded with status {test_response.status_code}, but continuing...")
-        except Exception as conn_error:
-            logger.warning(f"Could not verify connectivity to {new_url}: {conn_error}")
-            # Continue anyway - the server might be accessible for API calls even if root isn't
-
-        logger.info(f"DanNet client switched from {previous_url} to {new_url}")
-
-        return {
-            "status": "success",
-            "message": f"Successfully switched DanNet server from {previous_url} to {new_url}",
-            "previous_url": previous_url,
-            "current_url": new_url
-        }
-
-    except Exception as e:
-        error_msg = f"Failed to switch server: {e}"
-        logger.error(error_msg)
-        return {
-            "status": "error",
-            "message": error_msg,
-            "previous_url": previous_url if 'previous_url' in locals() else "Unknown",
-            "current_url": dannet_client.base_url if dannet_client else "Unknown"
-        }
+        r = await dannet.http.get(url, timeout=10.0)
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        return None, f"{url}: {e}"
+    if m := _DDO_DEFINITION.search(r.text):
+        text = html.unescape(re.sub(r"<[^>]+>", "", m.group(1)))
+        return " ".join(text.split()), None
+    return None, f"{url}: no selected definition found"
 
 
 @mcp.tool()
-def get_current_dannet_server() -> Dict[str, str]:
-    """
-    Get information about the currently active DanNet server.
-    
-    Returns:
-        Dict with current server information:
-        - server_url: The base URL of the current DanNet server
-        - server_type: "local", "remote", or "custom"
-        - status: Connection status information
-    
-    Example:
-        info = get_current_dannet_server()
-        # Returns: {"server_url": "https://wordnet.dk", "server_type": "remote", "status": "active"}
-    """
-    global dannet_client
-
-    if dannet_client is None:
-        return {
-            "server_url": "None",
-            "server_type": "uninitialized",
-            "status": "No client initialized"
-        }
-
-    current_url = dannet_client.base_url
-
-    # Determine server type
-    if current_url == LOCAL_URL:
-        server_type = "local"
-    elif current_url == REMOTE_URL:
-        server_type = "remote"
-    else:
-        server_type = "custom"
-
-    # Try to check server status
-    try:
-        # Simple connectivity test
-        test_response = dannet_client.client.get(f"{current_url}/", timeout=5.0)
-        status = f"Connected (HTTP {test_response.status_code})"
-    except Exception as e:
-        status = f"Connection issue: {str(e)[:100]}"
-
-    return {
-        "server_url": current_url,
-        "server_type": server_type,
-        "status": status
-    }
+async def fetch_ddo_definition(synset_id: str) -> dict:
+    """The full definitions of `synset_id` from DDO (ordnet.dk), where DanNet's
+    own skos:definition may be truncated. Follows the dns:source of each sense.
+    Returns the DanNet definition, the DDO definitions found and any errors;
+    DDO and DanNet have drifted apart, so some source URLs no longer resolve."""
+    synset = await dannet.entity(synset_id)
+    senses = _list(synset.get("ontolex:lexicalizedSense"))
+    results = await asyncio.gather(*(_ddo_definition(s) for s in senses))
+    return {"synset_id": synset["@id"],
+            "definition": _text(synset.get("skos:definition")),
+            "ddo_definitions": [d for d, _ in results if d],
+            "errors": [e for _, e in results if e]}
 
 
 @mcp.tool()
-def get_cache_stats() -> Dict[str, Any]:
-    """
-    Return statistics about the session-scoped resource cache.
+async def sparql_query(query: str, timeout: int = 8000, max_results: int = 100,
+                       distinct: bool = True, inference: bool | None = None) -> dict:
+    """Run a SPARQL SELECT `query` against DanNet and return standard SPARQL
+    JSON results ({"head": ..., "results": {"bindings": [...]}}). The common
+    prefixes (dn, dns, dnc, dnf, wn, ontolex, lexinfo, skos, rdfs, rdf, owl,
+    marl, dc, ili, en, enl, cor) are declared automatically. `timeout` is in
+    ms (max 15000), `max_results` at most 100, `distinct` adds DISTINCT, and
+    `inference` selects the model: None tries the base model and retries with
+    inference on an empty result; True forces inference, which inverse
+    relations like wn:hyponym and wn:holo_* need; False forces the base model.
 
-    Useful for verifying that caching is working: call get_synset_info (or similar)
-    twice for the same ID and check that cache_size grows by 1 on the first call
-    but not on the second, and that cached_keys contains the expected IDs.
+    Performance rules: anchor every query on a known URI or a word lookup
+    (dn:synset-3047 wn:hypernym ?x, never ?x wn:hypernym ?y alone); never
+    FILTER(CONTAINS(...)) over all labels, look the word up first; make every
+    triple pattern share a variable with another; add LIMIT; prefer VALUES
+    over FILTER for several known URIs; the store also holds the English
+    WordNet (en:), so anchor on dn: or "..."@da to stay in Danish.
 
-    Returns:
-        Dict with:
-        - cache_size: Total number of cached entries
-        - cached_keys: List of (base_url, resource_id) pairs currently cached
-    """
-    return {
-        "cache_size": len(_resource_cache),
-        "cached_keys": [{"base_url": k[0], "resource_id": k[1]} for k in _resource_cache],
-        "schema_cache_size": len(_schema_cache),
-        "cached_schemas": list(_schema_cache.keys()),
-    }
-
-
-@mcp.tool()
-def fetch_ddo_definition(synset_id: str) -> Dict[str, Any]:
-    """
-    Fetch the full, untruncated definition from DDO (Den Danske Ordbog) for a synset.
-    
-    This tool addresses the issue that DanNet synset definitions (:skos/definition)
-    may be capped at a certain length. It retrieves the complete definition from
-    the authoritative DDO source by following sense source URLs.
-    
-    WORKFLOW:
-    1. Get synset information to find associated senses
-    2. Extract DDO source URLs from sense data (dns:source)
-    3. Fetch DDO HTML pages and parse for definitions
-    4. Find elements with class "definitionBox selected" and extract span.definition content
-    
-    IMPORTANT NOTES:
-    - Looks for CSS classes "definitionBox selected" and child span.definition
-    - DDO and DanNet have diverged over time, so source URLs may not always work
-    - This implementation uses httpx for web requests and regex-based HTML parsing
-    
-    Args:
-        synset_id: Synset identifier (e.g., "synset-1876" or just "1876")
-    
-    Returns:
-        Dict containing:
-        - synset_id: The queried synset ID
-        - ddo_definitions: List of definitions found from DDO pages
-        - source_urls: List of DDO URLs that were attempted
-        - success_urls: List of URLs that successfully returned definitions
-        - errors: List of any errors encountered
-        - truncated_definition: The original DanNet definition for comparison
-    
-    Example:
-        result = fetch_ddo_definition("synset-3047")
-        # Check result['ddo_definitions'] for full DDO definitions
-        # Compare with result['truncated_definition'] from DanNet
-    """
-    try:
-        # Clean the synset_id
-        clean_id = parse_resource_id(synset_id)
-        if not clean_id.startswith('synset-'):
-            clean_id = f"synset-{clean_id}" if clean_id.isdigit() else clean_id
-
-        # Get synset information
-        synset_info = get_synset_info(clean_id)
-
-        # Extract the original (possibly truncated) definition using helper
-        truncated_def = get_language_value(synset_info.get('skos:definition', {}))
-
-        # Get associated senses from JSON-LD format
-        senses = synset_info.get('ontolex:lexicalizedSense', [])
-        if isinstance(senses, str):
-            senses = [senses]
-
-        # Extract sense IDs and get their source URLs
-        source_urls = []
-        ddo_definitions = []
-        success_urls = []
-        errors = []
-
-        for sense_uri in senses:
-            try:
-                # Extract sense ID from URI
-                sense_id = parse_resource_id(sense_uri)
-                if not sense_id.startswith('sense-'):
-                    sense_id = f"sense-{sense_id}" if sense_id.replace('sense-', '').isdigit() else sense_id
-
-                # Get sense information
-                sense_info = get_sense_info(sense_id)
-
-                # Extract DDO source URL from JSON-LD format
-                source = sense_info.get('dns:source')
-                if source:
-                    if isinstance(source, list):
-                        source = source[0]
-
-                    # Clean up the URL (remove < > brackets if present)
-                    source_url = str(source).strip('<>')
-                    source_urls.append(source_url)
-
-                    try:
-                        # Fetch the DDO page
-                        response = get_client().client.get(source_url, timeout=10.0)
-                        response.raise_for_status()
-                        html_content = response.text
-
-                        import re
-
-                        # Look for elements with class="definitionBox selected" and extract span.definition content
-                        # The classes are space-separated, so we need to match "definitionBox selected" or "selected definitionBox"
-                        definition_box_pattern = r'<div[^>]+class="[^"]*(?:definitionBox\s+selected|selected\s+definitionBox)[^"]*"[^>]*>(.*?)</div>'
-                        box_matches = re.findall(definition_box_pattern, html_content, re.IGNORECASE | re.DOTALL)
-
-                        for box_content in box_matches:
-                            # Within the box, find span with class="definition"
-                            span_pattern = r'<span[^>]+class="[^"]*definition[^"]*"[^>]*>(.*?)</span>'
-                            span_matches = re.findall(span_pattern, box_content, re.IGNORECASE | re.DOTALL)
-
-                            for span_content in span_matches:
-                                # Clean up the definition text
-                                clean_text = re.sub(r'<[^>]+>', '', span_content)
-                                # Decode HTML entities
-                                clean_text = clean_text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;',
-                                                                                                             '<').replace(
-                                    '&gt;', '>')
-                                # Normalize whitespace
-                                clean_text = re.sub(r'\s+', ' ', clean_text).strip()
-
-                                if clean_text and len(clean_text) > 5:  # Filter out very short matches
-                                    ddo_definitions.append(clean_text)
-                                    success_urls.append(source_url)
-                                    break  # Only take the first good match per URL
-
-                            if ddo_definitions:  # Found definition, stop looking
-                                break
-
-                        if not ddo_definitions:
-                            errors.append(
-                                f"No definition found with pattern 'definitionBox selected' > 'span.definition' at {source_url}")
-
-                    except Exception as e:
-                        errors.append(f"Failed to fetch/parse {source_url}: {str(e)}")
-
-            except Exception as e:
-                errors.append(f"Failed to process sense {sense_uri}: {str(e)}")
-
-        return {
-            'synset_id': clean_id,
-            'ddo_definitions': ddo_definitions,
-            'source_urls': source_urls,
-            'success_urls': success_urls,
-            'errors': errors,
-            'truncated_definition': truncated_def
-        }
-
-    except Exception as e:
-        return {
-            'synset_id': synset_id,
-            'error': f"Failed to fetch DDO definition: {str(e)}",
-            'ddo_definitions': [],
-            'source_urls': [],
-            'success_urls': [],
-            'errors': [str(e)],
-            'truncated_definition': ""
-        }
+    Templates:
+      Synsets of a word:
+        SELECT DISTINCT ?synset ?label WHERE {
+          ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .
+          ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
+          ?synset rdfs:label ?label }
+      Taxonomic ancestors:
+        SELECT DISTINCT ?ancestor ?label WHERE {
+          dn:synset-3047 wn:hypernym+ ?ancestor . ?ancestor rdfs:label ?label }
+      Hyponyms (needs inference=True, or query the inverse wn:hypernym):
+        SELECT DISTINCT ?hyponym ?label WHERE {
+          ?hyponym wn:hypernym dn:synset-3047 . ?hyponym rdfs:label ?label }
+      Ontological types (an RDF bag):
+        SELECT ?type WHERE {
+          dn:synset-3047 dns:ontologicalType/?pos ?type .
+          FILTER(STRSTARTS(STR(?pos), STR(rdf:_))) }
+      Taxonomic similarity (dnf:path, dnf:lch, dnf:wup score two synsets of
+      the same language and part of speech, 1.0 for identical):
+        SELECT ?synset ?score WHERE {
+          ?synset a ontolex:LexicalConcept .
+          FILTER(STRSTARTS(STR(?synset), STR(dn:)))
+          BIND(dnf:wup(dn:synset-3047, ?synset) AS ?score) }
+        ORDER BY DESC(?score) LIMIT 20"""
+    params = {"timeout": timeout, "limit": max_results, "lookahead": "false",
+              "distinct": str(distinct).lower()}
+    if inference is not None:
+        params["inference"] = str(inference).lower()
+    return await dannet.get("/dannet/sparql", query=query, **params)
 
 
-@mcp.tool()
-def validate_synset_structure(synset_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate and analyze the structure of synset JSON-LD data.
-    
-    This enhanced tool helps debug and understand synset data structure,
-    providing validation and insights into the JSON-LD format.
-    
-    Args:
-        synset_data: Synset data returned from get_synset_info()
-        
-    Returns:
-        Dict with validation results and structural analysis
-    """
-    try:
-        result = {
-            'is_valid_jsonld': validate_jsonld_structure(synset_data),
-            'has_ontological_types': bool(extract_ontological_types(synset_data)),
-            'has_sentiment': extract_sentiment_data(synset_data) is not None,
-            'namespace_prefixes': get_namespace_prefixes(synset_data),
-            'synset_id': synset_data.get('synset_id', 'Not found'),
-            'entity_type': synset_data.get('@type', 'Unknown')
-        }
-        
-        # Add ontological types if present
-        ont_types = extract_ontological_types(synset_data)
-        if ont_types:
-            result['ontological_types'] = ont_types
-            result['ontological_count'] = len(ont_types)
-        
-        # Add sentiment details if present
-        sentiment = extract_sentiment_data(synset_data)
-        if sentiment:
-            result['sentiment_details'] = sentiment
-            
-        # Validate key properties
-        key_properties = ['rdfs:label', 'skos:definition', 'wn:hypernym', 'ontolex:isEvokedBy']
-        result['available_properties'] = [prop for prop in key_properties if prop in synset_data]
-        result['missing_properties'] = [prop for prop in key_properties if prop not in synset_data]
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'error': enhanced_error_message(e, 'Synset structure validation'),
-            'is_valid': False
-        }
-
-
-@mcp.tool()
-def extract_semantic_data(entity_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Extract and normalize semantic data from any DanNet JSON-LD entity.
-    
-    This tool provides a unified way to extract semantic information from
-    synsets, words, or senses, handling different JSON-LD structures consistently.
-    
-    Args:
-        entity_data: Any DanNet entity JSON-LD data
-        
-    Returns:
-        Dict with normalized semantic information
-    """
-    try:
-        result = {
-            'entity_id': entity_data.get('@id', 'Unknown'),
-            'entity_type': entity_data.get('@type', 'Unknown'),
-            'valid_jsonld': validate_jsonld_structure(entity_data)
-        }
-        
-        # Extract labels (handling language variants)
-        if 'rdfs:label' in entity_data:
-            result['label'] = get_language_value(entity_data['rdfs:label'])
-        
-        # Extract definitions
-        if 'skos:definition' in entity_data:
-            result['definition'] = get_language_value(entity_data['skos:definition'])
-            
-        # Extract ontological types (for synsets)
-        ont_types = extract_ontological_types(entity_data)
-        if ont_types:
-            result['ontological_types'] = ont_types
-            
-        # Extract sentiment (for synsets)
-        sentiment = extract_sentiment_data(entity_data)
-        if sentiment:
-            result['sentiment'] = sentiment
-            
-        # Extract key relationships based on entity type
-        entity_type = entity_data.get('@type', '')
-        
-        if 'LexicalConcept' in entity_type:  # Synset
-            for rel in ['wn:hypernym', 'wn:hyponym', 'ontolex:isEvokedBy']:
-                if rel in entity_data:
-                    result[rel.replace(':', '_')] = entity_data[rel]
-                    
-        elif 'Word' in entity_type:  # Word
-            for rel in ['ontolex:evokes', 'ontolex:sense']:
-                if rel in entity_data:
-                    result[rel.replace(':', '_')] = entity_data[rel]
-                    
-        elif 'LexicalSense' in entity_type:  # Sense
-            for rel in ['ontolex:isSenseOf', 'ontolex:isLexicalizedSenseOf']:
-                if rel in entity_data:
-                    result[rel.replace(':', '_')] = entity_data[rel]
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'error': enhanced_error_message(e, 'Semantic data extraction'),
-            'entity_id': entity_data.get('@id', 'Unknown'),
-            'valid': False
-        }
-
-
-@mcp.tool()
-def analyze_namespace_usage(entity_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Analyze namespace usage and provide resolution for prefixed properties.
-    
-    This debugging tool helps understand how namespaces are used in
-    DanNet JSON-LD data and resolves prefixed URIs to full forms.
-    
-    Args:
-        entity_data: Any DanNet JSON-LD entity data
-        
-    Returns:
-        Dict with namespace analysis and URI resolution
-    """
-    try:
-        context = get_namespace_prefixes(entity_data)
-        
-        result = {
-            'available_prefixes': list(context.keys()),
-            'namespace_mappings': context,
-            'prefixed_properties': [],
-            'resolved_uris': {},
-            'entity_namespace': 'Unknown'
-        }
-        
-        # Analyze entity ID namespace
-        entity_id = entity_data.get('@id', '')
-        if ':' in entity_id and not entity_id.startswith('http'):
-            prefix = entity_id.split(':')[0]
-            result['entity_namespace'] = prefix
-            result['entity_resolved'] = resolve_prefixed_uri(entity_id, context)
-        
-        # Find all prefixed properties
-        for key in entity_data.keys():
-            if ':' in key and not key.startswith('@'):
-                result['prefixed_properties'].append(key)
-                result['resolved_uris'][key] = resolve_prefixed_uri(key, context)
-        
-        # Count usage by namespace
-        namespace_counts = {}
-        for prop in result['prefixed_properties']:
-            if ':' in prop:
-                prefix = prop.split(':')[0]
-                namespace_counts[prefix] = namespace_counts.get(prefix, 0) + 1
-        
-        result['namespace_usage_counts'] = namespace_counts
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'error': enhanced_error_message(e, 'Namespace analysis'),
-            'valid': False
-        }
-
-
-@mcp.tool()
-def sparql_query(query: str, timeout: int = 8000, max_results: int = 100, distinct: bool = True, inference: bool | None = None) -> Dict[str, Any]:
-    """
-    Execute a SPARQL SELECT query against the DanNet triplestore.
-
-    This tool provides direct access to DanNet's RDF data through SPARQL queries.
-    The query is automatically prepended with common namespace prefix declarations,
-    so you can use short prefixes instead of full URIs in your queries.
-
-    ============================================================
-    CRITICAL PERFORMANCE RULES (read before writing any query):
-    ============================================================
-    
-    1. ALWAYS start from a known entity URI or a word lookup — never scan the whole graph.
-       FAST: dn:synset-3047 wn:hypernym ?x .
-       SLOW: ?x wn:hypernym ?y .  (scans every synset)
-    
-    2. ALWAYS use DISTINCT for SELECT queries to avoid duplicate rows.
-    
-    3. NEVER use FILTER(CONTAINS(...)) on labels across the whole graph.
-       SLOW: ?s rdfs:label ?l . FILTER(CONTAINS(?l, "hund"))
-       FAST: Use get_word_synsets("hund") first, then query specific synset URIs.
-    
-    4. NEVER create cartesian products — every triple pattern must share a variable
-       with at least one other pattern.
-       SLOW: ?x a ontolex:LexicalConcept . ?y a ontolex:LexicalEntry . (cross join!)
-    
-    5. ALWAYS add LIMIT (even if max_results caps it server-side, explicit LIMIT
-       lets the query engine optimize).
-    
-    6. Use property paths for multi-hop traversals:
-       FAST: dn:synset-3047 wn:hypernym+ ?ancestor .  (transitive closure)
-       FAST: ?entry ontolex:canonicalForm/ontolex:writtenRep "hund"@da .  (path)
-    
-    7. Prefer VALUES over FILTER for matching multiple known entities:
-       FAST: VALUES ?synset { dn:synset-3047 dn:synset-3048 } ?synset rdfs:label ?l .
-       SLOW: ?synset rdfs:label ?l . FILTER(?synset = dn:synset-3047 || ?synset = dn:synset-3048)
-    
-    8. The triplestore contains BOTH DanNet (Danish, dn: namespace) AND the Open
-       English WordNet (en: namespace). Unanchored queries will scan both.
-       To restrict to Danish data, anchor on dn: URIs or use @da language tags.
-
-    ============================================
-    FAST QUERY TEMPLATES (copy and adapt these):
-    ============================================
-
-    # TEMPLATE 1: Find synsets for a Danish word (via word lookup)
-    SELECT DISTINCT ?synset ?label ?def WHERE {
-      ?entry ontolex:canonicalForm/ontolex:writtenRep "WORD"@da .
-      ?entry ontolex:sense/ontolex:isLexicalizedSenseOf ?synset .
-      ?synset rdfs:label ?label .
-      OPTIONAL { ?synset skos:definition ?def }
-    }
-
-    # TEMPLATE 2: Get all properties of a known synset
-    SELECT ?p ?o WHERE {
-      dn:synset-NNNN ?p ?o .
-    } LIMIT 50
-
-    # TEMPLATE 3: Find hypernyms (broader concepts) of a known synset
-    SELECT DISTINCT ?hypernym ?label WHERE {
-      dn:synset-NNNN wn:hypernym ?hypernym .
-      ?hypernym rdfs:label ?label .
-    }
-
-    # TEMPLATE 4: Find hyponyms (narrower concepts) of a known synset
-    SELECT DISTINCT ?hyponym ?label WHERE {
-      ?hyponym wn:hypernym dn:synset-NNNN .
-      ?hyponym rdfs:label ?label .
-    }
-
-    # TEMPLATE 5: Trace full hypernym chain (taxonomic ancestors)
-    SELECT DISTINCT ?ancestor ?label WHERE {
-      dn:synset-NNNN wn:hypernym+ ?ancestor .
-      ?ancestor rdfs:label ?label .
-    }
-
-    # TEMPLATE 6: Find all relationships OF a known synset
-    SELECT DISTINCT ?rel ?target ?targetLabel WHERE {
-      dn:synset-NNNN ?rel ?target .
-      ?target rdfs:label ?targetLabel .
-      FILTER(isURI(?target))
-    } LIMIT 50
-
-    # TEMPLATE 7: Find all relationships TO a known synset
-    SELECT DISTINCT ?source ?rel ?sourceLabel WHERE {
-      ?source ?rel dn:synset-NNNN .
-      ?source rdfs:label ?sourceLabel .
-      FILTER(isURI(?source))
-    } LIMIT 50
-
-    # TEMPLATE 8: Query multiple known synsets at once
-    SELECT DISTINCT ?synset ?label ?def WHERE {
-      VALUES ?synset { dn:synset-3047 dn:synset-3048 dn:synset-6524 }
-      ?synset rdfs:label ?label .
-      OPTIONAL { ?synset skos:definition ?def }
-    }
-
-    # TEMPLATE 9: Find functional relations for a specific synset
-    SELECT DISTINCT ?rel ?target ?targetLabel WHERE {
-      dn:synset-NNNN ?rel ?target .
-      ?target rdfs:label ?targetLabel .
-      VALUES ?rel { dns:usedFor dns:usedForObject wn:agent wn:instrument wn:causes }
-    }
-
-    # TEMPLATE 10: Find ontological type of a synset (stored as RDF Bag)
-    SELECT ?type WHERE {
-      dn:synset-NNNN dns:ontologicalType ?bag .
-      ?bag ?pos ?type .
-      FILTER(STRSTARTS(STR(?pos), STR(rdf:_)))
-    }
-
-    # TEMPLATE 11: Rank synsets by taxonomic similarity to a known synset
-    # The custom dnf:path / dnf:lch / dnf:wup functions score how close two
-    # synsets sit in the wn:hypernym hierarchy; higher = more similar, and a
-    # synset scores 1.0 against itself. All three take two synsets and return a
-    # double. They only compare synsets of the same part of speech and language,
-    # so cross-POS or Danish/English pairs come back unbound (dnf:path returns 0
-    # for unrelated pairs). Independent of the inference mode.
-    SELECT ?synset ?score WHERE {
-      ?synset a ontolex:LexicalConcept .
-      FILTER(STRSTARTS(STR(?synset), STR(dn:)))
-      BIND(dnf:wup(dn:synset-NNNN, ?synset) AS ?score)
-    } ORDER BY DESC(?score)
-
-    ============================================
-    KNOWN PREFIXES (automatically declared):
-    ============================================
-    dn: (DanNet data), dns: (DanNet schema), dnc: (DanNet concepts),
-    wn: (WordNet relations), ontolex: (lexical model), skos: (definitions),
-    rdfs: (labels), rdf: (types), owl: (ontology), lexinfo: (morphology),
-    marl: (sentiment), dc: (metadata), ili: (interlingual index),
-    en: (English WordNet), enl: (English lemmas), cor: (Danish register),
-    dnf: (custom similarity functions: dnf:path, dnf:lch, dnf:wup)
-
-    Args:
-        query: SPARQL SELECT query string (prefixes will be automatically added)
-        timeout: Query timeout in milliseconds (default: 8000, max: 15000)
-        max_results: Maximum number of results to return (default: 100, max: 100)
-        distinct: Auto-apply DISTINCT to SELECT queries (default: True).
-                  Set to False when you need duplicate rows, e.g. for frequency counts.
-        inference: Control model selection for query execution (default: None).
-                   None = auto-detect: tries base model first, retries with inference
-                   if SELECT results are empty (best for most queries).
-                   True = force inference model: needed for inverse relations like
-                   wn:hyponym, wn:holonym, etc. that are derived by OWL reasoning.
-                   False = force base model only, no retry.
-
-    Returns:
-        Dict containing SPARQL results in standard JSON format:
-        - head: Query metadata with variable names
-        - results: Bindings array with variable-value mappings
-        Each value includes type (uri/literal) and language information when applicable
-
-    Note: Only SELECT queries are supported. The query is validated before execution.
-    """
-    try:
-        # Make the SPARQL request using proper URL encoding
-        client = get_client()
-        
-        request_params = {
-            "query": query,
-            "format": "json",
-            "lookahead": "false"
-        }
-        
-        # Add optional parameters if they differ from defaults
-        if timeout != 8000:
-            request_params["timeout"] = str(timeout)
-        if max_results != 100:
-            request_params["limit"] = str(max_results)
-        if not distinct:
-            request_params["distinct"] = "false"
-        if inference is not None:
-            request_params["inference"] = "true" if inference else "false"
-
-        # Use the standalone retry-enabled function
-        return _make_sparql_request(client, f"{client.base_url}/dannet/sparql", request_params)
-
-    except Exception as e:
-        raise RuntimeError(f"SPARQL query failed: {e}")
-
-
-@mcp.resource("dannet://ontological-types")
-def get_ontological_types_schema() -> str:
-    """
-    Access the ontological types taxonomy (dnc: namespace) - DanNet's extended EuroWordNet classification.
-    
-    Returns:
-        RDF schema defining ontological types like dnc:Animal, dnc:Human, dnc:Object, etc.
-        
-    This resource is essential for understanding the dns:ontologicalType 
-    values returned by DanNet synset tools. DanNet uses an EXTENDED version of the 
-    EuroWordNet ontological type system, adding Danish-specific semantic categories 
-    beyond the original EuroWordNet taxonomy.
-    """
-    return get_schema_resource("dnc")
-
-
-@mcp.resource("dannet://dannet-schema")
-def get_dannet_schema() -> str:
-    """
-    Access the DanNet-specific schema (dns: namespace).
-    
-    Returns:
-        RDF schema defining DanNet properties like dns:ontologicalType, dns:sentiment, etc.
-        
-    This resource explains DanNet's custom semantic properties that extend 
-    standard WordNet with Danish-specific linguistic annotations.
-    """
-    return get_schema_resource("dns")
-
-
-@mcp.resource("dannet://wordnet-schema")
-def get_wordnet_schema() -> str:
-    """
-    Access the Global WordNet schema (wn: namespace).
-    
-    Returns:
-        RDF schema defining standard WordNet relations like wn:hypernym, wn:hyponym, etc.
-        
-    This resource explains the semantic relationships between synsets following 
-    international WordNet standards.
-    """
-    return get_schema_resource("wn")
+@lru_cache
+def _schema(prefix: str) -> str:
+    """The Turtle schema behind `prefix`, fetched once per process."""
+    r = httpx.get(f"{dannet.base_url}/schema/{prefix}", follow_redirects=True)
+    if r.is_error:
+        raise ValueError(f"No schema for the prefix {prefix!r}")
+    return r.text
 
 
 @mcp.resource("dannet://schema/{prefix}")
-def get_schema_resource(prefix: str) -> str:
-    """
-    Access RDF schemas defining DanNet's semantic structure.
-
-    Essential schemas:
-    - 'dns': DanNet-specific properties and relations
-    - 'dnc': Ontological types (semantic categories)
-    - 'wn': Standard WordNet relations
-    - 'ontolex': Word-sense-synset model
-    
-    Supporting schemas:
-    - 'skos': Definitions and labels
-    - 'lexinfo': Part-of-speech and morphology
-    - 'marl': Sentiment annotations
-
-    Args:
-        prefix: Namespace prefix (e.g., 'dns', 'wn', 'ontolex')
-
-    Returns:
-        RDF schema in Turtle format
-
-    Example:
-        # First understand the semantic categories:
-        dnc_schema = get_schema_resource("dnc")
-
-        # Then explore DanNet's custom properties:
-        dns_schema = get_schema_resource("dns")
-    """
-    try:
-        if prefix in _schema_cache:
-            return _schema_cache[prefix]
-        client = get_client()
-        response = client.client.get(f"{client.base_url}/schema/{prefix}")
-        response.raise_for_status()
-        _schema_cache[prefix] = response.text
-        return _schema_cache[prefix]
-    except Exception as e:
-        return f"Error accessing schema '{prefix}': {e}"
+def schema(prefix: str) -> str:
+    """The RDF schema (Turtle) behind a namespace `prefix`: dns (DanNet
+    relations and properties), dnc (ontological types), wn (WordNet
+    relations), ontolex, lexinfo, skos, marl, ..."""
+    return _schema(prefix)
 
 
-@mcp.resource("dannet://schemas")
-def list_available_schemas() -> str:
-    """
-    List all available RDF schemas with descriptions and relevance to DanNet.
-    
-    Returns:
-        JSON listing of all schemas with metadata and usage information
-    """
-
-    schemas = {
-        "dannet_core": {
-            "description": "Essential schemas for understanding DanNet data structure",
-            "schemas": {
-                "dns": {
-                    "uri": "https://wordnet.dk/dannet/schema/",
-                    "title": "DanNet Schema",
-                    "description": "DanNet-specific relations, properties, and classes",
-                    "key_properties": [
-                        "dns:shortLabel", "dns:sentiment", "dns:ontologicalType",
-                        "dns:usedFor", "dns:orthogonalHypernym", "dns:eqHypernym"
-                    ],
-                    "relevance": "essential"
-                },
-                "dnc": {
-                    "uri": "https://wordnet.dk/dannet/concepts/",
-                    "title": "DanNet Concepts",
-                    "description": "All DanNet and EuroWordNet ontological types",
-                    "key_concepts": [
-                        "dnc:Animal", "dnc:Human", "dnc:Object", "dnc:Institution",
-                        "dnc:BodyPart", "dnc:Plant", "dnc:Place"
-                    ],
-                    "relevance": "essential"
-                }
-            }
-        },
-        "linguistic_core": {
-            "description": "Core linguistic vocabularies used in DanNet",
-            "schemas": {
-                "ontolex": {
-                    "uri": "http://www.w3.org/ns/lemon/ontolex#",
-                    "title": "OntoLex-Lemon",
-                    "description": "W3C vocabulary for representing lexical data",
-                    "key_classes": [
-                        "ontolex:LexicalConcept", "ontolex:LexicalEntry",
-                        "ontolex:Form", "ontolex:isEvokedBy"
-                    ],
-                    "relevance": "core"
-                },
-                "wn": {
-                    "uri": "https://globalwordnet.github.io/schemas/wn#",
-                    "title": "Global WordNet Schema",
-                    "description": "Standard schema for WordNet synsets and relations",
-                    "key_properties": [
-                        "wn:hypernym", "wn:hyponym", "wn:similar", "wn:antonym",
-                        "wn:lexfile", "wn:ili", "wn:eq_synonym"
-                    ],
-                    "relevance": "core"
-                },
-                "lexinfo": {
-                    "uri": "http://www.lexinfo.net/ontology/3.0/lexinfo#",
-                    "title": "LexInfo",
-                    "description": "Ontology for lexical information and linguistic categories",
-                    "usage": "Part-of-speech tags and morphological features",
-                    "relevance": "supporting"
-                }
-            }
-        },
-        "semantic_web_standards": {
-            "description": "Standard W3C vocabularies for RDF and semantic web",
-            "schemas": {
-                "rdf": {
-                    "uri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-                    "title": "RDF",
-                    "description": "Core RDF vocabulary",
-                    "key_properties": ["rdf:type", "rdf:value"],
-                    "relevance": "foundational"
-                },
-                "rdfs": {
-                    "uri": "http://www.w3.org/2000/01/rdf-schema#",
-                    "title": "RDF Schema",
-                    "description": "Basic schema vocabulary for RDF",
-                    "key_properties": ["rdfs:label", "rdfs:comment", "rdfs:subClassOf", "rdfs:domain", "rdfs:range"],
-                    "relevance": "foundational"
-                },
-                "owl": {
-                    "uri": "http://www.w3.org/2002/07/owl#",
-                    "title": "Web Ontology Language",
-                    "description": "Rich ontology vocabulary for complex relationships",
-                    "key_classes": ["owl:Class", "owl:ObjectProperty", "owl:DatatypeProperty", "owl:inverseOf"],
-                    "relevance": "foundational"
-                },
-                "skos": {
-                    "uri": "http://www.w3.org/2004/02/skos/core#",
-                    "title": "Simple Knowledge Organization System",
-                    "description": "Vocabulary for thesauri and classification schemes",
-                    "key_properties": ["skos:definition", "skos:altLabel", "skos:broader", "skos:narrower"],
-                    "relevance": "supporting"
-                }
-            }
-        },
-        "metadata": {
-            "description": "Metadata and annotation vocabularies",
-            "schemas": {
-                "dc": {
-                    "uri": "http://purl.org/dc/terms/",
-                    "title": "Dublin Core Terms",
-                    "description": "Standard metadata vocabulary",
-                    "key_properties": ["dc:subject", "dc:title", "dc:description", "dc:license", "dc:issued"],
-                    "relevance": "metadata"
-                },
-                "foaf": {
-                    "uri": "http://xmlns.com/foaf/0.1/",
-                    "title": "Friend of a Friend",
-                    "description": "Vocabulary for people and organizations",
-                    "relevance": "metadata"
-                },
-                "marl": {
-                    "uri": "http://www.gsi.upm.es/ontologies/marl/ns#",
-                    "title": "MARL Sentiment",
-                    "description": "Vocabulary for sentiment and emotion annotation",
-                    "relevance": "specialized"
-                }
-            }
-        }
-    }
-
-    return json.dumps(schemas, indent=2)
+@mcp.resource("dannet://dannet-schema")
+def dannet_schema() -> str:
+    """The DanNet schema (dns:): DanNet's own relations and properties."""
+    return _schema("dns")
 
 
-@mcp.resource("dannet://namespaces")
-def get_namespace_documentation() -> str:
-    """
-    Comprehensive documentation of all namespaces used in DanNet RDF data.
-    
-    Returns:
-        JSON documentation with namespace URIs, prefixes, and usage patterns
-    """
-
-    namespaces = {
-        "usage_guide": {
-            "understanding_prefixes": "Namespace prefixes map to full URIs in RDF data. For example, 'dns:sentiment' expands to 'https://wordnet.dk/dannet/schema/sentiment'",
-            "prefix_resolution": "Use the schema resources to get full ontology definitions for each namespace",
-            "data_interpretation": "Most DanNet synset properties use these prefixes. Core data is in 'dn:' namespace, relations defined in 'dns:' namespace"
-        },
-        "namespace_mappings": {
-            "dn": {
-                "uri": "https://wordnet.dk/dannet/data/",
-                "description": "Core DanNet data namespace - all synsets, words, senses, and instances",
-                "examples": ["dn:synset-3047", "dn:word-11021722", "dn:sense-21045953"],
-                "usage": "Primary namespace for all DanNet entities"
-            },
-            "dns": {
-                "uri": "https://wordnet.dk/dannet/schema/",
-                "description": "DanNet-specific schema - properties and classes unique to DanNet",
-                "examples": ["dns:sentiment", "dns:ontologicalType", "dns:usedFor", "dns:orthogonalHypernym"],
-                "usage": "Custom relations and properties extending standard WordNet"
-            },
-            "dnc": {
-                "uri": "https://wordnet.dk/dannet/concepts/",
-                "description": "Ontological types from DanNet and EuroWordNet taxonomies",
-                "examples": ["dnc:Animal", "dnc:Human", "dnc:Institution", "dnc:BodyPart"],
-                "usage": "Semantic classification of synsets via dns:ontologicalType"
-            },
-            "ontolex": {
-                "uri": "http://www.w3.org/ns/lemon/ontolex#",
-                "description": "W3C OntoLex-Lemon vocabulary for lexical resources",
-                "examples": ["ontolex:LexicalConcept", "ontolex:isEvokedBy", "ontolex:lexicalizedSense"],
-                "usage": "Structural representation of lexical data - synsets are ontolex:LexicalConcept"
-            },
-            "wn": {
-                "uri": "https://globalwordnet.github.io/schemas/wn#",
-                "description": "Global WordNet Association schema for synset relations",
-                "examples": ["wn:hypernym", "wn:hyponym", "wn:similar", "wn:lexfile", "wn:ili"],
-                "usage": "Standard WordNet semantic relations between synsets"
-            },
-            "skos": {
-                "uri": "http://www.w3.org/2004/02/skos/core#",
-                "description": "W3C vocabulary for knowledge organization systems",
-                "examples": ["skos:definition", "skos:altLabel", "skos:broader"],
-                "usage": "Definitions and alternative labels for synsets"
-            },
-            "rdfs": {
-                "uri": "http://www.w3.org/2000/01/rdf-schema#",
-                "description": "RDF Schema vocabulary for basic ontology constructs",
-                "examples": ["rdfs:label", "rdfs:comment", "rdfs:subClassOf"],
-                "usage": "Basic labeling and classification of resources"
-            },
-            "dc": {
-                "uri": "http://purl.org/dc/terms/",
-                "description": "Dublin Core metadata vocabulary",
-                "examples": ["dc:subject", "dc:title", "dc:issued"],
-                "usage": "Metadata about synsets and other resources"
-            },
-            "dnf": {
-                "uri": "https://wordnet.dk/dannet/function/",
-                "description": "Custom DanNet SPARQL functions for taxonomy-based synset similarity",
-                "examples": ["dnf:path", "dnf:lch", "dnf:wup"],
-                "usage": "Call as SPARQL functions taking two synsets, e.g. BIND(dnf:wup(dn:synset-54219, ?synset) AS ?score); higher means more similar"
-            }
-        },
-        "common_patterns": {
-            "synset_structure": {
-                "description": "Typical properties found on synset resources",
-                "core_properties": [
-                    "rdf:type → ontolex:LexicalConcept",
-                    "rdfs:label → Human readable synset label",
-                    "skos:definition → Definition text",
-                    "dns:ontologicalType → Semantic classification (dnc: types)",
-                    "ontolex:isEvokedBy → Words that evoke this synset",
-                    "wn:hypernym/wn:hyponym → Taxonomic relations"
-                ]
-            },
-            "word_structure": {
-                "description": "Typical properties found on word resources",
-                "core_properties": [
-                    "rdf:type → ontolex:LexicalEntry",
-                    "rdfs:label → The word form",
-                    "ontolex:evokes → Synsets this word can evoke"
-                ]
-            },
-            "similarity_functions": {
-                "description": "Custom dnf: SPARQL functions scoring taxonomic closeness of two synsets (higher = more similar; a synset scores 1.0 against itself)",
-                "functions": [
-                    "dnf:path(a, b) → path-based similarity; returns 0 for unrelated pairs",
-                    "dnf:lch(a, b) → Leacock-Chodorow similarity; unbound for unrelated pairs",
-                    "dnf:wup(a, b) → Wu-Palmer similarity; unbound for unrelated pairs"
-                ],
-                "notes": "Both arguments are synsets (e.g. dn:synset-54219 or a ?var). Only synsets of the same part of speech and language are comparable; cross-POS and Danish/English pairs come back unbound. Works regardless of inference mode.",
-                "example": "SELECT ?synset ?score WHERE { ?synset a ontolex:LexicalConcept . FILTER(STRSTARTS(STR(?synset), STR(dn:))) BIND(dnf:wup(dn:synset-54219, ?synset) AS ?score) } ORDER BY DESC(?score)"
-            }
-        }
-    }
-
-    return json.dumps(namespaces, indent=2)
+@mcp.resource("dannet://ontological-types")
+def ontological_types() -> str:
+    """The ontological types (dnc:) used in dns:ontologicalType."""
+    return _schema("dnc")
 
 
-def _detect_available_server() -> str:
-    """
-    Detect if local DanNet server is available, fallback to remote.
-    
-    Returns:
-        str: URL of available server (local preferred, remote fallback)
-    """
-    try:
-        # Test local server connectivity with a quick timeout
-        with httpx.Client(timeout=3.0) as test_client:
-            response = test_client.get(LOCAL_URL)
-            # Accept any response (including 404) as indication the server is running
-            if response.status_code < 500:
-                logger.info(f"Local DanNet server detected and available at {LOCAL_URL}")
-                return LOCAL_URL
-    except Exception as e:
-        logger.debug(f"Local server not available at {LOCAL_URL}: {e}")
-
-    logger.info(f"Using remote DanNet server at {REMOTE_URL} (local server not available)")
-    return REMOTE_URL
+@mcp.resource("dannet://wordnet-schema")
+def wordnet_schema() -> str:
+    """The Global WordNet schema (wn:): the standard synset relations."""
+    return _schema("wn")
 
 
 @mcp.prompt()
 def analyze_danish_word(word: str, include_examples: bool = True) -> str:
-    """
-    Generate a comprehensive analysis prompt for a Danish word using DanNet data.
-    
-    Args:
-        word: The Danish word to analyze
-        include_examples: Whether to request usage examples
-    
-    Returns:
-        Analysis prompt for the word
-    """
-    example_section = """
-    5. Usage examples and contexts where this word appears
-    6. Collocations and common phrases""" if include_examples else ""
-
-    return f"""Please provide a comprehensive linguistic analysis of the Danish word "{word}" using DanNet data.
-
-Include the following information:
-1. All synsets (word senses/meanings) for this word
-2. Detailed definitions for each sense
-3. Synonyms and semantically related words
-4. Part of speech information and grammatical properties{example_section}
-7. Semantic relationships (hypernyms, hyponyms, meronyms if applicable)
-
-Use the available DanNet tools to gather this information and provide a structured analysis that would be useful for language learning or linguistic research."""
+    """A full linguistic analysis of a Danish `word`."""
+    examples = ("\n5. Usage examples and common collocations"
+                if include_examples else "")
+    return f"""Analyse the Danish word "{word}" with the DanNet tools:
+1. Every synset (sense) of the word, with definitions
+2. Synonyms and related words per sense
+3. Part of speech and ontological types
+4. Semantic relations: hypernyms, hyponyms, meronyms{examples}
+Structure the result for a language learner or linguist."""
 
 
 @mcp.prompt()
 def compare_danish_words(word1: str, word2: str) -> str:
-    """
-    Generate a prompt for semantic comparison of two Danish words.
-    
-    Args:
-        word1: First Danish word
-        word2: Second Danish word
-    
-    Returns:
-        Comparison prompt for the words
-    """
-    return f"""Please compare the Danish words "{word1}" and "{word2}" semantically using DanNet data.
-
-Analyze and compare:
-1. Overlapping synsets or semantic fields between the words
-2. Distinct meanings unique to each word  
-3. Hierarchical semantic relationships (if any exist between them)
-4. Degree of semantic similarity or distance — quantify this with the custom SPARQL similarity functions (e.g. dnf:wup(synsetA, synsetB) via sparql_query) once you have a synset for each word
-5. Different contexts where each word would be preferred
-6. Synonyms that are unique to each word vs. shared synonyms
-
-Use DanNet tools to gather comprehensive data about both words, then provide a detailed comparison that highlights their semantic relationship and differences. Include specific synset IDs and definitions where relevant."""
+    """A semantic comparison of two Danish words."""
+    return f"""Compare the Danish words "{word1}" and "{word2}" with the DanNet tools:
+1. Shared and distinct synsets or semantic fields
+2. Taxonomic relations between them, quantified with dnf:wup via sparql_query
+3. Contexts where each word is preferred, and shared vs. unique synonyms
+Cite synset ids and definitions."""
 
 
 @mcp.prompt()
 def explore_semantic_field(concept: str, depth: int = 2) -> str:
-    """
-    Generate a prompt to explore a semantic field or domain in Danish.
-    
-    Args:
-        concept: The central concept or domain (e.g., "mad" for food, "dyr" for animals)
-        depth: How many levels of hyponyms to explore (default: 2)
-    
-    Returns:
-        Exploration prompt for the semantic field
-    """
-    return f"""Please explore the semantic field around the Danish concept "{concept}" using DanNet.
-
-Perform the following analysis:
-1. Find the primary synset(s) for "{concept}"
-2. Map out all hyponyms (subcategories) up to {depth} levels deep
-3. Identify the ontological types (dns:ontologicalType) for this semantic field
-4. Find related concepts via wn:similar and dns:orthogonalHypernym
-5. List key vocabulary items in this semantic domain
-6. Identify any domain-specific relationships (e.g., dns:usedFor for tools)
-
-Create a structured overview of this semantic field that would be useful for vocabulary learning or domain analysis."""
+    """The semantic field around a Danish `concept`, `depth` hyponym levels deep."""
+    return f"""Explore the semantic field of the Danish concept "{concept}" with DanNet:
+1. Its synset(s) and their ontological types
+2. Hyponyms {depth} levels deep, plus wn:similar and dns:orthogonalHypernym
+3. Domain relations such as dns:usedFor
+Present the field as a structured vocabulary overview."""
 
 
 @mcp.prompt()
 def trace_taxonomic_path(word1: str, word2: str) -> str:
-    """
-    Generate a prompt to find the taxonomic relationship between two words.
-    
-    Args:
-        word1: Starting word
-        word2: Target word
-    
-    Returns:
-        Prompt for tracing taxonomic relationships
-    """
-    return f"""Please trace the taxonomic relationship between "{word1}" and "{word2}" in Danish using DanNet.
-
-Investigate:
-1. Is there a direct hypernym/hyponym relationship between these words?
-2. If not directly related, find their common hypernym (shared parent concept)
-3. Trace the full hypernym chain from each word to their common ancestor
-4. Calculate the semantic distance (number of steps) between them — the custom SPARQL similarity functions (dnf:path, dnf:lch, dnf:wup, called via sparql_query) score this directly from the hypernym hierarchy
-5. Identify any cross-cutting relationships via dns:orthogonalHypernym
-6. Explain what semantic features differentiate these concepts
-
-Provide a clear visualization of the taxonomic paths and explain the semantic relationship."""
+    """The taxonomic relationship between two Danish words."""
+    return f"""Trace the taxonomic relationship between "{word1}" and "{word2}" in DanNet:
+1. A direct hypernym/hyponym relation, or else their nearest common hypernym
+2. The hypernym chain from each word to the common ancestor
+3. Their similarity via dnf:path, dnf:lch and dnf:wup (sparql_query)
+Explain what distinguishes the two concepts."""
 
 
 @mcp.prompt()
 def map_part_whole_relations(entity: str, direction: str = "both") -> str:
-    """
-    Generate a prompt to explore part-whole relationships for an entity.
-    
-    Args:
-        entity: The Danish word for the entity to analyze
-        direction: "parts" (meronyms), "wholes" (holonyms), or "both"
-    
-    Returns:
-        Prompt for part-whole relationship analysis
-    """
-    directions_text = {
-        "parts": "all component parts (meronyms)",
-        "wholes": "all containing wholes (holonyms)", 
-        "both": "both parts (meronyms) and wholes (holonyms)"
-    }
-    
-    return f"""Please map {directions_text.get(direction, "part-whole relationships")} for the Danish word "{entity}" using DanNet.
-
-Analyze:
-1. Find all synsets for "{entity}"
-2. For each synset, identify:
-   - wn:mero_part / wn:holo_part (physical components)
-   - wn:mero_substance / wn:holo_substance (material composition)
-   - wn:mero_member / wn:holo_member (membership relations)
-   - wn:mero_location / wn:holo_location (spatial containment)
-3. Create a structured hierarchy showing these relationships
-4. Note which relationships are inherited vs. direct
-5. Identify the ontological types of related entities
-
-Present this as a clear structural decomposition that shows how "{entity}" fits into larger systems or breaks down into components."""
+    """The part-whole relations of a Danish `entity`: "parts", "wholes" or "both"."""
+    relations = {"parts": "wn:mero_part, wn:mero_substance, wn:mero_member and wn:mero_location",
+                 "wholes": "wn:holo_part, wn:holo_substance, wn:holo_member and wn:holo_location"}
+    wanted = relations.get(direction) or " and ".join(relations.values())
+    return f"""Map the part-whole relations of the Danish word "{entity}" in DanNet:
+1. Its synsets
+2. Per synset, {wanted}, noting direct vs. dns:inherited relations
+Present the result as a structural decomposition."""
 
 
 @mcp.prompt()
 def find_translation_equivalents(word: str, target_lang: str = "en") -> str:
-    """
-    Generate a prompt to find cross-linguistic equivalents.
-    
-    Args:
-        word: Danish word to translate
-        target_lang: Target language code (default: "en" for English)
-    
-    Returns:
-        Prompt for finding translation equivalents
-    """
-    return f"""Please find translation equivalents for the Danish word "{word}" using DanNet's cross-linguistic connections.
-
-Perform this analysis:
-1. Find all synsets for "{word}"
-2. For each synset:
-   - Check wn:ili (Inter-Lingual Index) mappings
-   - Look for wn:eq_synonym (Open English WordNet equivalents)
-   - Note the specific sense that each translation corresponds to
-3. Identify which senses have direct equivalents vs. approximate matches
-4. Explain any semantic differences or gaps between languages
-5. If multiple English words map to the Danish word, explain the distinctions
-6. Provide example contexts where each translation would be appropriate
-
-Give a nuanced translation guide that captures the semantic range of "{word}" across languages."""
+    """Cross-linguistic equivalents of a Danish `word`."""
+    return f"""Find {target_lang} equivalents of the Danish word "{word}" in DanNet:
+1. Its synsets and, per synset, wn:ili and wn:eq_synonym links
+2. Which senses have exact vs. approximate equivalents, and the semantic gaps
+Give a translation guide covering the word's whole range of senses."""
 
 
 @mcp.prompt()
 def analyze_verb_roles(verb: str) -> str:
-    """
-    Generate a prompt to analyze thematic roles for Danish verbs.
-    
-    Args:
-        verb: Danish verb to analyze
-    
-    Returns:
-        Prompt for thematic role analysis
-    """
-    return f"""Please analyze the thematic roles and argument structure of the Danish verb "{verb}" using DanNet.
-
-Investigate:
-1. Find all verbal synsets for "{verb}"
-2. For each verbal sense, identify:
-   - dns:agent / dns:involved_agent (who performs the action)
-   - dns:patient / dns:involved_patient (what is affected)
-   - dns:instrument / dns:involved_instrument (tools/means used)
-   - dns:result / dns:involved_result (outcomes produced)
-3. Look for co-occurrence patterns:
-   - dns:co_agent_instrument (typical agent-instrument pairs)
-   - dns:co_patient_agent (typical patient-agent pairs)
-4. Identify causal relationships:
-   - wn:causes / dns:is_caused_by
-   - wn:entails / dns:is_entailed_by
-5. Find related actions via wn:subevent
-6. Note the ontological type (Agentive, Cause, etc.)
-
-Provide a comprehensive analysis of how "{verb}" structures events and what semantic roles it assigns."""
+    """The thematic roles and event structure of a Danish `verb`."""
+    return f"""Analyse the event structure of the Danish verb "{verb}" in DanNet:
+1. Its verbal synsets and ontological types
+2. Thematic roles: wn:agent, wn:patient, wn:instrument, wn:result and the involved_* inverses
+3. Co-occurrence (dns:co_*) and causal relations (wn:causes, wn:entails, wn:subevent)
+Explain what roles the verb assigns."""
 
 
 @mcp.prompt()
 def explore_polysemy(word: str, include_etymology: bool = False) -> str:
-    """
-    Generate a prompt to explore polysemous meanings of a word.
-    
-    Args:
-        word: Danish word to analyze for multiple meanings
-        include_etymology: Whether to request etymological connections
-    
-    Returns:
-        Prompt for polysemy analysis
-    """
-    etymology_section = """
-7. If possible, identify whether different senses share etymological origins
-8. Note any metaphorical extensions from concrete to abstract meanings""" if include_etymology else ""
-    
-    return f"""Please explore the polysemy (multiple meanings) of the Danish word "{word}" using DanNet.
+    """The distinct senses of a polysemous Danish `word`."""
+    etymology = ("\n4. Shared etymological origins and metaphorical extensions"
+                 if include_etymology else "")
+    return f"""Explore the polysemy of the Danish word "{word}" in DanNet:
+1. Every synset with its full definition (fetch_ddo_definition if truncated), ontological type and register
+2. Which senses are related (metaphor, specialisation) and which are distinct
+3. The most prototypical sense and the synonyms unique to each sense{etymology}
+Create a sense map."""
 
-Analyze:
-1. List all distinct synsets (senses) for "{word}"
-2. For each sense:
-   - Provide the full definition (use fetch_ddo_definition if truncated)
-   - Identify the ontological type and semantic domain
-   - Note the register/formality level if available
-3. Group related senses vs. completely distinct meanings
-4. Identify the most common/prototypical sense
-5. Show how senses relate through:
-   - Metaphorical extension
-   - Specialization/generalization
-   - Domain-specific usage
-6. Find synonyms unique to each sense{etymology_section}
 
-Create a sense map that helps learners understand how one word form carries multiple meanings in Danish."""
+def _detect_server() -> str:
+    """The local DanNet server when it responds, otherwise wordnet.dk."""
+    try:
+        httpx.get(LOCAL_URL, timeout=3.0)
+        return LOCAL_URL
+    except httpx.HTTPError:
+        return REMOTE_URL
 
 
 def main():
-    """Main entry point with command line argument parsing"""
-    global dannet_client, mcp
-
-    parser = argparse.ArgumentParser(
-        description="DanNet MCP Server - Access Danish WordNet data via MCP. Defaults to local server if available, otherwise uses remote server."
-    )
-    parser.add_argument(
-        "--local",
-        action="store_true",
-        help="Force local development server (localhost:3456)"
-    )
-    parser.add_argument(
-        "--base-url",
-        type=str,
-        help="Custom base URL for DanNet API"
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug logging"
-    )
-    parser.add_argument(
-        "--http",
-        action="store_true",
-        help="Run as HTTP server (streamable-http transport) instead of stdio"
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="HTTP server port (default: 8000)"
-    )
-    parser.add_argument(
-        "--host",
-        type=str,
-        default="127.0.0.1",
-        help="HTTP server host (default: 127.0.0.1, use 0.0.0.0 for remote access)"
-    )
-
+    parser = argparse.ArgumentParser(description="DanNet MCP server")
+    parser.add_argument("--base-url", help="DanNet web service URL (default: a "
+                        "local server when running, otherwise wordnet.dk)")
+    parser.add_argument("--local", action="store_true", help=f"use {LOCAL_URL}")
+    parser.add_argument("--http", action="store_true",
+                        help="serve streamable HTTP instead of stdio")
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address")
+    parser.add_argument("--port", type=int, default=8000, help="HTTP port")
+    parser.add_argument("--debug", action="store_true", help="debug logging")
     args = parser.parse_args()
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+    local = args.local or os.getenv("DANNET_MCP_LOCAL", "").lower() == "true"
+    global dannet
+    dannet = DanNet(args.base_url or (LOCAL_URL if local else _detect_server()))
+    log.info("Using DanNet at %s", dannet.base_url)
 
-    # Check environment variable for local mode
-    env_local = os.getenv('DANNET_MCP_LOCAL', '').lower() == 'true'
-
-    # Determine base URL with precedence: CLI args > env vars > auto-detect > remote fallback
-    if args.base_url:
-        # Explicit base URL argument takes highest precedence
-        base_url = args.base_url
-        logger.info(f"Using explicitly specified base URL: {base_url}")
-    elif args.local or env_local:
-        # Explicit local flag or environment variable
-        base_url = LOCAL_URL
-        if args.local and env_local:
-            logger.info("Local mode enabled via both --local flag and DANNET_MCP_LOCAL environment variable")
-        elif args.local:
-            logger.info("Local mode enabled via --local command line flag")
-        elif env_local:
-            logger.info("Local mode enabled via DANNET_MCP_LOCAL environment variable")
-    else:
-        # Auto-detect: try local first, fallback to remote
-        base_url = _detect_available_server()
-
-    # Initialize client with the chosen base URL
-    dannet_client = DanNetClient(base_url)
-
-    logger.info(f"Starting DanNet MCP Server with base URL: {base_url}")
-
-    # Update MCP server settings for HTTP mode if requested
     if args.http:
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        logger.info(f"Running in HTTP mode on {args.host}:{args.port}")
+        mcp.settings.host, mcp.settings.port = args.host, args.port
         mcp.run(transport="streamable-http")
     else:
         mcp.run()

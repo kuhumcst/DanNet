@@ -96,7 +96,7 @@
       (->json-safe m)
       (str data))
 
-    (keyword? data) (prefix/kw->qname data)
+    (keyword? data) (or (prefix/kw->qname data) (name data))
     (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
     (coll? data) (mapv ->json-safe data)
     :else data))
