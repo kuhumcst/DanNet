@@ -1,32 +1,180 @@
 # DanNet SHACL shapes: EDITORIAL rules for newly edited data.
 #
 # Stricter requirements than base.ttl, meant ONLY for targeted validation of
-# individual focus nodes touched by an edit (see `validate-node`) before a
-# write is committed. Legacy data is deliberately exempt: e.g. ≈70k imported
-# OEWN synsets legitimately lack a wn:definition, so running these against the
-# full graph would drown signal in noise.
+# individual focus nodes touched by an edit (see `validate-node` and
+# `validate-changes`) before a write is committed. Legacy data is deliberately
+# exempt: running these against the full graph would drown signal in noise.
 #
-# A deliberately small starter set; extend as editorial policy is decided.
+# DRAFT editorial policy, grounded in a survey of the live data (2026-09-02):
+# every convention below holds for 100% of the surveyed data unless a comment
+# says otherwise. Severities are policy knobs: sh:Violation blocks a write,
+# sh:Warning only surfaces in the editing UI. The rough rule applied here is
+# that universally clean conventions block while incomplete ones (missing
+# definitions, hypernyms, ontological types) only warn.
 #
-# NOTE: property shapes are deliberately given explicit IRIs (rather than the
-# usual blank nodes) so that validation reports can group violations by a
-# stable shape identity.
+# NOTE: property shapes get explicit IRIs; see the note in base.ttl.
 
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
 
+## dns:DanNetPrefixes (base.ttl, always loaded alongside this file) declares
+## dn/dns/ili/ontolex/wn; the constraints here additionally need rdf and dnc.
+dns:EditorialPrefixes
+    sh:declare [ sh:prefix "rdf" ;
+                 sh:namespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "dnc" ;
+                 sh:namespace "https://wordnet.dk/dannet/concepts/"^^xsd:anyURI ] .
+
 ## ---------------------------------------------------------------------------
-## LexicalConcept (synset): edited synsets should carry a definition.
-## sh:Warning: surfaces in the editing UI without blocking the write.
+## LexicalConcept (synset)
 ## ---------------------------------------------------------------------------
 dns:EditorialConceptShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalConcept ;
-    sh:property dns:EditorialConceptShape-definition .
+    sh:property dns:EditorialConceptShape-definition ,
+                dns:EditorialConceptShape-label ,
+                dns:EditorialConceptShape-lexicalizedSense ,
+                dns:EditorialConceptShape-ontologicalType ,
+                dns:EditorialConceptShape-ontologicalTypeValue ,
+                dns:EditorialConceptShape-hypernym .
 
+## DanNet definitions are asserted as skos:definition (60686 synsets, all
+## @da); wn:definition does not occur in the dataset. 23 synsets carry two
+## definitions and ~10k none, hence sh:Warning rather than a blocking rule.
 dns:EditorialConceptShape-definition a sh:PropertyShape ;
-    sh:path wn:definition ;
+    sh:path skos:definition ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Warning ;
+    sh:message "An edited synset should have exactly one Danish (@da) skos:definition." .
+
+## All 70715 synset labels are a single @da literal of the form {...}.
+dns:EditorialConceptShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:maxCount 1 ;
+    sh:pattern "^\\{[^{}]+\\}$" ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "A synset label must be a single @da literal of the form {...}." .
+
+## Only 6 legacy synsets lack a lexicalized sense; a new synset without one
+## would be unreachable from the lexicon.
+dns:EditorialConceptShape-lexicalizedSense a sh:PropertyShape ;
+    sh:path ontolex:lexicalizedSense ;
+    sh:minCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:severity sh:Violation ;
+    sh:message "An edited synset must be lexicalized by at least one sense." .
+
+## 69729 of 70715 synsets carry exactly one dns:ontologicalType (never more);
+## presence only warns since 986 legacy synsets lack one.
+dns:EditorialConceptShape-ontologicalType a sh:PropertyShape ;
+    sh:path dns:ontologicalType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:severity sh:Warning ;
+    sh:message "An edited synset should have exactly one dns:ontologicalType." .
+
+## When present, the value must be a named, typed dnt: ontological type
+## (cf. ->ontotype in bootstrap/corsem.clj); member atoms are checked by
+## dns:EditorialOntotypeShape below.
+dns:EditorialConceptShape-ontologicalTypeValue a sh:PropertyShape ;
+    sh:path dns:ontologicalType ;
+    sh:nodeKind sh:IRI ;
+    sh:class dns:OntologicalType ;
+    sh:severity sh:Violation ;
+    sh:message "dns:ontologicalType must reference a typed dns:OntologicalType resource." .
+
+## 11448 of 69851 synsets legitimately lack a hypernym (top-level synsets;
+## adjectives, which link laterally instead), so this can only ever warn.
+dns:EditorialConceptShape-hypernym a sh:PropertyShape ;
+    sh:path wn:hypernym ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "An edited synset should have a wn:definition." .
+    sh:message "An edited synset should have a wn:hypernym (roots and e.g. adjectives may legitimately lack one)." .
+
+## All 58739 asserted hypernym edges resolve within dn:; an edit must not
+## introduce a dangling one. Same existence rule as dns:LinkedSynsetShape.
+dns:EditorialHypernymTargetShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalConcept ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:EditorialHypernymTargetShape-resolvableTarget .
+
+dns:EditorialHypernymTargetShape-resolvableTarget a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "wn:hypernym must target a known synset (typed as a lexical concept or carrying a lexicalized sense)." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this wn:hypernym ?value .
+  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
+  FILTER NOT EXISTS { ?value ontolex:lexicalizedSense ?sense }
+}""" .
+
+## ---------------------------------------------------------------------------
+## OntologicalType (dnt:): all 667 member atoms across the live dnt: bags are
+## dnc: concepts; a newly minted ontotype must keep it that way.
+## ---------------------------------------------------------------------------
+dns:EditorialOntotypeShape a sh:NodeShape ;
+    sh:targetClass dns:OntologicalType ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:EditorialOntotypeShape-dncMembers .
+
+dns:EditorialOntotypeShape-dncMembers a sh:SPARQLConstraint ;
+    sh:prefixes dns:EditorialPrefixes ;
+    sh:message "Every member (rdf:_N) of an ontological type must be a dnc: concept." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this ?p ?value .
+  FILTER(strstarts(str(?p), concat(str(rdf:), "_")))
+  FILTER(!strstarts(str(?value), str(dnc:)))
+}""" .
+
+## ---------------------------------------------------------------------------
+## Word / MultiwordExpression
+## ---------------------------------------------------------------------------
+dns:EditorialWordShape a sh:NodeShape ;
+    sh:targetClass ontolex:Word , ontolex:MultiwordExpression ;
+    sh:property dns:EditorialWordShape-label ,
+                dns:EditorialWordShape-partOfSpeech .
+
+## All 61994 word labels are a single @da literal in ASCII double quotes.
+dns:EditorialWordShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:maxCount 1 ;
+    sh:pattern "^\"[^\"]+\"$" ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "A word label must be a single @da literal of the form \"...\"." .
+
+## Current editorial policy admits three parts of speech (the survey found no
+## others and never more than one per word); extend the list as policy does,
+## e.g. with wn:adverb.
+dns:EditorialWordShape-partOfSpeech a sh:PropertyShape ;
+    sh:path wn:partOfSpeech ;
+    sh:maxCount 1 ;
+    sh:in ( wn:noun wn:verb wn:adjective ) ;
+    sh:severity sh:Violation ;
+    sh:message "wn:partOfSpeech must be one of wn:noun, wn:verb, or wn:adjective." .
+
+## ---------------------------------------------------------------------------
+## LexicalSense
+## ---------------------------------------------------------------------------
+dns:EditorialSenseShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalSense ;
+    sh:property dns:EditorialSenseShape-label .
+
+## All 77331 sense labels are a single unwrapped @da literal (no quotes or
+## braces), typically lemma + DDO homograph/sense notation (e.g. cykel_§1).
+## The notation itself is too varied for a stricter pattern.
+dns:EditorialSenseShape-label a sh:PropertyShape ;
+    sh:path rdfs:label ;
+    sh:maxCount 1 ;
+    sh:pattern "^[^\"{][^\"{}]*$" ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "A sense label must be a single unwrapped @da literal (no quotes or braces)." .

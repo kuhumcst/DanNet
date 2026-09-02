@@ -2,8 +2,8 @@
   "SHACL validation of the DanNet graph.
 
   Bundles structural shapes (resources/schemas/internal/shapes/) with helpers
-  to validate a graph (or a single focus node) and return violations as
-  Clojure data. The shapes are split by target:
+  to validate a graph, a single focus node, or a proposed set of changes, and
+  return violations as Clojure data. The shapes are split by target:
 
     * base.ttl      - invariants of the asserted (base) graph
     * inferred.ttl  - relation completeness; INFERRED model only
@@ -12,27 +12,39 @@
   Current uses:
     * clojure.test assertions over small fixtures (see test ns),
     * a non-fatal bootstrap/CI check that logs anomalies via Telemere,
-      comparing violation counts to a known baseline (shapes-baseline.edn), and
+      comparing violation counts to a known baseline (shapes-baseline.edn),
     * a release gate aborting RDF exports on baseline regressions
-      (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
+      (`validate-export!`, called from dk.cst.dannet.db.export.rdf), and
+    * introspection of the shapes themselves as plain data (`shapes->spec`)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [arachne.aristotle.graph :as ag]
             [dk.cst.dannet.prefix]                          ; required for its side effects
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.db.transaction :as txn]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.shacl ShaclValidator Shapes]
+           [org.apache.jena.shacl.engine Target]
+           [org.apache.jena.shacl.engine.constraint ClassConstraint
+                                                    HasValueConstraint
+                                                    InConstraint
+                                                    MaxCount
+                                                    MinCount
+                                                    NodeKindConstraint
+                                                    PatternConstraint
+                                                    SparqlConstraint]
+           [org.apache.jena.shacl.parser Constraint PropertyShape Shape]
            [org.apache.jena.shacl.validation ReportEntry]
-           [org.apache.jena.graph Graph GraphUtil Node NodeFactory]
+           [org.apache.jena.graph Graph GraphUtil Node NodeFactory Triple]
+           [org.apache.jena.graph.compose Delta]
            [org.apache.jena.riot RDFDataMgr]
            [org.apache.jena.sparql.path Path P_Link]))
 
 ;; TODO: shapes are kept internal for now, but since SHACL shapes are plain
 ;; RDF, consider eventually publishing them as Linked Open Data under the dns:
 ;; namespace (alongside dannet-schema.ttl, cf. prefix.cljc) once they have
-;; stabilised, e.g. letting the future editing UI derive required fields from
-;; the same shapes that gate writes.
+;; stabilised.
 (def shapes-resources
   "SHACL shape files by target; :inferred and :editorial extend :base."
   {:base      "schemas/internal/shapes/base.ttl"
@@ -140,6 +152,123 @@
    (validate-node graph @shapes node))
   ([^Graph graph ^Shapes shapes node]
    (report->result (.validate (ShaclValidator/get) shapes graph (->node node)))))
+
+;; TODO: remove once the aristotle fork's LangStr conversion is fixed.
+(defn- normalize-triple
+  "Rewrite an ill-formed language-tagged literal object of `t` (non-empty
+  language but a datatype other than rdf:langString, as currently produced by
+  aristotle's LangStr conversion) into a well-formed rdf:langString literal,
+  i.e. the form parsers and TDB2 store, so that term comparisons hold."
+  ^Triple [^Triple t]
+  (let [o (.getObject t)]
+    (if (and (.isLiteral o)
+             (not-empty (.getLiteralLanguage o))
+             (not= "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString"
+                   (.getLiteralDatatypeURI o)))
+      (Triple/create (.getSubject t)
+                     (.getPredicate t)
+                     (NodeFactory/createLiteral (.getLiteralLexicalForm o)
+                                                (.getLiteralLanguage o)))
+      t)))
+
+(defn validate-changes
+  "Validate the result of applying `changes` to `graph` without mutating it,
+  assuming a read transaction is already open. Returns the same result map as
+  `validate`, so e.g. `blocking?` and `by-severity` compose directly.
+
+  `changes` is a map of :add and/or :delete triple collections in any format
+  accepted by aristotle, e.g. [s p o] vectors of prefixed keywords. The
+  changes are overlaid on `graph` via a Delta (the base graph is untouched)
+  and the subject of every changed triple is validated in the overlaid graph
+  via `validate-node` against `shapes`, defaulting to the editorial shape set
+  since this is meant to gate writes before they are committed."
+  ([^Graph graph changes]
+   (validate-changes graph @editorial-shapes changes))
+  ([^Graph graph ^Shapes shapes {:keys [add delete]}]
+   (let [added   (->> (some->> (not-empty add) ag/triples (map normalize-triple))
+                      ;; Delta/find would return a triple present in both the
+                      ;; base graph and the additions twice, breaking maxCount
+                      ;; constraints, so re-added triples are skipped.
+                      (remove #(.contains graph ^Triple %)))
+         deleted (some->> (not-empty delete) ag/triples (map normalize-triple))
+         delta   (Delta. graph)]
+     (doseq [^Triple t added] (.add delta t))
+     (doseq [^Triple t deleted] (.delete delta t))
+     (let [entries (->> (concat added deleted)
+                        (map #(.getSubject ^Triple %))
+                        (distinct)
+                        (into [] (mapcat #(:entries (validate-node delta shapes %)))))]
+       {:conforms? (empty? entries)
+        :n         (count entries)
+        :entries   entries}))))
+
+;; Shape introspection: the parsed Shapes exposed as plain data.
+(defn- message->str
+  "The lexical form of an sh:message `node`."
+  [^Node node]
+  (if (.isLiteral node)
+    (.getLiteralLexicalForm node)
+    (str node)))
+
+(defn- constraint->map
+  "Convert a Jena `Constraint` into a map whose :type is the SHACL constraint
+  component, i.e. the same keyword as the :constraint of a violation entry.
+  SPARQL-based constraints stay opaque (a query string is not a form field)."
+  [^Constraint c]
+  (let [m {:type (node->value (.getComponent c))}]
+    (condp instance? c
+      MinCount (assoc m :min-count (.getMinCount ^MinCount c))
+      MaxCount (assoc m :max-count (.getMaxCount ^MaxCount c))
+      ClassConstraint (assoc m :class (node->value (.getExpectedClass ^ClassConstraint c)))
+      NodeKindConstraint (assoc m :node-kind (node->value (.getKind ^NodeKindConstraint c)))
+      HasValueConstraint (assoc m :value (node->value (.getValue ^HasValueConstraint c)))
+      PatternConstraint (assoc m :pattern (.getPattern ^PatternConstraint c))
+      InConstraint (assoc m :values (mapv node->value (.getValues ^InConstraint c)))
+      SparqlConstraint m
+      (assoc m :description (str c)))))
+
+(defn- target->map
+  "Convert a Jena `target` into a map of target :type (e.g. :targetClass,
+  :targetSubjectsOf, or :targetExtension for SPARQL-based targets) and the
+  targeted :node."
+  [^Target target]
+  {:type (keyword (str (.getTargetType target)))
+   :node (node->value (.getObject target))})
+
+(defn- property-shape->map
+  [^PropertyShape ps]
+  (cond-> {:shape       (node->value (.getShapeNode ps))
+           :path        (path->value (.getPath ps))
+           :severity    (some-> (.getSeverity ps) .level node->value)
+           :constraints (mapv constraint->map (.getConstraints ps))}
+    (seq (.getMessages ps))
+    (assoc :messages (mapv message->str (.getMessages ps)))))
+
+(defn- shape->map
+  [^Shape shape]
+  (cond-> {:shape    (node->value (.getShapeNode shape))
+           :severity (some-> (.getSeverity shape) .level node->value)
+           :targets  (mapv target->map (.getTargets shape))}
+    (seq (.getConstraints shape))
+    (assoc :constraints (mapv constraint->map (.getConstraints shape)))
+    (seq (.getMessages shape))
+    (assoc :messages (mapv message->str (.getMessages shape)))
+    (seq (.getPropertyShapes shape))
+    (assoc :properties (mapv property-shape->map (.getPropertyShapes shape)))))
+
+(defn shapes->spec
+  "Convert parsed SHACL `shapes` (a Jena `Shapes`, e.g. @shapes) into plain
+  Clojure data: one map per targeted node shape, sorted by :shape identity.
+
+  Shape ids, property paths, severities, and constraint components use the
+  same keywords as validation report entries, so a UI can join the two, e.g.
+  marking a form field required from a :sh/MinCountConstraintComponent and
+  localizing its violations by the stable :shape id."
+  [^Shapes shapes]
+  (->> (iterator-seq (.iterator shapes))
+       (map shape->map)
+       (sort-by :shape)
+       (vec)))
 
 (defn by-severity
   "Violation `entries` grouped by :severity, e.g. for separating blocking
@@ -265,6 +394,10 @@
 (comment
   ;; Inspect the currently accepted violation counts.
   @baseline
+
+  ;; The base/editorial shapes as plain data, e.g. for deriving UI fields.
+  (shapes->spec @shapes)
+  (shapes->spec @editorial-shapes)
 
   ;; The shapes and baseline are parsed once into delays, so after editing
   ;; the .ttl shape files or the baseline EDN, reload this ns to pick them up.
