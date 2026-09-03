@@ -4,9 +4,18 @@
 
 Et synsets hypernym (overbegreb) skal normalt have samme ordklasse som
 synsettet selv. Substantiver hører under substantiver, og verber hører under
-verber. En automatisk kontrol fandt **285 synset-par**, hvor ordklasserne ikke
-passer sammen. Substantivet {filtrering} peger for eksempel på verbet {fjerne}
-som sit hypernym. Verbet {tilsvine} peger på substantivet {talehandling}.
+verber. Parrene i denne gennemgang kommer fra to forskellige kilder:
+
+- En automatisk kontrol fandt almindelige hypernym-relationer, hvor
+  ordklasserne ikke passer sammen. **285 par** kræver et fagligt skøn.
+  Substantivet {filtrering} peger for eksempel på verbet {fjerne} som sit
+  hypernym. Verbet {tilsvine} peger på substantivet {talehandling}.
+- DanNet brugte desuden en særlig relation til hypernymer på tværs af
+  ordklasser: `dns:crossPoSHypernym`. Den havde 5.636 par. Et script har
+  rettet eller slettet de fleste. **104 par** kræver også et fagligt skøn.
+
+De to grupper overlapper ikke. Du skal derfor vurdere **389 par** i alt.
+Hver gruppe har sit eget regneark.
 
 Vi kan ikke rette disse par automatisk. Det rigtige svar kræver et fagligt
 skøn. Skal relationen pege på et andet synset? Skal den skifte til en anden
@@ -34,6 +43,8 @@ Et script gendanner filerne fra databasen. Scriptet bevarer alt, du har
 skrevet i de gule kolonner, så dit arbejde ikke går tabt.
 
 ## `2d-cross-pos-taxonomy.xlsx`
+
+Filen indeholder de 285 par fra den automatiske kontrol.
 
 Hver **række** er ét par: et synset og det hypernym, det peger på i dag. Filen
 grupperer rækkerne efter hypernym. Alle synsets, der peger på det samme
@@ -97,7 +108,8 @@ En tom *status* betyder, at ingen har set på rækken endnu. Både tomme rækker
 
 ## `a4-deferred-crosspos.xlsx`
 
-Filen indeholder 104 par. Et script omsatte dem tidligere til
+Filen indeholder de 104 par, der er tilbage fra den særlige relation
+`dns:crossPoSHypernym`. Et script omsatte dem tidligere til
 `wn:classified_by`. Den relation viste sig at være forkert, og parrene afventer
 nu en beslutning. De står stadig som `dns:crossPoSHypernym` i datasættet.
 
