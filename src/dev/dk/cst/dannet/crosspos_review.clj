@@ -131,11 +131,21 @@
   established nominal reading that needs DDO evidence per item, which is why
   they were deferred rather than batched. Only the register group's relation is
   prefilled, on the same basis as 2d prefilling a sole retarget candidate."
-  {"sprog"      {"forslag" "ordklassefejl"}
-   "person"     {"forslag" "ordklassefejl"}
-   "fast udtryk" {"forslag" "ordklassefejl"}
+  {"sprog"      {"forslag"   "ordklassefejl"
+                 "kommentar" (str "Automatisk forslag: substantiveret adjektiv "
+                                  "(et sprog). Bekræft den substantiviske brug "
+                                  "i DDO.")}
+   "person"     {"forslag"   "ordklassefejl"
+                 "kommentar" (str "Automatisk forslag: substantiveret adjektiv "
+                                  "(en person). Bekræft den substantiviske "
+                                  "brug i DDO.")}
+   "fast udtryk" {"forslag"   "ordklassefejl"
+                  "kommentar" (str "Automatisk forslag: fast nominalt udtryk. "
+                                   "Bekræft den substantiviske brug i DDO.")}
    "brugsmarkering" {"forslag"     "ny relation: wn:exemplifies"
-                     "ny relation" "wn:exemplifies"}})
+                     "ny relation" "wn:exemplifies"
+                     "kommentar"   (str "Automatisk forslag: hypernymet er en "
+                                        "brugsmarkering, ikke et overbegreb.")}})
 
 (defn- index
   "Build {synset {:label .. :pos #{..} :lemmas #{..}}}.
@@ -197,6 +207,61 @@
        (map (fn [{:syms [?s ?o]}] {:source ?s :target ?o}))))
 
 (defn- uri [k] (str (prefix/kw->uri k)))
+
+(def noun-suffixes
+  "Danish nominalization suffixes tried by derived-noun-candidates."
+  ["else" "ning" "ing" "en" "eri" "sel" "tion"])
+
+(defn- ->lemma-index
+  "Build {lemma #{synset ..}} from the synset index `idx`."
+  [idx]
+  (reduce (fn [m [s {:keys [lemmas]}]]
+            (reduce #(update %1 %2 (fnil conj #{}) s) m lemmas))
+          {} idx))
+
+(defn- same-lemma-candidates
+  "Synsets that share a lemma with the hypernym of pair `p` but have the PoS of
+  its source, looked up in `idx` and `lemma->synsets` -- the homograph pattern:
+  {karmin} under the adjective {rød} suggests the noun {rød}."
+  [idx lemma->synsets {:keys [source target spos]}]
+  (->> (get-in idx [target :lemmas])
+       (mapcat lemma->synsets)
+       (filter #(= spos (get-in idx [% :pos])))
+       (remove #{source target})
+       (distinct)))
+
+(defn- derived-noun-candidates
+  "Noun synsets whose lemma is a nominalization of a verb lemma of the
+  hypernym of pair `p` (verb stem + noun-suffixes), looked up in `idx` and
+  `lemma->synsets` -- the deverbal pattern: {filtrering} under {fjerne}
+  suggests {fjernelse}. Only applies to noun sources under verb targets."
+  [idx lemma->synsets {:keys [source target spos tpos]}]
+  (when (and (= spos #{:wn/noun}) (= tpos #{:wn/verb}))
+    (->> (get-in idx [target :lemmas])
+         (mapcat (fn [lemma]
+                   (let [stem (str/replace lemma #"e$" "")]
+                     (mapcat (comp lemma->synsets #(str stem %)) noun-suffixes))))
+         (filter #(= #{:wn/noun} (get-in idx [% :pos])))
+         (remove #{source target})
+         (distinct))))
+
+(defn- candidate-columns
+  "The columns the candidate heuristics can prefill for pair `p`: `forslag`
+  lists every candidate, and a single candidate also prefills `nyt hypernym`
+  plus a `kommentar` naming the heuristic. The reviewer's own entries override
+  these in the merge."
+  [idx lemma->synsets p]
+  (let [same    (same-lemma-candidates idx lemma->synsets p)
+        derived (remove (set same) (derived-noun-candidates idx lemma->synsets p))
+        ->str   #(str (get-in idx [% :label]) " <" (uri %) ">")
+        cands   (concat same derived)]
+    (when (seq cands)
+      (merge {"forslag" (str/join "; " (map ->str cands))}
+             (when (= 1 (count cands))
+               {"nyt hypernym" (uri (first cands))
+                "kommentar"    (if (seq same)
+                                 "Automatisk forslag: samme lemma som hypernymet, med synsettets ordklasse."
+                                 "Automatisk forslag: hypernymets verbum som afledt substantiv.")})))))
 
 (defn- cell->str
   "Cell value as a string. Excel stores the count column as a double and may turn
@@ -323,15 +388,6 @@
   among them: it is what the script proposes, not what she decides."
   ["nyt hypernym" "ny relation" "status" "kommentar"])
 
-(def ^:private carry-2d
-  "Columns merged forward in 2d. Includes `forslag`, whose candidates exist
-  only in the workbook and cannot be recomputed from the graph."
-  (into ["forslag"] editable))
-
-(def ^:private carry-a4
-  "Columns merged forward in a4. Excludes `forslag`, which a4-suggestions
-  recomputes from the group on every run."
-  editable)
 
 (defn- row [idx {:keys [source target]} extra]
   (let [pos #(->> (get-in idx [% :pos])
@@ -352,10 +408,12 @@
   These are the counts of a *built* database, i.e. after make-release-changes!
   has run. 2a is 3 rather than 110 because the 107 corrected synsets are verbs
   by then and no longer match the noun-source criterion; the 3 that remain are
-  exactly the hand-excluded ones."
+  exactly the hand-excluded ones. 2c is 0 rather than 52 because the 2026-08-21
+  release removed the malformed empty-IRI PoS values from the {2ndOrder}
+  placeholder word, so the shape no longer flags its pairs."
   [groups deferred]
   (let [actual   (assoc (update-vals groups count) :deferred (count deferred))
-        expected {:2a 3 :2b 149 :2c 52 :2d 285 :deferred 104}
+        expected {:2a 3 :2b 149 :2c 0 :2d 285 :deferred 104}
         left     (set (map :source (:2a groups)))]
     (when (not= expected actual)
       (throw (ex-info "cross-PoS group counts have changed; update the docs"
@@ -381,12 +439,14 @@
                          (select-keys (get prev [(uri (:source p)) (uri (:target p))])
                                       cols)))
 
-        ;; --- 2d: merge the precomputed candidate columns forward ---
+        ;; --- 2d: candidate heuristics under the reviewer's own entries ---
         prev   (read-sheet (:2d files))
         n-by   (frequencies (map (comp uri :target) (:2d groups)))
+        l->s   (->lemma-index idx)
         rows2d (->> (:2d groups)
                     (map (fn [p]
-                           (row idx p (merge (carried prev p carry-2d)
+                           (row idx p (merge (candidate-columns idx l->s p)
+                                             (carried prev p editable)
                                              {"antal i gruppen"
                                               (n-by (uri (:target p)))}))))
                     (sort-by (juxt #(- (get % "antal i gruppen"))
@@ -407,7 +467,7 @@
                     (map (fn [{:keys [target] :as p}]
                            (let [grp (get a4-groups target "?")]
                              (row idx p (merge (get a4-suggestions grp)
-                                               (carried prevA4 p carry-a4)
+                                               (carried prevA4 p editable)
                                                {"gruppe" grp})))))
                     (sort-by (juxt #(get % "gruppe")
                                    #(get % "nuværende hypernym")

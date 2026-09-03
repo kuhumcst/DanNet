@@ -58,11 +58,11 @@ størrelse.
 | *ordklasser* | Uoverensstemmelsen, for eksempel `vb. → sb.`: synsettets ordklasse til venstre, hypernymets til højre. |
 | *nuværende hypernym* | Det hypernym, relationen peger på i dag. Klikbart. |
 | *antal i gruppen* | Hvor mange synsets der peger på det samme hypernym. Filen er sorteret efter dette tal, så de store grupper står først. |
-| *forslag* | Alternativer, scriptet har fundet. Det er synsets med samme lemma som hypernymet, men med synsettets ordklasse. Efterse altid forslaget. |
+| *forslag* | Alternativer, scriptet har fundet. Det er synsets med samme lemma som hypernymet, men med synsettets ordklasse. Det kan også være substantiver, der er afledt af hypernymets verbum, for eksempel {fjernelse} af {fjerne}. Efterse altid forslaget. |
 | *nyt hypernym* | Indsæt URI'en på det nye hypernym, hvis relationen skal pege et andet sted hen. Er der præcis én oplagt kandidat, står den der på forhånd. Er forslaget forkert, så ret det. |
 | *ny relation* | Vælg en relation i rullemenuen, hvis relationen skal skifte type. Lad den stå tom, hvis den forbliver `wn:hypernym`. |
 | *status* | Vælg en værdi i rullemenuen. Se listen nedenfor. |
-| *kommentar* | Fri tekst til forbehold, tvivl eller begrundelse. |
+| *kommentar* | Fri tekst til forbehold, tvivl eller begrundelse. Scriptets egne udfyldninger har en kommentar, der begynder med "Automatisk forslag". Du kan overskrive den. |
 
 ### Sådan retter du en række
 

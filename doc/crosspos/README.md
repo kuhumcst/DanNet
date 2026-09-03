@@ -37,13 +37,15 @@ workbook holds yet, so the review backlog is 538.
 | A4 | substantivisations, register labels | 104 | retained for review | [A4](#a4-the-retained-104-pairs) |
 | B1 | mistagged verb phrases (2a) | 110 | 107 fixed, 3 excluded | [A2/B1](#a2-and-b1-pos-corrections) |
 | B2 | mixed-PoS synsets (2b) | 149 | deferred | [B2](#b2-mixed-pos-synsets-149-pairs) |
-| B3 | `{2ndOrder}` placeholder (2c) | 52 | not addressed here | [B3](#b3-2ndorder-52-pairs) |
+| B3 | `{2ndOrder}` placeholder (2c) | 52 | fixed upstream in 2026-08-21 | [B3](#b3-2ndorder-52-pairs) |
 | B4 | genuine cross-PoS taxonomy (2d) | 285 | deferred | [B4](#b4-the-remainder-285-pairs-101-targets) |
 
 The rebuilt SNAPSHOT database gives these counts: `dns:crossPoSHypernym` 104,
 `wn:attribute` 5,413, `wn:classified_by` 0, and `HypernymPOSShape` down from
-596 to 489. The build asserts every count in this document. Data that
-contradicts the document fails the build.
+596 to 437. The shape count is 437 rather than the 489 of the original
+analysis because the 2026-08-21 release fixed the `{2ndOrder}` placeholder
+(§B3), removing its 52 pairs from the shape's matches. The build asserts every
+count in this document. Data that contradicts the document fails the build.
 
 ## The core argument
 
@@ -122,7 +124,7 @@ or state noun:
 | {dygtighed; evne; kapacitet; talent} | 32 |
 | {sindstilstand} | 32 |
 | {oprindelse} | 29 |
-| colour nouns ({farve; kulør}, {grøn}, {brun}, …) | ~150 combined |
+| colour nouns ({farve; kulør}, {grøn}, {brun}, ...) | ~150 combined |
 
 `{lilla} attribute {farve}` and `{gråhåret} attribute {udseende}` pass EWN test
 14 cleanly. `{lilla} hypernym {farve}` does not pass the hyponymy test (*en
@@ -149,7 +151,8 @@ is a multi-word phrase and the hypernym is a verb: {gøre kål på} → {spise;
 to verb, with lexfiles from the hypernym. Every source was `noun.*` and every
 hypernym `verb.*`. The build evaluates the criterion against the data and
 asserts the count, so it cannot drift silently. On the rebuild
-`HypernymPOSShape` dropped from 596 to 489.
+`HypernymPOSShape` dropped from 596 to 489 (437 on the current 2026-08-21
+base, where §B3 no longer fires).
 
 **The argument** is not that a paper says so. It is that a Danish multi-word
 expression headed by a verb, sitting under a verb hypernym, cannot be a noun.
@@ -241,8 +244,8 @@ therefore split first by whether the two synsets' PoS sets are disjoint:
 | B3 (2c) malformed placeholder word | 52 | technical fix, no lexicography |
 | B4 (2d) genuine cross-PoS taxonomy | 285 | review workbook |
 
-The four groups are disjoint and sum to 596 exactly, verified against the live
-graph. B1 and B3 are classifiable automatically because the data itself shows
+The four groups are disjoint and sum to 596 exactly on the 2026-08-03 base
+this analysis was made from; the 2026-08-21 base empties B3 (see below). B1 and B3 are classifiable automatically because the data itself shows
 the *cause* of the mismatch, not because anybody inspected the pairs
 individually. [A2/B1](#a2-and-b1-pos-corrections) above covers B1.
 
@@ -276,6 +279,12 @@ without touching lexicographic content: drop those two triples, or exempt
 ontological-type nodes in the shape. Raise this separately, so that nobody
 mistakes it for a EuroWordNet structural decision.
 
+**Update:** the 2026-08-21 release applied the first fix upstream --
+`dn:word-temporary_3` now carries no PoS values at all -- so neither
+`HypernymPOSShape` nor the workbook script flags these pairs any more.
+`check-counts!` accordingly expects 0 here. The 52 hypernym links themselves
+remain in the taxonomy, untouched.
+
 ## B4: the remainder (285 pairs, 101 targets)
 
 Genuinely cross-PoS taxonomy: deverbal nouns under verbs ({filtrering} →
@@ -285,9 +294,13 @@ relation, or both. Only 2 of the 596 sources have an alternative hypernym,
 so deletion orphans them.
 
 `2d-cross-pos-taxonomy.xlsx` holds them, grouped by target. The top 15 targets
-cover over half the pairs. The script precomputes same-lemma candidates into
-`forslag` where they exist. `nyt hypernym` and `ny relation` are independent
-columns,
+cover over half the pairs. The script precomputes retarget candidates into
+`forslag` with two heuristics: synsets that share a lemma with the target but
+have the source's PoS ({karmin} under adj. {rød} suggests noun {rød}), and,
+for deverbal nouns under verbs, nouns derived from the target's verb lemmas
+({filtrering} under {fjerne} suggests {fjernelse}). A sole candidate also
+prefills `nyt hypernym`, with a `kommentar` naming the heuristic.
+`nyt hypernym` and `ny relation` are independent columns,
 since a pair can need both a new target and a different relation.
 
 ---
@@ -354,7 +367,7 @@ link and the exact section to look at. All links work.
 
 ## Global WordNet Association, relation documentation
 
-<https://globalwordnet.github.io/gwadoc/> — has per-relation anchors, so these
+<https://globalwordnet.github.io/gwadoc/> -- has per-relation anchors, so these
 are deep links:
 
 | claim | where |
@@ -433,7 +446,7 @@ rather than taxonomically, with `=` linking a value adjective to its attribute.
 
 ## Global Wordnet Formats
 
-<https://globalwordnet.github.io/schemas/> — Bond, Vossen, McCrae & Fellbaum
+<https://globalwordnet.github.io/schemas/> -- Bond, Vossen, McCrae & Fellbaum
 (2016). The schema definitions behind WN-LMF, that is, the format constraint
 that surfaced all of this in #146.
 
