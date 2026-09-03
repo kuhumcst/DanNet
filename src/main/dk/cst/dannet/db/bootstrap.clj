@@ -254,24 +254,20 @@
         (doseq [triple [;; {gøre rent} -> {fjerne}
                         [:dn/synset-27764 :dns/crossPoSHypernym :dn/synset-27703]
                         [:dn/synset-27764 :wn/lexfile "adj.ppl"]
-                        [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/adjective]
                         [:dn/word-11042803-23 :wn/partOfSpeech :wn/adjective]
                         ;; {gøre sig til gode} -> {indtage}
                         [:dn/synset-74898 :dns/crossPoSHypernym :dn/synset-637]
                         [:dn/synset-74898 :wn/lexfile "adj.ppl"]
-                        [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/adjective]
                         [:dn/word-11018326-23 :wn/partOfSpeech :wn/adjective]]]
           (db/remove! model triple)))
       (txn/transact-exec g
         (db/safe-add! g [;; {gøre rent} -> {fjerne}
                          [:dn/synset-27764 :wn/hypernym :dn/synset-27703]
                          [:dn/synset-27764 :wn/lexfile "verb.motion"]
-                         [:dn/word-11042803-23 :lexinfo/partOfSpeech :lexinfo/verb]
                          [:dn/word-11042803-23 :wn/partOfSpeech :wn/verb]
                          ;; {gøre sig til gode} -> {indtage}
                          [:dn/synset-74898 :wn/hypernym :dn/synset-637]
                          [:dn/synset-74898 :wn/lexfile "verb.consumption"]
-                         [:dn/word-11018326-23 :lexinfo/partOfSpeech :lexinfo/verb]
                          [:dn/word-11018326-23 :wn/partOfSpeech :wn/verb]])))
 
     ;; === 3. Delete the remaining cross-PoS violations ===
@@ -376,7 +372,6 @@
     (txn/transact-exec model
       (doseq [{:keys [synset]} candidates]
         (doseq [w (words-of synset)]
-          (db/remove! model [w :lexinfo/partOfSpeech :lexinfo/noun])
           (db/remove! model [w :wn/partOfSpeech :wn/noun]))
         (when-let [lf (lexfile-of synset)]
           (db/remove! model [synset :wn/lexfile lf]))))
@@ -384,10 +379,9 @@
     (txn/transact-exec g
       (db/safe-add! g (mapcat (fn [{:keys [synset hypernym]}]
                                 (concat
-                                  (mapcat (fn [w]
-                                            [[w :lexinfo/partOfSpeech :lexinfo/verb]
-                                             [w :wn/partOfSpeech :wn/verb]])
-                                          (words-of synset))
+                                  (map (fn [w]
+                                         [w :wn/partOfSpeech :wn/verb])
+                                       (words-of synset))
                                   (when-let [lf (lexfile-of hypernym)]
                                     [[synset :wn/lexfile lf]])))
                               candidates)))))
