@@ -1,6 +1,10 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Datarettelser
+* 624 synsets, som kun optrådte som mål for andre synsets relationer (f.eks. {krydre_§1} som `dns:usedFor`-mål for krydderier), manglede typen `ontolex:LexicalConcept` og indgik derfor hverken i CSV-eksporten, i datasætstatistikken eller som egentlige synset-sider. De har nu fået typen, hvilket hæver `lime:concepts` fra 69851 til 70475.
+* De 17 betydninger uden etiket, som alle hører til disse synsets, har fået ordets skriftlige form som etiket, og deres synsets er blevet ommærket tilsvarende.
+
 ## **2026-08-21**: COR genopbygget fra kilderne + datarettelser
 * COR-datasættet bygges nu fra de filer, som Dansk Sprognævn udgiver, hvilket opdaterer COR₁ fra version 1.02 (2022) til 1.5.1.0. COR.EXT er fortsat 1.0. Versionerne angives via `dc:hasVersion`.
   * 683 COR-lemmaer er tilføjet, og 367 er fjernet. Links til DanNet er omdirigeret via DSN's ændringslogger, hvor lemmaer er blevet flettet, flyttet eller erstattet.

@@ -171,6 +171,17 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:ili ili:i48720 ;
   dns:eqHyponym <https://en-word.net/id/oewn-02486953-n> .")))))))
 
+(deftest synset-type-shape
+  (testing "a lexicalized synset missing its type is a violation"
+    (is (contains? (shape+constraint "
+dn:synset-2 rdfs:label \"{a}\" ; ontolex:lexicalizedSense dn:sense-2 .")
+                   [:dns/SynsetTypeShape :sh/ClassConstraintComponent])))
+  (testing "a typed synset produces no type entries"
+    (is (empty? (filter (comp #{:dns/SynsetTypeShape} :shape)
+                        (:entries (validate-ttl "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  ontolex:lexicalizedSense dn:sense-2 .")))))))
+
 (deftest validate-node-targeting
   (testing "targeted validation only checks the given focus node"
     (let [g (util/ttl->graph (str prefixes "

@@ -80,6 +80,16 @@ SELECT ?this WHERE {
   FILTER(strstarts(str(?this), str(dn:)))
 }""" .
 
+## Synsets by lexicalization rather than by type, for the one shape that
+## checks the type itself (dns:SynsetTypeShape below).
+dns:DanNetLexicalizedTarget a sh:SPARQLTarget ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:select """
+SELECT DISTINCT ?this WHERE {
+  ?this ontolex:lexicalizedSense ?sense .
+  FILTER(strstarts(str(?this), str(dn:)))
+}""" .
+
 ## ---------------------------------------------------------------------------
 ## LexicalEntry (dn: words & multiword expressions)
 ## ---------------------------------------------------------------------------
@@ -175,6 +185,19 @@ dns:LexicalConceptShape-inScheme a sh:PropertyShape ;
     sh:hasValue <https://wordnet.dk/dannet/data> ;
     sh:severity sh:Warning ;
     sh:message "LexicalConcept (synset) should have skos:inScheme <https://wordnet.dk/dannet/data>." .
+
+## Every other synset shape and every type-anchored query (the CSV export,
+## the lime:concepts statistic, the indegree cache) recognises a synset by its
+## rdf:type, so an untyped synset silently drops out of all of them. This
+## shape alone goes by lexicalization: a dn: resource carrying an
+## ontolex:lexicalizedSense is a synset and must be typed as one. The untyped
+## synsets in the live data are recorded in shapes-baseline.edn and typed by
+## a release change (add-missing-synset-types! in the bootstrap ns).
+dns:SynsetTypeShape a sh:NodeShape ;
+    sh:target dns:DanNetLexicalizedTarget ;
+    sh:class ontolex:LexicalConcept ;
+    sh:severity sh:Violation ;
+    sh:message "A synset (dn: resource with an ontolex:lexicalizedSense) must be typed ontolex:LexicalConcept." .
 
 ## ---------------------------------------------------------------------------
 ## Hypernym hierarchy (dn: synsets): SPARQL-based semantic checks.

@@ -1,6 +1,10 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Data fixes
+* 624 synsets that only existed as targets of other synsets' relations (e.g. {krydre_§1} as the `dns:usedFor` target of spices) were missing the `ontolex:LexicalConcept` type and therefore did not appear in the CSV export, in the dataset statistics or as proper synset pages. They are now typed, which raises `lime:concepts` from 69851 to 70475.
+* The 17 senses without a label, all belonging to these synsets, have been labelled with the written form of their word, and their synsets have been relabelled accordingly.
+
 ## **2026-08-21**: COR rebuilt from source + data fixes
 * The COR dataset is now built from the files published by Dansk Sprognævn, updating COR₁ from version 1.02 (2022) to 1.5.1.0. COR.EXT remains at 1.0. The versions are stated via `dc:hasVersion`.
   * 683 COR lemmas have been added and 367 removed. Links to DanNet are remapped via DSN's changelogs where lemmas were merged, moved or replaced.

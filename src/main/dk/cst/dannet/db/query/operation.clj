@@ -144,6 +144,28 @@
        }
      }"))
 
+(def untyped-synsets
+  "Synsets lacking the rdf:type ontolex:LexicalConcept that the other synset
+  queries anchor on, recognised instead by their lexicalized senses."
+  (sparql
+    "SELECT DISTINCT ?synset
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       FILTER NOT EXISTS { ?synset rdf:type ontolex:LexicalConcept }
+     }"))
+
+(def unlabeled-sense-reps
+  "Senses lacking an rdfs:label, with their synset and the written
+  representation of their word, from which a bare-lemma label can be derived."
+  (sparql
+    "SELECT ?synset ?sense ?rep
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?word ontolex:sense ?sense ;
+             ontolex:canonicalForm/ontolex:writtenRep ?rep .
+       FILTER NOT EXISTS { ?sense rdfs:label ?label }
+     }"))
+
 (def oewn-label-targets
   (sparql
     "SELECT ?synset ?sense ?word ?rep

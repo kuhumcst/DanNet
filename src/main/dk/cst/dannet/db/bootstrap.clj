@@ -65,21 +65,22 @@
                         {:expected release/from
                          :actual   actual}))))))
 
+(h/defn synset-label
+  "The label of a synset given the `labels` of its senses, i.e. the distinct
+  labels sorted and joined, e.g. {hund_1§1; køter_§1}, in the language of
+  `->lang` (md/da or md/en)."
+  [->lang labels]
+  (->lang "{" (str/join "; " (sort (distinct (map str labels)))) "}"))
+
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
   [dataset]
   (t/trace! {:id :dannet.bootstrap/oewn-labels :run-val :elided}
-    (let [oewn-graph   (db/get-graph dataset prefix/oewn-uri)
-          label-graph  (db/get-graph dataset prefix/oewn-extension-uri)
-          ms           (q/run oewn-graph op/oewn-label-targets)
-          collect-rep  (fn [m {:syms [?synset ?rep]}]
-                         (update m ?synset conj (str ?rep)))
-          synset-label (fn [labels]
-                         (as-> labels $
-                               (set $)
-                               (sort $)
-                               (str/join "; " $)
-                               (md/en "{" $ "}")))]
+    (let [oewn-graph  (db/get-graph dataset prefix/oewn-uri)
+          label-graph (db/get-graph dataset prefix/oewn-extension-uri)
+          ms          (q/run oewn-graph op/oewn-label-targets)
+          collect-rep (fn [m {:syms [?synset ?rep]}]
+                        (update m ?synset conj (str ?rep)))]
       (txn/transact-exec dataset
         (t/log! {:level :debug
                  :id    :dannet.bootstrap/oewn-synset-labels
@@ -87,7 +88,7 @@
                 "Adding OEWN synset labels")
         (->> (reduce collect-rep {} ms)
              (map (fn [[synset labels]]
-                    [synset :rdfs/label (synset-label labels)]))
+                    [synset :rdfs/label (synset-label md/en labels)]))
              (aristotle/add label-graph)))
       (txn/transact-exec dataset
         (t/log! {:level :debug
@@ -991,6 +992,79 @@
     (txn/transact-exec sem-model
       (md/update-metadata! (get md/metadata 'cor-sem) sem-model))))
 
+(h/defn add-missing-synset-types!
+  "Type the 624 synsets in the dn: graph of `dataset` that carry
+  ontolex:lexicalizedSense but no rdf:type ontolex:LexicalConcept.
+
+  Nearly all of them exist only as targets of other synsets' relations
+  (dns:usedFor, wn:agent, wn:result, wn:domain_topic, wn:also, wn:similar):
+  623 have no outgoing synset relation of their own and none carry
+  dns:ontologicalType, wn:lexfile or skos:definition, so the type was
+  evidently only asserted while a synset's own relation rows were processed.
+  Untyped, they are invisible to every type-anchored query: the synset pages,
+  the CSV export, the indegree cache, the lime:concepts statistic and the
+  SHACL synset shapes.
+
+  Only the type is added. Part of speech is a word-level property in DanNet
+  and all 624 are lexicalized by words carrying wn:partOfSpeech, while
+  ontological types, lexfiles and definitions cannot be derived for synsets
+  without hypernyms. The 12 label-less synsets among them are labeled by
+  add-missing-labels!.
+
+  The count is asserted so that a future bootstrap dataset silently growing
+  or shrinking this set fails loudly instead."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/add-missing-synset-types}
+          "Adding the missing ontolex:LexicalConcept type to synsets")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        expected 624
+        found    (count (q/run g op/untyped-synsets))]
+    (assert (= expected found)
+            (str "expected " expected " untyped synsets, found " found)))
+  (db/update-triples! prefix/dn-uri dataset op/untyped-synsets
+    (fn [{:syms [?synset]}]
+      [?synset :rdf/type :ontolex/LexicalConcept])))
+
+(h/defn add-missing-labels!
+  "Label the 17 senses in the dn: graph of `dataset` that lack an rdfs:label
+  and relabel their synsets.
+
+  All 17 belong to the synsets typed by add-missing-synset-types!. Their words
+  are labeled, so each sense gets the written representation of its word as
+  its label: the bare-lemma shape already borne by the roughly 9,500 senses
+  without a DDO sense number. The 17 synsets are then relabeled from the
+  labels of all their senses, i.e. {lemma} for the 12 single-sense synsets,
+  while the 5 others gain the newly labeled sense.
+
+  The count is asserted so that a future bootstrap dataset silently growing
+  or shrinking this set fails loudly instead."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/add-missing-labels}
+          "Adding missing sense labels and relabeling their synsets")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        rows     (q/run g op/unlabeled-sense-reps)
+        expected 17
+        synsets  (set (map '?synset rows))]
+    (assert (= expected (count rows))
+            (str "expected " expected " unlabeled senses, found " (count rows)))
+    (txn/transact-exec g
+      (db/safe-add! g (for [{:syms [?sense ?rep]} rows]
+                        [?sense :rdfs/label (md/da ?rep)])))
+    (let [relabels (->> (q/run g op/synset-sense-label-query)
+                        (filter (comp synsets '?synset))
+                        (group-by '?synset)
+                        (map (fn [[synset ms]]
+                               [synset :rdfs/label
+                                (synset-label md/da (map '?label ms))])))]
+      (txn/transact-exec model
+        (doseq [synset synsets]
+          (db/remove! model [synset :rdfs/label '_])))
+      (txn/transact-exec g
+        (db/safe-add! g relabels)))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -1011,6 +1085,8 @@
     (rename-cor-sense-links! dataset)
     (add-cor-sem-graph! dataset)
     (name-subject-domains! dataset)
+    (add-missing-synset-types! dataset)
+    (add-missing-labels! dataset)
 
     ;; The cross-PoS work (#146, #153) is still awaiting approval and is
     ;; therefore absent from the 2026-08-03 bootstrap data.
@@ -1130,6 +1206,9 @@
                             (:hash (meta #'name-ontological-types!))
                             (:hash (meta #'rename-cor-sense-links!))
                             (:hash (meta #'name-subject-domains!))
+                            (:hash (meta #'add-missing-synset-types!))
+                            (:hash (meta #'add-missing-labels!))
+                            (:hash (meta #'synset-label))
                             (:hash (meta #'corsem/->corsem-triples))
                             (:hash (meta #'corsem/->frame-triples))
                             (:hash (meta #'corsem/->ontotype))

@@ -23,9 +23,17 @@
 ;; The cross-dataset link shapes were added 2026-08-24 alongside the COR.SEM
 ;; integration (GitHub issue #207); the bootstrap prunes unresolvable links,
 ;; so their accepted counts are 0: any nonzero count is a regression.
+;;
+;; The synset type shape was added 2026-09-18 along with a release change
+;; (add-missing-synset-types!) typing the 624 synsets in the live data that
+;; carry ontolex:lexicalizedSense but no rdf:type ontolex:LexicalConcept:
+;; lower its count to 0 once that release ships. The 17 label-less senses all
+;; belong to those synsets and are labeled by the companion release change
+;; (add-missing-labels!): lower that count to 0 as well once it ships.
 {:dns/LexicalSenseShape-label      17
  :dns/LexicalEntryShape-writtenRep 15
  :dns/IliRelationShape             2645
+ :dns/SynsetTypeShape              624
  :dns/MeronymyHierarchyShape       0
  :dns/MeronymyContradictionShape   0
  :dns/LinkedSenseShape-object      0
