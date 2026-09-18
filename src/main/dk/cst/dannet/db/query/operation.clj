@@ -157,6 +157,10 @@
 (def csv-synsets
   "Columns to export for synsets.csv.
 
+  The definition and the ontological type are optional: every synset gets a
+  row, since the senses and relations tables reference synsets lacking either,
+  and the absent values become empty cells.
+
   The members are matched on the rdf:_N properties directly: ARQ's rdfs:member
   expansion only recognises containers by an asserted rdf:Bag typing, which
   the dnt: types leave to schema inference."
@@ -164,10 +168,14 @@
     "SELECT ?synset ?definition ?onto
      WHERE {
        ?synset rdf:type ontolex:LexicalConcept .
-       ?synset skos:definition ?definition .
-       ?synset dns:ontologicalType ?ontotype .
-       ?ontotype ?member ?onto .
-       FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
+       OPTIONAL {
+         ?synset skos:definition ?definition .
+       }
+       OPTIONAL {
+         ?synset dns:ontologicalType ?ontotype .
+         ?ontotype ?member ?onto .
+         FILTER(STRSTARTS(str(?member), CONCAT(str(rdf:), \"_\"))) .
+       }
      }"))
 
 (def csv-words
