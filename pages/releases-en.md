@@ -1,9 +1,21 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Data fixes
-* 624 synsets that only existed as targets of other synsets' relations (e.g. {krydre_§1} as the `dns:usedFor` target of spices) were missing the `ontolex:LexicalConcept` type and therefore did not appear in the CSV export, in the dataset statistics or as proper synset pages. They are now typed, which raises `lime:concepts` from 69851 to 70475.
-* The 17 senses without a label, all belonging to these synsets, have been labelled with the written form of their word, and their synsets have been relabelled accordingly.
+## **2026-09-21**: COR.SEM, FrameNet and cross-PoS fixes
+* The COR.SEM sense inventory (1.0, CC0) is now a companion dataset ([Github issue #207](https://github.com/kuhumcst/DanNet/issues/207)): 41993 senses linked to their COR words and to their DanNet synsets via `dns:linkedSynset` (40192 links; 4647 senses have no synset in DanNet).
+  * Every sense carries its curated DanNet hypernym as `dns:hypernymAnchor` (45568 links), plus a FrameNet frame (8806 senses), sentiment, a simplified ontological type, a systematic polysemy pattern (1608 senses), topic domain, usage restriction and centrality where COR.SEM has them.
+  * 34561 senses are matched one-to-one with DanNet senses as `dns:eqSense`, 4860 more loosely as `dns:eqNearSense`.
+  * 96 synset pairs instantiating a polysemy pattern are linked with `dns:alternatesWith`, or `dns:alternatesTo`/`dns:alternatesFrom` when the reading order is known.
+* The FrameNet 1.7 frames (1221 frames, 11428 frame elements, 109 semantic types, seven frame-to-frame relations) are a new dataset at wordnet.dk/framenet, converted from PreMOn (CC BY-SA 4.0). The frames of COR.SEM senses are shown on their DanNet synsets.
+* Ontological types are now 259 named `dnt:` resources such as `dnt:Human-Object` instead of anonymous bags; `dns:ontologicalTypeOf` lists the synsets of a type.
+* The DDO domain codes in `dc:subject` are now full names in Danish and English, e.g. "zoo" is "zoologi"@da and "zoology"@en.
+* `dns:crossPoSHypernym` has been replaced ([Github issue #146](https://github.com/kuhumcst/DanNet/issues/146)): 5413 of its 5636 triples are now `wn:attribute`, 117 without a valid GWA relation were removed, 104 are kept pending review.
+* 107 verb phrase synsets tagged as nouns, e.g. {slå mønt}, have had their 113 words retagged as verbs ([Github issue #153](https://github.com/kuhumcst/DanNet/issues/153)).
+* COR words now link to DanNet senses via `dns:linkedSense` instead of `ontolex:sense`, which is still inferred.
+* `synsets.csv` now includes every synset; the 9789 without a definition and the 746 without an ontological type have empty cells.
+* DanNet is also available as [DMLex 1.0](https://docs.oasis-open.org/lexidma/dmlex/v1.0/dmlex-v1.0.html) in a Danish and an English variant, with COR and DDS included.
+* 624 synsets that only existed as targets of other synsets' relations (e.g. {krydre_§1}) lacked the `ontolex:LexicalConcept` type and were missing from the CSV export, the statistics and proper synset pages. They are now typed, raising `lime:concepts` from 69851 to 70475.
+* The 17 senses without a label, all in these synsets, are labelled with the written form of their word, and their synsets relabelled.
 
 ## **2026-08-21**: COR rebuilt from source + data fixes
 * The COR dataset is now built from the files published by Dansk Sprognævn, updating COR₁ from version 1.02 (2022) to 1.5.1.0. COR.EXT remains at 1.0. The versions are stated via `dc:hasVersion`.

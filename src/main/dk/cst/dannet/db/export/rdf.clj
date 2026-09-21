@@ -88,20 +88,23 @@
    'dds            {:license :cc-by-sa :readme "dds.txt"}
    'cor            {:license :cc0 :readme "cor.txt"}
    'cor-sem        {:license :cc0 :readme "cor-sem.txt"}
+   'frame          {:license :cc-by-sa :readme "framenet.txt"}
    'oewn-extension {:license :cc-by :readme "oewn-extension.txt"}})
 
 (defn render-readme
   "Read the README template `readme` (under resources/bundled/readmes/) and fill
   in the `version` placeholders. The OEWN labels track the DanNet release, so
   {version} and {oewn-version} resolve to the same string; the COR editions
-  are versioned upstream and resolve from dk.cst.dannet.release."
+  and the PreMOn release are versioned upstream and resolve from
+  dk.cst.dannet.release."
   [readme version]
   (-> (slurp (io/resource (str "bundled/readmes/" readme)))
       (str/replace "{version}" version)
       (str/replace "{oewn-version}" version)
       (str/replace "{cor-version}" release/cor-version)
       (str/replace "{cor-ext-version}" release/cor-ext-version)
-      (str/replace "{cor-sem-version}" release/cor-sem-version)))
+      (str/replace "{cor-sem-version}" release/cor-sem-version)
+      (str/replace "{premon-version}" release/premon-version)))
 
 (defn copy-license!
   "Copy the bundled licence text for `license-key` to `dest` (typically a file

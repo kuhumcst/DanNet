@@ -1,0 +1,13 @@
+FrameNet integration for DanNet {version}
+=========================================
+An RDF representation of the FrameNet 1.7 frame inventory: the frames, their
+frame elements and semantic types, and the semantic frame-to-frame relations,
+converted from the PreMOn rendition of FrameNet ({premon-version}). It is the
+target of the frame links carried by the COR.SEM senses.
+
+Based on Berkeley FrameNet 1.7 (https://framenet.icsi.berkeley.edu) as
+published by PreMOn (https://premon.fbk.eu), with the RDF representation by
+Center for Sprogteknologi (CST), University of Copenhagen.
+
+Published under CC BY-SA 4.0 (see LICENSE or
+https://creativecommons.org/licenses/by-sa/4.0/).

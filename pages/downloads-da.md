@@ -1,14 +1,16 @@
 # Downloads
-Du kan udforske DanNet direkte her på wordnet.dk, men du kan også downloade vores data som et **RDF**-datasæt eller i en lidt mere begrænset **CSV**-udgave. Vi tilbyder også DanNet som **WN-LMF**, klar til at blive brugt i software der understøtter dette format. DanNet-datasættet udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)-licensen i alle tre udgaver:
+Du kan udforske DanNet direkte her på wordnet.dk, men du kan også downloade vores data som et **RDF**-datasæt eller i en lidt mere begrænset **CSV**-udgave. Vi tilbyder også DanNet som **WN-LMF**, klar til at blive brugt i software der understøtter dette format, og som **DMLex**, OASIS-standarden for ordbogsdata. DanNet-datasættet udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)-licensen i alle fire udgaver:
 
 - [RDF-udgave][DanNet RDF] - fuldt datasæt (pånær afledt data)
 - [CSV-udgave][DanNet CSV] - alternativt datasæt
 - [WN-LMF-udgave][DanNet WN-LMF] - alternativt datasæt, begrænset til WN-LMF relationer
+- [DMLex-udgave][DanNet DMLex] - alternativt datasæt med COR og DDS inkluderet ([engelsk variant][DanNet DMLex en])
 
 DanNet er også integreret med [COR][COR] og [DDS][DDS], samt det [engelske WordNet][OEWN] (du kan hente deres datasæt fra deres egen side) som vi har udvidet med RDF-etiketter, der minder om dem brugt i DanNet. Disse alternative RDF-datasæt kan ligeledes downloades her på siden, hver under sin egen licens:
 
 - [COR-integration][COR-integration] (udgives under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/))
 - [COR.SEM-integration][COR.SEM-integration] (udgives under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/))
+- [FrameNet-integration][FrameNet-integration] (udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
 - [DDS-integration][DDS-integration] (udgives under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
 - [OEWN-udvidelse][OEWN-extension] (udgives under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))
 
@@ -32,8 +34,11 @@ Alle udgaver af denne iteration af DanNet kan derudover downloades fra vores [re
 [DanNet RDF]: /export/rdf/dn "DanNet (RDF)"
 [DanNet CSV]:  /export/csv/dn "DanNet (CSV)"
 [DanNet WN-LMF]: /export/wn-lmf/dn "DanNet (WN-LMF)"
+[DanNet DMLex]: /export/dmlex/dn?variant=da "DanNet (DMLex, dansk variant)"
+[DanNet DMLex en]: /export/dmlex/dn?variant=en "DanNet (DMLex, engelsk variant)"
 [COR-integration]: /export/rdf/cor "COR-integration (RDF)"
 [COR.SEM-integration]: /export/rdf/cor-sem "COR.SEM-integration (RDF)"
+[FrameNet-integration]: /export/rdf/frame "FrameNet-integration (RDF)"
 [DDS-integration]: /export/rdf/dds "DDS-integration (RDF)"
 [OEWN-extension]: /export/rdf/oewn-extension "OEWN-udvidelse (RDF)"
 [releases]: https://github.com/kuhumcst/DanNet/releases "Tidligere releases"

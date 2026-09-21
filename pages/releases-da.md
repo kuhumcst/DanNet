@@ -1,9 +1,21 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
-## **SNAPSHOT**: Datarettelser
-* 624 synsets, som kun optrådte som mål for andre synsets relationer (f.eks. {krydre_§1} som `dns:usedFor`-mål for krydderier), manglede typen `ontolex:LexicalConcept` og indgik derfor hverken i CSV-eksporten, i datasætstatistikken eller som egentlige synset-sider. De har nu fået typen, hvilket hæver `lime:concepts` fra 69851 til 70475.
-* De 17 betydninger uden etiket, som alle hører til disse synsets, har fået ordets skriftlige form som etiket, og deres synsets er blevet ommærket tilsvarende.
+## **2026-09-21**: COR.SEM, FrameNet og rettelser på tværs af ordklasser
+* Betydningsinventaret COR.SEM (1.0, CC0) er nu et ledsagende datasæt ([Github issue #207](https://github.com/kuhumcst/DanNet/issues/207)): 41993 betydninger koblet til deres COR-ord og til deres DanNet-synsets via `dns:linkedSynset` (40192 koblinger; 4647 betydninger har intet synset i DanNet).
+  * Hver betydning bærer sit kuraterede DanNet-overbegreb som `dns:hypernymAnchor` (45568 koblinger) samt en FrameNet-ramme (8806 betydninger), valør, en forenklet ontologisk type, et systematisk polysemimønster (1608 betydninger), emne, brugsrestriktion og centralitet, hvor COR.SEM har dem.
+  * 34561 betydninger er matchet én til én med DanNet-betydninger som `dns:eqSense`, 4860 løsere som `dns:eqNearSense`.
+  * 96 synset-par, der udgør et polysemimønster, er koblet med `dns:alternatesWith`, eller `dns:alternatesTo`/`dns:alternatesFrom` når læsningernes rækkefølge kendes.
+* FrameNet 1.7's rammer (1221 rammer, 11428 rammeelementer, 109 semantiske typer, syv relationer mellem rammer) er et nyt datasæt på wordnet.dk/framenet, konverteret fra PreMOn (CC BY-SA 4.0). COR.SEM-betydningernes rammer vises på deres DanNet-synsets.
+* Ontologiske typer er nu 259 navngivne `dnt:`-ressourcer som `dnt:Human-Object` i stedet for anonyme samlinger; `dns:ontologicalTypeOf` viser en types synsets.
+* DDO's emnekoder i `dc:subject` er nu fulde navne på dansk og engelsk, f.eks. er "zoo" nu "zoologi"@da og "zoology"@en.
+* `dns:crossPoSHypernym` er erstattet ([Github issue #146](https://github.com/kuhumcst/DanNet/issues/146)): 5413 af dens 5636 tripler er nu `wn:attribute`, 117 uden en gyldig GWA-relation er fjernet, 104 beholdes indtil gennemgang.
+* 107 verbalfrase-synsets mærket som substantiver, f.eks. {slå mønt}, har fået deres 113 ord ommærket til verber ([Github issue #153](https://github.com/kuhumcst/DanNet/issues/153)).
+* COR-ord kobles nu til DanNet-betydninger via `dns:linkedSense` i stedet for `ontolex:sense`, som stadig udledes ved inferens.
+* `synsets.csv` indeholder nu alle synsets; de 9789 uden definition og de 746 uden ontologisk type har tomme felter.
+* DanNet kan også hentes som [DMLex 1.0](https://docs.oasis-open.org/lexidma/dmlex/v1.0/dmlex-v1.0.html) i en dansk og en engelsk variant med COR og DDS inkluderet.
+* 624 synsets, som kun optrådte som mål for andre synsets relationer (f.eks. {krydre_§1}), manglede typen `ontolex:LexicalConcept` og manglede derfor i CSV-eksporten, statistikken og som egentlige synset-sider. De har nu fået typen, hvilket hæver `lime:concepts` fra 69851 til 70475.
+* De 17 betydninger uden etiket, som alle hører til disse synsets, har fået ordets skriftlige form som etiket, og deres synsets er ommærket.
 
 ## **2026-08-21**: COR genopbygget fra kilderne + datarettelser
 * COR-datasættet bygges nu fra de filer, som Dansk Sprognævn udgiver, hvilket opdaterer COR₁ fra version 1.02 (2022) til 1.5.1.0. COR.EXT er fortsat 1.0. Versionerne angives via `dc:hasVersion`.

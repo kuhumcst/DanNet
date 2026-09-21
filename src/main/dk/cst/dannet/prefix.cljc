@@ -113,7 +113,8 @@
              :export   #{'frame 'pmo 'pmofn
                          'rdf 'rdfs 'owl
                          'ontolex 'skos
-                         'void 'dc 'dcat}}
+                         'void 'dc 'dcat}
+             :download {"rdf" {:default "framenet.zip"}}}
 
    ;; Sentiment data
    'dds     {:uri      "https://wordnet.dk/sentiment/"

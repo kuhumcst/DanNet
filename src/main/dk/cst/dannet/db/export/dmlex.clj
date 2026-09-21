@@ -1454,7 +1454,6 @@
                        "dc:identifier" prefix/oewn-uri
                        "dc:license"    "https://creativecommons.org/licenses/by/4.0/"}]))
 
-;; TODO: add the zip to the download page and the release pipeline (plan 9.6)
 (defn export-dmlex!
   "Export a DMLex `resource` into `dir` as both XML and JSON, zipped together
   with the licence information, the dataset metadata and the presentation

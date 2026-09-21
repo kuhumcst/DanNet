@@ -18,7 +18,7 @@
   development (\"SNAPSHOT\" until the target date is known), since a `to`
   differing from `from` is what enables make-release-changes!; the real
   version is set at the moment the release is cut."
-  "SNAPSHOT")
+  "2026-09-21")
 
 (def cor-version
   "The COR₁ edition the cor: graph is built from; named in the source file

@@ -238,15 +238,17 @@ When releasing a new version of the database:
    (dk.cst.dannet.db.export.rdf/export-rdf! @dk.cst.dannet.web.resources/db)
    (dk.cst.dannet.db.export.csv/export-csv! @dk.cst.dannet.web.resources/db)
    (dk.cst.dannet.db.export.wn-lmf/export-wn-lmf! "export/wn-lmf/")
+   (dk.cst.dannet.db.export.dmlex/export-dmlex-variants! "export/dmlex/" @dk.cst.dannet.web.resources/db)
    ;; ~6 minutes
    (dk.cst.dannet.db.query/save-synset-indegrees!
      (:graph @dk.cst.dannet.web.resources/db))
    ```
    This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `cor-sem.zip`,
-   `dds.zip`, `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
-   `export/wn-lmf/dannet-wn-lmf.xml.gz` and `export/synset-indegree.edn`. These
-   ship to production (step 7) and become the GitHub release assets that the
-   next cycle bootstraps from (step 4).
+   `framenet.zip`, `dds.zip`, `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
+   `export/wn-lmf/dannet-wn-lmf.xml.gz`, `export/dmlex/` (`dannet-dmlex-da.zip`,
+   `dannet-dmlex-en.zip`) and `export/synset-indegree.edn`. These ship to
+   production (step 7) and become the GitHub release assets that the next
+   cycle bootstraps from (step 4).
 
 4. Publish a GitHub release tagged `v<version>` and attach the bootstrap assets
    listed by `bootstrap-files` in [dk.cst.dannet.db.bootstrap.downloads](src/main/dk/cst/dannet/db/bootstrap/downloads.clj):
@@ -270,9 +272,10 @@ When releasing a new version of the database:
 7. Transfer database and export files via SFTP, then:
    ```shell
    unzip -o tdb2.zip -d /dannet/db/
-   mv cor.zip cor-sem.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
+   mv cor.zip cor-sem.zip framenet.zip dannet.zip dds.zip oewn-extension.zip /dannet/export/rdf/
    mv dannet-csv.zip /dannet/export/csv/
    mv dannet-wn-lmf.xml.gz /dannet/export/wn-lmf/
+   mv dannet-dmlex-da.zip dannet-dmlex-en.zip /dannet/export/dmlex/
    ```
 
 8. Ship the `export/synset-indegree.edn` generated in step 3. Production runs
