@@ -115,6 +115,10 @@ The system includes:
 - `dk.cst.dannet.db.export.dmlex-validate` validates the two files of one language variant against the DMLex schemas in `doc/dmlex/spec/` (requires the `:validate` alias)
 - Browsable with the generic DMLex browser (https://github.com/kuhumcst/DMLex-browser), which also builds the Apple Dictionary bundles
 
+### Release Statistics (`dk.cst.dannet.db.stats`)
+- Compares the current release with the legacy DanNet 2.2 CSV release in `bootstrap/dannet` (the 2.2 relation names mapped onto the relations they became in 2023): size, relation inventory, connectivity (asserted relations, owl:inverseOf closure, inference-model counts, degrees), the links beyond the synset graph and each dataset's lime/void statistics
+- `(export-stats! @dk.cst.dannet.web.instance/db)` writes `export/stats/<version>/stats.{edn,md,tex}`, the tables as Markdown and booktabs LaTeX
+
 ## File Structure
 
 ### Core Database & Query
@@ -144,6 +148,7 @@ src/main/dk/cst/dannet/
 │   │   └── function.clj      # Generic ARQ custom SPARQL function registry plumbing
 │   ├── search.clj            # Text search and indexing
 │   ├── shapes.clj            # SHACL validation (boot check, export gate, node validation)
+│   ├── stats.clj             # Release statistics vs. DanNet 2.2 (paper tables as EDN/Markdown/LaTeX)
 │   └── transaction.clj       # Transaction management utilities
 ├── hash.clj                   # Content hashing and caching
 ├── prefix.cljc               # RDF namespace prefix management
