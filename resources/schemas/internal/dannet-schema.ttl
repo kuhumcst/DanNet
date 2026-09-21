@@ -104,20 +104,17 @@
 # Deliberately declared without an inverse: the anchor fan-in is extreme (a
 # single synset anchors thousands of COR.SEM senses), so the inverse
 # direction is left to SPARQL property paths (^dns:hypernymAnchor).
-# TODO: "hypernym anchor" is repo-local coinage with no EWN/SKOS precedent;
-#       consider renaming (e.g. :eqBroader) before it ships in a release.
-# TODO: reconsider the property's inclusion/purpose after the planned anchor
-#       audit: 76% of anchors merely mirror the linked synset's own
-#       wn:hypernym, so the value sits in the 4,647 pre-anchored senses
-#       missing from DanNet and the 8,201 placements disagreeing with the
-#       DanNet hierarchy; if the disagreements prove to be noise, consider
-#       pruning the property to that subset (or dropping it).
+# TODO: reconsider the property's extent after the planned audit: about two
+#       thirds of the anchors restate the linked synset's own wn:hypernym, so
+#       the new information sits in the senses missing from DanNet and in the
+#       placements disagreeing with the DanNet hierarchy. The full mapping is
+#       kept for now; a derived property for the disagreements may follow.
 :hypernymAnchor a owl:ObjectProperty ;
   rdfs:domain ontolex:LexicalSense ;
   rdfs:range ontolex:LexicalConcept ;
   rdfs:subPropertyOf skos:broadMatch ;
-  rdfs:comment "A synset in another dataset curated as the nearest broader concept of the subject sense; a cross-scheme hierarchical mapping."@en ;
-  rdfs:comment "Et synset i et andet datasæt kurateret som subjekt-betydningens nærmeste overbegreb; en hierarkisk kobling på tværs af datasæt."@da ;
+  rdfs:comment "A DanNet synset that functions as the hypernym of the subject sense, as curated in the sense's own inventory (the overbegreb-DanNet field of COR.SEM); it anchors a sense from another dataset in DanNet's taxonomy whether or not DanNet has a synset for the sense itself."@en ;
+  rdfs:comment "Et DanNet-synset der fungerer som overbegreb for subjekt-betydningen, som kurateret i betydningens eget inventar (COR.SEM-feltet overbegreb-DanNet); det forankrer en betydning fra et andet datasæt i DanNets taksonomi, uanset om DanNet selv har et synset for betydningen."@da ;
   rdfs:label "hypernym anchor"@en ;
   rdfs:label "overbegrebsanker"@da ;
   rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
