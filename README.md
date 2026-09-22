@@ -1,3 +1,5 @@
+[![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.kuhumcst/dannet.svg)](https://mcpqueen.com/s/io.github.kuhumcst/dannet)
+
 ![DanNet logo](/resources/public/images/dannet-logo-colour.svg)
 
 [DanNet](https://cst.ku.dk/projekter/dannet/) is a [WordNet](https://en.wikipedia.org/wiki/WordNet) for the Danish language. DanNet uses [RDF](https://www.w3.org/RDF/) as its native representation at both the database level, in the application space, and as its primary serialisation format.
