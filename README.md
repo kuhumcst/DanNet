@@ -252,7 +252,7 @@ When releasing a new version of the database:
 
 4. Publish a GitHub release tagged `v<version>` and attach the bootstrap assets
    listed by `bootstrap-files` in [dk.cst.dannet.db.bootstrap.downloads](src/main/dk/cst/dannet/db/bootstrap/downloads.clj):
-   `dannet.zip`, `cor.zip`, `dds.zip`, `oewn-extension.zip` and
+   `dannet.zip`, `cor.zip`, `cor-sem.zip`, `dds.zip`, `oewn-extension.zip` and
    `synset-indegree.edn`. The next cycle fetches these from GitHub.
 
 5. Compact the database, then zip it on the dev machine, ready for transfer:

@@ -104,10 +104,8 @@
    "adverb"    "adv."
    ""          "(ingen)"})
 
-;; Mirrors the exclusions in bootstrap/fix-verb-phrase-pos!, kept in step by
-;; check-counts! rather than by a shared def: the pipeline hashes that
-;; function's own form to decide when to rebuild, so a reference to a def
-;; elsewhere would not trigger one.
+;; Mirrors the exclusions in bootstrap/fix-verb-phrase-pos!, the 2026-09-21
+;; release change that git history keeps; check-counts! verifies them.
 (def verb-phrase-exclusions
   #{:dn/synset-27542                                        ; {over kors}
     :dn/synset-27572                                        ; {i pleje}

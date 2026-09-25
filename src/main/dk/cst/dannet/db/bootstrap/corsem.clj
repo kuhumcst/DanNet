@@ -16,8 +16,9 @@
   The link columns targeting dn: synsets (DanNet-link, overbegreb-DanNet) and
   cor: words (COR-basis-id, COR.EXT-id) are converted for every row; pruning
   the links whose targets do not resolve and deriving the sense-level SKOS
-  matches both require the graphs and so happen in
-  bootstrap/add-cor-sem-graph!."
+  matches both require the graphs. The 2026-09-21 release did both in
+  bootstrap/add-cor-sem-graph!, which git history keeps; later releases carry
+  the cor-sem: graph forward as data."
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.string :as str]

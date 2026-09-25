@@ -11,14 +11,14 @@
   "The previous formal release the database is bootstrapped from. The files in
   its version-dir must match it precisely, and it decides which release
   downloads/fetch-bootstrap-datasets! pulls from GitHub."
-  "2026-08-21")
+  "2026-09-21")
 
 (def to
   "The version being produced. Set while the next release's changes are in
   development (\"SNAPSHOT\" until the target date is known), since a `to`
   differing from `from` is what enables make-release-changes!; the real
   version is set at the moment the release is cut."
-  "2026-09-21")
+  "SNAPSHOT")
 
 (def cor-version
   "The COR₁ edition the cor: graph is built from; named in the source file
