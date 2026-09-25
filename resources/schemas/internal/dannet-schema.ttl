@@ -166,10 +166,9 @@
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :inheritedFrom a owl:ObjectProperty ;
-  rdfs:domain :Inheritance ;
-  rdfs:range owl:ObjectProperty ;
-  rdfs:comment "Source of an inherited relation."@en ;
-  rdfs:comment "Kilde til en nedarvet relation."@da ;
+  rdfs:range ontolex:LexicalConcept ;
+  rdfs:comment "Source of an inherited relation, or of an inherited negation (owl:NegativePropertyAssertion)."@en ;
+  rdfs:comment "Kilde til en nedarvet relation eller en nedarvet negation (owl:NegativePropertyAssertion)."@da ;
   rdfs:label "inherited from"@en ;
   rdfs:label "nedarvet fra"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .

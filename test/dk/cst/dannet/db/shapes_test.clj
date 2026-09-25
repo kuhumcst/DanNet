@@ -12,6 +12,7 @@
 
 (def ^:private prefixes "
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
@@ -170,6 +171,25 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:ili ili:i48720 ;
   dns:eqHyponym <https://en-word.net/id/oewn-02486953-n> .")))))))
+
+(deftest negation-contradiction-shape
+  ;; SPARQL constraint, so identified by :severity + :message like the
+  ;; hypernym shapes above.
+  (let [negation "
+[] a owl:NegativePropertyAssertion ;
+  owl:sourceIndividual dn:synset-2 ;
+  owl:assertionProperty wn:agent ;
+  owl:targetIndividual dn:synset-3 .
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" .
+dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."]
+    (testing "a relation that a negation denies is a violation"
+      (is (contains? (->> (validate-ttl (str negation "
+dn:synset-2 wn:agent dn:synset-3 ."))
+                          :entries (map (juxt :shape :severity :focus-node)) set)
+                     [:dns/NegationContradictionShape :sh/Violation :dn/synset-2])))
+    (testing "a negation alone produces no negation entries"
+      (is (empty? (filter (comp #{:dns/NegationContradictionShape} :shape)
+                          (:entries (validate-ttl negation))))))))
 
 (deftest synset-type-shape
   (testing "a lexicalized synset missing its type is a violation"

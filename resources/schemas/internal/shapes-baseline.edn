@@ -30,6 +30,11 @@
 ;; 17 label-less senses all belonged to those synsets and were labeled by the
 ;; companion release change (add-missing-labels!). The 2026-09-21 release
 ;; shipped both fixes, so their accepted counts are 0.
+;;
+;; The negation shape was added 2026-09-25 along with a release change
+;; (replace-negated-relations!) that removes the 268 relations DanNet 2.2
+;; negated and restores them as owl:NegativePropertyAssertion resources
+;; (GitHub issue #216), so its accepted count is 0.
 {:dns/LexicalSenseShape-label      0
  :dns/LexicalEntryShape-writtenRep 0
  :dns/IliRelationShape             0
@@ -38,4 +43,5 @@
  :dns/MeronymyContradictionShape   0
  :dns/LinkedSenseShape-object      0
  :dns/LinkedSynsetShape            0
- :dns/HypernymAnchorShape          0}
+ :dns/HypernymAnchorShape          0
+ :dns/NegationContradictionShape   0}

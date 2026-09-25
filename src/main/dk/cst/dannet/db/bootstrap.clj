@@ -207,6 +207,119 @@
         (when ?shortLabel
           [?synset :dns/shortLabel ?shortLabel])))))
 
+(def dannet-2-owl-dir
+  "The DanNet 2.2 OWL release, the only source of the DanNet 2 negations.
+
+  It is not downloaded automatically. Get DanNet-2.2_owl.zip from
+  https://repository.clarin.dk/items/db6c5063-1d5d-435a-8ccc-8239fd826542
+  and unzip it into bootstrap/dannet/, next to the DanNet 2.2 CSV release."
+  "bootstrap/dannet/DanNet-2.2_owl")
+
+(def negated-relation-predicates
+  "The current predicate of each DanNet 2.2 relation that has negations, keyed
+  by its name in the DanNet 2.2 OWL release."
+  {"concerns"          :wn/also
+   "locationMeronymOf" :wn/holo_location
+   "madeofHolonymOf"   :wn/mero_substance
+   "memberHolonymOf"   :wn/mero_member
+   "memberMeronymOf"   :wn/holo_member
+   "partHolonymOf"     :wn/mero_part
+   "roleAgent"         :wn/agent
+   "rolePatient"       :wn/patient
+   "usedFor"           :dns/usedFor})
+
+(h/defn dannet-2-negations
+  "Read the negated relations in the DanNet 2.2 OWL release in `dir` as
+  [synset relation target from] tuples of DanNet 2.2 ids and relation names.
+
+  `from` is the synset that the negation is inherited from, or nil for a
+  direct negation. Only an XML comment gives this synset, and RDF parsers
+  discard comments, so the files are read as text."
+  [dir]
+  (let [negation-re (re-pattern
+                      (str "<owl:NegativeObjectPropertyAssertion>"
+                           "(?:<!-- Inherited from synset with id (\\d+) .*?-->)?"
+                           "\\s*<rdf:subject rdf:resource=\"&dn;synset-(\\d+)\"/>"
+                           "<rdf:predicate rdf:resource=\"&\\w+;(\\w+)\"/>"
+                           "<rdf:object rdf:resource=\"&dn;synset-(\\d+)\"/>"))]
+    (->> (.listFiles (io/file dir))
+         (filter #(str/ends-with? (.getName ^File %) ".rdf"))
+         (mapcat #(re-seq negation-re (slurp % :encoding "ISO-8859-1")))
+         (map (fn [[_ from synset relation target]]
+                [synset relation target from])))))
+
+(h/defn negation-triples
+  "The triples of an owl:NegativePropertyAssertion that denies [`s` `p` `o`],
+  naming the synset `from` that the negation is inherited from, if any."
+  [[s p o] from]
+  (let [negation (symbol (str "_negation-" (name s) "-" (name p) "-" (name o)))]
+    (cond-> #{[negation :rdf/type :owl/NegativePropertyAssertion]
+              [negation :owl/sourceIndividual s]
+              [negation :owl/assertionProperty p]
+              [negation :owl/targetIndividual o]}
+      from (conj [negation :dns/inheritedFrom from]))))
+
+(h/defn remove-inheritance-source!
+  "Remove `from` from the sources of the `p` relations that `s` inherits in
+  `model`, and remove the inheritance mark when no source remains."
+  [^Model model s p from]
+  (let [res       #(.createResource model ^String (prefix/kw->uri %))
+        prop      #(.createProperty model ^String (prefix/kw->uri %))
+        from-prop (prop :dns/inheritedFrom)]
+    (doseq [stmt (vec (iterator-seq (.listProperties (res s) (prop :dns/inherited))))
+            :let [mark (.getResource stmt)]
+            :when (.hasProperty mark (prop :dns/inheritedRelation) (res p))]
+      (.remove model mark from-prop (res from))
+      (when-not (.hasProperty mark from-prop)
+        (.removeAll model mark nil nil)
+        (.remove model stmt)))))
+
+(h/defn replace-negated-relations!
+  "Replace the relations in the dn: graph of `dataset` that DanNet 2.2 negated
+  with owl:NegativePropertyAssertion resources (GitHub issue #216).
+
+  Most of the 268 negations define a concept by what it lacks, for example
+  {ikkeryger} is not the agent of {ryge}. 203 of them are inherited from the
+  7 synsets that state them directly, 184 from {lokale}. The DanNet 2.2 CSV
+  release shows them as ordinary relations, so the conversion of that release
+  asserted all 268. An inheritance mark stays only while its synset inherits
+  other targets of the relation from the same synset.
+
+  The counts are asserted so that a future bootstrap dataset silently growing
+  or shrinking this set fails loudly instead."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/replace-negated-relations}
+          "Replacing the relations that DanNet 2.2 negated")
+  (let [g         (db/get-graph dataset prefix/dn-uri)
+        model     (db/get-model dataset prefix/dn-uri)
+        synset    #(keyword "dn" (str "synset-" %))
+        negations (for [[s relation o from] (dannet-2-negations dannet-2-owl-dir)]
+                    [[(synset s) (negated-relation-predicates relation) (synset o)]
+                     (some-> from synset)])
+        inherited (filter second negations)]
+    (assert (= 268 (count negations))
+            (str "expected 268 negations, found " (count negations)))
+    (assert (= 203 (count inherited))
+            (str "expected 203 inherited negations, found " (count inherited)))
+    (assert (every? #(seq (q/run g [:bgp (first %)])) negations)
+            "expected every negated relation to be asserted")
+    (txn/transact-exec model
+      (doseq [[triple] negations]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (db/safe-add! g (mapcat #(apply negation-triples %) negations)))
+    (let [sources (for [[[s p] from] inherited
+                        :when (empty? (q/run g [:bgp [s p '?o] [from p '?o]]))]
+                    [s p from])]
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/remove-inheritance-sources
+               :data  {:count (count sources)}}
+              "Removing inheritance sources that only negations justified")
+      (txn/transact-exec model
+        (doseq [[s p from] sources]
+          (remove-inheritance-source! model s p from))))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -223,6 +336,7 @@
             "Applying release changes")
 
     ;; ==== Changes for this particular release. ====
+    (replace-negated-relations! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -332,6 +446,11 @@
                             (:hash (meta #'synset-label))
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
+                            (:hash (meta #'replace-negated-relations!))
+                            (:hash (meta #'dannet-2-negations))
+                            (:hash (meta #'negation-triples))
+                            (:hash (meta #'remove-inheritance-source!))
+                            (hash negated-relation-predicates)
                             (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
