@@ -179,7 +179,7 @@ The `dn:` dataset is validated against [SHACL](https://www.w3.org/TR/shacl/) sha
 
 - a non-fatal check of the asserted graph runs asynchronously at every boot, logging violations and comparing counts to a [known baseline](/resources/schemas/internal/shapes-baseline.edn),
 - RDF exports of the `dn:` dataset are gated: a baseline regression aborts the export, and
-- fixture-based tests run via `clojure -X:test`, which is also executed by the GitHub Actions workflow in [.github/workflows/test.yml](/.github/workflows/test.yml).
+- fixture-based tests run via `clojure -X:validate:test`, which is also executed by the GitHub Actions workflow in [.github/workflows/test.yml](/.github/workflows/test.yml).
 
 ### Validating WN-LMF
 

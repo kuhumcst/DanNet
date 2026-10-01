@@ -94,7 +94,7 @@ The system includes:
 - Validates the `dn:` dataset against SHACL shapes in `resources/schemas/internal/shapes/` (`base.ttl` for the asserted graph, `inferred.ttl` for the inference model, `editorial.ttl` for future write gating); all shapes use SPARQL-based targets scoped to the `dn:` namespace
 - Returns violations as plain Clojure data; counts are compared to a known baseline (`resources/schemas/internal/shapes-baseline.edn`), so the enforced invariant is "no regressions" rather than "zero violations"
 - `validate-db`: non-fatal check of the asserted graph, run async at boot; `validate-export!`: release gate aborting RDF exports of the `dn:` model on baseline regressions; `validate-node`: targeted single-node validation intended for the future RDF Patch write pipeline (#194)
-- Fixture-based tests (`test/dk/cst/dannet/db/shapes_test.clj`) run via `clojure -X:test`, also executed by the GitHub Actions workflow (`.github/workflows/test.yml`)
+- Fixture-based tests (`test/dk/cst/dannet/db/shapes_test.clj`) run via `clojure -X:validate:test`, also executed by the GitHub Actions workflow (`.github/workflows/test.yml`)
 
 ### Bootstrap System (`dk.cst.dannet.db.bootstrap` + submodules)
 - Loads previous RDF releases from the `./bootstrap` directory
@@ -355,8 +355,8 @@ Notes:
 
 ### Running Tests
 ```bash
-# Run Clojure tests
-clj -A:test
+# Run Clojure tests. The :validate alias is necessary for the DMLex tests.
+clojure -X:validate:test
 
 # Run ClojureScript tests
 npx shadow-cljs compile test
