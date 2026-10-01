@@ -636,6 +636,54 @@
                               comment comments]
                           [sense :rdfs/comment comment]))))))
 
+(h/defn add-ili-eq-synonyms!
+  "Add a wn:eq_synonym from each dn: synset in `dataset` to the OEWN synset
+  that carries its wn:ili concept, when the link is unambiguous: the synset
+  has exactly one wn:ili, no wn:eq_synonym yet, and no other eq* relation to
+  that OEWN synset.
+
+  The links to the OEWN then match the links to the ILI. Most of the new ones
+  belong to the 2023 links to the CILI, the rest to the DanNet 2.2 links by
+  ENG20 offset, which the 2023 conversion could only map to the ILI. 245
+  links are left for review: 233 of synsets with several wn:ili and 12 of
+  synsets whose wn:eq_synonym points elsewhere (see the SHACL shapes
+  dns:LexicalConceptShape-ili and dns:IliEqSynonymShape). A concept that no
+  single OEWN synset carries (e.g. the placeholder ili:in) is skipped.
+
+  Must run after add-open-english-wordnet!, which supplies the ILI -> synset
+  mapping."
+  [dataset]
+  (let [ili->oewn (->> (q/run (db/get-graph dataset prefix/oewn-uri)
+                              '[:bgp [?synset :wn/ili ?ili]])
+                       (group-by '?ili)
+                       (into {} (keep (fn [[ili ms]]
+                                        (when (= 1 (count ms))
+                                          [ili (get (first ms) '?synset)])))))
+        g         (db/get-graph dataset prefix/dn-uri)
+        linked    (set (for [p [:wn/eq_synonym :dns/eqHypernym :dns/eqHyponym
+                                :dns/eqSimilar]
+                             {:syms [?s ?o]} (q/run g [:bgp ['?s p '?o]])]
+                         [?s ?o]))
+        equated   (set (map '?s (q/run g '[:bgp [?s :wn/eq_synonym ?o]])))
+        ili-links (group-by '?synset (q/run g '[:bgp [?synset :wn/ili ?ili]]))
+        triples   (set (for [[synset ms] ili-links
+                             :when (and (= 1 (count ms))
+                                        (not (equated synset)))
+                             :let [oewn-synset (ili->oewn (get (first ms) '?ili))]
+                             :when (and oewn-synset
+                                        (not (linked [synset oewn-synset])))]
+                         [synset :wn/eq_synonym oewn-synset]))
+        expected  3649]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/add-ili-eq-synonyms
+             :data  {:triples (count triples)}}
+            "Adding wn:eq_synonym links that match the wn:ili links")
+    (assert (= expected (count triples))
+            (str "expected " expected " wn:eq_synonym triples, found "
+                 (count triples)))
+    (txn/transact-exec g
+      (db/safe-add! g triples))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -654,6 +702,9 @@
     ;; ==== Changes for this particular release. ====
     (replace-negated-relations! dataset)
     (restore-dannet-2-examples! dataset)
+    ;; Deliberately omits the 245 ambiguous ILI links (several wn:ili, or a
+    ;; wn:eq_synonym elsewhere); SHACL shapes list them for review.
+    (add-ili-eq-synonyms! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -760,6 +811,7 @@
                             (hash premon/frame-relations)
                             (hash premon/fe-relations)
                             (:hash (meta #'make-release-changes!))
+                            (:hash (meta #'add-ili-eq-synonyms!))
                             (:hash (meta #'synset-label))
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))

@@ -35,8 +35,13 @@
 ;; (replace-negated-relations!) that removes the 268 relations DanNet 2.2
 ;; negated and restores them as owl:NegativePropertyAssertion resources
 ;; (GitHub issue #216), so its accepted count is 0.
+;;
+;; The single-ILI shape was added 2026-10-01 along with a release change
+;; (add-ili-eq-synonyms!) that leaves the synsets with several wn:ili out. The
+;; 385 such synsets in the live data are accepted until they are reviewed.
 {:dns/LexicalSenseShape-label      0
  :dns/LexicalEntryShape-writtenRep 0
+ :dns/LexicalConceptShape-ili      385
  :dns/IliRelationShape             0
  :dns/SynsetTypeShape              0
  :dns/MeronymyHierarchyShape       0

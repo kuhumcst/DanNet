@@ -191,6 +191,29 @@ dn:synset-2 wn:agent dn:synset-3 ."))
       (is (empty? (filter (comp #{:dns/NegationContradictionShape} :shape)
                           (:entries (validate-ttl negation))))))))
 
+(deftest ili-shapes
+  (let [entries (fn [ttl]
+                  (->> (validate-ttl ttl) :entries
+                       (map (juxt :shape :severity :focus-node)) set))]
+    (testing "several wn:ili on one synset are a violation"
+      (is (contains? (entries "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:ili ili:i1 , ili:i2 .")
+                     [:dns/LexicalConceptShape-ili :sh/Violation :dn/synset-2])))
+    (testing "a wn:eq_synonym target without the synset's wn:ili is a warning"
+      (is (contains? (entries "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:ili ili:i1 ; wn:eq_synonym <https://en-word.net/id/oewn-2-n> .
+<https://en-word.net/id/oewn-2-n> wn:ili ili:i2 .")
+                     [:dns/IliEqSynonymShape :sh/Warning :dn/synset-2])))
+    (testing "agreeing wn:ili and wn:eq_synonym produce no ILI entries"
+      (is (empty? (filter (comp #{:dns/LexicalConceptShape-ili
+                                  :dns/IliEqSynonymShape} first)
+                          (entries "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:ili ili:i1 ; wn:eq_synonym <https://en-word.net/id/oewn-1-n> .
+<https://en-word.net/id/oewn-1-n> wn:ili ili:i1 .")))))))
+
 (deftest synset-type-shape
   (testing "a lexicalized synset missing its type is a violation"
     (is (contains? (shape+constraint "

@@ -291,13 +291,22 @@
              rels)
       out)))
 
-;; #146 - At the time of writing, 1194 DN synsets have links to the same ILIs.
-;; It requires too much labour to correct these, so they are left out for now.
-(defn remove-bad-ili-links
-  [ili-res]
-  (->> (group-by '?ili ili-res)
+(defn- only-unique
+  [k ms]
+  (->> (group-by k ms)
        (remove (comp (partial not= 1) count second))
        (mapcat second)))
+
+;; #146 - At the time of writing, 1194 DN synsets have links to the same ILIs.
+;; It requires too much labour to correct these, so they are left out for now.
+;; Likewise, a synset with several wn:ili (dns:LexicalConceptShape-ili) has no
+;; single ILI to export; it is left out first, so that it cannot take an ILI
+;; away from a synset that has only that one.
+(defn remove-bad-ili-links
+  [ili-res]
+  (->> ili-res
+       (only-unique '?synset)
+       (only-unique '?ili)))
 
 (defn run-queries
   "Fetch data from `g` and prepare it for populating the XML file."
