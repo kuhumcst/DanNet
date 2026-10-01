@@ -39,10 +39,15 @@
 ;; The single-ILI shape was added 2026-10-01 along with a release change
 ;; (add-ili-eq-synonyms!) that leaves the synsets with several wn:ili out. The
 ;; 385 such synsets in the live data are accepted until they are reviewed.
+;;
+;; The eq* conflict shape was added 2026-10-01. The 29 synsets in the live
+;; data that link to the same OEWN synset with two eq* relations are
+;; accepted until they are reviewed.
 {:dns/LexicalSenseShape-label      0
  :dns/LexicalEntryShape-writtenRep 0
  :dns/LexicalConceptShape-ili      385
  :dns/IliRelationShape             0
+ :dns/EqRelationShape              29
  :dns/SynsetTypeShape              0
  :dns/MeronymyHierarchyShape       0
  :dns/MeronymyContradictionShape   0

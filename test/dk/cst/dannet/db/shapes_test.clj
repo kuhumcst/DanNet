@@ -215,15 +215,15 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 <https://en-word.net/id/oewn-1-n> wn:ili ili:i1 .")))))))
 
 (deftest eq-relation-shape
-  (testing "two eq* relations to the same synset are a warning"
+  (testing "two eq* relations to the same synset are a violation"
     (let [result (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:eq_synonym <https://en-word.net/id/oewn-02486953-n> ;
   dns:eqSimilar <https://en-word.net/id/oewn-02486953-n> .")]
       (is (contains? (->> (:entries result)
                           (map (juxt :shape :severity :focus-node)) set)
-                     [:dns/EqRelationShape :sh/Warning :dn/synset-2]))
-      (is (not (shapes/blocking? result)))))
+                     [:dns/EqRelationShape :sh/Violation :dn/synset-2]))
+      (is (shapes/blocking? result))))
   (testing "eq* relations to different synsets produce no eq* entries"
     (is (empty? (filter (comp #{:dns/EqRelationShape} :shape)
                         (:entries (validate-ttl "

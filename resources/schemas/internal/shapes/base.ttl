@@ -391,17 +391,18 @@ SELECT DISTINCT $this ?value WHERE {
 }""" .
 
 ## Equivalence, similarity, hypernymy and hyponymy exclude each other, so a
-## synset should link to another synset with one eq* relation only. Only a
-## warning: the conflicts in the live data are newer links added next to the
-## DanNet 2 equivalences, and each one needs review, not an automatic fix.
+## synset must link to another synset with one eq* relation only. The
+## conflicts in the live data are newer links added next to the DanNet 2
+## equivalences; they are recorded in shapes-baseline.edn until each one is
+## reviewed, since none of them has an automatic fix.
 dns:EqRelationShape a sh:NodeShape ;
     sh:target dns:DanNetConceptTarget ;
-    sh:severity sh:Warning ;
+    sh:severity sh:Violation ;
     sh:sparql dns:EqRelationShape-conflict .
 
 dns:EqRelationShape-conflict a sh:SPARQLConstraint ;
     sh:prefixes dns:DanNetPrefixes ;
-    sh:message "A synset should not link to the same synset with two different eq* relations." ;
+    sh:message "A synset must not link to the same synset with two different eq* relations." ;
     sh:select """
 SELECT DISTINCT $this ?value WHERE {
   VALUES ?p { wn:eq_synonym dns:eqHypernym dns:eqHyponym dns:eqSimilar }
