@@ -22,6 +22,7 @@
   (:import [java.io File]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
+           [java.util.regex Pattern]
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
@@ -320,6 +321,321 @@
         (doseq [[s p from] sources]
           (remove-inheritance-source! model s p from))))))
 
+(def dannet-2-csv-dir
+  "The DanNet 2.5.1 CSV release, the source of the DanNet 2 sense examples.
+
+  It is not downloaded automatically. Unzip it into bootstrap/dannet/, next to
+  the DanNet 2.2 releases. The 2023 conversion also read this release."
+  "bootstrap/dannet/DanNet-2.5.1_csv")
+
+(def truncated-dannet-2-examples
+  "The DanNet 2 examples that the release cut off at a subscript, a
+  superscript or a comma."
+  #{"Øget CO" "1 m" "10"})
+
+(h/defn read-dannet-2-csv
+  "Read the rows of the DanNet 2 CSV `file` in `dir` as vectors of fields."
+  [dir file]
+  (with-open [r (io/reader (io/file dir file) :encoding "ISO-8859-1")]
+    (mapv #(str/split % #"@" -1) (line-seq r))))
+
+(h/defn example-groups
+  "Read the usage examples in the gloss of a DanNet 2 synsets.csv `row` as one
+  group of examples per label word with examples, in label order.
+
+  The examples follow \"(Brug: \" in the gloss, with \"; \" between the groups
+  and \" || \" between the examples of a group. A few glosses contain the
+  field separator @, so the gloss is every field before the last two."
+  [[_ _ & fields]]
+  (when-let [[_ s] (re-find #"\(Brug: \"(.+)\"\)"
+                            (str/join "@" (drop-last 2 fields)))]
+    (for [group (str/split s #"\"; \"")]
+      (map str/trim (str/split group #" \|\| ")))))
+
+(h/defn label-forms
+  "The written forms of the words in a DanNet 2 synset `label`, in label order,
+  e.g. [\"tilpasse\" \"passe ''til\"] for {tilpasse_1; passe,1_1: passe ''til}."
+  [label]
+  (mapv (fn [word]
+          (if-let [[_ phrase] (re-find #": (.+)$" word)]
+            phrase
+            (str/replace word #"^DN:|,\d+_.*$|_.*$" "")))
+        (str/split (subs label 1 (dec (count label))) #"; ")))
+
+(h/defn dannet-2-example-synsets
+  "Read the DanNet 2 synsets with usage examples from the CSV release in `dir`
+  as maps of the synset :id, the :forms of its label words, the :sense-ids of
+  each form and the example :groups."
+  [dir]
+  (let [forms  (into {} (map (juxt first second))
+                     (read-dannet-2-csv dir "words.csv"))
+        senses (group-by #(nth % 2) (read-dannet-2-csv dir "wordsenses.csv"))]
+    (for [[id label :as row] (read-dannet-2-csv dir "synsets.csv")
+          :let [groups (example-groups row)]
+          :when groups]
+      {:id        id
+       :forms     (label-forms label)
+       :sense-ids (reduce (fn [m [sense-id word-id]]
+                            (update m (forms word-id) (fnil conj #{}) sense-id))
+                          {}
+                          (senses id))
+       :groups    groups})))
+
+(h/defn form-parts
+  "The parts of a DanNet 2 word `form` as sets of alternative words, without
+  the stress marks and the optional parts in parentheses."
+  [form]
+  (->> (-> (str/lower-case form)
+           (str/replace #"\([^)]*\)|(?<![\p{L}\p{N}])'+" "")
+           (str/split #"\s+"))
+       (remove str/blank?)
+       (map #(set (str/split % #"/")))))
+
+(h/defn inflected-match?
+  "True if `example` contains each part of the word `form` in its written form
+  or in one of its `inflections`."
+  [inflections form example]
+  (let [words (set (re-seq #"[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*"
+                           (str/lower-case example)))]
+    (every? (fn [alternatives]
+              (some words (mapcat #(inflections % [%]) alternatives)))
+            (form-parts form))))
+
+(h/defn prefix-match?
+  "True if a word in `example` starts with each part of the word `form`.
+
+  A final e of a part longer than 3 letters is optional, so that hasselbusk
+  matches \"hasselbuske\"."
+  [form example]
+  (let [example (str/lower-case example)]
+    (every? (fn [alternatives]
+              (some (fn [word]
+                      (let [stem (str/replace word #"(?<=...)e$" "")
+                            re   (re-pattern (str "(?<!\\p{L})"
+                                                  (Pattern/quote stem)))]
+                        (re-find re example)))
+                    alternatives))
+            (form-parts form))))
+
+(h/defn best-matches
+  "The indices of the word `forms` that `match?` the most examples in `group`."
+  [match? forms group]
+  (let [scores (for [form forms]
+                 (count (filter #(match? form %) group)))
+        best   (apply max scores)]
+    (if (pos? best)
+      (set (keep-indexed #(when (= best %2) %1) scores))
+      #{})))
+
+(h/defn ordered-choices
+  "Every way to choose one of the `candidates` indices per group such that the
+  indices increase."
+  ([candidates]
+   (ordered-choices -1 candidates))
+  ([prev [indices & more :as candidates]]
+   (if (empty? candidates)
+     [[]]
+     (for [i      indices
+           :when  (> i prev)
+           choice (ordered-choices i more)]
+       (cons i choice)))))
+
+(h/defn group-word-indices
+  "The possible label word indices of each example group of a DanNet 2 synset,
+  given its label `forms`, its example `groups` and the `inflections`.
+
+  The groups follow the label order, so a synset with a group for each label
+  word needs no matching. Otherwise, the examples are matched against the
+  forms, with prefix-match? for a group that inflected-match? cannot match,
+  and only increasing indices are possible."
+  [inflections forms groups]
+  (if (= (count forms) (count groups))
+    (map hash-set (range (count forms)))
+    (let [inflected? (partial inflected-match? inflections)
+          choices    (ordered-choices
+                       (for [group groups]
+                         (let [indices (best-matches inflected? forms group)]
+                           (if (empty? indices)
+                             (best-matches prefix-match? forms group)
+                             indices))))]
+      (for [i (range (count groups))]
+        (set (map #(nth % i) choices))))))
+
+(h/defn sense-ids
+  "The DanNet 2 sense ids in the name of a current `sense`, e.g. 21016133 and
+  21016132 for dn:sense-21016133-i2_21016132-i1."
+  [sense]
+  (map #(str/replace % #"-i\d+$" "")
+       (str/split (subs (name sense) 6) #"_")))
+
+(h/defn current-sense
+  "The current sense of the DanNet 2 sense `id` in the DanNet 2 synset
+  `synset-id`, given the `senses` of every DanNet 2 sense id and the `synset`
+  of every current sense.
+
+  Since 2023, some senses moved to another synset, so a sense outside the
+  synset is the result when it is the only candidate."
+  [senses synset synset-id id]
+  (let [candidates (senses id)
+        in-synset  (filter #(= (keyword "dn" (str "synset-" synset-id))
+                               (synset %))
+                           candidates)]
+    (cond
+      (= 1 (count in-synset)) (first in-synset)
+      (= 1 (count candidates)) (first candidates))))
+
+(h/defn place-dannet-2-examples
+  "Place the examples of a DanNet 2 `synset` on current senses as [synset-id
+  example senses] tuples, given the `inflections` and a `current-sense` fn.
+
+  The examples of a group get the senses of every label word with the form of
+  their label word, since the label does not show which of these senses is
+  which. The examples of a group that can belong to label words with
+  different forms get no senses."
+  [inflections current-sense {:keys [id forms sense-ids groups] :as synset}]
+  (for [[indices group] (map vector
+                             (group-word-indices inflections forms groups)
+                             groups)
+        :let [group-forms (set (map forms indices))
+              senses      (when (= 1 (count group-forms))
+                            (set (keep #(current-sense id %)
+                                       (sense-ids (first group-forms)))))]
+        example group]
+    [id example senses]))
+
+(h/defn normalize-example
+  "Normalize the quote marks and the white space of an `example`."
+  [example]
+  (-> example
+      (str/replace #"[\"'\u201C\u201D\u2018\u2019\u00AB\u00BB`\u00B4]" "'")
+      (str/replace #"\s+" " ")
+      (str/trim)))
+
+(h/defn example-changes
+  "The changes to the current `examples`, [sense example] pairs, that apply the
+  DanNet 2 `placements`, given the `synset` of every current sense.
+
+  Gives :add and :remove, both [sense example] pairs, and the :tied senses
+  that share examples with a sense of the same lemma. Examples are compared
+  after normalize-example. A DanNet 2 example on a wrong sense of its synset
+  is removed, unless an example that cannot be placed has the same text. The
+  other examples lose any surrounding white space."
+  [synset examples placements]
+  (let [text-key       (fn [[sense example]]
+                         [sense (normalize-example (str example))])
+        placed         (for [[_ example senses] placements
+                             sense senses]
+                         [sense example])
+        targets        (set (map text-key placed))
+        current        (set (map text-key examples))
+        placed-texts   (set (for [[sense text] (map text-key placed)]
+                              [(synset sense) text]))
+        unplaced-texts (set (for [[id example senses] placements
+                                  :when (empty? senses)]
+                              [(keyword "dn" (str "synset-" id))
+                               (normalize-example example)]))
+        wrong?         (fn [[sense :as pair]]
+                         (let [[_ text :as k] (text-key pair)]
+                           (and (placed-texts [(synset sense) text])
+                                (not (unplaced-texts [(synset sense) text]))
+                                (not (targets k)))))
+        padded         (filter (fn [[_ example]]
+                                 (not= (str example) (str/trim (str example))))
+                               (remove wrong? examples))]
+    {:add    (concat (->> placed
+                          (remove (comp current text-key))
+                          (remove (comp truncated-dannet-2-examples second))
+                          (distinct))
+                     (for [[sense example] padded]
+                       [sense (str/trim (str example))]))
+     :remove (concat (filter wrong? examples) padded)
+     :tied   (set (for [[_ _ senses] placements
+                        :when (next senses)
+                        sense senses]
+                    sense))}))
+
+(h/defn dannet-2-example-changes
+  "The example-changes to the dn: graph of `dataset` that restore the DanNet 2
+  examples of the CSV release in `dir`, and the :unplaced examples.
+
+  The word forms in the cor: graph of `dataset` give the inflections."
+  [dataset dir]
+  (let [g           (db/get-graph dataset prefix/dn-uri)
+        inflections (reduce (fn [m {:syms [?lemma ?rep]}]
+                              (let [lemma (str/lower-case ?lemma)]
+                                (update m lemma (fnil conj #{lemma})
+                                        (str/lower-case ?rep))))
+                            {}
+                            (q/run (db/get-graph dataset prefix/cor-uri)
+                                   op/cor-word-forms))
+        synset      (->> '[:bgp [?synset :ontolex/lexicalizedSense ?sense]]
+                         (q/run g)
+                         (map (juxt '?sense '?synset))
+                         (into {}))
+        senses      (reduce (fn [m sense]
+                              (reduce #(update %1 %2 (fnil conj #{}) sense)
+                                      m (sense-ids sense)))
+                            {}
+                            (keys synset))
+        placements  (mapcat (partial place-dannet-2-examples inflections
+                                     (partial current-sense senses synset))
+                            (dannet-2-example-synsets dir))
+        examples    (->> '[:bgp [?sense :lexinfo/senseExample ?example]]
+                         (q/run g)
+                         (map (juxt '?sense '?example)))]
+    (assoc (example-changes synset examples placements)
+      :unplaced (filter (comp empty? last) placements))))
+
+(h/defn restore-dannet-2-examples!
+  "Restore the DanNet 2 usage examples that the 2023 conversion lost or put on
+  a wrong sense in the dn: graph of `dataset`.
+
+  The 2023 conversion matched each example to the first label word of its
+  synset that occurs in it, as a substring. It kept only the last example per
+  synset and word, so 19,629 examples are missing from their senses. A
+  substring such as ask in asketræ put 573 examples on a wrong sense. The
+  examples of a group that can belong to several senses of the same lemma go
+  to all 48 of these senses, with an rdfs:comment. The 109 examples that fit
+  different lemmas, or no lemma, stay out. The white space around 49 examples
+  is also removed.
+
+  The counts are asserted so that a future bootstrap dataset silently growing
+  or shrinking this set fails loudly instead."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/restore-dannet-2-examples}
+          "Restoring the DanNet 2 usage examples")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        comments [(md/en "DanNet 2 gave the examples of this sense for its"
+                         " lemma and not for the sense. This synset has more"
+                         " than one sense of the lemma, so each example can"
+                         " belong to another of these senses.")
+                  (md/da "DanNet 2 angav betydningseksemplerne for denne"
+                         " betydning ud fra lemmaet og ikke ud fra betydningen."
+                         " Dette synset har mere end én betydning af lemmaet,"
+                         " så hvert eksempel kan høre til en anden af disse"
+                         " betydninger.")]
+        {:keys [add remove tied] :as changes} (dannet-2-example-changes
+                                                dataset dannet-2-csv-dir)
+        counts   (update-vals changes count)]
+    (assert (= {:add 19678 :remove 622 :tied 48 :unplaced 109} counts)
+            (str "unexpected example changes " counts))
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/dannet-2-example-changes
+             :data  counts}
+            "Changing the DanNet 2 usage examples")
+    (txn/transact-exec model
+      (doseq [[sense example] remove]
+        (db/remove! model [sense :lexinfo/senseExample example])))
+    (txn/transact-exec g
+      (db/safe-add! g (concat
+                        (for [[sense example] add]
+                          [sense :lexinfo/senseExample (md/da example)])
+                        (for [sense tied
+                              comment comments]
+                          [sense :rdfs/comment comment]))))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -337,6 +653,7 @@
 
     ;; ==== Changes for this particular release. ====
     (replace-negated-relations! dataset)
+    (restore-dannet-2-examples! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -451,6 +768,24 @@
                             (:hash (meta #'negation-triples))
                             (:hash (meta #'remove-inheritance-source!))
                             (hash negated-relation-predicates)
+                            (:hash (meta #'restore-dannet-2-examples!))
+                            (:hash (meta #'dannet-2-example-changes))
+                            (:hash (meta #'example-changes))
+                            (:hash (meta #'normalize-example))
+                            (:hash (meta #'place-dannet-2-examples))
+                            (:hash (meta #'current-sense))
+                            (:hash (meta #'sense-ids))
+                            (:hash (meta #'group-word-indices))
+                            (:hash (meta #'ordered-choices))
+                            (:hash (meta #'best-matches))
+                            (:hash (meta #'prefix-match?))
+                            (:hash (meta #'inflected-match?))
+                            (:hash (meta #'form-parts))
+                            (:hash (meta #'dannet-2-example-synsets))
+                            (:hash (meta #'label-forms))
+                            (:hash (meta #'example-groups))
+                            (:hash (meta #'read-dannet-2-csv))
+                            (hash truncated-dannet-2-examples)
                             (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))

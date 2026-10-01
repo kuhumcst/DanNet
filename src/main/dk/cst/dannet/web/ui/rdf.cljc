@@ -454,6 +454,9 @@
   [opts coll]
   (expandable-list* opts (take 3 coll) (drop 3 coll)))
 
+;; TODO: words with the same label look unlabeled, e.g. the noun and adjective
+;; "bordeaux" in dn:synset-14930 show as word-11005769 and word-11005769-2.
+;; Add the part of speech to the label of colliding words instead.
 (defn- disambiguate-labels
   "Override the k->label entries of the keyword items in `coll` whose display
   label collides with another item's, so that they render their QName instead,
