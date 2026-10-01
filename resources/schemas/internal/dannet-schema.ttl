@@ -312,6 +312,16 @@
   rdfs:label "indlemmet"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
+:stressedRep a owl:DatatypeProperty ;
+  rdfs:subPropertyOf ontolex:representation ;
+  rdfs:domain ontolex:Form ;
+  rdfs:comment "The written representation of the subject form with the stress sign ˈ before the stressed word, as Den Danske Ordbog shows it, e.g. \"se ˈtil\". DDO shows the sign mostly where the stress separates two expressions with the same spelling, e.g. \"se til\" and \"se ˈtil\". Only the forms that DDO shows with the sign have a value. DanNet 2 also marked the predictable stress of many other multiword forms, e.g. on the particle in \"slå op\", but DDO does not show that stress, so this property does not include it."@en ;
+  rdfs:comment "Subjekt-formens skriftlige repræsentation med tryktegnet ˈ foran det betonede ord, sådan som Den Danske Ordbog viser den, fx \"se ˈtil\". DDO viser oftest tegnet, hvor trykket adskiller to udtryk med samme stavemåde, fx \"se til\" og \"se ˈtil\". Kun de former, som DDO viser med tegnet, har en værdi. DanNet 2 markerede også det forudsigelige tryk i mange andre flerordsudtryk, fx på partiklen i \"slå op\", men DDO viser ikke det tryk, så denne egenskab medtager det ikke."@da ;
+  rdfs:label "stressed representation"@en ;
+  rdfs:label "betonet repræsentation"@da ;
+  rdfs:seeAlso "<https://ordnet.dk/ddo>" ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
 :crossPoSHypernym a wn:SynsetRelType ;
   rdfs:domain ontolex:LexicalConcept ;
   rdfs:range ontolex:LexicalConcept ;

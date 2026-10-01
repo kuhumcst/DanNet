@@ -12,6 +12,7 @@
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.bootstrap.corsem :as corsem]
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.db.bootstrap.premon :as premon]
@@ -648,7 +649,9 @@
   links are left for review: 233 of synsets with several wn:ili and 12 of
   synsets whose wn:eq_synonym points elsewhere (see the SHACL shapes
   dns:LexicalConceptShape-ili and dns:IliEqSynonymShape). A concept that no
-  single OEWN synset carries (e.g. the placeholder ili:in) is skipped.
+  single OEWN synset carries (e.g. the placeholder ili:in) is skipped, and so
+  is a wn:ili on a resource that is not a synset: dn:synset-78106 and the
+  stubs of 5 duplicates that subsume-removed-duplicates! removes.
 
   Must run after add-open-english-wordnet!, which supplies the ILI -> synset
   mapping."
@@ -665,7 +668,9 @@
                              {:syms [?s ?o]} (q/run g [:bgp ['?s p '?o]])]
                          [?s ?o]))
         equated   (set (map '?s (q/run g '[:bgp [?s :wn/eq_synonym ?o]])))
-        ili-links (group-by '?synset (q/run g '[:bgp [?synset :wn/ili ?ili]]))
+        ili-links (->> (q/run g '[:bgp [?synset :rdf/type :ontolex/LexicalConcept]
+                                        [?synset :wn/ili ?ili]])
+                       (group-by '?synset))
         triples   (set (for [[synset ms] ili-links
                              :when (and (= 1 (count ms))
                                         (not (equated synset)))
@@ -673,7 +678,7 @@
                              :when (and oewn-synset
                                         (not (linked [synset oewn-synset])))]
                          [synset :wn/eq_synonym oewn-synset]))
-        expected  3649]
+        expected  3643]
     (t/log! {:level :info
              :id    :dannet.bootstrap/add-ili-eq-synonyms
              :data  {:triples (count triples)}}
@@ -683,6 +688,357 @@
                  (count triples)))
     (txn/transact-exec g
       (db/safe-add! g triples))))
+
+(h/defn register-triples
+  "The triples of the DanNet 2 `register` text of `sense`, the way the 2023
+  conversion made them: a usage note with the text, plus the dating,
+  frequency or register value that its abbreviations name."
+  [sense register]
+  (cond-> #{[sense :lexinfo/usageNote (md/da register)]}
+    (str/includes? register "gl.") (conj [sense :lexinfo/dating :lexinfo/old])
+    (str/includes? register "sj.") (conj [sense :lexinfo/frequency :lexinfo/rarelyUsed])
+    (str/includes? register "jargon") (conj [sense :lexinfo/register :lexinfo/inHouseRegister])
+    (str/includes? register "slang") (conj [sense :lexinfo/register :lexinfo/slangRegister])))
+
+(h/defn restore-dannet-2-registers!
+  "Restore the DanNet 2 register of the senses in `dataset` that DSL split
+  into -i1, -i2, ... readings, one per synset.
+
+  The 2023 conversion took these readings from DSL's own data, which has no
+  register, so 41 of them lost the register that DanNet 2 gave the sense
+  before the split. Each DanNet 2.5.1 wordsenses.csv row names a sense and a
+  synset; the reading of that sense in that synset gets the register, unless
+  it already has a usage note."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/restore-dannet-2-registers}
+          "Restoring the DanNet 2 register of split senses")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        senses   (reduce (fn [m {:syms [?synset ?sense]}] (update m ?synset conj ?sense))
+                         {} (q/run g '[:bgp [?synset :ontolex/lexicalizedSense ?sense]]))
+        noted    (set (map '?s (q/run g '[:bgp [?s :lexinfo/usageNote ?note]])))
+        triples  (set (for [[id _ synset register] (read-dannet-2-csv dannet-2-csv-dir
+                                                                       "wordsenses.csv")
+                            :when (not (str/blank? register))
+                            :let [reading (re-pattern (str "sense-" id "-i\\d+"))]
+                            sense (get senses (keyword "dn" (str "synset-" synset)))
+                            :when (and (re-matches reading (name sense))
+                                       (not (noted sense)))
+                            triple (register-triples sense register)]
+                        triple))
+        restored (count (distinct (map first triples)))
+        expected 41]
+    (assert (= expected restored)
+            (str "expected " expected " senses to restore, found " restored))
+    (txn/transact-exec g
+      (db/safe-add! g triples))))
+
+(h/defn retarget-dangling-sentiments!
+  "Move the DDS sentiments in `dataset` of dn: senses that no longer exist to
+  the senses that replaced them.
+
+  A sense split into -i1, -i2, ... readings passes its sentiment on to each
+  reading. Of two senses merged into one, the sense named first in the merged
+  id passes its sentiment on, so that the merged sense has one opinion; the
+  sentiment of the other is removed. The two agree in 4 of the 5 merged pairs."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/retarget-dangling-sentiments}
+          "Moving the sentiments of senses that no longer exist")
+  (let [dn-g      (db/get-graph dataset prefix/dn-uri)
+        dds-g     (db/get-graph dataset prefix/dds-uri)
+        model     (db/get-model dataset prefix/dds-uri)
+        senses    (set (map '?s (q/run dn-g '[:bgp [?s :rdf/type :ontolex/LexicalSense]])))
+        subsumer  (into {} (map (juxt '?old '?s))
+                        (q/run dn-g '[:bgp [?s :dns/subsumed ?old]]))
+        readings  (fn [s]
+                    (let [reading (re-pattern (str (name s) "-i\\d+"))]
+                      (filter #(re-matches reading (name %)) senses)))
+        targets   (fn [s]
+                    (or (seq (readings s))
+                        (when-let [merged (subsumer s)]
+                          (when (str/starts-with? (name merged) (str (name s) "_"))
+                            [merged]))))
+        moves     (into {} (for [{:syms [?s]} (q/run dds-g '[:bgp [?s :dns/sentiment ?o]])
+                                 :when (and (= "dn" (namespace ?s))
+                                            (str/starts-with? (name ?s) "sense-")
+                                            (not (senses ?s)))]
+                             [?s (vec (targets ?s))]))
+        counts    {:dangling (count moves)
+                   :moved    (count (mapcat val moves))}
+        expected  {:dangling 18 :moved 20}
+        resource  #(.getResource model (prefix/kw->uri %))
+        sentiment (.getProperty model (prefix/kw->uri :dns/sentiment))]
+    (assert (= expected counts)
+            (str "expected sentiment moves " expected ", found " counts))
+    (txn/transact-exec model
+      (doseq [[s targets] moves
+              stmt (vec (iterator-seq (.listProperties (resource s) sentiment)))
+              :let [opinion (.getObject stmt)]]
+        (doseq [target targets]
+          (.add model (resource target) sentiment opinion))
+        (when (empty? targets)
+          (.removeAll model (.asResource opinion) nil nil))
+        (.remove model stmt)))))
+
+(def collapsed-readings
+  "The merged senses that took the readings of another synset, each with that
+  synset and the suffix of its readings, as the label of the synset still
+  shows, e.g. {Nordkorea_§1(2)} for -i2."
+  {:dn/sense-23000165-i1_23000318-i2_23000165-i2_23000318-i1 [:dn/synset-9239 "i2"]
+   :dn/sense-23000302-i1_23000269-i1_23000269-i2_23000302-i2 [:dn/synset-61007 "i2"]
+   :dn/sense-23000047-i2_23000303-i2_23000047-i1_23000303-i1 [:dn/synset-9121 "i2"]
+   :dn/sense-21016133-i2_21016133-i1_21016132-i1_21016132-i2 [:dn/synset-42830 "i1"]})
+
+(h/defn restore-collapsed-readings!
+  "Give the synsets in `collapsed-readings` back the readings that a merge of
+  duplicate senses moved to another synset in `dataset`.
+
+  DSL splits a sense of two synsets into -i1 and -i2 readings, e.g. a country
+  name for the country and for its population. A later merge of duplicate
+  senses joined these readings into one sense of one synset. That left the
+  population synsets of {Nordkorea}, {Congo} and {Republikken Congo} without
+  senses, and {besiddelse; eje; ejendom} without eje. Each synset gets one
+  sense again, with the ids, labels, DDO sense ids and sources of its own
+  readings. The merged sense keeps the other readings."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/restore-collapsed-readings}
+          "Restoring readings that a merge of duplicate senses moved")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        changes  (for [[merged [synset suffix]] collapsed-readings
+                       :let [triples  (q/run g [:bgp [merged '?p '?o]])
+                             objects  (fn [p] (keep #(when (= p (get % '?p)) (get % '?o))
+                                                    triples))
+                             index    (subs suffix 1)
+                             swap     (fn [label i] (str/replace (str label) #"\(\d\)$"
+                                                                 (str "(" i ")")))
+                             label    (first (objects :rdfs/label))
+                             own?     #(str/ends-with? (str %) (str "(" index ")"))
+                             alts     (objects :skos/altLabel)
+                             own      (filter own? (cons label alts))
+                             readings (filter #(str/ends-with? (name %) (str "-" suffix))
+                                              (objects :dns/subsumed))
+                             ids      (sort (map #(subs (name %) (count "sense-")) readings))
+                             sense    (keyword "dn" (str "sense-" (str/join "_" ids)))
+                             main     (swap label index)
+                             kept     (remove own? alts)
+                             kept'    (when (own? label)
+                                        (first (filter #(= (swap label (if (= index "1") 2 1))
+                                                           (str %))
+                                                       kept)))
+                             word     (some '?w (q/run g [:bgp ['?w :ontolex/sense merged]]))]]
+                   {:remove (concat (for [l (filter own? alts)] [merged :skos/altLabel l])
+                                    (for [r readings] [merged :dns/subsumed r])
+                                    (when kept'
+                                      [[merged :rdfs/label label]
+                                       [merged :skos/altLabel kept']]))
+                    :add    (concat [[sense :rdf/type :ontolex/LexicalSense]
+                                     [sense :rdfs/label (md/da main)]
+                                     [word :ontolex/sense sense]
+                                     [synset :ontolex/lexicalizedSense sense]]
+                                    (for [l own :when (not= main (str l))]
+                                      [sense :skos/altLabel (md/da (str l))])
+                                    (for [r readings] [sense :dns/subsumed r])
+                                    (for [p [:dns/dslSense :dns/source]
+                                          o (objects p)]
+                                      [sense p o])
+                                    (when kept'
+                                      [[merged :rdfs/label (md/da (str kept'))]]))
+                    :relabel (when kept' [label kept'])})
+        expected 4]
+    (assert (= expected (count changes))
+            (str "expected " expected " synsets to restore, found " (count changes)))
+    (txn/transact-exec model
+      (doseq [triple (mapcat :remove changes)]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (db/safe-add! g (mapcat :add changes)))
+    ;; The synset of a merged sense whose main label moved to the restored
+    ;; sense names the label in its own label too.
+    (doseq [[old new] (keep :relabel changes)]
+      (db/update-triples! prefix/dn-uri dataset
+                          [:bgp ['?synset :ontolex/lexicalizedSense '?sense]
+                           ['?sense :rdfs/label new]
+                           ['?synset :rdfs/label '?label]]
+        (fn [{:syms [?synset ?label]}]
+          [?synset :rdfs/label (md/da (str/replace (str ?label) (str old) (str new)))])
+        (fn [{:syms [?synset ?label]}]
+          [?synset :rdfs/label ?label])))))
+
+(h/defn restore-at-sign-synsets!
+  "Restore the definition and ontological type of the dn: synsets in `dataset`
+  whose row in the DanNet 2.5.1 synsets.csv the 2023 conversion skipped.
+
+  The gloss of {e-maile_1; maile_1} has an e-mail address in an example, and
+  its @ is also the field separator of the file, so the row has one field
+  too many. The 2023 conversion skipped rows of the wrong length; the
+  examples of the synset are back since restore-dannet-2-examples!."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/restore-at-sign-synsets}
+          "Restoring synsets whose DanNet 2 row has an @ in its gloss")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        defined  (set (map '?s (q/run g '[:bgp [?s :skos/definition ?d]])))
+        triples  (for [row (read-dannet-2-csv dannet-2-csv-dir "synsets.csv")
+                       :let [n      (count row)
+                             synset (keyword "dn" (str "synset-" (first row)))]
+                       :when (and (> n 5) (not (defined synset)))
+                       :let [gloss      (str/join "@" (subvec row 2 (- n 2)))
+                             definition (-> gloss
+                                            (str/replace #"\s*\(Brug: .*$" "")
+                                            (str/replace " ..." "…")
+                                            (str/trim))
+                             [ontotype type-triples] (corsem/->ontotype
+                                                       (corsem/ontotype-atoms
+                                                         (nth row (- n 2))))]]
+                   (into [[synset :skos/definition (md/da definition)]
+                          [synset :dns/ontologicalType ontotype]]
+                         type-triples))
+        expected 1]
+    (assert (= expected (count triples))
+            (str "expected " expected " synsets to restore, found " (count triples)))
+    (txn/transact-exec g
+      (db/safe-add! g (apply concat triples)))))
+
+(def duplicates-removed-in-2023
+  "The DanNet 2 synsets that the 2023 conversion removed as duplicates
+  (GitHub issue #46), each with the synset that has the same definition and
+  kept the relations."
+  {"645"  "568"  "668"  "667"  "679"  "582"  "680"  "603"
+   "681"  "631"  "684"  "566"  "686"  "591"  "693"  "623"
+   "695"  "572"  "704"  "624"  "710"  "706"  "711"  "707"
+   "712"  "708"  "713"  "709"  "747"  "581"  "751"  "610"
+   "769"  "576"  "774"  "558"  "775"  "560"  "800"  "586"
+   "801"  "587"  "802"  "601"  "807"  "571"  "809"  "579"
+   "842"  "605"  "843"  "617"  "846"  "595"  "850"  "580"
+   "873"  "588"  "884"  "602"  "888"  "621"  "890"  "561"
+   "902"  "612"  "904"  "596"  "905"  "630"  "913"  "632"
+   "915"  "613"  "936"  "935"  "937"  "609"  "947"  "629"
+   "950"  "949"  "953"  "614"  "962"  "585"  "974"  "620"
+   "1337" "1336" "1358" "1357" "1412" "1411" "1413" "1411"
+   "1558" "1557" "1559" "1557" "69723" "51871" "69724" "51874"})
+
+(def duplicates-merged-in-2026
+  "The synsets that the release of 2026-08-21 merged into a synset sharing
+  their sense (GitHub issue #209, and {tinglysningskontor}), each with the
+  synset that took over their relations."
+  {"11213"        "11203"        "47681" "47680" "47745" "47744"
+   "47767"        "16942"        "47839" "17376" "47923" "17097"
+   "47954"        "16700"        "48025" "16721" "48184" "48286"
+   "s51004129-d1" "s51004129-d2"
+   "s53002587-d1" "s53002587-d2"})
+
+(h/defn subsume-removed-duplicates!
+  "Link each synset in `dataset` that took over a removed duplicate to the id
+  of that duplicate with dns:subsumed, so that the old id still leads to the
+  concept; see duplicates-removed-in-2023 and duplicates-merged-in-2026.
+
+  The 2023 import of the DanNet 2 domain codes also gave the ids removed in
+  2023 a dc:subject, so each became a stub with only that and skos:inScheme;
+  the stubs are removed. 5 stubs also have a wn:ili and 1 a dns:eqHypernym,
+  which their twin has too; these go with the stub, so the 5 ILIs are no
+  longer shared. The merges of 2026 left nothing behind."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/subsume-removed-duplicates}
+          "Linking the removed duplicates to the synsets that took them over")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        synset   #(keyword "dn" (str "synset-" %))
+        typed    (set (map '?s (q/run g '[:bgp [?s :rdf/type :ontolex/LexicalConcept]])))
+        left     (fn [old] (seq (q/run g [:bgp [(synset old) '?p '?o]])))
+        links    (for [[old twin] (merge duplicates-removed-in-2023
+                                         duplicates-merged-in-2026)
+                       :when (and (not (typed (synset old)))
+                                  (typed (synset twin)))]
+                   [(synset old) (synset twin)])
+        stubs    (filter left (keys duplicates-removed-in-2023))
+        counts   {:links (count links) :stubs (count stubs)}
+        expected {:links 63 :stubs 52}]
+    (assert (= expected counts)
+            (str "expected duplicates " expected ", found " counts))
+    (txn/transact-exec model
+      (doseq [old stubs]
+        (db/remove! model [(synset old) '_ '_])))
+    (txn/transact-exec g
+      (db/safe-add! g (for [[old twin] links]
+                        [twin :dns/subsumed old])))))
+
+(h/defn unstressed
+  "Remove the DanNet 2 stress marks from `s`: one or two apostrophes before a
+  word, e.g. \"køre ''med (på)\", or by mistake one after it, \"se' ud over\"."
+  [s]
+  (str/replace s #"(?<=^|[\s/(])'+|(?<=\p{L})'(?=\s)" ""))
+
+(h/defn stressed
+  "Write the DanNet 2 form `s` with the stress sign ˈ of Den Danske Ordbog in
+  place of two apostrophes, e.g. \"se ˈtil\" for \"se ''til\".
+
+  Single apostrophes are removed, as DDO does not show that stress."
+  [s]
+  (unstressed (str/replace s #"(?<=^|[\s/(])''" "ˈ")))
+
+(h/defn form-variants
+  "The forms that the DanNet 2 `form` gives with a slash, e.g. \"blive ''væk\"
+  and \"blive ''borte\" for \"blive ''væk/''borte\"."
+  [form]
+  (if-let [block (re-find #"\S+/\S+" form)]
+    (map #(str/replace form block %) (str/split block #"/"))
+    [form]))
+
+(h/defn restore-stress-marks!
+  "Remove the DanNet 2 stress marks that remain in the labels and written forms
+  of `dataset`, and give each form that Den Danske Ordbog shows with a stress
+  sign a dns:stressedRep, e.g. \"se ˈtil\" next to the writtenRep \"se til\".
+
+  DanNet 2 marks the stressed word of a multiword form with apostrophes from
+  DDO: two for the stress that DDO shows, one for stress that it does not
+  show. DDO shows it mostly where the stress separates two expressions with
+  the same spelling, e.g. \"se til\" and \"se ˈtil\". The 2023 conversion
+  removed the marks after a space only, so they remain after a slash, e.g. in
+  \"rive løs/'fri\"."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/restore-stress-marks}
+          "Restoring the stress marks of DanNet 2 forms")
+  (let [model    (db/get-model dataset prefix/dn-uri)
+        prop     #(.getProperty model (prefix/kw->uri %))
+        rep      (prop :ontolex/writtenRep)
+        forms    (fn [id]
+                   (let [word (.getResource model (prefix/kw->uri
+                                                    (keyword "dn" (str "word-" id))))]
+                     (for [p    [:ontolex/canonicalForm :ontolex/otherForm]
+                           stmt (iterator-seq (.listProperties word (prop p)))]
+                       (.getResource stmt))))
+        marked   (txn/transact model
+                   (vec (for [p    [(prop :rdfs/label) rep]
+                              stmt (iterator-seq (.listStatements model nil p nil))
+                              :when (not= (.getString stmt)
+                                          (unstressed (.getString stmt)))]
+                          stmt)))
+        stresses (txn/transact model
+                   (vec (for [[id form] (read-dannet-2-csv dannet-2-csv-dir "words.csv")
+                              :when (str/includes? form "''")
+                              variant (form-variants form)
+                              f       (forms id)
+                              stmt    (iterator-seq (.listProperties f rep))
+                              :when (= (unstressed variant)
+                                       (unstressed (.getString stmt)))]
+                          [f (stressed variant)])))
+        counts   {:unmarked (count marked) :stressed (count stresses)}
+        expected {:unmarked 76 :stressed 76}]
+    (assert (= expected counts)
+            (str "expected stress marks " expected ", found " counts))
+    (txn/transact-exec model
+      (doseq [stmt marked
+              :let [lit (.getLiteral stmt)]]
+        (.remove model stmt)
+        (.add model (.getSubject stmt) (.getPredicate stmt)
+              (.createLiteral model (unstressed (.getString lit)) (.getLanguage lit))))
+      (doseq [[f s] stresses]
+        (.add model f (prop :dns/stressedRep) (.createLiteral model s "da"))))))
 
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
@@ -705,6 +1061,14 @@
     ;; Deliberately omits the 245 ambiguous ILI links (several wn:ili, or a
     ;; wn:eq_synonym elsewhere); SHACL shapes list them for review.
     (add-ili-eq-synonyms! dataset)
+    (restore-dannet-2-registers! dataset)
+    (retarget-dangling-sentiments! dataset)
+    (restore-collapsed-readings! dataset)
+    (restore-at-sign-synsets! dataset)
+    (subsume-removed-duplicates! dataset)
+    ;; Deliberately omits the 963 forms with single stress marks only: DDO does
+    ;; not show this predictable stress, e.g. on the particle in "slå op".
+    (restore-stress-marks! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
@@ -812,6 +1176,19 @@
                             (hash premon/fe-relations)
                             (:hash (meta #'make-release-changes!))
                             (:hash (meta #'add-ili-eq-synonyms!))
+                            (:hash (meta #'register-triples))
+                            (:hash (meta #'restore-dannet-2-registers!))
+                            (:hash (meta #'retarget-dangling-sentiments!))
+                            (hash collapsed-readings)
+                            (:hash (meta #'restore-collapsed-readings!))
+                            (:hash (meta #'restore-at-sign-synsets!))
+                            (hash duplicates-removed-in-2023)
+                            (hash duplicates-merged-in-2026)
+                            (:hash (meta #'subsume-removed-duplicates!))
+                            (:hash (meta #'unstressed))
+                            (:hash (meta #'stressed))
+                            (:hash (meta #'form-variants))
+                            (:hash (meta #'restore-stress-marks!))
                             (:hash (meta #'synset-label))
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))
