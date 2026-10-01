@@ -27,7 +27,7 @@
         edges    [[:dn/synset-2 :wn/hyponym :dn/synset-1]
                   [:dn/synset-2 :dns/orthogonalHypernym :dn/synset-3]
                   [:dn/synset-1 :wn/attribute :dn/synset-3]]
-        outcomes (stats/relation-outcomes inverses legacy-relations edges)]
+        outcomes (stats/relation-outcomes inverses legacy-relations edges #{})]
     (testing "a relation is kept (also as its inverse), reversed or replaced"
       (is (= {"hyponymOf"              {:kept 1}
               "hyponymOf/nontaxonomic" {:reversed 1}
@@ -37,7 +37,13 @@
       (is (= {"hyponymOf"              {:removed 1}
               "hyponymOf/nontaxonomic" {:removed 1}
               "usedFor"                {:removed 1}}
-             (stats/relation-outcomes inverses legacy-relations []))))
+             (stats/relation-outcomes inverses legacy-relations [] #{}))))
+    (testing "a relation that the data now denies is negated"
+      (is (= {"usedFor" {:negated 1}}
+             (-> (stats/relation-outcomes inverses legacy-relations []
+                                          #{[:dn/synset-1 :dns/usedFor
+                                             :dn/synset-3]})
+                 (select-keys ["usedFor"])))))
     (testing "the table lists the changes after the current relation"
       (is (= ["`used_for`" "1" "`wn:instrument`" "`dns:usedFor`"
               "`dns:usedFor`; 1 now `wn:attribute`"]
@@ -91,6 +97,7 @@
 @prefix dn:      <https://wordnet.dk/dannet/data/> .
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
 @prefix dnt:     <https://wordnet.dk/dannet/types/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
 ")
 
 (def fixture
@@ -109,7 +116,12 @@ dn:synset-3 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 .
            (frequencies (map second (stats/relation-edges g)))))
     (is (= 3 (stats/count-in g "?s a ontolex:LexicalConcept")))
     (is (= 2 (stats/count-in g "?s wn:hypernym ?o")))
-    (is (= 1 (stats/count-in g "?s wn:hypernym ?o" "?o")))))
+    (is (= 1 (stats/count-in g "?s wn:hypernym ?o" "?o"))))
+  (testing "a negation surfaces as the edge it denies"
+    (is (= [[:dn/synset-3 :dns/usedFor :dn/synset-1]]
+           (stats/negated-edges (util/ttl->graph (str prefixes "
+[] a owl:NegativePropertyAssertion ; owl:sourceIndividual dn:synset-3 ;
+  owl:assertionProperty dns:usedFor ; owl:targetIndividual dn:synset-1 .")))))))
 
 (deftest rendering
   (let [table {:header ["Measure" "Old" "New"]

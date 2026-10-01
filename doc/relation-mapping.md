@@ -12,7 +12,10 @@ DanNet 2.2 has 29 relation names. The table shows what each one became:
 - **Now:** the current relation. The numbers after it come from the data.
   Each DanNet 2.2 row is compared with the relations that now link the same
   two synsets. A row is counted when its relation was replaced ("now"),
-  reversed or removed.
+  reversed, negated or removed. DanNet 2.2 denied the negated relations
+  (`owl:NegativePropertyAssertion`). The 2023 conversion asserted them, and
+  the current data denies them again
+  ([#216](https://github.com/kuhumcst/DanNet/issues/216)).
 
 The rows column counts the rows in the DanNet 2.2 CSV release. The 2023
 conversion read the DanNet 2.5.1 CSV export, which has the same relation
@@ -21,7 +24,7 @@ as taxonomic or nontaxonomic, so `has_hyperonym` has two rows in the table. The
 `eq_*` relations link to Princeton WordNet, so the data check does not
 include them.
 
-| DanNet 2.2 | Rows | Draft (2021) | First release (2023) | Now (2026-09-21) | Notes |
+| DanNet 2.2 | Rows | Draft (2021) | First release (2023) | Now (SNAPSHOT) | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `has_hyperonym` (taxonomic) | 60,314 | `wn:hypernym` | `wn:hypernym` | `wn:hypernym`; 1,686 now `wn:attribute`; 197 removed; 103 now `dns:crossPoSHypernym`; 3 now `wn:also`; 2 now `wn:similar`; 1 reversed | A GWA hypernym stays within one part of speech. Cross-PoS pairs became `dns:crossPoSHypernym` in July 2025 and mostly `wn:attribute` in September 2026 ([#146](https://github.com/kuhumcst/DanNet/issues/146), see [crosspos/README.md](crosspos/README.md)). |
 | `has_hyperonym` (nontaxonomic) | 4,398 | `wn:hypernym` + `dns:hypernym_ortho` | `dns:orthogonalHypernym` | `dns:orthogonalHypernym`; 1 removed | GWA has no relation for orthogonal hyponymy. Since September 2021, the link is not also a `wn:hypernym` ([#7](https://github.com/kuhumcst/DanNet/issues/7)). Almost none of these synsets has another hypernym. |
@@ -29,22 +32,22 @@ include them.
 | `is_instance_of` | 1,309 | `wn:instance_hypernym` | `wn:instance_hypernym` | `wn:instance_hypernym` |  |
 | `has_holonym` | 10 | `wn:holonym` | `wn:holonym` | `wn:holonym` |  |
 | `has_holo_part` | 5,872 | `wn:holo_part` | `wn:holo_part` | `wn:holo_part`; 8 removed | In August 2026, SHACL checks of meronymy found part-whole links that were reversed or contradictory. |
-| `has_mero_part` | 13,745 | `wn:mero_part` | `wn:mero_part` | `wn:mero_part`; 11 removed; 2 reversed |  |
-| `has_holo_member` | 1,048 | `wn:holo_member` | `wn:holo_member` | `wn:holo_member` |  |
-| `has_mero_member` | 2,074 | `wn:mero_member` | `wn:mero_member` | `wn:mero_member`; 7 removed; 1 reversed |  |
+| `has_mero_part` | 13,745 | `wn:mero_part` | `wn:mero_part` | `wn:mero_part`; 16 negated; 11 removed; 2 reversed |  |
+| `has_holo_member` | 1,048 | `wn:holo_member` | `wn:holo_member` | `wn:holo_member`; 6 negated |  |
+| `has_mero_member` | 2,074 | `wn:mero_member` | `wn:mero_member` | `wn:mero_member`; 7 removed; 1 negated; 1 reversed |  |
 | `has_holo_madeof` | 156 | `wn:holo_substance` | `wn:holo_substance` | `wn:holo_substance`; 2 removed | GWA calls the material of a thing its substance. |
-| `has_mero_madeof` | 4,263 | `wn:mero_substance` | `wn:mero_substance` | `wn:mero_substance`; 4 removed |  |
-| `has_holo_location` | 2,939 | `wn:holo_location` | `wn:holo_location` | `wn:holo_location`; 2 removed |  |
+| `has_mero_madeof` | 4,263 | `wn:mero_substance` | `wn:mero_substance` | `wn:mero_substance`; 8 negated; 4 removed |  |
+| `has_holo_location` | 2,939 | `wn:holo_location` | `wn:holo_location` | `wn:holo_location`; 2 removed; 1 negated |  |
 | `has_mero_location` | 41 | `wn:mero_location` | `wn:mero_location` | `wn:mero_location` |  |
-| `role_agent` | 34,225 | `wn:agent` | `wn:agent` | `wn:agent`; 49 removed | GWA gives role_agent as the EuroWordNet name of `agent`. |
-| `role_patient` | 458 | `wn:patient` | `wn:patient` | `wn:patient` | GWA gives role_patient as the EuroWordNet name of `patient`. |
+| `role_agent` | 34,225 | `wn:agent` | `wn:agent` | `wn:agent`; 49 removed; 26 negated | GWA gives role_agent as the EuroWordNet name of `agent`. |
+| `role_patient` | 458 | `wn:patient` | `wn:patient` | `wn:patient`; 1 negated | GWA gives role_patient as the EuroWordNet name of `patient`. |
 | `involved_patient` | 371 | `wn:involved_patient` | `wn:involved_patient` | `wn:involved_patient` |  |
 | `involved_agent` | 11,007 | `wn:co_agent_instrument` | `wn:co_instrument_agent` | `wn:co_instrument_agent`; 25 removed | DanNet uses it from an instrument to its user, e.g. {violin} to {violinist}, so it is a GWA co-role. The 2021 draft had the direction wrong. Reversed in January 2022. |
 | `involved_instrument` | 282 | `wn:co_instrument_agent` | `wn:co_agent_instrument` | `wn:co_agent_instrument` | From a user to its instrument, e.g. {redningsmandskab} to {redningsudstyr}. Reversed in January 2022. |
 | `made_by` | 11,741 | `wn:result` | `wn:result` | `wn:result`; 27 removed | GWA has no made-by relation. `wn:result` is the nearest one. |
-| `used_for` | 23,190 | `wn:instrument` | `dns:usedFor` | `dns:usedFor`; 16 removed | GWA `instrument` goes from an action to a tool that the action needs. DanNet used_for is wider, e.g. {bagage} to {rejse}, and goes from a thing to its use. Changed in January 2022. |
+| `used_for` | 23,190 | `wn:instrument` | `dns:usedFor` | `dns:usedFor`; 186 negated; 16 removed | GWA `instrument` goes from an action to a tool that the action needs. DanNet used_for is wider, e.g. {bagage} to {rejse}, and goes from a thing to its use. Changed in January 2022. |
 | `used_for_object` | 6,938 | `wn:involved_instrument` | `dns:usedForObject` | `dns:usedForObject`; 3 removed | Changed in January 2022, together with used_for. |
-| `concerns` | 3,192 | `wn:also` | `wn:also` | `wn:also` | GWA has no equivalent, and `wn:also` is its loosest relation. |
+| `concerns` | 3,192 | `wn:also` | `wn:also` | `wn:also`; 23 negated | GWA has no equivalent, and `wn:also` is its loosest relation. |
 | `domain` | 41,332 | `wn:has_domain_topic` | `wn:has_domain_topic` | `wn:domain_topic`; 176 removed | `wn:has_domain_topic` goes from a domain to its terms. Fixed in September 2023. The 2021 PDF draft in [#2](https://github.com/kuhumcst/DanNet/issues/2) already had `wn:domain_topic`. 119 of the removed rows linked a synset to itself. |
 | `near_synonym` | 569 | `wn:similar` | `wn:similar` | `wn:similar`; 4 removed | GWA gives near_synonym as the EuroWordNet name of `similar`. |
 | `xpos_near_synonym` | 2,286 | `wn:similar` | `wn:similar` | `wn:similar` | GWA has no cross-PoS synonym relation, so the cross-PoS mark is lost. The parts of speech of the two synsets still show it. |

@@ -374,6 +374,16 @@
                (when (#{"wn" "dns"} (namespace ?p))
                  [?s ?p ?o])))))
 
+(defn negated-edges
+  "The [source relation target] triples that an owl:NegativePropertyAssertion
+  denies for dn: synsets in the base graph `g`."
+  [g]
+  (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { "
+                           "?n a owl:NegativePropertyAssertion ; "
+                           "owl:sourceIndividual ?s ; owl:assertionProperty ?p ; "
+                           "owl:targetIndividual ?o . " (synset-filter "?s") " }"))
+       (map (fn [{:syms [?s ?p ?o]}] [?s ?p ?o]))))
+
 (defn similar-breakdown
   "The wn:similar `edges` by how many of their endpoints (0, 1 or 2) are
   synsets of the 2023 adjective supplement, recognisable by their synthesised
@@ -399,15 +409,16 @@
 
 (defn relation-outcomes
   "What became of the synset relations in the legacy relations.csv `rows`,
-  given the current `edges` and their owl:inverseOf pairs `inverses`; the
-  frequency of each outcome per relation-history key.
+  given the current `edges`, their owl:inverseOf pairs `inverses` and the
+  set of `negated` edges; the frequency of each outcome per relation-history
+  key.
 
   An outcome is :kept when the converted relation still links the two
-  synsets, also as its inverse the other way round, and :reversed when it
-  links them the other way round. Otherwise it is the set of relations that
-  link them instead, or :removed. A relation that another legacy row
-  converts to does not count as instead."
-  [inverses rows edges]
+  synsets, also as its inverse the other way round, :reversed when it links
+  them the other way round, and :negated when the data now denies it.
+  Otherwise it is the set of relations that link them instead, or :removed.
+  A relation that another legacy row converts to does not count as instead."
+  [inverses rows edges negated]
   (let [synset  #(keyword "dn" (str "synset-" %))
         current (synset-pairs edges)
         legacy  (synset-pairs (for [[s p o] (legacy-edges rows)]
@@ -423,6 +434,7 @@
               (or (contains? (current forward) p)
                   (contains? (current backward) (inverses p))) :kept
               (contains? (current backward) p) :reversed
+              (contains? negated [(synset s) p (synset o)]) :negated
               :else (or (not-empty (set/union (instead forward)
                                               (instead backward)))
                         :removed))])
@@ -747,6 +759,7 @@
        (case outcome
          :removed "removed"
          :reversed "reversed"
+         :negated "negated"
          (str "now " (relations->markdown " + " (sort outcome))))))
 
 (defn mapping-table
@@ -856,7 +869,10 @@ DanNet 2.2 has 29 relation names. The table shows what each one became:
 - **Now:** the current relation. The numbers after it come from the data.
   Each DanNet 2.2 row is compared with the relations that now link the same
   two synsets. A row is counted when its relation was replaced (\"now\"),
-  reversed or removed.
+  reversed, negated or removed. DanNet 2.2 denied the negated relations
+  (`owl:NegativePropertyAssertion`). The 2023 conversion asserted them, and
+  the current data denies them again
+  ([#216](https://github.com/kuhumcst/DanNet/issues/216)).
 
 The rows column counts the rows in the DanNet 2.2 CSV release. The 2023
 conversion read the DanNet 2.5.1 CSV export, which has the same relation
@@ -874,8 +890,10 @@ include them.
    (export-relation-mapping! dannet "doc/relation-mapping.md" legacy-dir))
   ([{:keys [dataset graph] :as dannet} f legacy]
    (let [rows     (read-legacy-rows (io/file legacy "relations.csv"))
-         edges    (relation-edges (db/get-graph dataset prefix/dn-uri))
-         outcomes (relation-outcomes (inverse-relations graph) rows edges)
+         dn       (db/get-graph dataset prefix/dn-uri)
+         outcomes (relation-outcomes (inverse-relations graph) rows
+                                     (relation-edges dn)
+                                     (set (negated-edges dn)))
          table    (mapping-table rows outcomes release/to)]
      (spit f (str relation-mapping-intro "\n" (->markdown table) "\n"))
      (println "Relation mapping written to" f)
