@@ -22,6 +22,29 @@
     (is (stats/danish-sense? ["10" "20" "30" "" ""]))
     (is (not (stats/danish-sense? ["2" "None-None" "abnormal%3:00:00::" "" ""])))))
 
+(deftest outcomes
+  (let [inverses {:wn/hypernym :wn/hyponym :wn/hyponym :wn/hypernym}
+        edges    [[:dn/synset-2 :wn/hyponym :dn/synset-1]
+                  [:dn/synset-2 :dns/orthogonalHypernym :dn/synset-3]
+                  [:dn/synset-1 :wn/attribute :dn/synset-3]]
+        outcomes (stats/relation-outcomes inverses legacy-relations edges)]
+    (testing "a relation is kept (also as its inverse), reversed or replaced"
+      (is (= {"hyponymOf"              {:kept 1}
+              "hyponymOf/nontaxonomic" {:reversed 1}
+              "usedFor"                {#{:wn/attribute} 1}}
+             outcomes)))
+    (testing "a relation that no longer links its synsets is removed"
+      (is (= {"hyponymOf"              {:removed 1}
+              "hyponymOf/nontaxonomic" {:removed 1}
+              "usedFor"                {:removed 1}}
+             (stats/relation-outcomes inverses legacy-relations []))))
+    (testing "the table lists the changes after the current relation"
+      (is (= ["`used_for`" "1" "`wn:instrument`" "`dns:usedFor`"
+              "`dns:usedFor`; 1 now `wn:attribute`"]
+             (->> (:rows (stats/mapping-table legacy-relations outcomes "x"))
+                  (some #(when (= "`used_for`" (first %)) %))
+                  (take 5)))))))
+
 (deftest degrees
   (let [edges (stats/legacy-edges legacy-relations)
         d     (stats/degree-stats ["1" "2" "3" "4"] edges)]
