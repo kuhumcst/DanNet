@@ -287,10 +287,11 @@
         dds-model (db/get-model dataset prefix/dds-uri)
         cor-model (db/get-model dataset prefix/cor-uri)
         sem-model (db/get-model dataset prefix/cor-sem-uri)
-        ;; dn: words are typed ontolex:Word or ontolex:MultiwordExpression --
-        ;; never ontolex:LexicalEntry directly; COR additionally has affixes.
+        ;; dn: words are typed ontolex:Word, ontolex:MultiwordExpression or
+        ;; ontolex:Affix -- never ontolex:LexicalEntry directly.
         entries   (+ (count-type dn-model :ontolex/Word)
-                     (count-type dn-model :ontolex/MultiwordExpression))
+                     (count-type dn-model :ontolex/MultiwordExpression)
+                     (count-type dn-model :ontolex/Affix))
         senses    (count-type dn-model :ontolex/LexicalSense)
         concepts  (count-type dn-model :ontolex/LexicalConcept)]
     (doseq [[^Model model triples]

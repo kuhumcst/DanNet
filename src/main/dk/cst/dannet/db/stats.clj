@@ -15,7 +15,8 @@
 
   to write the conversion history of every DanNet 2.2 relation to
   doc/relation-mapping.md."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
             [dk.cst.dannet.db :as db]
@@ -516,15 +517,106 @@
      :words       (count-in dn "?w ontolex:canonicalForm ?f")
      :definitions (count-in dn (str "?s skos:definition ?d . " (synset-filter "?s")) "?s")
      :relations   relations
-     :external    (count-in dn (str "VALUES ?p { wn:ili wn:eq_synonym dns:eqHypernym "
+     :external    (count-in dn (str "VALUES ?p { wn:eq_synonym dns:eqHypernym "
                                     "dns:eqHyponym dns:eqSimilar } ?s ?p ?o . "
                                     (synset-filter "?s")))
+     :ili         (count-in dn (str "?s wn:ili ?o . " (synset-filter "?s")))
      :degrees     (degree-stats synsets edges)
      :similar     (similar-breakdown edges)
      :closure     (inverse-closure inverses edges)
      :navigable   (navigable-relations graph inverses (keys relations))
      :links       (count-links base)
      :datasets    (dataset-stats base)}))
+
+(def english-dir
+  "The local files that the 2023 conversion used to map the DanNet 2.2 links
+  to Princeton WordNet onto the OEWN (sense keys) and the ILI (ENG20 offsets)."
+  "bootstrap/other/english")
+
+(defn link-edges
+  "The asserted [synset relation target] links from dn: synsets to the OEWN
+  and the ILI in graph `g`."
+  [g]
+  (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { VALUES ?p { wn:eq_synonym "
+                           "wn:ili dns:eqHypernym dns:eqHyponym dns:eqSimilar } "
+                           "?s ?p ?o . " (synset-filter "?s") " }"))
+       (map (fn [{:syms [?s ?p ?o]}] [?s ?p ?o]))))
+
+(defn oewn-synsets-by-ili
+  "The OEWN synsets of each ILI concept in graph `g`."
+  [g]
+  (->> (q/run g (op/sparql "SELECT ?e ?i WHERE { ?e wn:ili ?i . "
+                           "FILTER(STRSTARTS(STR(?e), \"" prefix/oewn-uri "\")) }"))
+       (reduce (fn [m {:syms [?e ?i]}] (update m ?i (fnil conj #{}) ?e)) {})))
+
+(defn english-targets
+  "The current targets of the Princeton WordNet IDs in the DanNet 2.2 links,
+  from the mapping files in `dir` and the OEWN synsets of each ILI concept
+  in `oewn`.
+
+  A sense key maps to its OEWN synset, an ENG20 offset to its ILI concept
+  and that concept's OEWN synsets."
+  [dir oewn]
+  (merge (update-vals (edn/read-string (slurp (io/file dir "senseidx.edn")))
+                      hash-set)
+         (into {} (for [line (str/split-lines
+                               (slurp (io/file dir "ili-map-pwn20.tab")))
+                        :let [[ili offset confidence] (str/split line #"\t")]
+                        :when (= confidence "1")
+                        :let [ili (keyword "ili" ili)]]
+                    [(str "ENG20-" offset) (conj (get oewn ili #{}) ili)]))))
+
+(defn legacy-link-outcomes
+  "What became of the links to Princeton WordNet in the legacy relations.csv
+  `rows`, given the current `targets` of their IDs and the current `links`;
+  the frequency of each outcome per relation-history key.
+
+  An outcome is the relation that now links the synset to the same concept.
+  When several do, the ones in the :linked of the relation-history entry win,
+  then wn:ili. It is :missing when no link to the concept remains, and
+  :unmapped when the ID has no current target."
+  [targets links rows]
+  (let [synset  #(keyword "dn" (str "synset-" %))
+        current (synset-pairs links)
+        linked  (into {} (map (juxt :key :linked)) relation-history)]
+    (->> (for [[s _ _ t :as row] rows
+               :let [k     (legacy-key row)
+                     found (set (mapcat #(get current [(synset s) %])
+                                        (get targets t)))]]
+           [k (cond
+                (empty? (get targets t)) :unmapped
+                (empty? found) :missing
+                :else (or (some found (concat (linked k) [:wn/ili]))
+                          (first (sort found))))])
+         (reduce (fn [m [k outcome]] (update-in m [k outcome] (fnil inc 0)))
+                 {}))))
+
+(defn link-origins
+  "The current `links` per relation, split into the ones that point to the
+  concept of a DanNet 2.2 link from the same synset (:legacy) and the rest
+  (:new), given the legacy relations.csv `rows` and their current `targets`."
+  [targets links rows]
+  (let [synset #(keyword "dn" (str "synset-" %))
+        legacy (set (for [[s _ _ t] rows
+                          o (get targets t)]
+                      [(synset s) o]))]
+    (->> links
+         (map (fn [[s p o]] [p (if (legacy [s o]) :legacy :new)]))
+         (frequencies)
+         (reduce (fn [m [[p origin] n]] (assoc-in m [p origin] n)) {}))))
+
+(defn link-stats
+  "What became of the DanNet 2.2 links to Princeton WordNet in the legacy CSV
+  release in `dir`, and the origin of the current links of the live db map
+  `dannet`; see legacy-link-outcomes and link-origins."
+  [dir {:keys [dataset] :as dannet}]
+  (let [rows    (->> (read-legacy-rows (io/file dir "relations.csv"))
+                     (filter (comp cross-lingual-relations second)))
+        oewn    (oewn-synsets-by-ili (.getGraph (.getUnionModel dataset)))
+        targets (english-targets english-dir oewn)
+        links   (link-edges (db/get-graph dataset prefix/dn-uri))]
+    {:outcomes (legacy-link-outcomes targets links rows)
+     :origins  (link-origins targets links rows)}))
 
 (defn- total
   [relations]
@@ -550,7 +642,8 @@
             ["Synsets with a definition" (:definitions legacy) (:definitions current)]
             ["Asserted synset relations" (total (:relations legacy)) (total (:relations current))]
             ["Relation types" (count (:relations legacy)) (count (:relations current))]
-            ["Links to other wordnets" (:external legacy) (:external current)]]})
+            ["Links to English synsets" (:external legacy) (:external current)]
+            ["Links to ILI concepts" nil (:ili current)]]})
 
 (defn relation-table
   "Every synset relation with its count in both releases, largest first."
@@ -607,6 +700,32 @@
   {:header ["Dataset" "Triples" "Entries" "Concepts" "Lexicalizations"]
    :rows   (:datasets current)})
 
+(defn legacy-link-table
+  "What became of the DanNet 2.2 links to Princeton WordNet, from the `links`
+  stats map; see legacy-link-outcomes."
+  [links]
+  {:header ["DanNet 2.2 link" "Now" "Rows"]
+   :rows   (vec (for [{:keys [key name]} relation-history
+                      [outcome n] (sort-by (comp - val)
+                                           (get-in links [:outcomes key]))]
+                  [name
+                   (case outcome
+                     :missing "no link to the same concept"
+                     :unmapped "no current ID"
+                     (prefix/kw->qname outcome))
+                   n]))})
+
+(defn link-origin-table
+  "The current links to the OEWN and the ILI by origin, from the `links` stats
+  map: to the concept of a DanNet 2.2 link from the same synset, or new."
+  [links]
+  {:header ["Link" "Count" "From DanNet 2.2" "New"]
+   :rows   (->> (for [[p {:keys [legacy new] :or {legacy 0 new 0}}]
+                      (:origins links)]
+                  [(prefix/kw->qname p) (+ legacy new) legacy new])
+                (sort-by (comp - second))
+                (vec))})
+
 (defn thousands
   "Format `n` with thousands separators, whatever the JVM locale."
   [n]
@@ -655,14 +774,16 @@
                      note]))}))
 
 (defn tables
-  "All tables of the paper, keyed by name, from the `legacy` and `current`
-  stats maps."
-  [legacy current]
+  "All tables of the paper, keyed by name, from the `legacy`, `current` and
+  `links` stats maps."
+  [legacy current links]
   {:size         (size-table legacy current)
    :relations    (relation-table legacy current)
    :connectivity (connectivity-table legacy current)
    :similar      (similar-table current)
    :links        (link-table current)
+   :legacy-links (legacy-link-table links)
+   :link-origins (link-origin-table links)
    :datasets     (dataset-table current)})
 
 (defn- cell
@@ -709,10 +830,11 @@
    (println "Computing statistics against" legacy)
    (let [new    (current-stats dannet)
          old    (legacy-stats legacy (inverse-relations (:graph dannet)))
-         tables (tables old new)
+         links  (link-stats legacy dannet)
+         tables (tables old new links)
          in-dir (partial str dir)]
      (io/make-parents (in-dir "stats.edn"))
-     (spit (in-dir "stats.edn") (pr-str {:legacy old :current new}))
+     (spit (in-dir "stats.edn") (pr-str {:legacy old :current new :links links}))
      (spit (in-dir "stats.md") (render-all "## " ->markdown tables))
      (spit (in-dir "stats.tex") (render-all "% " ->latex tables))
      (println "Statistics written to" dir)
@@ -725,7 +847,7 @@
 This file is generated by `dk.cst.dannet.db.stats/export-relation-mapping!`.
 Do not edit it by hand.
 
-DanNet 2.2 has 30 relation names. The table shows what each one became:
+DanNet 2.2 has 29 relation names. The table shows what each one became:
 
 - **Draft (2021):** the first mapping code, from June 2021
   ([#2](https://github.com/kuhumcst/DanNet/issues/2)).
@@ -739,7 +861,7 @@ DanNet 2.2 has 30 relation names. The table shows what each one became:
 The rows column counts the rows in the DanNet 2.2 CSV release. The 2023
 conversion read the DanNet 2.5.1 CSV export, which has the same relation
 names and almost the same counts. DanNet 2.2 marks each `has_hyperonym` row
-as taxonomic or nontaxonomic, so these are two rows in the table. The
+as taxonomic or nontaxonomic, so `has_hyperonym` has two rows in the table. The
 `eq_*` relations link to Princeton WordNet, so the data check does not
 include them.
 ")

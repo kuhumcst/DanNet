@@ -214,6 +214,23 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:ili ili:i1 ; wn:eq_synonym <https://en-word.net/id/oewn-1-n> .
 <https://en-word.net/id/oewn-1-n> wn:ili ili:i1 .")))))))
 
+(deftest eq-relation-shape
+  (testing "two eq* relations to the same synset are a warning"
+    (let [result (validate-ttl "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:eq_synonym <https://en-word.net/id/oewn-02486953-n> ;
+  dns:eqSimilar <https://en-word.net/id/oewn-02486953-n> .")]
+      (is (contains? (->> (:entries result)
+                          (map (juxt :shape :severity :focus-node)) set)
+                     [:dns/EqRelationShape :sh/Warning :dn/synset-2]))
+      (is (not (shapes/blocking? result)))))
+  (testing "eq* relations to different synsets produce no eq* entries"
+    (is (empty? (filter (comp #{:dns/EqRelationShape} :shape)
+                        (:entries (validate-ttl "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  wn:eq_synonym <https://en-word.net/id/oewn-02486953-n> ;
+  dns:eqHypernym <https://en-word.net/id/oewn-02084071-n> .")))))))
+
 (deftest synset-type-shape
   (testing "a lexicalized synset missing its type is a violation"
     (is (contains? (shape+constraint "

@@ -45,6 +45,26 @@
                   (some #(when (= "`used_for`" (first %)) %))
                   (take 5)))))))
 
+(deftest links
+  (let [rows    [["1" "eqSynonymOf" "eq_has_synonym" "dog%1:05:00::" "" "" ""]
+                 ["2" "eqSynonymOf" "eq_has_synonym" "ENG20-02084071-n" "" "" ""]
+                 ["3" "eqSynonymOf" "eq_has_synonym" "cat%1:05:00::" "" "" ""]]
+        targets {"dog%1:05:00::"    #{:en/oewn-1}
+                 "ENG20-02084071-n" #{:ili/i1 :en/oewn-1}}
+        links   [[:dn/synset-1 :wn/eq_synonym :en/oewn-1]
+                 [:dn/synset-1 :wn/ili :ili/i1]
+                 [:dn/synset-2 :wn/ili :ili/i1]
+                 [:dn/synset-2 :dns/eqSimilar :en/oewn-1]
+                 [:dn/synset-4 :wn/ili :ili/i2]]]
+    (testing "the intended relation wins, then wn:ili; no target is unmapped"
+      (is (= {"eqSynonymOf" {:wn/eq_synonym 1 :wn/ili 1 :unmapped 1}}
+             (stats/legacy-link-outcomes targets links rows))))
+    (testing "a current link is legacy when an old link had its concept"
+      (is (= {:wn/eq_synonym {:legacy 1}
+              :wn/ili        {:new 2 :legacy 1}
+              :dns/eqSimilar {:legacy 1}}
+             (stats/link-origins targets links rows))))))
+
 (deftest degrees
   (let [edges (stats/legacy-edges legacy-relations)
         d     (stats/degree-stats ["1" "2" "3" "4"] edges)]
