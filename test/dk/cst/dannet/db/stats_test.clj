@@ -102,11 +102,13 @@
 
 (def fixture
   "Three synsets: 1 and 3 under 2, 1 used for 3, an ontological type on 1
-  (not a synset relation) and an ILI link on 2 (not an internal one)."
+  (not a synset relation), an ILI link on 2 (not an internal one) and the id
+  of a removed synset that 2 subsumed (not a relation)."
   "
 dn:synset-1 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 ; dns:usedFor dn:synset-3 ;
   dns:ontologicalType dnt:Animal-Object .
-dn:synset-2 a ontolex:LexicalConcept ; wn:ili <http://globalwordnet.org/ili/i1> .
+dn:synset-2 a ontolex:LexicalConcept ; wn:ili <http://globalwordnet.org/ili/i1> ;
+  dns:subsumed dn:synset-4 .
 dn:synset-3 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 .
 ")
 

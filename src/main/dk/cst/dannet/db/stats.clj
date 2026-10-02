@@ -366,12 +366,16 @@
 
 (defn relation-edges
   "The asserted [source relation target] triples of wn: and dns: relations
-  between dn: synsets in the base graph `g`."
+  between dn: synsets in the base graph `g`.
+
+  dns:subsumed is not a relation: it links a synset to the id of a removed
+  one."
   [g]
   (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { ?s ?p ?o . "
                            (synset-filter "?s") (synset-filter "?o") " }"))
        (keep (fn [{:syms [?s ?p ?o]}]
-               (when (#{"wn" "dns"} (namespace ?p))
+               (when (and (#{"wn" "dns"} (namespace ?p))
+                          (not= :dns/subsumed ?p))
                  [?s ?p ?o])))))
 
 (defn negated-edges
