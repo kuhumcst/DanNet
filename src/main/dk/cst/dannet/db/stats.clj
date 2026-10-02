@@ -23,7 +23,10 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.release :as release]))
+            [dk.cst.dannet.release :as release])
+  (:import [java.util.zip ZipFile]
+           [org.apache.jena.riot Lang RDFDataMgr]
+           [org.apache.jena.sparql.graph GraphFactory]))
 
 (def taxonomic-relations
   "The relations placing a synset in a hierarchy; a synset with no other
@@ -837,6 +840,290 @@
                                :when subgroup]
                            [subgroup (tally es' total)]))]))))
 
+(def conversion-dir
+  "The DanNet 2.5.1 CSV export, the input of the 2023 conversion."
+  "bootstrap/dannet/DanNet-2.5.1_csv")
+
+(def part-whole-relations
+  "The wn: meronymy and holonymy relations."
+  #{:wn/meronym :wn/holonym :wn/mero_part :wn/holo_part :wn/mero_member
+    :wn/holo_member :wn/mero_substance :wn/holo_substance :wn/mero_location
+    :wn/holo_location})
+
+(defn release-graph
+  "The dn: graph of the DanNet release `version`, read into memory from the
+  dannet.zip asset in its bootstrap directory (see release/version-dir)."
+  [version]
+  (with-open [zip (ZipFile. (io/file (release/version-dir version) "dannet.zip"))
+              in  (.getInputStream zip (.getEntry zip "dannet.ttl"))]
+    (doto (GraphFactory/createDefaultGraph)
+      (RDFDataMgr/read in Lang/TURTLE))))
+
+(defn compare-releases
+  "Call `f` with the dn: graphs of the releases `before` and `after`."
+  [before after f]
+  (f (release-graph before) (release-graph after)))
+
+(defn legacy-synset-ids
+  "The ids of the synsets in the synsets.csv of the legacy CSV release in
+  `dir`."
+  [dir]
+  (set (map first (read-legacy-rows (io/file dir "synsets.csv")))))
+
+(defn- synset-id
+  [synset]
+  (subs (name synset) (count "synset-")))
+
+(defn by-origin
+  "The number of `items`, also split by origin: :legacy when every synset that
+  `synsets-of` gives for an item has an id in `legacy-ids`, :new otherwise."
+  [legacy-ids synsets-of items]
+  (let [legacy? (comp legacy-ids synset-id)
+        origins (frequencies (map #(if (every? legacy? (synsets-of %)) :legacy :new)
+                                  items))]
+    {:count  (count items)
+     :legacy (get origins :legacy 0)
+     :new    (get origins :new 0)}))
+
+(defn edges
+  "The [source target] pairs that the relation `p` links in graph `g`."
+  [g p]
+  (set (map (juxt '?s '?o) (q/run g [:bgp ['?s p '?o]]))))
+
+(defn typed-synsets
+  "The synsets of graph `g`."
+  [g]
+  (set (map '?s (q/run g '[:bgp [?s :rdf/type :ontolex/LexicalConcept]]))))
+
+(defn removed-triples
+  "The triples of the relations `ps` in graph `before` that graph `after` no
+  longer has."
+  [before after ps]
+  (let [triples (fn [g] (set (for [p ps [s o] (edges g p)] [s p o])))]
+    (set/difference (triples before) (triples after))))
+
+(defn crosspos-outcomes
+  "The dns:crossPoSHypernym pairs of graph `before`, grouped by what links them
+  in graph `after`: :attribute (wn:attribute), :kept, :hypernym (the part of
+  speech was wrong) or :removed."
+  [before after]
+  (let [attribute (edges after :wn/attribute)
+        kept      (edges after :dns/crossPoSHypernym)
+        hypernym  (edges after :wn/hypernym)]
+    (group-by #(cond (attribute %) :attribute
+                     (kept %) :kept
+                     (hypernym %) :hypernym
+                     :else :removed)
+              (edges before :dns/crossPoSHypernym))))
+
+(defn retagged-verb-phrases
+  "The synsets of graph `after` with a word that is a wn:noun in graph
+  `before` and a wn:verb in `after`."
+  [before after]
+  (let [pos        (fn [g] (into {} (map (juxt '?w '?p))
+                                 (q/run g '[:bgp [?w :wn/partOfSpeech ?p]])))
+        before-pos (pos before)
+        after-pos  (pos after)]
+    (set (for [w     (keys before-pos)
+               :when (and (= :wn/noun (before-pos w)) (= :wn/verb (after-pos w)))
+               {:syms [?synset]} (q/run after [:bgp [w :ontolex/sense '?sense]
+                                               ['?synset :ontolex/lexicalizedSense '?sense]])]
+           ?synset))))
+
+(defn shared-senses
+  "The senses that more than one synset lexicalizes in graph `g`, each as a
+  [sense synsets] pair."
+  [g]
+  (->> (q/run g '[:bgp [?synset :ontolex/lexicalizedSense ?sense]])
+       (group-by '?sense)
+       (keep (fn [[sense rows]]
+               (let [synsets (set (map '?synset rows))]
+                 (when (< 1 (count synsets))
+                   [sense synsets]))))))
+
+(def hypernym-pos-query
+  "The [synset hypernym] pairs that dns:HypernymPOSShape in shapes/base.ttl
+  warns about: the two are lexicalized by words with different parts of
+  speech."
+  (op/sparql "SELECT DISTINCT ?s ?o WHERE {
+                ?s wn:hypernym ?o .
+                FILTER(strstarts(str(?o), str(dn:)))
+                ?s ontolex:lexicalizedSense ?sense1 .
+                ?word1 ontolex:sense ?sense1 ; wn:partOfSpeech ?pos1 .
+                ?o ontolex:lexicalizedSense ?sense2 .
+                ?word2 ontolex:sense ?sense2 ; wn:partOfSpeech ?pos2 .
+                FILTER(?pos1 != ?pos2)
+              }"))
+
+(defn cross-pos-hypernyms
+  "The wn:hypernym pairs of graph `g` whose synsets disagree in part of
+  speech; see hypernym-pos-query."
+  [g]
+  (set (map (juxt '?s '?o) (q/run g hypernym-pos-query))))
+
+(def cleanup-history
+  "The rows of the paper's data cleaning table: the main corrections to the
+  DanNet data since DanNet 2.2, in table order under their :group, if any.
+
+  cleanup-counts computes the count of each :key. :tag and :step name the
+  release and the release step that made the correction; see
+  git show <tag>:src/main/dk/cst/dannet/db/bootstrap.clj."
+  [{:group "Splits and merges" :correction "duplicate synsets merged"
+    :key   :duplicates :tag "v2026-08-21" :step "merge-duplicate-synsets!"}
+   {:group "Splits and merges" :correction "shared senses split"
+    :key   :split-senses :tag "v2026-08-21" :step "split-shared-senses!"}
+   {:group      "Cross-PoS hypernyms"
+    :correction "now wn:attribute"
+    :key        :crosspos/attribute :tag "v2026-09-21" :step "fix-cross-pos-hypernymy!"}
+   {:group      "Cross-PoS hypernyms"
+    :correction "removed"
+    :key        :crosspos/removed :tag "v2026-09-21" :step "fix-cross-pos-hypernymy!"}
+   {:group      "Cross-PoS hypernyms"
+    :correction "PoS corrected"
+    :key        :crosspos/pos-fixed :tag "v2026-09-21" :step "fix-verb-phrase-pos!"}
+   {:group      "Cross-PoS hypernyms"
+    :correction "kept for review"
+    :key        :crosspos/kept}
+   {:correction "part-whole errors removed"
+    :key        :part-whole :tag "v2026-08-03" :step "fix-meronym-directionality!"}])
+
+(defn cleanup-counts
+  "The count of each cleanup-history :key, split by origin; see by-origin.
+
+  A correction is counted by comparing the export of the release before it
+  with the one after it (see release-graph), so the releases 2025-07-03 to
+  2026-09-21 must be in bootstrap/from/. The duplicates that the 2023
+  conversion removed are the DanNet 2.5.1 synsets, untyped in 2026-08-03, that
+  a synset of the asserted dn: graph `now` subsumes; the later ones were
+  merged in 2026-08-21.
+
+  The cross-PoS hypernyms are those that dns:crossPoSHypernym held as a
+  stopgap until 2026-09-21, plus the wn:hypernym pairs that disagree in part
+  of speech (see hypernym-pos-query). Those still in either are kept for
+  review."
+  [now]
+  (let [count-by     (partial by-origin (legacy-synset-ids legacy-dir))
+        part-whole   (compare-releases "2025-07-03" "2026-08-03"
+                                       #(removed-triples %1 %2 part-whole-relations))
+        [shared typed-before]
+        (compare-releases "2026-08-03" "2026-08-21"
+                          (fn [before after]
+                            (let [typed (typed-synsets after)]
+                              [(group-by (fn [[_ synsets]]
+                                           (if (every? typed synsets) :split :merged))
+                                         (shared-senses before))
+                               (typed-synsets before)])))
+        [crosspos verb-phrases]
+        (compare-releases "2026-08-21" "2026-09-21"
+                          (juxt crosspos-outcomes retagged-verb-phrases))
+        conversion   (legacy-synset-ids conversion-dir)
+        removed-2023 (->> (q/run now '[:bgp [?s :dns/subsumed ?o]
+                                       [?s :rdf/type :ontolex/LexicalConcept]])
+                          (map '?o)
+                          (filter #(and (conversion (synset-id %))
+                                        (not (typed-before %)))))]
+    {:duplicates         (merge-with + (count-by list removed-2023)
+                                     (count-by second (:merged shared)))
+     :split-senses       (count-by second (:split shared))
+     :crosspos/attribute (count-by (comp list first) (:attribute crosspos))
+     :crosspos/removed   (count-by (comp list first) (:removed crosspos))
+     :crosspos/pos-fixed (merge-with + (count-by (comp list first) (:hypernym crosspos))
+                                     (count-by list verb-phrases))
+     :crosspos/kept      (merge-with + (count-by (comp list first) (:kept crosspos))
+                                     (count-by (comp list first)
+                                               (cross-pos-hypernyms now)))
+     :part-whole         (count-by (fn [[s _ o]] [s o]) part-whole)}))
+
+(defn cleanup-summary
+  "The cleanup-history rows, each with the counts of its :key in the asserted
+  dn: graph `now`; see cleanup-counts."
+  [now]
+  (let [counts (cleanup-counts now)]
+    (vec (for [{:keys [key] :as row} cleanup-history]
+           (merge (dissoc row :key) (counts key))))))
+
+(def resource-links
+  "The rows of the paper's links table: a resource, the DanNet items that the
+  links connect, and either the link-counts :label that counts the links or
+  the current-stats :key with the link-origins relations to split them by."
+  [{:resource "DDO" :items "senses" :label "Senses with a DDO source"}
+   {:resource "COR" :items "words" :label "Words linked to a COR word"}
+   {:resource "COR.SEM" :items "COR.SEM senses"
+    :label    "COR.SEM senses linked to a synset"}
+   {:resource "DDS" :items "senses" :label "Senses with sentiment"}
+   {:resource "OEWN" :items "synsets" :key :external
+    :origins  [:wn/eq_synonym :dns/eqHypernym :dns/eqHyponym :dns/eqSimilar]}
+   {:resource "ILI" :items "synsets" :key :ili :origins [:wn/ili]}
+   {:resource "FrameNet" :items "COR.SEM senses"
+    :label    "COR.SEM senses with a FrameNet frame"}])
+
+(defn links-summary
+  "The links from DanNet to other resources in the `current` and `links`
+  stats maps, one map per row of resource-links. The links to OEWN and the
+  ILI are also split into those that go back to a DanNet 2.2 link (:legacy)
+  and the rest (:new)."
+  [current links]
+  (let [counts (into {} (:links current))]
+    (vec (for [{:keys [resource items label key origins]} resource-links]
+           (cond-> {:resource resource
+                    :items    items
+                    :links    (if label (get counts label) (get current key))}
+             origins (merge (apply merge-with + {:legacy 0 :new 0}
+                                   (map (:origins links) origins))))))))
+
+(def companion-datasets
+  "The companion datasets, each with its graph and the items to count in it:
+  a label, the SPARQL to count and the variable to count distinct values of
+  (nil counts every solution), as in link-counts."
+  [{:dataset "COR" :uri prefix/cor-uri
+    :items   [["lexical entries"
+               (str "VALUES ?t { ontolex:Word ontolex:MultiwordExpression "
+                    "ontolex:Affix } ?s a ?t")
+               "?s"]
+              ["forms" "?s a ontolex:Form" nil]]}
+   {:dataset "COR.SEM" :uri prefix/cor-sem-uri
+    :items   [["senses" "?s a ontolex:LexicalSense" nil]]}
+   {:dataset "DDS" :uri prefix/dds-uri
+    :items   [["sentiment annotations" "?s dns:sentiment ?o" nil]]}
+   {:dataset "FrameNet" :uri prefix/framenet-uri
+    :items   [["frames" "?s a pmofn:Frame" nil]
+              ["frame elements"
+               "?s a ?t . FILTER(STRENDS(STR(?t), \"FrameElement\"))" "?s"]]}
+   {:dataset "OEWN extension" :uri prefix/oewn-extension-uri
+    :items   [["English labels" "?s rdfs:label ?o" nil]]}])
+
+(defn companion-stats
+  "The triples and the counted items of each of the companion-datasets in the
+  live db map `dannet`."
+  [{:keys [dataset]}]
+  (vec (for [{:keys [uri items] :as companion} companion-datasets
+             :let [g (db/get-graph dataset uri)]]
+         {:dataset (:dataset companion)
+          :triples (count-in g "?s ?p ?o")
+          :items   (vec (for [[label where var] items]
+                          [label (count-in g where var)]))})))
+
+(defn new-synset-stats
+  "Figures for the synsets of the asserted dn: graph `g` that were not in
+  DanNet 2.2, going by the synset `legacy-ids`: how many there are and how
+  many of them the 2023 adjective supplement added (synset-s ids), the
+  relations that involve them, their mean degree and their links to OEWN
+  synsets and ILI concepts."
+  [g legacy-ids]
+  (let [new?     #(not (legacy-ids (synset-id %)))
+        synsets  (filter new? (typed-synsets g))
+        edges    (relation-edges g)
+        involved (filter (fn [[s _ o]] (or (new? s) (new? o))) edges)
+        ili?     (comp #{:wn/ili} second)
+        links    (filter (comp new? first) (link-edges g))]
+    {:synsets         (count synsets)
+     :supplement-2023 (count (filter #(str/starts-with? (name %) "synset-s") synsets))
+     :relations       (count involved)
+     :similar         (count (filter (comp #{:wn/similar} second) involved))
+     :mean-degree     (:mean-degree (degree-stats synsets edges))
+     :oewn-links      (count (remove ili? links))
+     :ili-links       (count (filter ili? links))}))
+
 (defn tables
   "All tables of the paper, keyed by name, from the `legacy`, `current` and
   `links` stats maps."
@@ -901,7 +1188,14 @@
      (spit (in-dir "stats.edn")
            (pr-str {:legacy  old :current new :links links
                     :mapping (mapping-summary
-                               (read-legacy-rows (io/file legacy "relations.csv")))}))
+                               (read-legacy-rows (io/file legacy "relations.csv")))
+                    :cleanup (cleanup-summary
+                               (db/get-graph (:dataset dannet) prefix/dn-uri))
+                    :resource-links (links-summary new links)
+                    :companions (companion-stats dannet)
+                    :new-synsets (new-synset-stats
+                                   (db/get-graph (:dataset dannet) prefix/dn-uri)
+                                   (legacy-synset-ids legacy))}))
      (spit (in-dir "stats.md") (render-all "## " ->markdown tables))
      (spit (in-dir "stats.tex") (render-all "% " ->latex tables))
      (println "Statistics written to" dir)
@@ -961,4 +1255,16 @@ include them.
 
   ;; The data of the mapping table in the paper; needs no database.
   (mapping-summary (read-legacy-rows (io/file legacy-dir "relations.csv")))
+
+  ;; The data of the cleanup and links tables in the paper.
+  (cleanup-summary (db/get-graph (:dataset @dk.cst.dannet.web.instance/db)
+                                 prefix/dn-uri))
+  (let [dannet @dk.cst.dannet.web.instance/db]
+    (links-summary (current-stats dannet) (link-stats legacy-dir dannet)))
+
+  ;; The companion datasets and the synsets added after DanNet 2.2.
+  (companion-stats @dk.cst.dannet.web.instance/db)
+  (new-synset-stats (db/get-graph (:dataset @dk.cst.dannet.web.instance/db)
+                                  prefix/dn-uri)
+                    (legacy-synset-ids legacy-dir))
   #_.)
