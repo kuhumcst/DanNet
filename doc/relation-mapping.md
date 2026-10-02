@@ -24,7 +24,7 @@ as taxonomic or nontaxonomic, so `has_hyperonym` has two rows in the table. The
 `eq_*` relations link to Princeton WordNet, so the data check does not
 include them.
 
-| DanNet 2.2 | Rows | Draft (2021) | First release (2023) | Now (SNAPSHOT) | Notes |
+| DanNet 2.2 | Rows | Draft (2021) | First release (2023) | Now (2026-10-02) | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `has_hyperonym` (taxonomic) | 60,314 | `wn:hypernym` | `wn:hypernym` | `wn:hypernym`; 1,686 now `wn:attribute`; 197 removed; 103 now `dns:crossPoSHypernym`; 3 now `wn:also`; 2 now `wn:similar`; 1 reversed | A GWA hypernym stays within one part of speech. Cross-PoS pairs became `dns:crossPoSHypernym` in July 2025 and mostly `wn:attribute` in September 2026 ([#146](https://github.com/kuhumcst/DanNet/issues/146), see [crosspos/README.md](crosspos/README.md)). |
 | `has_hyperonym` (nontaxonomic) | 4,398 | `wn:hypernym` + `dns:hypernym_ortho` | `dns:orthogonalHypernym` | `dns:orthogonalHypernym`; 1 removed | GWA has no relation for orthogonal hyponymy. Since September 2021, the link is not also a `wn:hypernym` ([#7](https://github.com/kuhumcst/DanNet/issues/7)). Almost none of these synsets has another hypernym. |

@@ -114,7 +114,7 @@
 (def inheritance-metadata
   {'context    "http://www.w3.org/ns/csvw"
    "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
-   :tables  [{:url "senses.csv"
+   :tables  [{:url "inheritance.csv"
               :tableSchema
               {:columns [{:name   "to"
                           :titles "To synset"}
@@ -148,7 +148,7 @@
 (def relations-metadata
   {'context    "http://www.w3.org/ns/csvw"
    "dc:license" "https://creativecommons.org/licenses/by-sa/4.0/"
-   :tables  [{:url "examples.csv"
+   :tables  [{:url "relations.csv"
               :tableSchema
               {:columns [{:name   "from"
                           :titles "From synset"}

@@ -1,6 +1,24 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **2026-10-02**: Genskabte data fra DanNet 2
+* De 268 relationer, som DanNet 2.2 negerede, er nu `owl:NegativePropertyAssertion`-ressourcer ([Github issue #216](https://github.com/kuhumcst/DanNet/issues/216)), f.eks. er {ikkeryger} ikke agent for {ryge}. CSV-udgaven af DanNet 2.2 viste dem som almindelige relationer, så de har været påstået siden 2023.
+* 19629 brugseksempler fra DanNet 2, som gik tabt ved konverteringen i 2023, er tilbage, og 573 eksempler, som den satte på den forkerte betydning, er fjernet. 109 eksempler, som ikke passer til én bestemt betydning, er udeladt.
+* 3644 nye `wn:eq_synonym`-koblinger til Open English WordNet svarer til de eksisterende `wn:ili`-koblinger. 245 tvetydige ILI-koblinger har indtil videre ingen.
+* WN-LMF-eksporten giver kun et synset en ILI, når det har præcis én `wn:ili`, og intet andet synset deler den (6166 ILI'er).
+* 41 betydninger, som DSL delte i én læsning pr. synset, har fået deres register fra DanNet 2 tilbage, f.eks. "gl." på {anstalt}.
+* 18 DDS-valører på betydninger, som ikke længere findes, er flyttet til de betydninger, der erstattede dem.
+* Befolkningssynsettene for Nordkorea, Congo og Republikken Congo har fået deres betydninger tilbage, og det samme har {besiddelse; eje; ejendom} for eje. En tidligere sammenlægning af dublerede betydninger havde flyttet dem til et andet synset.
+* {e-maile; maile} har fået sin definition og ontologiske type tilbage.
+* 64 synset-ID'er, som ikke længere bruges, peger nu på det synset, der erstattede dem, via `dns:subsumed`. De 52 tomme stubbe fra de dubletter, der blev fjernet i 2023, er væk.
+* Hjemmesiden viderestiller nu et gammelt ID til den ressource, der har indlemmet det. Andre DanNet-ID'er uden data giver 404.
+* ILI'en for {dumdristig} sad på synsettets ID fra DanNet 2.2 og sidder nu på det nuværende synset.
+* 76 flerordsudtryk har en `dns:stressedRep` med tryktegnet fra DDO, f.eks. "se ˈtil" ved siden af den skriftlige form "se til". Rester af tryktegn i 20 former og 56 etiketter, f.eks. "rive løs/'fri", er fjernet.
+* Build-hashen i datasættets metadata bruger nu `dns:build` i stedet for `dn:build`, og `dns:dslSense` (DDO-betydnings-ID'et for delte betydninger) er igen defineret i skemaet.
+* `lime:lexicalEntries` tæller nu også de 45 affikser (62039 opslag).
+* Nye SHACL-shapes markerer synsets med mere end én `wn:ili` (385) og synsets med to `eq*`-relationer til samme synset (29) og advarer, når en `wn:ili` ikke passer til `wn:eq_synonym` (18). Disse tilfælde venter på gennemgang.
+* [doc/relation-mapping.md](https://github.com/kuhumcst/DanNet/blob/master/doc/relation-mapping.md) beskriver, hvad hver relation fra DanNet 2.2 blev til fra udkastet i 2021 til denne version.
+
 ## **2026-09-21**: COR.SEM, FrameNet og rettelser på tværs af ordklasser
 * Betydningsinventaret COR.SEM (1.0, CC0) er nu et ledsagende datasæt ([Github issue #207](https://github.com/kuhumcst/DanNet/issues/207)): 41993 betydninger koblet til deres COR-ord og til deres DanNet-synsets via `dns:linkedSynset` (40192 koblinger; 4647 betydninger har intet synset i DanNet).
   * Hver betydning bærer sit kuraterede DanNet-overbegreb som `dns:hypernymAnchor` (45568 koblinger) samt en FrameNet-ramme (8806 betydninger), valør, en forenklet ontologisk type, et systematisk polysemimønster (1608 betydninger), emne, brugsrestriktion og centralitet, hvor COR.SEM har dem.
