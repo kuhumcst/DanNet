@@ -64,6 +64,23 @@
               (get-in summary [:dns :dannet :rows])
               (get-in summary [:dns :percent])])))))
 
+(deftest resource-links
+  (let [current {:links    [["Senses with a DDO source" 5]]
+                 :external 3
+                 :ili      2}
+        links   {:origins {:wn/eq_synonym {:legacy 1 :new 1}
+                           :dns/eqSimilar {:new 1}
+                           :wn/ili        {:legacy 1 :new 1}}}
+        rows    (into {} (map (juxt :resource identity))
+                      (stats/links-summary current links))]
+    (testing "a resource counts its links by a link-counts label"
+      (is (= 5 (get-in rows ["DDO" :links]))))
+    (testing "the OEWN and ILI links split by their DanNet 2.2 origin"
+      (is (= {:links 3 :legacy 1 :new 2}
+             (select-keys (rows "OEWN") [:links :legacy :new])))
+      (is (= {:links 2 :legacy 1 :new 1}
+             (select-keys (rows "ILI") [:links :legacy :new]))))))
+
 (deftest links
   (let [rows    [["1" "eqSynonymOf" "eq_has_synonym" "dog%1:05:00::" "" "" ""]
                  ["2" "eqSynonymOf" "eq_has_synonym" "ENG20-02084071-n" "" "" ""]
@@ -137,6 +154,49 @@ dn:synset-3 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 .
            (stats/negated-edges (util/ttl->graph (str prefixes "
 [] a owl:NegativePropertyAssertion ; owl:sourceIndividual dn:synset-3 ;
   owl:assertionProperty dns:usedFor ; owl:targetIndividual dn:synset-1 .")))))))
+
+(deftest cleanup-comparisons
+  (let [before (util/ttl->graph (str prefixes "
+dn:synset-1 dns:crossPoSHypernym dn:synset-9 .
+dn:synset-2 dns:crossPoSHypernym dn:synset-9 .
+dn:synset-3 dns:crossPoSHypernym dn:synset-9 .
+dn:synset-4 wn:mero_part dn:synset-5 .
+dn:synset-6 ontolex:lexicalizedSense dn:sense-1 .
+dn:synset-7 ontolex:lexicalizedSense dn:sense-1 ."))
+        after  (util/ttl->graph (str prefixes "
+dn:synset-1 wn:attribute dn:synset-9 .
+dn:synset-2 dns:crossPoSHypernym dn:synset-9 ."))]
+    (testing "a cross-PoS hypernym is grouped by what links its pair after"
+      (is (= {:attribute [[:dn/synset-1 :dn/synset-9]]
+              :kept      [[:dn/synset-2 :dn/synset-9]]
+              :removed   [[:dn/synset-3 :dn/synset-9]]}
+             (stats/crosspos-outcomes before after))))
+    (testing "a triple that the later release no longer has is removed"
+      (is (= #{[:dn/synset-4 :wn/mero_part :dn/synset-5]}
+             (stats/removed-triples before after stats/part-whole-relations))))
+    (testing "a sense of two synsets is shared"
+      (is (= [[:dn/sense-1 #{:dn/synset-6 :dn/synset-7}]]
+             (stats/shared-senses before))))
+    (testing "a hypernym pair is cross-PoS when its words disagree in PoS"
+      (is (= #{[:dn/synset-1 :dn/synset-2]}
+             (stats/cross-pos-hypernyms (util/ttl->graph (str prefixes "
+dn:synset-1 wn:hypernym dn:synset-2 ; ontolex:lexicalizedSense dn:sense-1 .
+dn:synset-2 ontolex:lexicalizedSense dn:sense-2 .
+dn:word-1 ontolex:sense dn:sense-1 ; wn:partOfSpeech wn:noun .
+dn:word-2 ontolex:sense dn:sense-2 ; wn:partOfSpeech wn:verb ."))))))
+    (testing "an item is legacy when all its synsets were in DanNet 2.2"
+      (is (= {:count 2 :legacy 1 :new 1}
+             (stats/by-origin #{"1" "9"} identity [[:dn/synset-1 :dn/synset-9]
+                                                   [:dn/synset-2 :dn/synset-9]]))))))
+
+(deftest new-synsets
+  (let [g (util/ttl->graph (str prefixes "
+dn:synset-1 a ontolex:LexicalConcept ; wn:similar dn:synset-s2 .
+dn:synset-s2 a ontolex:LexicalConcept ; wn:ili <http://globalwordnet.org/ili/i1> ."))]
+    (testing "a synset not in DanNet 2.2 is new, with its relations and links"
+      (is (= {:synsets 1 :supplement-2023 1 :relations 1 :similar 1
+              :mean-degree 1.0 :oewn-links 0 :ili-links 1}
+             (stats/new-synset-stats g #{"1"}))))))
 
 (deftest rendering
   (let [table {:header ["Measure" "Old" "New"]
