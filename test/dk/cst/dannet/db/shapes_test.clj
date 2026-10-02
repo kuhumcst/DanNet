@@ -286,4 +286,27 @@ dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
       (is (thrown? clojure.lang.ExceptionInfo
                    (shapes/validate-export!
                      (.getPath (->ttl-file "
-dn:entry-1 a ontolex:LexicalEntry ."))))))))
+dn:entry-1 a ontolex:LexicalEntry ."))))))
+    (testing "predicates that no schema defines abort the export"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"schema definition"
+                            (shapes/validate-export!
+                              (.getPath (->ttl-file "
+dn:entry-1 a ontolex:LexicalEntry ;
+  rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
+  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:form-1 ontolex:writtenRep \"hund\"@da .
+dn:sense-1 a ontolex:LexicalSense ; rdfs:label \"hund\" ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+<https://wordnet.dk/dannet/data> dn:build \"1-2\" ."))))))))
+
+(deftest undefined-predicates
+  (let [schema (util/ttl->graph (str prefixes "
+dns:build rdfs:label \"build\"@en ."))
+        data   (util/ttl->graph (str prefixes "
+dn:x dn:build \"1-2\" ; dns:build \"1-2\" ;
+  <http://rdfs.org/ns/void#triples> 2 ;
+  <http://www.w3.org/1999/02/22-rdf-syntax-ns#_1> dn:y ."))]
+    (testing "a predicate is undefined unless the schema labels it or it is allowed"
+      (is (= ["https://wordnet.dk/dannet/data/build"]
+             (shapes/undefined-predicates data schema))))))

@@ -1254,7 +1254,7 @@
             new-entry      (log-entry db-name db-type input-dir)
             dataset        (->dataset db-type full-db-path)
             ;; Include the current build hash to make debugging easier
-            metadata'      (update md/metadata 'dn conj [md/<dn> :dn/build db-name])]
+            metadata'      (update md/metadata 'dn conj [md/<dn> :dns/build db-name])]
         (t/log! {:level :debug
                  :id    :dannet.bootstrap/db-path
                  :data  {:path full-db-path}}

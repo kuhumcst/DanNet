@@ -17,14 +17,15 @@
       (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [dk.cst.dannet.prefix]                          ; required for its side effects
+            [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.prefix :as prefix]               ; also required for its side effects
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.db.transaction :as txn]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.shacl ShaclValidator Shapes]
            [org.apache.jena.shacl.validation ReportEntry]
-           [org.apache.jena.graph Graph GraphUtil Node NodeFactory]
+           [org.apache.jena.graph Graph GraphUtil Node NodeFactory Triple]
            [org.apache.jena.riot RDFDataMgr]
            [org.apache.jena.sparql.path Path P_Link]))
 
@@ -233,34 +234,69 @@
             "SHACL validation of inferred graph")
     result))
 
+(def schema-graph
+  "The schemas that DanNet loads (prefix/schema-uris) as one graph, parsed once."
+  (delay (.getGraph ^Model (db/->schema-model prefix/schema-uris))))
+
+(def unschematized-predicates
+  "Predicates that the DanNet graph may use although no loaded schema gives
+  them a label: the VoID and schema.org vocabularies are not loaded."
+  #{"http://rdfs.org/ns/void#triples"
+    "http://schema.org/email"})
+
+(defn undefined-predicates
+  "The predicates in the `data` graph that the `schema` graph gives no
+  rdfs:label, e.g. a dn: predicate written in place of a dns: one.
+
+  The unschematized-predicates and the RDF container properties rdf:_1,
+  rdf:_2, ... are not included."
+  [^Graph data ^Graph schema]
+  (let [label (NodeFactory/createURI "http://www.w3.org/2000/01/rdf-schema#label")]
+    (->> (iterator-seq (.find data Node/ANY Node/ANY Node/ANY))
+         (map #(.getPredicate ^Triple %))
+         (distinct)
+         (remove #(.contains schema ^Node % label Node/ANY))
+         (map str)
+         (remove unschematized-predicates)
+         (remove #(re-matches #"http://www\.w3\.org/1999/02/22-rdf-syntax-ns#_\d+" %))
+         (sort))))
+
 (defn validate-export!
   "Validate the exported Turtle file at `path` (a plain .ttl on disk) against
   the default base shapes, comparing :sh/Violation counts to the known
   baseline. A release gate: throws ex-info when violations exceed the
-  baseline; warnings and baselined violations only log.
+  baseline, or when the file uses predicates that no loaded schema defines
+  (see undefined-predicates); warnings and baselined violations only log.
 
-  Returns the result map with added :violations and :exceeded keys when the
-  gate passes."
+  Returns the result map with added :violations, :exceeded and :undefined
+  keys when the gate passes."
   [path]
   ;; Loads the artifact into a fresh in-memory graph so the gate validates
   ;; exactly what ships, not the live TDB2 graph it was exported from.
-  (let [path (str path)
+  (let [path      (str path)
+        graph     (RDFDataMgr/loadGraph path)
+        undefined (undefined-predicates graph @schema-graph)
         {:keys [violations exceeded] :as result}
-        (against-baseline (validate (RDFDataMgr/loadGraph path)))]
-    (t/log! {:level (cond (seq exceeded) :error
+        (against-baseline (validate graph))]
+    (t/log! {:level (cond (or (seq exceeded) (seq undefined)) :error
                           (not (:conforms? result)) :warn
                           :else :info)
              :id    :dannet.shapes/validate-export
              :data  {:path       path
                      :conforms?  (:conforms? result)
                      :violations violations
-                     :exceeded   exceeded}}
+                     :exceeded   exceeded
+                     :undefined  undefined}}
             "SHACL validation of exported artifact")
     (when (seq exceeded)
       (throw (ex-info (str "SHACL violations exceed baseline in " path)
                       {:path     path
                        :exceeded exceeded})))
-    result))
+    (when (seq undefined)
+      (throw (ex-info (str "Predicates without a schema definition in " path)
+                      {:path      path
+                       :undefined undefined})))
+    (assoc result :undefined undefined)))
 
 (comment
   ;; Inspect the currently accepted violation counts.

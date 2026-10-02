@@ -299,6 +299,14 @@
   rdfs:label "kilde"@da ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
+:dslSense a owl:DatatypeProperty ;
+  rdfs:domain ontolex:LexicalSense ;
+  rdfs:comment "The ID of the DDO sense that the subject sense is a reading of, e.g. \"21025283\" for dn:sense-21025283-i1; DSL split some DDO senses into one reading per synset. Where the reading has a dns:source, it is the URL of the DDO page with this ID as its def_id. Not all readings have a dns:source, so this property gives the ID for all of them, e.g. to link them to COR and other data that uses DDO sense IDs."@en ;
+  rdfs:comment "ID'et for den DDO-betydning, som subjekt-betydningen er en læsning af, fx \"21025283\" for dn:sense-21025283-i1; DSL har delt nogle DDO-betydninger i én læsning pr. synset. Hvor læsningen har en dns:source, er det URL'en til DDO-siden med dette ID som def_id. Ikke alle læsninger har en dns:source, så denne egenskab giver ID'et for dem alle, fx til at forbinde dem med COR og andre data, som bruger DDO's betydnings-ID'er."@da ;
+  rdfs:label "DSL sense"@en ;
+  rdfs:label "DSL-betydning"@da ;
+  rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
+
 :build a owl:DatatypeProperty ;
   rdfs:comment "The current build hash of this iteration of DanNet, mainly for debugging."@en ;
   rdfs:comment "Det nuværende 'build hash' for denne iteration af DanNet, mest til debugging."@da ;
