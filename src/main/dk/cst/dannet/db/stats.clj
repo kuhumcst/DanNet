@@ -790,6 +790,53 @@
                             (str/join "; ")))
                      note]))}))
 
+(def nearest-gwa-relations
+  "The DanNet 2.2 relation names whose current wn: relation is the nearest GWA
+  relation rather than a direct equivalent; see relation-history for why."
+  #{"made_by" "concerns" "involved_agent" "involved_instrument"
+    "xpos_near_synonym"})
+
+(defn mapping-group
+  "The [group subgroup] of a relation-history `entry` in the paper's mapping
+  summary, by the namespace it maps to now: :wn or :dns, then :direct,
+  :nearest, :dannet or :pwn (links to Princeton WordNet); [:dropped] when
+  dropped."
+  [{:keys [name current linked]}]
+  (let [ns' (some-> (or current (first linked)) namespace keyword)]
+    (cond
+      (nil? ns') [:dropped]
+      linked [ns' :pwn]
+      (nearest-gwa-relations name) [:wn :nearest]
+      (= :wn ns') [:wn :direct]
+      :else [:dns :dannet])))
+
+(defn- tally
+  "The number of relation-history `entries`, their :rows and the percentage
+  of `total` rows that they make up."
+  [entries total]
+  (let [rows (reduce + 0 (map :rows entries))]
+    {:relations (count entries)
+     :rows      rows
+     :percent   (/ (Math/round (* 10000.0 (/ rows total))) 100.0)}))
+
+(defn mapping-summary
+  "The DanNet 2.2 relations grouped by where they map now, with the number of
+  relations and rows in the legacy relations.csv `rows` for each group and
+  subgroup; see mapping-group.
+
+  This is the data of the mapping table in the paper. A relation counts once
+  per relation-history entry, so has_hyperonym counts in :wn and :dns."
+  [rows]
+  (let [counts  (frequencies (map legacy-key rows))
+        entries (map #(assoc % :rows (get counts (:key %) 0)) relation-history)
+        total   (reduce + (map :rows entries))]
+    (into {:total {:relations (count entries) :rows total}}
+          (for [[group es] (group-by (comp first mapping-group) entries)]
+            [group (into (tally es total)
+                         (for [[subgroup es'] (group-by (comp second mapping-group) es)
+                               :when subgroup]
+                           [subgroup (tally es' total)]))]))))
+
 (defn tables
   "All tables of the paper, keyed by name, from the `legacy`, `current` and
   `links` stats maps."
@@ -851,7 +898,10 @@
          tables (tables old new links)
          in-dir (partial str dir)]
      (io/make-parents (in-dir "stats.edn"))
-     (spit (in-dir "stats.edn") (pr-str {:legacy old :current new :links links}))
+     (spit (in-dir "stats.edn")
+           (pr-str {:legacy  old :current new :links links
+                    :mapping (mapping-summary
+                               (read-legacy-rows (io/file legacy "relations.csv")))}))
      (spit (in-dir "stats.md") (render-all "## " ->markdown tables))
      (spit (in-dir "stats.tex") (render-all "% " ->latex tables))
      (println "Statistics written to" dir)
@@ -908,4 +958,7 @@ include them.
   (current-stats @dk.cst.dannet.web.instance/db)
   (export-stats! @dk.cst.dannet.web.instance/db)
   (export-relation-mapping! @dk.cst.dannet.web.instance/db)
+
+  ;; The data of the mapping table in the paper; needs no database.
+  (mapping-summary (read-legacy-rows (io/file legacy-dir "relations.csv")))
   #_.)

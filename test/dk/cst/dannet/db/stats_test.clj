@@ -51,6 +51,19 @@
                   (some #(when (= "`used_for`" (first %)) %))
                   (take 5)))))))
 
+(deftest mapping-groups
+  (let [summary (stats/mapping-summary legacy-relations)]
+    (testing "each DanNet 2.2 relation falls in one group"
+      (is (= {:wn 23 :dns 6 :dropped 1}
+             (update-vals (select-keys summary [:wn :dns :dropped]) :relations))))
+    (testing "rows count per group and subgroup, and as a share of all rows"
+      (is (= [4 1 1 2 50.0]
+             [(get-in summary [:total :rows])
+              (get-in summary [:wn :direct :rows])
+              (get-in summary [:wn :pwn :rows])
+              (get-in summary [:dns :dannet :rows])
+              (get-in summary [:dns :percent])])))))
+
 (deftest links
   (let [rows    [["1" "eqSynonymOf" "eq_has_synonym" "dog%1:05:00::" "" "" ""]
                  ["2" "eqSynonymOf" "eq_has_synonym" "ENG20-02084071-n" "" "" ""]
