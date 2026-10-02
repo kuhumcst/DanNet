@@ -637,6 +637,33 @@
                               comment comments]
                           [sense :rdfs/comment comment]))))))
 
+(h/defn move-renamed-synset-ili!
+  "Move the wn:ili of dn:synset-78106 in `dataset` to dn:synset-78881, the id
+  that DanNet 2.5 gave the same {dumdristig} synset, and let the new id
+  subsume the old one.
+
+  The 2023 import of the DanNet 2.2 links to Princeton WordNet put the ILI on
+  the 2.2 id, which has no other data; DanNet 2.5 dropped the link of the new
+  id. The ILI matches the old link to reckless%5:00:00:bold:00."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/move-renamed-synset-ili}
+          "Moving the ILI of a renamed DanNet 2.2 synset")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        old      :dn/synset-78106
+        new      :dn/synset-78881
+        ilis     (map '?ili (q/run g [:bgp [old :wn/ili '?ili]]))
+        expected 1]
+    (assert (= expected (count ilis))
+            (str "expected " expected " ILI to move, found " (count ilis)))
+    (txn/transact-exec model
+      (db/remove! model [old '_ '_]))
+    (txn/transact-exec g
+      (db/safe-add! g (cons [new :dns/subsumed old]
+                            (for [ili ilis]
+                              [new :wn/ili ili]))))))
+
 (h/defn add-ili-eq-synonyms!
   "Add a wn:eq_synonym from each dn: synset in `dataset` to the OEWN synset
   that carries its wn:ili concept, when the link is unambiguous: the synset
@@ -650,11 +677,11 @@
   synsets whose wn:eq_synonym points elsewhere (see the SHACL shapes
   dns:LexicalConceptShape-ili and dns:IliEqSynonymShape). A concept that no
   single OEWN synset carries (e.g. the placeholder ili:in) is skipped, and so
-  is a wn:ili on a resource that is not a synset: dn:synset-78106 and the
-  stubs of 5 duplicates that subsume-removed-duplicates! removes.
+  is a wn:ili on a resource that is not a synset: the stubs of 5 duplicates
+  that subsume-removed-duplicates! removes.
 
   Must run after add-open-english-wordnet!, which supplies the ILI -> synset
-  mapping."
+  mapping, and after move-renamed-synset-ili!."
   [dataset]
   (let [ili->oewn (->> (q/run (db/get-graph dataset prefix/oewn-uri)
                               '[:bgp [?synset :wn/ili ?ili]])
@@ -678,7 +705,7 @@
                              :when (and oewn-synset
                                         (not (linked [synset oewn-synset])))]
                          [synset :wn/eq_synonym oewn-synset]))
-        expected  3643]
+        expected  3644]
     (t/log! {:level :info
              :id    :dannet.bootstrap/add-ili-eq-synonyms
              :data  {:triples (count triples)}}
@@ -1058,6 +1085,7 @@
     ;; ==== Changes for this particular release. ====
     (replace-negated-relations! dataset)
     (restore-dannet-2-examples! dataset)
+    (move-renamed-synset-ili! dataset)
     ;; Deliberately omits the 245 ambiguous ILI links (several wn:ili, or a
     ;; wn:eq_synonym elsewhere); SHACL shapes list them for review.
     (add-ili-eq-synonyms! dataset)
@@ -1175,6 +1203,7 @@
                             (hash premon/frame-relations)
                             (hash premon/fe-relations)
                             (:hash (meta #'make-release-changes!))
+                            (:hash (meta #'move-renamed-synset-ili!))
                             (:hash (meta #'add-ili-eq-synonyms!))
                             (:hash (meta #'register-triples))
                             (:hash (meta #'restore-dannet-2-registers!))
