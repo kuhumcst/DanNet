@@ -430,16 +430,27 @@
                                       :page  "entity"}
                                (and has-deferred (not deferred?))
                                (assoc :has-deferred "true")))
-                (let [alt (alt-resource qname)]
+                (let [alt      (alt-resource qname)
+                      uri      (cond
+                                 (keyword? subject*) (prefix/kw->uri subject*)
+                                 (string? subject*) (prefix/rdf-resource->uri subject*))
+                      subsumer (some '?s (q/run g [:bgp ['?s :dns/subsumed subject*]]))]
                   (cond
                     (and alt (not-empty (q/entity g alt)))
                     (assoc ctx :replace alt)
 
-                    (keyword? subject*)
-                    (assoc ctx :redirect (prefix/kw->uri subject*))
+                    ;; The id of a merged or removed duplicate leads to the
+                    ;; resource that subsumed it.
+                    subsumer
+                    (assoc ctx :redirect subsumer)
 
-                    (string? subject*)
-                    (assoc ctx :redirect (prefix/rdf-resource->uri subject*)))))))})
+                    ;; A DanNet IRI resolves to this page, so a redirect to it
+                    ;; would loop; the empty context becomes a 404 instead.
+                    (and uri (prefix/uri->dannet-path uri))
+                    ctx
+
+                    :else
+                    (assoc ctx :redirect uri))))))})
 
 (defn prefix->entity-route
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
