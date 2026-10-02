@@ -1,6 +1,24 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **2026-10-02**: Restored DanNet 2 data
+* The 268 relations that DanNet 2.2 negated are now `owl:NegativePropertyAssertion` resources ([Github issue #216](https://github.com/kuhumcst/DanNet/issues/216)), e.g. {ikkeryger} is not the agent of {ryge}. The DanNet 2.2 CSV release listed them as ordinary relations, so they were asserted from 2023 until now.
+* 19629 DanNet 2 usage examples lost in the 2023 conversion are back, and 573 examples that it attached to the wrong sense are removed. 109 examples that fit no single sense are left out.
+* 3644 new `wn:eq_synonym` links to the Open English WordNet match the existing `wn:ili` links. 245 ambiguous ILI links are left without one for now.
+* The WN-LMF export only gives a synset an ILI when it has exactly one `wn:ili` and no other synset shares it (6166 ILIs).
+* 41 senses that DSL split into one reading per synset have their DanNet 2 register back, e.g. "gl." on {anstalt}.
+* 18 DDS sentiments on senses that no longer exist are moved to the senses that replaced them.
+* The population synsets of Nordkorea, Congo and Republikken Congo have their senses back, and so does {besiddelse; eje; ejendom} for eje. An earlier merge of duplicate senses had moved them to another synset.
+* {e-maile; maile} has its definition and ontological type back.
+* 64 synset IDs that are no longer used now link to the synset that replaced them via `dns:subsumed`. The 52 empty stubs left by the duplicates removed in 2023 are gone.
+* The website now redirects an old ID to the resource that subsumed it. Other DanNet IDs without data return a 404.
+* The ILI of {dumdristig} was attached to its DanNet 2.2 ID and is now on the current synset.
+* 76 multiword forms have a `dns:stressedRep` with the stress mark shown in DDO, e.g. "se ˈtil" next to the written form "se til". Leftover stress marks in 20 forms and 56 labels, e.g. "rive løs/'fri", are removed.
+* The build hash in the dataset metadata now uses `dns:build` instead of `dn:build`, and `dns:dslSense` (the DDO sense ID of split senses) is defined in the schema again.
+* `lime:lexicalEntries` now also counts the 45 affixes (62039 entries).
+* New SHACL shapes flag synsets with more than one `wn:ili` (385) and synsets with two `eq*` relations to the same synset (29), and warn when a `wn:ili` does not match the `wn:eq_synonym` (18). These cases are left for review.
+* [doc/relation-mapping.md](https://github.com/kuhumcst/DanNet/blob/master/doc/relation-mapping.md) documents what each DanNet 2.2 relation became, from the 2021 draft to this release.
+
 ## **2026-09-21**: COR.SEM, FrameNet and cross-PoS fixes
 * The COR.SEM sense inventory (1.0, CC0) is now a companion dataset ([Github issue #207](https://github.com/kuhumcst/DanNet/issues/207)): 41993 senses linked to their COR words and to their DanNet synsets via `dns:linkedSynset` (40192 links; 4647 senses have no synset in DanNet).
   * Every sense carries its curated DanNet hypernym as `dns:hypernymAnchor` (45568 links), plus a FrameNet frame (8806 senses), sentiment, a simplified ontological type, a systematic polysemy pattern (1608 senses), topic domain, usage restriction and centrality where COR.SEM has them.
