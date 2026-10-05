@@ -100,7 +100,13 @@
     (db/remove! model [rdf-resource '_ '_]))
   (db/safe-add! (.getGraph ^Model model) dataset-metadata))
 
-(h/def metadata
+(h/defn metadata
+  "The dataset metadata triples, keyed by graph prefix.
+
+  A function rather than a value, so that it reads the current release
+  versions on every call. A value would keep the versions from when this
+  namespace was loaded, even after dk.cst.dannet.release is reloaded."
+  []
   {'dn  (set/union
           (see-also <dn> [<dns> <dnc> <dds> <cor> <cor-sem>])
           (see-also <cst> [<dn> <dsl> <dsn>])

@@ -140,7 +140,7 @@
         (txn/transact-exec graph
           (db/safe-add! graph chunk)))
       (txn/transact-exec model
-        (md/update-metadata! (get md/metadata 'frame) model)))))
+        (md/update-metadata! (get (md/metadata) 'frame) model)))))
 
 (h/defn add-in-scheme!
   "Add skos:inScheme to all DanNet, COR and COR.SEM resources (GitHub issue
@@ -1283,7 +1283,7 @@
             new-entry      (log-entry db-name db-type input-dir)
             dataset        (->dataset db-type full-db-path)
             ;; Include the current build hash to make debugging easier
-            metadata'      (update md/metadata 'dn conj [md/<dn> :dns/build db-name])]
+            metadata'      (update (md/metadata) 'dn conj [md/<dn> :dns/build db-name])]
         (t/log! {:level :debug
                  :id    :dannet.bootstrap/db-path
                  :data  {:path full-db-path}}
