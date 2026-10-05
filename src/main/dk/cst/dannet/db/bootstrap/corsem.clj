@@ -82,8 +82,10 @@
         names    (map name atoms')
         ontotype (keyword "dnt" (str/join "-" names))]
     [ontotype
-     ;; rdf:Bag is not asserted: it follows from the schema's subclass axiom,
-     ;; like the other dns: class hierarchies on their instances.
+     ;; TODO: assert rdf:Bag here and, through the release changes, on the
+     ;; existing dnt: types. ARQ's rdfs:member only matches containers with
+     ;; an asserted rdf:Bag type, and the inference rules don't derive it
+     ;; from the schema. The SPARQL guide can then use rdfs:member again.
      (into #{[ontotype :rdf/type :dns/OntologicalType]
              [ontotype :rdfs/label (md/en (str/join " + " names))]}
            ;; Container membership properties start at rdf:_1 by convention.

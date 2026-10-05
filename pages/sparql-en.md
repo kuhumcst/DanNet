@@ -164,21 +164,22 @@ The `/` means "follow this property, then follow that property". It saves you fr
 
 ### Ontological types and RDF Bags
 
-Every synset in DanNet is annotated with one or more **ontological types** from the `dnc:` namespace (e.g. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`). These types are stored in an [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag), a container that holds an unordered collection of values. To access the values inside a Bag, you use `rdfs:member` (which matches any member of the Bag) in a [property path](#property-paths):
+Nearly every synset in DanNet has an **ontological type** from the `dnt:` namespace, e.g. `dnt:Animal-Object`. A type lists one or more concepts from the `dnc:` namespace (e.g. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`) in the way an [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag) lists its members: with the numbered properties `rdf:_1`, `rdf:_2`, and so on. Each concept has its own number, so to match a concept wherever it is in the list, you put a variable in place of the property:
 
 ```sparql
 SELECT  ?synset ?definition
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Animal .
-    ?synset   skos:definition   ?definition ;
-              dns:sentiment     ?opinion .
-    ?opinion  marl:hasPolarity  marl:Negative
+  { ?synset   dns:ontologicalType  ?type .
+    ?type     ?member              dnc:Animal .
+    ?synset   skos:definition      ?definition ;
+              dns:sentiment        ?opinion .
+    ?opinion  marl:hasPolarity     marl:Negative
   }
 ```
 
-[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
+[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype+++++%3Fmember++++++++++++++dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition++++++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment++++++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity+++++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
 
-This query finds animal concepts that have a negative sentiment annotation. It combines several things: navigating into an RDF Bag via `dns:ontologicalType/rdfs:member`, matching a specific ontological type (`dnc:Animal`), and traversing the sentiment data which uses the [MARL](http://www.gsi.upm.es/ontologies/marl/) vocabulary. This is the kind of cross-cutting query that would be very hard to answer by browsing the web interface.
+This query finds animal concepts that have a negative sentiment annotation. It combines several things: following `dns:ontologicalType` to the type of each synset, matching the types that contain a specific concept (`dnc:Animal`), and traversing the sentiment data which uses the [MARL](http://www.gsi.upm.es/ontologies/marl/) vocabulary. This is the kind of cross-cutting query that would be very hard to answer by browsing the web interface.
 
 > **NOTE:** the "Run this query" link above has **label enrichment** enabled. With this enabled, the editor automatically maps labels to any resource URIs in the results, so you don't need to manually fetch `rdfs:label` for every variable.
 
@@ -194,7 +195,7 @@ WHERE
 
 [Run this query](/dannet/sparql?query=PREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0APREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0A%0ASELECT++%3Fancestor%0AWHERE%0A++%7B+dn%3Asynset-3346+%28wn%3Ahypernym%29%2B+%3Fancestor+%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
-This traces the full hypernym chain: delfin → tandhval → hval → pattedyr → hvirveldyr → dyr → levende væsen → … and so on up to the most general concepts. Each row is one step in the hierarchy. Without the `+` operator, `wn:hypernym` would only return the immediate parent (tandhval).
+This traces the full hypernym chain: delfin → tandhval → hval → havpattedyr → pattedyr → hvirveldyr → dyr → organisme → … and so on up to the most general concepts. Each row is one step in the hierarchy. Without the `+` operator, `wn:hypernym` would only return the immediate parent (tandhval).
 
 ### More than just hypernyms
 
@@ -239,16 +240,17 @@ Not every synset has every property. If you want results even when some data is 
 ```sparql
 SELECT  ?synset ?definition ?example
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Comestible .
-    ?synset  skos:definition  ?definition
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              dnc:Comestible .
+    ?synset  skos:definition      ?definition
     OPTIONAL
       { ?synset ontolex:lexicalizedSense/lexinfo:senseExample ?example }
   }
 ```
 
-[Run this query](/dannet/sparql?query=PREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0APREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++lexinfo%3A+%3Chttp%3A//www.lexinfo.net/ontology/3.0/lexinfo%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fexample%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AComestible+.%0A++++%3Fsynset++skos%3Adefinition++%3Fdefinition%0A++++OPTIONAL%0A++++++%7B+%3Fsynset+ontolex%3AlexicalizedSense/lexinfo%3AsenseExample+%3Fexample+%7D%0A++%7D%0A&offset=0&limit=20&inference=auto&distinct=true&enrichment=true)
+[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++lexinfo%3A+%3Chttp%3A//www.lexinfo.net/ontology/3.0/lexinfo%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fexample%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++dnc%3AComestible+.%0A++++%3Fsynset++skos%3Adefinition++++++%3Fdefinition%0A++++OPTIONAL%0A++++++%7B+%3Fsynset+ontolex%3AlexicalizedSense/lexinfo%3AsenseExample+%3Fexample+%7D%0A++%7D%0A&offset=0&limit=20&inference=auto&distinct=true&enrichment=true)
 
-This finds all **Comestible** synsets (food) and their usage examples *if they exist*. The `dns:ontologicalType/rdfs:member` pattern is the same one used in [Ontological types and RDF Bags](#ontological-types-and-rdf-bags). Some synsets have examples, some don't. Without `OPTIONAL`, any synset lacking an example would be silently dropped from the results. Scroll through the results and notice how some rows have an `?example` value while others are empty.
+This finds all **Comestible** synsets (food) and their usage examples *if they exist*. The `?type ?member` pattern is the same one used in [Ontological types and RDF Bags](#ontological-types-and-rdf-bags). Some synsets have examples, some don't. Without `OPTIONAL`, any synset lacking an example would be silently dropped from the results. Scroll through the results and notice how some rows have an `?example` value while others are empty.
 
 
 ## FILTER: narrowing results
@@ -358,32 +360,36 @@ This query uses a [subquery](https://en.wikibooks.org/wiki/SPARQL/Subqueries) to
 
 ### Exploring ontological types
 
-DanNet annotates every synset with one or more ontological types from the `dnc:` namespace (see [Ontological types and RDF Bags](#ontological-types-and-rdf-bags) for background). You can get an overview of all available types and how many synsets each one covers:
+The ontological types of DanNet are made up of concepts from the `dnc:` namespace (see [Ontological types and RDF Bags](#ontological-types-and-rdf-bags) for background). You can get an overview of all the concepts and how many synsets each one covers:
 
 ```sparql
-SELECT  ?type (COUNT(?synset) AS ?count)
+SELECT  ?concept (COUNT(?synset) AS ?count)
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member ?type }
-GROUP BY ?type
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              ?concept
+    FILTER strstarts(str(?concept), str(dnc:))
+  }
+GROUP BY ?concept
 ORDER BY DESC(?count)
 LIMIT   100
 ```
 
-[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0A%0ASELECT++%3Ftype+%28COUNT%28%3Fsynset%29+AS+%3Fcount%29%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+%3Ftype+%7D%0AGROUP+BY+%3Ftype%0AORDER+BY+DESC%28%3Fcount%29%0ALIMIT+++100%0A&offset=0&limit=10&inference=auto&distinct=true)
+[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0A%0ASELECT++%3Fconcept+%28COUNT%28%3Fsynset%29+AS+%3Fcount%29%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++%3Fconcept%0A++++FILTER+strstarts%28str%28%3Fconcept%29%2C+str%28dnc%3A%29%29%0A++%7D%0AGROUP+BY+%3Fconcept%0AORDER+BY+DESC%28%3Fcount%29%0ALIMIT+++100%0A&offset=0&limit=10&inference=auto&distinct=true)
 
-The results show the `dnc:` QNames directly (e.g. `dnc:Object`, `dnc:Covering`, `dnc:Animal`). You can pick any of these and use them in a follow-up query. For example, to find all synsets tagged as `dnc:Covering`:
+The `FILTER` keeps only the `dnc:` concepts, since `?member` also matches the label and class of each type (see [Filtering by namespace](#filtering-by-namespace)). The results show the `dnc:` QNames directly (e.g. `dnc:Object`, `dnc:Covering`, `dnc:Animal`). You can pick any of these and use them in a follow-up query. For example, to find all synsets whose type contains `dnc:Covering`:
 
 ```sparql
 SELECT  ?synset ?definition
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Covering .
-    ?synset  skos:definition  ?definition
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              dnc:Covering .
+    ?synset  skos:definition      ?definition
   }
 ```
 
-[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3ACovering+.%0A++++%3Fsynset++skos%3Adefinition++%3Fdefinition%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
+[Run this query](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++dnc%3ACovering+.%0A++++%3Fsynset++skos%3Adefinition++++++%3Fdefinition%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
-Try swapping `dnc:Covering` for another type from the previous result!
+Try swapping `dnc:Covering` for another concept from the previous result!
 
 ### LIMIT, OFFSET, and pagination
 
@@ -483,7 +489,8 @@ You don't need to memorize full URIs. The DanNet [SPARQL endpoint](/dannet/sparq
 |--------|---|---|
 | **dn:** | https://wordnet.dk/dannet/data/ | DanNet synsets, words, senses |
 | **dns:** | https://wordnet.dk/dannet/schema/ | DanNet-specific properties |
-| **dnc:** | https://wordnet.dk/dannet/concepts/ | DanNet ontological types |
+| **dnt:** | https://wordnet.dk/dannet/types/ | DanNet ontological types |
+| **dnc:** | https://wordnet.dk/dannet/concepts/ | Concepts in the ontological types |
 | **ontolex:** | http://www.w3.org/ns/lemon/ontolex# | Lexical entries, senses, forms |
 | **wn:**  | https://globalwordnet.github.io/schemas/wn# | WordNet relations (hypernym, etc.) |
 | **skos:** | http://www.w3.org/2004/02/skos/core# | Definitions |

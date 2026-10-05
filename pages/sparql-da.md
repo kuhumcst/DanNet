@@ -164,21 +164,22 @@ Dette er en [**property path**](https://en.wikibooks.org/wiki/SPARQL/Property_pa
 
 ### Ontologiske typer og RDF Bags
 
-Hvert synset i DanNet er annoteret med en eller flere **ontologiske typer** fra `dnc:`-namespacet (f.eks. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`). Disse typer er gemt i en [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag), en beholder der rummer en uordnet samling af værdier. For at tilgå værdierne i en Bag bruger man `rdfs:member` (som matcher ethvert medlem af Bag'en) i en [property path](#property-paths):
+Næsten hvert synset i DanNet har en **ontologisk type** fra `dnt:`-namespacet, f.eks. `dnt:Animal-Object`. En type opregner et eller flere begreber fra `dnc:`-namespacet (f.eks. `dnc:Animal`, `dnc:Container`, `dnc:Comestible`) på samme måde som en [RDF Bag](https://www.w3.org/TR/rdf12-schema/#ch_bag) opregner sine medlemmer: med de nummererede egenskaber `rdf:_1`, `rdf:_2` osv. Hvert begreb har sit eget nummer, så for at matche et begreb uanset dets plads i listen sætter man en variabel i stedet for egenskaben:
 
 ```sparql
 SELECT  ?synset ?definition
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Animal .
-    ?synset   skos:definition   ?definition ;
-              dns:sentiment     ?opinion .
-    ?opinion  marl:hasPolarity  marl:Negative
+  { ?synset   dns:ontologicalType  ?type .
+    ?type     ?member              dnc:Animal .
+    ?synset   skos:definition      ?definition ;
+              dns:sentiment        ?opinion .
+    ?opinion  marl:hasPolarity     marl:Negative
   }
 ```
 
-[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition+++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment+++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++marl%3A+%3Chttp%3A//www.gsi.upm.es/ontologies/marl/ns%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype+++++%3Fmember++++++++++++++dnc%3AAnimal+.%0A++++%3Fsynset+++skos%3Adefinition++++++%3Fdefinition+%3B%0A++++++++++++++dns%3Asentiment++++++++%3Fopinion+.%0A++++%3Fopinion++marl%3AhasPolarity+++++marl%3ANegative%0A++%7D%0A&offset=0&limit=100&inference=auto&distinct=true&enrichment=true)
 
-Denne forespørgsel finder dyrebegreber med en negativ sentimentannotering. Den kombinerer flere ting: navigation ind i en RDF Bag via `dns:ontologicalType/rdfs:member`, matching af en specifik ontologisk type (`dnc:Animal`), og traversering af sentimentdata der bruger [MARL](http://www.gsi.upm.es/ontologies/marl/)-vokabularet. Det er den type tværgående forespørgsel der ville være meget svær at besvare blot ved at browse webgrænsefladen.
+Denne forespørgsel finder dyrebegreber med en negativ sentimentannotering. Den kombinerer flere ting: at følge `dns:ontologicalType` til hvert synsets type, matching af de typer der indeholder et bestemt begreb (`dnc:Animal`), og traversering af sentimentdata der bruger [MARL](http://www.gsi.upm.es/ontologies/marl/)-vokabularet. Det er den type tværgående forespørgsel der ville være meget svær at besvare blot ved at browse webgrænsefladen.
 
 > **BEMÆRK:** "Kør denne forespørgsel"-linket ovenfor har **etiketberigelse** (label enrichment) aktiveret. Med dette aktiveret mapper editoren automatisk etiketter til alle ressource-URI'er i resultaterne, så du ikke behøver manuelt at hente `rdfs:label` for hver variabel.
 
@@ -194,7 +195,7 @@ WHERE
 
 [Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dn%3A+++%3Chttps%3A//wordnet.dk/dannet/data/%3E%0APREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0A%0ASELECT++%3Fancestor%0AWHERE%0A++%7B+dn%3Asynset-3346+%28wn%3Ahypernym%29%2B+%3Fancestor+%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
-Dette følger den fulde hypernym-kæde: delfin → tandhval → hval → pattedyr → hvirveldyr → dyr → levende væsen → … og så videre op til de mest generelle begreber. Hver række er ét trin i hierarkiet. Uden `+`-operatoren ville `wn:hypernym` kun returnere den umiddelbare forælder (tandhval).
+Dette følger den fulde hypernym-kæde: delfin → tandhval → hval → havpattedyr → pattedyr → hvirveldyr → dyr → organisme → … og så videre op til de mest generelle begreber. Hver række er ét trin i hierarkiet. Uden `+`-operatoren ville `wn:hypernym` kun returnere den umiddelbare forælder (tandhval).
 
 ### Mere end bare hypernymer
 
@@ -239,16 +240,17 @@ Ikke alle synsets har alle egenskaber. Hvis du vil have resultater selv når vis
 ```sparql
 SELECT  ?synset ?definition ?example
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Comestible .
-    ?synset  skos:definition  ?definition
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              dnc:Comestible .
+    ?synset  skos:definition      ?definition
     OPTIONAL
       { ?synset ontolex:lexicalizedSense/lexinfo:senseExample ?example }
   }
 ```
 
-[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++wn%3A+++%3Chttps%3A//globalwordnet.github.io/schemas/wn%23%3E%0APREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0APREFIX++lexinfo%3A+%3Chttp%3A//www.lexinfo.net/ontology/3.0/lexinfo%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fexample%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3AComestible+.%0A++++%3Fsynset++skos%3Adefinition++%3Fdefinition%0A++++OPTIONAL%0A++++++%7B+%3Fsynset+ontolex%3AlexicalizedSense/lexinfo%3AsenseExample+%3Fexample+%7D%0A++%7D%0A&offset=0&limit=20&inference=auto&distinct=true&enrichment=true)
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++ontolex%3A+%3Chttp%3A//www.w3.org/ns/lemon/ontolex%23%3E%0APREFIX++lexinfo%3A+%3Chttp%3A//www.lexinfo.net/ontology/3.0/lexinfo%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition+%3Fexample%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++dnc%3AComestible+.%0A++++%3Fsynset++skos%3Adefinition++++++%3Fdefinition%0A++++OPTIONAL%0A++++++%7B+%3Fsynset+ontolex%3AlexicalizedSense/lexinfo%3AsenseExample+%3Fexample+%7D%0A++%7D%0A&offset=0&limit=20&inference=auto&distinct=true&enrichment=true)
 
-Denne forespørgsel finder alle **Comestible**-synsets (mad) og deres brugseksempler *hvis de findes*. Mønstret `dns:ontologicalType/rdfs:member` er det samme som bruges i [Ontologiske typer og RDF Bags](#ontologiske-typer-og-rdf-bags). Nogle synsets har eksempler, andre ikke. Uden `OPTIONAL` ville ethvert synset uden eksempel blive udeladt fra resultaterne. Rul igennem resultaterne og bemærk hvordan nogle rækker har en `?example`-værdi, mens andre er tomme.
+Denne forespørgsel finder alle **Comestible**-synsets (mad) og deres brugseksempler *hvis de findes*. Mønstret `?type ?member` er det samme som bruges i [Ontologiske typer og RDF Bags](#ontologiske-typer-og-rdf-bags). Nogle synsets har eksempler, andre ikke. Uden `OPTIONAL` ville ethvert synset uden eksempel blive udeladt fra resultaterne. Rul igennem resultaterne og bemærk hvordan nogle rækker har en `?example`-værdi, mens andre er tomme.
 
 
 ## FILTER: indsnævring af resultater
@@ -358,32 +360,36 @@ Denne forespørgsel bruger en [subquery](https://en.wikibooks.org/wiki/SPARQL/Su
 
 ### Udforsk ontologiske typer
 
-DanNet annoterer hvert synset med en eller flere ontologiske typer fra `dnc:`-namespacet (se [Ontologiske typer og RDF Bags](#ontologiske-typer-og-rdf-bags) for baggrund). Du kan få et overblik over alle tilgængelige typer og hvor mange synsets hver enkelt dækker:
+DanNets ontologiske typer består af begreber fra `dnc:`-namespacet (se [Ontologiske typer og RDF Bags](#ontologiske-typer-og-rdf-bags) for baggrund). Du kan få et overblik over alle begreberne og hvor mange synsets hvert enkelt dækker:
 
 ```sparql
-SELECT  ?type (COUNT(?synset) AS ?count)
+SELECT  ?concept (COUNT(?synset) AS ?count)
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member ?type }
-GROUP BY ?type
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              ?concept
+    FILTER strstarts(str(?concept), str(dnc:))
+  }
+GROUP BY ?concept
 ORDER BY DESC(?count)
 LIMIT   100
 ```
 
-[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0A%0ASELECT++%3Ftype+%28COUNT%28%3Fsynset%29+AS+%3Fcount%29%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+%3Ftype+%7D%0AGROUP+BY+%3Ftype%0AORDER+BY+DESC%28%3Fcount%29%0ALIMIT+++100%0A&offset=0&limit=10&inference=auto&distinct=true)
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0A%0ASELECT++%3Fconcept+%28COUNT%28%3Fsynset%29+AS+%3Fcount%29%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++%3Fconcept%0A++++FILTER+strstarts%28str%28%3Fconcept%29%2C+str%28dnc%3A%29%29%0A++%7D%0AGROUP+BY+%3Fconcept%0AORDER+BY+DESC%28%3Fcount%29%0ALIMIT+++100%0A&offset=0&limit=10&inference=auto&distinct=true)
 
-Resultaterne viser `dnc:`-QNames direkte (f.eks. `dnc:Object`, `dnc:Covering`, `dnc:Animal`). Man kan vælge en hvilken som helst af disse og bruge den i en opfølgende forespørgsel. For eksempel, for at finde alle synsets tagget som `dnc:Covering`:
+`FILTER` beholder kun `dnc:`-begreberne, da `?member` også matcher hver types etiket og klasse (se [Filtrering efter namespace](#filtrering-efter-namespace)). Resultaterne viser `dnc:`-QNames direkte (f.eks. `dnc:Object`, `dnc:Covering`, `dnc:Animal`). Man kan vælge en hvilken som helst af disse og bruge den i en opfølgende forespørgsel. For eksempel, for at finde alle synsets hvis type indeholder `dnc:Covering`:
 
 ```sparql
 SELECT  ?synset ?definition
 WHERE
-  { ?synset dns:ontologicalType/rdfs:member dnc:Covering .
-    ?synset  skos:definition  ?definition
+  { ?synset  dns:ontologicalType  ?type .
+    ?type    ?member              dnc:Covering .
+    ?synset  skos:definition      ?definition
   }
 ```
 
-[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0APREFIX++rdfs%3A+%3Chttp%3A//www.w3.org/2000/01/rdf-schema%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset+dns%3AontologicalType/rdfs%3Amember+dnc%3ACovering+.%0A++++%3Fsynset++skos%3Adefinition++%3Fdefinition%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
+[Kør denne forespørgsel](/dannet/sparql?query=PREFIX++dns%3A++%3Chttps%3A//wordnet.dk/dannet/schema/%3E%0APREFIX++dnc%3A++%3Chttps%3A//wordnet.dk/dannet/concepts/%3E%0APREFIX++skos%3A+%3Chttp%3A//www.w3.org/2004/02/skos/core%23%3E%0A%0ASELECT++%3Fsynset+%3Fdefinition%0AWHERE%0A++%7B+%3Fsynset++dns%3AontologicalType++%3Ftype+.%0A++++%3Ftype++++%3Fmember++++++++++++++dnc%3ACovering+.%0A++++%3Fsynset++skos%3Adefinition++++++%3Fdefinition%0A++%7D%0A&offset=0&limit=10&inference=auto&distinct=true&enrichment=true)
 
-Prøv at udskifte `dnc:Covering` med en anden type fra det forrige resultat!
+Prøv at udskifte `dnc:Covering` med et andet begreb fra det forrige resultat!
 
 ### LIMIT, OFFSET og paginering
 
@@ -483,7 +489,8 @@ Man behøver ikke at huske fulde URI'er. DanNets [SPARQL-endpoint](/dannet/sparq
 |---------|---|------------------------------------------|
 | **dn:** | https://wordnet.dk/dannet/data/ | DanNet-synsets, -ord, -betydninger       |
 | **dns:** | https://wordnet.dk/dannet/schema/ | DanNet-specifikke egenskaber             |
-| **dnc:** | https://wordnet.dk/dannet/concepts/ | DanNet-ontologiske typer                 |
+| **dnt:** | https://wordnet.dk/dannet/types/ | DanNet-ontologiske typer                 |
+| **dnc:** | https://wordnet.dk/dannet/concepts/ | Begreber i de ontologiske typer          |
 | **ontolex:** | http://www.w3.org/ns/lemon/ontolex# | Leksikalske entries, betydninger, former |
 | **wn:**  | https://globalwordnet.github.io/schemas/wn# | WordNet-relationer (hypernym, osv.)      |
 | **skos:** | http://www.w3.org/2004/02/skos/core# | Definitioner                             |
