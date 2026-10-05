@@ -306,8 +306,6 @@
            UNION
            { ?source vann:preferredNamespacePrefix ?prefix }
            UNION
-           { ?s skos:inScheme ?source }
-           UNION
            { ?source owl:imports ?o }
            UNION
            { ?source a owl:Ontology }
