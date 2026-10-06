@@ -941,6 +941,36 @@
                  (when (< 1 (count synsets))
                    [sense synsets]))))))
 
+(defn legacy-shared-senses
+  "The Danish senses that more than one synset shares in the legacy CSV
+  release in `dir`, each as a [sense-id synsets] pair."
+  [dir]
+  (let [synset #(keyword "dn" (str "synset-" %))]
+    (->> (read-legacy-rows (io/file dir "wordsenses.csv"))
+         (filter danish-sense?)
+         (group-by first)
+         (keep (fn [[sense rows]]
+                 (let [synsets (set (map (comp synset #(nth % 2)) rows))]
+                   (when (< 1 (count synsets))
+                     [sense synsets])))))))
+
+(defn sense-id
+  "The id of the DanNet 2 sense behind the dn: `sense`, without the -i<n>
+  suffix that a divided sense has."
+  [sense]
+  (second (re-matches #"sense-(\d+)(?:-i\d+)?" (name sense))))
+
+(defn divided-sense-ids
+  "The ids of the senses that graph `g` divides over more than one synset;
+  see sense-id."
+  [g]
+  (->> (q/run g '[:bgp [?synset :ontolex/lexicalizedSense ?sense]])
+       (group-by (comp sense-id '?sense))
+       (keep (fn [[id rows]]
+               (when (and id (< 1 (count (set (map '?synset rows)))))
+                 id)))
+       (set)))
+
 (def hypernym-pos-query
   "The [synset hypernym] pairs that dns:HypernymPOSShape in shapes/base.ttl
   warns about: the two are lexicalized by words with different parts of
@@ -995,7 +1025,9 @@
   2026-09-21 must be in bootstrap/from/. The duplicates that the 2023
   conversion removed are the DanNet 2.5.1 synsets, untyped in 2026-08-03, that
   a synset of the asserted dn: graph `now` subsumes; the later ones were
-  merged in 2026-08-21.
+  merged in 2026-08-21. Likewise, the senses that the 2023 conversion split
+  are those shared in DanNet 2.5.1 that `now` divides over several synsets,
+  less those still shared in 2026-08-03 and split in 2026-08-21.
 
   The cross-PoS hypernyms are those that dns:crossPoSHypernym held as a
   stopgap until 2026-09-21, plus the wn:hypernym pairs that disagree in part
@@ -1021,10 +1053,15 @@
                                        [?s :rdf/type :ontolex/LexicalConcept]])
                           (map '?o)
                           (filter #(and (conversion (synset-id %))
-                                        (not (typed-before %)))))]
+                                        (not (typed-before %)))))
+        divided      (divided-sense-ids now)
+        still-shared (set (map (comp sense-id first) (mapcat val shared)))
+        split-2023   (filter (fn [[id _]] (and (divided id) (not (still-shared id))))
+                             (legacy-shared-senses conversion-dir))]
     {:duplicates         (merge-with + (count-by list removed-2023)
                                      (count-by second (:merged shared)))
-     :split-senses       (count-by second (:split shared))
+     :split-senses       (merge-with + (count-by second split-2023)
+                                     (count-by second (:split shared)))
      :crosspos/attribute (count-by (comp list first) (:attribute crosspos))
      :crosspos/removed   (count-by (comp list first) (:removed crosspos))
      :crosspos/pos-fixed (merge-with + (count-by (comp list first) (:hypernym crosspos))
