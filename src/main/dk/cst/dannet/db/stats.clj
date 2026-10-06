@@ -1007,7 +1007,9 @@
   cleanup-counts computes the count of each :key. :tag and :step name the
   release and the release step that made the correction; see
   git show <tag>:src/main/dk/cst/dannet/db/bootstrap.clj."
-  [{:group "Splits and merges" :correction "duplicate synsets merged"
+  [{:correction "part-whole errors removed"
+    :key        :part-whole :tag "v2026-08-03" :step "fix-meronym-directionality!"}
+   {:group "Splits and merges" :correction "duplicate synsets merged"
     :key   :duplicates :tag "v2026-08-21" :step "merge-duplicate-synsets!"}
    {:group "Splits and merges" :correction "duplicate senses merged"
     :key   :merged-senses :tag "v2025-07-03" :step "merge-senses!"}
@@ -1024,9 +1026,7 @@
     :key        :crosspos/pos-fixed :tag "v2026-09-21" :step "fix-verb-phrase-pos!"}
    {:group      "Cross-PoS hypernyms"
     :correction "kept for review"
-    :key        :crosspos/kept}
-   {:correction "part-whole errors removed"
-    :key        :part-whole :tag "v2026-08-03" :step "fix-meronym-directionality!"}])
+    :key        :crosspos/kept}])
 
 (defn cleanup-counts
   "The count of each cleanup-history :key, split by origin; see by-origin.
