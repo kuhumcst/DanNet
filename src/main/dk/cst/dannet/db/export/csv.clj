@@ -224,6 +224,7 @@
   (let [dir-file (io/file dir-path)]
     (->> (file-seq dir-file)
          (remove (partial = dir-file))
+         (remove #(str/starts-with? (.getName %) "."))
          (map #(.getPath %))
          (remove #(str/ends-with? % ".zip")))))
 
