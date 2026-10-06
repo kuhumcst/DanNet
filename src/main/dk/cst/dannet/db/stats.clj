@@ -941,6 +941,15 @@
                  (when (< 1 (count synsets))
                    [sense synsets]))))))
 
+(defn merged-senses
+  "The senses of graph `g` that replace duplicate senses with dns:subsumed,
+  each as a [sense synsets] pair."
+  [g]
+  (->> (q/run g '[:bgp [?sense :dns/subsumed ?old]
+                  [?synset :ontolex/lexicalizedSense ?sense]])
+       (group-by '?sense)
+       (map (fn [[sense rows]] [sense (set (map '?synset rows))]))))
+
 (defn legacy-shared-senses
   "The Danish senses that more than one synset shares in the legacy CSV
   release in `dir`, each as a [sense-id synsets] pair."
@@ -1000,6 +1009,8 @@
   git show <tag>:src/main/dk/cst/dannet/db/bootstrap.clj."
   [{:group "Splits and merges" :correction "duplicate synsets merged"
     :key   :duplicates :tag "v2026-08-21" :step "merge-duplicate-synsets!"}
+   {:group "Splits and merges" :correction "duplicate senses merged"
+    :key   :merged-senses :tag "v2025-07-03" :step "merge-senses!"}
    {:group "Splits and merges" :correction "shared senses split"
     :key   :split-senses :tag "v2026-08-21" :step "split-shared-senses!"}
    {:group      "Cross-PoS hypernyms"
@@ -1027,7 +1038,9 @@
   a synset of the asserted dn: graph `now` subsumes; the later ones were
   merged in 2026-08-21. Likewise, the senses that the 2023 conversion split
   are those shared in DanNet 2.5.1 that `now` divides over several synsets,
-  less those still shared in 2026-08-03 and split in 2026-08-21.
+  less those still shared in 2026-08-03 and split in 2026-08-21. The merged
+  senses are those of `now` that subsume others: merged in 2025-07-03, four
+  of them giving readings back to another synset in 2026-10-02.
 
   The cross-PoS hypernyms are those that dns:crossPoSHypernym held as a
   stopgap until 2026-09-21, plus the wn:hypernym pairs that disagree in part
@@ -1060,7 +1073,8 @@
                              (legacy-shared-senses conversion-dir))]
     {:duplicates         (merge-with + (count-by list removed-2023)
                                      (count-by second (:merged shared)))
-     :split-senses       (merge-with + (count-by second split-2023)
+     :merged-senses      (count-by second (merged-senses now))
+     :split-senses      (merge-with + (count-by second split-2023)
                                      (count-by second (:split shared)))
      :crosspos/attribute (count-by (comp list first) (:attribute crosspos))
      :crosspos/removed   (count-by (comp list first) (:removed crosspos))
