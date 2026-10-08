@@ -209,7 +209,8 @@
                   (update-in [:response :headers] merge
                              (-> (assoc (resp/x-headers page-meta)
                                    "Content-Type" content-type
-                                   "Cache-Control" resp/one-day-cache)
+                                   "Cache-Control" resp/one-day-cache
+                                   "Vary" "Accept, Accept-Language")
 
                                  ;; Add filename extensions when needed.
                                  (merge (resp/with-file-ext title content-type)))))))})
