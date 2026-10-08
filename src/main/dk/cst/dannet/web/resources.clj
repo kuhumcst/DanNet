@@ -210,7 +210,7 @@
                              (-> (assoc (resp/x-headers page-meta)
                                    "Content-Type" content-type
                                    "Cache-Control" resp/one-day-cache
-                                   "Vary" "Accept, Accept-Language")
+                                   "Vary" "Accept, Accept-Language, Cookie")
 
                                  ;; Add filename extensions when needed.
                                  (merge (resp/with-file-ext title content-type)))))))})
