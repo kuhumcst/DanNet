@@ -15,7 +15,8 @@
 
   to write the conversion history of every DanNet 2.2 relation to
   doc/relation-mapping.md."
-  (:require [clojure.edn :as edn]
+  (:require [clojure.data.csv :as csv]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -624,18 +625,80 @@
          (frequencies)
          (reduce (fn [m [[p origin] n]] (assoc-in m [p origin] n)) {}))))
 
+(def wordnetloom-dir
+  "The WordnetLoom export with the links to Princeton WordNet made in the
+  linking work of Pedersen et al. (2019), first released in July 2023."
+  "bootstrap/other/dannet-new/wordnetloom")
+
+(def wordnetloom-relations
+  "The relations that the 2023 import read the WordnetLoom relation ids of the
+  links as. The export does not name them, so the import guessed."
+  {"200" :wn/ili
+   "201" :dns/eqHyponym
+   "202" :dns/eqHypernym
+   "203" :dns/eqSimilar})
+
+(defn read-wordnetloom-rows
+  "The rows of the WordnetLoom export file `f`, each a vector of fields."
+  [f]
+  (with-open [reader (io/reader f)]
+    (doall (csv/read-csv reader))))
+
+(defn wordnetloom-links
+  "The links from DanNet synsets to ILI concepts in the WordnetLoom export in
+  `dir` as [synset relation ili] triples; see wordnetloom-relations.
+
+  The export gives a DanNet synset an id of the form 888<id>000 and an
+  English synset an ILI id. The few links that go from English to DanNet are
+  turned around."
+  [dir]
+  (let [dannet? #(and (str/starts-with? % "888") (str/ends-with? % "000"))
+        synset  #(keyword "dn" (str "synset-" (subs % 3 (- (count %) 3))))
+        ili     (into {} (for [[id _ ili] (read-wordnetloom-rows
+                                            (io/file dir "synset_attributes.csv"))
+                               :when (not= ili "\\N")]
+                           [id (keyword "ili" ili)]))]
+    (for [[_ child parent id] (read-wordnetloom-rows
+                                (io/file dir "synset_relation.csv"))
+          :let [relation (wordnetloom-relations id)]
+          :when (and relation (not= (dannet? child) (dannet? parent)))
+          :let [[dn en] (if (dannet? parent) [parent child] [child parent])]]
+      [(synset dn) relation (ili en)])))
+
+(defn wordnetloom-stats
+  "Figures for the WordnetLoom `links` (see wordnetloom-links): how many there
+  are, how many synsets they link, their count per relation, and how many
+  link a synset to the same ILI concept as a DanNet 2.2 link, given the legacy
+  relations.csv `rows`, their current `targets` and the OEWN synsets of each
+  ILI concept in `oewn`."
+  [links targets oewn rows]
+  (let [synset (fn [id] (keyword "dn" (str "synset-" id)))
+        ili    (into {} (for [[concept synsets] oewn
+                              s synsets]
+                          [s concept]))
+        legacy (set (for [[s _ _ t] rows
+                          o (get targets t)]
+                      [(synset s) (get ili o o)]))]
+    {:links       (count links)
+     :synsets     (count (set (map first links)))
+     :by-relation (frequencies (map second links))
+     :legacy      (count (filter (fn [[s _ o]] (legacy [s o])) links))}))
+
 (defn link-stats
   "What became of the DanNet 2.2 links to Princeton WordNet in the legacy CSV
-  release in `dir`, and the origin of the current links of the live db map
-  `dannet`; see legacy-link-outcomes and link-origins."
+  release in `dir`, the origin of the current links of the live db map
+  `dannet`, and the links in the WordnetLoom export; see
+  legacy-link-outcomes, link-origins and wordnetloom-stats."
   [dir {:keys [dataset] :as dannet}]
   (let [rows    (->> (read-legacy-rows (io/file dir "relations.csv"))
                      (filter (comp cross-lingual-relations second)))
         oewn    (oewn-synsets-by-ili (.getGraph (.getUnionModel dataset)))
         targets (english-targets english-dir oewn)
         links   (link-edges (db/get-graph dataset prefix/dn-uri))]
-    {:outcomes (legacy-link-outcomes targets links rows)
-     :origins  (link-origins targets links rows)}))
+    {:outcomes    (legacy-link-outcomes targets links rows)
+     :origins     (link-origins targets links rows)
+     :wordnetloom (wordnetloom-stats (wordnetloom-links wordnetloom-dir)
+                                     targets oewn rows)}))
 
 (defn- total
   [relations]
