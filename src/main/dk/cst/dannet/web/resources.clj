@@ -210,7 +210,9 @@
                              (-> (assoc (resp/x-headers page-meta)
                                    "Content-Type" content-type
                                    "Cache-Control" resp/one-day-cache
-                                   "Vary" "Accept, Accept-Language, Cookie")
+                                   ;; the dev-only CORS headers depend on Origin
+                                   "Vary" (cond-> "Accept, Accept-Language, Cookie"
+                                            shared/development? (str ", Origin")))
 
                                  ;; Add filename extensions when needed.
                                  (merge (resp/with-file-ext title content-type)))))))})
