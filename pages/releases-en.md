@@ -1,6 +1,12 @@
 # Releases
 The newer DanNet releases use the release date as the version number, formatted as `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Links to the Open English WordNet
+* 10 `wn:eq_synonym` links pointed to synsets that are not in the 2025 edition of the Open English WordNet (OEWN). They are fixed as follows:
+  * 5 pointed to proper nouns, which the OEWN has moved to Open English Namenet, e.g. the Moon for {måne}. These links are removed, but the synsets keep their `wn:ili`. {vest} also loses its ILI for the Occident, since it is the compass point.
+  * {chimpanse} pointed to the genus Pan, which has also moved. It now links to the species chimpanzee.
+  * 4 pointed to verb synsets that the OEWN merged into others. The links now point to the merged synsets, e.g. "ache; hurt; suffer" for {lide}, and the `wn:ili` of each DanNet synset is the ILI of the merged synset.
+
 ## **2026-10-02**: Restored DanNet 2 data
 * The 268 relations that DanNet 2.2 negated are now `owl:NegativePropertyAssertion` resources ([Github issue #216](https://github.com/kuhumcst/DanNet/issues/216)), e.g. {ikkeryger} is not the agent of {ryge}. The DanNet 2.2 CSV release listed them as ordinary relations, so they were asserted from 2023 until now.
 * 19629 DanNet 2 usage examples lost in the 2023 conversion are back, and 573 examples that it attached to the wrong sense are removed. 109 examples that fit no single sense are left out.

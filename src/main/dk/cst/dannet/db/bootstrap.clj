@@ -1067,6 +1067,72 @@
       (doseq [[f s] stresses]
         (.add model f (prop :dns/stressedRep) (.createLiteral model s "da"))))))
 
+(def dangling-oewn-link-changes
+  "The English links of the dn: synsets whose wn:eq_synonym target is missing
+  from OEWN 2025, as the triples to remove and to add.
+
+  OEWN 2025 moved proper nouns and genera to Open English Namenet. Their links
+  are removed, but the synsets keep their wn:ili, except {vest_1§1}: it is the
+  compass point and links to it already, so its ILI of the Occident goes too.
+  {chimpanse_§1} links to the species instead of the genus. The OEWN merged
+  the four verb synsets into others as duplicates (see its deprecations.csv),
+  so their links move to the merged synset and their wn:ili becomes its ILI.
+  {blive_§4} links to that synset already."
+  {:remove [[:dn/synset-37515 :wn/eq_synonym :en/oewn-09381255-n] ; Moon
+            [:dn/synset-26945 :wn/eq_synonym :en/oewn-09473312-n] ; Sun
+            [:dn/synset-9045 :wn/eq_synonym :en/oewn-08580157-n]  ; Orient
+            [:dn/synset-32201 :wn/eq_synonym :en/oewn-09293800-n] ; Earth
+            [:dn/synset-38252 :wn/eq_synonym :en/oewn-08700313-n] ; Occident
+            [:dn/synset-38252 :wn/ili :ili/i82570]
+            [:dn/synset-3659 :wn/eq_synonym :en/oewn-02484260-n]  ; genus Pan
+            [:dn/synset-3659 :wn/ili :ili/i48707]
+            [:dn/synset-42945 :wn/eq_synonym :en/oewn-02736899-v] ; stay behind
+            [:dn/synset-42945 :wn/ili :ili/i35320]
+            [:dn/synset-44354 :wn/eq_synonym :en/oewn-02125976-v] ; feel pain
+            [:dn/synset-44354 :wn/ili :ili/i32364]
+            [:dn/synset-44354 :wn/ili :ili/i30704]
+            [:dn/synset-33105 :wn/eq_synonym :en/oewn-00932330-v] ; call to mind
+            [:dn/synset-33105 :wn/ili :ili/i26262]
+            [:dn/synset-13901 :wn/eq_synonym :en/oewn-01643256-v] ; design
+            [:dn/synset-13901 :wn/ili :ili/i29940]]
+   :add    [[:dn/synset-3659 :wn/eq_synonym :en/oewn-02484454-n]  ; chimpanzee
+            [:dn/synset-3659 :wn/ili :ili/i48708]
+            [:dn/synset-44354 :wn/eq_synonym :en/oewn-00064841-v] ; be in pain
+            [:dn/synset-44354 :wn/ili :ili/i22102]
+            [:dn/synset-33105 :wn/eq_synonym :en/oewn-00022092-v] ; call to mind
+            [:dn/synset-33105 :wn/ili :ili/i21876]
+            [:dn/synset-13901 :wn/eq_synonym :en/oewn-01641910-v] ; devise
+            [:dn/synset-13901 :wn/ili :ili/i29933]]})
+
+(h/defn fix-dangling-oewn-links!
+  "Replace the links of the dn: synsets in `dataset` to synsets missing from
+  OEWN 2025, as listed in dangling-oewn-link-changes.
+
+  The links come from the DanNet 2.2 links to Princeton WordNet. Must run
+  after add-open-english-wordnet!, which supplies the new link targets."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/fix-dangling-oewn-links}
+          "Replacing links to synsets missing from OEWN 2025")
+  (let [g        (db/get-graph dataset prefix/dn-uri)
+        model    (db/get-model dataset prefix/dn-uri)
+        oewn-g   (db/get-graph dataset prefix/oewn-uri)
+        changes  dangling-oewn-link-changes
+        found?   (fn [graph triple] (seq (q/run graph [:bgp triple])))
+        target?  (fn [[_ p o]]
+                   (and (= :wn/eq_synonym p)
+                        (found? oewn-g [o :rdf/type :ontolex/LexicalConcept])))
+        counts   {:removed (count (filter #(found? g %) (:remove changes)))
+                  :targets (count (filter target? (:add changes)))}
+        expected {:removed 17 :targets 4}]
+    (assert (= expected counts)
+            (str "expected OEWN link changes " expected ", found " counts))
+    (txn/transact-exec model
+      (doseq [triple (:remove changes)]
+        (db/remove! model triple)))
+    (txn/transact-exec g
+      (db/safe-add! g (:add changes)))))
+
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
   to either of the export datasets.
@@ -1097,6 +1163,8 @@
     ;; Deliberately omits the 963 forms with single stress marks only: DDO does
     ;; not show this predictable stress, e.g. on the particle in "slå op".
     (restore-stress-marks! dataset)
+    ;; For the release after 2026-10-02.
+    (fix-dangling-oewn-links! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)

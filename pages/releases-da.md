@@ -1,6 +1,12 @@
 # Versioner
 De nye DanNet-versioner bruger udgivelsesdatoen som versionsnummer, formateret som `YYYY-MM-DD`.
 
+## **SNAPSHOT**: Koblinger til Open English WordNet
+* 10 `wn:eq_synonym`-koblinger pegede på synsets, som ikke findes i 2025-udgaven af Open English WordNet (OEWN). De er rettet sådan:
+  * 5 pegede på egennavne, som OEWN har flyttet til Open English Namenet, f.eks. månen for {måne}. Koblingerne er fjernet, men synsettene beholder deres `wn:ili`. {vest} mister også sin ILI for Vesten (the Occident), da det er verdenshjørnet.
+  * {chimpanse} pegede på slægten Pan, som også er flyttet. Det kobles nu til arten chimpanse.
+  * 4 pegede på synsets for verber, som OEWN har slået sammen med andre. Koblingerne peger nu på de sammenlagte synsets, f.eks. "ache; hurt; suffer" for {lide}, og hvert DanNet-synsets `wn:ili` er nu det sammenlagte synsets ILI.
+
 ## **2026-10-02**: Genskabte data fra DanNet 2
 * De 268 relationer, som DanNet 2.2 negerede, er nu `owl:NegativePropertyAssertion`-ressourcer ([Github issue #216](https://github.com/kuhumcst/DanNet/issues/216)), f.eks. er {ikkeryger} ikke agent for {ryge}. CSV-udgaven af DanNet 2.2 viste dem som almindelige relationer, så de har været påstået siden 2023.
 * 19629 brugseksempler fra DanNet 2, som gik tabt ved konverteringen i 2023, er tilbage, og 573 eksempler, som den satte på den forkerte betydning, er fjernet. 109 eksempler, som ikke passer til én bestemt betydning, er udeladt.
