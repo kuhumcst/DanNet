@@ -330,12 +330,18 @@
 
 (defn legacy-stats
   "The statistics of the legacy CSV release in `dir`, the owl:inverseOf pairs
-  `inverses` of the current schemas deciding its inverse closure."
+  `inverses` of the current schemas deciding its inverse closure.
+
+  :linked counts the synsets with a link to Princeton WordNet, and :sentiment
+  the synsets with a positive or negative connotation, the nearest thing to a
+  sentiment that DanNet 2.2 had."
   [dir inverses]
   (let [synsets   (read-legacy-rows (io/file dir "synsets.csv"))
         senses    (filter danish-sense?
                           (read-legacy-rows (io/file dir "wordsenses.csv")))
         relations (read-legacy-rows (io/file dir "relations.csv"))
+        attrs     (read-legacy-rows (io/file dir "synset_attributes.csv"))
+        links     (filter (comp cross-lingual-relations second) relations)
         edges     (legacy-edges relations)
         defined?  (fn [[_ _ gloss]]
                     (let [gloss (str/trim (or gloss ""))]
@@ -346,7 +352,12 @@
      :words       (count (distinct (map second senses)))
      :definitions (count (filter defined? synsets))
      :relations   (frequencies (map second edges))
-     :external    (count (filter (comp cross-lingual-relations second) relations))
+     :external    (count links)
+     :linked      (count (distinct (map first links)))
+     :sentiment   (count (distinct (for [[id attr value] attrs
+                                         :when (and (= attr "connotation")
+                                                    (#{"positive" "negative"} value))]
+                                     id)))
      :degrees     (degree-stats (map first synsets) edges)
      :closure     (inverse-closure inverses edges)}))
 
@@ -477,6 +488,9 @@
    ["Synset links to OEWN synsets (eq*)"
     (str "VALUES ?p { wn:eq_synonym dns:eqHypernym dns:eqHyponym dns:eqSimilar } "
          "?s ?p ?o . " (synset-filter "?s")) nil]
+   ["Synsets linked to an OEWN synset"
+    (str "VALUES ?p { wn:eq_synonym dns:eqHypernym dns:eqHyponym dns:eqSimilar } "
+         "?s ?p ?o . " (synset-filter "?s")) "?s"]
    ["Synsets with a supersense"
     (str "?s wn:lexfile ?o . " (synset-filter "?s")) "?s"]
    ["Synsets with an ontological type"
@@ -492,7 +506,11 @@
    ["COR.SEM senses linked to a synset" "?s dns:linkedSynset ?o" "?s"]
    ["COR.SEM senses with a hypernym anchor" "?s dns:hypernymAnchor ?o" "?s"]
    ["COR.SEM senses matched to a DanNet sense" "?s dns:eqSense ?o" "?s"]
-   ["COR.SEM senses with a FrameNet frame" "?s dns:frame ?o" "?s"]])
+   ["COR.SEM senses with a FrameNet frame" "?s dns:frame ?o" "?s"]
+   ["Synsets linked from a COR.SEM sense"
+    (str "?s dns:linkedSynset ?o . " (synset-filter "?o")) "?o"]
+   ["Senses matched to a COR.SEM sense"
+    (str "?s dns:eqSense ?o . " (dannet-filter "?o")) "?o"]])
 
 (defn count-links
   "The link-counts of the base union graph `g` as a vector of [label count]."
@@ -611,17 +629,36 @@
          (reduce (fn [m [k outcome]] (update-in m [k outcome] (fnil inc 0)))
                  {}))))
 
+(defn ili-concepts
+  "The ILI concept of each OEWN synset, given the OEWN synsets of each ILI
+  concept in `oewn`."
+  [oewn]
+  (into {} (for [[concept synsets] oewn
+                 s synsets]
+             [s concept])))
+
+(defn legacy-concepts
+  "The [synset concept] pairs of the DanNet 2.2 links in the legacy
+  relations.csv `rows`, given their current `targets` and the `ili` concept
+  of each OEWN synset (see ili-concepts).
+
+  A target counts as its ILI concept when it has one, so that a link to an
+  ILI concept and a link to one of its OEWN synsets match."
+  [targets ili rows]
+  (let [synset #(keyword "dn" (str "synset-" %))]
+    (set (for [[s _ _ t] rows
+               o (get targets t)]
+           [(synset s) (get ili o o)]))))
+
 (defn link-origins
   "The current `links` per relation, split into the ones that point to the
   concept of a DanNet 2.2 link from the same synset (:legacy) and the rest
-  (:new), given the legacy relations.csv `rows` and their current `targets`."
-  [targets links rows]
-  (let [synset #(keyword "dn" (str "synset-" %))
-        legacy (set (for [[s _ _ t] rows
-                          o (get targets t)]
-                      [(synset s) o]))]
+  (:new), given the legacy relations.csv `rows`, their current `targets` and
+  the `ili` concept of each OEWN synset; see legacy-concepts."
+  [targets ili links rows]
+  (let [legacy (legacy-concepts targets ili rows)]
     (->> links
-         (map (fn [[s p o]] [p (if (legacy [s o]) :legacy :new)]))
+         (map (fn [[s p o]] [p (if (legacy [s (get ili o o)]) :legacy :new)]))
          (frequencies)
          (reduce (fn [m [[p origin] n]] (assoc-in m [p origin] n)) {}))))
 
@@ -669,16 +706,10 @@
   "Figures for the WordnetLoom `links` (see wordnetloom-links): how many there
   are, how many synsets they link, their count per relation, and how many
   link a synset to the same ILI concept as a DanNet 2.2 link, given the legacy
-  relations.csv `rows`, their current `targets` and the OEWN synsets of each
-  ILI concept in `oewn`."
-  [links targets oewn rows]
-  (let [synset (fn [id] (keyword "dn" (str "synset-" id)))
-        ili    (into {} (for [[concept synsets] oewn
-                              s synsets]
-                          [s concept]))
-        legacy (set (for [[s _ _ t] rows
-                          o (get targets t)]
-                      [(synset s) (get ili o o)]))]
+  relations.csv `rows`, their current `targets` and the `ili` concept of each
+  OEWN synset; see legacy-concepts."
+  [links targets ili rows]
+  (let [legacy (legacy-concepts targets ili rows)]
     {:links       (count links)
      :synsets     (count (set (map first links)))
      :by-relation (frequencies (map second links))
@@ -693,12 +724,13 @@
   (let [rows    (->> (read-legacy-rows (io/file dir "relations.csv"))
                      (filter (comp cross-lingual-relations second)))
         oewn    (oewn-synsets-by-ili (.getGraph (.getUnionModel dataset)))
+        ili     (ili-concepts oewn)
         targets (english-targets english-dir oewn)
         links   (link-edges (db/get-graph dataset prefix/dn-uri))]
     {:outcomes    (legacy-link-outcomes targets links rows)
-     :origins     (link-origins targets links rows)
+     :origins     (link-origins targets ili links rows)
      :wordnetloom (wordnetloom-stats (wordnetloom-links wordnetloom-dir)
-                                     targets oewn rows)}))
+                                     targets ili rows)}))
 
 (defn- total
   [relations]
