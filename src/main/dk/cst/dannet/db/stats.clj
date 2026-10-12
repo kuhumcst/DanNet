@@ -787,7 +787,7 @@
                (links "Synsets linked from a COR.SEM sense")]
               ["Senses" (:senses legacy) (:senses current)]
               ["Senses with a DDO URL" nil (links "Senses with a DDO source")]
-              ["Senses matched to COR.SEM" nil
+              ["Senses linked to COR.SEM" nil
                (links "Senses matched to a COR.SEM sense")]
               ["Words" (:words legacy) (:words current)]
               ["Words linked to COR" nil (links "Words linked to a COR word")]]}))
