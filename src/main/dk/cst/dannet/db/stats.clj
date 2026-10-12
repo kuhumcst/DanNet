@@ -510,7 +510,9 @@
    ["Synsets linked from a COR.SEM sense"
     (str "?s dns:linkedSynset ?o . " (synset-filter "?o")) "?o"]
    ["Senses matched to a COR.SEM sense"
-    (str "?s dns:eqSense ?o . " (dannet-filter "?o")) "?o"]])
+    (str "?s dns:eqSense ?o . " (dannet-filter "?o")) "?o"]
+   ["Senses near-matched to a COR.SEM sense"
+    (str "?s dns:eqNearSense ?o . " (dannet-filter "?o")) "?o"]])
 
 (defn count-links
   "The link-counts of the base union graph `g` as a vector of [label count]."
