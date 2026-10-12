@@ -724,22 +724,43 @@
      :by-relation (frequencies (map second links))
      :legacy      (count (filter (fn [[s _ o]] (legacy [s o])) links))}))
 
+(defn shared-ili-origins
+  "The wn:ili `links` to a concept that more than one synset is linked to,
+  counted by where they come from: a DanNet 2.2 link to the same concept
+  (:legacy, see legacy-concepts), the WordnetLoom `wordnetloom-links`
+  (:wordnetloom) or neither (:other)."
+  [links legacy wordnetloom-links]
+  (let [ili     (filter (comp #{:wn/ili} second) links)
+        synsets (frequencies (map peek ili))                ; per concept
+        loom    (set (map (fn [[s _ o]] [s o]) wordnetloom-links))]
+    (->> ili
+         (filter (fn [[_ _ o]] (< 1 (synsets o))))
+         (map (fn [[s _ o]]
+                (cond
+                  (legacy [s o]) :legacy
+                  (loom [s o]) :wordnetloom
+                  :else :other)))
+         (frequencies))))
+
 (defn link-stats
   "What became of the DanNet 2.2 links to Princeton WordNet in the legacy CSV
   release in `dir`, the origin of the current links of the live db map
-  `dannet`, and the links in the WordnetLoom export; see
-  legacy-link-outcomes, link-origins and wordnetloom-stats."
+  `dannet`, the links in the WordnetLoom export, and the origin of the ILI
+  links to concepts that several synsets share; see legacy-link-outcomes,
+  link-origins, wordnetloom-stats and shared-ili-origins."
   [dir {:keys [dataset] :as dannet}]
   (let [rows    (->> (read-legacy-rows (io/file dir "relations.csv"))
                      (filter (comp cross-lingual-relations second)))
         oewn    (oewn-synsets-by-ili (.getGraph (.getUnionModel dataset)))
         ili     (ili-concepts oewn)
         targets (english-targets english-dir oewn)
-        links   (link-edges (db/get-graph dataset prefix/dn-uri))]
+        links   (link-edges (db/get-graph dataset prefix/dn-uri))
+        loom    (wordnetloom-links wordnetloom-dir)]
     {:outcomes    (legacy-link-outcomes targets links rows)
      :origins     (link-origins targets ili links rows)
-     :wordnetloom (wordnetloom-stats (wordnetloom-links wordnetloom-dir)
-                                     targets ili rows)}))
+     :wordnetloom (wordnetloom-stats loom targets ili rows)
+     :shared-ili  (shared-ili-origins links (legacy-concepts targets ili rows)
+                                      loom)}))
 
 (defn- total
   [relations]
@@ -1083,6 +1104,15 @@
        (group-by '?sense)
        (map (fn [[sense rows]] [sense (set (map '?synset rows))]))))
 
+(defn replaced-senses
+  "The senses that the merged senses of graph `g` replaced; see
+  merged-senses."
+  [g]
+  (->> (q/run g '[:bgp [?sense :dns/subsumed ?old]
+                  [?synset :ontolex/lexicalizedSense ?sense]])
+       (map '?old)
+       (set)))
+
 (defn legacy-shared-senses
   "The Danish senses that more than one synset shares in the legacy CSV
   release in `dir`, each as a [sense-id synsets] pair."
@@ -1178,7 +1208,11 @@
   The cross-PoS hypernyms are those that dns:crossPoSHypernym held as a
   stopgap until 2026-09-21, plus the wn:hypernym pairs that disagree in part
   of speech (see hypernym-pos-query). Those still in either are kept for
-  review."
+  review.
+
+  The merged senses also count the senses they :replaced, and the kept
+  cross-PoS hypernyms how many are still in the :stopgap relation and how
+  many are a :hypernym."
   [now]
   (let [count-by     (partial by-origin (legacy-synset-ids legacy-dir))
         part-whole   (compare-releases "2025-07-03" "2026-08-03"
@@ -1201,21 +1235,24 @@
                           (filter #(and (conversion (synset-id %))
                                         (not (typed-before %)))))
         divided      (divided-sense-ids now)
+        hypernyms    (cross-pos-hypernyms now)
         still-shared (set (map (comp sense-id first) (mapcat val shared)))
         split-2023   (filter (fn [[id _]] (and (divided id) (not (still-shared id))))
                              (legacy-shared-senses conversion-dir))]
     {:duplicates         (merge-with + (count-by list removed-2023)
                                      (count-by second (:merged shared)))
-     :merged-senses      (count-by second (merged-senses now))
+     :merged-senses      (assoc (count-by second (merged-senses now))
+                           :replaced (count (replaced-senses now)))
      :split-senses      (merge-with + (count-by second split-2023)
                                      (count-by second (:split shared)))
      :crosspos/attribute (count-by (comp list first) (:attribute crosspos))
      :crosspos/removed   (count-by (comp list first) (:removed crosspos))
      :crosspos/pos-fixed (merge-with + (count-by (comp list first) (:hypernym crosspos))
                                      (count-by list verb-phrases))
-     :crosspos/kept      (merge-with + (count-by (comp list first) (:kept crosspos))
-                                     (count-by (comp list first)
-                                               (cross-pos-hypernyms now)))
+     :crosspos/kept      (assoc (merge-with + (count-by (comp list first) (:kept crosspos))
+                                            (count-by (comp list first) hypernyms))
+                           :stopgap (count (:kept crosspos))
+                           :hypernym (count hypernyms))
      :part-whole         (count-by (fn [[s _ o]] [s o]) part-whole)}))
 
 (defn cleanup-summary
