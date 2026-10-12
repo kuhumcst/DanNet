@@ -787,10 +787,10 @@
                (links "Synsets linked from a COR.SEM sense")]
               ["Senses" (:senses legacy) (:senses current)]
               ["Senses with a DDO URL" nil (links "Senses with a DDO source")]
-              ["Senses linked to COR.SEM" nil
+              ["Senses linked from COR.SEM" nil
                (links "Senses matched to a COR.SEM sense")]
               ["Words" (:words legacy) (:words current)]
-              ["Words linked to COR" nil (links "Words linked to a COR word")]]}))
+              ["Words linked from COR" nil (links "Words linked to a COR word")]]}))
 
 (defn relation-table
   "Every synset relation with its count in both releases, largest first."
