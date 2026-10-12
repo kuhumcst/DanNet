@@ -768,7 +768,10 @@
 
 (defn overview-table
   "The synsets, senses and words of the two releases, each with the links
-  that connect them to other resources."
+  that connect them to other resources.
+
+  A link is to a resource when the DanNet dataset holds it and from a
+  resource when the dataset of that resource holds it."
   [legacy current]
   (let [links (into {} (:links current))
         {:keys [dds connotation]} (:sentiment current)]
@@ -781,12 +784,12 @@
               ["Synsets linked to CILI" nil (links "Synsets with an ILI concept")]
               ["Synsets with a sentiment" (:sentiment legacy)
                (links "Synsets with sentiment")]
-              ["Synsets with a sentiment from DDS" nil dds]
+              ["Synsets linked from DDS" nil dds]
               ["Synsets with a sentiment from a connotation" nil connotation]
               ["Synsets linked from COR.SEM" nil
                (links "Synsets linked from a COR.SEM sense")]
               ["Senses" (:senses legacy) (:senses current)]
-              ["Senses with a DDO URL" nil (links "Senses with a DDO source")]
+              ["Senses linked to DDO" nil (links "Senses with a DDO source")]
               ["Senses linked from COR.SEM" nil
                (links "Senses matched to a COR.SEM sense")]
               ["Words" (:words legacy) (:words current)]
