@@ -540,7 +540,11 @@
 (defn current-stats
   "The statistics of the live db map `dannet`: the asserted dn: graph for the
   counts, the base union graph for the links to other datasets, and the
-  inference graph for the navigable relations."
+  inference graph for the navigable relations.
+
+  :sentiment counts the synsets with a sentiment from the DDS companion
+  dataset and those with one from a DanNet 2.2 connotation, which the dn:
+  graph holds for the synsets that DDS does not cover."
   [{:keys [dataset graph] :as dannet}]
   (let [dn        (db/get-graph dataset prefix/dn-uri)
         base      (.getGraph (.getUnionModel dataset))
@@ -559,6 +563,9 @@
                                     "dns:eqHyponym dns:eqSimilar } ?s ?p ?o . "
                                     (synset-filter "?s")))
      :ili         (count-in dn (str "?s wn:ili ?o . " (synset-filter "?s")))
+     :sentiment   (let [where (str "?s dns:sentiment ?o . " (synset-filter "?s"))]
+                    {:dds         (count-in (db/get-graph dataset prefix/dds-uri) where "?s")
+                     :connotation (count-in dn where "?s")})
      :degrees     (degree-stats synsets edges)
      :similar     (similar-breakdown edges)
      :closure     (inverse-closure inverses edges)
@@ -758,6 +765,32 @@
             ["Relation types" (count (:relations legacy)) (count (:relations current))]
             ["Links to English synsets" (:external legacy) (:external current)]
             ["Links to ILI concepts" nil (:ili current)]]})
+
+(defn overview-table
+  "The synsets, senses and words of the two releases, each with the links
+  that connect them to other resources."
+  [legacy current]
+  (let [links (into {} (:links current))
+        {:keys [dds connotation]} (:sentiment current)]
+    {:header ["Measure" "DanNet 2.2" (str "DanNet " (:version current))]
+     :rows   [["Synsets" (:synsets legacy) (:synsets current)]
+              ["Relations between synsets" (total (:relations legacy))
+               (total (:relations current))]
+              ["Synsets linked to English" (:linked legacy)
+               (links "Synsets linked to an OEWN synset")]
+              ["Synsets linked to CILI" nil (links "Synsets with an ILI concept")]
+              ["Synsets with a sentiment" (:sentiment legacy)
+               (links "Synsets with sentiment")]
+              ["Synsets with a sentiment from DDS" nil dds]
+              ["Synsets with a sentiment from a connotation" nil connotation]
+              ["Synsets linked from COR.SEM" nil
+               (links "Synsets linked from a COR.SEM sense")]
+              ["Senses" (:senses legacy) (:senses current)]
+              ["Senses with a DDO URL" nil (links "Senses with a DDO source")]
+              ["Senses matched to COR.SEM" nil
+               (links "Senses matched to a COR.SEM sense")]
+              ["Words" (:words legacy) (:words current)]
+              ["Words linked to COR" nil (links "Words linked to a COR word")]]}))
 
 (defn relation-table
   "Every synset relation with its count in both releases, largest first."
@@ -1274,7 +1307,8 @@
   "All tables of the paper, keyed by name, from the `legacy`, `current` and
   `links` stats maps."
   [legacy current links]
-  {:size         (size-table legacy current)
+  {:overview     (overview-table legacy current)
+   :size         (size-table legacy current)
    :relations    (relation-table legacy current)
    :connectivity (connectivity-table legacy current)
    :similar      (similar-table current)
