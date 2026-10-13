@@ -2,6 +2,7 @@
   "Graph database search functionality."
   (:require [clojure.set :as set]
             [flatland.ordered.map :as fop]
+            [ont-app.vocabulary.lstr :refer [->LangStr]]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]))
 
@@ -28,7 +29,7 @@
   "Look up synsets in Graph `g` based on the given `lemma`."
   [g lemma]
   (let [k->label (label-lookup g)]
-    (->> (q/run g (op/synset-search-query lemma))
+    (->> (q/run g op/synset-search {'?lemma (->LangStr lemma "da")})
          (group-by '?synset)
          (map (fn [[k ms]]
                 (let [{:syms [?label ?shortLabel ?synset]

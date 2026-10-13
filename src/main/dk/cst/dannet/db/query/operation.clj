@@ -36,14 +36,16 @@
     '[:bgp
       [?synset :rdf/type :ontolex/LexicalConcept]]))
 
-(defn synset-search-query
-  "Look up synsets based on a `lemma`, incl. via the inflected forms of any
-  COR words linked through owl:sameAs."
-  [lemma]
+(def synset-search
+  "Look up synsets based on a bound ?lemma, incl. via the inflected forms of
+  any COR words linked through owl:sameAs.
+
+  NB: ?lemma must stay in the SELECT clause; a bound variable that the
+  projection leaves out is not seen inside it, so every form would match."
   (sparql
-    "SELECT ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType ?lexfile
+    "SELECT ?lemma ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType ?lexfile
      WHERE {
-       ?form ontolex:writtenRep \"" lemma "\"@da .
+       ?form ontolex:writtenRep ?lemma .
        ?word ontolex:canonicalForm|ontolex:otherForm|(owl:sameAs/(ontolex:canonicalForm|ontolex:otherForm)) ?form ;
              ontolex:evokes ?synset .
        OPTIONAL {
