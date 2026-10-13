@@ -3,12 +3,11 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.math :as math]
-            [reitit.impl :refer [form-decode]]
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj [clojure.core.memoize :as memo])
-            #?(:clj [clojure.java.io :as io])
-            #?(:cljs [reagent.cookies :as cookie])))
+            #?(:clj [clojure.java.io :as io]))
+  #?(:cljs (:import [goog.net Cookies])))
 
 #?(:clj
    (def main-js
@@ -52,10 +51,11 @@
         (catch Exception e nil)))
      :cljs
      ([k]
-      ;; Reitit properly decodes the form values from Ring Cookie
-      ;; (the native JS functions leave a few undesired chars around).
-      (some-> (cookie/get-raw k)
-              (form-decode)
+      ;; Ring form-encodes cookie values, so + is a space; decodeURIComponent
+      ;; alone would leave the + signs in.
+      (some-> (.get (Cookies/getInstance) (name k))
+              (str/replace "+" " ")
+              (js/decodeURIComponent)
               (edn/read-string)))))
 
 (def windows?
