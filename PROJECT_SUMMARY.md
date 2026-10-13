@@ -231,38 +231,37 @@ pages/
 ## Dependencies
 
 ### Core RDF/Database
-- **Apache Jena** (via `aristotle`, `igraph-jena`): RDF triplestore and SPARQL
+- **Apache Jena** (via `aristotle`): RDF triplestore and SPARQL
 - **ont-app/vocabulary**: RDF vocabulary management (incl. `lstr`/`->LangStr` for language-tagged strings)
-- **donatello**: Graph algorithms and traversal
+- **donatello** (1.3.6): Turtle writer for the RDF exports (`db.export.rdf`)
 
 ### Web Framework
-- **Pedestal** (0.7.2): HTTP service and routing
+- **Pedestal** (0.8.2): HTTP service and routing (still through `io.pedestal.http`, deprecated since 0.8.0)
 - **Rum**: React-like UI components (custom fork)
-- **Reitit** (0.9.1): Client-side routing for SPA
-- **Shadow-cljs** (3.2.0): ClojureScript compilation (`:frontend` alias)
-- **lambdaisland/fetch**: Client-side HTTP requests (custom fork)
+- **reitit-frontend** (0.11.0): Client-side routing for SPA
+- **Shadow-cljs** (3.4.11): ClojureScript compilation (`:frontend` alias)
+- **lambdaisland/fetch** (1.5.83): Client-side HTTP requests
 - **CodeMirror 6**: SPARQL editor (via `codemirror`, `@codemirror/view`, `@codemirror/state`, `codemirror-lang-sparql`)
 
 ### Data Processing
 - **clj-yaml** (1.0.29): YAML configuration parsing
 - **docjure** (1.22.0): Excel file processing (ChainNet pipeline, POI styling)
 - **clj-file-zip**: Release zip handling for bootstrap
-- **data.csv** (1.1.0): CSV parsing and generation
-- **data.json** (2.5.1): JSON parsing and generation (incl. GitHub releases API responses)
-- **data.xml** (0.2.0-alpha9): XML processing for WN-LMF
-- **nextjournal/markdown** (0.7.189): Markdown parsing and rendering
+- **data.csv** (1.1.1): CSV parsing and generation
+- **data.json** (2.5.2): JSON parsing and generation (incl. GitHub releases API responses)
+- **data.xml** (0.2.0-alpha11): XML processing for WN-LMF
+- **nextjournal/markdown** (0.7.225): Markdown parsing and rendering
 
 ### Caching
 - **core.cache**: TTL-based SPARQL result caching with AST-normalized cache keys
-- **core.memoize** (1.1.266): Function memoization
+- **core.memoize** (1.2.281): Function memoization
 
 ### Utilities
 - **better-cond** (2.1.5): Enhanced conditional macros
-- **ham-fisted** (2.031): High-performance collections
+- **ham-fisted** (3.030): High-performance collections
 - **cognitect/anomalies** (0.1.12): Error categorization for exception translation
-- **transito**: Transit serialization (CLJ/CLJS)
-- **thi.ng/color** (1.5.1): Color manipulation for visualizations
-- **Telemere** (1.1.0): Logging and error reporting
+- **transit-clj** (1.1.357): Transit serialization on the server; the browser uses transit-cljs (via shadow-cljs)
+- **Telemere** (1.2.1): Logging and error reporting
 
 ## Development Workflow
 
