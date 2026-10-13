@@ -10,8 +10,6 @@
             [io.pedestal.interceptor :as interceptor]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
-            [thi.ng.color.core :as col]
-            [thi.ng.color.presets.categories :as cat]
             [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -892,51 +890,55 @@
                         (assoc-in [:headers "Content-Disposition"] cd))))]
     ["/export/:type/:prefix" :get handler :route-name ::export]))
 
-;; TODO: move elsewhere, it's not the right ns for this
-(def not-in-theme
-  "Predicate for filtering colours with a certain HSV distance from theme."
-  (let [dist-check (fn [theme-color]
-                     (fn [other-color]
-                       (> (col/dist-hsv theme-color other-color) 0.33)))]
-    (apply every-pred (map (comp dist-check col/css) shared/theme))))
-
-;; TODO: move elsewhere, it's not the right ns for this
-(defn generate-synset-rels-theme
-  "Generate list of in-use synset relation types and map it to unique colours."
-  []
-  (let [fixed-rels  [:wn/hypernym
-                     :wn/hyponym
-                     :wn/domain_topic
-                     :wn/has_domain_topic
-                     :dns/orthogonalHypernym
-                     :dns/orthogonalHyponym]
-        other-rels  [:wn/ili
-                     :dns/iliOf                             ; inverse of wn:ili
-                     :wn/eq_synonym
-                     :dns/eqHyponym
-                     :dns/eqHypernym
-                     :dns/eqSimilar]
-        fixed-theme (zipmap fixed-rels (map col/css shared/theme))
-        colors      (->> (concat cat/cat20 cat/cat20b cat/cat20c)
-                         (map col/int24)
-                         (filter not-in-theme)
-                         (map col/as-css))
-        rels        (->> (q/run (:graph @instance/db) op/synset-relation-types)
-                         (map '?rel)
-                         (remove (set fixed-rels))
-                         (remove (set other-rels)))
-        num-colours (count colors)
-        num-rels    (count rels)]
-    (when (> (count rels) (count colors))
-      (throw (ex-info (str "Not enough colours available: only "
-                           num-colours " colors for " num-rels " rels")
-                      {:colors colors
-                       :rels   rels})))
-    (into (sorted-map)
-          (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
-
 ;; TODO: clean up this comment block, e.g. move some lines to other namespaces
 (comment
+  ;; thi.ng/color is not a dependency; add-lib loads it into the running REPL.
+  (require 'clojure.repl.deps)
+  (clojure.repl.deps/add-lib 'thi.ng/color {:mvn/version "1.5.1"})
+  (require '[thi.ng.color.core :as col]
+           '[thi.ng.color.presets.categories :as cat])
+
+  (def not-in-theme
+    "Predicate for filtering colours with a certain HSV distance from theme."
+    (let [dist-check (fn [theme-color]
+                       (fn [other-color]
+                         (> (col/dist-hsv theme-color other-color) 0.33)))]
+      (apply every-pred (map (comp dist-check col/css) shared/theme))))
+
+  (defn generate-synset-rels-theme
+    "Generate list of in-use synset relation types and map it to unique colours."
+    []
+    (let [fixed-rels  [:wn/hypernym
+                       :wn/hyponym
+                       :wn/domain_topic
+                       :wn/has_domain_topic
+                       :dns/orthogonalHypernym
+                       :dns/orthogonalHyponym]
+          other-rels  [:wn/ili
+                       :dns/iliOf                           ; inverse of wn:ili
+                       :wn/eq_synonym
+                       :dns/eqHyponym
+                       :dns/eqHypernym
+                       :dns/eqSimilar]
+          fixed-theme (zipmap fixed-rels (map col/css shared/theme))
+          colors      (->> (concat cat/cat20 cat/cat20b cat/cat20c)
+                           (map col/int24)
+                           (filter not-in-theme)
+                           (map col/as-css))
+          rels        (->> (q/run (:graph @instance/db) op/synset-relation-types)
+                           (map '?rel)
+                           (remove (set fixed-rels))
+                           (remove (set other-rels)))
+          num-colours (count colors)
+          num-rels    (count rels)]
+      (when (> (count rels) (count colors))
+        (throw (ex-info (str "Not enough colours available: only "
+                             num-colours " colors for " num-rels " rels")
+                        {:colors colors
+                         :rels   rels})))
+      (into (sorted-map)
+            (update-vals (merge fixed-theme (zipmap rels colors)) deref))))
+
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 

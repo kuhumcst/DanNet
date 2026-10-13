@@ -27,7 +27,6 @@
            io.pedestal/pedestal.jetty     {:mvn/version "0.7.2"}
            ring/ring-core                 {:mvn/version "1.15.4"}
            com.cognitect/transit-clj      {:mvn/version "1.0.333"}
-           thi.ng/color                   {:mvn/version "1.5.1"}
            dk.ative/docjure               {:mvn/version "1.22.0"}
            com.cnuernber/ham-fisted       {:mvn/version "3.030"}
            com.cognitect/anomalies        {:mvn/version "0.1.12"}
