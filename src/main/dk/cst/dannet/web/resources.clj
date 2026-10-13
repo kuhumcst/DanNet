@@ -580,7 +580,7 @@
   {:name  ::autocomplete
    :enter (fn [ctx]
             (let [s (get-in ctx [:request :query-params :s])]
-              ;; a blank string would make the trie lookup traverse everything
+              ;; a blank string would match every entry in the search index
               (when-let [s' (not-empty (shared/search-string s))]
                 (assoc ctx
                   :content {:autocompletions (instance/autocomplete s')}))))})

@@ -6,9 +6,6 @@
             [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
             [cognitect.transit :as transit]
-            [com.owoga.trie :as trie]
-            [com.owoga.tightly-packed-trie :as tpt]
-            [com.owoga.tightly-packed-trie.encoding :as encoding]
             [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -22,9 +19,8 @@
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.sparql :as sparql]
             [dk.cst.dannet.web.hyponymy :as hyponymy])
-  (:import [com.owoga.tightly_packed_trie TightlyPackedTrie]
-           [java.io File]
-           [java.nio ByteBuffer]))
+  (:import [java.io File]
+           [java.util Collections]))
 
 (def dannet-opts
   (atom {:db-type     :tdb2
@@ -215,35 +211,17 @@
           (update-in [k :s] #(or % rep))
           (update-in [k :lemmas] (fnil conj #{}) lemma)))))
 
-(defn- entry-id->bytes
-  "Encode search trie `entry-id` as bytes; nil (an intermediate node) as 0."
-  [entry-id]
-  (encoding/encode (or entry-id 0)))
-
-(defn- bytes->entry-id
-  "Decode a search trie entry id from `bb`; nil for an intermediate node."
-  [^ByteBuffer bb]
-  (let [entry-id (encoding/decode bb)]
-    (when-not (zero? entry-id) entry-id)))
-
-(defn- pack-search-trie
-  "Pack `entries` ({search-string entry}) into the bytes of a tightly packed
-  trie keyed by char code, whose values index the returned `:entries` vector."
+(defn- sort-search-entries
+  "Sort `entries` ({search-string entry}) into a vector of the search strings,
+  `:ks`, and a parallel vector of their `:entries`."
   [entries]
-  (let [ks      (vec (keys entries))
-        entries (into [nil] (map entries) ks)
-        trie    (tpt/tightly-packed-trie
-                  (apply trie/make-trie (mapcat (fn [id k] [(mapv int k) id])
-                                                (iterate inc 1)
-                                                ks))
-                  entry-id->bytes
-                  bytes->entry-id)]
-    {:entries entries
-     :trie    (.array ^ByteBuffer (.byte-buffer ^TightlyPackedTrie trie))}))
+  (let [ks (vec (sort (keys entries)))]
+    {:ks      ks
+     :entries (mapv entries ks)}))
 
-(defn- build-search-trie
-  "Build the cached part of `search-trie`: the packed trie and its entries for
-  every DanNet written representation and COR word form."
+(defn- build-search-index
+  "Build `search-index`: the sorted search strings and their entries for every
+  DanNet written representation and COR word form."
   []
   (let [dataset (:dataset @db)
         words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
@@ -255,16 +233,25 @@
         entries (reduce add-form-entry
                         (reduce add-word-entry {} words)
                         forms)]
-    (tel/trace! {:id :dannet.graph/search-trie :run-val :elided}
-                (pack-search-trie entries))))
+    (tel/trace! {:id :dannet.graph/search-index :run-val :elided}
+                (sort-search-entries entries))))
 
-(defn- ->search-trie
+(defn- ->search-index
   []
-  (->derived "search-trie" build-search-trie
-             #(update % :trie tpt/load-tightly-packed-trie-from-file
-                      bytes->entry-id)))
+  (->derived "search-index" build-search-index identity))
 
-(defonce search-trie (->search-trie))
+(defonce search-index (->search-index))
+
+(defn- prefix-entries
+  "The entries of `search-index` data `m` whose search strings start with `s`."
+  [{:keys [ks entries] :as m} s]
+  (let [i     (Collections/binarySearch ks s)
+        start (if (neg? i) (- -1 i) i)
+        end   (->> (subvec ks start)
+                   (take-while #(str/starts-with? % s))
+                   (count)
+                   (+ start))]
+    (subvec entries start end)))
 
 (def derived
   "The structures cached on disk (see `->derived`) and their constructors, in
@@ -272,10 +259,10 @@
   [[#'hypernym-graph ->hypernym-graph]
    [#'hyponym-graph ->hyponym-graph]
    [#'meronym-graph ->meronym-graph]
-   [#'search-trie ->search-trie]])
+   [#'search-index ->search-index]])
 
 (defn- completion-items
-  "Convert a search trie entry value `v` into autocompletion items: a string
+  "Convert a search index entry value `v` into autocompletion items: a string
   for a word match and `[lemma rep]` pairs for inflected form matches."
   [{:keys [s word? lemmas] :as v}]
   (cond-> (mapv (fn [lemma] [lemma s]) lemmas)
@@ -293,13 +280,10 @@
   []
   (memo/lu
     (fn [s]
-      (let [{:keys [trie entries]} @search-trie]
-        (->> (locking trie                                  ; shared byte buffer
-               (into [] (keep second) (trie/lookup trie (map int s))))
-             (map entries)
-             (mapcat completion-items)
-             (sort-by completion-sort-key)
-             (take 200))))                                  ; cap the payload
+      (->> (prefix-entries @search-index s)
+           (mapcat completion-items)
+           (sort-by completion-sort-key)
+           (take 200)))                                     ; cap the payload
     :lu/threshold 2000))
 
 (defonce ^{:doc "Return auto-completions for `s` found in the graph,
@@ -379,7 +363,7 @@ capped at 200 items."}
                      #'hypernym-graph        ->hypernym-graph
                      #'hyponym-graph         ->hyponym-graph
                      #'meronym-graph         ->meronym-graph
-                     #'search-trie           ->search-trie
+                     #'search-index          ->search-index
                      #'autocomplete          ->autocomplete
                      #'synset-rels           ->synset-rels}]
     (alter-var-root v (constantly (build)))))

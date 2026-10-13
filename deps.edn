@@ -22,7 +22,6 @@
            io.pedestal/pedestal.route     {:mvn/version "0.7.2"}
            io.pedestal/pedestal.jetty     {:mvn/version "0.7.2"}
            ring/ring-core                 {:mvn/version "1.15.4"}
-           com.owoga/tightly-packed-trie  {:mvn/version "0.3.0"}
            com.wsscode/transito           {:mvn/version "2021.07.04"}
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
            thi.ng/color                   {:mvn/version "1.5.1"}

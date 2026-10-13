@@ -37,7 +37,7 @@ The system includes:
 - Rate limiting for API endpoints
 - Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
 - Full-screen visualization mode with persistent user preferences
-- COR inflected forms are valid search terms: the search trie/autocomplete suggest them as "lemma (inflected form)" pairs, the synset search query resolves them via `owl:sameAs`, and DanNet word entities are supplemented with the `ontolex:otherForm` forms of their linked COR words
+- COR inflected forms are valid search terms: autocomplete suggests them as "lemma (inflected form)" pairs, the synset search query resolves them via `owl:sameAs`, and DanNet word entities are supplemented with the `ontolex:otherForm` forms of their linked COR words
 - DanNet synsets are supplemented (↪) with sense examples, DDO deep links (`dns:source` gathered from their senses), and the English definition of their linked ILI concept — displayed instead of the Danish definition when the UI language is English
 
 ### Synset Diagrams (`dk.cst.dannet.web.ui.visualization` + `dk.cst.dannet.web.d3` + `dk.cst.dannet.web.hyponymy`)
@@ -251,7 +251,6 @@ pages/
 - **data.json** (2.5.1): JSON parsing and generation (incl. GitHub releases API responses)
 - **data.xml** (0.2.0-alpha9): XML processing for WN-LMF
 - **nextjournal/markdown** (0.7.189): Markdown parsing and rendering
-- **tightly-packed-trie**: Efficient trie data structures
 
 ### Caching
 - **core.cache**: TTL-based SPARQL result caching with AST-normalized cache keys
