@@ -1,7 +1,7 @@
 (ns dk.cst.dannet.web.ui.sparql
   "Components for a SPARQL query editor and SPARQL query results."
   (:require [clojure.string :as str]
-            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.prefix :as prefix :refer [url-encode]]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.app :as app]
@@ -10,7 +10,6 @@
             [rum.core :as rum]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
-            [reitit.impl :refer [url-encode]]               ; CLJC url-encode
             #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm])
             #?(:cljs [lambdaisland.fetch :as fetch]))
   #?(:clj (:import [java.net URLEncoder])))

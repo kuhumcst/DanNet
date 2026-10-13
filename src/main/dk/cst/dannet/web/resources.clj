@@ -347,7 +347,7 @@
                   languages          (resp/request->languages request)
                   qs                 (some-> (:query-string request)
                                              remove-internal-params
-                                             ;; Canonicalize slash encoding: reitit's
+                                             ;; Canonicalize slash encoding: DanNet's
                                              ;; url-encode emits %2F while the client
                                              ;; leaves slashes bare. The difference
                                              ;; otherwise causes a hydration mismatch.

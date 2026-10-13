@@ -9,13 +9,17 @@
 
            arachne-framework/aristotle    {:git/url "https://github.com/kuhumcst/aristotle.git"
                                            :sha     "35dd1d0d9c2477d468c5811989e5dfd0b7e255b9"}
+           ;; TODO: drop these pins once Jena is updated; Jena 4.5 would
+           ;;       otherwise pull in jackson-databind 2.13.1 (from 2021).
+           com.fasterxml.jackson.core/jackson-core     {:mvn/version "2.21.1"}
+           com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.21.1"}
            ont-app/vocabulary             {:mvn/version "0.2.1"} ; bug in prepend-prefix-declarations in later versions?
            org.clojars.quoll/donatello    {:mvn/version "1.3.6"}
 
            org.flatland/ordered           {:mvn/version "1.15.12"}
            better-cond/better-cond        {:mvn/version "2.1.5"}
            org.clojure/core.memoize       {:mvn/version "1.2.281"}
-           metosin/reitit                 {:mvn/version "0.10.1"} ; for url-encode
+           metosin/reitit-frontend        {:mvn/version "0.11.0"}
            io.github.nextjournal/markdown {:mvn/version "0.7.225"}
 
            io.pedestal/pedestal.service   {:mvn/version "0.7.2"}

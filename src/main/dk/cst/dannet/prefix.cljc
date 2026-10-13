@@ -3,8 +3,7 @@
   (:require #?(:clj [arachne.aristotle.registry :as reg])
             #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
-            [ont-app.vocabulary.core :as voc]
-            [reitit.impl :refer [url-encode]]))             ; CLJC url-encode
+            [ont-app.vocabulary.core :as voc]))
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
 (def dannet-root
@@ -418,6 +417,20 @@
   [s]
   (and (string? s)
        (re-matches #"[^:/]+\:[^:/]+" s)))
+
+(defn url-encode
+  "Percent-encode `s` the way JavaScript's encodeURIComponent does.
+
+  Every character except A-Z, a-z, 0-9 and !'()*_~.- becomes its UTF-8 bytes
+  as %XX, so the backend and the frontend produce the same URLs."
+  [s]
+  (when s
+    #?(:clj  (str/replace s #"[^A-Za-z0-9!'()*_~.-]+"
+                          (fn [match]
+                            (->> (.getBytes ^String match "UTF-8")
+                                 (map #(format "%%%02X" (bit-and % 0xff)))
+                                 (str/join))))
+       :cljs (js/encodeURIComponent s))))
 
 (defn resolve-href
   "Given a namespaced `kw`, resolve the href for the resource."
