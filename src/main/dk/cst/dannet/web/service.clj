@@ -94,7 +94,9 @@
                :font-src    "'self'"
                :style-src   "'self' 'unsafe-inline'"
                :base-uri    "'self'"})]
-    (-> {::http/routes            #((deref #'routes))
+    (-> {::http/routes            (if shared/development?
+                                    #((deref #'routes))     ; rebuilt per request
+                                    (routes))
          ::http/type              :jetty
          ::http/host              "0.0.0.0"
          ::http/port              3456

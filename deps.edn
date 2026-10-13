@@ -22,11 +22,11 @@
            metosin/reitit-frontend        {:mvn/version "0.11.0"}
            io.github.nextjournal/markdown {:mvn/version "0.7.225"}
 
-           io.pedestal/pedestal.service   {:mvn/version "0.7.2"}
-           io.pedestal/pedestal.route     {:mvn/version "0.7.2"}
-           io.pedestal/pedestal.jetty     {:mvn/version "0.7.2"}
-           ring/ring-core                 {:mvn/version "1.15.4"}
-           com.cognitect/transit-clj      {:mvn/version "1.0.333"}
+           io.pedestal/pedestal.service   {:mvn/version "0.8.2"}
+           io.pedestal/pedestal.route     {:mvn/version "0.8.2"}
+           io.pedestal/pedestal.jetty     {:mvn/version "0.8.2"}
+           ring/ring-core                 {:mvn/version "1.15.5"}
+           com.cognitect/transit-clj      {:mvn/version "1.1.357"}
            dk.ative/docjure               {:mvn/version "1.22.0"}
            com.cnuernber/ham-fisted       {:mvn/version "3.030"}
            com.cognitect/anomalies        {:mvn/version "0.1.12"}
