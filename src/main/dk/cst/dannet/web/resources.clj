@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.cst.dannet.web.sparql :as sparql]
+            [arachne.aristotle.registry :as reg]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.http.content-negotiation :as conneg]
@@ -329,8 +330,12 @@
                                                      (str/replace "+" "%2B")
                                                      (decode-query-part))]
                                        (cond
+                                         ;; Aristotle can't look up a keyword
+                                         ;; with an unregistered prefix.
                                          prefix
-                                         (keyword (name prefix) s)
+                                         (when (get-in reg/*registry*
+                                                       [:prefixes (name prefix)])
+                                           (keyword (name prefix) s))
 
                                          ;; A generic consumer such as the
                                          ;; DMLex browser sends a bare URI, not
@@ -351,9 +356,10 @@
                                        (prefix/kw->qname subject*)
                                        subject*)
                   expand?            (expand-content-types content-type)
-                  raw-entity         (if expand?
-                                       (q/expanded-entity g subject*)
-                                       (q/entity g subject*))
+                  raw-entity         (when subject*
+                                       (if expand?
+                                         (q/expanded-entity g subject*)
+                                         (q/entity g subject*)))
                   ;; Apply truncation only for content types that support deferred loading
                   truncate?          (truncate-content-types content-type)
                   deferred?          (and truncate? deferred)
@@ -400,7 +406,13 @@
                                        (hyponymy/hyponym-tree
                                          g @instance/meronym-graph languages
                                          any? subject*))]
-              (if (not-empty entity)
+              (cond
+                ;; An unknown prefix or a missing ?subject leaves nothing to
+                ;; look up; the empty context becomes a 404.
+                (nil? subject*)
+                ctx
+
+                (not-empty entity)
                 (assoc ctx
                   :content (-> (meta raw-entity)
                                (update :entities dissoc subject*)
@@ -438,6 +450,8 @@
                                       :page  "entity"}
                                (and has-deferred (not deferred?))
                                (assoc :has-deferred "true")))
+
+                :else
                 (let [alt      (alt-resource qname)
                       uri      (cond
                                  (keyword? subject*) (prefix/kw->uri subject*)
