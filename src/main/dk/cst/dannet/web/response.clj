@@ -84,7 +84,7 @@
     {:value (.s data) :lang (.lang data)}
 
     (instance? BaseDatatype$TypedValue data)
-    {:value (.getLexicalValue data) :datatype (str (.getDatatypeURI data))}
+    {:value (.-lexicalValue data) :datatype (str (.-datatypeURI data))}
 
     (instance? XSDDateTime data)
     {:value (str data) :datatype "xsd:dateTime"}
