@@ -10,7 +10,7 @@
            arachne-framework/aristotle    {:git/url "https://github.com/kuhumcst/aristotle.git"
                                            :sha     "35dd1d0d9c2477d468c5811989e5dfd0b7e255b9"}
            ont-app/vocabulary             {:mvn/version "0.2.1"} ; bug in prepend-prefix-declarations in later versions?
-           io.github.quoll/donatello      {:git/tag "v.1.3.4" :git/sha "79c42cf"}
+           org.clojars.quoll/donatello    {:mvn/version "1.3.6"}
 
            org.flatland/ordered           {:mvn/version "1.15.12"}
            better-cond/better-cond        {:mvn/version "2.1.5"}
