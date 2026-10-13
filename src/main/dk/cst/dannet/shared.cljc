@@ -23,8 +23,7 @@
 (def development?
   "Source of truth for whether this is a development build or not. "
   #?(:clj  (= main-js "main.js")
-     :cljs (when (exists? js/inDevelopmentEnvironment)
-             js/inDevelopmentEnvironment)))
+     :cljs (= "true" js/document.documentElement.dataset.development)))
 
 (def theme
   ["#901a1e"

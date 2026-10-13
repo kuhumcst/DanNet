@@ -16,9 +16,9 @@
   #?(:clj  nil
      :cljs (or
              (shared/get-cookie :languages)
-             (if (exists? js/negotiatedLanguages)
-               (edn/read-string js/negotiatedLanguages)
-               ["en" nil "da"]))))
+             (some-> js/document.documentElement.dataset.languages
+                     (edn/read-string))
+             ["en" nil "da"])))
 
 (def default-full-screen
   #?(:clj  false

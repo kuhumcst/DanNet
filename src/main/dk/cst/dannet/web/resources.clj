@@ -81,8 +81,8 @@
   - ?lang= query parameter for languages (da, en, danish, english)
 
   Layman's terms are mapped to proper values, while standard MIME types and
-  language codes pass through as-is. This provides both user-friendly shortcuts
-  and precise control for API clients.
+  well-formed language codes pass through as-is. This provides both
+  user-friendly shortcuts and precise control for API clients.
 
   Must be placed AFTER content-negotiation-ic and language-negotiation-ic
   in the interceptor chain to completely override their results."
@@ -105,8 +105,13 @@
                   content-type    (get format->mime format' format')
                   lang->languages {"danish"  ["da"]
                                    "english" ["en"]}
+                  ;; A language range as in RFC 4647, e.g. "da" or "en-GB".
+                  ;; Other values are ignored since they end up in the page.
+                  lang-range      #"[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})*"
                   languages       (or (lang->languages lang')
-                                      (when lang' [lang']))]
+                                      (some->> lang'
+                                               (re-matches lang-range)
+                                               (vector)))]
 
               (cond-> ctx
                 content-type

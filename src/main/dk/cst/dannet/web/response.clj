@@ -46,9 +46,13 @@
       ;; @lang and is matched in CSS to hide redundant language superscripts.
       ;; The detail level is mirrored in :data-detail-level since the CSS only
       ;; hides redundant superscripts below the :high detail level.
+      ;; The frontend reads its initial languages and the development flag
+      ;; from data attributes, which are escaped, unlike an inline script.
       [:html {:prefix            prefix/rdfa-prefixes
               :lang              (first languages)
-              :data-detail-level (some-> detail-level name)}
+              :data-detail-level (some-> detail-level name)
+              :data-languages    (pr-str languages)
+              :data-development  (str shared/development?)}
        [:head
         [:title title]
         [:meta {:charset "UTF-8"}]
@@ -66,11 +70,6 @@
         [:meta {:name "theme-color" :content "#ffffff"}]]
        [:body
         [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html hiccup)}}]
-        [:script
-         {:dangerouslySetInnerHTML
-          {:__html (str
-                     "var inDevelopmentEnvironment = " shared/development? ";"
-                     "var negotiatedLanguages = '" (pr-str languages) "';")}}]
         [:script {:src (str "/js/compiled/" shared/main-js)}]]])))
 
 (defn- lstr->s
