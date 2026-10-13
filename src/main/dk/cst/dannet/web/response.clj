@@ -4,7 +4,6 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [cognitect.transit :as t]
-            [com.wsscode.transito :as to]
             [arachne.aristotle.graph :as graph]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
@@ -126,6 +125,10 @@
    XSDDateTime             (t/write-handler "datetime" str)
    ResultSetMem            (t/write-handler "array" sparql-result->rows)})
 
+(def transit-default-handler
+  "Write a value of a type with no Transit handler as its printed form."
+  (t/write-handler (constantly "unknown") pr-str))
+
 (defn- with-comment
   "Add `s` to the :rdfs/comment of entity `m`, preserving its metadata."
   [m s]
@@ -187,7 +190,12 @@
 
    "application/transit+json"
    (fn [data & _]
-     (to/write-str data {:handlers transit-write-handlers}))})
+     (let [out (ByteArrayOutputStream.)]
+       (t/write (t/writer out :json {:handlers        transit-write-handlers
+                                     :default-handler transit-default-handler
+                                     :transform       t/write-meta})
+                data)
+       (.toString out "UTF-8")))})
 
 (defn json-body-fn
   "Combined body-fn that prefers specific types of JSON-LD over unspecified JSON

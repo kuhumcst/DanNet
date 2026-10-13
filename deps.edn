@@ -22,7 +22,7 @@
            io.pedestal/pedestal.route     {:mvn/version "0.7.2"}
            io.pedestal/pedestal.jetty     {:mvn/version "0.7.2"}
            ring/ring-core                 {:mvn/version "1.15.4"}
-           com.wsscode/transito           {:mvn/version "2021.07.04"}
+           com.cognitect/transit-clj      {:mvn/version "1.0.333"}
            reagent-utils/reagent-utils    {:mvn/version "0.3.8"}
            thi.ng/color                   {:mvn/version "1.5.1"}
            dk.ative/docjure               {:mvn/version "1.22.0"}
