@@ -237,7 +237,7 @@ pages/
 
 ### Web Framework
 - **Pedestal** (0.8.2): HTTP service and routing (still through `io.pedestal.http`, deprecated since 0.8.0)
-- **conneg-clj** (`:local/root "../conneg-clj"` until 0.1.0 is on Clojars): proactive content negotiation of media type and language, with Vary and 406
+- **conneg-clj** (0.1.0): proactive content negotiation of media type and language, with Vary and 406
 - **Rum**: React-like UI components (custom fork)
 - **reitit-frontend** (0.11.0): Client-side routing for SPA
 - **Shadow-cljs** (3.4.11): ClojureScript compilation (`:frontend` alias)
