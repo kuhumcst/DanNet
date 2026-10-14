@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.rate-limit
   "Simple rate limiting solution relying on composite key generation."
   (:require [clojure.string :as str]
+            [dk.simongray.conneg :as conneg]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.interceptor.chain :as chain]
             [taoensso.telemere :as t])
@@ -59,8 +60,8 @@
 (defn rate-limit-response
   "Get 429 response based on `req`, current `quota` and `retry-after-seconds`."
   [quota retry-after-seconds req]
-  (let [accept (get-in req [:headers "accept"] "")]
-    (if (str/includes? accept "text/html")
+  (let [accept (get-in req [:headers "accept"])]
+    (if (= "text/html" (conneg/media-type accept ["application/json" "text/html"]))
       ;; HTML response for browsers
       {:status  429
        :headers {"Content-Type" "text/html; charset=utf-8"

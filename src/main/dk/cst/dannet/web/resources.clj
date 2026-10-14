@@ -1,12 +1,14 @@
 (ns dk.cst.dannet.web.resources
   "Pedestal interceptors and their associated routes."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.cst.dannet.web.sparql :as sparql]
             [arachne.aristotle.registry :as reg]
+            [dk.simongray.conneg :as conneg]
+            [dk.simongray.conneg.pedestal :as conneg.pedestal]
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
-            [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.interceptor :as interceptor]
             [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
@@ -27,97 +29,46 @@
            [java.io File]
            [org.apache.jena.sparql.resultset ResultSetMem]))
 
-(defn ->language-negotiation-ic
-  "Make a language negotiation interceptor from a coll of `supported-languages`.
+(def negotiation
+  "The media types and languages that DanNet offers.
 
-  The interceptor reuses Pedestal's content-negotiation logic, but unlike the
-  included content negotiation interceptor this one does not create a 406
-  response if no match is found.
+  The ?format= and ?lang= query parameters override the Accept fields, and
+  so does the :languages cookie for Accept-Language. They take the layman's
+  terms below as well as MIME types and language tags."
+  {;; HTML first, so a client with no preference gets HTML
+   :media-type {:offers  ["text/html"
+                          "text/turtle"
+                          "application/edn"
+                          "application/ld+json"
+                          "application/sparql-results+json"
+                          "application/json"
+                          "application/transit+json"]
+                :query   "format"
+                :aliases {"json"    "application/json"
+                          "json-ld" "application/ld+json"
+                          "edn"     "application/edn"
+                          "transit" "application/transit+json"
+                          "turtle"  "text/turtle"
+                          "ttl"     "text/turtle"           ; common alias
+                          "html"    "text/html"}}
 
-  Furthermore, the client can specify preferred languages explicitly through the
-  :languages cookie; this will override any language negotiation."
-  [supported-languages]
-  (let [match-fn   (conneg/best-match-fn supported-languages)
-        lang-paths [[:request :headers "accept-language"]
-                    [:request :headers :accept-language]]]
-    {:name  ::negotiate-language
-     :enter (fn [{:keys [request] :as ctx}]
+   ;; English first, so a client with no preference gets English
+   :language   {:offers  ["en" "da"]
+                :default "en"
+                :query   "lang"
+                :aliases {"danish"  "da"
+                          "english" "en"}
+                :cookie  {:name "languages" :read edn/read-string}}
 
-              ;; Explicitly set languages based on cookies.
-              ;; This part is required to avoid an instant language shift when
-              ;; first loading the page.
-              (if-let [languages (shared/get-cookie request :languages)]
-                (let [language (first languages)]
-                  (-> ctx
-                      (assoc-in [:request :accept-language] {:field language
-                                                             :type  language})
-                      (assoc-in [:request :languages] languages)))
+   ;; pages read other cookies too, and the dev-only CORS headers read Origin
+   :vary       (cond-> ["Cookie"] shared/development? (conj "Origin"))})
 
-                ;; Implicitly set languages based on language negotiation.
-                (if-let [accept-param (loop [[path & paths] lang-paths]
-                                        (if-let [param (get-in ctx path)]
-                                          param
-                                          (when (not-empty paths)
-                                            (recur paths))))]
-                  (if-let [language (->> (conneg/parse-accept-* accept-param)
-                                         (conneg/best-match match-fn))]
-                    (assoc-in ctx [:request :accept-language] language)
-                    ctx)
-                  ctx)))}))
+(def negotiation-ic
+  (conneg.pedestal/negotiate negotiation))
 
-(def language-negotiation-ic
-  (->language-negotiation-ic i18n/supported-languages))
-
-(def content-negotiation-ic
-  (conneg/negotiate-content (keys resp/content-type->body-fn)))
-
-(def explicit-params-ic
-  "Interceptor that completely supersedes content and language negotiation
-  when explicit query parameters are provided.
-
-  Supports:
-  - ?format= query parameter for content types (json, edn, transit, turtle, html, plain)
-  - ?lang= query parameter for languages (da, en, danish, english)
-
-  Layman's terms are mapped to proper values, while standard MIME types and
-  well-formed language codes pass through as-is. This provides both
-  user-friendly shortcuts and precise control for API clients.
-
-  Must be placed AFTER content-negotiation-ic and language-negotiation-ic
-  in the interceptor chain to completely override their results."
-  {:name  ::explicit-params
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [format lang]} (:query-params request)
-                  ;; TODO: why is decoding necessary?
-                  ;; You would think that the query-params-decoder handled this.
-                  format'         (when format (decode-query-part format))
-                  lang'           (when lang (decode-query-part lang))
-
-                  ;; Map layman's terms to proper MIME types
-                  format->mime    {"json"    "application/json"
-                                   "json-ld" "application/ld+json"
-                                   "edn"     "application/edn"
-                                   "transit" "application/transit+json"
-                                   "turtle"  "text/turtle"
-                                   "ttl"     "text/turtle"  ; common alias
-                                   "html"    "text/html"}
-                  content-type    (get format->mime format' format')
-                  lang->languages {"danish"  ["da"]
-                                   "english" ["en"]}
-                  ;; A language range as in RFC 4647, e.g. "da" or "en-GB".
-                  ;; Other values are ignored since they end up in the page.
-                  lang-range      #"[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})*"
-                  languages       (or (lang->languages lang')
-                                      (some->> lang'
-                                               (re-matches lang-range)
-                                               (vector)))]
-
-              (cond-> ctx
-                content-type
-                (assoc-in [:request :accept :field] content-type)
-
-                languages
-                (assoc-in [:request :languages] languages))))})
+(def media-type-negotiation-ic
+  "Negotiation for routes whose content doesn't depend on the language."
+  (conneg.pedestal/negotiate (select-keys negotiation [:media-type :vary])))
 
 ;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
 (def redirect-ic
@@ -143,7 +94,7 @@
   {:name  ::redirect
    :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
             (let [{:keys [lang format]} redirect-params
-                  content-type (or (get-in request [:accept :field])
+                  content-type (or (get-in request [::conneg/decision :media-type])
                                    "application/json")
                   location     (resp/redirect-location (or redirect replace))
                   ;; TODO: HACK - preserve explicit lang/format in redirects (for API)
@@ -187,7 +138,7 @@
   "Generate a response containing the content body (if available)."
   {:name  ::response-body
    :leave (fn [{:keys [request content page-meta] :as ctx}]
-            (let [content-type (or (get-in request [:accept :field])
+            (let [content-type (or (get-in request [::conneg/decision :media-type])
                                    "application/json")
                   ;; Prefer using the JSON-LD body if available whenever the
                   ;; content-type is regular JSON too. In this case the response
@@ -213,10 +164,7 @@
                   (update-in [:response :headers] merge
                              (-> (assoc (resp/x-headers page-meta)
                                    "Content-Type" content-type
-                                   "Cache-Control" resp/one-day-cache
-                                   ;; the dev-only CORS headers depend on Origin
-                                   "Vary" (cond-> "Accept, Accept-Language, Cookie"
-                                            shared/development? (str ", Origin")))
+                                   "Cache-Control" resp/one-day-cache)
 
                                  ;; Add filename extensions when needed.
                                  (merge (resp/with-file-ext title content-type)))))))})
@@ -232,7 +180,7 @@
   Catches errors from any interceptor enqueued after it, including the router
   and all per-route interceptors. Since content negotiation is a per-route
   interceptor, it may not have run before the error was thrown; in that case
-  we sniff the Accept header directly."
+  the content type comes from the Accept header alone."
   (interceptor/interceptor
     {:name  ::error
      :error (fn [ctx ex]
@@ -246,7 +194,12 @@
                                    "Fejl" "Error")
                     content      {:languages (resp/request->languages request)
                                   :anomaly   anomaly}
-                    page-meta    {:title title :page "error"}]
+                    page-meta    {:title title :page "error"}
+                    ;; Pedestal skips the :leave that adds Vary after an
+                    ;; exception. Without a decision, Accept sets the type.
+                    vary         (conneg/vary-header
+                                   (get-in request [::conneg/decision :vary]
+                                           (cons "Accept" (:vary negotiation))))]
                 (tel/log! {:level :error
                            :error cause
                            :data  {:uri    (:uri request)
@@ -254,8 +207,9 @@
                           "Unhandled exception")
                 (assoc ctx
                   :response {:status  (:status anomaly)
-                             :headers (merge (resp/x-headers page-meta)
-                                             {"Content-Type" content-type})
+                             :headers (cond-> (merge (resp/x-headers page-meta)
+                                                     {"Content-Type" content-type})
+                                        vary (assoc "Vary" vary))
                              :body    (body-fn (resp/with-cookies request content)
                                                page-meta)})))}))
 
@@ -285,6 +239,36 @@
   [query-string]
   (when query-string
     (str/replace query-string #"&?(transit=true|format=turtle)" "")))
+
+(def linked-media-types
+  "The media types of an entity that get a URL in its Link header and
+  Content-Location: HTML and the formats of the download links."
+  #{"text/html" "text/turtle" "application/ld+json"})
+
+(def language-media-types
+  "The media types whose content depends on the language."
+  #{"text/html" "application/transit+json" "application/edn"})
+
+(defn entity-href
+  "The URL of the entity `request` in the `offers`, or nil unless the media
+  type is one of linked-media-types.
+
+  The URL leaves out the internal query parameters, and the language when
+  the media type doesn't depend on it."
+  [request {:keys [media-type] :as offers}]
+  (let [media-type' (or media-type (get-in request [::conneg/decision :media-type]))]
+    (when (linked-media-types media-type')
+      (some->> (cond-> offers
+                 (not (language-media-types media-type')) (dissoc :language))
+               (not-empty)
+               (conneg/query-href negotiation
+                                  (update request :query-string remove-internal-params))))))
+
+(def entity-negotiation-ic
+  "Negotiation for entities, with a Link to each other representation in
+  linked-media-types and the Content-Location of the chosen one."
+  (conneg.pedestal/negotiate (assoc negotiation :href entity-href)
+                             {:link? true :content-location? true}))
 
 (def expand-content-types
   "Content types that receive expanded entity data with relation labels."
@@ -316,7 +300,7 @@
                           deferred]} (merge (:path-params request)
                                             (:query-params request)
                                             static-params)
-                  content-type       (or (get-in request [:accept :field])
+                  content-type       (or (get-in request [::conneg/decision :media-type])
                                          "application/json")
                   g                  (:graph @instance/db)
                   ;; TODO: why is decoding necessary?
@@ -477,9 +461,7 @@
   a map of URIs and creates a local, relative path based on this URI."
   [prefix]
   [(str (-> prefix prefix/schemas :uri prefix/uri->path) ":subject")
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [entity-negotiation-ic
          (->entity-ic :prefix prefix)
          redirect-ic
          response-body-ic]
@@ -488,9 +470,7 @@
 (def external-entity-route
   "Look-up route for external resources. Doesn't conform to the actual URIs."
   [(str prefix/external-path "/:prefix/:subject")
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [entity-negotiation-ic
          (->entity-ic)
          redirect-ic
          response-body-ic]
@@ -498,9 +478,7 @@
 
 (def unknown-external-entity-route
   [prefix/external-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [entity-negotiation-ic
          (->entity-ic)
          redirect-ic
          response-body-ic]
@@ -510,9 +488,7 @@
   [prefix]
   (let [uri (-> prefix prefix/prefix->uri prefix/remove-trailing-separator)]
     [(prefix/uri->path uri)
-     :get [content-negotiation-ic
-           language-negotiation-ic
-           explicit-params-ic
+     :get [entity-negotiation-ic
            (->entity-ic :subject (prefix/uri->rdf-resource uri))
            redirect-ic
            response-body-ic]
@@ -577,9 +553,7 @@
 
 (def search-route
   [prefix/search-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [negotiation-ic
          search-ic
          redirect-ic
          response-body-ic]
@@ -599,8 +573,7 @@
 
 (def autocomplete-route
   [autocomplete-path
-   :get [content-negotiation-ic
-         explicit-params-ic
+   :get [media-type-negotiation-ic
          autocomplete-ic
          response-body-ic]
    :route-name ::autocomplete])
@@ -766,9 +739,7 @@
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route
   [prefix/sparql-path
-   :any [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :any [negotiation-ic
          sparql-validation-ic
          sparql-execution-ic
          response-body-ic]
@@ -786,9 +757,7 @@
 
 (def metadata-route
   [prefix/metadata-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [negotiation-ic
          metadata-ic
          response-body-ic]
    :route-name ::metadata])
@@ -806,9 +775,7 @@
 
 (def relations-route
   [prefix/relations-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [negotiation-ic
          relations-ic
          response-body-ic]
    :route-name ::relations])
@@ -841,9 +808,7 @@
 
 (def markdown-route
   [prefix/markdown-path
-   :get [content-negotiation-ic
-         language-negotiation-ic
-         explicit-params-ic
+   :get [negotiation-ic
          markdown-ic
          response-body-ic]
    :route-name ::markdown])

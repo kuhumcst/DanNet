@@ -7,6 +7,7 @@
             [arachne.aristotle.graph :as graph]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
+            [dk.simongray.conneg :as conneg]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui :as ui]
@@ -48,7 +49,7 @@
       ;; The frontend reads its initial languages and the development flag
       ;; from data attributes, which are escaped, unlike an inline script.
       [:html {:prefix            prefix/rdfa-prefixes
-              :lang              (first languages)
+              :lang              (i18n/da-en languages "da" "en")
               :data-detail-level (some-> detail-level name)
               :data-languages    (pr-str languages)
               :data-development  (str shared/development?)}
@@ -136,8 +137,6 @@
     (update m :rdfs/comment q/set-merge s)
     (meta m)))
 
-;; TODO: order matters when creating conneg interceptor, should be kvs as
-;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
   {"text/html"
    (fn [data & [{:keys [page title]}]]
@@ -205,11 +204,31 @@
       (apply (content-type->body-fn "application/sparql-results+json") args)
       (apply (content-type->body-fn "application/json") args)))
 
+;; TODO: select-label and select-str match tags exactly, so only the top
+;;       language gets its shorter forms here. Matching in those functions,
+;;       e.g. with langtag-clj's lookup, would cover every preference and add
+;;       less to the frontend bundle than conneg-clj would.
 (defn request->languages
-  "Resolve a vector of language preferences from a `request`."
+  "Resolve a vector of language preferences from a `request`.
+
+  It starts with the negotiated language when the client's preference
+  matches da or en, and otherwise with the client's own top language and
+  its shorter forms, e.g. de-de and de for de-DE, so that labels in that
+  language come first."
   [request]
-  (or (:languages request)
-      (i18n/lang-prefs (get-in request [:accept-language :type]))))
+  (let [{:keys [language preferences]} (::conneg/decision request)
+        preference (:language preferences)
+        top        (->> (conneg/language-ranges preference)
+                        (filter (comp pos? :weight))
+                        (map :range)
+                        (remove #{"*"})
+                        (first))]
+    (if (or (nil? top) (conneg/language preference i18n/supported-languages))
+      (i18n/lang-prefs language)
+      (into [] (distinct) (concat (->> (str/split top #"-")
+                                       (reductions #(str %1 "-" %2))
+                                       (reverse))
+                                  (i18n/lang-prefs top))))))
 
 (defn with-cookies
   [request data]
@@ -240,15 +259,15 @@
 (defn error-content-type
   "Determine the response content-type for an error response.
 
-  Falls back to sniffing the raw Accept header when content negotiation has not
-  run, defaulting to Transit (matching the SPA) for non-HTML clients."
+  Falls back to Transit (matching the SPA) or HTML by the Accept header when
+  content negotiation has not run, with Transit for clients that accept
+  neither."
   [request]
-  (or (get-in request [:accept :field])
-      (let [accept (or (get-in request [:headers "accept"])
-                       (get-in request [:headers :accept]))]
-        (if (and accept (str/includes? accept "text/html"))
-          "text/html"
-          "application/transit+json"))))
+  (or (get-in request [::conneg/decision :media-type])
+      (conneg/media-type (or (get-in request [:headers "accept"])
+                             (get-in request [:headers :accept]))
+                         ["application/transit+json" "text/html"])
+      "application/transit+json"))
 
 (defn redirect-location
   "Redirect to `x`.

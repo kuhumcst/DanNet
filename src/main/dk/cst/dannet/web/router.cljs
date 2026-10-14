@@ -192,11 +192,6 @@
                                                  (js/document.querySelector))]
                    (.scrollIntoView elem-with-id))
 
-                 ;; Mark hydration complete so subsequent renders can show
-                 ;; client-only elements like loading indicators.
-                 (when-not ui/*hydrated*
-                   (set! ui/*hydrated* true))
-
                  ;; Large Synset entities have truncated semantic relations on
                  ;; initial load. Fetch the remainder and re-render when ready.
                  ;; TODO: this causes word clouds to re-render every time.

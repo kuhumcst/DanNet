@@ -15,6 +15,14 @@
 ;; happen locally in the browser.
 (defonce ^:dynamic *hydrated* false)
 
+(def hydration-mixin
+  "Mark hydration as complete once React has committed it. React 18's
+  hydrateRoot hydrates asynchronously, so a flag set right after calling
+  rum/hydrate would already be true during the hydration render."
+  {:did-mount (fn [state]
+                #?(:cljs (set! *hydrated* true))
+                state)})
+
 (rum/defc page-footer
   [languages]
   [:footer.page-footer
@@ -105,7 +113,7 @@
      {:title     (i18n/da-en languages
                    "Indstil sprogpræference"
                    "Set language preference")
-      :value     (str (first languages))
+      :value     (i18n/da-en languages "da" "en")
       :on-change change-language}
      #_[:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]
@@ -176,7 +184,7 @@
       "detaljeniveau"
       "level of detail")]])
 
-(rum/defc page-shell < rum/reactive
+(rum/defc page-shell < rum/reactive hydration-mixin
   [page {:keys [entity subject languages entities full-screen] :as opts}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
   (let [page-component (get {"entity"    page/entity
