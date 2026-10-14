@@ -113,7 +113,7 @@
      {:title     (i18n/da-en languages
                    "Indstil sprogpræference"
                    "Set language preference")
-      :value     (str (first languages))
+      :value     (i18n/da-en languages "da" "en")
       :on-change change-language}
      #_[:option {:value ""} "\uD83C\uDDFA\uD83C\uDDF3 Other"]
      [:option {:value "en"} "\uD83C\uDDEC\uD83C\uDDE7 English"]

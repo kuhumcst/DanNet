@@ -49,7 +49,7 @@
       ;; The frontend reads its initial languages and the development flag
       ;; from data attributes, which are escaped, unlike an inline script.
       [:html {:prefix            prefix/rdfa-prefixes
-              :lang              (first languages)
+              :lang              (i18n/da-en languages "da" "en")
               :data-detail-level (some-> detail-level name)
               :data-languages    (pr-str languages)
               :data-development  (str shared/development?)}
@@ -204,10 +204,31 @@
       (apply (content-type->body-fn "application/sparql-results+json") args)
       (apply (content-type->body-fn "application/json") args)))
 
+;; TODO: select-label and select-str match tags exactly, so only the top
+;;       language gets its shorter forms here. Matching in those functions,
+;;       e.g. with langtag-clj's lookup, would cover every preference and add
+;;       less to the frontend bundle than conneg-clj would.
 (defn request->languages
-  "Resolve a vector of language preferences from a `request`."
+  "Resolve a vector of language preferences from a `request`.
+
+  It starts with the negotiated language when the client's preference
+  matches da or en, and otherwise with the client's own top language and
+  its shorter forms, e.g. de-de and de for de-DE, so that labels in that
+  language come first."
   [request]
-  (i18n/lang-prefs (get-in request [::conneg/decision :language])))
+  (let [{:keys [language preferences]} (::conneg/decision request)
+        preference (:language preferences)
+        top        (->> (conneg/language-ranges preference)
+                        (filter (comp pos? :weight))
+                        (map :range)
+                        (remove #{"*"})
+                        (first))]
+    (if (or (nil? top) (conneg/language preference i18n/supported-languages))
+      (i18n/lang-prefs language)
+      (into [] (distinct) (concat (->> (str/split top #"-")
+                                       (reductions #(str %1 "-" %2))
+                                       (reverse))
+                                  (i18n/lang-prefs top))))))
 
 (defn with-cookies
   [request data]
