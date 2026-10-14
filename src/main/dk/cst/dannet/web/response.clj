@@ -137,8 +137,6 @@
     (update m :rdfs/comment q/set-merge s)
     (meta m)))
 
-;; TODO: order matters when creating conneg interceptor, should be kvs as
-;;       shadow-handler relies on "text/html" being the first key, fix!
 (def content-type->body-fn
   {"text/html"
    (fn [data & [{:keys [page title]}]]
@@ -240,15 +238,15 @@
 (defn error-content-type
   "Determine the response content-type for an error response.
 
-  Falls back to sniffing the raw Accept header when content negotiation has not
-  run, defaulting to Transit (matching the SPA) for non-HTML clients."
+  Falls back to Transit (matching the SPA) or HTML by the Accept header when
+  content negotiation has not run, with Transit for clients that accept
+  neither."
   [request]
   (or (get-in request [::conneg/decision :media-type])
-      (let [accept (or (get-in request [:headers "accept"])
-                       (get-in request [:headers :accept]))]
-        (if (and accept (str/includes? accept "text/html"))
-          "text/html"
-          "application/transit+json"))))
+      (conneg/media-type (or (get-in request [:headers "accept"])
+                             (get-in request [:headers :accept]))
+                         ["application/transit+json" "text/html"])
+      "application/transit+json"))
 
 (defn redirect-location
   "Redirect to `x`.

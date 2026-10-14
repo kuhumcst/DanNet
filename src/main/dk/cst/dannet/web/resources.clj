@@ -35,7 +35,14 @@
   The ?format= and ?lang= query parameters override the Accept fields, and
   so does the :languages cookie for Accept-Language. They take the layman's
   terms below as well as MIME types and language tags."
-  {:media-type {:offers  (vec (keys resp/content-type->body-fn))
+  {;; HTML first, so a client with no preference gets HTML
+   :media-type {:offers  ["text/html"
+                          "text/turtle"
+                          "application/edn"
+                          "application/ld+json"
+                          "application/sparql-results+json"
+                          "application/json"
+                          "application/transit+json"]
                 :query   "format"
                 :aliases {"json"    "application/json"
                           "json-ld" "application/ld+json"
@@ -173,7 +180,7 @@
   Catches errors from any interceptor enqueued after it, including the router
   and all per-route interceptors. Since content negotiation is a per-route
   interceptor, it may not have run before the error was thrown; in that case
-  we sniff the Accept header directly."
+  the content type comes from the Accept header alone."
   (interceptor/interceptor
     {:name  ::error
      :error (fn [ctx ex]
@@ -187,7 +194,12 @@
                                    "Fejl" "Error")
                     content      {:languages (resp/request->languages request)
                                   :anomaly   anomaly}
-                    page-meta    {:title title :page "error"}]
+                    page-meta    {:title title :page "error"}
+                    ;; Pedestal skips the :leave that adds Vary after an
+                    ;; exception. Without a decision, Accept sets the type.
+                    vary         (conneg/vary-header
+                                   (get-in request [::conneg/decision :vary]
+                                           (cons "Accept" (:vary negotiation))))]
                 (tel/log! {:level :error
                            :error cause
                            :data  {:uri    (:uri request)
@@ -195,8 +207,9 @@
                           "Unhandled exception")
                 (assoc ctx
                   :response {:status  (:status anomaly)
-                             :headers (merge (resp/x-headers page-meta)
-                                             {"Content-Type" content-type})
+                             :headers (cond-> (merge (resp/x-headers page-meta)
+                                                     {"Content-Type" content-type})
+                                        vary (assoc "Vary" vary))
                              :body    (body-fn (resp/with-cookies request content)
                                                page-meta)})))}))
 
