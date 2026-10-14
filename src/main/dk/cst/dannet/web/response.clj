@@ -7,6 +7,7 @@
             [arachne.aristotle.graph :as graph]
             [ont-app.vocabulary.lstr]
             [rum.core :as rum]
+            [dk.simongray.conneg :as conneg]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui :as ui]
@@ -208,8 +209,7 @@
 (defn request->languages
   "Resolve a vector of language preferences from a `request`."
   [request]
-  (or (:languages request)
-      (i18n/lang-prefs (get-in request [:accept-language :type]))))
+  (i18n/lang-prefs (get-in request [::conneg/decision :language])))
 
 (defn with-cookies
   [request data]
@@ -243,7 +243,7 @@
   Falls back to sniffing the raw Accept header when content negotiation has not
   run, defaulting to Transit (matching the SPA) for non-HTML clients."
   [request]
-  (or (get-in request [:accept :field])
+  (or (get-in request [::conneg/decision :media-type])
       (let [accept (or (get-in request [:headers "accept"])
                        (get-in request [:headers :accept]))]
         (if (and accept (str/includes? accept "text/html"))

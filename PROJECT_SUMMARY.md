@@ -32,7 +32,7 @@ The system includes:
 - **Backend** (`dk.cst.dannet.web.service`): Pedestal-based HTTP service with SPARQL endpoint
 - **Frontend**: ClojureScript SPA with Rum components — `dk.cst.dannet.web.router` wires reitit routes to page fetching and mounting, `dk.cst.dannet.web.app` holds the session state and fetch layer, and `dk.cst.dannet.web.ui` (+ `web.ui.*`) are the components themselves
 - Progressive enhancement: works with or without JavaScript
-- Content negotiation for multiple data formats (HTML, JSON, RDF, etc.)
+- Content negotiation of media type and language by conneg-clj (`resources/negotiation`, `negotiation-ic`), with `?format=`, `?lang=` and the `:languages` cookie as overrides, a Vary header per response and a 406 when no format is acceptable. Entity pages also get a Link header to their HTML, Turtle and JSON-LD representations and a Content-Location (`entity-negotiation-ic`, `entity-href`)
 - Internationalization support (Danish/English)
 - Rate limiting for API endpoints
 - Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
@@ -237,6 +237,7 @@ pages/
 
 ### Web Framework
 - **Pedestal** (0.8.2): HTTP service and routing (still through `io.pedestal.http`, deprecated since 0.8.0)
+- **conneg-clj** (`:local/root "../conneg-clj"` until 0.1.0 is on Clojars): proactive content negotiation of media type and language, with Vary and 406
 - **Rum**: React-like UI components (custom fork)
 - **reitit-frontend** (0.11.0): Client-side routing for SPA
 - **Shadow-cljs** (3.4.11): ClojureScript compilation (`:frontend` alias)
@@ -435,7 +436,7 @@ npx shadow-cljs compile test
 ### New Web Endpoints
 1. Add handler in `dk.cst.dannet.web.resources`
 2. Register route in `dk.cst.dannet.web.service/routes`
-3. Implement content negotiation if needed
+3. Start the route's interceptors with `negotiation-ic`, or `media-type-negotiation-ic` when the content doesn't depend on the language
 
 ### Adding UI Components
 1. Create namespace in `dk.cst.dannet.web.ui/`
