@@ -178,7 +178,7 @@ src/main/dk/cst/dannet/web/
 │   │   └── aria.cljs         # ARIA-compliant combobox keyboard navigation
 │   ├── catalog.cljc          # Catalog resources display (schemas and datasets)
 │   ├── table.cljc            # Table components
-│   ├── markdown.cljc         # Markdown rendering components
+│   ├── markdown.cljc         # Markdown pages to Hiccup (server only), page titles
 │   ├── rdf.cljc              # RDF display components
 │   ├── relations.cljc        # Synset relation groups (canonical group-order) + relations table
 │   ├── entity.cljc           # Entity display, full-screen mode
@@ -210,7 +210,7 @@ resources/
 ```
 
 ### Documentation Pages
-All pages exist in both Danish (-da) and English (-en) variants. Intro pages are split across four personas targeting different audiences.
+All pages exist in both Danish (-da) and English (-en) variants. Intro pages are split across four personas targeting different audiences. The server parses each page into Hiccup (one per language) and sends that to the browser, which never parses Markdown: markdown-it in the browser and commonmark-java on the server disagree, so parsing on both sides breaks hydration.
 ```
 pages/
 ├── frontpage-{da,en}.md       # Landing page content

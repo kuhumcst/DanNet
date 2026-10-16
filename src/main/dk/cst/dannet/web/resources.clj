@@ -10,13 +10,13 @@
             [io.pedestal.http.body-params :refer [body-params]]
             [io.pedestal.http.route :refer [decode-query-part]]
             [io.pedestal.interceptor :as interceptor]
-            [ont-app.vocabulary.lstr :as lstr]
             [ring.util.response :as ring]
             [taoensso.telemere :as tel]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.anomaly :as anomaly]
             [dk.cst.dannet.web.response :as resp]
+            [dk.cst.dannet.web.ui.markdown :as mdc]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.entity :as ent]
             [dk.cst.dannet.prefix :as prefix]
@@ -780,18 +780,18 @@
          response-body-ic]
    :route-name ::relations])
 
-(defn page-langstrings
-  "Return Markdown pages as a set of LangStrings for the `document`."
+(defn page-hiccup
+  "Return the Markdown pages for the `document` as Hiccup, keyed by language."
   [document]
   (let [md-pattern' (re-pattern (str document "-(.+)\\.md"))
         xf          (comp
                       (map (fn [f]
-                             (some->> (.getName ^File f)
-                                      (re-matches md-pattern')
-                                      (second)
-                                      (lstr/->LangStr (slurp f)))))
+                             (when-let [lang (some->> (.getName ^File f)
+                                                      (re-matches md-pattern')
+                                                      (second))]
+                               [lang (mdc/md->hiccup (slurp f))])))
                       (remove nil?))]
-    (into #{} xf (file-seq (io/file "pages/")))))
+    (into {} xf (file-seq (io/file "pages/")))))
 
 (def markdown-ic
   "Returns a generic, localised markdown page for the given given page."
@@ -799,7 +799,7 @@
    :enter (fn [{:keys [request] :as ctx}]
             (let [document  (-> request :path-params :document)
                   languages (resp/request->languages request)
-                  md-pages  (page-langstrings document)]
+                  md-pages  (page-hiccup document)]
               (when (not-empty md-pages)
                 (assoc ctx
                   :content {:languages languages

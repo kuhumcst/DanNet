@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
   (:require [rum.core :as rum]
-            [ont-app.vocabulary.lstr :as lstr]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -70,10 +69,8 @@
 
 (rum/defc markdown
   [{:keys [languages content] :as opts}]
-  (let [ls     (i18n/select-label languages content)
-        lang   (lstr/lang ls)
-        md     (str ls)
-        hiccup (mdc/md->hiccup md)]
+  (let [lang   (first (filter content languages))
+        hiccup (get content lang)]
     #?(:cljs (when-let [title (mdc/hiccup->title hiccup)]
                (set! js/document.title title)))
     [:article.document {:lang lang}
