@@ -282,6 +282,130 @@
   #{"application/transit+json"
     "text/html"})
 
+(defn request->subject
+  "The subject that the request `params` ask for: a keyword or an RDF
+  resource, or nil when the prefix of the subject is unknown."
+  [{:keys [prefix subject]}]
+  ;; TODO: why is decoding necessary?
+  ;; You would think that the path-params-decoder handled this.
+  ;; NB: the path-params-decoder has already percent-decoded the subject, so
+  ;; literal + (e.g. dnc:Human+Object) must be kept out of reach of
+  ;; decode-query-part's +-as-space rule.
+  (let [s (some-> subject
+                  (str/replace "+" "%2B")
+                  (decode-query-part))]
+    (cond
+      ;; Aristotle can't look up a keyword with an unregistered prefix.
+      prefix
+      (when (get-in reg/*registry* [:prefixes (name prefix)])
+        (keyword (name prefix) s))
+
+      ;; A generic consumer such as the DMLex browser sends a bare URI, not a
+      ;; bracketed RDF resource.
+      (and s (re-find #"^https?://" s))
+      (prefix/uri->rdf-resource s)
+
+      :else s)))
+
+(defn- displayed-entity
+  "Prepare the `raw-entity` of `subject` for display in the browser.
+
+  Superproperty rows entailed by other rows are folded into them, and large
+  semantic relations are truncated. Returns {:entity :folded :has-deferred},
+  where :entity is the overflow of the truncated relations when `deferred?`
+  and there is any."
+  [subject raw-entity deferred?]
+  (let [k->supers @instance/superproperty-closure
+        {:keys [entity folded]}
+        (-> (ent/prune-entailed-superproperties k->supers raw-entity)
+            (update :entity #(ent/prune-self-references subject %))
+            (update :entity #(ent/prune-embedded-entities k->supers %)))
+        {:keys [truncated deferred has-deferred]}
+        (ent/truncate-semantic-relations entity)]
+    {:entity       (if (and deferred? (not-empty deferred))
+                     deferred
+                     truncated)
+     :folded       folded
+     :has-deferred has-deferred}))
+
+(defn- sunburst-trees
+  "The subtrees of the synset `subject` shown as sunburst diagrams: hyponyms,
+  orthogonal hyponyms and meronyms, keyed as in the page data."
+  [g languages subject]
+  (let [orthogonal-only (:orthogonal-only @instance/hyponym-graph)
+        ->tree          (fn [graph root-filter]
+                          (hyponymy/hyponym-tree g graph languages
+                                                 root-filter subject))]
+    (into {} (filter val)
+          {:hyponym-tree            (->tree @instance/hyponym-graph
+                                            (complement orthogonal-only))
+           :orthogonal-hyponym-tree (->tree @instance/hyponym-graph
+                                            orthogonal-only)
+           :meronym-tree            (->tree @instance/meronym-graph any?)})))
+
+(defn- entity-content
+  "The page data for `subject` in the `request`, made from its `raw-entity`
+  and the part of it that is `shown` (see displayed-entity)."
+  [request subject raw-entity {:keys [entity folded] :as shown}
+   {:keys [truncate? deferred?]}]
+  (let [languages (resp/request->languages request)
+        qs        (some-> (:query-string request) remove-internal-params)
+        synset?   (and truncate?
+                       (not deferred?)
+                       (shared/synset? subject raw-entity))]
+    (-> (meta raw-entity)
+        (update :entities dissoc subject)
+        (assoc :languages languages
+               :href (str (:uri request) (when (not-empty qs) (str "?" qs)))
+               :subject subject
+               :entity entity)
+        (cond->
+          ;; Display-only payload trimming: the deferred response carries the
+          ;; overflow labels, and the UI checks :inferred keys, never values.
+          truncate?
+          (update :entities select-keys
+                  (cond-> (ent/displayed-resources entity)
+                    (not deferred?)
+                    (into (mapcat #(cons (key %) (val %)) folded))))
+
+          (and truncate? (not deferred?))
+          (update :inferred (comp set keys))
+
+          deferred?
+          (dissoc :inferred :supplemented :ancestry)
+
+          (and (not deferred?) (not-empty folded))
+          (assoc :folded folded)
+
+          synset?
+          (merge (sunburst-trees (:graph @instance/db) languages subject))))))
+
+(defn- missing-entity
+  "Send `ctx` on to where the missing `subject` (shown as `qname`) can be
+  found instead, or leave it as it is, which becomes a 404."
+  [ctx g subject qname]
+  (let [alt      (alt-resource qname)
+        uri      (cond
+                   (keyword? subject) (prefix/kw->uri subject)
+                   (string? subject) (prefix/rdf-resource->uri subject))
+        subsumer (some '?s (q/run g [:bgp ['?s :dns/subsumed subject]]))]
+    (cond
+      (and alt (not-empty (q/entity g alt)))
+      (assoc ctx :replace alt)
+
+      ;; The id of a merged or removed duplicate leads to the resource that
+      ;; subsumed it.
+      subsumer
+      (assoc ctx :redirect subsumer)
+
+      ;; A DanNet IRI resolves to this page, so a redirect to it would loop;
+      ;; the empty context becomes a 404 instead.
+      (and uri (prefix/uri->dannet-path uri))
+      ctx
+
+      :else
+      (assoc ctx :redirect uri))))
+
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
   predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
@@ -293,161 +417,43 @@
   [& {:keys [prefix subject] :as static-params}]
   {:name  ::entity
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [prefix
-                          subject
-                          deferred]} (merge (:path-params request)
-                                            (:query-params request)
-                                            static-params)
-                  content-type       (or (get-in request [::conneg/decision :media-type])
-                                         "application/json")
-                  g                  (:graph @instance/db)
-                  ;; TODO: why is decoding necessary?
-                  ;; You would think that the path-params-decoder handled this.
-                  ;; NB: the path-params-decoder has already percent-decoded
-                  ;; the subject, so literal + (e.g. dnc:Human+Object) must be
-                  ;; kept out of reach of decode-query-part's +-as-space rule.
-                  subject*           (let [s (some-> subject
-                                                     (str/replace "+" "%2B")
-                                                     (decode-query-part))]
-                                       (cond
-                                         ;; Aristotle can't look up a keyword
-                                         ;; with an unregistered prefix.
-                                         prefix
-                                         (when (get-in reg/*registry*
-                                                       [:prefixes (name prefix)])
-                                           (keyword (name prefix) s))
-
-                                         ;; A generic consumer such as the
-                                         ;; DMLex browser sends a bare URI, not
-                                         ;; a bracketed RDF resource.
-                                         (and s (re-find #"^https?://" s))
-                                         (prefix/uri->rdf-resource s)
-
-                                         :else s))
-                  languages          (resp/request->languages request)
-                  qs                 (some-> (:query-string request)
-                                             remove-internal-params)
-                  qname              (if (keyword? subject*)
-                                       (prefix/kw->qname subject*)
-                                       subject*)
-                  expand?            (expand-content-types content-type)
-                  raw-entity         (when subject*
-                                       (if expand?
-                                         (q/expanded-entity g subject*)
-                                         (q/entity g subject*)))
-                  ;; Apply truncation only for content types that support deferred loading
-                  truncate?          (truncate-content-types content-type)
-                  deferred?          (and truncate? deferred)
-                  ;; De-duplicate entailed superproperty rows (display only).
-                  k->supers          @instance/superproperty-closure
-                  {pruned-entity :entity
-                   folded        :folded}
-                  (if (and truncate? (not-empty raw-entity))
-                    (-> (ent/prune-entailed-superproperties k->supers raw-entity)
-                        (update :entity #(ent/prune-self-references subject* %))
-                        (update :entity #(ent/prune-embedded-entities
-                                           k->supers %)))
-                    {:entity raw-entity :folded nil})
-                  {:keys           [truncated has-deferred]
-                   deferred-entity :deferred}
-                  (if (and truncate? (not-empty pruned-entity))
-                    (ent/truncate-semantic-relations pruned-entity)
-                    {:truncated pruned-entity :deferred {} :has-deferred false})
-                  ;; Return truncated on initial request, deferred portion on deferred request.
-                  ;; If there's nothing deferred (entity was small, or was re-fetched from
-                  ;; scratch), return the full entity to avoid an empty response.
-                  entity             (if deferred?
-                                       (if (not-empty deferred-entity)
-                                         deferred-entity
-                                         truncated)
-                                       truncated)
-                  ;; Two independent hyponym sunburst trees (real vs
-                  ;; orthogonal-only), only for synsets on the initial
-                  ;; (non-deferred) browser request.
-                  synset?            (and truncate?
-                                          (not deferred?)
-                                          (shared/synset? subject* raw-entity))
-                  orthogonal-only    (:orthogonal-only @instance/hyponym-graph)
-                  ->tree             (fn [root-filter]
-                                       (when synset?
-                                         (hyponymy/hyponym-tree
-                                           g @instance/hyponym-graph languages
-                                           root-filter subject*)))
-                  hyponym            (->tree (complement orthogonal-only))
-                  orthogonal-hyponym (->tree orthogonal-only)
-                  ;; Whole->part sunburst tree over the meronym graph, reusing
-                  ;; the hyponym subtree machinery unchanged.
-                  meronym            (when synset?
-                                       (hyponymy/hyponym-tree
-                                         g @instance/meronym-graph languages
-                                         any? subject*))]
+            (let [params       (merge (:path-params request)
+                                      (:query-params request)
+                                      static-params)
+                  subject      (request->subject params)
+                  qname        (if (keyword? subject)
+                                 (prefix/kw->qname subject)
+                                 subject)
+                  content-type (or (get-in request [::conneg/decision :media-type])
+                                   "application/json")
+                  g            (:graph @instance/db)
+                  raw-entity   (when subject
+                                 (if (expand-content-types content-type)
+                                   (q/expanded-entity g subject)
+                                   (q/entity g subject)))
+                  truncate?    (truncate-content-types content-type)
+                  deferred?    (boolean (and truncate? (:deferred params)))
+                  shown        (if (and truncate? (not-empty raw-entity))
+                                 (displayed-entity subject raw-entity deferred?)
+                                 {:entity raw-entity})]
               (cond
                 ;; An unknown prefix or a missing ?subject leaves nothing to
                 ;; look up; the empty context becomes a 404.
-                (nil? subject*)
+                (nil? subject)
                 ctx
 
-                (not-empty entity)
+                (not-empty (:entity shown))
                 (assoc ctx
-                  :content (-> (meta raw-entity)
-                               (update :entities dissoc subject*)
-                               (assoc :languages languages
-                                      :href (str (:uri request)
-                                                 (when (not-empty qs)
-                                                   (str "?" qs)))
-                                      :subject subject*
-                                      :entity entity)
-                               (cond->
-                                 ;; Display-only payload trimming: the deferred
-                                 ;; response carries the overflow labels, and
-                                 ;; the UI checks :inferred keys, never values.
-                                 truncate?
-                                 (update :entities select-keys
-                                         (cond-> (ent/displayed-resources entity)
-                                           (not deferred?)
-                                           (into (mapcat #(cons (key %) (val %))
-                                                         folded))))
-
-                                 (and truncate? (not deferred?))
-                                 (update :inferred (comp set keys))
-
-                                 deferred?
-                                 (dissoc :inferred :supplemented :ancestry)
-
-                                 (and (not deferred?) (not-empty folded))
-                                 (assoc :folded folded)
-
-                                 (some? hyponym) (assoc :hyponym-tree hyponym)
-                                 (some? orthogonal-hyponym)
-                                 (assoc :orthogonal-hyponym-tree orthogonal-hyponym)
-                                 (some? meronym) (assoc :meronym-tree meronym)))
+                  :content (entity-content request subject raw-entity shown
+                                           {:truncate? truncate?
+                                            :deferred? deferred?})
                   :page-meta (cond-> {:title qname
                                       :page  :entity}
-                               (and has-deferred (not deferred?))
+                               (and (:has-deferred shown) (not deferred?))
                                (assoc :deferred? true)))
 
                 :else
-                (let [alt      (alt-resource qname)
-                      uri      (cond
-                                 (keyword? subject*) (prefix/kw->uri subject*)
-                                 (string? subject*) (prefix/rdf-resource->uri subject*))
-                      subsumer (some '?s (q/run g [:bgp ['?s :dns/subsumed subject*]]))]
-                  (cond
-                    (and alt (not-empty (q/entity g alt)))
-                    (assoc ctx :replace alt)
-
-                    ;; The id of a merged or removed duplicate leads to the
-                    ;; resource that subsumed it.
-                    subsumer
-                    (assoc ctx :redirect subsumer)
-
-                    ;; A DanNet IRI resolves to this page, so a redirect to it
-                    ;; would loop; the empty context becomes a 404 instead.
-                    (and uri (prefix/uri->dannet-path uri))
-                    ctx
-
-                    :else
-                    (assoc ctx :redirect uri))))))})
+                (missing-entity ctx g subject qname))))})
 
 (defn prefix->entity-route
   "Internal entity look-up route for a specific `prefix`. Looks up the prefix in
