@@ -29,14 +29,40 @@
                   ("/" "?" "&" "=" "#") [:<> [:wbr] part]
                   part))))
 
+(def predicate-display
+  "How the values of particular predicates are displayed, by predicate:
+
+    :hide-prefix?  the prefix badge of a resource is hidden
+    :uri?          a URI is shown as such, even when it has a label
+    :prefix?       a string is a namespace prefix, shown as a prefix badge
+    :sense-label?  a string is a sense label, e.g. hund_1§2
+    :concepts?     dnc: concepts are shown as one value joined by +"
+  {:rdf/about                     {:hide-prefix? true}
+   :dns/ontologicalType           {:hide-prefix? true
+                                   :concepts?    true}
+   :dns/simpleOntologicalType     {:hide-prefix? true}
+   :rdfs/member                   {:concepts? true}
+   :foaf/homepage                 {:uri? true}
+   :vann/preferredNamespacePrefix {:prefix? true}
+   :ontolex/sense                 {:sense-label? true}
+   :ontolex/lexicalizedSense      {:sense-label? true}
+   :dns/linkedSynsetOf            {:sense-label? true}
+   :dns/linkedSense               {:sense-label? true}
+   :dns/simpleOntologicalTypeOf   {:sense-label? true}})
+
+(defn- displays?
+  "Is the value of the predicate in `opts` displayed with `option`, as given
+  in predicate-display?"
+  [{:keys [attr-key]} option]
+  (get-in predicate-display [attr-key option]))
+
 (rum/defc rdf-uri-hyperlink
   "Display URIs in RDF <resource> style or using a label when available."
-  [uri {:keys [languages k->label attr-key] :as opts}]
+  [uri {:keys [languages k->label] :as opts}]
   (let [labels (get k->label (prefix/uri->rdf-resource uri))
         label  (i18n/select-label languages labels)
         path   (prefix/uri->internal-path uri)]
-    (if (and label
-             (not (= attr-key :foaf/homepage)))             ; special behaviour
+    (if (and label (not (displays? opts :uri?)))
       [:a {:href path} (str label)]
       [:a.rdf-uri {:href path} (break-up-uri uri)])))
 
@@ -74,15 +100,9 @@
 ;; TODO: don't hide when detail-level is :high?
 (defn- hide-prefix?
   "Whether to hide the value column `prefix` according to its context `opts`."
-  [prefix {:keys [attr-key] :as opts}]
-  (or (= :rdf/about attr-key)
-      ;; TODO: don't hardcode ontologicalType (get from input config instead)
-      (= :dns/ontologicalType attr-key)
-      (= :dns/simpleOntologicalType attr-key)
-      ;; TODO: remove the :dns/inherited special case once #182 has shipped
-      ;;       (inheritance values are now blank nodes, never dn: resources)
-      (and (not= :dns/inherited attr-key)                   ; special case
-           (local-entity-prefix? prefix opts))))
+  [prefix opts]
+  (or (displays? opts :hide-prefix?)
+      (local-entity-prefix? prefix opts)))
 
 (rum/defc prefix-badge
   "Visual representation of a `prefix` based on its associated symbol.
@@ -168,7 +188,7 @@
      ;; Transformations of strings ONLY from here on
      :when-let [s (not-empty (str/trim (str v)))]
 
-     (= attr-key :vann/preferredNamespacePrefix)
+     (displays? opts :prefix?)
      (prefix-badge (symbol s) {:independent-prefix true})
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
@@ -198,11 +218,7 @@
 
      ;; Labels that don't parse as sense labels (e.g. the FrameNet frame
      ;; names displayed on COR.SEM senses) render verbatim.
-     (or (get #{:ontolex/sense
-                :ontolex/lexicalizedSense
-                :dns/linkedSynsetOf
-                :dns/linkedSense
-                :dns/simpleOntologicalTypeOf} attr-key)
+     (or (displays? opts :sense-label?)
          (= (:rdf/type entity) :ontolex/LexicalSense))
      (if-let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
        [:<> word [:sub sub] (some-> mwe subscript-markers)]
@@ -271,35 +287,17 @@
 
 ;; See also 'rdf-uri-hyperlink'.
 (rum/defc resource-hyperlink
-  "A stylised RDF `resource` hyperlink, stylised according to `opts`."
-  [resource {:keys [attr-key k->label] :as opts}]
-  (cond
-    ;; Label and text colour are modified to fit the inherited relation.
-    ;; TODO: remove once #182 has shipped (inheritance resources are now blank
-    ;;       nodes rendered by 'blank-node', so this case no longer triggers)
-    (= attr-key :dns/inherited)
-    (let [inherited       (some->> (get k->label resource) first (prefix/qname->kw))
-          inherited-label (get k->label inherited)
-          prefix          (when inherited
-                            (symbol (namespace inherited)))
-          opts'           (-> opts
-                              (assoc-in [:k->label resource] inherited-label)
-                              (assoc :class (get prefix/prefix->class prefix)))]
-      [:span.qname
-       (prefix-badge (or prefix (symbol (namespace resource))) opts')
-       (entity-link resource opts')])
-
-    ;; The generic case just displays the prefix badge + the hyperlink.
-    :else
-    [:span.qname
-     (prefix-badge (symbol (namespace resource)) opts)
-     (entity-link resource opts)]))
+  "A stylised RDF `resource` hyperlink: the prefix badge and the link."
+  [resource opts]
+  [:span.qname
+   (prefix-badge (symbol (namespace resource)) opts)
+   (entity-link resource opts)])
 
 (defn transform-val-coll
   "Performs convenient transformations of `coll` informed by `opts`."
-  [coll {:keys [attr-key] :as opts}]
+  [coll opts]
   (cond
-    (and (#{:dns/ontologicalType :rdfs/member} attr-key)
+    (and (displays? opts :concepts?)
          (every? #(and (qualified-ident? %)
                        (= "dnc" (namespace %))) coll))
     (let [vs     (sort-by name coll)
@@ -360,8 +358,8 @@
       ;; the synset(s) that the relation was inherited from.
       :let [relation (some-> (get m :dns/inheritedRelation) shared/unwrap)]
       (keyword? relation)
-      ;; NB: :attr-key is dissoc'ed to keep the legacy :dns/inherited special
-      ;; case in 'resource-hyperlink' from hijacking the relation rendering.
+      ;; NB: :attr-key is dissoc'ed, so the relation and the synsets are not
+      ;; displayed as values of dns:inherited, e.g. with a hidden prefix.
       (let [opts' (dissoc opts :attr-key)]
         (container
           [:span.inheritance

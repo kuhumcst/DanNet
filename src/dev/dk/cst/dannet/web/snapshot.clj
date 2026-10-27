@@ -39,6 +39,8 @@
    "/dannet/patterns/Activity-Domain"
    "/dannet/external/ontolex/LexicalConcept"
    "/dannet/external/wn/hypernym"
+   "/dannet/schema"
+   "/dannet/data"
    "/dannet/metadata"
    "/dannet/relations"
    "/dannet/search?lemma=hund"

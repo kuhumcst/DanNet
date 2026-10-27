@@ -16,24 +16,15 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 (rum/defc entity
-  [{:keys [entity k->label synset? full-screen subject]
+  [{:keys [entity synset? full-screen subject]
     :as   opts}]
   ;; TODO: could this transformation be moved to the backend?
   (let [inherited (->> (shared/setify (:dns/inherited entity))
                        ;; Inheritance is marked by anonymous resources (#182)
-                       ;; carrying their entity data as metadata; named
-                       ;; inherit-* resources found in older builds are
-                       ;; resolved through their labels as before.
-                       ;; TODO: remove the legacy keyword branch once #182
-                       ;;       has shipped and no older builds remain.
-                       (keep (fn [v]
-                               (if (symbol? v)
-                                 (some-> (meta v)
-                                         (get :dns/inheritedRelation)
-                                         (shared/unwrap))
-                                 (some->> (get k->label v)
-                                          (first)
-                                          (prefix/qname->kw)))))
+                       ;; carrying their entity data as metadata.
+                       (keep #(some-> (meta %)
+                                      (get :dns/inheritedRelation)
+                                      (shared/unwrap)))
                        (set))
         opts'     (assoc opts :inherited inherited)
         [_ _ rdf-uri] (shared/parse-rdf-term subject)
