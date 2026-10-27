@@ -67,36 +67,30 @@
                   [(keyword (str prefix) "") (or label (str prefix))])))
         catalog))
 
-(defn table
-  "Render a single catalog table for a group of `entries` using `k->label`."
-  [{:keys [languages] :as opts} k->label entries]
-  [:table.attr-val
-   [:colgroup
-    [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
-    [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
-    [:col {:aria-label (i18n/da-en languages "Beskrivelse" "Description")}]]
-   [:tbody
-    (for [[rdf-resource {:keys [label description prefix]}] entries
-          :let [uri   (prefix/rdf-resource->uri rdf-resource)
-                path  (prefix/uri->internal-path uri)
-                opts' (assoc opts :k->label k->label :link-href path)
-                kw    (when prefix (keyword (str prefix) ""))]]
-      [:tr {:key rdf-resource}
-       [:td.attr-prefix
-        (when prefix
-          (rdf/prefix-badge (symbol prefix)))]
-       [:td.attr-name
-        (cond
-          kw
-          (rdf/entity-link kw opts')
+(defn row
+  "A table row for the catalog `entry`, labelled using `k->label`."
+  [{:keys [languages] :as opts} k->label entry]
+  (let [[rdf-resource {:keys [label description prefix]}] entry
+        uri   (prefix/rdf-resource->uri rdf-resource)
+        path  (prefix/uri->internal-path uri)
+        opts' (assoc opts :k->label k->label :link-href path)
+        kw    (when prefix (keyword (str prefix) ""))]
+    [:tr {:key rdf-resource}
+     [:td.attr-prefix
+      (when prefix
+        (rdf/prefix-badge (symbol prefix)))]
+     [:td.attr-name
+      (cond
+        kw
+        (rdf/entity-link kw opts')
 
-          ;; Resources without a resolvable prefix, e.g. the COR and OEWN
-          ;; dataset resources, still display by their dc:title/rdfs:label.
-          label
-          (let [s (i18n/select-label languages label)]
-            [:a {:href path :lang (i18n/lang s)} (str s)])
+        ;; Resources without a resolvable prefix, e.g. the COR and OEWN
+        ;; dataset resources, still display by their dc:title/rdfs:label.
+        label
+        (let [s (i18n/select-label languages label)]
+          [:a {:href path :lang (i18n/lang s)} (str s)])
 
-          :else
-          (rdf/rdf-uri-hyperlink uri opts'))]
-       [:td (when description
-              (rdf/transform-text opts description))]])]])
+        :else
+        (rdf/rdf-uri-hyperlink uri opts'))]
+     [:td (when description
+            (rdf/transform-text opts description))]]))

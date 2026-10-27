@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.ui.relations
   "UI components for displaying the synset relations in use in DanNet."
   (:require [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
@@ -123,21 +122,13 @@
   [relations detail-level]
   (update-vals relations (shared/->entity-label-fn detail-level)))
 
-(defn table
-  "Render a single relations table for a group of `entries` using `k->label`."
-  [{:keys [languages] :as opts} k->label entries]
-  [:table.attr-val
-   [:colgroup
-    [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
-    [:col {:aria-label (i18n/da-en languages "Relation" "Relation")}]
-    [:col {:aria-label (i18n/da-en languages "Beskrivelse" "Description")}]]
-   [:tbody
-    (for [[rel {:keys [rdfs/comment]}] entries
-          :let [opts' (assoc opts :k->label k->label)]]
-      [:tr {:key (str rel)}
-       [:td.attr-prefix
-        (rdf/prefix-badge (symbol (namespace rel)))]
-       [:td.attr-name
-        (rdf/entity-link rel opts')]
-       [:td (when comment
-              (rdf/transform-text opts comment))]])]])
+(defn row
+  "A table row for the relation `entry`, labelled using `k->label`."
+  [opts k->label [rel {:keys [rdfs/comment]}]]
+  [:tr {:key (str rel)}
+   [:td.attr-prefix
+    (rdf/prefix-badge (symbol (namespace rel)))]
+   [:td.attr-name
+    (rdf/entity-link rel (assoc opts :k->label k->label))]
+   [:td (when comment
+          (rdf/transform-text opts comment))]])
