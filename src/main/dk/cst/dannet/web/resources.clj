@@ -87,10 +87,9 @@
 
   ----
 
-  Unfortunately, the JS fetch API does not allow for intercepting 30x redirects
-  manually, so a somewhat hacky solution is required to make it work. By setting
-  a custom header and adding some redirect logic on the client-side, the client
-  knows when to redirect from an API call."
+  The JS fetch API does not allow for intercepting 30x redirects manually, so
+  the SPA gets a Transit body with the :redirect location (and :replace?)
+  instead, which its router follows."
   {:name  ::redirect
    :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
             (let [{:keys [lang format]} redirect-params
@@ -116,14 +115,13 @@
                               {:status  303
                                :headers {"Location" location}}
 
-                              ;; Custom header hack for SPA client-side redirect handling
-                              ;; Ideally, this would be 204 and no body, but Fetch has issues with that,
-                              ;; e.g. https://github.com/lambdaisland/fetch/issues/24
+                              ;; The SPA can't intercept a 30x from fetch, so it
+                              ;; gets the redirect as data.
                               "application/transit+json"
                               {:status  200
-                               :headers (resp/x-headers {:redirect location
-                                                         :replace  (if replace "T" "F")})
-                               :body    "{}"}
+                               :headers {"Content-Type" content-type}
+                               :body    (resp/->transit {:redirect location
+                                                         :replace? (boolean replace)})}
 
                               ;; Simple redirect for JSON - let HTTP client follow the redirect
                               "application/json"
@@ -160,11 +158,11 @@
 
                             :else
                             {:status (or (:response-status ctx) 200)
-                             :body   (body-fn (resp/with-cookies request content) page-meta)}))
+                             :body   (body-fn (resp/with-cookies request content)
+                                              (resp/->page request content page-meta))}))
                   (update-in [:response :headers] merge
-                             (-> (assoc (resp/x-headers page-meta)
-                                   "Content-Type" content-type
-                                   "Cache-Control" resp/one-day-cache)
+                             (-> {"Content-Type"  content-type
+                                  "Cache-Control" resp/one-day-cache}
 
                                  ;; Add filename extensions when needed.
                                  (merge (resp/with-file-ext title content-type)))))))})
@@ -207,11 +205,11 @@
                           "Unhandled exception")
                 (assoc ctx
                   :response {:status  (:status anomaly)
-                             :headers (cond-> (merge (resp/x-headers page-meta)
-                                                     {"Content-Type" content-type})
+                             :headers (cond-> {"Content-Type" content-type}
                                         vary (assoc "Vary" vary))
                              :body    (body-fn (resp/with-cookies request content)
-                                               page-meta)})))}))
+                                               (resp/->page request content
+                                                            page-meta))})))}))
 
 (defn frontpage-redirect
   [_]
@@ -238,7 +236,7 @@
 (defn remove-internal-params
   [query-string]
   (when query-string
-    (str/replace query-string #"&?(transit=true|format=turtle)" "")))
+    (str/replace query-string #"&?(transit=[^&]*|format=turtle)" "")))
 
 (def linked-media-types
   "The media types of an entity that get a URL in its Link header and
@@ -328,12 +326,7 @@
                                          :else s))
                   languages          (resp/request->languages request)
                   qs                 (some-> (:query-string request)
-                                             remove-internal-params
-                                             ;; Canonicalize slash encoding: DanNet's
-                                             ;; url-encode emits %2F while the client
-                                             ;; leaves slashes bare. The difference
-                                             ;; otherwise causes a hydration mismatch.
-                                             (str/replace "%2F" "/"))
+                                             remove-internal-params)
                   qname              (if (keyword? subject*)
                                        (prefix/kw->qname subject*)
                                        subject*)
@@ -431,7 +424,7 @@
                   :page-meta (cond-> {:title qname
                                       :page  "entity"}
                                (and has-deferred (not deferred?))
-                               (assoc :has-deferred "true")))
+                               (assoc :deferred? true)))
 
                 :else
                 (let [alt      (alt-resource qname)
@@ -804,7 +797,11 @@
                 (assoc ctx
                   :content {:languages languages
                             :content   md-pages}
-                  :page-meta {:page "markdown"}))))})
+                  :page-meta {:title (->> (filter md-pages languages)
+                                          (first)
+                                          (get md-pages)
+                                          (mdc/hiccup->title))
+                              :page  "markdown"}))))})
 
 (def markdown-route
   [prefix/markdown-path

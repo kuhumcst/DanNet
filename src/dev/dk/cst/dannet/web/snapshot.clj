@@ -24,6 +24,8 @@
    "/dannet/page/nonexistent"
    "/dannet/data/synset-52"
    "/dannet/data/synset-52?deferred=true"
+   "/dannet/data/synset-8369"
+   "/dannet/data/synset-8369?deferred=true"
    "/dannet/data/synset-60920"
    "/dannet/data/sense-21062734"
    "/dannet/data/word-11024957"
@@ -41,6 +43,7 @@
    "/dannet/relations"
    "/dannet/search?lemma=hund"
    "/dannet/search?lemma=bank"
+   "/dannet/search?lemma=dn:synset-52"
    "/dannet/sparql"
    (sparql-path "SELECT ?p ?o WHERE { dn:synset-52 ?p ?o }")
    (sparql-path "SELECT ?p ?o WHERE { dn:synset-52 ?p ?o")])

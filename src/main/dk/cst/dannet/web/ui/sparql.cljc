@@ -72,19 +72,19 @@
      (when-let [view @*editor-view]
        (when-let [query (not-empty (cm/get-doc view))]
          (-> (fetch/request (shared/normalize-url prefix/sparql-path)
-                            {:query-params        {:query   query
-                                                   :noop    true
-                                                   :transit true}
+                            {:query-params        (merge {:query query
+                                                          :noop  true}
+                                                         app/transit-param)
                              :transit-json-reader app/transit-reader})
-             (.then (fn [{:keys [body]}]
-                      (if-let [nq (:normalized-query body)]
+             (.then (fn [{{:keys [data]} :body}]
+                      (if-let [nq (:normalized-query data)]
                         (do
                           (cm/clear-editor-error! view)
                           (set-submit-disabled! form false)
                           nq)
                         (do
                           (cm/show-editor-error!
-                            view (validity-message (:anomaly body)))
+                            view (validity-message (:anomaly data)))
                           (set-submit-disabled! form true)
                           nil))))
              (.catch (fn [_] nil)))))))

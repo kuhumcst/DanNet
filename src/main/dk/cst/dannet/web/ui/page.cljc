@@ -9,8 +9,7 @@
             [dk.cst.dannet.web.ui.catalog :as catalog]
             [dk.cst.dannet.web.ui.relations :as rels]
             [dk.cst.dannet.web.ui.sparql :as sparql]
-            [dk.cst.dannet.web.ui.error :as error]
-            [dk.cst.dannet.web.ui.markdown :as mdc]))
+            [dk.cst.dannet.web.ui.error :as error]))
 
 ;; TODO: superfluous DN:A4-ark http://localhost:3456/dannet/data/synset-48300
 ;; TODO: empty synset http://localhost:3456/dannet/data/synset-47272
@@ -71,8 +70,6 @@
   [{:keys [languages content] :as opts}]
   (let [lang   (first (filter content languages))
         hiccup (get content lang)]
-    #?(:cljs (when-let [title (mdc/hiccup->title hiccup)]
-               (set! js/document.title title)))
     [:article.document {:lang lang}
      hiccup]))
 

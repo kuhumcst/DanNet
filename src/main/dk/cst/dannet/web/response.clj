@@ -34,43 +34,56 @@
   "Unique versioning of the frontend app; used for cache busting."
   (abs (hash (Date.))))
 
-(defn html-page
-  "A full HTML page ready to be hydrated. Needs a `title`, the user-specific
-  `data` (languages and detail level), and the `hiccup` content."
-  [title {:keys [languages detail-level] :as data} hiccup]
-  (str
-    "<!DOCTYPE html>\n"                                     ;; Avoid Quirks Mode
-    (rum/render-static-markup
-      ;; The :lang attribute declares the negotiated UI language semantically;
-      ;; it doubles as the base language for RDFa literals lacking a closer
-      ;; @lang and is matched in CSS to hide redundant language superscripts.
-      ;; The detail level is mirrored in :data-detail-level since the CSS only
-      ;; hides redundant superscripts below the :high detail level.
-      ;; The frontend reads its initial languages and the development flag
-      ;; from data attributes, which are escaped, unlike an inline script.
-      [:html {:prefix            prefix/rdfa-prefixes
-              :lang              (i18n/da-en languages "da" "en")
-              :data-detail-level (some-> detail-level name)
-              :data-languages    (pr-str languages)
-              :data-development  (str shared/development?)}
-       [:head
-        [:title title]
-        [:meta {:charset "UTF-8"}]
-        [:meta {:name    "viewport"
-                :content "width=device-width, initial-scale=1.0"}]
-        [:link {:rel "stylesheet" :href (str "/css/main.css?hash=" version-hash)}]
+(declare ->transit)
 
-        ;; Favicon section
-        [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
-        [:link {:rel "icon" :type "image/png" :sizes "32x32" :href "/favicon-32x32.png"}]
-        [:link {:rel "icon" :type "image/png" :sizes "16x16" :href "/favicon-16x16.png"}]
-        [:link {:rel "manifest" :href "/site.webmanifest"}]
-        [:link {:rel "mask-icon" :href "/safari-pinned-tab.svg" :color "#5bbad5"}]
-        [:meta {:name "msapplication-TileColor" :content "#da532c"}]
-        [:meta {:name "theme-color" :content "#ffffff"}]]
-       [:body
-        [:div#app {:dangerouslySetInnerHTML {:__html (rum/render-html hiccup)}}]
-        [:script {:src (str "/js/compiled/" shared/main-js)}]]])))
+(defn- script-safe
+  "Escape the Transit string `s` for a <script> element, which would end at
+  any </script> inside it."
+  [s]
+  (str/replace s "<" "\\u003c"))
+
+(defn html-page
+  "A full HTML page for the `page` value, ready to be hydrated.
+
+  The page value is embedded as Transit, so the client hydrates from the same
+  data that the server rendered."
+  [{:keys [title prefs] :as page}]
+  (let [{:keys [languages detail-level]} prefs]
+    (str
+      "<!DOCTYPE html>\n"                                   ;; Avoid Quirks Mode
+      (rum/render-static-markup
+        ;; The :lang attribute declares the negotiated UI language semantically;
+        ;; it doubles as the base language for RDFa literals lacking a closer
+        ;; @lang and is matched in CSS to hide redundant language superscripts.
+        ;; The detail level is mirrored in :data-detail-level since the CSS only
+        ;; hides redundant superscripts below the :high detail level.
+        ;; The frontend reads the development flag from a data attribute.
+        [:html {:prefix            prefix/rdfa-prefixes
+                :lang              (i18n/da-en languages "da" "en")
+                :data-detail-level (some-> detail-level name)
+                :data-development  (str shared/development?)}
+         [:head
+          [:title title]
+          [:meta {:charset "UTF-8"}]
+          [:meta {:name    "viewport"
+                  :content "width=device-width, initial-scale=1.0"}]
+          [:link {:rel "stylesheet" :href (str "/css/main.css?hash=" version-hash)}]
+
+          ;; Favicon section
+          [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
+          [:link {:rel "icon" :type "image/png" :sizes "32x32" :href "/favicon-32x32.png"}]
+          [:link {:rel "icon" :type "image/png" :sizes "16x16" :href "/favicon-16x16.png"}]
+          [:link {:rel "manifest" :href "/site.webmanifest"}]
+          [:link {:rel "mask-icon" :href "/safari-pinned-tab.svg" :color "#5bbad5"}]
+          [:meta {:name "msapplication-TileColor" :content "#da532c"}]
+          [:meta {:name "theme-color" :content "#ffffff"}]]
+         [:body
+          [:div#app {:dangerouslySetInnerHTML
+                     {:__html (rum/render-html (ui/page-shell page))}}]
+          [:script {:id                      "page-data"
+                    :type                    "application/transit+json"
+                    :dangerouslySetInnerHTML {:__html (script-safe (->transit page))}}]
+          [:script {:src (str "/js/compiled/" shared/main-js)}]]]))))
 
 (defn- lstr->s
   [lstr]
@@ -130,6 +143,16 @@
   "Write a value of a type with no Transit handler as its printed form."
   (t/write-handler (constantly "unknown") pr-str))
 
+(defn ->transit
+  "Write `x` as a Transit JSON string."
+  [x]
+  (let [out (ByteArrayOutputStream.)]
+    (t/write (t/writer out :json {:handlers        transit-write-handlers
+                                  :default-handler transit-default-handler
+                                  :transform       t/write-meta})
+             x)
+    (.toString out "UTF-8")))
+
 (defn- with-comment
   "Add `s` to the :rdfs/comment of entity `m`, preserving its metadata."
   [m s]
@@ -139,11 +162,11 @@
 
 (def content-type->body-fn
   {"text/html"
-   (fn [data & [{:keys [page title]}]]
-     (html-page
-       title
-       data
-       (ui/page-shell page (update data :sparql-result sparql-result->rows))))
+   (fn [_ page]
+     ;; The page is both rendered and embedded, so the result set is read once.
+     (html-page (cond-> page
+                  (get-in page [:data :sparql-result])
+                  (update-in [:data :sparql-result] sparql-result->rows))))
 
    "text/turtle"
    (fn [{:keys [entity href]} & _]
@@ -188,13 +211,8 @@
                       :escape-unicode false}))
 
    "application/transit+json"
-   (fn [data & _]
-     (let [out (ByteArrayOutputStream.)]
-       (t/write (t/writer out :json {:handlers        transit-write-handlers
-                                     :default-handler transit-default-handler
-                                     :transform       t/write-meta})
-                data)
-       (.toString out "UTF-8")))})
+   (fn [_ page]
+     (->transit page))})
 
 (defn json-body-fn
   "Combined body-fn that prefers specific types of JSON-LD over unspecified JSON
@@ -238,12 +256,15 @@
                       :normal)))
 
 ;; TODO: eventually support LangStr for titles too
-(defn x-headers
-  "Encode `page-meta` for a given page as custom HTTP headers.
+(defn ->page
+  "The page value for `content` and its `page-meta`, which the UI renders.
 
-  See also: dk.cst.dannet.web.router/x-header"
-  [page-meta]
-  (update-keys page-meta (fn [k] (str "X-" (str/capitalize (name k))))))
+  A page also carries the user's preferences from the `request`. A response
+  that isn't a page, e.g. autocompletions, has only :data."
+  [request content page-meta]
+  (cond-> (assoc page-meta :data content)
+    (:page page-meta) (assoc :prefs (-> (with-cookies request {})
+                                        (assoc :languages (:languages content))))))
 
 (defn with-file-ext
   [title content-type]

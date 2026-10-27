@@ -6,8 +6,7 @@
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj [clojure.core.memoize :as memo])
-            #?(:clj [clojure.java.io :as io]))
-  #?(:cljs (:import [goog.net Cookies])))
+            #?(:clj [clojure.java.io :as io])))
 
 #?(:clj
    (def main-js
@@ -38,25 +37,17 @@
 
 ;; NOTE: cookies should be set using the /cookies endpoint! This is the only way
 ;; to get long-term cookie storage in e.g. Safari using JavaScript.
-(defn get-cookie
-  "Cross-compatible way to get cookie `k` (from the `request` on backend)."
-  #?(:clj
-     ([request k]
-      (try
-        (some-> request
-                :cookies
-                (get (name k))
-                :value
-                (edn/read-string))
-        (catch Exception e nil)))
-     :cljs
-     ([k]
-      ;; Ring form-encodes cookie values, so + is a space; decodeURIComponent
-      ;; alone would leave the + signs in.
-      (some-> (.get (Cookies/getInstance) (name k))
-              (str/replace "+" " ")
-              (js/decodeURIComponent)
-              (edn/read-string)))))
+#?(:clj
+   (defn get-cookie
+     "Get cookie `k` from the `request`."
+     [request k]
+     (try
+       (some-> request
+               :cookies
+               (get (name k))
+               :value
+               (edn/read-string))
+       (catch Exception e nil))))
 
 (def windows?
   #?(:cljs (and (exists? js/navigator.appVersion)

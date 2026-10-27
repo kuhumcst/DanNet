@@ -1,8 +1,7 @@
 (ns dk.cst.dannet.web.app
   "The client side of the single-page app: the user's session, the cookie-backed
   defaults feeding it, navigation, and the transit-based fetch layer."
-  (:require [clojure.edn :as edn]
-            [taoensso.telemere :as t]
+  (:require [taoensso.telemere :as t]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.section :as section]
             #?(:cljs [reitit.frontend.easy :as rfe])
@@ -12,30 +11,15 @@
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])))
 
-(def default-languages
-  #?(:clj  nil
-     :cljs (or
-             (shared/get-cookie :languages)
-             (some-> js/document.documentElement.dataset.languages
-                     (edn/read-string))
-             ["en" nil "da"])))
-
-(def default-full-screen
-  #?(:clj  false
-     :cljs (boolean (shared/get-cookie :full-screen))))
-
-(def default-detail-level
-  #?(:clj  :normal
-     :cljs (or (shared/get-cookie :detail-level)
-               :normal)))
-
 ;; The user's current browsing session; also read server-side to seed hydration.
+;; The preferences (languages, full-screen, detail level) come from the page:
+;; the client takes them from the first page, the server from each request.
 (defonce session
-  (atom {:languages    default-languages
+  (atom {:languages    nil
          :search       {:completion {}
                         :s          ""}
-         :full-screen  default-full-screen
-         :detail-level default-detail-level
+         :full-screen  false
+         :detail-level :normal
          :section      {section/semantic-title
                         {:display {:selected     "diagram"
                                    :diagram-mode :radial}}}}))
@@ -103,12 +87,18 @@
          (.abort controller))
        (swap! session assoc :fetch {}))
 
+     ;; The `:transit` query parameter is there to circumvent the browser
+     ;; caching the transit data instead of an HTML page, which can result in a
+     ;; weird situation where clicking the back button and then forward
+     ;; sometimes results in transit data being displayed rather than an HTML
+     ;; page. Responses are cached for a day, so its value is bumped whenever
+     ;; the Transit format changes; cached responses in the old format are then
+     ;; never used.
+     (def transit-param
+       {:transit 2})
+
      ;; Currently lambdaisland/fetch silently loses query strings, so they are
      ;; parsed back out of the URL below to keep them intact.
-     ;; The reason that `:transit true` is assoc'd is to circumvent the browser
-     ;; caching the transit data instead of an HTML page, which can result in a weird
-     ;; situation where clicking the back button and then forward sometimes results
-     ;; in transit data being displayed rather than an HTML page.
      (defn fetch!
        "Request the resource at `url`, returning the response body."
        [url & [{:keys [query-params method] :or {method :get} :as opts}]]
@@ -118,8 +108,7 @@
          (abort-current-fetch url))
 
        (let [string-params (uri/query-string->map (:query (uri/uri url)))
-             query-params' (assoc (merge string-params query-params)
-                             :transit true)
+             query-params' (merge string-params query-params transit-param)
              controller    (new js/AbortController)
              signal        (.-signal controller)
              opts*         (merge {:method              method

@@ -2,6 +2,8 @@
   "Turns route changes into rendered pages: the reitit routes, the navigation
   callback that fetches page data, and the Rum mounting it triggers."
   (:require [clojure.string :as str]
+            [cognitect.transit :as transit]
+            [lambdaisland.uri :as uri]
             [rum.core :as rum]
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe :refer [href]]
@@ -18,8 +20,13 @@
 ;; The React root, once mounted; see mount-page! for the states it holds.
 (defonce root (atom nil))
 
+;; The page value on display, with its :path.
 (defonce location
   (atom {}))
+
+;; The page value embedded in the HTML, until the first navigation shows it.
+(defonce embedded
+  (atom nil))
 
 (defonce visited
   (atom {:back    '()
@@ -28,13 +35,12 @@
 (def app-element
   (js/document.getElementById "app"))
 
-(defn x-header
-  "Get the custom `header` in the HTTP `headers`.
-
-  See also: dk.cst.dannet.web.response/x-headers"
-  [headers header]
-  ;; Interestingly (hahaha) fetch seems to lower-case all keys in the headers.
-  (get headers (str "x-" (str/lower-case (name header)))))
+(defn- take-embedded-page!
+  "Read and remove the page value that the server embedded in the HTML."
+  []
+  (when-let [elem (js/document.getElementById "page-data")]
+    (.remove elem)
+    (transit/read app/transit-reader (.-textContent elem))))
 
 (defn response->url
   [response]
@@ -128,6 +134,84 @@
     (swap! visited vary-meta assoc :anchor-click? true)
     true))
 
+(defn- load-deferred!
+  "Fetch the rest of the entity at `path`, which the server held back to load
+  the page faster, and show the page again with it."
+  [path query-params]
+  (-> (app/fetch! path {:query-params (assoc query-params :deferred true)})
+      (.then (fn [{:keys [body]}]
+               (app/clear-current-fetch path)
+               ;; The user may have navigated away while this deferred request
+               ;; was in flight. If so, @location now reflects a different page
+               ;; and we must NOT merge stale data or remount, as doing so would
+               ;; clobber the current page with data from the previous one.
+               (if (= path (:path @location))
+                 (when-let [deferred (:data body)]
+                   ;; The deferred response also carries the labels of the
+                   ;; overflow values, since the initial :entities map is
+                   ;; trimmed to the displayed resources.
+                   (let [page (update @location :data
+                                      #(-> %
+                                           (update :entity
+                                                   shared/merge-deferred-entity
+                                                   (:entity deferred))
+                                           (update :entities merge
+                                                   (:entities deferred))))]
+                     (reset! location page)
+                     (mount-page! (ui/page-shell page))))
+                 (t/log! {:level :warn
+                          :data  {:expected-path path
+                                  :current-path  (:path @location)}}
+                         "Discarded stale deferred response"))))
+      (.catch (fn [err]
+                (t/log! {:level :warn
+                         :error err
+                         :data  {:path path}}
+                        "Deferred fetch failed")))))
+
+(defn- show-page!
+  "Show the `page` value at `path`, or follow its redirect.
+
+  The `url` is the one that the page was requested from; the scroll history
+  is keyed by it."
+  [path query-params url {:keys [redirect replace? title deferred?] :as page}]
+  (if redirect
+    ;; Further distinguish between internal and external redirects.
+    (if (str/starts-with? redirect "/")
+      (app/navigate-to redirect replace?)
+      (js/window.location.replace redirect))
+    (let [{:keys [scroll]} @app/post-navigate]
+      (set! js/document.title title)
+      (reset! location (assoc page :path path))
+      ;; Preserve scroll position for back/forward, but reset to top
+      ;; for new navigations - except when clicking radial diagram
+      ;; labels, where scrolling away is disorienting.
+      (when-not (and (= scroll :diagram)
+                     (not (:full-screen @app/session)))
+        (update-scroll-state! url))
+
+      ;; Ensure that the search overlay closes when clicking 'back'.
+      (js/document.activeElement.blur)
+
+      ;; The initial render of the new page occurs here.
+      (mount-page! (ui/page-shell page))
+
+      ;; Re-enable scroll-to-id (SPAs tend to break this feature).
+      (when-let [elem-with-id (some-> js/window.location.hash
+                                      (not-empty)
+                                      (js/document.querySelector))]
+        (.scrollIntoView elem-with-id))
+
+      ;; Large Synset entities have truncated semantic relations on
+      ;; initial load. Fetch the remainder and re-render when ready.
+      ;; TODO: this causes word clouds to re-render every time.
+      ;;       Investigate whether we can skip re-mount.
+      (when deferred?
+        (load-deferred! path query-params))
+
+      ;; Reset special page change behaviour now that we're done.
+      (reset! app/post-navigate nil))))
+
 (defn on-navigate
   "The core frontend function; gets called on every path change. This function
   handles every single page render + all the subtleties related to that process.
@@ -141,118 +225,48 @@
   ;; against (:path @location) to detect if they've become stale.
   (swap! location assoc :path path)
 
-  ;; Fetch the page data.
-  (-> (app/fetch! path {:query-params query-params})
-      (.then
-        #(do
-           (app/clear-current-fetch path)
+  (if-let [page @embedded]
+    ;; The first page is in the HTML already. Its URL is built like the one
+    ;; that fetch! requests, since the scroll history compares them.
+    (do
+      (reset! embedded nil)
+      (show-page! path query-params
+                  (str (uri/assoc-query* (uri/uri (shared/normalize-url path))
+                                         (merge query-params app/transit-param)))
+                  page))
+    (-> (app/fetch! path {:query-params query-params})
+        (.then
+          #(do
+             (app/clear-current-fetch path)
 
-           ;; Check staleness. If user clicked multiple links quickly,
-           ;; this callback's `path` won't match the current target from step 2.
-           (when (= path (:path @location))
-
-             ;; We cannot intercept 30x redirects from JS, so the server sends
-             ;; redirect info in a custom header instead.
-             (if-let [redirect-path (x-header (:headers %) :redirect)]
-               ;; Further distinguish between internal and external redirects.
-               (if (str/starts-with? redirect-path "/")
-                 (let [replace? (= "T" (x-header (:headers %) :replace))]
-                   (app/navigate-to redirect-path replace?))
-                 (js/window.location.replace redirect-path))
-
-               ;; The normal (i.e. non-redirect) navigation flow follows below.
-               (let [{:keys [scroll]} @app/post-navigate
-                     headers        (:headers %)
-                     page           (x-header headers :page)
-                     body           (not-empty (:body %))
-                     page-component (ui/page-shell page body)
-                     page-title     (x-header headers :title)
-                     has-deferred   (x-header headers :has-deferred)]
-                 (set! js/document.title page-title)
-                 (reset! location {:path    path
-                                   :headers headers
-                                   :data    body})
-                 ;; Preserve scroll position for back/forward, but reset to top
-                 ;; for new navigations - except when clicking radial diagram
-                 ;; labels, where scrolling away is disorienting.
-                 (when-not (and (= scroll :diagram)
-                                (not (:full-screen @app/session)))
-                   (when-let [url (response->url %)]
-                     (update-scroll-state! url)))
-
-                 ;; Ensure that the search overlay closes when clicking 'back'.
-                 (js/document.activeElement.blur)
-
-                 ;; The initial render of the new page occurs here.
-                 (mount-page! page-component)
-
-                 ;; Re-enable scroll-to-id (SPAs tend to break this feature).
-                 (when-let [elem-with-id (some-> js/window.location.hash
-                                                 (not-empty)
-                                                 (js/document.querySelector))]
-                   (.scrollIntoView elem-with-id))
-
-                 ;; Large Synset entities have truncated semantic relations on
-                 ;; initial load. Fetch the remainder and re-render when ready.
-                 ;; TODO: this causes word clouds to re-render every time.
-                 ;;       Investigate whether we can skip re-mount.
-                 (when has-deferred
-                   (-> (app/fetch! path {:query-params (assoc query-params
-                                                         :deferred true)})
-                       (.then (fn [deferred-response]
-                                (app/clear-current-fetch path)
-                                ;; The user may have navigated away while
-                                ;; this deferred request was in flight. If so,
-                                ;; @location now reflects a different page an
-                                ;; we must NOT merge stale data or remount,
-                                ;; as doing so would clobber the current page
-                                ;; with data from the previous one.
-                                (if (= path (:path @location))
-                                  (when-let [deferred-body (:body deferred-response)]
-                                    ;; The deferred response also carries the
-                                    ;; labels of the overflow values, since the
-                                    ;; initial :entities map is trimmed to the
-                                    ;; displayed resources.
-                                    (let [merged-body   (-> body
-                                                            (update :entity
-                                                                    shared/merge-deferred-entity
-                                                                    (:entity deferred-body))
-                                                            (update :entities merge
-                                                                    (:entities deferred-body)))
-                                          new-component (ui/page-shell page merged-body)]
-                                      (reset! location {:path    path
-                                                        :headers headers
-                                                        :data    merged-body})
-                                      (mount-page! new-component)))
-                                  (t/log! {:level :warn
-                                           :data  {:expected-path path
-                                                   :current-path  (:path @location)}}
-                                          "Discarded stale deferred response"))))
-                       (.catch (fn [err]
-                                 (t/log! {:level :warn
-                                          :error err
-                                          :data  {:path path}}
-                                         "Deferred fetch failed")))))
-
-                 ;; Reset special page change behaviour now that we're done.
-                 (reset! app/post-navigate nil))))))
-      (.catch
-        (fn [err]
-          (when-not (= "AbortError" (some-> err .-name))
-            (app/clear-current-fetch path)
-            (t/log! {:level :error
-                     :error err
-                     :data  {:path path}}
-                    "Page fetch failed")
-            (when (= path (:path @location))
-              (mount-page! (ui/page-shell "error"
-                                          {:languages (or (:languages @app/session)
-                                                          ["en" nil "da"])}))))))))
+             ;; Check staleness. If user clicked multiple links quickly,
+             ;; this callback's `path` won't match the current target.
+             (when (= path (:path @location))
+               (show-page! path query-params (response->url %) (:body %)))))
+        (.catch
+          (fn [err]
+            (when-not (= "AbortError" (some-> err .-name))
+              (app/clear-current-fetch path)
+              (t/log! {:level :error
+                       :error err
+                       :data  {:path path}}
+                      "Page fetch failed")
+              (when (= path (:path @location))
+                (mount-page! (ui/page-shell
+                               {:page "error"
+                                :data {:languages (or (:languages @app/session)
+                                                      ["en" nil "da"])}})))))))))
 
 (defn init!
   "Set up the Reitit router. This also starts the rendering loop by calling
-  'on-navigate', which handles everything related to rendering a frontend page."
+  'on-navigate', which handles everything related to rendering a frontend page.
+
+  The first page comes embedded in the HTML, and its preferences seed the
+  session."
   []
+  (when-let [page (take-embedded-page!)]
+    (swap! app/session merge (:prefs page))
+    (reset! embedded page))
   (rfe/start! (rf/router routes)
               on-navigate
               {:use-fragment         false
@@ -260,8 +274,7 @@
 
 ;; This function is only used by the shadow-cljs watch process!
 (defn ^:dev/after-load render []
-  (let [{:keys [data headers]} @location
-        page-component (ui/page-shell (x-header headers :page) data)]
+  (let [page-component (ui/page-shell @location)]
     ;; Call both again to ensure that we keep up-to-date with code changes
     (init!)
     (mount-page! page-component)))

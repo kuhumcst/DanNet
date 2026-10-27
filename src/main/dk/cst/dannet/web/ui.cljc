@@ -185,9 +185,10 @@
       "level of detail")]])
 
 (rum/defc page-shell < rum/reactive hydration-mixin
-  [page {:keys [entity subject languages entities full-screen] :as opts}]
+  [{:keys [page data prefs]}]
   ;; TODO: better solution? string keys + indirection reduce discoverability
-  (let [page-component (get {"entity"    page/entity
+  (let [{:keys [entity subject entities] :as opts} data
+        page-component (get {"entity"    page/entity
                              "search"    page/search
                              "markdown"  page/markdown
                              "metadata"  page/metadata
@@ -196,12 +197,9 @@
                              "error"     page/error}
                             page
                             page/not-found)
-        ;; The backend also needs access to user-specific state to be able to
-        ;; subsequently hydrate the HTML on the client-side with no errors.
-        state' #?(:clj (assoc @app/session
-                         :languages languages
-                         :full-screen full-screen
-                         :detail-level (or (:detail-level opts) :normal))
+        ;; The server renders with the preferences of the request, the client
+        ;; with those in its session, which start out as the same.
+        state' #?(:clj  (merge @app/session prefs)
                   :cljs (rum/react app/session))
         languages'     (:languages state')
         comments       {:inference
@@ -220,9 +218,7 @@
                         (i18n/da-en languages'
                           "se andre relationer afledt af denne"
                           "view other relations entailed by this one")}
-        detail-level   (or (get state' :detail-level)
-                           (get opts :detail-level)
-                           :normal)
+        detail-level   (or (:detail-level state') :normal)
         entity-label*  (shared/->entity-label-fn detail-level)
         ;; Rejoin entities with subject (split for performance reasons)
         entities'      (assoc entities subject entity)

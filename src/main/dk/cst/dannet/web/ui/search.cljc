@@ -27,7 +27,7 @@
                (.then (app/fetch! autocomplete-url {:query-params {:s s'}})
                       #(do
                          (app/clear-current-fetch autocomplete-url)
-                         (when-let [v (not-empty (:autocompletions (:body %)))]
+                         (when-let [v (not-empty (get-in % [:body :data :autocompletions]))]
                            (swap! app/session assoc-in path v))))))))
 
 (defn completion-item-id
