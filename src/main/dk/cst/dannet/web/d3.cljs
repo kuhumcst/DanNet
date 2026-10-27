@@ -144,89 +144,97 @@
                (.-sub d))))
   text)
 
+(defn- build-once!
+  "Run `build!` to draw a diagram in `elem`, unless the last drawing there was
+  made with the same `k`.
+
+  Callers key on everything that their drawing depends on, so a page that
+  re-renders with the same data leaves its diagrams alone. This runs in a ref
+  callback, outside React's render cycle where try-render and error
+  boundaries can't catch errors, so it uses try-static-render."
+  [^js elem k build!]
+  (when (and elem (not= k (.-dnBuildKey elem)))
+    (set! (.-dnBuildKey elem) k)
+    (error/try-static-render elem
+      (build!))))
+
 (defn- build-cloud!*
-  [rendered {:keys [displayed on-navigate] :as opts} synsets node]
-  (when (and node (not= @rendered displayed))
-    ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
-    (when-let [existing-svg (.querySelector node "svg")]
-      (.remove existing-svg))
-    (let [width  (content-width (.-parentElement node))
-          words  (prepare-synset-cloud opts synsets)
+  [{:keys [on-navigate] :as opts} synsets node]
+  ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
+  (when-let [existing-svg (.querySelector node "svg")]
+    (.remove existing-svg))
+  (let [width  (content-width (.-parentElement node))
+        words  (prepare-synset-cloud opts synsets)
 
-          ;; Height scales with word count (6px per word) within certain bounds:
-          ;;   - Minimum 128px ensures that small clouds are readable.
-          ;;   - Max prevents excessive vertical scrolling for large clouds.
-          height (min
-                   (max (* (count words) 6) 128)
-                   width)
+        ;; Height scales with word count (6px per word) within certain bounds:
+        ;;   - Minimum 128px ensures that small clouds are readable.
+        ;;   - Max prevents excessive vertical scrolling for large clouds.
+        height (min
+                 (max (* (count words) 6) 128)
+                 width)
 
-          ;; Draw callback invoked after layout computation finishes.
-          ;; Receives positioned word data with x/y coordinates and sizes.
-          draw   (fn [words]
-                   (-> d3
+        ;; Draw callback invoked after layout computation finishes.
+        ;; Receives positioned word data with x/y coordinates and sizes.
+        draw   (fn [words]
+                 (-> d3
 
-                       ;; Adding <svg> and <g> (group) container elements.
-                       (.select node)
-                       (.append "svg")
-                       (.attr "width" width)
-                       (.attr "height" height)
-                       (.append "g")
-                       ;; Center group in SVG: words are positioned relative to (0,0)
-                       (.attr "transform" (str "translate(" (/ width 2)
-                                               "," (/ height 2) ")"))
+                     ;; Adding <svg> and <g> (group) container elements.
+                     (.select node)
+                     (.append "svg")
+                     (.attr "width" width)
+                     (.attr "height" height)
+                     (.append "g")
+                     ;; Center group in SVG: words are positioned relative to (0,0)
+                     (.attr "transform" (str "translate(" (/ width 2)
+                                             "," (/ height 2) ")"))
 
-                       ;; Styling/adding interactivity to all <text> elements.
-                       (.selectAll "text")
-                       (.data words)
-                       (.join "text")
-                       (.style "font-size" (fn [d] (str (.-size d) "px")))
-                       (.style "font-family" "Georgia")
-                       (.style "text-shadow" "1px 0px rgba(255,255,255,0.8)")
-                       (.style "fill" next-colour)
-                       (.attr "class" (fn [d]
-                                        (if (.-highlight d)
-                                          "word-cloud-item word-cloud-item__top"
-                                          "word-cloud-item")))
-                       (.attr "text-anchor" "middle")
-                       (.attr "transform"
-                              (fn [d]
-                                (str "translate(" (.-x d) "," (.-y d) ")")))
-                       (.text (fn [d] (.-text d)))
-                       (.on "click" (fn [_ d]
-                                      (on-navigate (.-href d))))
+                     ;; Styling/adding interactivity to all <text> elements.
+                     (.selectAll "text")
+                     (.data words)
+                     (.join "text")
+                     (.style "font-size" (fn [d] (str (.-size d) "px")))
+                     (.style "font-family" "Georgia")
+                     (.style "text-shadow" "1px 0px rgba(255,255,255,0.8)")
+                     (.style "fill" next-colour)
+                     (.attr "class" (fn [d]
+                                      (if (.-highlight d)
+                                        "word-cloud-item word-cloud-item__top"
+                                        "word-cloud-item")))
+                     (.attr "text-anchor" "middle")
+                     (.attr "transform"
+                            (fn [d]
+                              (str "translate(" (.-x d) "," (.-y d) ")")))
+                     (.text (fn [d] (.-text d)))
+                     (.on "click" (fn [_ d]
+                                    (on-navigate (.-href d))))
 
-                       ;; Insert subscript paragraph, returning parent text
-                       #_(append-subscript-tspan)
+                     ;; Insert subscript paragraph, returning parent text
+                     #_(append-subscript-tspan)
 
-                       ;; Adding mouseover text (in lieu of a title attribute)
-                       (.append "title")
-                       (.text (fn [d] (.-title d)))))
+                     ;; Adding mouseover text (in lieu of a title attribute)
+                     (.append "title")
+                     (.text (fn [d] (.-title d)))))
 
-          ;; The d3-cloud layout conf computes word positions to avoid overlaps.
-          layout (-> (cloud)
-                     (.size #js [width height])
-                     (.words (clj->js words))
-                     (.padding 8)                           ; prevent visual crowding
-                     (.rotate (fn [] 0))                    ; keep labels horizontal for readability
-                     (.font "Georgia")                      ; matches CSS styling
-                     (.fontSize (fn [d] (.-size d)))
-                     ;; Trigger draw when layout computation completes
-                     (.on "end" draw))]
-      (.start layout))
-    (reset! rendered displayed)))
+        ;; The d3-cloud layout conf computes word positions to avoid overlaps.
+        layout (-> (cloud)
+                   (.size #js [width height])
+                   (.words (clj->js words))
+                   (.padding 8)                           ; prevent visual crowding
+                   (.rotate (fn [] 0))                    ; keep labels horizontal for readability
+                   (.font "Georgia")                      ; matches CSS styling
+                   (.fontSize (fn [d] (.-size d)))
+                   ;; Trigger draw when layout computation completes
+                   (.on "end" draw))]
+    (.start layout)))
 
 (defn build-cloud!
-  "Build word cloud in `node` from `synsets`, tracking what was last drawn in
-  the `rendered` atom.
-  
-  Computes :displayed for build-cloud!* to use as cache key, ensuring
-  deferred synset data doesn't trigger unnecessary re-renders."
-  [rendered {:keys [cloud-limit] :as opts} synsets node]
-  ;; Uses try-static-render since this runs in a ref callback, outside React's
-  ;; render cycle where try-render and error boundaries can't catch errors.
-  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)]
-    (error/try-static-render node
-      (build-cloud!* rendered (assoc opts :displayed displayed) synsets node))))
+  "Build a word cloud of `synsets` in the ref'd `node`.
+
+  It is drawn again only when the displayed synsets or their labels change, so
+  deferred synsets beyond the cloud-limit don't trigger a new drawing."
+  [{:keys [k->label] :as opts} synsets node]
+  (build-once! node (hash [(displayed-synsets opts synsets) k->label])
+               #(build-cloud!* opts synsets node)))
 
 ;; NOTE: memoized for performance.
 (def expand-sense-labels
@@ -954,11 +962,12 @@
       (.node svg))))
 
 (defn build-radial!
-  [entity elem {:keys [subject] :as opts}]
-  ;; Uses try-static-render since this runs in a ref callback, outside React's
-  ;; render cycle where try-render and error boundaries can't catch errors.
-  (error/try-static-render elem
-    (build-radial!* entity elem opts)))
+  "Build the radial diagram of the relations in `subentity` in the ref'd
+  `elem`. It is drawn again only when the relations, their labels, the
+  languages or full-screen mode change; the SVG scales with its viewBox."
+  [subentity elem {:keys [k->label languages full-screen] :as opts}]
+  (build-once! elem (hash [subentity k->label languages (boolean full-screen)])
+               #(build-radial!* subentity elem opts)))
 
 (def sunburst-palette
   "Per-branch hues, reusing the shared diagram theme colours. Lightness is
@@ -1374,15 +1383,9 @@
   zoom breadcrumb to the `nav` atom (owned by the parent component, so the legend
   column can react to it).
 
-  Idempotent across resizes: the SVG is viewBox-scaled, so resizing needs no
-  rebuild, and rebuilding would discard the user's zoom. A render-key stashed on
-  `elem` means we only (re)build when the data (`tree`) or `:full-screen` changes;
-  resizes just let CSS scale the existing SVG. (Like build-radial!, this runs in
-  a ref callback, so it uses try-static-render.)"
-  [tree ^js elem nav {:keys [full-screen] :as opts}]
-  (when elem
-    (let [render-key (str (hash tree) "|" (boolean full-screen))]
-      (when (not= render-key (.-dnSunburstKey elem))
-        (set! (.-dnSunburstKey elem) render-key)
-        (error/try-static-render elem
-          (build-sunburst!* tree elem nav opts))))))
+  It is drawn again only when the `tree`, the languages or full-screen mode
+  change, since drawing it again discards the user's zoom. The SVG scales with
+  its viewBox, so resizing needs no new drawing."
+  [tree elem nav {:keys [languages full-screen] :as opts}]
+  (build-once! elem (hash [tree languages (boolean full-screen)])
+               #(build-sunburst!* tree elem nav opts)))

@@ -29,15 +29,11 @@
     :on-navigate on-navigate
     :on-toggle-full-screen app/toggle-full-screen!))
 
-(rum/defcs word-cloud < (rum/local nil ::synsets)
-  [state synsets {:keys [cloud-limit] :as opts}]
-  ;; Key on displayed items only, so deferred data doesn't trigger re-render
-  ;; when cloud-limit caps what's shown anyway.
-  (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)
-        opts'     (with-actions (viz-opts opts) app/navigate-to)]
-    [:div {:key (hash displayed)
-           :ref #?(:clj  nil
-                   :cljs #(d3/build-cloud! (::synsets state) opts' synsets %))}]))
+(rum/defc word-cloud
+  [synsets opts]
+  (let [opts' (with-actions (viz-opts opts) app/navigate-to)]
+    [:div {:ref #?(:clj  nil
+                   :cljs #(d3/build-cloud! opts' synsets %))}]))
 
 (rum/defc radial-tree-diagram
   [subentity {:keys [languages] :as opts}]
@@ -311,39 +307,8 @@
         (hyponym-sunburst-legend opts)
         (radial-tree-legend subentity opts))]]))
 
-(defn debounced-rerender-mixin
-  "Debounced rerender on resize events to prevent excessive diagram repaints."
-  [debounce-millis]
-  {:did-mount
-   (fn [state]
-     #?(:cljs
-        (let [comp     (:rum/react-component state)
-              rerender (atom nil)
-              ;; The observer resets the scheduled rerender on each resize.
-              observer (js/ResizeObserver.
-                         (fn []
-                           (js/clearTimeout @rerender)
-                           (reset! rerender
-                                   (js/setTimeout
-                                     #(rum/request-render comp)
-                                     debounce-millis))))]
-          (.observe observer (rum/dom-node state))
-          (assoc state ::observer observer ::rerender rerender))
-        :clj state))
-
-   :will-unmount
-   (fn [state]
-     #?(:cljs
-        (do
-          (js/clearTimeout @(::rerender state))
-          ;; The observer is explicitly disconnected to prevent memory leaks.
-          (when-let [observer (::observer state)]
-            (.disconnect observer))
-          (dissoc state ::observer ::rerender))
-        :clj state))})
-
 ;; TODO: display ancestry and examples in full-screen mode
-(rum/defc expanded-diagram < (debounced-rerender-mixin 200)
+(rum/defc expanded-diagram
   [subentity {:keys [entity ancestry] :as opts}]
   [:div.synset-diagram-container {:key (str (hash subentity))}
    (synset-diagram subentity opts)
