@@ -20,19 +20,30 @@
                   (update-vals entities' (shared/->entity-label-fn :normal))))
     opts))
 
+(defn- with-actions
+  "Add the callbacks for clicks in a diagram to `opts`: `on-navigate` gets the
+  href of a clicked synset, and the subject toggles full-screen mode. The D3
+  code calls these rather than the app."
+  [opts on-navigate]
+  (assoc opts
+    :on-navigate on-navigate
+    :on-toggle-full-screen app/toggle-full-screen!))
+
 (rum/defcs word-cloud < (rum/local nil ::synsets)
   [state synsets {:keys [cloud-limit] :as opts}]
   ;; Key on displayed items only, so deferred data doesn't trigger re-render
   ;; when cloud-limit caps what's shown anyway.
   (let [displayed (if cloud-limit (take cloud-limit synsets) synsets)
-        opts'     (viz-opts opts)]
+        opts'     (with-actions (viz-opts opts) app/navigate-to)]
     [:div {:key (hash displayed)
            :ref #?(:clj  nil
                    :cljs #(d3/build-cloud! (::synsets state) opts' synsets %))}]))
 
 (rum/defc radial-tree-diagram
   [subentity {:keys [languages] :as opts}]
-  (let [opts' (viz-opts opts)]
+  ;; Scrolling away from a diagram after a click in it is disorienting.
+  (let [opts' (with-actions (viz-opts opts)
+                            #(app/navigate-to % {:keep-scroll? true}))]
     [:figure.radial-tree-diagram
      {:ref #?(:clj  nil
               :cljs (fn [elem]
@@ -51,7 +62,15 @@
    {:ref #?(:clj  nil
             :cljs (fn [elem]
                     (when elem
-                      (d3/build-sunburst! tree elem sunburst-nav opts))))}
+                      (d3/build-sunburst!
+                        tree elem sunburst-nav
+                        (with-actions
+                          opts
+                          (fn [href]
+                            ;; Reset to the radial so navigating reads as a
+                            ;; page change, not a silent re-root.
+                            (swap! app/session assoc-in app/diagram-mode-path :radial)
+                            (app/navigate-to href {:keep-scroll? true})))))))}
    ;; Names the figure for assistive tech; the SVG itself is built in the ref
    ;; callback and also carries role="img" + a label.
    [:figcaption.visually-hidden caption]])
@@ -112,10 +131,6 @@
   .radial-tree-links [data-theme],
   .radial-tree-labels [data-theme]")
 
-(defn- get-diagram
-  []
-  #?(:cljs (js/document.querySelector ".radial-tree-diagram")))
-
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
   [state subentity {:keys [languages k->label detail-level]}]
@@ -145,9 +160,11 @@
                         :value     theme
                         :checked   is-selected?
                         :read-only true
-                        :on-click  (fn [_]
+                        :on-click  (fn [e]
                                      (let [new-selection (if is-selected? nil theme)
-                                           diagram       (get-diagram)]
+                                           diagram       (-> (.-target e)
+                                                             (.closest ".synset-diagram")
+                                                             (.querySelector ".radial-tree-diagram"))]
                                        (reset! selected new-selection)
                                        (doseq [el (.querySelectorAll diagram radial-tree-selector)]
                                          (let [classes (elem-classes el)

@@ -5,7 +5,6 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
             [dk.cst.dannet.web.ui.relations :as relations]
             ["d3" :as d3]
@@ -146,10 +145,10 @@
   text)
 
 (defn- build-cloud!*
-  [rendered {:keys [displayed] :as opts} synsets node]
+  [rendered {:keys [displayed on-navigate] :as opts} synsets node]
   (when (and node (not= @rendered displayed))
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
-    (when-let [existing-svg (.-firstChild node)]
+    (when-let [existing-svg (.querySelector node "svg")]
       (.remove existing-svg))
     (let [width  (content-width (.-parentElement node))
           words  (prepare-synset-cloud opts synsets)
@@ -194,7 +193,7 @@
                                 (str "translate(" (.-x d) "," (.-y d) ")")))
                        (.text (fn [d] (.-text d)))
                        (.on "click" (fn [_ d]
-                                      (app/navigate-to (.-href d))))
+                                      (on-navigate (.-href d))))
 
                        ;; Insert subscript paragraph, returning parent text
                        #_(append-subscript-tspan)
@@ -757,10 +756,10 @@
 (defn- render-radial-labels
   "Render text labels with rotation and positioning in the radial tree.
 
-  Takes `svg` (SVG selection), `root` (D3 hierarchy root), and `sizing` map
-  with font sizes and limits. Handles complex label rotation, multi-line
-  subject labels, and subscript rendering."
-  [svg root]
+  Takes `svg` (SVG selection) and `root` (D3 hierarchy root); clicking a label
+  calls `on-navigate` with its href. Handles complex label rotation,
+  multi-line subject labels, and subscript rendering."
+  [svg root on-navigate]
   (let [add-title (fn [d3]
                     (-> d3
                         (.append "title")
@@ -834,7 +833,7 @@
                          s))))))
         (.on "click" (fn [_ d]
                        (when-let [href (.-href (.-data d))]
-                         (app/navigate-to href {:keep-scroll? true}))))
+                         (on-navigate href))))
         (add-title)
 
         ;; Render subject labels with horizontal layout
@@ -870,10 +869,12 @@
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
-  [subentity elem {:keys [subject languages entity] :as opts}]
+  [subentity elem {:keys [subject languages entity on-navigate
+                          on-toggle-full-screen] :as opts}]
   (when elem
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
-    (when-let [existing-svg (.-firstChild elem)]
+    ;; The figure's caption stays.
+    (when-let [existing-svg (.querySelector elem "svg")]
       (.remove existing-svg))
     (let [width     800
           height    800
@@ -931,7 +932,7 @@
             (.attr "fill" "url(#subjectBackground)")))
 
       (render-radial-nodes svg root radius)
-      (render-radial-labels svg root)
+      (render-radial-labels svg root on-navigate)
 
       ;; Transparent clickable circle for toggling full-screen mode.
       ;; Positioned last so it's on top, extending to where the nodes are.
@@ -944,7 +945,7 @@
             (.attr "r" radius)
             (.attr "fill" "transparent")
             (.style "cursor" (if (:full-screen opts) "zoom-out" "zoom-in"))
-            (.on "click" (fn [_] (app/toggle-full-screen!)))
+            (.on "click" (fn [_] (on-toggle-full-screen)))
             (.append "title")
             (.text (if (:full-screen opts)
                      (i18n/da-en languages "Minimér" "Minimize")
@@ -1183,9 +1184,11 @@
   centre when it is the current synset (root), toggling full-screen, and
   navigates to the synset otherwise. The `nav` atom is reset to the root → focus
   breadcrumb on every zoom, so the legend column can step back up."
-  [tree elem nav {:keys [entity languages full-screen]}]
+  [tree elem nav {:keys [entity languages full-screen on-navigate
+                         on-toggle-full-screen]}]
   (when (and elem tree)
-    (when-let [existing (.-firstChild elem)]
+    ;; The figure's caption stays.
+    (when-let [existing (.querySelector elem "svg")]
       (.remove existing))
     (let [tau           (* 2 math/PI)
           data          (clj->js tree)
@@ -1264,12 +1267,8 @@
                 ;; Root centre toggles full-screen; a zoomed-in centre navigates
                 ;; to that synset's own page.
                 (if (identical? @focus root)
-                  (app/toggle-full-screen!)
-                  (when-let [href (.. @focus -data -href)]
-                    ;; Reset to the radial so navigating reads as a page change,
-                    ;; not a silent re-root.
-                    (swap! app/session assoc-in app/diagram-mode-path :radial)
-                    (app/navigate-to href {:keep-scroll? true}))))
+                  (on-toggle-full-screen)
+                  (some-> (.. @focus -data -href) (on-navigate))))
               (render-centre! [p]
                 ;; Root → its short-label senses stacked with a faded dot between
                 ;; them; deeper → the focused node's own name, prefixed with the
