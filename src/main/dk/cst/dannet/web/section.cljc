@@ -38,31 +38,24 @@
 
 (defmulti defined-sections shape-dispatch :hierarchy #'shape-hierarchy)
 
-(def lexical-title
-  #{(->LangStr "Lexical context" "en")
-    (->LangStr "Leksikalsk kontekst" "da")})
-
-(def semantic-title
-  #{(->LangStr "Semantic relations" "en")
-    (->LangStr "Betydningsrelationer" "da")})
-
-(def cross-link-title
-  #{(->LangStr "External links" "en")
-    (->LangStr "Eksterne forbindelser" "da")})
-
-(def usage-title
-  #{(->LangStr "Usage" "en")
-    (->LangStr "Anvendelse" "da")})
-
-(def patterns-title
-  "Shared by the systematic polysemy rows on sense/synset pages and the
+(def titles
+  "The titles of the page sections, by section id. The :patterns section is
+  shared by the systematic polysemy rows on sense/synset pages and the
   frame-to-frame relations on frame pages."
-  #{(->LangStr "Systematic patterns" "en")
-    (->LangStr "Systematiske mønstre" "da")})
-
-(def frame-elements-title
-  #{(->LangStr "Frame elements" "en")
-    (->LangStr "Rammeelementer" "da")})
+  {:lexical        #{(->LangStr "Lexical context" "en")
+                     (->LangStr "Leksikalsk kontekst" "da")}
+   :semantic       #{(->LangStr "Semantic relations" "en")
+                     (->LangStr "Betydningsrelationer" "da")}
+   :cross-link     #{(->LangStr "External links" "en")
+                     (->LangStr "Eksterne forbindelser" "da")}
+   :usage          #{(->LangStr "Usage" "en")
+                     (->LangStr "Anvendelse" "da")}
+   :patterns       #{(->LangStr "Systematic patterns" "en")
+                     (->LangStr "Systematiske mønstre" "da")}
+   :frame-elements #{(->LangStr "Frame elements" "en")
+                     (->LangStr "Rammeelementer" "da")}
+   :other          #{(->LangStr "Other" "en")
+                     (->LangStr "Andet" "da")}})
 
 (def frame-relations
   "The semantic FrameNet frame-to-frame relations, including our declared
@@ -103,10 +96,10 @@
         :dcat/downloadURL]])
 
 (def semantic-section
-  [semantic-title shared/semantic-rels?])
+  [:semantic shared/semantic-rels?])
 
 (def cross-link-section
-  [cross-link-title
+  [:cross-link
    [:owl/sameAs
     :wn/ili
     :dns/iliOf                                              ; inverse of wn:ili
@@ -116,7 +109,7 @@
     :dns/eqSimilar]])
 
 (def lexical-section
-  [lexical-title
+  [:lexical
    [:wn/partOfSpeech
     :wn/example
     :lexinfo/partOfSpeech
@@ -138,8 +131,8 @@
 (def synset-lexical-section
   "Like `lexical-section`, but omitting the usage examples which are instead
   displayed as part of the synset summary."
-  (let [[title ks] lexical-section]
-    [title (vec (remove #{:lexinfo/senseExample :wn/example} ks))]))
+  (let [[id ks] lexical-section]
+    [id (vec (remove #{:lexinfo/senseExample :wn/example} ks))]))
 
 (defmethod defined-sections :ontolex/LexicalConcept
   [entity]
@@ -155,12 +148,12 @@
    semantic-section
    ;; dns:frame covers the frames supplemented onto synsets from the COR.SEM
    ;; senses linking them (see query/supplement-synset).
-   [patterns-title (into [:dns/frame
+   [:patterns (into [:dns/frame
                           :dns/alternatesTo
                           :dns/alternatesFrom
                           :dns/alternatesWith]
                          frame-relations)]
-   [frame-elements-title [:pmo/semRole
+   [:frame-elements [:pmo/semRole
                           :pmofn/feCoreSet]]
    synset-lexical-section
    ;; dns:source (the DDO deep links supplemented from the senses) and
@@ -177,17 +170,17 @@
          :lexinfo/senseExample
          :skos/note]]
    semantic-section                                         ; OEWN sense-level rels
-   [patterns-title [:dns/polysemyPattern
+   [:patterns [:dns/polysemyPattern
                     :dns/alternatesTo
                     :dns/alternatesFrom
                     :dns/alternatesWith]]
-   [lexical-title [:ontolex/isLexicalizedSenseOf
+   [:lexical [:ontolex/isLexicalizedSenseOf
                    :ontolex/isSenseOf
                    :dns/sentiment
                    :dns/centrality
                    :lexinfo/frequency
                    :lexinfo/usageNote]]
-   [cross-link-title [:dns/source                           ; DDO deep link
+   [:cross-link [:dns/source                           ; DDO deep link
                       :owl/sameAs
                       :dns/linkedSynset
                       :dns/linkedSenseOf
@@ -204,14 +197,14 @@
          :wn/partOfSpeech
          :dns/gender]]
    semantic-section
-   [lexical-title [:ontolex/canonicalForm
+   [:lexical [:ontolex/canonicalForm
                    :ontolex/otherForm
                    :ontolex/lexicalForm
                    :ontolex/writtenRep
                    :lexinfo/morphosyntacticProperty
                    :ontolex/sense
                    :ontolex/evokes]]
-   [cross-link-title [:owl/sameAs
+   [:cross-link [:owl/sameAs
                       :dns/linkedSense
                       :dns/source]]])
 
@@ -220,7 +213,7 @@
   ;; The rdf:_N membership rows join the top section, where the frontend
   ;; table folds them into a single rdfs:member row.
   [[nil (into [:rdf/type] (filter shared/member-property? (keys entity)))]
-   [usage-title [:dns/ontologicalTypeOf
+   [:usage [:dns/ontologicalTypeOf
                  :dns/simpleOntologicalTypeOf]]])
 
 (defmethod defined-sections :dns/PolysemyPattern
@@ -231,7 +224,7 @@
               (concat (filter shared/member-property? (keys entity))
                       [:dns/patternGroup
                        :rdfs/comment]))]
-   [usage-title [:dns/polysemyPatternOf]]])
+   [:usage [:dns/polysemyPatternOf]]])
 
 (defmethod defined-sections :pmofn/FrameElement
   [entity]
@@ -240,7 +233,7 @@
          :dns/roleOf
          :pmofn/semType
          :pmo/abbreviation]]
-   [patterns-title fe-relations]
+   [:patterns fe-relations]
    cross-link-section])
 
 (defmethod defined-sections :pmofn/SemType
@@ -248,7 +241,7 @@
   [[nil [:rdf/type
          :skos/definition
          :pmofn/subTypeOf]]
-   [usage-title [:dns/semTypeOf]]
+   [:usage [:dns/semTypeOf]]
    cross-link-section])
 
 (defmethod defined-sections :default
@@ -266,15 +259,13 @@
                       (get (set (apply concat (filter coll? ks-defs)))
                            k))
         in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
-    (conj sections [#{(->LangStr "Other" "en")
-                      (->LangStr "Andet" "da")}
-                    (complement in-section?)])))
+    (conj sections [:other (complement in-section?)])))
 
 ;; Memoization unbounded in CLJS since core.memoize is CLJ-only!
 #?(:clj  (alter-var-root #'add-other-section #(memo/lu % :lu/threshold 100))
    :cljs (def add-other-section (memoize add-other-section)))
 
 (defn page-sections
-  "Get page sections as a coll of [title ks] for the `entity`."
+  "Get page sections as a coll of [id ks] for the `entity`."
   [entity]
   (add-other-section (defined-sections entity)))

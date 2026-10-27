@@ -192,7 +192,7 @@
                                    "Fejl" "Error")
                     content      {:languages (resp/request->languages request)
                                   :anomaly   anomaly}
-                    page-meta    {:title title :page "error"}
+                    page-meta    {:title title :page :error}
                     ;; Pedestal skips the :leave that adds Vary after an
                     ;; exception. Without a decision, Accept sets the type.
                     vary         (conneg/vary-header
@@ -422,7 +422,7 @@
                                  (assoc :orthogonal-hyponym-tree orthogonal-hyponym)
                                  (some? meronym) (assoc :meronym-tree meronym)))
                   :page-meta (cond-> {:title qname
-                                      :page  "entity"}
+                                      :page  :entity}
                                (and has-deferred (not deferred?))
                                (assoc :deferred? true)))
 
@@ -542,7 +542,7 @@
                       :page-meta {:title (i18n/da-en languages
                                            (str "Søgning: " lemma)
                                            (str "Search: " lemma))
-                                  :page  "search"}))))))})
+                                  :page  :search}))))))})
 
 (def search-route
   [prefix/search-path
@@ -643,7 +643,7 @@
                                   :input     {:query query-str}
                                   :anomaly   anomaly}
                         :page-meta {:title title
-                                    :page  "sparql"}))))
+                                    :page  :sparql}))))
                 ctx)))})
 
 (def max-label-resources
@@ -704,7 +704,7 @@
                                 :anomaly   anomaly}
                       :page-meta {:title (i18n/da-en languages
                                            "SPARQL-fejl" "SPARQL error")
-                                  :page  "sparql"})
+                                  :page  :sparql})
                     (let [{:keys [sparql-result sparql-type]} result
                           content (cond-> (assoc result
                                             :input input
@@ -718,7 +718,7 @@
                         :content content
                         :page-meta {:title (i18n/da-en languages
                                              "SPARQL-result" "SPARQL result")
-                                    :page  "sparql"}))))
+                                    :page  :sparql}))))
 
                 ;; No query -> render the SPARQL editor page.
                 :else
@@ -727,7 +727,7 @@
                             :languages languages}
                   :page-meta {:title (i18n/da-en languages
                                        "SPARQL-editor" "SPARQL editor")
-                              :page  "sparql"}))))})
+                              :page  :sparql}))))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route
@@ -746,7 +746,7 @@
                 :content {:languages languages
                           :catalog   (catalog/find-resources (:graph @instance/db))}
                 :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
-                            :page  "metadata"})))})
+                            :page  :metadata})))})
 
 (def metadata-route
   [prefix/metadata-path
@@ -764,7 +764,7 @@
                           :relations @instance/synset-rels}
                 :page-meta {:title (i18n/da-en languages
                                      "Synset-relationer" "Synset relations")
-                            :page  "relations"})))})
+                            :page  :relations})))})
 
 (def relations-route
   [prefix/relations-path
@@ -801,7 +801,7 @@
                                           (first)
                                           (get md-pages)
                                           (mdc/hiccup->title))
-                              :page  "markdown"}))))})
+                              :page  :markdown}))))})
 
 (def markdown-route
   [prefix/markdown-path

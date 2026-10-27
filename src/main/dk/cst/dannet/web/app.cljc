@@ -1,9 +1,8 @@
 (ns dk.cst.dannet.web.app
-  "The client side of the single-page app: the user's session, the cookie-backed
-  defaults feeding it, navigation, and the transit-based fetch layer."
+  "The client side of the single-page app: the user's session, navigation, and
+  the transit-based fetch layer."
   (:require [taoensso.telemere :as t]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.section :as section]
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [cognitect.transit :as transit])
@@ -20,9 +19,8 @@
                         :s          ""}
          :full-screen  false
          :detail-level :normal
-         :section      {section/semantic-title
-                        {:display {:selected     "diagram"
-                                   :diagram-mode :radial}}}}))
+         :section      {:semantic {:display {:selected     "diagram"
+                                                 :diagram-mode :radial}}}}))
 
 ;; Temporary store for special behaviour after navigating to a new page.
 (defonce post-navigate
@@ -34,7 +32,7 @@
   ;; :sunburst-orthogonal, or :sunburst-meronym). Co-located under :display so
   ;; the relationship is clear in `session`, reachable via `opts` (the session
   ;; is merged in) and reset to :radial on a full page load.
-  [:section section/semantic-title :display :diagram-mode])
+  [:section :semantic :display :diagram-mode])
 
 (defn navigate-to
   "Navigate to internal `url` using reitit.

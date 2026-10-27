@@ -113,34 +113,23 @@
          :download true}
      "JSON-LD"]]])
 
-;; TODO: reconsider the need for this
-(def ui-descriptions
-  "UI descriptions which shouldn't be configurable by the client."
-  {:section {section/semantic-title
-             {:display {:options {"table"   ["\uD83D\uDDC4\uFE0F tabel"
-                                             "\uD83D\uDDC4\uFE0F table"]
-                                  "diagram" ["\uD83D\uDCCA diagram"
-                                             "\uD83D\uDCCA diagram"]}}}}})
-
 (rum/defc display-mode-selector
-  [title {:keys [languages]
-          :as   opts}]
+  [id {:keys [languages]
+       :as   opts}]
   [:label (i18n/da-en languages
             "Vis som "
             "Display as ")
-   [:select {:value     (get-in opts [:section title :display :selected])
+   [:select {:value     (get-in opts [:section id :display :selected])
              :on-change (fn [e]
                           (swap! app/session assoc-in
-                                 [:section title :display :selected]
+                                 [:section id :display :selected]
                                  (.-value (.-target e))))}
-    (let [m (get-in ui-descriptions [:section title :display :options])]
-      (->> (sort-by second (if (= "da" (first languages))
-                             (update-vals m first)
-                             (update-vals m second)))
-           (map (fn [[k v]]
-                  [:option {:key   k
-                            :value k}
-                   v]))))]])
+    [:option {:value "diagram"}
+     "\uD83D\uDCCA diagram"]
+    [:option {:value "table"}
+     (i18n/da-en languages
+       "\uD83D\uDDC4\uFE0F tabel"
+       "\uD83D\uDDC4\uFE0F table")]]])
 
 (defn da-en-pos
   [languages pos]
@@ -275,16 +264,16 @@
                                                  opts))))
 
 (rum/defc semantic-relations-content
-  [title subentity {:keys [languages] :as opts}]
+  [id subentity {:keys [languages] :as opts}]
   [:<>
    [:p.subheading
-    (display-mode-selector title opts)
+    (display-mode-selector id opts)
     (i18n/da-en languages
       [:<> " eller " [:a {:href prefix/relations-path} "lær mere"]
        " om de enkelte relationer."]
       [:<> " or " [:a {:href prefix/relations-path} "learn more"]
        " about the individual relations."])]
-   (case (get-in opts [:section title :display :selected])
+   (case (get-in opts [:section id :display :selected])
      "diagram" [:<>
                 (error/try-render (viz/expanded-diagram subentity opts))
                 [:p.note
@@ -295,12 +284,12 @@
      (table/attr-val-table opts subentity))])
 
 (rum/defc entity-section-content
-  [title subentity opts]
+  [id subentity opts]
   (cond
-    (= title section/semantic-title)
-    (semantic-relations-content title subentity opts)
+    (= id :semantic)
+    (semantic-relations-content id subentity opts)
 
-    (and (nil? title)
+    (and (nil? id)
          (shared/rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
          (not (shared/frame? (:subject opts))))
     (synset-header-content subentity opts)
@@ -309,16 +298,16 @@
     (table/attr-val-table opts subentity)))
 
 (rum/defc entity-section
-  [title subentity {:keys [languages] :as opts}]
-  (if title
+  [id subentity {:keys [languages] :as opts}]
+  (if-let [title (section/titles id)]
     (let [title-id (str "section-title-" (shared/lstr-slug title))]
-      [:section.subentity {:key             title
+      [:section.subentity {:key             id
                            :aria-labelledby title-id}
        [:h2 {:id title-id} (str (i18n/select-label languages title))]
-       (entity-section-content title subentity opts)])
+       (entity-section-content id subentity opts)])
     [:section.subentity {:key        :no-title
                          :aria-label "RDF resource summary"}
-     (entity-section-content title subentity opts)]))
+     (entity-section-content id subentity opts)]))
 
 (rum/defc full-screen-content
   [{:keys [entity]
@@ -331,8 +320,8 @@
 (rum/defc entity-content
   [{:keys [entity]
     :as   opts}]
-  (for [[title ks] (section/page-sections entity)]
+  (for [[id ks] (section/page-sections entity)]
     (when-let [subentity (ordered-subentity opts ks entity)]
       (rum/with-key
-        (entity-section title subentity opts)
-        (or title :no-title)))))
+        (entity-section id subentity opts)
+        (or id :no-title)))))

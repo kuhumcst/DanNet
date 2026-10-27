@@ -184,19 +184,22 @@
       "detaljeniveau"
       "level of detail")]])
 
+(def pages
+  "The component of each page type, plus the colour class of its navigation
+  bar when the page has one of its own."
+  {:entity    {:render page/entity}
+   :search    {:render page/search}
+   :markdown  {:render page/markdown :nav-class "dannet"}
+   :sparql    {:render page/sparql :nav-class "w3c"}
+   :metadata  {:render page/metadata :nav-class "meta"}
+   :relations {:render page/relations :nav-class "wordnet"}
+   :error     {:render page/error}})
+
 (rum/defc page-shell < rum/reactive hydration-mixin
   [{:keys [page data prefs]}]
-  ;; TODO: better solution? string keys + indirection reduce discoverability
   (let [{:keys [entity subject entities] :as opts} data
-        page-component (get {"entity"    page/entity
-                             "search"    page/search
-                             "markdown"  page/markdown
-                             "metadata"  page/metadata
-                             "relations" page/relations
-                             "sparql"    page/sparql
-                             "error"     page/error}
-                            page
-                            page/not-found)
+        {:keys [render nav-class]
+         :or   {render page/not-found}} (get pages page)
         ;; The server renders with the preferences of the request, the client
         ;; with those in its session, which start out as the same.
         state' #?(:clj  (merge @app/session prefs)
@@ -245,12 +248,7 @@
       {:class ["prefix"
                (if full-diagram?
                  "full-screen"
-                 (cond
-                   (= page "markdown") "dannet"
-                   (= page "sparql") "w3c"
-                   (= page "metadata") "meta"
-                   (= page "relations") "wordnet"
-                   :else (prefix/prefix->class prefix')))]}
+                 (or nav-class (prefix/prefix->class prefix')))]}
       (search/form opts')
       [:a.sparql-link.nav-icon
        {:title (i18n/da-en languages'
@@ -275,5 +273,5 @@
                                        "fetching"
                                        ""))]}
       [:main
-       (error/try-render (page-component opts') (page/error opts'))]
+       (error/try-render (render opts') (page/error opts'))]
       (page-footer languages')]]))

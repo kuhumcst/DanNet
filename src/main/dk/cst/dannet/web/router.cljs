@@ -253,7 +253,7 @@
                       "Page fetch failed")
               (when (= path (:path @location))
                 (mount-page! (ui/page-shell
-                               {:page "error"
+                               {:page :error
                                 :data {:languages (or (:languages @app/session)
                                                       ["en" nil "da"])}})))))))))
 
