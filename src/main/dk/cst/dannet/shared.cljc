@@ -2,7 +2,6 @@
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
-            [clojure.math :as math]
             [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj [clojure.core.memoize :as memo])
@@ -355,47 +354,6 @@
      (when (< (count kept) (count labels))
        (str "{" (str/join "; " kept) "; " omitted "}")))))
 
-(defn min-max-normalize
-  [span low num]
-  (/ (- num low) span))
-
-(defn log-inc
-  "Increment `n` by log(n)."
-  [n]
-  (+ n (max 1 (math/log n))))
-
-(defn cloud-normalize
-  "Normalize an ordered collection of `synsets` to fit a word cloud.
-  
-  The synsets should already be sorted by weight (highest first). Creates
-  artificial weights by incrementing from 1 using a relative logarithmic
-  increment, then normalizes these values into the range 0...1.
-  
-  For clouds with more than 30 items, applies highlighting to top synsets
-  above a threshold. This simulates the effect of outliers by adding a bonus
-  constant to weights above the threshold."
-  [synsets]
-  (let [weights-kvs        (map vector (reverse synsets) (iterate log-inc 1))
-        low                (second (first weights-kvs))
-        high               (second (last weights-kvs))
-        span               (- high low)
-        [threshold bonus] (if (> (count synsets) 30)
-                            [(- high (math/sqrt span)) (/ span 2)]
-                            [high 0])
-        min-max-normalize' #(min-max-normalize (+ span bonus) low %)]
-    ;; Build both result map and highlight set in single pass using reduce
-    (let [[result highlight]
-          (reduce (fn [[m hl] [k v]]
-                    (if (> v threshold)
-                      [(assoc! m k (min-max-normalize' (+ v bonus)))
-                       (conj! hl k)]
-                      [(assoc! m k (min-max-normalize' v))
-                       hl]))
-                  [(transient {}) (transient #{})]
-                  weights-kvs)]
-      (with-meta (persistent! result)
-                 {:highlight (persistent! highlight)}))))
-
 (defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
   Returns vectors so that identical labels are sorted by keywords secondly."
@@ -420,56 +378,6 @@
          (map (fn [item] {:item item :sort-key (keyfn item)}))
          (sort-by :sort-key))))
 
-;; NOTE: cannot use fnil as we're limited to assoc! using transients.
-(defn vec-conj
-  [coll v]
-  (if (nil? coll)
-    [v]
-    (conj coll v)))
-
-(defn top-n-vals
-  "Select `n` vals in `m` by picking the first of every val iteratively.
-   Round-robins through keys, taking one value from each in turn."
-  [n m]
-  (let [ks    (vec (keys m))
-        total (count ks)]
-    (loop [i         0
-           remaining n
-           source    (transient m)
-           result    (transient {})
-           exhausted 0]
-      (let [k       (nth ks i)
-            vs      (get source k)
-            v       (if (coll? vs)                          ; one val vs. coll
-                      (first vs)
-                      vs)
-            rest-vs (when (coll? vs)                        ; one val vs. coll
-                      (rest vs))]
-        (cond
-          ;; Exit conditions
-          (or (zero? remaining) (= exhausted total))
-          (persistent! result)
-
-          ;; Key exhausted -> skip to next
-          (not vs)
-          (recur (rem (inc i) total) remaining source result exhausted)
-
-          ;; Key has more values -> keep it
-          (seq rest-vs)
-          (recur (rem (inc i) total)
-                 (dec remaining)
-                 (assoc! source k rest-vs)
-                 (assoc! result k (vec-conj (get result k) v))
-                 exhausted)
-
-          ;; Last value for key -> remove key
-          :else
-          (recur (rem (inc i) total)
-                 (dec remaining)
-                 (dissoc! source k)
-                 (assoc! result k (vec-conj (get result k) v))
-                 (inc exhausted)))))))
-
 (defn multi-valued?
   "Return true if `v` is either a (pre-sorted) vector or a set.
 
@@ -483,27 +391,6 @@
   "Unwrap a single-element coll, returning the `v` as-is if not a collection."
   [v]
   (cond-> v (coll? v) first))
-
-(def narrow-glyphs
-  #{\f \i \l \I \j \r \t \1 \. \, \: \; \! \| \' \`})
-
-(def wide-glyphs
-  #{\m \w \M \W \æ \Æ \@ \%})
-
-(defn- glyph-width*
-  "Estimate the approximate visual width of `s` based on character widths."
-  [s]
-  (reduce (fn [acc ch]
-            (+ acc (cond
-                     (narrow-glyphs ch) 0.67
-                     (wide-glyphs ch) 1.33
-                     :else 1.0)))
-          0
-          (str s)))
-
-(def glyph-width
-  #?(:clj  (memo/lru glyph-width* :lru/threshold 5000)
-     :cljs (memoize glyph-width*)))
 
 (defn rdf-datatype?
   "Is `x` an RDF datatype represented as a map?"
