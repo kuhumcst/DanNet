@@ -124,6 +124,10 @@
             (for [v completion-items]
               (rum/with-key (suggestion v on-key-down) (str v))))]]])]))
 
+;; TODO: hydration fails on /dannet/search?lemma=bank: in the link inside a
+;;       result's <dt>, the server renders "bank" and the client "banke". Both
+;;       render the same page data, so CLJ and CLJS differ somewhere on the
+;;       way from the label to the text. Already broken on master.
 (rum/defc result
   [k {:keys [dc/subject] :as entity} {:keys [detail-level languages] :as opts}]
   (let [{:keys [k->label short-label]} (meta entity)

@@ -792,6 +792,9 @@
                       (remove nil?))]
     (into {} xf (file-seq (io/file "pages/")))))
 
+;; TODO: an unknown document, e.g. /dannet/page/nonexistent, gives an empty
+;;       200 response, since the interceptor returns nil in place of the ctx.
+;;       Returning the ctx unchanged would give a 404 instead.
 (def markdown-ic
   "Returns a generic, localised markdown page for the given given page."
   {:name  ::markdown
