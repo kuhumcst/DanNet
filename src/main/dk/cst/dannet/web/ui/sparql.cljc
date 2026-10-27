@@ -10,8 +10,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
-            #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm])
-            #?(:cljs [lambdaisland.fetch :as fetch]))
+            #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm]))
   #?(:clj (:import [java.net URLEncoder])))
 
 (def page-sizes
@@ -68,23 +67,25 @@
   #?(:cljs
      (when-let [view @*editor-view]
        (when-let [query (not-empty (cm/get-doc view))]
-         (-> (fetch/request (shared/normalize-url prefix/sparql-path)
-                            {:query-params        (merge {:query query
-                                                          :noop  true}
-                                                         app/transit-param)
-                             :transit-json-reader app/transit-reader})
-             (.then (fn [{{:keys [data]} :body}]
-                      (if-let [nq (:normalized-query data)]
-                        (do
-                          (cm/clear-editor-error! view)
-                          (form/set-submit-disabled! form false)
-                          nq)
-                        (do
-                          (cm/show-editor-error!
-                            view (validity-message (:anomaly data)))
-                          (form/set-submit-disabled! form true)
-                          nil))))
-             (.catch (fn [_] nil)))))))
+         (-> (app/fetch! prefix/sparql-path {:query-params {:query query
+                                                            :noop  true}})
+             ;; There is no response when a newer validation aborted this one.
+             (.then (fn [response]
+                      (when-let [{:keys [data]} (:body response)]
+                        (app/clear-current-fetch prefix/sparql-path)
+                        (if-let [nq (:normalized-query data)]
+                          (do
+                            (cm/clear-editor-error! view)
+                            (form/set-submit-disabled! form false)
+                            nq)
+                          (do
+                            (cm/show-editor-error!
+                              view (validity-message (:anomaly data)))
+                            (form/set-submit-disabled! form true)
+                            nil)))))
+             (.catch (fn [_]
+                       (app/clear-current-fetch prefix/sparql-path)
+                       nil)))))))
 
 (defn- normalize-query!
   "Validate and format the current query.
@@ -93,7 +94,7 @@
   On error, mark the editor as invalid."
   []
   #?(:cljs
-     (when-let [form (js/document.querySelector "form.sparql-editor")]
+     (when-let [form (some-> @*editor-view .-dom (.closest "form"))]
        (some-> (validate-query! form)
                (.then (fn [nq]
                         (when (and nq @*editor-view)
