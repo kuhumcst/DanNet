@@ -187,34 +187,33 @@
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
       (attr-name-extras opts+attr-key v display-opts)]
-     (error/try-render
+     (cond
+       ;; NOTE: this used to only test using `set?`, but as we return both
+       ;;       sets and sorted colls now, we need to test this instead.
+       (shared/multi-valued? v)
        (cond
-         ;; NOTE: this used to only test using `set?`, but as we return both
-         ;;       sets and sorted colls now, we need to test this instead.
-         (shared/multi-valued? v)
-         (cond
-           (= 1 (count v))
-           (let [v* (first v)]
-             (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
-                                                       (meta v*)
-                                                       v*))
-                           v))
+         (= 1 (count v))
+         (let [v* (first v)]
+           (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
+                                                     (meta v*)
+                                                     v*))
+                         v))
 
-           (every? i18n/rdf-string? v)
-           (string-list-cell opts+attr-key v)
-
-           :else
-           [:td (multi-value-cell opts+attr-key v)])
-
-         (keyword? v)
-         (rum/with-key (value-cell opts+attr-key v) v)
-
-         (symbol? v)
-         (rum/with-key (value-cell opts+attr-key (meta v)) v)
+         (every? i18n/rdf-string? v)
+         (string-list-cell opts+attr-key v)
 
          :else
-         [:td {:lang (i18n/lang v) :key v}
-          (rdf/transform-val v opts+attr-key)]))]))
+         [:td (multi-value-cell opts+attr-key v)])
+
+       (keyword? v)
+       (rum/with-key (value-cell opts+attr-key v) v)
+
+       (symbol? v)
+       (rum/with-key (value-cell opts+attr-key (meta v)) v)
+
+       :else
+       [:td {:lang (i18n/lang v) :key v}
+        (rdf/transform-val v opts+attr-key)])]))
 
 (defn- fold-member-rows
   "Fold the rdf:_N container membership rows of `subentity` into a single

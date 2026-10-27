@@ -412,7 +412,7 @@
 (rum/defc render-list-items
   [opts coll]
   (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
-    (rum/with-key (error/try-render (list-item opts item)) sort-key)))
+    (rum/with-key (list-item opts item) sort-key)))
 
 ;; A Rum-controlled version of the <details> element which only renders content
 ;; if the containing <details> element is open. This circumvents the default

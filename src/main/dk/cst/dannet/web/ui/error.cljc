@@ -1,11 +1,14 @@
 (ns dk.cst.dannet.web.ui.error
   "Error boundary mixin and macros for catching render errors.
-  
-  Provides two mechanisms for error handling:
-    - React error boundaries (CLJS) via 'error-boundary-mixin'
-    - try/catch wrappers (CLJ/CLJS) via 'try-render' and 'try-render-with'
-    - Imperative DOM error handling (CLJS only) via 'try-static-render'
-  
+
+  Each tool has its own place:
+    - 'try-render' puts an error boundary (CLJS) and a try/catch around a
+      component subtree: the page, an entity section or a diagram.
+    - 'try-render-with' puts a plain try/catch around a function that builds
+      hiccup, e.g. 'rdf/transform-val'.
+    - 'try-static-render' (CLJS only) catches errors in imperative DOM code,
+      e.g. ref callbacks.
+
   All caught errors are logged via Telemere."
   (:require [rum.core :as rum]
             [cognitect.anomalies :as-alias anom]
@@ -134,10 +137,10 @@
 
 (defmacro try-render-with
   "Wrap `child` in try/catch with `bindings` for error context.
-  
+
   First symbol in `bindings` is bound to the exception. Remaining symbols
-  are logged as context data. Wraps in 'error-boundary' for consistent
-  SSR/hydration.
+  are logged as context data. Meant for functions that build hiccup; React
+  renders components later, so their errors need 'try-render' instead.
   
   Example:
     (try-render-with [e v opts]
@@ -150,7 +153,7 @@
                             context-syms)]
     (emit-try-catch
       cljs?
-      `(error-boundary ~child nil)
+      child
       error-sym
       `(do
          (t/log! {:level :error

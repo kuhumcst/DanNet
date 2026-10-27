@@ -189,7 +189,7 @@
                           :property property
                           :title    property
                           :lang     (i18n/lang ex)}
-       (error/try-render
+       (error/try-render-with [e ex]
          (highlight-lemmas lemmas (str ex))
          (str ex))])))
 
@@ -220,25 +220,21 @@
                             definition*)]
           [:span {:property "skos:definition"
                   :title    "skos:definition"}
-           (error/try-render
-             (rdf/transform-val definition' opts)
-             (str definition'))])
+           (rdf/transform-val definition' opts)])
         (when-let [definition (:wn/definition subentity)]
           [:span {:property "wn:definition"
                   :title    "wn:definition"}
-           (error/try-render
-             (rdf/blank-node opts (meta definition)))]))
+           (rdf/blank-node opts (meta definition))]))
       (:badge opts)]
      (synset-examples subentity opts)
      (when ontologicalType
        [:li {:property "dns:ontologicalType"
              :title    "dns:ontologicalType"}
-        (error/try-render
-          (if (keyword? ontologicalType)
-            (rdf/resource-hyperlink ontologicalType
-                                    (assoc opts :attr-key :dns/ontologicalType))
-            (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
-                            (meta ontologicalType))))])]))
+        (if (keyword? ontologicalType)
+          (rdf/resource-hyperlink ontologicalType
+                                  (assoc opts :attr-key :dns/ontologicalType))
+          (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
+                          (meta ontologicalType)))])]))
 
 (rum/defc summary-badge
   "Generic dictionary entry-style badge for use in summary components.
@@ -304,10 +300,10 @@
       [:section.subentity {:key             id
                            :aria-labelledby title-id}
        [:h2 {:id title-id} (str (i18n/select-label languages title))]
-       (entity-section-content id subentity opts)])
+       (error/try-render (entity-section-content id subentity opts))])
     [:section.subentity {:key        :no-title
                          :aria-label "RDF resource summary"}
-     (entity-section-content id subentity opts)]))
+     (error/try-render (entity-section-content id subentity opts))]))
 
 (rum/defc full-screen-content
   [{:keys [entity]

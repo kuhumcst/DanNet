@@ -9,8 +9,6 @@
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.entity :as entity]
-            #?(:clj  [dk.cst.dannet.web.ui.error :as error]
-               :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
 
@@ -151,7 +149,6 @@
                               #?(:cljs (when (= "Enter" (.-key e))
                                          (app/navigate-to href))))}
      [:dt {:id dt-id}
-      (error/try-render
-        (rdf/entity-link subject opts') (str subject))]
+      (rdf/entity-link subject opts')]
      [:dd
       (entity/synset-summary entity opts')]]))
