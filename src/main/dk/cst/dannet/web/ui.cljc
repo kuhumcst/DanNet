@@ -60,10 +60,8 @@
 
 (rum/defc language-select
   [languages]
-  ;; TODO: the :on-change handler may not fire after SSR hydration (same issue
-  ;; as detail-level-select). Language changes do NOT reload the page; the
-  ;; content re-renders reactively via the client state. If this handler stops
-  ;; firing, add a native event listener via :ref (see detail-level-select).
+  ;; Language changes do NOT reload the page; the content re-renders
+  ;; reactively via the client state.
   (let [change-language (fn [e]
                           #?(:cljs (let [v (-> (.-target e)
                                                (.-value)
@@ -103,18 +101,7 @@
                  "Justér berigelse med etiketter"
                  "Adjust label enrichment")
     :value     (name detail-level)
-    :on-change change-detail-level!
-    ;; TODO: this also seems like an unnecessary hack, think of some alternative
-    :ref       #?(:clj  nil
-                  :cljs (fn [^js elem]
-                          (when elem
-                            ;; Native listener as fallback when React/Rum
-                            ;; synthetic onChange doesn't fire after hydration.
-                            (when-not (.-_detailHandler elem)
-                              (set! (.-_detailHandler elem) true)
-                              (.addEventListener elem "change"
-                                (fn [e]
-                                  (change-detail-level! e)))))))}
+    :on-change change-detail-level!}
    [:option {:value "basic"}
     "Minimal"]
    [:option {:value "normal"}

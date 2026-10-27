@@ -38,20 +38,10 @@
                (submit-form target)))))
 
 (defn set-submit-disabled!
-  "Set the `disabled?` state of the submit button in form containing `element`."
-  [element disabled?]
-  #?(:cljs (when-let [form (.-form element)]
-             (when-let [submit (.querySelector form "input[type=submit]")]
-               (set! (.-disabled submit) disabled?)))
-     :clj  nil))
-
-(defn clear-validity!
-  "Clear custom validity for the input targeted by `e`, resetting the :invalid
-  CSS pseudo-class and re-enabling the submit button of the enclosing form."
-  [e]
-  #?(:cljs (let [target (.-target e)]
-             (.setCustomValidity target "")
-             (set-submit-disabled! target false))
+  "Set the `disabled?` state of the submit button in the `form`."
+  [form disabled?]
+  #?(:cljs (when-let [submit (some-> form (.querySelector "input[type=submit]"))]
+             (set! (.-disabled submit) disabled?))
      :clj  nil))
 
 (defn autofocus-ref

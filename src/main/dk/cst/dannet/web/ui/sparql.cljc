@@ -29,16 +29,20 @@
 ;; `normalize-query!` which operate outside the Rum component lifecycle.
 #?(:cljs (defonce ^:private *editor-view (atom nil)))
 
-(defn- pagination-href
-  "Build href for a SPARQL pagination link."
-  [query limit offset inference distinct enrichment]
-  (cond-> (str prefix/sparql-path
-               "?query=" (url-encode query)
-               "&limit=" limit
-               "&offset=" offset)
-    inference (str "&inference=" (url-encode inference))
-    (some? distinct) (str "&distinct=" (url-encode distinct))
-    (some? enrichment) (str "&enrichment=" (url-encode enrichment))))
+(defn- sparql-href
+  "A link to the SPARQL page for the query in `input` and its options, plus
+  the extra query `params` as [k v] pairs, e.g. the limit and offset."
+  [{:keys [query inference distinct enrichment]} params]
+  (->> (concat [[:query query]]
+               params
+               [[:inference inference]
+                [:distinct distinct]
+                [:enrichment enrichment]])
+       (keep (fn [[k v]]
+               (when (some? v)
+                 (str (name k) "=" (url-encode (str v))))))
+       (str/join "&")
+       (str prefix/sparql-path "?")))
 
 (defn- validity-message
   "Build a custom validity message from an anomaly map for the CodeMirror editor."
@@ -46,13 +50,6 @@
   (let [msg (or (:en message) "Invalid query")]
     (cond-> msg
       details (str "\n\n" (str/trim details)))))
-
-(defn- set-submit-disabled!
-  "Toggle the submit button `disabled` state inside `form`."
-  [form disabled?]
-  #?(:cljs
-     (when-let [btn (.querySelector form "input[type=submit]")]
-       (set! (.-disabled btn) disabled?))))
 
 (defn- set-page-size-disabled!
   "Toggle the page-size `<select>` `disabled` state inside `form`."
@@ -80,12 +77,12 @@
                       (if-let [nq (:normalized-query data)]
                         (do
                           (cm/clear-editor-error! view)
-                          (set-submit-disabled! form false)
+                          (form/set-submit-disabled! form false)
                           nq)
                         (do
                           (cm/show-editor-error!
                             view (validity-message (:anomaly data)))
-                          (set-submit-disabled! form true)
+                          (form/set-submit-disabled! form true)
                           nil))))
              (.catch (fn [_] nil)))))))
 
@@ -143,7 +140,7 @@
                         (when-let [v @*editor-view]
                           (cm/clear-editor-error! v)
                           (when-let [form (.closest (.-dom v) "form")]
-                            (set-submit-disabled! form false)
+                            (form/set-submit-disabled! form false)
                             ;; An explicit LIMIT overrides the page-size
                             ;; selector, so disable it whenever one is present.
                             (set-page-size-disabled!
@@ -336,22 +333,16 @@
   "Previous/next page controls for SPARQL results."
   [{:keys [languages input limit offset has-more? sparql-result]
     :as   opts}]
-  (let [limit'     (or limit default-page-size)
-        offset'    (or offset 0)
-        query      (:query input)
-        inference  (:inference input)
-        distinct   (:distinct input)
-        enrichment (:enrichment input)
-        prev?      (pos? offset')
-        next?      has-more?]
-    (when (and query (or prev? next?))
+  (let [limit'  (or limit default-page-size)
+        offset' (or offset 0)
+        prev?   (pos? offset')
+        next?   has-more?]
+    (when (and (:query input) (or prev? next?))
       [:nav.sparql-pagination
        (if prev?
          [:a.sparql-pagination__prev
-          {:href (pagination-href
-                   query limit'
-                   (max 0 (- offset' limit'))
-                   inference distinct enrichment)}
+          {:href (sparql-href input [[:limit limit']
+                                     [:offset (max 0 (- offset' limit'))]])}
           (i18n/da-en languages
             "← Forrige" "← Previous")]
          [:span.sparql-pagination__prev.disabled
@@ -365,10 +356,8 @@
           (str (inc offset') "–" (+ offset' shown)))]
        (if next?
          [:a.sparql-pagination__next
-          {:href (pagination-href
-                   query limit'
-                   (+ offset' limit')
-                   inference distinct enrichment)}
+          {:href (sparql-href input [[:limit limit']
+                                     [:offset (+ offset' limit')]])}
           (i18n/da-en languages
             "Næste →" "Next →")]
          [:span.sparql-pagination__next.disabled
@@ -410,28 +399,19 @@
           (i18n/da-en languages
             "paginering deaktiveret (indeholder LIMIT eller OFFSET)"
             "pagination disabled (contains LIMIT or OFFSET)")])
-       (when-let [query (:query input)]
-         (let [href (cond-> (str prefix/sparql-path
-                                 "?query=" (url-encode query)
-                                 "&format=json")
-                      limit (str "&limit=" limit)
-                      offset (str "&offset=" offset)
-                      (:inference input) (str "&inference="
-                                              (url-encode (:inference input)))
-                      (:distinct input) (str "&distinct="
-                                             (url-encode (:distinct input)))
-                      (:enrichment input) (str "&enrichment="
-                                               (url-encode (:enrichment input))))]
-           [:p.note
-            [:strong "↓ "]
-            (i18n/da-en languages
-              "hent data som: "
-              "download data as: ")
-            [:a {:href     href
-                 :type     "application/json"
-                 :title    "JSON"
-                 :download true}
-             "JSON"]]))]]
+       (when (:query input)
+         [:p.note
+          [:strong "↓ "]
+          (i18n/da-en languages
+            "hent data som: "
+            "download data as: ")
+          [:a {:href     (sparql-href input [[:format "json"]
+                                             [:limit limit]
+                                             [:offset offset]])
+               :type     "application/json"
+               :title    "JSON"
+               :download true}
+           "JSON"]])]]
 
      sparql-result
      [:p.note [:strong "∅ "]
