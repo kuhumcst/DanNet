@@ -155,49 +155,46 @@
   When an :anomaly is present in `opts`, it is rendered below the friendly
   links via `error/anomaly-fallback` to give specific details."
   [{:keys [languages anomaly] :as opts}]
-  (i18n/da-en languages
-    [:article.document {:lang "da"}
-     [:h1 "Noget gik galt"]
-     (if anomaly
-       (error/anomaly-fallback anomaly languages)
-       [:p "Der opstod en fejl under indlæsning af denne side."])
-     [:ul
-      [:li [:a {:href "javascript:location.reload()"} "Genindlæs siden"]
-       " – det kan løse midlertidige problemer."]
-      [:li [:a {:href (shared/page-href "frontpage")} "Gå til forsiden"]
-       " – for at finde det du søger på en anden måde."]
-      [:li [:a {:href "mailto:simongray@hum.ku.dk"} "Rapportér fejlen"]
-       " – hvis problemet fortsætter."]]]
-    [:article.document {:lang "en"}
-     [:h1 "Something went wrong"]
-     (if anomaly
-       (error/anomaly-fallback anomaly languages)
-       [:p "An error occurred while loading this page."])
-     [:ul
-      [:li [:a {:href "javascript:location.reload()"} "Reload the page"]
-       " – this may fix temporary issues."]
-      [:li [:a {:href (shared/page-href "frontpage")} "Go to the front page"]
-       " – to find what you're looking for another way."]
-      [:li [:a {:href "mailto:simongray@hum.ku.dk"} "Report the issue"]
-       " – if the problem persists."]]]))
+  [:article.document {:lang (i18n/da-en languages "da" "en")}
+   [:h1 (i18n/da-en languages "Noget gik galt" "Something went wrong")]
+   (if anomaly
+     (error/anomaly-fallback anomaly languages)
+     [:p (i18n/da-en languages
+           "Der opstod en fejl under indlæsning af denne side."
+           "An error occurred while loading this page.")])
+   [:ul
+    [:li [:a {:href "javascript:location.reload()"}
+          (i18n/da-en languages "Genindlæs siden" "Reload the page")]
+     (i18n/da-en languages
+       " – det kan løse midlertidige problemer."
+       " – this may fix temporary issues.")]
+    [:li [:a {:href (shared/page-href "frontpage")}
+          (i18n/da-en languages "Gå til forsiden" "Go to the front page")]
+     (i18n/da-en languages
+       " – for at finde det du søger på en anden måde."
+       " – to find what you're looking for another way.")]
+    [:li [:a {:href "mailto:simongray@hum.ku.dk"}
+          (i18n/da-en languages "Rapportér fejlen" "Report the issue")]
+     (i18n/da-en languages
+       " – hvis problemet fortsætter."
+       " – if the problem persists.")]]])
 
 (rum/defc not-found
   "User-friendly 404 page shown when a page type is unknown or missing."
   [{:keys [languages] :as opts}]
-  (i18n/da-en languages
-    [:article.document {:lang "da"}
-     [:h1 "Siden blev ikke fundet"]
-     [:p "Den side, du leder efter, findes ikke eller er blevet flyttet."]
-     [:ul
-      [:li [:a {:href (shared/page-href "frontpage")} "Gå til forsiden"]
-       " – for at finde det du søger."]
-      [:li [:a {:href "javascript:history.back()"} "Gå tilbage"]
-       " – til den forrige side."]]]
-    [:article.document {:lang "en"}
-     [:h1 "Page not found"]
-     [:p "The page you're looking for doesn't exist or has been moved."]
-     [:ul
-      [:li [:a {:href (shared/page-href "frontpage")} "Go to the front page"]
-       " – to find what you're looking for."]
-      [:li [:a {:href "javascript:history.back()"} "Go back"]
-       " – to the previous page."]]]))
+  [:article.document {:lang (i18n/da-en languages "da" "en")}
+   [:h1 (i18n/da-en languages "Siden blev ikke fundet" "Page not found")]
+   [:p (i18n/da-en languages
+         "Den side, du leder efter, findes ikke eller er blevet flyttet."
+         "The page you're looking for doesn't exist or has been moved.")]
+   [:ul
+    [:li [:a {:href (shared/page-href "frontpage")}
+          (i18n/da-en languages "Gå til forsiden" "Go to the front page")]
+     (i18n/da-en languages
+       " – for at finde det du søger."
+       " – to find what you're looking for.")]
+    [:li [:a {:href "javascript:history.back()"}
+          (i18n/da-en languages "Gå tilbage" "Go back")]
+     (i18n/da-en languages
+       " – til den forrige side."
+       " – to the previous page.")]]])

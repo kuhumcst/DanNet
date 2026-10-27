@@ -132,33 +132,22 @@
                change         (fn [e]
                                 (swap! display-opts assoc-in [subject attr-key]
                                        (.-value (.-target e))))]
-           (i18n/da-en languages
-             [:select.display-options {:title     "Visningsmuligheder"
-                                       :value     value
-                                       :on-change change}
-              [:option {:value ""}
-               "liste"]
+           [:select.display-options {:title     (i18n/da-en languages
+                                                    "Visningsmuligheder"
+                                                    "Display options")
+                                     :value     value
+                                     :on-change change}
+            [:option {:value ""}
+             (i18n/da-en languages "liste" "list")]
+            (let [cloud (i18n/da-en languages "ordsky" "word cloud")]
               (if exceeds-limit?
                 [:<>
                  [:option {:value "cloud"}
-                  (str "ordsky (top)")]
+                  (str cloud " (top)")]
                  [:option {:value "max-cloud"}
-                  (str "ordsky (" v-count ")")]]
+                  (str cloud " (" v-count ")")]]
                 [:option {:value "max-cloud"}
-                 "ordsky"])]
-             [:select.display-options {:title     "Display options"
-                                       :value     value
-                                       :on-change change}
-              [:option {:value ""}
-               "list"]
-              (if exceeds-limit?
-                [:<>
-                 [:option {:value "cloud"}
-                  (str "word cloud (top)")]
-                 [:option {:value "max-cloud"}
-                  (str "word cloud (" v-count ")")]]
-                [:option {:value "max-cloud"}
-                 "word cloud"])])))])))
+                 cloud]))]))])))
 
 (rum/defc attr-val-row < rum/reactive
   "A single row in the attribute-value table. Only re-renders when its specific

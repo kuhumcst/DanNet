@@ -15,69 +15,48 @@
   [languages]
   [:footer.page-footer
    [:hr]
-   (i18n/da-en languages
-     [:<>
-      [:p {:lang "da"}
-       [:a {:href   (shared/page-href "privacy")
-            :titlex "Privatlivspolitik"}
-        "Privatliv"]
-       " · "
-       [:a {:href  "https://www.was.digst.dk/wordnet-dk"
-            :title "Tilgængelighedserklæring"}
-        "Tilgængelighed"]
-       " · "
-       [:a {:href  (shared/page-href "releases")
-            :title "DanNet-versioner"}
-        "Versioner"]
-       " · "
-       [:a {:href  "/dannet/metadata"
-            :title "DanNet-Metadata (RDF)"}
-        "Metadata"]
-       " · "
-       [:a {:href  "/dannet/page/downloads"
-            :title "Downloads"}
-        "Downloads"]]
-      [:p {:lang "da"}
-       "© 2023–2026, "
-       [:a {:href "https://cst.ku.dk"}
-        "Center for Sprogteknologi"]
-       " (" [:abbr {:title "Københavns Universitet"}
-             "KU"] ")"
-       " & "
-       [:a {:href "https://dsl.dk/"}
-        "Det Danske Sprog- og Litteraturselskab"]
-       "."]]
-     [:<>
-      [:p {:lang "en"}
-       [:a {:href  (shared/page-href "privacy")
-            :title "Privacy policy"}
-        "Privacy"]
-       " · "
-       [:a {:href  "https://www.was.digst.dk/wordnet-dk"
-            :title "Accessibility statement"}
-        "Accessibility"]
-       " · "
-       [:a {:href  (shared/page-href "releases")
-            :title "DanNet releases"}
-        "Releases"]
-       " · "
-       [:a {:href  "/dannet/metadata"
-            :title "DanNet metadata (RDF)"}
-        "Metadata"]
-       " · "
-       [:a {:href  "/dannet/page/downloads"
-            :title "Downloads"}
-        "Downloads"]]
-      [:p {:lang "en"}
-       "© 2023–2026, "
-       [:a {:href "https://cst.ku.dk/english"}
-        "Centre for Language Technology"]
-       " (" [:abbr {:title "University of Copenhagen"}
-             "UCPH"] ")"
-       " & "
-       [:a {:lang "da" :href "https://dsl.dk/"}
-        "The Society for Danish Language and Literature"]
-       "."]])])
+   [:p {:lang (i18n/da-en languages "da" "en")}
+    [:a {:href  (shared/page-href "privacy")
+         :title (i18n/da-en languages "Privatlivspolitik" "Privacy policy")}
+     (i18n/da-en languages "Privatliv" "Privacy")]
+    " · "
+    [:a {:href  "https://www.was.digst.dk/wordnet-dk"
+         :title (i18n/da-en languages
+                  "Tilgængelighedserklæring"
+                  "Accessibility statement")}
+     (i18n/da-en languages "Tilgængelighed" "Accessibility")]
+    " · "
+    [:a {:href  (shared/page-href "releases")
+         :title (i18n/da-en languages "DanNet-versioner" "DanNet releases")}
+     (i18n/da-en languages "Versioner" "Releases")]
+    " · "
+    [:a {:href  "/dannet/metadata"
+         :title (i18n/da-en languages
+                  "DanNet-Metadata (RDF)"
+                  "DanNet metadata (RDF)")}
+     "Metadata"]
+    " · "
+    [:a {:href  "/dannet/page/downloads"
+         :title "Downloads"}
+     "Downloads"]]
+   [:p {:lang (i18n/da-en languages "da" "en")}
+    "© 2023–2026, "
+    [:a {:href (i18n/da-en languages
+                 "https://cst.ku.dk"
+                 "https://cst.ku.dk/english")}
+     (i18n/da-en languages
+       "Center for Sprogteknologi"
+       "Centre for Language Technology")]
+    " (" [:abbr {:title (i18n/da-en languages
+                          "Københavns Universitet"
+                          "University of Copenhagen")}
+          (i18n/da-en languages "KU" "UCPH")] ")"
+    " & "
+    [:a {:href "https://dsl.dk/"}
+     (i18n/da-en languages
+       "Det Danske Sprog- og Litteraturselskab"
+       "The Society for Danish Language and Literature")]
+    "."]])
 
 (rum/defc language-select
   [languages]
