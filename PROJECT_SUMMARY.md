@@ -30,7 +30,9 @@ The system includes:
 
 ### Web Application
 - **Backend** (`dk.cst.dannet.web.service`): Pedestal-based HTTP service with SPARQL endpoint
-- **Frontend**: ClojureScript SPA with Rum components — `dk.cst.dannet.web.router` wires reitit routes to page fetching and mounting, `dk.cst.dannet.web.app` holds the session state and fetch layer, and `dk.cst.dannet.web.ui` (+ `web.ui.*`) are the components themselves
+- **Frontend**: ClojureScript SPA with Rum components — `dk.cst.dannet.web.router` wires reitit routes to page fetching and mounting, `dk.cst.dannet.web.app` holds the session state and fetch layer, `dk.cst.dannet.web.ui.model/render-opts` derives the opts a page renders from, and `dk.cst.dannet.web.ui` (+ `web.ui.*`) are the components themselves
+- **Page values**: each page is one map, `{:page :title :prefs :deferred? :data}`, built by `response/->page`. The Transit response is that map (an SPA redirect is `{:redirect :replace?}`), and the HTML embeds it in a `<script id="page-data">` element, so the first page hydrates from the data the server rendered without a second request. The client's `transit` query parameter carries a format version (`app/transit-param`), to be bumped whenever the Transit format changes, since responses are cached for a day
+- **Navigation state**: the scroll position of each page is kept in `history.state`; in-flight fetches are in `app/fetches`, which sets a `data-fetching` attribute on `<html>` for the loading indicator
 - Progressive enhancement: works with or without JavaScript
 - Content negotiation of media type and language by conneg-clj (`resources/negotiation`, `negotiation-ic`), with `?format=`, `?lang=` and the `:languages` cookie as overrides, a Vary header per response and a 406 when no format is acceptable. Entity pages also get a Link header to their HTML, Turtle and JSON-LD representations and a Content-Location (`entity-negotiation-ic`, `entity-href`)
 - Internationalization support (Danish/English)
@@ -44,7 +46,7 @@ The system includes:
 - The synset section can render as a table or a diagram; when in diagram mode, a mode toggle switches between the radial diagram and up to three sunbursts, all sharing one toolbar/legend shell (`synset-diagram`, `diagram-legend`):
   - **Radial relation diagram** (`:radial`) — the existing radial layout of a synset's relations (legend with relation filtering via `radial-tree-legend` / `radial-item--*` classes; built by `d3/build-radial!`)
   - **Sunbursts** (`:sunburst` hyponyms, `:sunburst-orthogonal` ortho-hyponyms, `:sunburst-meronym` parts) — zoomable D3 partitions of the corresponding subtree, with click-to-zoom, a three-ring focus window, branch-coloured arcs, label truncation/fitting, a zoom-history breadcrumb (`hyponym-sunburst-history`), and `<title>` tooltips; all built by `d3/build-sunburst!` over `hyponym-tree`, `orthogonal-hyponym-tree` or `meronym-tree` from `opts`
-- Diagram mode lives in the session at `app/diagram-mode-path` (`[:section section/semantic-title :display :diagram-mode]`), reset to `:radial` on full page load. Each sunburst radio only appears when its tree has children, and a selected sunburst falls back to the radial when its subtree is empty.
+- Diagram mode lives in the session at `app/diagram-mode-path` (`[:section :semantic :display :diagram-mode]`), reset to `:radial` on full page load. The D3 builders get their click actions as callbacks (`:on-navigate`, `:on-toggle-full-screen`) from `visualization/with-actions` rather than calling `web.app`. Each sunburst radio only appears when its tree has children, and a selected sunburst falls back to the radial when its subtree is empty.
 - **Relation ordering** (`dk.cst.dannet.web.ui.relations`): `group-order` is the single source of truth for the canonical display order of relation groups (taxonomic, part–whole, similarity/opposition, roles, domain, cross-link, other) and the member relations within each group. Derived helpers (`relation-order`, `relation->group`, `relation->rank`, `relation-sort-key`, `relation->class`) drive the relations page `table`, the radial diagram's group ordering (`d3/prepare-radial-children` via `insert-theme-spacers`), and `radial-tree-legend` — which lists relations in the same order within a single `<ul>`, tagging each `<li>` with a generic group class via `relation->class` (e.g. `taxonomic-rel`, falling back to `other-rel`) so the grouping can be expressed in CSS without splitting the list. Relations not covered by any group sort alphabetically at the end. The within-group label placement in the radial diagram (size/corner optimization) is independent and unchanged.
 - **Accessibility**: the sunburst SVG is `aria-hidden` (arc geometry isn't meaningfully navigable by screen readers); the table view and the zoom-history breadcrumb are the accessible alternatives. Reduced motion is honoured by checking `matchMedia("(prefers-reduced-motion: reduce)")` in JS, since the zoom is a D3-driven transition that CSS `prefers-reduced-motion` can't reach.
 - **`dk.cst.dannet.web.hyponymy`**: pure, bounded hyponym-subtree construction. `hyponym-subtree` builds a nested `{:id :children}` skeleton from the inverted hyponym graph, ranking children by descendant count so the largest branches survive `:max-children`/`:max-depth`/`:max-nodes` caps; multiple inheritance is tree-ified and single-path cycles are broken. `hyponym-tree` labels and localises the skeleton (one batched label query, trimmed to a single clean lemma per arc). The inverted graph itself is assembled and cached in `web/resources` (see below).
@@ -165,7 +167,7 @@ src/main/dk/cst/dannet/web/
 ├── hyponymy.clj              # Pure bounded hyponym-subtree construction for the sunburst
 ├── anomaly.cljc              # Exception translation to cognitect.anomalies (bilingual error pages)
 ├── router.cljs               # SPA entry point: routes, navigation callback, Rum mounting
-├── app.cljc                  # Client-side session state, cookie-backed defaults, fetch layer
+├── app.cljc                  # Client-side session state, navigation, fetch layer
 ├── d3.cljs                   # D3 visualization components (radial relation diagram + hyponym sunburst)
 ├── ui.cljc                   # Core Rum UI components
 ├── ui/
@@ -183,6 +185,7 @@ src/main/dk/cst/dannet/web/
 │   ├── relations.cljc        # Synset relation groups (canonical group-order) + relations table
 │   ├── entity.cljc           # Entity display, full-screen mode
 │   ├── error.cljc            # Error boundaries and try-render macros
+│   ├── model.cljc            # render-opts: page data + user state + derived values
 │   └── page.cljc             # Page layout components
 ├── section.cljc              # Page sections and layouts
 └── i18n.cljc                 # Internationalization strings
@@ -293,6 +296,8 @@ npx shadow-cljs watch app
 
 # Access dev server at http://localhost:7777
 ```
+
+`dk.cst.dannet.web.snapshot` (in `src/dev`) writes the HTML and Transit of a fixed list of pages, in Danish and English, to a directory; `diff -r` on two snapshots shows what a UI change did to the output.
 
 ### Browser REPL Debugging (shadow-cljs)
 
@@ -406,8 +411,8 @@ npx shadow-cljs compile test
 - Read operations are implicitly transactional
 
 ### Error Handling
-- React error boundaries (CLJS) via `error-boundary-mixin` in `dk.cst.dannet.web.ui.error`
-- `try-render` and `try-render-with` macros for wrapping component renders
+- `try-render` in `dk.cst.dannet.web.ui.error` (a React error boundary plus try/catch) wraps the page, each entity section and each diagram
+- `try-render-with` is a plain try/catch for functions that build hiccup, e.g. `rdf/transform-val`
 - `try-static-render` for imperative DOM error handling
 - Exception translation at the boundary via `dk.cst.dannet.web.anomaly`: Java exceptions are mapped to `cognitect.anomalies` maps with bilingual messages, retry hints, and HTTP status codes
 - Database operations return nil on failure
