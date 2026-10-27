@@ -7,6 +7,7 @@
             [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
+            [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.relations :as rels]
             [dk.cst.dannet.web.ui.sparql :as sparql]
             [dk.cst.dannet.web.ui.error :as error]))
@@ -18,7 +19,7 @@
 (rum/defc entity
   [{:keys [entity synset? full-screen subject]
     :as   opts}]
-  (let [[_ _ rdf-uri] (shared/parse-rdf-term subject)
+  (let [[_ _ rdf-uri] (rdf/parse-rdf-term subject)
         typeof (prefix/rdfa-val (:rdf/type entity))]
     (if (and synset? full-screen)
       [:article.rdf-resource

@@ -1,7 +1,24 @@
 (ns dk.cst.dannet.web.ui.markdown
-  (:require #?(:clj [dk.cst.dannet.shared :as shared])
+  (:require [clojure.string :as str]
             #?(:clj [nextjournal.markdown :as md])
             #?(:clj [nextjournal.markdown.transform :as md.transform])))
+
+(defn text->slug
+  "Create a URL-safe slug from `text`, keeping only English alphanumerics
+  separated by single dashes. Danish characters are transliterated first.
+
+  NOTE: technically, HTML5 allows for most Unicode characters. However, the
+        subsequent URL-encoding effort really isn't worth it."
+  [text]
+  (when (string? text)
+    (-> text
+        (str/trim)
+        (str/lower-case)
+        (str/replace "æ" "ae")
+        (str/replace "ø" "oe")
+        (str/replace "å" "aa")
+        (str/replace #"[^a-z0-9]+" "-")
+        (str/replace #"^-|-$" ""))))
 
 ;; Markdown is only parsed on the server. The browser's parser (markdown-it)
 ;; turns bare domains such as wordnet.dk into links and the server's parser
@@ -19,7 +36,7 @@
        (->> markdown-text
             (md/parse* (assoc md/empty-doc
                          :text->id+emoji-fn
-                         (comp #(assoc {} :id %) shared/text->slug md/node->text)))
+                         (comp #(assoc {} :id %) text->slug md/node->text)))
             (md/->hiccup renderers)))
 
      (def md->hiccup

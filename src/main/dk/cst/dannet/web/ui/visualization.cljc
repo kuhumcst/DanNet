@@ -278,7 +278,7 @@
                  "Ontological type")]
           [:dd
            (let [onto-type (:dns/ontologicalType entity)
-                 onto-coll (some-> onto-type meta shared/bag->coll)]
+                 onto-coll (some-> onto-type meta rdf/bag->coll)]
              (cond
                (keyword? onto-type)
                (rdf/resource-hyperlink onto-type

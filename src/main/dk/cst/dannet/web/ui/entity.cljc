@@ -14,6 +14,36 @@
             [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
+(defn split-matches
+  "Split `s` into segments of [:text s]/[:match s] according to regex `re`.
+  Unlike str/split, the matched segments are retained in the output."
+  [re s]
+  (let [indices (concat [0] (apply concat (shared/match-bounds re s)) [(count s)])
+        spans   (partition 2 1 indices)
+        kinds   (cycle [:text :match])]
+    (->> (map (fn [kind [start end]]
+                [kind (subs s start end)])
+              kinds
+              spans)
+         (filterv (comp seq second)))))
+
+(defn rdf=
+  "An equals which also supports RDF open-ended semantics, i.e. `v` can  also be
+  a set or a vector containing `x`."
+  [v x]
+  (cond
+    (set? v) (get v x)
+    (coll? v) (get (set v) x)
+    :else (= v x)))
+
+(defn lstr-slug
+  "Turn a coll of `lstrs` into a slug that is HTML5 id compatible."
+  [lstrs]
+  (some-> (i18n/select-label [nil "en" "da"] lstrs)
+          (str)
+          (str/lower-case)
+          (str/replace #"\s+" "-")))
+
 (defn- ordered-subentity
   "Select a subentity from `entity` based on `ks` (may be a predicate too) and
   order it according to the labels of the preferred languages."
@@ -25,13 +55,13 @@
                    (when-let [v (k entity)]
                      [k v]))
                  (remove nil?))
-            (sort-by (shared/label-sortkey-fn opts)
+            (sort-by (rdf/label-sortkey-fn opts)
                      (filter ks entity))))))
 
 (rum/defc entity-header
   [{:keys [subject languages entity k->label detail-level]
     :as   opts}]
-  (let [[prefix local-name rdf-uri] (shared/parse-rdf-term subject)
+  (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
         ;; detailed label (usually rdfs:label).
         label-key     (if (and (= detail-level :high)
@@ -151,7 +181,7 @@
 (defn- highlight-matches
   "Emphasise the parts of the string `s` matching `re`."
   [re s]
-  (into [:<>] (for [[kind segment] (shared/split-matches re s)]
+  (into [:<>] (for [[kind segment] (split-matches re s)]
                 (case kind
                   :match [:strong segment]
                   :text segment))))
@@ -288,7 +318,7 @@
     (semantic-relations-content id subentity opts)
 
     (and (nil? id)
-         (shared/rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
+         (rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
          (not (shared/frame? (:subject opts))))
     (synset-header-content subentity opts)
 
@@ -298,7 +328,7 @@
 (rum/defc entity-section
   [id subentity {:keys [languages] :as opts}]
   (if-let [title (section/titles id)]
-    (let [title-id (str "section-title-" (shared/lstr-slug title))]
+    (let [title-id (str "section-title-" (lstr-slug title))]
       [:section.subentity {:key             id
                            :aria-labelledby title-id}
        [:h2 {:id title-id} (str (i18n/select-label languages title))]

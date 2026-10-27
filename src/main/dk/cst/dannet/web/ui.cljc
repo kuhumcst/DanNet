@@ -9,6 +9,7 @@
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.model :as model]
             [dk.cst.dannet.web.ui.page :as page]
+            [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.search :as search]))
 
 (rum/defc page-footer
@@ -160,7 +161,7 @@
         {:keys [entity subject languages detail-level synset? full-screen]
          :as   opts}  (model/render-opts data state)
         full-diagram? (and synset? full-screen)
-        [prefix _ _] (shared/parse-rdf-term subject)
+        [prefix _ _] (rdf/parse-rdf-term subject)
         prefix'       (or prefix (some-> entity
                                          :vann/preferredNamespacePrefix
                                          symbol))]

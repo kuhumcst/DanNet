@@ -13,8 +13,7 @@
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
             [dk.cst.dannet.web.ui.page :as page]
-            [dk.cst.dannet.web.app :as app]
-            [dk.cst.dannet.shared :as shared])
+            [dk.cst.dannet.web.app :as app])
   (:import [goog Uri]))
 
 ;; The React root, once mounted; see mount-page! for the states it holds.
@@ -111,6 +110,17 @@
   [path]
   (= path (:path @location)))
 
+(defn merge-deferred-entity
+  "Merge `deferred` entity data into `entity`, concatenating collections.
+  Used by the client to combine truncated initial data with deferred remainder."
+  [entity deferred]
+  (merge-with (fn [old new]
+                (if (and (coll? old) (coll? new))
+                  (into old new)
+                  new))
+              entity
+              deferred))
+
 (defn- load-deferred!
   "Fetch the rest of the entity at `path`, which the server held back to load
   the page faster, and show the page again with it."
@@ -128,7 +138,7 @@
                    (let [page (update @location :data
                                       #(-> %
                                            (update :entity
-                                                   shared/merge-deferred-entity
+                                                   merge-deferred-entity
                                                    (:entity deferred))
                                            (update :entities merge
                                                    (:entities deferred))))]

@@ -1,7 +1,8 @@
 (ns dk.cst.dannet.web.app
   "The client side of the single-page app: the user's session, navigation, and
   the transit-based fetch layer."
-  (:require [taoensso.telemere :as t]
+  (:require [clojure.string :as str]
+            [taoensso.telemere :as t]
             [dk.cst.dannet.shared :as shared]
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [reitit.frontend.history :as rfh])
@@ -33,6 +34,22 @@
   ;; the relationship is clear in `session`, reachable via `opts` (the session
   ;; is merged in) and reset to :radial on a full page load.
   [:section :semantic :display :diagram-mode])
+
+(def windows?
+  #?(:cljs (and (exists? js/navigator.appVersion)
+                (str/includes? js/navigator.appVersion "Windows"))))
+
+(defn normalize-url
+  "Normalize a `path` to work in both production and development contexts.
+
+  When accessing using Windows in dev, the OS is assumed to be virtualised and
+  localhost:3456 of the macOS host to be available at mac:3456 instead."
+  [path]
+  (if shared/development?
+    (if windows?
+      (str "http://mac:3456" path)
+      (str "http://localhost:3456" path))
+    path))
 
 (defn- scroll-state
   "A history state that records the scroll position of the page content."
@@ -142,7 +159,7 @@
                                   (assoc opts
                                     :query-params query-params'))]
          (swap! fetches assoc url controller)
-         (-> (fetch/request (shared/normalize-url url) opts*)
+         (-> (fetch/request (normalize-url url) opts*)
              ;; Aborted fetches throw an AbortError. This is expected behaviour
              ;; when looking up search suggestions, so we don't need to litter
              ;; our console with these false positives.

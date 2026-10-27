@@ -2,8 +2,6 @@
   "Shared functions for frontend/backend; low-dependency namespace."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
-            [ont-app.vocabulary.core :as voc]
-            [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj [clojure.core.memoize :as memo])
             #?(:clj [clojure.java.io :as io])))
 
@@ -48,22 +46,6 @@
                (edn/read-string))
        (catch Exception e nil))))
 
-(def windows?
-  #?(:cljs (and (exists? js/navigator.appVersion)
-                (str/includes? js/navigator.appVersion "Windows"))))
-
-(defn normalize-url
-  "Normalize a `path` to work in both production and development contexts.
-
-  When accessing using Windows in dev, the OS is assumed to be virtualised and
-  localhost:3456 of the macOS host to be available at mac:3456 instead."
-  [path]
-  (if development?
-    (if windows?
-      (str "http://mac:3456" path)
-      (str "http://localhost:3456" path))
-    path))
-
 (defn search-string
   "Normalize search string `s`."
   [s]
@@ -102,19 +84,6 @@
                  (recur (conj bounds [(.-index m)
                                       (+ (.-index m) (count (aget m 0)))]))
                  bounds)))))
-
-(defn split-matches
-  "Split `s` into segments of [:text s]/[:match s] according to regex `re`.
-  Unlike str/split, the matched segments are retained in the output."
-  [re s]
-  (let [indices (concat [0] (apply concat (match-bounds re s)) [(count s)])
-        spans   (partition 2 1 indices)
-        kinds   (cycle [:text :match])]
-    (->> (map (fn [kind [start end]]
-                [kind (subs s start end)])
-              kinds
-              spans)
-         (filterv (comp seq second)))))
 
 (defn lemma-pattern
   "Regex matching any of the `lemmas` as (the start of) a full word, e.g. the
@@ -354,30 +323,6 @@
      (when (< (count kept) (count labels))
        (str "{" (str/join "; " kept) "; " omitted "}")))))
 
-(defn label-sortkey-fn*
-  "Keyfn for sorting keywords and other content based on a `k->label` mapping.
-  Returns vectors so that identical labels are sorted by keywords secondly."
-  [{:keys [languages k->label] :as opts}]
-  (fn [item]
-    (let [k (if (map-entry? item) (first item) item)]
-      [(str (i18n/select-label languages (get k->label k)))
-       (str k)])))
-
-(def label-sortkey-fn
-  #?(:clj  (memo/lru label-sortkey-fn* :lru/threshold 1000)
-     :cljs (memoize label-sortkey-fn*)))
-
-(defn sort-by-label-with-keys
-  "Sort `coll` by labels and return items with pre-computed sort keys.
-  
-  Uses the Schwartzian transform pattern to compute each sort key once.
-  Returns a sequence of maps with `:item` and `:sort-key` keys."
-  [opts coll]
-  (let [keyfn (label-sortkey-fn opts)]
-    (->> coll
-         (map (fn [item] {:item item :sort-key (keyfn item)}))
-         (sort-by :sort-key))))
-
 (defn multi-valued?
   "Return true if `v` is either a (pre-sorted) vector or a set.
 
@@ -392,11 +337,6 @@
   [v]
   (cond-> v (coll? v) first))
 
-(defn rdf-datatype?
-  "Is `x` an RDF datatype represented as a map?"
-  [x]
-  (and (map? x) (:value x) (:uri x)))
-
 (defn member-property?
   "Returns true if `x` is an RDF container membership property, e.g. :rdf/_1,
   :rdf/_2 and so on."
@@ -404,28 +344,6 @@
   (and (keyword? x)
        (= "rdf" (namespace x))
        (str/starts-with? (name x) "_")))
-
-(defn bag->coll
-  "Extract member values from an RDF Bag map `m` into a flat sorted collection."
-  [{:keys [rdf/type] :as m}]
-  (when (or (= :rdf/Bag type)
-            (contains? type :rdf/Bag))
-    (->> (dissoc m :rdf/type)
-         (filter (comp member-property? first))
-         (mapcat (comp setify second))
-         sort
-         not-empty)))
-
-(defn parse-rdf-term
-  "Parses an RDF `term` into [prefix local-name uri] for display/processing."
-  [term]
-  (when term
-    (if (keyword? term)
-      [(symbol (namespace term))
-       (name term)
-       (voc/uri-for term)]
-      (let [uri (str/replace term #"<|>" "")]
-        [nil uri uri]))))
 
 (def label-keys-full
   "RDF properties checked for labels, preferring full/detailed labels first."
@@ -494,17 +412,6 @@
   "Maximum number of values to display per semantic relation.
   Used for word cloud limits and deferred loading truncation."
   150)
-
-(defn merge-deferred-entity
-  "Merge `deferred` entity data into `entity`, concatenating collections.
-  Used by the client to combine truncated initial data with deferred remainder."
-  [entity deferred]
-  (merge-with (fn [old new]
-                (if (and (coll? old) (coll? new))
-                  (into old new)
-                  new))
-              entity
-              deferred))
 
 (def synset-rel-theme
   "The maximal theme for all in-use synset relations generated via
@@ -578,41 +485,7 @@
 (def pos-abbr-en
   {"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."})
 
-(defn rdf=
-  "An equals which also supports RDF open-ended semantics, i.e. `v` can  also be
-  a set or a vector containing `x`."
-  [v x]
-  (cond
-    (set? v) (get v x)
-    (coll? v) (get (set v) x)
-    :else (= v x)))
-
-(defn text->slug
-  "Create a URL-safe slug from `text`, keeping only English alphanumerics
-  separated by single dashes. Danish characters are transliterated first.
-
-  NOTE: technically, HTML5 allows for most Unicode characters. However, the
-        subsequent URL-encoding effort really isn't worth it."
-  [text]
-  (when (string? text)
-    (-> text
-        (str/trim)
-        (str/lower-case)
-        (str/replace "æ" "ae")
-        (str/replace "ø" "oe")
-        (str/replace "å" "aa")
-        (str/replace #"[^a-z0-9]+" "-")
-        (str/replace #"^-|-$" ""))))
-
 ;; See also: https://mathiasbynens.be/notes/html5-id-class
-(defn lstr-slug
-  "Turn a coll of `lstrs` into a slug that is HTML5 id compatible."
-  [lstrs]
-  (some-> (i18n/select-label [nil "en" "da"] lstrs)
-          (str)
-          (str/lower-case)
-          (str/replace #"\s+" "-")))
-
 (comment
   (lexfile->pos "noun.location")
   (lexfile->pos "adv.all")

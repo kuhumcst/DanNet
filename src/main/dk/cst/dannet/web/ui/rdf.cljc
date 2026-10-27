@@ -1,18 +1,71 @@
 (ns dk.cst.dannet.web.ui.rdf
   (:require [clojure.string :as str]
             [rum.core :as rum]
+            [ont-app.vocabulary.core :as voc]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
-            #?(:clj [better-cond.core :refer [cond]]))
+            #?(:clj [better-cond.core :refer [cond]])
+            #?(:clj [clojure.core.memoize :as memo]))
   #?(:clj (:import [org.apache.jena.datatypes BaseDatatype$TypedValue]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
 
 (def expandable-list-cutoff
   8)
+
+(defn parse-rdf-term
+  "Parses an RDF `term` into [prefix local-name uri] for display/processing."
+  [term]
+  (when term
+    (if (keyword? term)
+      [(symbol (namespace term))
+       (name term)
+       (voc/uri-for term)]
+      (let [uri (str/replace term #"<|>" "")]
+        [nil uri uri]))))
+
+(defn rdf-datatype?
+  "Is `x` an RDF datatype represented as a map?"
+  [x]
+  (and (map? x) (:value x) (:uri x)))
+
+(defn bag->coll
+  "Extract member values from an RDF Bag map `m` into a flat sorted collection."
+  [{:keys [rdf/type] :as m}]
+  (when (or (= :rdf/Bag type)
+            (contains? type :rdf/Bag))
+    (->> (dissoc m :rdf/type)
+         (filter (comp shared/member-property? first))
+         (mapcat (comp shared/setify second))
+         sort
+         not-empty)))
+
+(defn label-sortkey-fn*
+  "Keyfn for sorting keywords and other content based on a `k->label` mapping.
+  Returns vectors so that identical labels are sorted by keywords secondly."
+  [{:keys [languages k->label] :as opts}]
+  (fn [item]
+    (let [k (if (map-entry? item) (first item) item)]
+      [(str (i18n/select-label languages (get k->label k)))
+       (str k)])))
+
+(def label-sortkey-fn
+  #?(:clj  (memo/lru label-sortkey-fn* :lru/threshold 1000)
+     :cljs (memoize label-sortkey-fn*)))
+
+(defn sort-by-label-with-keys
+  "Sort `coll` by labels and return items with pre-computed sort keys.
+  
+  Uses the Schwartzian transform pattern to compute each sort key once.
+  Returns a sequence of maps with `:item` and `:sort-key` keys."
+  [opts coll]
+  (let [keyfn (label-sortkey-fn opts)]
+    (->> coll
+         (map (fn [item] {:item item :sort-key (keyfn item)}))
+         (sort-by :sort-key))))
 
 (def uri-pattern
   #"https?://|[^\./\?&=#%]+|%[0-9A-Fa-f]{2}|[\./\?&=#]")
@@ -176,7 +229,7 @@
             {:uri   (.-datatypeURI ^BaseDatatype$TypedValue v)
              :value (.-lexicalValue ^BaseDatatype$TypedValue v)})]
          :cljs
-         [(shared/rdf-datatype? v)
+         [(rdf-datatype? v)
           (transform-rdf-datatype v)])
 
      ;; Transformations of non-strings
@@ -339,7 +392,7 @@
   [{:keys [table-component languages attr-key] :as opts} m]
   (let [container (partial blank-node* languages attr-key)]
     (cond
-      (shared/rdf-datatype? m)
+      (rdf-datatype? m)
       (container (transform-val m))
 
       (= (keys m) [:rdf/value])
@@ -370,7 +423,7 @@
                         (map #(entity-link % opts'))
                         (interpose ", "))))]))
 
-      :let [resources (shared/bag->coll m)]
+      :let [resources (bag->coll m)]
       resources
       (container [:span.set
                   (when (and (every? keyword? resources)
@@ -409,7 +462,7 @@
 
 (rum/defc render-list-items
   [opts coll]
-  (for [{:keys [item sort-key]} (shared/sort-by-label-with-keys opts coll)]
+  (for [{:keys [item sort-key]} (sort-by-label-with-keys opts coll)]
     (rum/with-key (list-item opts item) sort-key)))
 
 ;; A Rum-controlled version of the <details> element which only renders content
