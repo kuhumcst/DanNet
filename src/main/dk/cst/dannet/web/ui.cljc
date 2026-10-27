@@ -10,19 +10,6 @@
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.ui.search :as search]))
 
-;; Track hydration state to distinguish between first and subsequent renders.
-;; The initial render will happen server-side, whilst subsequent re-renders all
-;; happen locally in the browser.
-(defonce ^:dynamic *hydrated* false)
-
-(def hydration-mixin
-  "Mark hydration as complete once React has committed it. React 18's
-  hydrateRoot hydrates asynchronously, so a flag set right after calling
-  rum/hydrate would already be true during the hydration render."
-  {:did-mount (fn [state]
-                #?(:cljs (set! *hydrated* true))
-                state)})
-
 (rum/defc page-footer
   [languages]
   [:footer.page-footer
@@ -195,7 +182,7 @@
    :relations {:render page/relations :nav-class "wordnet"}
    :error     {:render page/error}})
 
-(rum/defc page-shell < rum/reactive hydration-mixin
+(rum/defc page-shell < rum/reactive
   [{:keys [page data prefs]}]
   (let [{:keys [entity subject entities] :as opts} data
         {:keys [render nav-class]
@@ -265,13 +252,8 @@
       (detail-level-select detail-level languages')]
      (when-not full-diagram?
        (help-arrows page opts'))
-     [:div#content {:class [(when full-diagram?
-                              "full-screen")
-                            #?(:clj  ""
-                               :cljs (if (and *hydrated*
-                                              (not-empty (:fetch state')))
-                                       "fetching"
-                                       ""))]}
+     [:div#content {:class (when full-diagram?
+                             "full-screen")}
       [:main
        (error/try-render (render opts') (page/error opts'))]
       (page-footer languages')]]))

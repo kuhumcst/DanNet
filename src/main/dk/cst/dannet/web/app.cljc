@@ -22,10 +22,6 @@
          :section      {:semantic {:display {:selected     "diagram"
                                                  :diagram-mode :radial}}}}))
 
-;; Temporary store for special behaviour after navigating to a new page.
-(defonce post-navigate
-  (atom nil))
-
 (def diagram-mode-path
   ;; The synset section shows as a table or a diagram (`:display :selected`);
   ;; when it's a diagram, `:diagram-mode` picks which one (:radial, :sunburst,
@@ -34,16 +30,33 @@
   ;; is merged in) and reset to :radial on a full page load.
   [:section :semantic :display :diagram-mode])
 
+(defn- scroll-state
+  "A history state that records the scroll position of the page content."
+  []
+  #?(:cljs (when-let [content (js/document.getElementById "content")]
+             #js {:scroll (.-scrollTop content)})))
+
+(defn save-scroll!
+  "Store the scroll position of the page content in the current history entry,
+  so that going back or forward to the entry can restore it."
+  []
+  #?(:cljs (.replaceState js/window.history (scroll-state) "")))
+
 (defn navigate-to
   "Navigate to internal `url` using reitit.
 
-  Optionally, specify whether to `replace` the state in history."
-  [url & [replace]]
+  With `replace?`, the new page replaces the current one in the history. With
+  `keep-scroll?`, it keeps the current scroll position instead of starting at
+  the top."
+  [url & [{:keys [replace? keep-scroll?]}]]
   #?(:cljs (if (not-empty url)
-             (let [history @rfe/history]
-               (if replace
-                 (.replaceState js/window.history nil "" (rfh/-href history url))
-                 (.pushState js/window.history nil "" (rfh/-href history url)))
+             (let [history @rfe/history
+                   href    (rfh/-href history url)
+                   state   (when keep-scroll? (scroll-state))]
+               (save-scroll!)
+               (if replace?
+                 (.replaceState js/window.history state "" href)
+                 (.pushState js/window.history state "" href))
                (rfh/-on-navigate history url))
              (t/log! {:level :warn
                       :data  {:url      url
@@ -65,15 +78,27 @@
      (def transit-reader
        (transit/reader :json {:handlers transit-read-handlers}))
 
+     ;; The in-flight fetches by URL, each with its AbortController. While there
+     ;; are any, <html> has a data-fetching attribute, which the CSS shows as a
+     ;; loading indicator.
+     (defonce fetches
+       (atom {}))
+
+     (add-watch fetches ::loading-indicator
+                (fn [_ _ _ m]
+                  (if (empty? m)
+                    (.removeAttribute js/document.documentElement "data-fetching")
+                    (.setAttribute js/document.documentElement "data-fetching" ""))))
+
      (defn clear-current-fetch
        "Clear `url` from the ongoing fetch table (done after fetches complete)."
        [url]
-       (swap! session update :fetch dissoc url))
+       (swap! fetches dissoc url))
 
      (defn abort-current-fetch
        "Abort an ongoing fetch for `url`."
        [url]
-       (when-let [controller (get-in @session [:fetch url])]
+       (when-let [controller (get @fetches url)]
          (.abort controller)
          (clear-current-fetch url)))
 
@@ -81,9 +106,9 @@
        "Abort all in-flight fetches. Called on navigation to prevent stale data
        from previous pages being processed after the user has moved on."
        []
-       (doseq [[url controller] (:fetch @session)]
+       (doseq [[url controller] @fetches]
          (.abort controller))
-       (swap! session assoc :fetch {}))
+       (reset! fetches {}))
 
      ;; The `:transit` query parameter is there to circumvent the browser
      ;; caching the transit data instead of an HTML page, which can result in a
@@ -93,7 +118,7 @@
      ;; the Transit format changes; cached responses in the old format are then
      ;; never used.
      (def transit-param
-       {:transit 2})
+       {:transit 3})
 
      ;; Currently lambdaisland/fetch silently loses query strings, so they are
      ;; parsed back out of the URL below to keep them intact.
@@ -101,9 +126,7 @@
        "Request the resource at `url`, returning the response body."
        [url & [{:keys [query-params method] :or {method :get} :as opts}]]
 
-       ;; Cancel any existing fetches (ignoring a nil session, i.e. the first run).
-       (when-not (nil? (:fetch @session))
-         (abort-current-fetch url))
+       (abort-current-fetch url)
 
        (let [string-params (uri/query-string->map (:query (uri/uri url)))
              query-params' (merge string-params query-params transit-param)
@@ -114,7 +137,7 @@
                                    :signal              signal}
                                   (assoc opts
                                     :query-params query-params'))]
-         (swap! session assoc-in [:fetch url] controller)
+         (swap! fetches assoc url controller)
          (-> (fetch/request (shared/normalize-url url) opts*)
              ;; Aborted fetches throw an AbortError. This is expected behaviour
              ;; when looking up search suggestions, so we don't need to litter

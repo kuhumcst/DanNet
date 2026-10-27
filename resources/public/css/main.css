@@ -919,25 +919,24 @@ nav#main-nav.full-screen .nav-icon {
 }
 
 /* Loading indicator - animates title letters when fetching */
-#content.fetching {
+html[data-fetching] #content {
     cursor: progress;
 }
 
-/* nav precedes #content in DOM, so :has(~) checks following sibling state */
-nav#main-nav:has(~ #content.fetching) a.title {
+html[data-fetching] nav#main-nav a.title {
     letter-spacing: 8px;
 }
 
-nav#main-nav:has(~ #content.fetching) a.title span {
+html[data-fetching] nav#main-nav a.title span {
     animation: title-pulse 1.6s ease-in-out infinite;
 }
 
 /* Staggered animation delays create a wave effect across the 6 letters */
-nav#main-nav:has(~ #content.fetching) a.title span:nth-child(2) { animation-delay: 0.1s; }
-nav#main-nav:has(~ #content.fetching) a.title span:nth-child(3) { animation-delay: 0.2s; }
-nav#main-nav:has(~ #content.fetching) a.title span:nth-child(4) { animation-delay: 0.3s; }
-nav#main-nav:has(~ #content.fetching) a.title span:nth-child(5) { animation-delay: 0.4s; }
-nav#main-nav:has(~ #content.fetching) a.title span:nth-child(6) { animation-delay: 0.5s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(2) { animation-delay: 0.1s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(3) { animation-delay: 0.2s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(4) { animation-delay: 0.3s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(5) { animation-delay: 0.4s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.5s; }
 
 
 /* ===========================================
@@ -2224,7 +2223,7 @@ label.distinct-select {
     background: transparent;
 }
 
-#content.fetching .sparql-progress {
+html[data-fetching] .sparql-progress {
     background: var(--color-dannet);
     animation: sparql-fill 15s ease forwards;
 }

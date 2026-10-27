@@ -834,8 +834,7 @@
                          s))))))
         (.on "click" (fn [_ d]
                        (when-let [href (.-href (.-data d))]
-                         (reset! app/post-navigate {:scroll :diagram})
-                         (app/navigate-to href))))
+                         (app/navigate-to href {:keep-scroll? true}))))
         (add-title)
 
         ;; Render subject labels with horizontal layout
@@ -1270,8 +1269,7 @@
                     ;; Reset to the radial so navigating reads as a page change,
                     ;; not a silent re-root.
                     (swap! app/session assoc-in app/diagram-mode-path :radial)
-                    (reset! app/post-navigate {:scroll :diagram})
-                    (app/navigate-to href))))
+                    (app/navigate-to href {:keep-scroll? true}))))
               (render-centre! [p]
                 ;; Root → its short-label senses stacked with a faded dot between
                 ;; them; deeper → the focused node's own name, prefixed with the
