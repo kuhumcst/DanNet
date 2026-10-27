@@ -484,18 +484,16 @@
       (expandable-list opts coll))))
 
 (defn hypernym-chain
-  "Render nested `ancestry` in `opts` as arrow-separated hyperlinks.
+  "Render nested `ancestry` as arrow-separated hyperlinks, below the
+  `subject-label` (as text, not a hyperlink) when given.
 
   Handles multiple hypernyms per synset, creating nested sublists. Respects
-  `:detail-level` in `opts` to select full/short labels. When `:subject-label`
-  is provided, prepends the subject as first item (not a hyperlink)."
-  ([{:keys [ancestry subject-label] :as opts}]
-   (if subject-label
-     [:ul.hypernym-chain.hypernym-chain--root
-      [:li.subject
-       (transform-val subject-label opts)
-       (hypernym-chain ancestry opts)]]
-     (hypernym-chain ancestry opts)))
+  `:detail-level` in `opts` to select full/short labels."
+  ([subject-label ancestry opts]
+   [:ul.hypernym-chain.hypernym-chain--root
+    [:li.subject
+     (transform-val subject-label opts)
+     (hypernym-chain ancestry opts)]])
   ([ancestry {:keys [detail-level] :as opts}]
    (when (seq ancestry)
      (into [:ul.hypernym-chain]

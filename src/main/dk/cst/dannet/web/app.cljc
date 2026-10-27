@@ -10,17 +10,21 @@
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [ont-app.vocabulary.lstr :as lstr])))
 
-;; The user's current browsing session; also read server-side to seed hydration.
-;; The preferences (languages, full-screen, detail level) come from the page:
-;; the client takes them from the first page, the server from each request.
+(def default-state
+  "The user's state before any page is shown. The preferences (languages,
+  full-screen, detail level) come from the page: the client takes them from
+  the first page, the server from each request."
+  {:languages    nil
+   :search       {:completion {}
+                  :s          ""}
+   :full-screen  false
+   :detail-level :normal
+   :section      {:semantic {:display {:selected     "diagram"
+                                       :diagram-mode :radial}}}})
+
+;; The user's current browsing session.
 (defonce session
-  (atom {:languages    nil
-         :search       {:completion {}
-                        :s          ""}
-         :full-screen  false
-         :detail-level :normal
-         :section      {:semantic {:display {:selected     "diagram"
-                                                 :diagram-mode :radial}}}}))
+  (atom default-state))
 
 (def diagram-mode-path
   ;; The synset section shows as a table or a diagram (`:display :selected`);

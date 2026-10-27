@@ -18,25 +18,16 @@
 (rum/defc entity
   [{:keys [entity synset? full-screen subject]
     :as   opts}]
-  ;; TODO: could this transformation be moved to the backend?
-  (let [inherited (->> (shared/setify (:dns/inherited entity))
-                       ;; Inheritance is marked by anonymous resources (#182)
-                       ;; carrying their entity data as metadata.
-                       (keep #(some-> (meta %)
-                                      (get :dns/inheritedRelation)
-                                      (shared/unwrap)))
-                       (set))
-        opts'     (assoc opts :inherited inherited)
-        [_ _ rdf-uri] (shared/parse-rdf-term subject)
-        typeof    (prefix/rdfa-val (:rdf/type entity))]
+  (let [[_ _ rdf-uri] (shared/parse-rdf-term subject)
+        typeof (prefix/rdfa-val (:rdf/type entity))]
     (if (and synset? full-screen)
       [:article.rdf-resource
-       (entity/full-screen-content opts')]
+       (entity/full-screen-content opts)]
       [:article.rdf-resource (cond-> {:about rdf-uri}
                                typeof (assoc :typeof typeof))
-       (entity/entity-header opts')
-       (entity/entity-content opts')
-       (entity/entity-notes opts')])))
+       (entity/entity-header opts)
+       (entity/entity-content opts)
+       (entity/entity-notes opts)])))
 
 (rum/defc search
   [{:keys [languages lemma search-results] :as opts}]

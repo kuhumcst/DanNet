@@ -46,7 +46,7 @@
         "Relations diagram for the current synset")]]))
 
 (rum/defc hyponym-sunburst-diagram
-  [tree {:keys [languages sunburst-nav sunburst-caption] :as opts}]
+  [tree caption {:keys [sunburst-nav] :as opts}]
   [:figure.hyponym-sunburst-diagram
    {:ref #?(:clj  nil
             :cljs (fn [elem]
@@ -54,11 +54,7 @@
                       (d3/build-sunburst! tree elem sunburst-nav opts))))}
    ;; Names the figure for assistive tech; the SVG itself is built in the ref
    ;; callback and also carries role="img" + a label.
-   [:figcaption.visually-hidden
-    (or sunburst-caption
-        (i18n/da-en languages
-          "Hyponym-soldiagram for det aktuelle synset"
-          "Hyponym sunburst for the current synset"))]])
+   [:figcaption.visually-hidden caption]])
 
 (rum/defc full-screen-toggle
   "The maximize/minimize button shared by the radial legend and the sunburst
@@ -177,7 +173,7 @@
       (rdf/resource (assoc opts :attr-key :lexinfo/senseExample) v)]]))
 
 (rum/defc ancestry-dt+dd
-  [{:keys [languages entity detail-level] :as opts}]
+  [{:keys [languages entity detail-level ancestry] :as opts}]
   (let [label       (str (:rdfs/label entity))
         short-label (some-> (:dns/shortLabel entity) str)
         subj-label  (if (= detail-level :high) label (or short-label label))]
@@ -187,7 +183,7 @@
         "Overbegreber"
         "Hypernyms")]
      [:dd.synset-diagram__footer-item
-      (rdf/hypernym-chain (assoc opts :subject-label subj-label))]]))
+      (rdf/hypernym-chain subj-label ancestry opts)]]))
 
 (rum/defcs synset-diagram < (rum/local nil ::nav)
   [state subentity {:keys [entity languages full-screen hyponym-tree
@@ -214,12 +210,14 @@
         ;; Component-local breadcrumb atom: the sunburst builder writes the zoom
         ;; trail to it and the history legend reacts to it, so the two share
         ;; state without a module-global (and a fresh diagram starts clean).
-        opts               (cond-> (assoc opts :sunburst-nav (::nav state))
-                             (= mode :sunburst-meronym)
-                             (assoc :sunburst-caption
-                                    (i18n/da-en languages
-                                      "Meronym-soldiagram for det aktuelle synset"
-                                      "Meronym sunburst for the current synset")))
+        opts               (assoc opts :sunburst-nav (::nav state))
+        caption            (if (= mode :sunburst-meronym)
+                             (i18n/da-en languages
+                               "Meronym-soldiagram for det aktuelle synset"
+                               "Meronym sunburst for the current synset")
+                             (i18n/da-en languages
+                               "Hyponym-soldiagram for det aktuelle synset"
+                               "Hyponym sunburst for the current synset"))
         set-mode!          (fn [mode]
                              (fn [_] (swap! app/session assoc-in
                                             app/diagram-mode-path mode)))]
@@ -288,7 +286,7 @@
           (ancestry-dt+dd opts)]])
       [:div.synset-diagram__main
        (if sunburst?
-         (hyponym-sunburst-diagram tree opts)
+         (hyponym-sunburst-diagram tree caption opts)
          (radial-tree-diagram subentity opts))]
       ;; Keep a right-hand column in both modes so the diagram footprint stays
       ;; stable; in sunburst mode it's the zoom history for stepping back up.

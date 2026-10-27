@@ -7,6 +7,7 @@
             [dk.cst.dannet.web.app :as app]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
+            [dk.cst.dannet.web.ui.model :as model]
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.ui.search :as search]))
 
@@ -184,51 +185,19 @@
 
 (rum/defc page-shell < rum/reactive
   [{:keys [page data prefs]}]
-  (let [{:keys [entity subject entities] :as opts} data
-        {:keys [render nav-class]
+  (let [{:keys [render nav-class]
          :or   {render page/not-found}} (get pages page)
         ;; The server renders with the preferences of the request, the client
         ;; with those in its session, which start out as the same.
-        state' #?(:clj  (merge @app/session prefs)
-                  :cljs (rum/react app/session))
-        languages'     (:languages state')
-        comments       {:inference
-                        (i18n/da-en languages'
-                          "indeholder logisk afledt data"
-                          "contains logically inferred data")
-                        :inheritance
-                        (i18n/da-en languages'
-                          "helt eller delvist nedarvet fra hypernym"
-                          "fully or partially inherited from hypernym")
-                        :supplemented
-                        (i18n/da-en languages'
-                          "suppleret fra andre ressourcer"
-                          "supplemented from other resources")
-                        :entailment
-                        (i18n/da-en languages'
-                          "se andre relationer afledt af denne"
-                          "view other relations entailed by this one")}
-        detail-level   (or (:detail-level state') :normal)
-        entity-label*  (shared/->entity-label-fn detail-level)
-        ;; Rejoin entities with subject (split for performance reasons)
-        entities'      (assoc entities subject entity)
-        synset?        (some shared/semantic-rels? entity)
-        full-diagram?  (and synset? (:full-screen state'))
-        ;; Merge frontend state and backend state into a complete product.
-        opts'          (assoc (merge opts state')
-                         :synset? synset?
-                         :detail-level detail-level
-                         :comments comments
-                         ;; Entity pages build k->label from expanded entity
-                         ;; metadata; other pages (e.g. SPARQL) may supply their
-                         ;; own k->label via the interceptor chain.
-                         :k->label (if entities
-                                     (update-vals entities' entity-label*)
-                                     (:k->label opts)))
+        state         #?(:clj  (merge app/default-state prefs)
+                         :cljs (rum/react app/session))
+        {:keys [entity subject languages detail-level synset? full-screen]
+         :as   opts}  (model/render-opts data state)
+        full-diagram? (and synset? full-screen)
         [prefix _ _] (shared/parse-rdf-term subject)
-        prefix'        (or prefix (some-> entity
-                                          :vann/preferredNamespacePrefix
-                                          symbol))]
+        prefix'       (or prefix (some-> entity
+                                         :vann/preferredNamespacePrefix
+                                         symbol))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav#main-nav
@@ -236,24 +205,24 @@
                (if full-diagram?
                  "full-screen"
                  (or nav-class (prefix/prefix->class prefix')))]}
-      (search/form opts')
+      (search/form opts)
       [:a.sparql-link.nav-icon
-       {:title (i18n/da-en languages'
+       {:title (i18n/da-en languages
                  "Åbn SPARQL-editor"
                  "Open SPARQL editor")
         :href  "/dannet/sparql"}]
-      [:a.title {:title (i18n/da-en languages'
+      [:a.title {:title (i18n/da-en languages
                           "Gå til forsiden"
                           "Go to the front page")
                  :href  (shared/page-href "frontpage")}
        ;; Wrapped in spans for staggered loading animation (see main.css).
        [:span "D"] [:span "a"] [:span "n"] [:span "N"] [:span "e"] [:span "t"]]
-      (language-select languages')
-      (detail-level-select detail-level languages')]
+      (language-select languages)
+      (detail-level-select detail-level languages)]
      (when-not full-diagram?
-       (help-arrows page opts'))
+       (help-arrows page opts))
      [:div#content {:class (when full-diagram?
                              "full-screen")}
       [:main
-       (error/try-render (render opts') (page/error opts'))]
-      (page-footer languages')]]))
+       (error/try-render (render opts) (page/error opts))]
+      (page-footer languages)]]))

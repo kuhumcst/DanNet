@@ -194,47 +194,52 @@
          (str ex))])))
 
 (rum/defc synset-summary
-  [{:keys [wn/lexfile dns/ontologicalType] :as subentity}
-   {:keys [languages entity] :as opts}]
-  ;; The Danish and English WordNets differ in how they represent part-of-speech
-  ;; where the Danish WordNet takes the standard OntoLex approach, while the
-  ;; OEWN uses a custom relations
-  (let [pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
-                                          (some->> entity :wn/partOfSpeech name)))
-        ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
-        lexfile' (or lexfile (:dc/subject entity))]
-    [:ul.synset-summary {:typeof "ontolex:LexicalConcept"}
-     [:li.summary-main
-      (when pos
-        [:abbr.pos-label (cond-> {:title (if lexfile'
-                                           (str lexfile' " (wn:lexfile)")
-                                           "wn:lexfile")}
-                           lexfile' (assoc :property "wn:lexfile"
-                                           :content (str lexfile')))
-         pos])
-      (if-let [definition (:skos/definition subentity)]
-        (let [definition* (i18n/select-str languages definition)
-              definition' (if (coll? definition*)
-                            (->> (sort (map str definition*))
-                                 (str/join "; "))
-                            definition*)]
-          [:span {:property "skos:definition"
-                  :title    "skos:definition"}
-           (rdf/transform-val definition' opts)])
-        (when-let [definition (:wn/definition subentity)]
-          [:span {:property "wn:definition"
-                  :title    "wn:definition"}
-           (rdf/blank-node opts (meta definition))]))
-      (:badge opts)]
-     (synset-examples subentity opts)
-     (when ontologicalType
-       [:li {:property "dns:ontologicalType"
-             :title    "dns:ontologicalType"}
-        (if (keyword? ontologicalType)
-          (rdf/resource-hyperlink ontologicalType
-                                  (assoc opts :attr-key :dns/ontologicalType))
-          (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
-                          (meta ontologicalType)))])]))
+  "The definition, usage examples and ontological type of a synset; the main
+  line ends with the `badge`, if any."
+  ([subentity opts]
+   (synset-summary subentity opts nil))
+  ([{:keys [wn/lexfile dns/ontologicalType] :as subentity}
+    {:keys [languages entity] :as opts}
+    badge]
+   ;; The Danish and English WordNets differ in how they represent part-of-speech
+   ;; where the Danish WordNet takes the standard OntoLex approach, while the
+   ;; OEWN uses a custom relations
+   (let [pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
+                                           (some->> entity :wn/partOfSpeech name)))
+         ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
+         lexfile' (or lexfile (:dc/subject entity))]
+     [:ul.synset-summary {:typeof "ontolex:LexicalConcept"}
+      [:li.summary-main
+       (when pos
+         [:abbr.pos-label (cond-> {:title (if lexfile'
+                                            (str lexfile' " (wn:lexfile)")
+                                            "wn:lexfile")}
+                            lexfile' (assoc :property "wn:lexfile"
+                                            :content (str lexfile')))
+          pos])
+       (if-let [definition (:skos/definition subentity)]
+         (let [definition* (i18n/select-str languages definition)
+               definition' (if (coll? definition*)
+                             (->> (sort (map str definition*))
+                                  (str/join "; "))
+                             definition*)]
+           [:span {:property "skos:definition"
+                   :title    "skos:definition"}
+            (rdf/transform-val definition' opts)])
+         (when-let [definition (:wn/definition subentity)]
+           [:span {:property "wn:definition"
+                   :title    "wn:definition"}
+            (rdf/blank-node opts (meta definition))]))
+       badge]
+      (synset-examples subentity opts)
+      (when ontologicalType
+        [:li {:property "dns:ontologicalType"
+              :title    "dns:ontologicalType"}
+         (if (keyword? ontologicalType)
+           (rdf/resource-hyperlink ontologicalType
+                                   (assoc opts :attr-key :dns/ontologicalType))
+           (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
+                           (meta ontologicalType)))])])))
 
 (rum/defc summary-badge
   "Generic dictionary entry-style badge for use in summary components.
@@ -253,11 +258,8 @@
 
 (rum/defc synset-header-content
   [subentity opts]
-  ;; The shape badge is passed as an opt since the search page reuses the
-  ;; synset summary component, but shouldn't display a badge for every result.
-  (synset-summary subentity (assoc opts :badge (shape-badge
-                                                 :ontolex/LexicalConcept
-                                                 opts))))
+  ;; The search page reuses the synset summary without the badge.
+  (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts)))
 
 (rum/defc semantic-relations-content
   [id subentity {:keys [languages] :as opts}]
