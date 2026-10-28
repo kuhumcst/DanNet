@@ -125,28 +125,31 @@
   the page faster, and show the page again with it."
   [path query-params]
   (-> (app/fetch! path {:query-params (assoc query-params :deferred true)})
-      (.then (fn [{:keys [body]}]
-               (app/clear-current-fetch path)
-               ;; Merging into a page that the user has left would clobber the
-               ;; current page with data from the previous one.
-               (if (current? path)
-                 (when-let [deferred (:data body)]
-                   ;; The deferred response also carries the labels of the
-                   ;; overflow values, since the initial :entities map is
-                   ;; trimmed to the displayed resources.
-                   (let [page (update @current-page :data
-                                      #(-> %
-                                           (update :entity
-                                                   merge-deferred-entity
-                                                   (:entity deferred))
-                                           (update :entities merge
-                                                   (:entities deferred))))]
-                     (reset! current-page page)
-                     (mount-page! (ui/page-shell page))))
-                 (t/log! {:level :warn
-                          :data  {:expected-path path
-                                  :current-path  (:path @current-page)}}
-                         "Discarded stale deferred response"))))
+      (.then (fn [response]
+               ;; An aborted fetch resolves to nil and leaves the fetch table
+               ;; to the fetch that replaced it.
+               (when-let [{:keys [body]} response]
+                 (app/clear-current-fetch path)
+                 ;; Merging into a page that the user has left would clobber
+                 ;; the current page with data from the previous one.
+                 (if (current? path)
+                   (when-let [deferred (:data body)]
+                     ;; The deferred response also carries the labels of the
+                     ;; overflow values, since the initial :entities map is
+                     ;; trimmed to the displayed resources.
+                     (let [page (update @current-page :data
+                                        #(-> %
+                                             (update :entity
+                                                     merge-deferred-entity
+                                                     (:entity deferred))
+                                             (update :entities merge
+                                                     (:entities deferred))))]
+                       (reset! current-page page)
+                       (mount-page! (ui/page-shell page))))
+                   (t/log! {:level :warn
+                            :data  {:expected-path path
+                                    :current-path  (:path @current-page)}}
+                           "Discarded stale deferred response")))))
       (.catch (fn [err]
                 (t/log! {:level :warn
                          :error err
@@ -209,19 +212,21 @@
       (reset! embedded nil)
       (show-page! path query-params page))
     (-> (app/fetch! path {:query-params query-params})
-        (.then (fn [{:keys [body]}]
-                 (app/clear-current-fetch path)
-                 (when (current? path)
-                   (show-page! path query-params body))))
+        ;; An aborted fetch resolves to nil; the navigation that aborted it
+        ;; shows its own page.
+        (.then (fn [response]
+                 (when-let [{:keys [body]} response]
+                   (app/clear-current-fetch path)
+                   (when (current? path)
+                     (show-page! path query-params body)))))
         (.catch (fn [err]
-                  (when-not (= "AbortError" (some-> err .-name))
-                    (app/clear-current-fetch path)
-                    (t/log! {:level :error
-                             :error err
-                             :data  {:path path}}
-                            "Page fetch failed")
-                    (when (current? path)
-                      (show-error!))))))))
+                  (app/clear-current-fetch path)
+                  (t/log! {:level :error
+                           :error err
+                           :data  {:path path}}
+                          "Page fetch failed")
+                  (when (current? path)
+                    (show-error!)))))))
 
 (defn init!
   "Set up the Reitit router. This also starts the rendering loop by calling

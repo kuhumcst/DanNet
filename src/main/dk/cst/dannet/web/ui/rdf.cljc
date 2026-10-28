@@ -281,7 +281,7 @@
      (or (displays? opts :sense-label?)
          (= (:rdf/type entity) :ontolex/LexicalSense))
      (if-let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word [:sub sub] (some-> mwe subscript-markers)]
+       [:<> word (when sub [:sub sub]) (some-> mwe subscript-markers)]
        s)
 
      (re-matches #"https?://[^\s]+" s)

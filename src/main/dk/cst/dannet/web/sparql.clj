@@ -14,6 +14,8 @@
            [org.apache.jena.query Query QueryCancelledException
                                   QueryExecution]
            [org.apache.jena.rdf.model Model]
+           [org.apache.jena.sparql.core Var]
+           [org.apache.jena.sparql.engine ResultSetStream]
            [org.apache.jena.sparql.resultset ResultSetMem]
            [org.apache.jena.update UpdateFactory]))
 
@@ -234,25 +236,32 @@
             :inference? true)
           (assoc result :inference? false))))))
 
-(defn- mark-has-more
-  "When `lookahead?` is true and the result has more rows than
-  `limit`, mark `:has-more?` on the result (N+1 pagination trick)."
-  [limit lookahead? result]
-  (cond-> result
-    (and lookahead?
-         (= (:sparql-type result) :select)
-         (instance? ResultSetMem (:sparql-result result))
-         (> (.size ^ResultSetMem (:sparql-result result))
-            limit))
-    (assoc :has-more? true)))
+(defn- trim-lookahead
+  "When `lookahead?` is true and the result has more rows than `limit`, drop
+  the N+1 lookahead row and mark `:has-more?` on the `result` instead, so that
+  every response format returns `limit` rows."
+  [limit lookahead? {:keys [sparql-result] :as result}]
+  (if (and lookahead?
+           (= (:sparql-type result) :select)
+           (instance? ResultSetMem sparql-result)
+           (> (.size ^ResultSetMem sparql-result) limit))
+    (let [^ResultSetMem rs sparql-result
+          vars     (map #(Var/alloc ^String %) (.getResultVars rs))
+          bindings (do (.reset rs)
+                       (doall (repeatedly limit #(.nextBinding rs))))]
+      (assoc result
+        :sparql-result (ResultSetMem. (ResultSetStream/create
+                                        vars (.iterator ^Iterable bindings)))
+        :has-more? true))
+    result))
 
 (defn- execute-query
   "Run a SPARQL query with model selection, inference retry,
-  and the :has-more? mark of the N+1 lookahead."
+  and the N+1 lookahead trim."
   [db {:keys [limit lookahead?] :as query-opts}]
   (->> (assoc query-opts :fetch-limit (if lookahead? (inc limit) limit))
        (run-on-chosen-model db)
-       (mark-has-more limit lookahead?)))
+       (trim-lookahead limit lookahead?)))
 
 ;; Caches query results keyed on the canonical parsed form + execution params.
 ;; The `lookup-or-miss` from core.cache.wrapped ensures the value-fn runs at

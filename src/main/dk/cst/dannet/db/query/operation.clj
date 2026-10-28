@@ -60,11 +60,11 @@
   "The labels of the relations that search results display (see
   search/sym->kw)."
   (sparql
-    "SELECT ?synset ?definition ?ontotype
+    "SELECT ?synset ?definition ?ontoType
      WHERE {
        dc:subject rdfs:label ?synset .
        skos:definition rdfs:label ?definition .
-       dns:ontologicalType rdfs:label ?ontotype .
+       dns:ontologicalType rdfs:label ?ontoType .
      }"))
 
 (def ontotype-labels

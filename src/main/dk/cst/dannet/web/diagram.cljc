@@ -70,7 +70,7 @@
            source    (transient m)
            result    (transient {})
            exhausted 0]
-      (let [k       (nth ks i)
+      (let [k       (nth ks i nil)                          ; nil when m is empty
             vs      (get source k)
             v       (if (coll? vs)                          ; one val vs. coll
                       (first vs)
@@ -162,22 +162,27 @@
         (let [y-pos     (- subject-label-bottom-y
                            (* line-idx subject-label-line-height))
               max-width (* (width-at-y y-pos) 0.85)
-              current   (atom "")
-              used      (atom 0)]
-          (doseq [seg remaining]
-            (let [candidate (if (str/blank? @current)
-                              seg
-                              (str @current " • " seg))
-                  width     (* (glyph-width candidate) font-size)]
-              (when (<= width max-width)
-                (reset! current candidate)
-                (swap! used inc))))
-          (if (zero? @used)
+              ;; Each segment that fits joins the line; the others are left
+              ;; for the lines above, in their original order.
+              {:keys [line used left]}
+              (reduce (fn [{:keys [line] :as acc} seg]
+                        (let [candidate (if (str/blank? line)
+                                          seg
+                                          (str line " • " seg))]
+                          (if (<= (* (glyph-width candidate) font-size)
+                                  max-width)
+                            (-> acc
+                                (assoc :line candidate)
+                                (update :used inc))
+                            (update acc :left conj seg))))
+                      {:line "" :used 0 :left []}
+                      remaining)]
+          (if (zero? used)
             (recur (rest remaining)
                    (conj lines (first remaining))
                    (inc line-idx))
-            (recur (drop @used remaining)
-                   (conj lines @current)
+            (recur left
+                   (conj lines line)
                    (inc line-idx))))))))
 
 (defn definition-lines

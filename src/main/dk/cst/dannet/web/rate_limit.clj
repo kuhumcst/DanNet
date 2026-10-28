@@ -102,7 +102,12 @@
              ;; Rate limit exceeded
              (let [expiry   (or (get-expiry key)
                                 (Instant/ofEpochMilli (+ (now-ms) window-ms)))
-                   seconds  (int (/ (.toEpochMilli expiry) 1000))
+                   ;; Retry-After takes the seconds left, not a timestamp.
+                   seconds  (-> (- (.toEpochMilli expiry) (now-ms))
+                                (/ 1000.0)
+                                (Math/ceil)
+                                (long)
+                                (max 1))
                    response (rate-limit-response quota seconds request)]
                (t/log! {:level :warn
                         :data  {:key key :hits current-count :quota quota}}

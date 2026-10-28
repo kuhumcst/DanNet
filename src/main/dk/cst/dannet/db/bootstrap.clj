@@ -420,6 +420,9 @@
   (let [zip-file? (comp #(str/ends-with? % ".zip") #(.getName %))
         ttl-file? (comp #(str/ends-with? % ".ttl") #(.getName %))]
     (doseq [zip-file (filter zip-file? (file-seq input-dir))]
+      ;; A .ttl left behind by a failed import would be mistaken for this
+      ;; zip's own, so any stray one is deleted first.
+      (run! zip/delete-file (filter ttl-file? (file-seq input-dir)))
       ;; unzip writes to (str output-parent (.getName entry)) with no
       ;; separator, so output-parent must be a dir path ending in "/";
       ;; otherwise entries get the zip's own path prepended (e.g.

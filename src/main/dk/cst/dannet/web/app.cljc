@@ -183,7 +183,7 @@
              v   (get (swap! session update k f) k)]
          (.then (fetch! url {:method :put
                              :body   {k v}})
-                (clear-current-fetch url))
+                #(clear-current-fetch url))
          v))))
 
 (defn toggle-full-screen!

@@ -92,12 +92,12 @@
                 :action    prefix/search-path
                 :on-submit form/on-submit
                 :method    "get"}
+         ;; No aria-activedescendant: the arrow keys move DOM focus onto the
+         ;; options themselves (see search.aria).
          [:input {:role                  "combobox"
                   :aria-expanded         suggestions?
                   :aria-controls         (str (when suggestions?
                                                 "search-completion"))
-                  :aria-activedescendant (str (when suggestions?
-                                                "search-completion-selected"))
                   :id                    "search-input"
                   :name                  "lemma"
                   :placeholder           (i18n/da-en languages

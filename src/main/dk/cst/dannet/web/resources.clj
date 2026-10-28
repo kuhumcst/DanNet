@@ -121,8 +121,10 @@
                               {:status  303
                                :headers {"Location" api-location}}
 
-                              ;; else
-                              nil))
+                              ;; Turtle, JSON-LD and EDN clients follow a plain
+                              ;; redirect too.
+                              {:status  303
+                               :headers {"Location" location}}))
                 ctx)))})
 
 (def response-body-ic

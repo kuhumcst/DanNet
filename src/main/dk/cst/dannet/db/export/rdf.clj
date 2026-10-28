@@ -61,7 +61,8 @@
         ;; Temporarily add prefixes for export
         (add-prefixes! model :prefixes prefixes)
         (io/make-parents path)
-        (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
+        (with-open [out (io/output-stream ttl-file)]
+          (RDFDataMgr/write out model ^RDFFormat fmt))
         ;; Release gate: validate exactly what ships, before it is zipped.
         (when validate
           (shapes/validate-export! ttl-file))
@@ -94,14 +95,13 @@
 
 (defn render-readme
   "Read the README template `readme` (under resources/bundled/readmes/) and fill
-  in the `version` placeholders. The OEWN labels track the DanNet release, so
-  {version} and {oewn-version} resolve to the same string; the COR editions
-  and the PreMOn release are versioned upstream and resolve from
+  in the `version` placeholders. {version} is the DanNet release, while the
+  OEWN, COR and PreMOn editions are versioned upstream and resolve from
   dk.cst.dannet.release."
   [readme version]
   (-> (slurp (io/resource (str "bundled/readmes/" readme)))
       (str/replace "{version}" version)
-      (str/replace "{oewn-version}" version)
+      (str/replace "{oewn-version}" release/oewn-version)
       (str/replace "{cor-version}" release/cor-version)
       (str/replace "{cor-ext-version}" release/cor-ext-version)
       (str/replace "{cor-sem-version}" release/cor-sem-version)
