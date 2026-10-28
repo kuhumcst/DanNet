@@ -296,6 +296,6 @@ When releasing a new version of the database:
    docker compose up -d dannet --build
    ```
 
-10. Bump `from` to the new version and delete `to`, which then defaults to `from`
-   again. Clear out the release-specific block in `make-release-changes!`: its
-   changes have now shipped. This readies the next cycle.
+10. Bump `from` to the new version and set `to` to `"SNAPSHOT"`. Clear out the
+   release-specific block in `make-release-changes!`: its changes have now
+   shipped. This readies the next cycle.

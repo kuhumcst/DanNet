@@ -191,8 +191,8 @@ dns:LexicalConceptShape-inScheme a sh:PropertyShape ;
 
 ## A synset names one concept, and WN-LMF allows one ILI per synset. The
 ## synsets with several wn:ili in the live data are recorded in
-## shapes-baseline.edn until they are reviewed; add-ili-eq-synonyms! leaves
-## them out for that reason.
+## shapes-baseline.edn until they are reviewed; for that reason, the
+## 2026-10-02 release gave them no wn:eq_synonym from their ILI.
 dns:LexicalConceptShape-ili a sh:PropertyShape ;
     sh:path wn:ili ;
     sh:maxCount 1 ;

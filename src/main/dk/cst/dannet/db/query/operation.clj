@@ -30,11 +30,6 @@
   (sparql
     "SELECT ?synset WHERE { ?synset rdf:type ontolex:LexicalConcept }"))
 
-(def synset-senses
-  (sparql
-    "SELECT ?synset ?sense
-     WHERE { ?synset ontolex:lexicalizedSense ?sense }"))
-
 (def synset-search
   "Look up synsets based on a bound ?lemma, incl. via the inflected forms of
   any COR words linked through owl:sameAs."

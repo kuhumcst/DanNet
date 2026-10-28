@@ -462,7 +462,7 @@ npx shadow-cljs compile test
 ### Adding/Updating Bootstrap Datasets
 1. Add the dataset filename to `bootstrap-files` in `dk.cst.dannet.db.bootstrap.downloads` (if it ships as a DanNet release asset)
 2. Or add a dedicated `ensure-*!` fetcher for externally hosted datasets (cf. `ensure-english-datasets!`)
-3. Update `from`/`to` in `dk.cst.dannet.release` when cutting a new base/target version (set `to` first; it defaults to `from`, and release changes are skipped while the two are equal)
+3. Update `from`/`to` in `dk.cst.dannet.release` when cutting a new base/target version (set `to` first; release changes are skipped while the two are equal)
 
 ## Integration Examples
 
