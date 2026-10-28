@@ -29,6 +29,15 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]))
 
+(defn adjacency
+  "The {x #{y}} map of the `pred` triples of `g`, from the `from` binding to
+  the `to` binding."
+  [g pred from to]
+  (reduce (fn [m b]
+            (update m (get b from) (fnil conj #{}) (get b to)))
+          {}
+          (q/triples g ['_ pred '_])))
+
 ;; TODO: ~27 hypernym edges are asserted only in the :wn/hyponym direction;
 ;;       folding in inverted hyponyms would recover them, but interacts with the
 ;;       orthogonal fallback (a recovered hypernym suppresses the stand-in), so
@@ -43,16 +52,12 @@
   Children resolved purely via the orthogonal fallback are attached as
   `:orthogonal-only` metadata, leaving the map's own shape unchanged."
   [g]
-  (let [adjacency       (fn [pred]
-                          ;; {child #{parents}} for a single predicate over `g`
-                          (reduce (fn [m b]
-                                    (update m (get b '?s) (fnil conj #{}) (get b '?o)))
-                                  {}
-                                  (q/triples g ['_ pred '_])))
-        H               (adjacency :wn/hypernym)
-        O               (adjacency :dns/orthogonalHypernym)
-        orthogonal-only (into #{} (remove H) (keys O))
-        hg              (into H (map (fn [c] [c (O c)])) orthogonal-only)]
+  (let [hypernyms       (adjacency g :wn/hypernym '?s '?o)
+        orthogonals     (adjacency g :dns/orthogonalHypernym '?s '?o)
+        orthogonal-only (into #{} (remove hypernyms) (keys orthogonals))
+        hg              (into hypernyms
+                              (map (fn [c] [c (orthogonals c)]))
+                              orthogonal-only)]
     (with-meta hg {:orthogonal-only orthogonal-only})))
 
 (defn build-hyponym-graph
@@ -80,21 +85,14 @@
   asserted independently in the source data, so a complete parts graph needs
   the union of `mero_*` and inverted `holo_*` edges."
   [g]
-  (let [adjacency (fn [pred whole-var part-var]
-                    ;; {whole #{parts}} for a single predicate over `g`
-                    (reduce (fn [m b]
-                              (update m (get b whole-var)
-                                      (fnil conj #{}) (get b part-var)))
-                            {}
-                            (q/triples g ['_ pred '_])))]
-    (apply merge-with into
-           (concat
-             (for [p [:wn/mero_part :wn/mero_member
-                      :wn/mero_substance :wn/mero_location]]
-               (adjacency p '?s '?o))
-             (for [p [:wn/holo_part :wn/holo_member
-                      :wn/holo_substance :wn/holo_location]]
-               (adjacency p '?o '?s))))))
+  (apply merge-with into
+         (concat
+           (for [p [:wn/mero_part :wn/mero_member
+                    :wn/mero_substance :wn/mero_location]]
+             (adjacency g p '?s '?o))
+           (for [p [:wn/holo_part :wn/holo_member
+                    :wn/holo_substance :wn/holo_location]]
+             (adjacency g p '?o '?s)))))
 
 ;; DanNet stores PoS in :wn/lexfile; OEWN synsets store it in :wn/partOfSpeech.
 (def ^:private wn-pos->pos
@@ -133,7 +131,8 @@
   (`wn` distinguishes the two, and they diverge under multiple inheritance).
   Both Wu-Palmer and the per-language taxonomy depths measure depth this way.
   The walk is cycle-safe; `seen` tracks the current path, since the data
-  contains self-referential and cyclic hypernyms (cf. `self-referential-hypernyms`)."
+  contains self-referential and cyclic hypernyms (cf. dns:HypernymHierarchyShape
+  in shapes/base.ttl)."
   [hg synset]
   (letfn [(depth [seen s]
             (let [parents (remove seen (get hg s))]
@@ -183,7 +182,7 @@
 
   Breadth-first walk up the hypernyms; the first (shortest) distance to each
   ancestor wins. Cycle-safe, since the data contains self-referential and
-  cyclic hypernyms (cf. `self-referential-hypernyms`)."
+  cyclic hypernyms (cf. dns:HypernymHierarchyShape in shapes/base.ttl)."
   [hg synset]
   (loop [frontier #{synset}
          dist     {synset 0}

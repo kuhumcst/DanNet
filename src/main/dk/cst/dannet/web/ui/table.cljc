@@ -9,10 +9,9 @@
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
-(def expandable-list-cutoff
+(def cloud-cutoff
+  "Relations with more values than this can be shown as a word cloud."
   4)
-
-(declare attr-val-table)
 
 (rum/defc value-cell
   "A table cell of an 'attr-val-table' containing a single `v`. The single value
@@ -21,7 +20,7 @@
   (cond
     (keyword? v)
     (if (empty? (name v))
-      ;; Handle cases such as :rdfs/ which have been keywordised by Aristotle.
+      ;; A namespace IRI arrives as a keyword with no name, e.g. :rdfs/.
       [:td
        (rdf/rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
       [:td.attr-combo                                       ; fixes alignment
@@ -29,7 +28,7 @@
 
     ;; Using blank node entity data included as a metadata map.
     (map? v)
-    [:td (rdf/blank-node (assoc opts :table-component attr-val-table) v)]
+    [:td (rdf/blank-node opts v)]
 
     ;; Doubly inlined tables are omitted entirely.
     (nil? v)
@@ -42,9 +41,10 @@
       [:td {:lang (i18n/lang s)} (rdf/transform-val s opts)])))
 
 (defn display-cloud?
+  "Can the values `v` of the predicate in `opts` be shown as a word cloud?"
   [{:keys [attr-key] :as opts} v]
   (and (coll? v)
-       (> (count v) expandable-list-cutoff)
+       (> (count v) cloud-cutoff)
        ;; A word cloud is only relevant in cases where the content has been
        ;; presorted by weight, e.g. synset relations currently in use in DanNet.
        (shared/weight-sorted-rel? attr-key)))
@@ -60,6 +60,8 @@
                                     (>= coll-count shared/semantic-relation-limit))
                            "cloud"))]
     (case display-opt'
+      ;; viz/word-cloud renders an empty <div> that D3 draws into in the
+      ;; browser, so the server renders the same <div> and hydration matches.
       "cloud" #?(:cljs (error/try-render
                          (viz/word-cloud coll (assoc opts :cloud-limit shared/semantic-relation-limit)))
                  :clj  [:div])
@@ -80,78 +82,79 @@
   [:td {:key coll}
    (rdf/transform-text opts coll)])
 
+(defn entailed-relations
+  "A collapsed list of the relations `folded-ks` that the relation in `opts`
+  entails, e.g. skos:broader for wn:hypernym.
+
+  The backend folds them into the row of the relation to avoid duplication."
+  [{:keys [attr-key comments] :as opts} folded-ks]
+  ;; Relations whose label collides with the core relation or a sibling show
+  ;; their QName instead, e.g. "dc11:date" rather than "date" next to dc:date.
+  (let [label-of   (partial rdf/link-label opts)
+        core-label (label-of attr-key)
+        freqs      (frequencies (map label-of folded-ks))
+        ambiguous? (fn [k']
+                     (let [label (label-of k')]
+                       (or (= label core-label)
+                           (> (get freqs label) 1))))]
+    [:details.entailed
+     [:summary {:title (:entailment comments)}
+      "⊑"]
+     [:ul.entailed__rels
+      (for [k' (sort-by str folded-ks)]
+        [:li {:key (str k')}
+         (rdf/entity-link k' (cond-> (assoc opts :attr-key k')
+                               (ambiguous? k')
+                               (assoc-in [:k->label k']
+                                         (prefix/kw->qname k'))))])]]))
+
+(defn display-options-select
+  "A <select> for how to display the `v-count` values of the relation in `opts`,
+  storing the choice in the `display-opts` atom."
+  [{:keys [subject attr-key display-opt languages] :as opts}
+   v-count display-opts]
+  ;; Default to word cloud only for collections exceeding the limit.
+  ;; The empty string is the list option; nil would make React warn
+  ;; about a null `value` prop on the <select>.
+  (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
+        value          (or display-opt (when exceeds-limit? "cloud") "")
+        change         (fn [e]
+                         (swap! display-opts assoc-in [subject attr-key]
+                                (.-value (.-target e))))]
+    [:select.display-options {:title     (i18n/da-en languages
+                                             "Visningsmuligheder"
+                                             "Display options")
+                              :value     value
+                              :on-change change}
+     [:option {:value ""}
+      (i18n/da-en languages "liste" "list")]
+     (let [cloud (i18n/da-en languages "ordsky" "word cloud")]
+       (if exceeds-limit?
+         [:<>
+          [:option {:value "cloud"}
+           (str cloud " (top)")]
+          [:option {:value "max-cloud"}
+           (str cloud " (" v-count ")")]]
+         [:option {:value "max-cloud"}
+          cloud]))]))
+
 (rum/defc attr-name-extras
   "Extra widgets shown below the relation name in `attr-val-row`: relations
   entailed by the attribute key (folded into its row by the backend) and
   display options for longer lists of synsets."
-  [{:keys [subject attr-key display-opt languages comments folded k->label]
-    :as   opts}
-   v display-opts]
+  [{:keys [attr-key folded] :as opts} v display-opts]
   (let [folded-ks (not-empty (get folded attr-key))
         cloud?    (display-cloud? opts v)
         v-count   (if (coll? v) (count v) 0)]
     (when (or folded-ks cloud?)
       [:div.attr-name__extras
-
-       ;; Superproperty relations entailed by this one, e.g. skos:broader
-       ;; for wn:hypernym; folded into this row by the backend to avoid
-       ;; duplication.
        (when folded-ks
-         ;; Label resolution mirrors 'rdf/entity-link'; relations whose label
-         ;; collides with the core relation or a sibling display their QName
-         ;; instead, e.g. "dc11:date" rather than a second identical "date"
-         ;; next to dc:date.
-         (let [label-of   (fn [k']
-                            (str (or (i18n/select-label languages
-                                                        (get k->label k'))
-                                     (name k'))))
-               core-label (label-of attr-key)
-               freqs      (frequencies (map label-of folded-ks))
-               ambiguous? (fn [k']
-                            (let [label (label-of k')]
-                              (or (= label core-label)
-                                  (> (get freqs label) 1))))]
-           [:details.entailed
-            [:summary {:title (:entailment comments)}
-             "⊑"]
-            [:ul.entailed__rels
-             (for [k' (sort-by str folded-ks)]
-               [:li {:key (str k')}
-                (rdf/entity-link k' (cond-> (assoc opts :attr-key k')
-                                      (ambiguous? k')
-                                      (assoc-in [:k->label k']
-                                                (prefix/kw->qname k'))))])]]))
-
-       ;; Longer lists of synsets can be displayed as a word cloud.
+         (entailed-relations opts folded-ks))
        (when cloud?
-         ;; Default to word cloud only for collections exceeding the limit.
-         ;; The empty string is the list option; nil would make React warn
-         ;; about a null `value` prop on the <select>.
-         (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
-               value          (or display-opt (when exceeds-limit? "cloud") "")
-               change         (fn [e]
-                                (swap! display-opts assoc-in [subject attr-key]
-                                       (.-value (.-target e))))]
-           [:select.display-options {:title     (i18n/da-en languages
-                                                    "Visningsmuligheder"
-                                                    "Display options")
-                                     :value     value
-                                     :on-change change}
-            [:option {:value ""}
-             (i18n/da-en languages "liste" "list")]
-            (let [cloud (i18n/da-en languages "ordsky" "word cloud")]
-              (if exceeds-limit?
-                [:<>
-                 [:option {:value "cloud"}
-                  (str cloud " (top)")]
-                 [:option {:value "max-cloud"}
-                  (str cloud " (" v-count ")")]]
-                [:option {:value "max-cloud"}
-                 cloud]))]))])))
+         (display-options-select opts v-count display-opts))])))
 
-(rum/defc attr-val-row < rum/reactive
-  "A single row in the attribute-value table. Only re-renders when its specific
-  display option changes."
+(rum/defc attr-val-row
+  "A single row in the attribute-value table."
   [{:keys [subject comments] :as opts} k v display-opts inherited? inferred? supplemented?]
   (let [prefix        (if (keyword? k)
                         (some-> (namespace k) symbol)
@@ -229,6 +232,7 @@
   [state {:keys [subject languages inherited inferred supplemented] :as opts} subentity]
   (let [display-opts (::display-opts state)
         subentity    (fold-member-rows subentity)]
+    ;; Only a table rendered inside a value has :table-component in its opts.
     [:table.attr-val (cond-> {}
                        (:table-component opts)
                        (assoc :class "attr-val--nested")

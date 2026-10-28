@@ -13,10 +13,12 @@
            [org.apache.jena.vocabulary RDF]))
 
 (defn da
+  "Concatenate `s` into a literal tagged as Danish (da)."
   [& s]
   (->LangStr (apply str s) "da"))
 
 (defn en
+  "Concatenate `s` into a literal tagged as English (en)."
   [& s]
   (->LangStr (apply str s) "en"))
 
@@ -82,6 +84,7 @@
   (prefix/schema-uri 'dnc))
 
 (defn see-also
+  "The rdfs:seeAlso triples from `source` to each of `rdf-resources`."
   [source rdf-resources]
   (set (for [v rdf-resources]
          [source :rdfs/seeAlso v])))

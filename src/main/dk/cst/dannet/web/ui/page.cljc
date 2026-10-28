@@ -84,7 +84,7 @@
 (rum/defc metadata
   "Display the catalog of schemas and datasets referenced in the graph."
   [{:keys [languages catalog] :as opts}]
-  (let [k->label (catalog/k->label catalog)]
+  (let [k->label (catalog/labels catalog)]
     (grouped-tables
       opts
       {:heading    "Metadata"
@@ -105,7 +105,7 @@
 (rum/defc relations
   "Display the synset relations in use in DanNet, divided into groups."
   [{:keys [languages relations detail-level] :as opts}]
-  (let [k->label (rels/k->label relations detail-level)]
+  (let [k->label (rels/labels relations detail-level)]
     (grouped-tables
       opts
       {:heading    (i18n/da-en languages "Synset-relationer" "Synset relations")

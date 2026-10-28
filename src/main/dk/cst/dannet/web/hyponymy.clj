@@ -90,14 +90,10 @@
   renders a 'no hyponyms' state rather than disappearing."
   [g {:keys [graph descendant-count orthogonal-only]} languages root-filter root & opts]
   (let [skeleton (apply hyponym-subtree graph descendant-count orthogonal-only root-filter root opts)
-        ids      (loop [stack [skeleton]
-                        acc   (transient #{})]
-                   (if-let [n (peek stack)]
-                     (recur (into (pop stack) (:children n))
-                            (conj! acc (:id n)))
-                     (persistent! acc)))
+        ids      (into #{} (map :id) (tree-seq :children :children skeleton))
         k->label (let [f (shared/->entity-label-fn :normal)]
                    (update-vals (q/resource-labels g ids) f))
+        ;; e.g. "{hund_1§1; køter_§1}" becomes "hund"
         localise (fn [k]
                    (-> (or (some-> (i18n/select-label languages (k->label k)) str not-empty)
                            (prefix/kw->qname k))

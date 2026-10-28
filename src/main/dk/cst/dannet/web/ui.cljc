@@ -111,7 +111,7 @@
     (i18n/da-en languages "Detaljeret" "Detailed")]])
 
 (rum/defc help-arrows
-  [page {:keys [languages] :as opts}]
+  [{:keys [languages] :as opts}]
   [:section.help-overlay {:aria-hidden true}
    [:div.help-overlay__item {:style {:top   10
                                      :color "#387111"}}
@@ -162,6 +162,8 @@
          :as   opts}  (model/render-opts data state)
         full-diagram? (and synset? full-screen)
         [prefix _ _] (rdf/parse-rdf-term subject)
+        ;; A schema's subject is a full URI with no prefix, so its nav colour
+        ;; comes from the vann:preferredNamespacePrefix the schema declares.
         prefix'       (or prefix (some-> entity
                                          :vann/preferredNamespacePrefix
                                          symbol))]
@@ -187,7 +189,7 @@
       (language-select languages)
       (detail-level-select detail-level languages)]
      (when-not full-diagram?
-       (help-arrows page opts))
+       (help-arrows opts))
      ;; Not {:class (when ...)}: a nil class is left out on the server, but
      ;; the client renders it as class="", which breaks hydration.
      [:div#content (when full-diagram?

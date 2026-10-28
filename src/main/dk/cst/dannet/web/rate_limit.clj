@@ -26,7 +26,8 @@
       hits)))
 
 (defn inc-hit-count!
-  "Increment hit count for `key` by `ttl-ms` (milliseconds)."
+  "Count a hit for `key` and move its expiry `ttl-ms` past now, so the count
+  resets only after `ttl-ms` without allowed hits."
   [key ttl-ms]
   (let [expiry-ms (+ (now-ms) ttl-ms)]
     (swap! registry update key
@@ -36,7 +37,7 @@
               :expiry-ms expiry-ms}))))
 
 (defn get-expiry
-  "Get expiry time in milliseconds for `key`."
+  "The expiry of `key` as an Instant, or nil."
   [key]
   (when-let [expiry-ms (get-in @registry [key :expiry-ms])]
     (Instant/ofEpochMilli expiry-ms)))

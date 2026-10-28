@@ -112,6 +112,8 @@
           (not shared/development?) (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic))
         (update ::http/interceptors #(cons %2 %1) trailing-slash)
         (update ::http/interceptors #(cons %2 %1) res/error-ic)
+        ;; cons turned the vector into a seq, so conj prepends here too, giving
+        ;; CORS (dev), cookies, error-ic, trailing-slash and rate limit (prod).
         (update ::http/interceptors conj middleware/cookies)
 
         ;; Make sure we can communicate with the Shadow CLJS app during dev.

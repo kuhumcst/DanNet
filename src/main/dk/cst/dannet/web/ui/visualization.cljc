@@ -1,7 +1,8 @@
 (ns dk.cst.dannet.web.ui.visualization
-  "Visualisation components and associated functions; frontend only!"
-  (:require [clojure.string :as str]
-            [rum.core :as rum]
+  "The synset diagrams (radial and sunbursts) with their toolbar and legends,
+  and the word clouds. The server renders their containers; web.d3 draws into
+  them from ref callbacks in the browser."
+  (:require [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -30,6 +31,8 @@
     :on-toggle-full-screen app/toggle-full-screen!))
 
 (rum/defc word-cloud
+  "A word cloud of `synsets`, sorted by weight with the highest first, using
+  the labels and :cloud-limit in `opts`."
   [synsets opts]
   (let [opts' (with-actions (viz-opts opts) app/navigate-to)]
     [:div {:ref #?(:clj  nil
@@ -52,7 +55,7 @@
         "Relationsdiagram for det aktuelle synset"
         "Relations diagram for the current synset")]]))
 
-(rum/defc hyponym-sunburst-diagram
+(rum/defc sunburst-diagram
   [tree caption {:keys [sunburst-nav] :as opts}]
   [:figure.hyponym-sunburst-diagram
    {:ref #?(:clj  nil
@@ -91,7 +94,7 @@
   [:fieldset.radial-tree-legend attrs
    content])
 
-(rum/defc hyponym-sunburst-legend < rum/reactive
+(rum/defc sunburst-legend < rum/reactive
   [{:keys [languages sunburst-nav] :as opts}]
   (let [trail #?(:cljs (when sunburst-nav (rum/react sunburst-nav))
                  :clj nil)]
@@ -112,20 +115,20 @@
                       [:button {:type "button" :on-click on-click} name])])
                  trail))]))))
 
-(defn- elem-classes
-  [el]
-  (if-let [class-attr (.getAttribute el "class")]
-    (set (str/split class-attr #" "))
-    #{}))
-
-(defn- apply-classes
-  [el classes]
-  (.setAttribute el "class" (str/join " " classes)))
-
 (def radial-tree-selector
   ".radial-tree-nodes [data-theme],
   .radial-tree-links [data-theme],
   .radial-tree-labels [data-theme]")
+
+(defn filter-radial-diagram!
+  "De-emphasize the items of the radial `diagram` outside relation `theme`; a
+  nil `theme` shows all."
+  [diagram theme]
+  (doseq [el (.querySelectorAll diagram radial-tree-selector)]
+    (let [show? (or (nil? theme)
+                    (= theme (.getAttribute el "data-theme"))
+                    (.contains (.-classList el) "radial-item--subject"))]
+      (.toggle (.-classList el) "radial-item--de-emphasized" (not show?)))))
 
 ;; Inspiration for checkboxes: https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_custom_checkbox
 (rum/defcs radial-tree-legend < (rum/local nil ::selected)
@@ -162,14 +165,7 @@
                                                              (.closest ".synset-diagram")
                                                              (.querySelector ".radial-tree-diagram"))]
                                        (reset! selected new-selection)
-                                       (doseq [el (.querySelectorAll diagram radial-tree-selector)]
-                                         (let [classes (elem-classes el)
-                                               show?   (or (nil? new-selection)
-                                                           (= new-selection (.getAttribute el "data-theme"))
-                                                           (get classes "radial-item--subject"))]
-                                           (if show?
-                                             (apply-classes el (disj classes "radial-item--de-emphasized"))
-                                             (apply-classes el (conj classes "radial-item--de-emphasized")))))))}]
+                                       (filter-radial-diagram! diagram new-selection)))}]
                [:span {:class "radial-tree-legend__bullet"
                        :style {:background theme}}]]])))])))
 
@@ -198,42 +194,81 @@
      [:dd.synset-diagram__footer-item
       (rdf/hypernym-chain subj-label ancestry opts)]]))
 
-(rum/defcs synset-diagram < (rum/local nil ::nav)
-  [state subentity {:keys [entity languages full-screen hyponym-tree
+(rum/defc synset-metadata
+  "The ontological type, constituents, examples and hypernyms of the synset in
+  `opts`, shown beside the diagram in full-screen mode."
+  [{:keys [entity languages] :as opts}]
+  [:aside.synset-diagram__metadata
+   [:dl
+    [:dt (i18n/da-en languages
+           "Ontologisk type"
+           "Ontological type")]
+    [:dd
+     (let [onto-type (:dns/ontologicalType entity)
+           onto-coll (some-> onto-type meta rdf/bag->coll)]
+       (cond
+         (keyword? onto-type)
+         (rdf/resource-hyperlink onto-type
+                                 (assoc opts :attr-key :dns/ontologicalType))
+
+         onto-coll
+         (rdf/list-items (assoc opts :attr-key :dns/ontologicalType)
+                         onto-coll)
+
+         :else "–"))]
+    [:dt (i18n/da-en languages
+           "Bestanddele"
+           "Constituents")]
+    [:dd (rdf/resource
+           (assoc opts :attr-key :ontolex/lexicalizedSense)
+           (:ontolex/lexicalizedSense entity))]
+    (examples-dt+dd opts)
+    (ancestry-dt+dd opts)]])
+
+(defn diagram-mode
+  "The diagram mode selected in `opts`, or :radial when its tree in `trees`
+  has no children."
+  [trees opts]
+  (let [mode (get-in opts app/diagram-mode-path)]
+    (if (:children (get trees mode))
+      mode
+      :radial)))
+
+(rum/defc mode-radio
+  "The radio button labelled `label` that switches the synset diagram to
+  `mode`, checked when `mode` is the `current` one."
+  [mode current label]
+  [:label
+   [:input {:type      "radio"
+            :name      "viz-mode"
+            :checked   (= mode current)
+            :on-change (fn [_] (swap! app/session assoc-in
+                                      app/diagram-mode-path mode))}]
+   label])
+
+(rum/defcs synset-diagram
+  "The toolbar, diagram and legend for `subentity`: the radial diagram or a
+  sunburst, by the diagram mode in `opts`."
+  < (rum/local nil ::nav)
+  [state subentity {:keys [languages full-screen hyponym-tree
                            orthogonal-hyponym-tree meronym-tree] :as opts}]
-  (let [hyponym-available? (boolean (:children hyponym-tree))
-        ortho-available?   (boolean (:children orthogonal-hyponym-tree))
-        meronym-available? (boolean (:children meronym-tree))
-        ;; Fall back to the radial when the selected sunburst has nothing to show.
-        mode               (case (get-in opts app/diagram-mode-path)
-                             :sunburst-orthogonal (if ortho-available?
-                                                    :sunburst-orthogonal
-                                                    :radial)
-                             :sunburst-meronym (if meronym-available?
-                                                 :sunburst-meronym
-                                                 :radial)
-                             :sunburst (if hyponym-available? :sunburst :radial)
-                             :radial)
-        tree               (case mode
-                             :sunburst-orthogonal orthogonal-hyponym-tree
-                             :sunburst-meronym meronym-tree
-                             :sunburst hyponym-tree
-                             nil)
-        sunburst?          (some? tree)
+  (let [trees     {:sunburst            hyponym-tree
+                   :sunburst-orthogonal orthogonal-hyponym-tree
+                   :sunburst-meronym    meronym-tree}
+        mode      (diagram-mode trees opts)
+        tree      (get trees mode)
+        sunburst? (some? tree)
         ;; Component-local breadcrumb atom: the sunburst builder writes the zoom
         ;; trail to it and the history legend reacts to it, so the two share
         ;; state without a module-global (and a fresh diagram starts clean).
-        opts               (assoc opts :sunburst-nav (::nav state))
-        caption            (if (= mode :sunburst-meronym)
-                             (i18n/da-en languages
-                               "Meronym-soldiagram for det aktuelle synset"
-                               "Meronym sunburst for the current synset")
-                             (i18n/da-en languages
-                               "Hyponym-soldiagram for det aktuelle synset"
-                               "Hyponym sunburst for the current synset"))
-        set-mode!          (fn [mode]
-                             (fn [_] (swap! app/session assoc-in
-                                            app/diagram-mode-path mode)))]
+        opts      (assoc opts :sunburst-nav (::nav state))
+        caption   (if (= mode :sunburst-meronym)
+                    (i18n/da-en languages
+                      "Meronym-soldiagram for det aktuelle synset"
+                      "Meronym sunburst for the current synset")
+                    (i18n/da-en languages
+                      "Hyponym-soldiagram for det aktuelle synset"
+                      "Hyponym sunburst for the current synset"))]
     [:div.synset-diagram {:key (str (hash subentity))}
      ;; Shared top bar above both columns: mode radios centred, full-screen
      ;; toggle pinned right. Keeping it out of the diagram column means swapping
@@ -241,74 +276,35 @@
      [:div.synset-diagram__toolbar
       [:fieldset.viz-mode-toggle
        [:legend (i18n/da-en languages "Diagram" "Diagram")]
-       [:label
-        [:input {:type      "radio"
-                 :name      "viz-mode"
-                 :checked   (= mode :radial)
-                 :on-change (set-mode! :radial)}]
-        (i18n/da-en languages "relationer" "relations")]
-       (when hyponym-available?
-         [:label
-          [:input {:type      "radio"
-                   :name      "viz-mode"
-                   :checked   (= mode :sunburst)
-                   :on-change (set-mode! :sunburst)}]
-          (i18n/da-en languages "underbegreber" "hyponyms")])
-       (when ortho-available?
-         [:label
-          [:input {:type      "radio"
-                   :name      "viz-mode"
-                   :checked   (= mode :sunburst-orthogonal)
-                   :on-change (set-mode! :sunburst-orthogonal)}]
-          (i18n/da-en languages "orto-underbegreber" "ortho-hyponyms")])
-       (when meronym-available?
-         [:label
-          [:input {:type      "radio"
-                   :name      "viz-mode"
-                   :checked   (= mode :sunburst-meronym)
-                   :on-change (set-mode! :sunburst-meronym)}]
-          (i18n/da-en languages "dele" "parts")])]
+       (mode-radio :radial mode
+                   (i18n/da-en languages "relationer" "relations"))
+       (when (:children hyponym-tree)
+         (mode-radio :sunburst mode
+                     (i18n/da-en languages "underbegreber" "hyponyms")))
+       (when (:children orthogonal-hyponym-tree)
+         (mode-radio :sunburst-orthogonal mode
+                     (i18n/da-en languages
+                       "orto-underbegreber" "ortho-hyponyms")))
+       (when (:children meronym-tree)
+         (mode-radio :sunburst-meronym mode
+                     (i18n/da-en languages "dele" "parts")))]
       (full-screen-toggle opts)]
      [:div.synset-diagram__body
       (when full-screen
-        [:aside.synset-diagram__metadata
-         [:dl
-          [:dt (i18n/da-en languages
-                 "Ontologisk type"
-                 "Ontological type")]
-          [:dd
-           (let [onto-type (:dns/ontologicalType entity)
-                 onto-coll (some-> onto-type meta rdf/bag->coll)]
-             (cond
-               (keyword? onto-type)
-               (rdf/resource-hyperlink onto-type
-                                       (assoc opts :attr-key :dns/ontologicalType))
-
-               onto-coll
-               (rdf/list-items (assoc opts :attr-key :dns/ontologicalType)
-                               onto-coll)
-
-               :else "–"))]
-          [:dt (i18n/da-en languages
-                 "Bestanddele"
-                 "Constituents")]
-          [:dd (rdf/resource
-                 (assoc opts :attr-key :ontolex/lexicalizedSense)
-                 (:ontolex/lexicalizedSense entity))]
-          (examples-dt+dd opts)
-          (ancestry-dt+dd opts)]])
+        (synset-metadata opts))
       [:div.synset-diagram__main
        (if sunburst?
-         (hyponym-sunburst-diagram tree caption opts)
+         (sunburst-diagram tree caption opts)
          (radial-tree-diagram subentity opts))]
       ;; Keep a right-hand column in both modes so the diagram footprint stays
       ;; stable; in sunburst mode it's the zoom history for stepping back up.
       (if sunburst?
-        (hyponym-sunburst-legend opts)
+        (sunburst-legend opts)
         (radial-tree-legend subentity opts))]]))
 
-;; TODO: display ancestry and examples in full-screen mode
 (rum/defc expanded-diagram
+  "The diagram of the relations in `subentity`, with the examples and
+  hypernyms of the synset in `opts` below it."
   [subentity {:keys [entity ancestry] :as opts}]
   [:div.synset-diagram-container {:key (str (hash subentity))}
    (synset-diagram subentity opts)

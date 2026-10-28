@@ -7,20 +7,19 @@
             ["react-dom" :as react-dom]
             [rum.core :as rum]
             [reitit.frontend :as rf]
-            [reitit.frontend.easy :as rfe :refer [href]]
+            [reitit.frontend.easy :as rfe]
             [reitit.frontend.history :as rfh]
             [taoensso.telemere :as t]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
             [dk.cst.dannet.web.ui.page :as page]
-            [dk.cst.dannet.web.app :as app])
-  (:import [goog Uri]))
+            [dk.cst.dannet.web.app :as app]))
 
 ;; The React root, once mounted; see mount-page! for the states it holds.
 (defonce root (atom nil))
 
 ;; The page value on display, with its :path.
-(defonce location
+(defonce current-page
   (atom {}))
 
 ;; The page value embedded in the HTML, until the first navigation shows it.
@@ -108,7 +107,7 @@
   "Is `path` still the page that the user navigated to? Callbacks compare
   their path to it to detect that they have become stale."
   [path]
-  (= path (:path @location)))
+  (= path (:path @current-page)))
 
 (defn merge-deferred-entity
   "Merge `deferred` entity data into `entity`, concatenating collections.
@@ -135,18 +134,18 @@
                    ;; The deferred response also carries the labels of the
                    ;; overflow values, since the initial :entities map is
                    ;; trimmed to the displayed resources.
-                   (let [page (update @location :data
+                   (let [page (update @current-page :data
                                       #(-> %
                                            (update :entity
                                                    merge-deferred-entity
                                                    (:entity deferred))
                                            (update :entities merge
                                                    (:entities deferred))))]
-                     (reset! location page)
+                     (reset! current-page page)
                      (mount-page! (ui/page-shell page))))
                  (t/log! {:level :warn
                           :data  {:expected-path path
-                                  :current-path  (:path @location)}}
+                                  :current-path  (:path @current-page)}}
                          "Discarded stale deferred response"))))
       (.catch (fn [err]
                 (t/log! {:level :warn
@@ -164,7 +163,7 @@
       (js/window.location.replace redirect))
     (do
       (set! js/document.title title)
-      (reset! location (assoc page :path path))
+      (reset! current-page (assoc page :path path))
 
       ;; Ensure that the search overlay closes when clicking 'back'.
       (js/document.activeElement.blur)
@@ -204,7 +203,7 @@
   ;; Abort in-flight fetches from previous pages to prevent race conditions
   ;; that cause queued pages to load unexpectedly in quick succession.
   (app/abort-stale-fetches)
-  (swap! location assoc :path path)
+  (swap! current-page assoc :path path)
   (if-let [page @embedded]
     (do
       (reset! embedded nil)
@@ -242,7 +241,7 @@
 
 ;; This function is only used by the shadow-cljs watch process!
 (defn ^:dev/after-load render []
-  (let [page-component (ui/page-shell @location)]
+  (let [page-component (ui/page-shell @current-page)]
     ;; Call both again to ensure that we keep up-to-date with code changes
     (init!)
     (mount-page! page-component)))

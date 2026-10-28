@@ -62,6 +62,11 @@
   looked at the row yet."
   ["" "beholdes" "slettes" "ordklassefejl" "i tvivl"])
 
+(def ^:private editable
+  "Columns the reviewer fills in, highlighted in both files. `forslag` is not
+  among them: it is what the script proposes, not what she decides."
+  ["nyt hypernym" "ny relation" "status" "kommentar"])
+
 (def relations
   "Dropdown values for the new relation column, taken from the relations
   actually in use. The two dns:crossPoS* relations are omitted: replacing them
@@ -175,7 +180,7 @@
                     (update-in m [?synset :lemmas] (fnil conj #{}) (str ?rep)))
                   $ lemmas))))
 
-(defn- pairs
+(defn- flagged-pairs
   "Every wn:hypernym pair the HypernymPOSShape flags, i.e. any pair whose
   synsets are lexicalized by words disagreeing in PoS."
   [g idx]
@@ -385,12 +390,6 @@
     (style-sheet! sh hdr (count rows) manual)
     (xl/save-workbook! (str path) wb)))
 
-(def ^:private editable
-  "Columns the reviewer fills in, highlighted in both files. `forslag` is not
-  among them: it is what the script proposes, not what she decides."
-  ["nyt hypernym" "ny relation" "status" "kommentar"])
-
-
 (defn- row [idx {:keys [source target]} extra]
   (let [pos #(->> (get-in idx [% :pos])
                   (map (fn [p] (let [n (name p)] (get pos-abbr n n))))
@@ -425,60 +424,69 @@
                       {:expected verb-phrase-exclusions :actual left})))
     actual))
 
+(defn reviewer-entries
+  "The non-blank `cols` of the earlier row for pair `p` in `prev`; a blank
+  cell never wipes a prefill."
+  [prev p cols]
+  (into {} (remove (comp str/blank? val))
+        (select-keys (get prev [(uri (:source p)) (uri (:target p))])
+                     cols)))
+
+(defn rows-2d
+  "The 2d rows for `pairs`: the candidate heuristics under the reviewer's own
+  entries in the existing workbook, largest hypernym group first."
+  [idx pairs]
+  (let [prev (read-sheet (:2d files))
+        n-by (frequencies (map (comp uri :target) pairs))
+        l->s (->lemma-index idx)]
+    (->> pairs
+         (map (fn [p]
+                (row idx p (merge (candidate-columns idx l->s p)
+                                  (reviewer-entries prev p editable)
+                                  {"antal i gruppen"
+                                   (n-by (uri (:target p)))}))))
+         (sort-by (juxt #(- (get % "antal i gruppen"))
+                        #(get % "nuværende hypernym")
+                        #(get % "synset"))))))
+
+(defn rows-a4
+  "The a4 rows for the `deferred` pairs: the group suggestions under the
+  reviewer's own entries in the existing workbook."
+  [idx deferred]
+  (let [prev (read-sheet (:a4 files))]
+    (->> deferred
+         (map (fn [{:keys [target] :as p}]
+                (let [grp (get a4-groups target "?")]
+                  (row idx p (merge (get a4-suggestions grp)
+                                    (reviewer-entries prev p editable)
+                                    {"gruppe" grp})))))
+         (sort-by (juxt #(get % "gruppe")
+                        #(get % "nuværende hypernym")
+                        #(get % "synset"))))))
+
 (defn regenerate!
   "Rewrite both review workbooks from `dataset`, preserving manual columns."
   [dataset]
   (let [g        (db/get-graph dataset prefix/dn-uri)
         idx      (index g)
-        flagged  (pairs g idx)
+        flagged  (flagged-pairs g idx)
         deferred (deferred-crosspos g)
         groups   (partition-pairs idx flagged)
         counts   (check-counts! groups deferred)
-        ;; Blank cells must not wipe a prefill, so only non-blank reviewer
-        ;; values override what the script proposes.
-        carried  (fn [prev p cols]
-                   (into {} (remove (comp str/blank? val))
-                         (select-keys (get prev [(uri (:source p)) (uri (:target p))])
-                                      cols)))
-
-        ;; --- 2d: candidate heuristics under the reviewer's own entries ---
-        prev   (read-sheet (:2d files))
-        n-by   (frequencies (map (comp uri :target) (:2d groups)))
-        l->s   (->lemma-index idx)
-        rows2d (->> (:2d groups)
-                    (map (fn [p]
-                           (row idx p (merge (candidate-columns idx l->s p)
-                                             (carried prev p editable)
-                                             {"antal i gruppen"
-                                              (n-by (uri (:target p)))}))))
-                    (sort-by (juxt #(- (get % "antal i gruppen"))
-                                   #(get % "nuværende hypernym")
-                                   #(get % "synset"))))
-
-        ;; --- 2a: NOT regenerated ---
-        ;; Once fix-verb-phrase-pos! has run, the 107 corrected synsets are
-        ;; verbs and no longer match the criterion, so the 110-row candidate
-        ;; list cannot be reconstructed from a built database. The workbook is
-        ;; a static record of a decision already applied; check-counts!
-        ;; verifies that the 3 synsets still matching are exactly the excluded
-        ;; ones.
-
-        ;; --- a4: the retained dns:crossPoSHypernym pairs ---
-        prevA4 (read-sheet (:a4 files))
-        rowsA4 (->> deferred
-                    (map (fn [{:keys [target] :as p}]
-                           (let [grp (get a4-groups target "?")]
-                             (row idx p (merge (get a4-suggestions grp)
-                                               (carried prevA4 p editable)
-                                               {"gruppe" grp})))))
-                    (sort-by (juxt #(get % "gruppe")
-                                   #(get % "nuværende hypernym")
-                                   #(get % "synset"))))]
-
+        ;; Both workbooks are read before either is written, so a failure
+        ;; leaves them as they were.
+        sheet-2d (rows-2d idx (:2d groups))
+        sheet-a4 (rows-a4 idx deferred)]
+    ;; 2a is NOT regenerated. Once fix-verb-phrase-pos! has run, the 107
+    ;; corrected synsets are verbs and no longer match the criterion, so the
+    ;; 110-row candidate list cannot be reconstructed from a built database.
+    ;; The workbook is a static record of a decision already applied;
+    ;; check-counts! verifies that the 3 synsets still matching are exactly
+    ;; the excluded ones.
     (write-sheet! (:2d files) "2d cross-PoS taksonomi" (:2d headers)
-                  (set editable) rows2d)
+                  (set editable) sheet-2d)
     (write-sheet! (:a4 files) "a4 udskudte cross-PoS" (:a4 headers)
-                  (set editable) rowsA4)
+                  (set editable) sheet-a4)
     counts))
 
 (comment

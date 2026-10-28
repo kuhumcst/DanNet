@@ -71,7 +71,7 @@ State lives in many places:
 | Search input and completions | `app/session` `:search` | `search/update-suggestions` |
 | Section display and diagram mode | `app/session` `:section`, keyed by a set of LangStr | `entity/display-mode-selector`, `viz/synset-diagram`, `d3.cljs:1272` |
 | In-flight fetch controllers | `app/session` `:fetch` | `app/fetch!` |
-| React root, current page, scroll history | `root`, `location`, `visited` | `router.cljs` |
+| React root, current page, scroll history | `root`, `current-page`, `visited` | `router.cljs` |
 | "Keep the scroll position" flag | `app/post-navigate` | `d3.cljs:837`, `1273` |
 | Hydration done | `ui/*hydrated*` | `hydration-mixin` |
 | Local UI state | 6 `rum/local` | search box, details, table display options, legend, sunburst trail, word cloud |
@@ -369,7 +369,7 @@ link click scrolls to the top, a label click in the radial diagram keeps the
 position, and a link with a `#fragment` scrolls to its element. Two quick
 link clicks in a row show the second page. A failing fetch shows the error
 page. The title letters pulse while a page loads. `PROJECT_SUMMARY.md` uses
-`(:data @dk.cst.dannet.web.router/location)` for debugging; keep that
+`(:data @dk.cst.dannet.web.router/current-page)` for debugging; keep that
 working or update it.
 
 **Size and risk.** Medium, contained in `router.cljs` and `app.cljc`. Do it
@@ -585,7 +585,7 @@ where there is state or a life-cycle:
 - `attr-val-table` and `attr-val-row` (local and reactive display options);
 - `reactive-details`, the search form, `radial-tree-legend`,
   `synset-diagram`, `word-cloud` (local state);
-- `hyponym-sunburst-legend` (reactive);
+- `sunburst-legend` (reactive);
 - `expanded-diagram` (resize mixin), the SPARQL `editor` (CodeMirror mixin),
   `error-boundary`.
 
@@ -690,7 +690,7 @@ error boundary, CodeMirror, resize).
 
 | Namespace | Lines | Role | Components | State |
 |---|---|---|---|---|
-| `web.router` (cljs) | 267 | routes, navigation, mounting | | `root`, `location`, `visited` |
+| `web.router` (cljs) | 267 | routes, navigation, mounting | | `root`, `current-page`, `visited` |
 | `web.app` | 157 | session, fetch, cookies | | `session`, `post-navigate` |
 | `web.ui` | 283 | page shell, nav bar, footer | 5 | reads session, `*hydrated*` |
 | `web.ui.page` | 211 | one component per page type | 8 | |

@@ -318,6 +318,11 @@
         :when relation]
     [source relation target]))
 
+(defn legacy-synset
+  "The current dn: synset of the DanNet 2.2 synset `id`."
+  [id]
+  (keyword "dn" (str "synset-" id)))
+
 (defn danish-sense?
   "Whether a legacy wordsenses.csv `row` is a Danish sense rather than a
   Princeton WordNet sense key used as a link placeholder."
@@ -411,6 +416,12 @@
   [edges]
   (reduce (fn [m [s p o]] (update m [s o] (fnil conj #{}) p)) {} edges))
 
+(defn outcome-frequencies
+  "The frequency of each outcome per key in the [key outcome] `pairs`."
+  [pairs]
+  (reduce (fn [m [k outcome]] (update-in m [k outcome] (fnil inc 0)))
+          {} pairs))
+
 (defn relation-outcomes
   "What became of the synset relations in the legacy relations.csv `rows`,
   given the current `edges`, their owl:inverseOf pairs `inverses` and the
@@ -423,27 +434,25 @@
   Otherwise it is the set of relations that link them instead, or :removed.
   A relation that another legacy row converts to does not count as instead."
   [inverses rows edges negated]
-  (let [synset  #(keyword "dn" (str "synset-" %))
-        current (synset-pairs edges)
+  (let [current (synset-pairs edges)
         legacy  (synset-pairs (for [[s p o] (legacy-edges rows)]
-                                [(synset s) p (synset o)]))
+                                [(legacy-synset s) p (legacy-synset o)]))
         instead #(set/difference (get current % #{}) (get legacy %))]
     (->> (for [[s _ _ o :as row] rows
                :let [p (legacy-relation row)]
                :when p
-               :let [forward  [(synset s) (synset o)]
-                     backward [(synset o) (synset s)]]]
+               :let [forward  [(legacy-synset s) (legacy-synset o)]
+                     backward [(legacy-synset o) (legacy-synset s)]]]
            [(legacy-key row)
             (cond
               (or (contains? (current forward) p)
                   (contains? (current backward) (inverses p))) :kept
               (contains? (current backward) p) :reversed
-              (contains? negated [(synset s) p (synset o)]) :negated
+              (contains? negated [(legacy-synset s) p (legacy-synset o)]) :negated
               :else (or (not-empty (set/union (instead forward)
                                               (instead backward)))
                         :removed))])
-         (reduce (fn [m [k outcome]] (update-in m [k outcome] (fnil inc 0)))
-                 {}))))
+         (outcome-frequencies))))
 
 (defn navigable-relations
   "The synset `relations` and their `inverses` counted in the inference graph
@@ -454,7 +463,7 @@
           [p (count-in g (str "?s " (prefix/kw->qname p) " ?o . "
                               (synset-filter "?s") (synset-filter "?o")))])))
 
-(def link-counts
+(def link-queries
   "The links reaching beyond the synset graph: a label, the SPARQL to count
   and the variable to count distinct values of (nil counts every solution)."
   [["Senses with a DDO source"
@@ -491,9 +500,9 @@
    ["COR.SEM senses with a FrameNet frame" "?s dns:frame ?o" "?s"]])
 
 (defn count-links
-  "The link-counts of the base union graph `g` as a vector of [label count]."
+  "The link-queries counted in the base union graph `g`, as [label count]."
   [g]
-  (vec (for [[label where var] link-counts]
+  (vec (for [[label where var] link-queries]
          [label (count-in g where var)])))
 
 (defn dataset-stats
@@ -592,30 +601,27 @@
   then wn:ili. It is :missing when no link to the concept remains, and
   :unmapped when the ID has no current target."
   [targets links rows]
-  (let [synset  #(keyword "dn" (str "synset-" %))
-        current (synset-pairs links)
+  (let [current (synset-pairs links)
         linked  (into {} (map (juxt :key :linked)) relation-history)]
     (->> (for [[s _ _ t :as row] rows
                :let [k     (legacy-key row)
-                     found (set (mapcat #(get current [(synset s) %])
+                     found (set (mapcat #(get current [(legacy-synset s) %])
                                         (get targets t)))]]
            [k (cond
                 (empty? (get targets t)) :unmapped
                 (empty? found) :missing
                 :else (or (some found (concat (linked k) [:wn/ili]))
                           (first (sort found))))])
-         (reduce (fn [m [k outcome]] (update-in m [k outcome] (fnil inc 0)))
-                 {}))))
+         (outcome-frequencies))))
 
 (defn link-origins
   "The current `links` per relation, split into the ones that point to the
   concept of a DanNet 2.2 link from the same synset (:legacy) and the rest
   (:new), given the legacy relations.csv `rows` and their current `targets`."
   [targets links rows]
-  (let [synset #(keyword "dn" (str "synset-" %))
-        legacy (set (for [[s _ _ t] rows
+  (let [legacy (set (for [[s _ _ t] rows
                           o (get targets t)]
-                      [(synset s) o]))]
+                      [(legacy-synset s) o]))]
     (->> links
          (map (fn [[s p o]] [p (if (legacy [s o]) :legacy :new)]))
          (frequencies)
@@ -790,7 +796,7 @@
                             (str/join "; ")))
                      note]))}))
 
-(defn tables
+(defn paper-tables
   "All tables of the paper, keyed by name, from the `legacy`, `current` and
   `links` stats maps."
   [legacy current links]
@@ -839,19 +845,20 @@
 
 (defn export-stats!
   "Write the statistics of the live db map `dannet` against the legacy CSV in
-  `legacy` to `dir` as stats.edn (every number), stats.md and stats.tex (the
-  tables); by default export/stats/<version>/ and the DanNet 2.2 release."
+  `legacy-dir` to `dir` as stats.edn (every number), stats.md and stats.tex
+  (the tables); by default export/stats/<version>/ and the DanNet 2.2 release."
   ([dannet]
    (export-stats! dannet (str "export/stats/" release/to "/") legacy-dir))
-  ([dannet dir legacy]
-   (println "Computing statistics against" legacy)
-   (let [new    (current-stats dannet)
-         old    (legacy-stats legacy (inverse-relations (:graph dannet)))
-         links  (link-stats legacy dannet)
-         tables (tables old new links)
-         in-dir (partial str dir)]
+  ([dannet dir legacy-dir]
+   (println "Computing statistics against" legacy-dir)
+   (let [current (current-stats dannet)
+         legacy  (legacy-stats legacy-dir (inverse-relations (:graph dannet)))
+         links   (link-stats legacy-dir dannet)
+         tables  (paper-tables legacy current links)
+         in-dir  (partial str dir)]
      (io/make-parents (in-dir "stats.edn"))
-     (spit (in-dir "stats.edn") (pr-str {:legacy old :current new :links links}))
+     (spit (in-dir "stats.edn")
+           (pr-str {:legacy legacy :current current :links links}))
      (spit (in-dir "stats.md") (render-all "## " ->markdown tables))
      (spit (in-dir "stats.tex") (render-all "% " ->latex tables))
      (println "Statistics written to" dir)
@@ -889,11 +896,11 @@ include them.
 (defn export-relation-mapping!
   "Write the conversion history of the DanNet 2.2 relations, checked against
   the live db map `dannet`, as Markdown to `f`; by default
-  doc/relation-mapping.md, with the DanNet 2.2 release in `legacy`."
+  doc/relation-mapping.md, with the DanNet 2.2 release in `legacy-dir`."
   ([dannet]
    (export-relation-mapping! dannet "doc/relation-mapping.md" legacy-dir))
-  ([{:keys [dataset graph] :as dannet} f legacy]
-   (let [rows     (read-legacy-rows (io/file legacy "relations.csv"))
+  ([{:keys [dataset graph] :as dannet} f legacy-dir]
+   (let [rows     (read-legacy-rows (io/file legacy-dir "relations.csv"))
          dn       (db/get-graph dataset prefix/dn-uri)
          outcomes (relation-outcomes (inverse-relations graph) rows
                                      (relation-edges dn)

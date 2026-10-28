@@ -1,7 +1,9 @@
 (ns dk.cst.dannet.web.instance
   "The live DanNet database and the structures derived from it.
 
-  Everything here is a process-wide singleton realised lazily on first deref."
+  Everything here is a process-wide singleton realised lazily on first deref.
+  Each derived structure is a defonce of what its ->name fn makes, so
+  reset-derived! can swap in a fresh, unrealised one."
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
@@ -54,7 +56,9 @@
                           (tel/error! {:id :dannet.shapes/validate-error} e)))))
                   dannet))))
 
-(defonce db
+(defonce ^{:doc "Delay of the DanNet database: a map of the :dataset, its
+asserted :base-model and the inference :model with its :graph."}
+  db
   (delay (build-db! false)))
 
 ;; Map of property -> set of strict superproperties, derived from the
@@ -346,6 +350,7 @@ capped at 200 items."}
       @@v)
     (when cached?
       (try
+        ;; Clear first, or each fresh delay would read the stale cache back.
         (clear-cache!)
         (doseq [[v build] derived]
           (alter-var-root v (constantly (doto (build) deref))))
@@ -353,20 +358,17 @@ capped at 200 items."}
         (catch Exception e
           (tel/error! {:id :dannet.graph/warm-up-error} e))))))
 
-(defn reset-indices!
+(defn reset-derived!
   "Replace every structure derived from the db with a freshly built one.
 
   Needed whenever the db underneath them is replaced; a realised delay would
   otherwise keep serving structures derived from the previous database."
   []
   (clear-cache!)
-  (doseq [[v build] {#'superproperty-closure ->superproperty-closure
-                     #'hypernym-graph        ->hypernym-graph
-                     #'hyponym-graph         ->hyponym-graph
-                     #'meronym-graph         ->meronym-graph
-                     #'search-index          ->search-index
-                     #'autocomplete          ->autocomplete
-                     #'synset-rels           ->synset-rels}]
+  (doseq [[v build] (into derived
+                          [[#'superproperty-closure ->superproperty-closure]
+                           [#'autocomplete ->autocomplete]
+                           [#'synset-rels ->synset-rels]])]
     (alter-var-root v (constantly (build)))))
 
 (defn reset-db!
@@ -375,7 +377,7 @@ capped at 200 items."}
   force a rebuild even when the db is already built."
   [refetch?]
   (alter-var-root #'db (constantly (delay (build-db! refetch?))))
-  (reset-indices!))
+  (reset-derived!))
 
 (comment
   (autocomplete "sar")
@@ -383,7 +385,7 @@ capped at 200 items."}
   (autocomplete "tran")
 
   ;; Rebuild the derived structures without touching the database itself.
-  (reset-indices!)
+  (reset-derived!)
 
   ;; SHACL-validate the asserted graph against base shapes + baseline.
   ;; Logs a summary; :exceeded should be {} on a healthy system (~1 min).

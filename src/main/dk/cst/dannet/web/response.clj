@@ -115,7 +115,7 @@
    :uri   (prefix/rdf-resource->uri (term/datatype literal))})
 
 ;; TODO: this is a data concern rather than an HTTP one; it may want to follow
-;;       find-catalog-resources to the db side.
+;;       catalog/find-resources to the db side.
 (defn sparql-result->rows
   "Convert a `sparql-result` to a vector of Clojure maps using Theophrastus's
   node conversion, matching the output format of 'q/run'."
@@ -157,6 +157,9 @@
     (meta m)))
 
 (def content-type->body-fn
+  "Body fns by media type, called with the content (plus the cookie prefs, see
+  `with-cookies`) and the page value of a response. HTML and Transit render
+  the page; the others render the content."
   {"text/html"
    (fn [_ page]
      ;; The page is both rendered and embedded, so the result set is read once.
@@ -264,7 +267,9 @@
     (:page page-meta) (assoc :prefs (-> (with-cookies request {})
                                         (assoc :languages (:languages content))))))
 
-(defn with-file-ext
+(defn attachment-header
+  "The Content-Disposition header that saves a `content-type` body as a file
+  named after `title`; nil unless the type is JSON, JSON-LD or Turtle."
   [title content-type]
   (when-let [extension (get {"application/json"    ".json"
                              "application/ld+json" ".json"

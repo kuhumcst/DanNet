@@ -1,4 +1,9 @@
 (ns dk.cst.dannet.web.ui.rdf
+  "Components for RDF values: links to resources, prefix badges, literals,
+  blank nodes and lists of values.
+
+  On entity and search pages, a blank node is a symbol whose metadata is its
+  entity map."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             #?(:clj [dk.cst.theophrastus.term :as term])
@@ -13,9 +18,6 @@
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
 
-(def expandable-list-cutoff
-  8)
-
 (defn parse-rdf-term
   "Parses an RDF `term` into [prefix local-name uri] for display/processing."
   [term]
@@ -28,7 +30,7 @@
         [nil uri uri]))))
 
 (defn rdf-datatype?
-  "Is `x` an RDF datatype represented as a map?"
+  "Is `x` a typed literal as the browser receives it, a {:value :uri} map?"
   [x]
   (and (map? x) (:value x) (:uri x)))
 
@@ -218,6 +220,26 @@
             (marker->sub sub)
             token))))
 
+(defn- transform-synset-label
+  "Render the synset label `s`, e.g. {hund_1§1; køter_§1}, as a set of words."
+  [s]
+  [:span.set
+   [:span.set__left-bracket]
+   (into [:span.set__content]
+         (interpose
+           [:span.subtle " • "]                             ; semicolon->bullet
+           (for [label (shared/sense-labels shared/synset-sep s)]
+             (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
+               [:<>
+                [:span.set__word
+                 (if (= word shared/omitted)
+                   [:span.subtle word]
+                   word)
+                 (some-> sub marker->sub)]
+                (some-> mwe subscript-markers)]
+               label))))
+   [:span.set__right-bracket]])
+
 (defn- transform-val*
   "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
@@ -246,22 +268,7 @@
 
      :let [[rdf-resource uri] (re-find rdf-resource-re s)]
      (re-matches #"\{.+\}" s)
-     [:span.set
-      [:span.set__left-bracket]
-      (into [:span.set__content]
-            (interpose
-              [:span.subtle " • "]                          ; semicolon->bullet
-              (for [label (shared/sense-labels shared/synset-sep s)]
-                (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
-                  [:<>
-                   [:span.set__word
-                    (if (= word shared/omitted)
-                      [:span.subtle word]
-                      word)
-                    (some-> sub marker->sub)]
-                   (some-> mwe subscript-markers)]
-                  label))))
-      [:span.set__right-bracket]]
+     (transform-synset-label s)
 
      (and rdf-resource (re-find ddo-ordbog-query uri))
      (ddo-hyperlink uri)
@@ -290,13 +297,11 @@
      :let [[_ word _ sub mwe] (when-not attr-key (re-matches shared/sense-label s))]
      sub [:<> word [:sub sub] (some-> mwe subscript-markers)]
 
-     :else s))
-  ([s]
-   (transform-val* s nil)))
+     :else s)))
 
 (defn transform-val
-  "Performs convenient transformations of `v`, optionally informed by `opts`.
-  
+  "Render the value `v` as hiccup, optionally informed by `opts`.
+
   Returns nil for nil/empty input to allow fallback via 'or'."
   ([v opts]
    (when (some? v)
@@ -305,6 +310,13 @@
        [:span.render-error {:title (ex-message e)} (str v)])))
   ([v]
    (transform-val v nil)))
+
+(defn link-label
+  "The label of `k` in `opts` as `entity-link` shows it, falling back to the
+  local name of `k`."
+  [{:keys [languages k->label] :as opts} k]
+  (str (or (i18n/select-label languages (get k->label k))
+           (name k))))
 
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
@@ -347,7 +359,8 @@
    (entity-link resource opts)])
 
 (defn transform-val-coll
-  "Performs convenient transformations of `coll` informed by `opts`."
+  "Render `coll` as dnc: concepts joined by +, when `opts` asks for that and
+  every value is a dnc: concept; otherwise return nil."
   [coll opts]
   (cond
     (and (displays? opts :concepts?)
@@ -376,7 +389,7 @@
       [:span {:lang (i18n/lang selected)}
        (transform-val selected opts)])))
 
-(defn- blank-node*
+(defn- blank-node-container
   [languages attr-key v & vs]
   (let [base-title (i18n/da-en languages "Blank knude" "Blank node")
         title      (if attr-key
@@ -390,7 +403,7 @@
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
-  (let [container (partial blank-node* languages attr-key)]
+  (let [container (partial blank-node-container languages attr-key)]
     (cond
       (rdf-datatype? m)
       (container (transform-val m))
@@ -480,9 +493,10 @@
          [:summary ""]))
      (when @open content)]))
 
-(defn- expandable-list*
-  [{:keys [languages] :as opts} summary-coll rest-coll]
-  (let [total-amount (+ (count summary-coll)
+(defn expandable-list
+  [{:keys [languages] :as opts} coll]
+  (let [[summary-coll rest-coll] (split-at 3 coll)
+        total-amount (+ (count summary-coll)
                         (count rest-coll))
         c            (condp > total-amount
                        100 "two-digits"
@@ -501,10 +515,6 @@
              :start 4}
         (render-list-items opts rest-coll)])]))
 
-(defn expandable-list
-  [opts coll]
-  (expandable-list* opts (take 3 coll) (drop 3 coll)))
-
 ;; TODO: words with the same label look unlabeled, e.g. the noun and adjective
 ;; "bordeaux" in dn:synset-14930 show as word-11005769 and word-11005769-2.
 ;; Add the part of speech to the label of colliding words instead.
@@ -513,14 +523,12 @@
   label collides with another item's, so that they render their QName instead,
   e.g. the many frame elements all labeled \"Agent\" listed under
   dns:inheritedByRole. Mirrors the QName fallback used for colliding relation
-  labels in 'attr-name-extras', minus the prefix half already supplied by the
-  badge; labels come from external sources and are deliberately not qualified
-  in the data itself."
-  [{:keys [languages k->label] :as opts} coll]
+  labels in 'table/entailed-relations', minus the prefix half already supplied
+  by the badge; labels come from external sources and are deliberately not
+  qualified in the data itself."
+  [opts coll]
   (let [kws      (filter keyword? coll)
-        label-of (fn [k]
-                   (str (or (i18n/select-label languages (get k->label k))
-                            (name k))))
+        label-of (partial link-label opts)
         freqs    (frequencies (map label-of kws))
         override (into {}
                        (comp (filter #(> (get freqs (label-of %) 0) 1))
@@ -529,7 +537,13 @@
     (cond-> opts
       (seq override) (update :k->label merge override))))
 
+(def expandable-list-cutoff
+  "Lists longer than this show only their first 3 items until expanded."
+  8)
+
 (rum/defc list-items
+  "An ordered list of `coll` informed by `opts`; a long list shows only its
+  first 3 items until expanded."
   [opts coll]
   (let [opts (disambiguate-labels opts coll)]
     (if (<= (count coll) expandable-list-cutoff)
@@ -559,6 +573,8 @@
               (hypernym-chain ancestors opts)])))))
 
 (rum/defc resource
+  "Render `x` informed by `opts`: a blank node map, a coll of values or a
+  resource."
   [opts x]
   (cond
     (map? x)

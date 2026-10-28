@@ -126,15 +126,14 @@
     :dn/synset-37443})
 
 ;; #146 - some 500 cases left out, should really be fixed manually (eventually)
-(def excluded-hypernymy
-  (delay
-    (let [ms (q/run (db/get-graph (:dataset @dk.cst.dannet.web.instance/db)
-                                  prefix/dn-uri)
-                    op/cross-pos-hypernymy)]
-      (->> ms
-           (map (fn [{:syms [?synset ?hypernym]}]
-                  {?synset (shared/setify ?hypernym)}))
-           (apply merge-with set/union)))))
+(defn excluded-hypernymy
+  "Synset -> its hypernyms of another part of speech in the graph `g`, which
+  the export leaves out."
+  [g]
+  (->> (q/run g op/cross-pos-hypernymy)
+       (map (fn [{:syms [?synset ?hypernym]}]
+              {?synset (shared/setify ?hypernym)}))
+       (apply merge-with set/union)))
 
 (defn map-invert-multi
   "Like 'map-invert', but supports flipping maps where the value is a set."
@@ -146,10 +145,6 @@
                  (merge-with set/union m')))
           {}
           m))
-
-(def excluded-hyponymy
-  (delay
-    (map-invert-multi @excluded-hypernymy)))
 
 (defn ->wn-relations-query
   [rel]
@@ -309,9 +304,15 @@
        (only-unique '?ili)))
 
 (defn run-queries
-  "Fetch data from `g` and prepare it for populating the XML file."
+  "Fetch the WN-LMF data from `db` as [entry-grouping relations-grouping
+  synset-props].
+
+  These hold the rows of each lexical entry, the relation rows of each synset
+  and the attributes, definition and examples of each synset."
   [{:keys [dataset graph] :as db}]
   (let [dannet-graph          (db/get-graph dataset prefix/dn-uri)
+        excluded-hypernyms    (excluded-hypernymy dannet-graph)
+        excluded-hyponyms     (map-invert-multi excluded-hypernyms)
         lexical-entry-res     (label-time
                                 'lexical-entry-res
                                 (q/run dannet-graph lexical-entry-query))
@@ -342,9 +343,9 @@
         relations-grouping    (->> get-relations-res
                                    (remove (fn [{:syms [?rel ?subject ?object]}]
                                              (or (and (= ?rel :wn/hypernym)
-                                                      (get (get @excluded-hypernymy ?subject) ?object))
+                                                      (get (get excluded-hypernyms ?subject) ?object))
                                                  (and (= ?rel :wn/hyponym)
-                                                      (get (get @excluded-hyponymy ?subject) ?object)))))
+                                                      (get (get excluded-hyponyms ?subject) ?object)))))
                                    (filter has-entry)
                                    (group-by '?subject))
         orphan-synsets        (set/difference
@@ -391,11 +392,11 @@
       (add-doctype)))
 
 (defn export-xml!
-  "Write WN-LMF to `f`."
-  [f]
+  "Write the WN-LMF of `db` to `f`."
+  [db f]
   (println "Exporting" f)
   (io/make-parents f)
-  (spit f (xml-str (run-queries @dk.cst.dannet.web.instance/db))))
+  (spit f (xml-str (run-queries db))))
 
 ;; Taken from here:
 ;; https://gist.github.com/mikeananev/b2026b712ecb73012e680805c56af45f
@@ -409,21 +410,22 @@
     (apply io/copy input output opts)))
 
 (defn export-wn-lmf!
-  "Export DanNet into `dir` as WordNet LMF."
-  [dir]
+  "Export the DanNet `db` into `dir` as WordNet LMF."
+  [db dir]
   (println "Beginning WN-LMF export of DanNet into" dir)
   (println "----")
   (let [f  (str dir "dannet-wn-lmf.xml")
         gz (str dir "dannet-wn-lmf.xml.gz")]
-    (export-xml! f)
+    (export-xml! db f)
     (gzip (io/file f) (io/file gz)))
   (println "----")
   (println "WN-LMF export of DanNet complete!"))
 
 (comment
-  (get @excluded-hypernymy :dn/synset-30829)
-  @excluded-hyponymy
+  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.instance/db) prefix/dn-uri)]
+    (get (excluded-hypernymy g) :dn/synset-30829))
   (xml-str (run-queries @dk.cst.dannet.web.instance/db))
-  (time (export-xml! "export/wn-lmf/dannet-wn-lmf.xml"))
-  (time (export-wn-lmf! "export/wn-lmf/"))
+  (time (export-xml! @dk.cst.dannet.web.instance/db
+                     "export/wn-lmf/dannet-wn-lmf.xml"))
+  (time (export-wn-lmf! @dk.cst.dannet.web.instance/db "export/wn-lmf/"))
   #_.)

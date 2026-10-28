@@ -7,6 +7,13 @@
   represent labels, parts of speech, sameAs URIs and the annotation markers
   (stand-off startIndex/endIndex pairs in JSON, inline elements in XML).
 
+  Start reading at `export-dmlex-variants!`, at the bottom of the file. It
+  fetches the rows with `run-queries` and indexes them once with `->indices`.
+  Then, for each language, `->resource` builds the structure and
+  `export-dmlex!` writes the zip. The `->x` fns at the top turn one
+  intermediate map into its XML element, while those further down build the
+  intermediate maps.
+
   The exported JSON can be browsed as a dictionary with the generic DMLex
   browser at https://github.com/kuhumcst/DMLex-browser."
   (:require [clojure.data.json :as json]
@@ -288,6 +295,8 @@
   intermediate structure inlined as headwordMarker elements, which is how the
   XML serialization of the annotation module represents them."
   [text markers]
+  ;; Regex matches are sorted and never overlap, so the marker bounds cut
+  ;; `text` into runs that alternate between plain text and marker.
   (let [indices (concat [0]
                         (mapcat (juxt :startIndex :endIndex) markers)
                         [(count text)])]
@@ -423,9 +432,9 @@
     :else x))
 
 ;; TODO: report the homographNumber mismatch to the LEXIDMA committee
-;; dmlex_no-crosslingual.xsd types the attribute as xs:integer while
-;; dmlex_no-crosslingual.schema.json types the property as a string, so no
-;; single value serializes into both. Drop the :value-fn once they agree.
+;; Both XSDs type the attribute as xs:integer while both JSON schemas type
+;; the property as a string, so no single value serializes into both. Drop
+;; the :value-fn once they agree.
 
 (defn write-json!
   "Write a DMLex `resource` to file `f` as JSON, streamed through `json/write`.
@@ -634,6 +643,14 @@
   [ms kf vf]
   (update-vals (group-by kf ms) #(vec (sort (map vf %)))))
 
+(defn index-pairs
+  "Index the [k v] `pairs` as a map of k to the sorted set of its v values."
+  [pairs]
+  (reduce (fn [m [k v]]
+            (update m k (fnil conj (sorted-set)) v))
+          {}
+          pairs))
+
 (defn homograph-numbers
   "DanNet word -> DMLex homographNumber for the `words` that share a headword
   and a part of speech. DMLex requires this combination to be unique."
@@ -773,9 +790,31 @@
                :when (or (= 1 (count frames)) (= 1 (count links)))
                frame frames]
            [synset frame])
-         (reduce (fn [m [synset frame]]
-                   (update m synset (fnil conj (sorted-set)) frame))
-                 {}))))
+         (index-pairs))))
+
+(defn usage-note-labels
+  "Sense -> its notes in `usage-notes`, minus a bare \"sj.\" or \"gl.\" that
+  only restates the frequency or temporal mark of the sense in `marks-of`.
+
+  The mark says the same thing in a localizable form. A nuanced note such as
+  \"nu sj.\" stays, as does a bare note on a sense without the mark. The kind
+  of each mark comes from the `sense-labels` rows."
+  [usage-notes sense-labels marks-of]
+  (let [mark-type-of (into {} (for [{:syms [?property ?value]} sense-labels]
+                                [(name ?value) (label-type-of ?property)]))]
+    (reduce-kv
+      (fn [m sense notes]
+        (let [types  (into #{} (map mark-type-of)
+                           (marks-of sense))
+              notes' (remove #(or (and (= % "sj.")
+                                       (types "frequency"))
+                                  (and (= % "gl.")
+                                       (types "temporal")))
+                             notes)]
+          (cond-> m
+            (seq notes') (assoc sense (vec notes')))))
+      {}
+      (index-many usage-notes '?sense (comp str '?note)))))
 
 (defn ->synset-label-tag
   "The labelTag that gives a `synset` its identity, with its `description` and
@@ -993,6 +1032,11 @@
   "Index the raw rows of `query-results` into the compact structures consumed
   by both language variants of the export.
 
+  An `x-of` key maps a resource or a tag to its x, e.g. :examples-of maps a
+  sense to its examples. An `x-strings` key holds the sorted inventory of those
+  values, one labelTag each. The :descriptions, :tag-names and domain keys are
+  keyed on the language first.
+
   The symbol-keyed rows dominate the memory footprint of `run-queries` and can
   be released as soon as this returns; the indices share their strings and
   keywords."
@@ -1010,28 +1054,7 @@
         senses-of     (index-many senses '?synset (comp name '?sense))
         unambiguous   (unambiguous-ilis ilis)
         marks-of      (index-many sense-labels '?sense (comp name '?value))
-        ;; A bare "sj." or "gl." usage note only restates the frequency
-        ;; or temporal mark beside it — dataset-wide, every bare note
-        ;; has its mark — so the abbreviation is dropped and the mark
-        ;; carries the fact alone, in the structured, localizable form.
-        ;; A nuanced note ("nu sj.", "gl. el. højtideligt") passes
-        ;; through untouched, and so does a bare note on a sense that
-        ;; some day lacks the mark.
-        mark-type-of  (into {} (for [{:syms [?property ?value]} sense-labels]
-                                 [(name ?value) (label-type-of ?property)]))
-        notes-of      (reduce-kv
-                        (fn [m sense notes]
-                          (let [types  (into #{} (map mark-type-of)
-                                             (marks-of sense))
-                                notes' (remove #(or (and (= % "sj.")
-                                                         (types "frequency"))
-                                                    (and (= % "gl.")
-                                                         (types "temporal")))
-                                               notes)]
-                            (cond-> m
-                              (seq notes') (assoc sense (vec notes')))))
-                        {}
-                        (index-many usage-notes '?sense (comp str '?note)))
+        notes-of      (usage-note-labels usage-notes sense-labels marks-of)
         eq-of         (index eq-senses '?corsem '?sense)
         sense-syn     (index senses '?sense '?synset)
         centrality    (q/label-centralities centralities eq-sense-matches
@@ -1049,28 +1072,24 @@
                                             (not= (set (stype-names ?ontotype))
                                                   (syn-classes (sense-syn sense))))]
                              [sense (name ?ontotype)])
-                           (reduce (fn [m [sense t]]
-                                     (update m sense (fnil conj (sorted-set)) t))
-                                   {}))
+                           (index-pairs))
         patterns-of   (->> (for [{:syms [?corsem ?pattern]} corsem-patterns
                                  :let [sense (eq-of ?corsem)]
                                  :when sense]
                              [sense (name ?pattern)])
-                           (reduce (fn [m [sense p]]
-                                     (update m sense (fnil conj (sorted-set)) p))
-                                   {}))
+                           (index-pairs))
         ;; The one usable COR.SEM usage restriction: "frekvens" becomes the
         ;; note "sj. el. gl." in the corsem bootstrap, carried onto matched
         ;; senses with no usage information of their own. The "sprogbrug"
         ;; note only says that some unnamed restriction exists.
-        frek-of       (into {} (for [{:syms [?sense ?note]} corsem-notes
-                                     :let [note  (str ?note)
-                                           sense (eq-of ?sense)]
-                                     :when (and (= "sj. el. gl." note)
-                                                sense
-                                                (not (notes-of sense))
-                                                (not (marks-of sense)))]
-                                 [sense note]))
+        corsem-note-of (into {} (for [{:syms [?sense ?note]} corsem-notes
+                                      :let [note  (str ?note)
+                                            sense (eq-of ?sense)]
+                                      :when (and (= "sj. el. gl." note)
+                                                 sense
+                                                 (not (notes-of sense))
+                                                 (not (marks-of sense)))]
+                                  [sense note]))
         frames-of     (frame-labels corsem-frames linked-synsets)]
     {:descriptions      descriptions
      :tag-names         tag-names
@@ -1084,7 +1103,7 @@
                             member-labels))
      :pos-of            (index words '?word (comp pos-tag '?pos))
      :headword-of       (index words '?word (comp str '?writtenRep))
-     :number-of         (homograph-numbers words)
+     :homograph-number-of (homograph-numbers words)
      :definition-of     (index-many definitions '?synset (comp str '?definition))
      :examples-of       (index-many examples '?sense (comp str '?example))
      ;; A handful of subjects carry two dns:source URLs; the sorted vector of
@@ -1120,8 +1139,8 @@
                                                 sense-labels)))
      :notes-of          notes-of
      :note-strings      (sort (into (into #{} (mapcat val) notes-of)
-                                    (vals frek-of)))
-     :frek-of           frek-of
+                                    (vals corsem-note-of)))
+     :corsem-note-of    corsem-note-of
      :frames-of         frames-of
      :frame-strings     (sort (into #{} (mapcat val) frames-of))
      :stypes-of         stypes-of
@@ -1146,9 +1165,9 @@
                                      [?sense (name ?corsem)]))
                               eq-senses)
      :label-of          label-of
-     :plain-label-of    (synset-descriptions
-                          (select-keys label-of (keys senses-of)))
-     :ili-of            (index-many unambiguous '?synset
+     :synset-description-of (synset-descriptions
+                              (select-keys label-of (keys senses-of)))
+     :ili-uris-of       (index-many unambiguous '?synset
                                     #(str prefix/ili-uri (name (get % '?ili))))
      :ili-key-of        (index unambiguous '?synset '?ili)
      :ili-definition-of (index ili-definitions '?ili (comp str '?definition))
@@ -1158,7 +1177,7 @@
      :cors-of           (cor-words cor-links)
      :forms-of          (update-vals (group-by '?cor cor-forms)
                                      #(into #{} (map ->cor-form) %))
-     :description-of    (code-descriptions cor-forms)
+     :code-description-of (code-descriptions cor-forms)
      :sentiment-of      (sentiment-labels sentiment)
      ;; DMLex gives a sense no listingOrder, so the document order is the
      ;; sense order. The best-connected synset leads, as in the DanNet
@@ -1171,27 +1190,19 @@
                                                                (comp str '?sense)))
                                                 (mapv (juxt '?sense '?synset)))])))}))
 
-(defn ->resource
-  "Build the DMLex intermediate structure in `lang` from the `indices`. A
-  word without a written form is left out, since DMLex requires a headword. A
-  word with an unusable part of speech keeps its entry, since DMLex does not
+(defn ->entries
+  "The DMLex entries in `lang`, built from the `indices`.
+
+  A word without a written form is left out, since DMLex requires a headword.
+  A word with an unusable part of speech keeps its entry, since DMLex does not
   require one."
-  [lang {:keys [descriptions tag-names obverse-of relations member-order pos-of
-                headword-of number-of definition-of examples-of source-of
-                domains-of domain-strings lexfiles-of lexfile-strings variants-of
-                ontotype-of ontotype-strings ontotype-description-of
-                gender-of marks-of
-                sense-label-pairs notes-of note-strings label-of
-                plain-label-of ili-of ili-key-of ili-definition-of english-of
-                senses-of cors-of forms-of description-of sentiment-of
-                frek-of frames-of frame-strings stypes-of stype-strings
-                stype-description-of patterns-of pattern-strings
-                pattern-description-of centrality-of corsem-id-of
-                word->senses]}]
-  (let [descriptions   (get descriptions lang)
-        tag-names      (get tag-names lang)
-        domains-of     (get domains-of lang {})
-        domain-strings (get domain-strings lang)
+  [lang {:keys [pos-of headword-of homograph-number-of definition-of
+                examples-of source-of domains-of lexfiles-of variants-of
+                ontotype-of gender-of marks-of notes-of corsem-note-of
+                label-of ili-key-of ili-definition-of english-of cors-of
+                forms-of sentiment-of frames-of stypes-of patterns-of
+                centrality-of corsem-id-of word->senses]}]
+  (let [domains-of   (get domains-of lang {})
         ;; The English ILI definitions only supplement the English variant;
         ;; they describe the interlingual concept, not the DanNet sense.
         ili-def-of   (if (= lang "en")
@@ -1206,6 +1217,8 @@
                                            (conj {:text           ili-def
                                                   :definitionType "ili"}))]
                          (cond-> {:id     (name sense)
+                                  ;; Each label must be a tag from `->label-tags`,
+                                  ;; prefix included. No schema catches a mismatch.
                                   :labels (-> [(name synset)]
                                               (cond->
                                                 (ontotype-of synset)
@@ -1224,8 +1237,8 @@
                                               (into (marks-of sense))
                                               (into (notes-of sense))
                                               (cond->
-                                                (frek-of sense)
-                                                (conj (frek-of sense)))
+                                                (corsem-note-of sense)
+                                                (conj (corsem-note-of sense)))
                                               (into (or (sentiment-of sense)
                                                         (sentiment-of synset)))
                                               (cond->
@@ -1254,7 +1267,7 @@
                            (assoc :headwordTranslations
                                   (mapv (fn [text] {:text text :langCode "en"})
                                         english)))))
-        ->entry-map  (fn [[word rows]]
+        ->entry-map  (fn [[word senses]]
                        (let [headword  (headword-of word)
                              inflected (->> (matching-cor-words headword (cors-of word))
                                             (mapcat forms-of)
@@ -1273,113 +1286,136 @@
                                                     (cond-> sense
                                                       (seq indicator)
                                                       (assoc :indicator indicator)))
-                                                  (mapv #(->sense-map headword %) rows)
+                                                  (mapv #(->sense-map headword %) senses)
                                                   (indicators (map (comp label-of second)
-                                                                   rows)))}
+                                                                   senses)))}
                            (pos-of word) (assoc :partsOfSpeech [(pos-of word)])
-                           (number-of word) (assoc :homographNumber (number-of word))
+                           (homograph-number-of word)
+                           (assoc :homographNumber (homograph-number-of word))
                            (seq labels) (assoc :labels labels)
-                           (seq forms) (assoc :inflectedForms forms))))
-        entries      (->> word->senses
-                          (map ->entry-map)
-                          (filterv :headword))
+                           (seq forms) (assoc :inflectedForms forms))))]
+    (->> word->senses
+         (map ->entry-map)
+         (filterv :headword))))
+
+(defn ->inflected-form-tags
+  "The inflectedFormTag of every inflection code in the `entries`, described
+  by `code-description-of`."
+  [code-description-of entries]
+  (->> (mapcat :inflectedForms entries)
+       (into #{} (keep :tag))
+       (sort-by parse-long)
+       (mapv (fn [code]
+               (cond-> {:tag code :for "entry"}
+                 (code-description-of code)
+                 (assoc :description (code-description-of code)))))))
+
+(defn ->label-tags
+  "The labelTags in `lang`, built from the `indices`. They declare every tag
+  that the labels of the entries, senses and inflected forms may use."
+  [lang {:keys [tag-names domain-strings senses-of synset-description-of
+                ili-uris-of ontotype-strings ontotype-description-of
+                lexfile-strings gender-of sense-label-pairs note-strings
+                frame-strings stype-strings stype-description-of
+                pattern-strings pattern-description-of headword-of source-of
+                corsem-id-of word->senses]}]
+  (let [tag-names       (get tag-names lang)
+        domain-strings  (get domain-strings lang)
         ;; The senses of the exported entries, in entry order; shared by the
         ;; source and COR.SEM identity registers below.
-        exported     (->> word->senses
-                          (filter (comp headword-of first))
-                          (mapcat (fn [[_ rows]]
-                                    (map first rows)))
-                          (distinct))]
+        exported-senses (->> word->senses
+                             (filter (comp headword-of first))
+                             (mapcat (fn [[_ senses]]
+                                       (map first senses)))
+                             (distinct))]
+    (concat
+      (for [synset (sort-by name (keys senses-of))]
+        (->synset-label-tag synset
+                            (synset-description-of synset)
+                            (ili-uris-of synset)))
+      (for [otype ontotype-strings]
+        {:tag         (str "dnt:" otype)
+         :typeTag     "ontologicalType"
+         :for         "sense"
+         :description (ontotype-description-of otype)
+         :sameAs      [(str (prefix/prefix->uri 'dnt)
+                            otype)]})
+      (for [lexfile lexfile-strings]
+        {:tag lexfile :typeTag "lexfile" :for "sense"})
+      (for [domain domain-strings]
+        {:tag domain :typeTag "domain" :for "sense"})
+      (for [gender (sort-by name (set (vals gender-of)))]
+        (->sense-label-tag "gender"
+                           (tag-names gender)
+                           gender))
+      (for [[property value] sense-label-pairs]
+        (->sense-label-tag (label-type-of property)
+                           (tag-names value)
+                           value))
+      (for [note note-strings]
+        {:tag note :typeTag "usage" :for "sense"})
+      (localize lang norm-label-tags)
+      (localize lang sentiment-label-tags)
+      (localize lang centrality-label-tags)
+      ;; The frame, ontological type and pattern tags are prefixed: the bare
+      ;; names collide across inventories (e.g. the frame and the concept both
+      ;; named Substance), and the XSD keys every labelTag on its tag alone.
+      ;; The COR.SEM simple types share the dnt: inventory with the standard
+      ;; types, so their tags take a cor.sem: prefix and state the shared
+      ;; resource in sameAs. The description carries the readable name.
+      (for [frame frame-strings]
+        {:tag         (str "frame:" frame)
+         :typeTag     "frame"
+         :for         "sense"
+         :description frame
+         :sameAs      [(str prefix/framenet-uri frame)]})
+      (for [stype stype-strings]
+        {:tag         (str "cor.sem:" stype)
+         :typeTag     "simpleOntologicalType"
+         :for         "sense"
+         :description (stype-description-of stype)
+         :sameAs      [(str (prefix/prefix->uri 'dnt) stype)]})
+      (for [pattern pattern-strings]
+        {:tag         (str "dnp:" pattern)
+         :typeTag     "polysemyPattern"
+         :for         "sense"
+         :description (pattern-description-of pattern)
+         :sameAs      [(str (prefix/prefix->uri 'dnp) pattern)]})
+      ;; The DDO source register of section 9.12: one tag per sourced entry
+      ;; and sense, in the order of the entries.
+      (for [[word _] word->senses
+            :when (and (headword-of word)
+                       (source-of word))]
+        (->source-label-tag "entry" word
+                            (source-of word)))
+      (for [sense exported-senses
+            :when (source-of sense)]
+        (->source-label-tag "sense" sense
+                            (source-of sense)))
+      ;; The COR.SEM identity register: the id of the exactly matching COR.SEM
+      ;; sense, with the COR resource as sameAs.
+      (for [sense exported-senses
+            :when (corsem-id-of sense)]
+        {:tag     (corsem-id-of sense)
+         :typeTag "corsem"
+         :for     "sense"
+         :sameAs  [(str prefix/cor-uri
+                        (corsem-id-of sense))]}))))
+
+(defn ->resource
+  "Build the DMLex intermediate structure in `lang` from the `indices`."
+  [lang {:keys [descriptions obverse-of relations member-order senses-of
+                code-description-of] :as indices}]
+  (let [entries (->entries lang indices)]
     (merge (lexicographic-resource lang)
            {:entries            entries
             :definitionTypeTags (when (= lang "en")
                                   (localize lang definition-type-tags))
-            :inflectedFormTags  (->> (mapcat :inflectedForms entries)
-                                     (into #{} (keep :tag))
-                                     (sort-by parse-long)
-                                     (mapv (fn [code]
-                                             (cond-> {:tag code :for "entry"}
-                                               (description-of code)
-                                               (assoc :description (description-of code))))))
-            :labelTags          (concat
-                                  (for [synset (sort-by name (keys senses-of))]
-                                    (->synset-label-tag synset (plain-label-of synset) (ili-of synset)))
-                                  (for [otype ontotype-strings]
-                                    {:tag         (str "dnt:" otype)
-                                     :typeTag     "ontologicalType"
-                                     :for         "sense"
-                                     :description (ontotype-description-of otype)
-                                     :sameAs      [(str (prefix/prefix->uri 'dnt)
-                                                        otype)]})
-                                  (for [lexfile lexfile-strings]
-                                    {:tag lexfile :typeTag "lexfile" :for "sense"})
-                                  (for [domain domain-strings]
-                                    {:tag domain :typeTag "domain" :for "sense"})
-                                  (for [gender (sort-by name (set (vals gender-of)))]
-                                    (->sense-label-tag "gender"
-                                                       (tag-names gender)
-                                                       gender))
-                                  (for [[property value] sense-label-pairs]
-                                    (->sense-label-tag (label-type-of property)
-                                                       (tag-names value)
-                                                       value))
-                                  (for [note note-strings]
-                                    {:tag note :typeTag "usage" :for "sense"})
-                                  (localize lang norm-label-tags)
-                                  (localize lang sentiment-label-tags)
-                                  (localize lang centrality-label-tags)
-                                  ;; The frame, ontological type and pattern
-                                  ;; tags are prefixed: the bare names collide
-                                  ;; across inventories (e.g. the frame and
-                                  ;; the concept both named Substance), and
-                                  ;; the XSD keys every labelTag on its tag
-                                  ;; alone. The COR.SEM simple types share the
-                                  ;; dnt: inventory with the standard types,
-                                  ;; so their tags take a cor.sem: prefix and
-                                  ;; state the shared resource in sameAs. The
-                                  ;; description carries the readable name.
-                                  (for [frame frame-strings]
-                                    {:tag         (str "frame:" frame)
-                                     :typeTag     "frame"
-                                     :for         "sense"
-                                     :description frame
-                                     :sameAs      [(str prefix/framenet-uri frame)]})
-                                  (for [stype stype-strings]
-                                    {:tag         (str "cor.sem:" stype)
-                                     :typeTag     "simpleOntologicalType"
-                                     :for         "sense"
-                                     :description (stype-description-of stype)
-                                     :sameAs      [(str (prefix/prefix->uri 'dnt) stype)]})
-                                  (for [pattern pattern-strings]
-                                    {:tag         (str "dnp:" pattern)
-                                     :typeTag     "polysemyPattern"
-                                     :for         "sense"
-                                     :description (pattern-description-of pattern)
-                                     :sameAs      [(str (prefix/prefix->uri 'dnp) pattern)]})
-                                  ;; The DDO source register of section 9.12:
-                                  ;; one tag per sourced entry and sense, in
-                                  ;; the order of the entries.
-                                  (for [[word _] word->senses
-                                        :when (and (headword-of word)
-                                                   (source-of word))]
-                                    (->source-label-tag "entry" word
-                                                        (source-of word)))
-                                  (for [sense exported
-                                        :when (source-of sense)]
-                                    (->source-label-tag "sense" sense
-                                                        (source-of sense)))
-                                  ;; The COR.SEM identity register: the id of
-                                  ;; the exactly matching COR.SEM sense, with
-                                  ;; the COR resource as sameAs.
-                                  (for [sense exported
-                                        :when (corsem-id-of sense)]
-                                    {:tag     (corsem-id-of sense)
-                                     :typeTag "corsem"
-                                     :for     "sense"
-                                     :sameAs  [(str prefix/cor-uri
-                                                    (corsem-id-of sense))]}))
+            :inflectedFormTags  (->inflected-form-tags code-description-of entries)
+            :labelTags          (->label-tags lang indices)
             :relations          (->relations senses-of member-order obverse-of relations)
-            :relationTypes      (->relation-types lang descriptions obverse-of relations)})))
+            :relationTypes      (->relation-types lang (get descriptions lang)
+                                                  obverse-of relations)})))
 
 (defn license-comment
   "The text of an XML comment stating the licence of the DanNet `version`
@@ -1492,17 +1528,17 @@
   (println "DMLex export of DanNet complete!"))
 
 (defn export-dmlex-variants!
-  "Export both language variants of the DMLex zip into `dir` from `db`.
+  "Export both language variants of the DMLex zip from `db` into `dir`.
 
   The raw query rows are indexed once and shared between the variants, and
   each variant's resource is built and released in turn."
-  [dir db]
+  [db dir]
   (let [indices (->indices (run-queries db))]
     (doseq [lang ["da" "en"]]
       (export-dmlex! dir lang (->resource lang indices)))))
 
 (comment
-  (time (export-dmlex-variants! "export/dmlex/" @dk.cst.dannet.web.instance/db))
+  (time (export-dmlex-variants! @dk.cst.dannet.web.instance/db "export/dmlex/"))
 
   ;; Exploring the intermediate structure.
   (def indices

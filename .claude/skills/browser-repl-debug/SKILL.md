@@ -23,7 +23,7 @@ evaluations on that port stay in the browser until `:cljs/quit`.
 
 ```clojure
 ;; Client state, e.g. the current page data:
-(:data @dk.cst.dannet.web.router/location)
+(:data @dk.cst.dannet.web.router/current-page)
 
 ;; Drive navigation to reproduce a bug on a specific page:
 (dk.cst.dannet.web.app/navigate-to "/dannet/data/synset-52")

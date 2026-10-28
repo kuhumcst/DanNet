@@ -1,12 +1,13 @@
 (ns dk.cst.dannet.hash
   "Functions for hashing program data; used to invoke database rebuilds.
 
-  The :hash key of the metadata attached to any hashed def/defn forms can be
+  The :hash key of the metadata attached to any hashed defn forms can be
   checked at runtime. If this hash differs from the last recorded hash, the form
   must have changed in some way.
 
   The key functions and data in DanNet have been decorated with hashes.
-  These hashes are checked when instantiating an instance of a DanNet database."
+  Only the hashes that db.bootstrap/->dannet lists in fn-hashes make up the
+  database name; a change to one of those forms triggers a full rebuild."
   (:require [clojure.walk :as walk])
   (:refer-clojure :exclude [defn]))
 
@@ -49,15 +50,9 @@
   [form]
   (hash (mapv str (normalize-gensyms form))))
 
-(defmacro def
-  "A regular def macro that hashes its own body and attaches this to :hash."
-  [& [name :as args]]
-  `(do
-     (def ~@args)
-     (alter-meta! #'~name assoc :hash (hash-form (quote ~args)))))
-
 (defmacro defn
-  "A regular defn macro that hashes its own body and attaches this to :hash."
+  "A regular defn macro that hashes its form, docstring included but not
+  comments, and attaches this to :hash."
   [& [name :as args]]
   `(do
      (clojure.core/defn ~@args)

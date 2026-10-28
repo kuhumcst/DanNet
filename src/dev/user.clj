@@ -26,8 +26,6 @@
         status (.getResponseCode conn)]
     {:status  status
      :headers {"Content-Type" (.getHeaderField conn "Content-Type")}
-     ;; NOTE: this used to be just (slurp url), but it had to be changed to
-     ;; forward some necessary headers.
      :body    (slurp (if (>= status 400)
                        (.getErrorStream conn)
                        (.getInputStream conn)))}))

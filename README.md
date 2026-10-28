@@ -233,15 +233,20 @@ When releasing a new version of the database:
    (restart)
    ```
 
-3. Generate the export artifacts, each in its own namespace:
+3. Generate the export artifacts. The web service loads only some of the
+   export namespaces, so require them all first:
    ```clojure
-   (dk.cst.dannet.db.export.rdf/export-rdf! @dk.cst.dannet.web.resources/db)
-   (dk.cst.dannet.db.export.csv/export-csv! @dk.cst.dannet.web.resources/db)
-   (dk.cst.dannet.db.export.wn-lmf/export-wn-lmf! "export/wn-lmf/")
-   (dk.cst.dannet.db.export.dmlex/export-dmlex-variants! "export/dmlex/" @dk.cst.dannet.web.resources/db)
+   (require 'dk.cst.dannet.db.export.rdf
+            'dk.cst.dannet.db.export.csv
+            'dk.cst.dannet.db.export.wn-lmf
+            'dk.cst.dannet.db.export.dmlex)
+   (dk.cst.dannet.db.export.rdf/export-rdf! @dk.cst.dannet.web.instance/db)
+   (dk.cst.dannet.db.export.csv/export-csv! @dk.cst.dannet.web.instance/db)
+   (dk.cst.dannet.db.export.wn-lmf/export-wn-lmf! @dk.cst.dannet.web.instance/db "export/wn-lmf/")
+   (dk.cst.dannet.db.export.dmlex/export-dmlex-variants! @dk.cst.dannet.web.instance/db "export/dmlex/")
    ;; ~6 minutes
    (dk.cst.dannet.db.query/save-synset-indegrees!
-     (:graph @dk.cst.dannet.web.resources/db))
+     (:graph @dk.cst.dannet.web.instance/db))
    ```
    This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `cor-sem.zip`,
    `framenet.zip`, `dds.zip`, `oewn-extension.zip`), `export/csv/dannet-csv.zip`,

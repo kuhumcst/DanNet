@@ -26,12 +26,6 @@
     :retry?  true
     :status  504}
 
-   ::anom/unavailable
-   {:message {:da "Tjenesten er midlertidigt utilgængelig. Prøv igen senere."
-              :en "The service is temporarily unavailable. Please try again later."}
-    :retry?  true
-    :status  503}
-
    ::anom/incorrect
    {:message {:da "Forespørgslen er ugyldig."
               :en "The query is invalid."}
@@ -43,20 +37,6 @@
               :en "This type of query is not allowed."}
     :retry?  false
     :status  403}
-
-   ::anom/not-found
-   {:message {:da "Den ønskede ressource blev ikke fundet."
-              :en "The requested resource was not found."}
-    :retry?  false
-    :status  404}
-
-   ;; TODO: maybe use ::anom/busy instead?
-   ;; Not in cognitect.anomalies, but useful for rate limiting.
-   ::too-many-requests
-   {:message {:da "For mange forespørgsler. Vent venligst et øjeblik og prøv igen."
-              :en "Too many requests. Please wait a moment and try again."}
-    :retry?  true
-    :status  429}
 
    ::anom/fault
    {:message {:da "Der opstod en uventet fejl."

@@ -116,15 +116,12 @@
   "Directory holding the bootstrap English datasets (OEWN + ILI)."
   "bootstrap/other/english")
 
-(def oewn-version
-  "The Open English WordNet edition to bootstrap against."
-  "2025")
-
 (def oewn-ttl-path
-  (str english-dir "/english-wordnet-" oewn-version ".ttl"))
+  (str english-dir "/english-wordnet-" release/oewn-version ".ttl"))
 
 (def oewn-url
-  (str "https://en-word.net/static/english-wordnet-" oewn-version ".ttl.gz"))
+  (str "https://en-word.net/static/english-wordnet-" release/oewn-version
+       ".ttl.gz"))
 
 (def ili-path
   (str english-dir "/ili.ttl"))

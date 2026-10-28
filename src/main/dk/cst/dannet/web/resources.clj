@@ -1,5 +1,10 @@
 (ns dk.cst.dannet.web.resources
-  "Pedestal interceptors and their associated routes."
+  "Pedestal interceptors (-ic) and their associated routes.
+
+  Most routes negotiate the media type and language, then a handler
+  interceptor puts :content and :page-meta, or a :redirect or :replace
+  location, on the ctx. redirect-ic and response-body-ic turn these into the
+  response; a ctx left without them becomes a 404."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -71,24 +76,13 @@
 
 ;; NOTE: redirect doesn't work on shadow-cljs port, but works fine otherwise!
 (def redirect-ic
-  "Get a redirect response that works for both HTTP redirects and for the API
-  based on keys set in the the context:
+  "Turn the :redirect or :replace location in the ctx into a response: a 303
+  for HTML and JSON, and Transit data for the SPA, whose fetch can't intercept
+  a 30x.
 
-    :redirect        - (symbolic) location to redirect to
-    :redirect-params - query-params to used when redirecting
-    :replace         - (symbolic) location which replaces the current state
-
-
-  NOTE: The alternative `replace` location arg may be provided to tell the
-        client to replace the state in history rather than adding a new entry.
-        This is needed when automatically redirecting to an alt entity,
-        as the back button will otherwise break for the user.
-
-  ----
-
-  The JS fetch API does not allow for intercepting 30x redirects manually, so
-  the SPA gets a Transit body with the :redirect location (and :replace?)
-  instead, which its router follows."
+  :replace swaps the current history entry instead of adding one, e.g. for an
+  alt entity, so the back button still works. Only :lang and :format of the
+  :redirect-params carry over, into the JSON location."
   {:name  ::redirect
    :enter (fn [{:keys [redirect redirect-params replace request] :as ctx}]
             (let [{:keys [lang format]} redirect-params
@@ -147,10 +141,6 @@
               (-> ctx
                   (update :response merge
                           (cond
-                            (false? content)
-                            {:status  204
-                             :headers {}}
-
                             (and (empty? content) (empty? page-meta))
                             {:status  404
                              :headers {}}
@@ -162,12 +152,10 @@
                   (update-in [:response :headers] merge
                              (-> {"Content-Type"  content-type
                                   "Cache-Control" resp/one-day-cache}
-
-                                 ;; Add filename extensions when needed.
-                                 (merge (resp/with-file-ext title content-type)))))))})
+                                 (merge (resp/attachment-header title content-type)))))))})
 
 (def error-ic
-  "Outermost error-handling interceptor.
+  "Error-handling interceptor in front of the router (see web.service).
 
   Translates any unhandled exception into an anomaly via 'anomaly/translate'
   and renders it through the same 'resp/content-type->body-fn' machinery used
@@ -181,15 +169,17 @@
   (interceptor/interceptor
     {:name  ::error
      :error (fn [ctx ex]
+              ;; Pedestal wraps what an interceptor throws in an ex-info,
+              ;; keeping the original under :exception.
               (let [cause        (or (some-> ex ex-data :exception) ex)
                     request      (:request ctx)
+                    languages    (resp/request->languages request)
                     anomaly      (-> (anomaly/translate cause)
-                                     (anomaly/localize (resp/request->languages request)))
+                                     (anomaly/localize languages))
                     content-type (resp/error-content-type request)
                     body-fn      (resp/content-type->body-fn content-type)
-                    title        (i18n/da-en (resp/request->languages request)
-                                   "Fejl" "Error")
-                    content      {:languages (resp/request->languages request)
+                    title        (i18n/da-en languages "Fejl" "Error")
+                    content      {:languages languages
                                   :anomaly   anomaly}
                     page-meta    {:title title :page :error}
                     ;; Pedestal skips the :leave that adds Vary after an
@@ -281,7 +271,7 @@
   #{"application/transit+json"
     "text/html"})
 
-(defn request->subject
+(defn params->subject
   "The subject that the request `params` ask for: a keyword or an RDF
   resource, or nil when the prefix of the subject is unknown."
   [{:keys [prefix subject]}]
@@ -407,8 +397,8 @@
 
 (defn ->entity-ic
   "Create an interceptor to return DanNet resources, optionally specifying a
-  predetermined `prefix` to use for graph look-ups; otherwise locates the prefix
-  within the path-params.
+  predetermined `prefix` or a fixed `subject` to use for graph look-ups;
+  otherwise locates the prefix within the path-params.
 
   When the content-type supports truncation (HTML, Transit) and the entity has
   large semantic relations, values are truncated to `semantic-relation-limit`.
@@ -419,7 +409,7 @@
             (let [params       (merge (:path-params request)
                                       (:query-params request)
                                       static-params)
-                  subject      (request->subject params)
+                  subject      (params->subject params)
                   qname        (if (keyword? subject)
                                  (prefix/kw->qname subject)
                                  subject)
@@ -475,6 +465,8 @@
    :route-name ::external-entity])
 
 (def unknown-external-entity-route
+  "Look-up route for the resource in ?subject=, as made by prefix/resource-path
+  for IRIs with no known prefix."
   [prefix/external-path
    :get [entity-negotiation-ic
          (->entity-ic)
@@ -483,6 +475,8 @@
    :route-name ::unknown-external-entity])
 
 (defn prefix->dataset-entity-route
+  "Route for the resource of `prefix` itself, e.g. the dataset
+  <https://wordnet.dk/dannet/data>, whose path has no :subject."
   [prefix]
   (let [uri (-> prefix prefix/prefix->uri prefix/remove-trailing-separator)]
     [(prefix/uri->path uri)
@@ -576,6 +570,72 @@
          response-body-ic]
    :route-name ::autocomplete])
 
+(defn sparql-page-meta
+  "The page-meta of a SPARQL page titled `da` or `en`, as `languages` prefer."
+  [languages da en]
+  {:title (i18n/da-en languages da en)
+   :page  :sparql})
+
+(defn- sparql-query-opts
+  "The :sparql map of the parsed `query-obj` of `query-str`, with the
+  execution options read from the `query-params`."
+  [query-str query-obj {:keys [timeout limit offset
+                               distinct inference lookahead noop enrichment]}]
+  (let [timeout'   (if (not-empty timeout)
+                     (let [ms (* (Long/parseLong timeout) 1000)]
+                       (if shared/development?
+                         ms
+                         (min ms sparql/max-timeout)))
+                     sparql/max-timeout)
+        limit'     (min (or (sparql/user-limit query-obj)
+                            (when limit (Long/parseLong limit))
+                            sparql/max-results-limit)
+                        sparql/max-results-limit)
+        offset'    (if offset
+                     (Long/parseLong offset)
+                     0)
+        distinct?  (= distinct "true")
+        ;; Lookahead (N+1) is on by default for pagination.
+        ;; Disable when the query contains LIMIT/OFFSET or
+        ;; when explicitly opted out via lookahead=false.
+        user-pag?  (sparql/has-user-pagination? query-obj)
+        lookahead? (and (not= lookahead "false")
+                        (not user-pag?))
+        ;; Three-way: nil (auto), true (force), false (base only)
+        inference? (case inference
+                     "true" true
+                     "false" false
+                     nil)]
+    {:input       {:query      query-str
+                   :inference  inference
+                   :distinct   distinct
+                   :enrichment enrichment}
+     :query-obj   query-obj
+     :noop?       (some? noop)
+     :timeout     timeout'
+     :limit       limit'
+     :offset      offset'
+     :distinct?   distinct?
+     :lookahead?  lookahead?
+     :inference?  inference?
+     :enrichment? (= enrichment "true")}))
+
+(defn- sparql-validation-error
+  "Put the error page for the invalid `query-str` on the `ctx`, with the
+  status and message of the validation exception `e`."
+  [{:keys [request] :as ctx} query-str e]
+  (let [anomaly   (anomaly/translate e)
+        languages (resp/request->languages request)]
+    (assoc ctx
+      :sparql {:input {:query query-str}}
+      :response-status (:status anomaly)
+      :content {:languages languages
+                :input     {:query query-str}
+                :anomaly   anomaly}
+      :page-meta (sparql-page-meta languages
+                                   "SPARQL-valideringsfejl"
+                                   "SPARQL validation error"))))
+
 (def sparql-validation-ic
   "Validate and parse SPARQL query parameters, placing results in a single
   `:sparql` map on the ctx. On validation failure, short-circuits by setting
@@ -585,70 +645,19 @@
   Three code paths reach sparql-execution-ic downstream:
     1. Valid query  -> :sparql has :query-obj, execution proceeds.
     2. Invalid query -> :content/:page-meta already set (400), execution skips.
-    3. No query     -> :sparql has :input nil, editor page is rendered."
+    3. No query     -> the ctx has no :sparql, editor page is rendered."
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query timeout limit offset
-                          distinct inference lookahead noop enrichment]} (:query-params request)
-                  query-str (or query
-                                (when (string? (:body request))
-                                  (:body request)))]
+            (let [{:keys [query-params body]} request
+                  query-str (or (:query query-params)
+                                (when (string? body) body))]
               (if query-str
                 (try
-                  (let [query-obj  (sparql/validate query-str)
-                        timeout'   (if (not-empty timeout)
-                                     (let [ms (* (Long/parseLong timeout) 1000)]
-                                       (if shared/development?
-                                         ms
-                                         (min ms sparql/max-timeout)))
-                                     sparql/max-timeout)
-                        limit'     (min (or (sparql/user-limit query-obj)
-                                            (when limit (Long/parseLong limit))
-                                            sparql/max-results-limit)
-                                        sparql/max-results-limit)
-                        offset'    (if offset
-                                     (Long/parseLong offset)
-                                     0)
-                        distinct?  (= distinct "true")
-                        ;; Lookahead (N+1) is on by default for pagination.
-                        ;; Disable when the query contains LIMIT/OFFSET or
-                        ;; when explicitly opted out via lookahead=false.
-                        user-pag?  (sparql/has-user-pagination? query-obj)
-                        lookahead? (and (not= lookahead "false")
-                                        (not user-pag?))
-                        ;; Three-way: nil (auto), true (force), false (base only)
-                        inference? (case inference
-                                     "true" true
-                                     "false" false
-                                     nil)]
-                    (assoc ctx
-                      :sparql {:input       {:query      query-str
-                                             :inference  inference
-                                             :distinct   distinct
-                                             :enrichment enrichment}
-                               :query-obj   query-obj
-                               :noop?       (some? noop)
-                               :timeout     timeout'
-                               :limit       limit'
-                               :offset      offset'
-                               :distinct?   distinct?
-                               :lookahead?  lookahead?
-                               :inference?  inference?
-                               :enrichment? (= enrichment "true")}))
+                  (let [query-obj (sparql/validate query-str)]
+                    (assoc ctx :sparql (sparql-query-opts query-str query-obj
+                                                          query-params)))
                   (catch ExceptionInfo e
-                    (let [anomaly   (anomaly/translate e)
-                          languages (resp/request->languages request)
-                          title     (i18n/da-en languages
-                                      "SPARQL-valideringsfejl"
-                                      "SPARQL validation error")]
-                      (assoc ctx
-                        :sparql {:input {:query query-str}}
-                        :response-status (:status anomaly)
-                        :content {:languages languages
-                                  :input     {:query query-str}
-                                  :anomaly   anomaly}
-                        :page-meta {:title title
-                                    :page  :sparql}))))
+                    (sparql-validation-error ctx query-str e)))
                 ctx)))})
 
 (def max-label-resources
@@ -707,9 +716,8 @@
                       :content {:input     input
                                 :languages languages
                                 :anomaly   anomaly}
-                      :page-meta {:title (i18n/da-en languages
-                                           "SPARQL-fejl" "SPARQL error")
-                                  :page  :sparql})
+                      :page-meta (sparql-page-meta languages
+                                                   "SPARQL-fejl" "SPARQL error"))
                     (let [{:keys [sparql-result sparql-type]} result
                           content (cond-> (assoc result
                                             :input input
@@ -721,18 +729,17 @@
                                     (enrich-select-result sparql-result enrichment?))]
                       (assoc ctx
                         :content content
-                        :page-meta {:title (i18n/da-en languages
-                                             "SPARQL-result" "SPARQL result")
-                                    :page  :sparql}))))
+                        :page-meta (sparql-page-meta languages
+                                                     "SPARQL-result"
+                                                     "SPARQL result")))))
 
                 ;; No query -> render the SPARQL editor page.
                 :else
                 (assoc ctx
                   :content {:input     input
                             :languages languages}
-                  :page-meta {:title (i18n/da-en languages
-                                       "SPARQL-editor" "SPARQL editor")
-                              :page  :sparql}))))})
+                  :page-meta (sparql-page-meta languages
+                                               "SPARQL-editor" "SPARQL editor")))))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route

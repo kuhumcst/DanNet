@@ -10,8 +10,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
-            #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm]))
-  #?(:clj (:import [java.net URLEncoder])))
+            #?(:cljs [dk.cst.dannet.web.ui.codemirror :as cm])))
 
 (def page-sizes
   [10 20 50 100])
@@ -191,23 +190,88 @@
    :did-update   sync-editor!
    :will-unmount teardown-editor!})
 
-(rum/defcs editor < codemirror-mixin
-  "SPARQL query editor with page size selector."
-  [state {:keys [languages input normalized-query limit] :as opts}]
-  (let [query-value     (when-let [s (or normalized-query
-                                         (:query input)
-                                         basic-select-query)]
-                          (str/trim s))
-        limit-in-query? (query-has-limit? query-value)
+(rum/defc editor-controls
+  "Form controls for how to run `query-value`, set from the `input` in `opts`:
+  page size, data source, timeout, distinct rows and label enrichment."
+  [{:keys [languages input limit] :as opts} query-value]
+  (let [limit-in-query? (query-has-limit? query-value)
         current-limit   (if limit-in-query?
                           default-page-size
                           (or limit default-page-size))
+        ;; Checked on a fresh page. After a submit, an unchecked box is missing
+        ;; from the URL, so a missing param means unchecked.
         distinct?       (if (:query input)
                           (= (:distinct input) "true")
                           true)
         enrichment?     (if (:query input)
                           (= (:enrichment input) "true")
                           true)]
+    [:div.sparql-editor__controls
+     [:label.page-size-select
+      {:title (if limit-in-query?
+                (i18n/da-en languages
+                  "Forespørgslens egen LIMIT har forrang"
+                  "The query's own LIMIT takes precedence")
+                (i18n/da-en languages
+                  "Antal resultater pr. side"
+                  "Number of results per page"))}
+      (i18n/da-en languages "Resultater " "Results ")
+      [:select {:name          "limit"
+                :default-value (str current-limit)
+                :disabled      limit-in-query?}
+       (for [n page-sizes]
+         [:option {:key n :value (str n)} (str n)])]]
+     [:label.model-select
+      {:title (i18n/da-en languages
+                "Vælg om forespørgslen køres mod rå eller logisk afledt data"
+                "Choose whether to query raw or logically inferred data")}
+      (i18n/da-en languages "Kilde " "Source ")
+      [:select {:name          "inference"
+                :default-value "auto"}
+       [:option {:value "auto"}
+        "Auto"]
+       [:option {:value "false"}
+        (i18n/da-en languages "Rå" "Raw")]
+       [:option {:value "true"}
+        (i18n/da-en languages "Afledt" "Inferred")]]]
+     [:label.timeout-select
+      {:title (i18n/da-en languages
+                "Maks timeout i sekunder"
+                "Max timeout in seconds")}
+      (i18n/da-en languages "Tid " "Time ")
+      ;; TODO: switch to type=text with inputtype=numeric for more precise styling
+      [:input (cond-> {:type        "number"
+                       :name        "timeout"
+                       :min         "1"
+                       :step        "1"
+                       :placeholder "15"}
+                (not shared/development?)
+                (assoc :max "30"))]]
+     [:label.distinct-select
+      {:title (i18n/da-en languages
+                "Fjern duplikerede rækker fra resultatet"
+                "Remove duplicate rows from the result")}
+      (i18n/da-en languages "Fjern dubletter " "No duplicates ")
+      [:input {:type            "checkbox"
+               :name            "distinct"
+               :value           "true"
+               :default-checked distinct?}]]
+     [:label.enrichment-select
+      {:title (i18n/da-en languages
+                "Tilføj menneskelæsbare etiketter til ressourcer i resultatet"
+                "Add human-readable labels to resources in the result")}
+      (i18n/da-en languages "Beriget " "Enriched ")
+      [:input {:type            "checkbox"
+               :name            "enrichment"
+               :value           "true"
+               :default-checked enrichment?}]]]))
+
+(rum/defcs editor < codemirror-mixin
+  "SPARQL query editor with page size selector."
+  [state {:keys [languages input normalized-query] :as opts}]
+  (let [query-value (str/trim (or normalized-query
+                                  (:query input)
+                                  basic-select-query))]
     [:form.sparql-editor
      {:action    prefix/sparql-path
       :on-submit on-submit
@@ -220,7 +284,7 @@
       [:input {:type  "hidden"
                :name  "query"
                :id    "sparql-query-hidden"
-               :value (or query-value "")}]
+               :value query-value}]
       [:div.sparql-editor__buttons
        [:input {:type      "submit"
                 :tab-index "-1"
@@ -240,65 +304,7 @@
      [:input {:type "hidden" :name "offset" :value "0"}]
      ;; TODO: progress meter also displays on normal fetches, e.g. entity, fix!
      #_[:div.sparql-progress]
-     [:div.sparql-editor__controls
-      [:label.page-size-select
-       {:title (if limit-in-query?
-                 (i18n/da-en languages
-                   "Forespørgslens egen LIMIT har forrang"
-                   "The query's own LIMIT takes precedence")
-                 (i18n/da-en languages
-                   "Antal resultater pr. side"
-                   "Number of results per page"))}
-       (i18n/da-en languages "Resultater " "Results ")
-       [:select {:name          "limit"
-                 :default-value (str current-limit)
-                 :disabled      limit-in-query?}
-        (for [n page-sizes]
-          [:option {:key n :value (str n)} (str n)])]]
-      [:label.model-select
-       {:title (i18n/da-en languages
-                 "Vælg om forespørgslen køres mod rå eller logisk afledt data"
-                 "Choose whether to query raw or logically inferred data")}
-       (i18n/da-en languages "Kilde " "Source ")
-       [:select {:name          "inference"
-                 :default-value "auto"}
-        [:option {:value "auto"}
-         "Auto"]
-        [:option {:value "false"}
-         (i18n/da-en languages "Rå" "Raw")]
-        [:option {:value "true"}
-         (i18n/da-en languages "Afledt" "Inferred")]]]
-      [:label.timeout-select
-       {:title (i18n/da-en languages
-                 "Maks timeout i sekunder"
-                 "Max timeout in seconds")}
-       (i18n/da-en languages "Tid " "Time ")
-       ;; TODO: switch to type=text with inputtype=numeric for more precise styling
-       [:input (cond-> {:type        "number"
-                        :name        "timeout"
-                        :min         "1"
-                        :step        "1"
-                        :placeholder "15"}
-                 (not shared/development?)
-                 (assoc :max "30"))]]
-      [:label.distinct-select
-       {:title (i18n/da-en languages
-                 "Fjern duplikerede rækker fra resultatet"
-                 "Remove duplicate rows from the result")}
-       (i18n/da-en languages "Fjern dubletter " "No duplicates ")
-       [:input {:type            "checkbox"
-                :name            "distinct"
-                :value           "true"
-                :default-checked distinct?}]]
-      [:label.enrichment-select
-       {:title (i18n/da-en languages
-                 "Tilføj menneskelæsbare etiketter til ressourcer i resultatet"
-                 "Add human-readable labels to resources in the result")}
-       (i18n/da-en languages "Beriget " "Enriched ")
-       [:input {:type            "checkbox"
-                :name            "enrichment"
-                :value           "true"
-                :default-checked enrichment?}]]]]))
+     (editor-controls opts query-value)]))
 
 (rum/defc result-table
   "Display SPARQL SELECT results as a table with RDF-aware components."
@@ -323,8 +329,10 @@
            (let [v (get row col)]
              [:td {:key col}
               [:div.sparql-results__cell
-               (if-let [be (and (symbol? v) (get blank-nodes v))]
-                 (rdf/blank-node opts' be)
+               ;; Blank nodes in SPARQL rows are bare symbols; their entity maps
+               ;; arrive separately in :blank-nodes (see q/collect-blank-nodes).
+               (if-let [m (and (symbol? v) (get blank-nodes v))]
+                 (rdf/blank-node opts' m)
                  (if (keyword? v)
                    (rdf/resource-hyperlink v opts')
                    (rdf/transform-val v opts')))]]))])]]))
@@ -365,9 +373,51 @@
           (i18n/da-en languages
             "Næste →" "Next →")])])))
 
+(rum/defc result-notes
+  "Notes on the SPARQL result in `opts`, e.g. whether it was served from the
+  cache, and a link to download it as JSON."
+  [{:keys [languages input inference? cached? lookahead? limit offset]
+    :as   opts}]
+  [:aside.notes
+   (when inference?
+     (let [forced? (= (:inference input) "true")]
+       [:p.note
+        [:strong "∴ "]
+        (if forced?
+          (i18n/da-en languages
+            "kan indeholde logisk afledt data"
+            "may contain logically inferred data")
+          (i18n/da-en languages
+            "indeholder logisk afledt data"
+            "contains logically inferred data"))]))
+   (when cached?
+     [:p.note
+      [:strong "⧖ "]
+      (i18n/da-en languages
+        "resultatet blev hentet fra cachen"
+        "result was served from cache")])
+   (when (false? lookahead?)
+     [:p.note
+      [:strong "⊘ "]
+      (i18n/da-en languages
+        "paginering deaktiveret (indeholder LIMIT eller OFFSET)"
+        "pagination disabled (contains LIMIT or OFFSET)")])
+   (when (:query input)
+     [:p.note
+      [:strong "↓ "]
+      (i18n/da-en languages
+        "hent data som: "
+        "download data as: ")
+      [:a {:href     (sparql-href input [[:format "json"]
+                                         [:limit limit]
+                                         [:offset offset]])
+           :type     "application/json"
+           :title    "JSON"
+           :download true}
+       "JSON"]])])
+
 (rum/defc output
-  [{:keys [languages input sparql-result anomaly inference?
-           cached? distinct? lookahead? limit offset]
+  [{:keys [languages sparql-result anomaly lookahead?]
     :as   opts}]
   [:output {:aria-live "polite"}
    (cond
@@ -383,43 +433,7 @@
       (result-table opts sparql-result)
       (when lookahead?
         (pagination opts))
-      [:aside.notes
-       (when inference?
-         (let [forced? (= (:inference input) "true")]
-           [:p.note
-            [:strong "∴ "]
-            (if forced?
-              (i18n/da-en languages
-                "kan indeholde logisk afledt data"
-                "may contain logically inferred data")
-              (i18n/da-en languages
-                "indeholder logisk afledt data"
-                "contains logically inferred data"))]))
-       (when cached?
-         [:p.note
-          [:strong "⧖ "]
-          (i18n/da-en languages
-            "resultatet blev hentet fra cachen"
-            "result was served from cache")])
-       (when (false? lookahead?)
-         [:p.note
-          [:strong "⊘ "]
-          (i18n/da-en languages
-            "paginering deaktiveret (indeholder LIMIT eller OFFSET)"
-            "pagination disabled (contains LIMIT or OFFSET)")])
-       (when (:query input)
-         [:p.note
-          [:strong "↓ "]
-          (i18n/da-en languages
-            "hent data som: "
-            "download data as: ")
-          [:a {:href     (sparql-href input [[:format "json"]
-                                             [:limit limit]
-                                             [:offset offset]])
-               :type     "application/json"
-               :title    "JSON"
-               :download true}
-           "JSON"]])]]
+      (result-notes opts)]
 
      sparql-result
      [:p.note [:strong "∅ "]

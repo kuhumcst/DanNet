@@ -10,7 +10,8 @@
   ["da" "en"])
 
 (defn lang-prefs
-  "Get a coll of preferred languages in order based on `lang`."
+  "Return the preferred languages in order, starting with `lang`; nil stands
+  for strings without a language tag."
   [lang]
   (case lang
     "da" ["da" "en" nil]
@@ -19,6 +20,7 @@
     [lang "en" nil "da"]))
 
 (defn da-en
+  "Return `da` when Danish comes first in `languages`, otherwise `en`."
   [languages da en]
   (if (= "da" (first languages))
     da
@@ -42,12 +44,7 @@
   [languages x]
   (if (coll? x)
     (let [lang->s (update-vals (group-by lang (sort-by str x)) first)]
-      (loop [[head & tail] languages]
-        (if-let [ret (lang->s head)]
-          ret
-          (if (not-empty tail)
-            (recur tail)
-            (lang->s nil)))))
+      (or (some lang->s languages) (lang->s nil)))
     x))
 
 (defn select-str
@@ -58,11 +55,7 @@
   [languages x]
   (if (coll? x)
     (let [lang->strs (group-by lang x)
-          ret        (loop [[head & tail :as remaining] languages]
-                       (when (seq remaining)
-                         (or (get lang->strs head)
-                             (recur tail))))
-          strs       (or ret (get lang->strs nil))]
+          strs       (or (some lang->strs languages) (lang->strs nil))]
       (if (= 1 (count strs))
         (first strs)
         strs))

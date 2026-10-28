@@ -123,11 +123,84 @@
   #?(:clj  (memo/lru glyph-width* :lru/threshold 5000)
      :cljs (memoize glyph-width*)))
 
-(defn remove-parens
+(def subject-label-bottom-y
+  "The y offset in px of the bottom line of the radial diagram's subject label."
+  -5)
+
+(def subject-label-line-height
+  "The distance in px between the lines of the subject label."
+  48)
+
+(defn subject-label-lines
+  "Pack the subject label `segments`, sorted shortest first, into at most 5
+  lines across the circle at the centre of the radial diagram.
+
+  The lines are listed from the bottom up, each joining its segments with
+  \" • \". The bottom lines are the widest, so they take the longest segments."
+  [segments]
+  (let [;; Labels wrap inside a circle of radius 225, a bit wider than the
+        ;; background gradient (0.75 × 800/π ≈ 191) drawn in d3/build-radial!*.
+        bg-radius  225
+        font-size  18
+        max-lines  5
+
+        ;; Calculate max width for a line at given y-position using circle equation
+        width-at-y (fn [y]
+                     (let [y-abs     (abs y)
+                           r-squared (* bg-radius bg-radius)
+                           y-squared (* y-abs y-abs)]
+                       (if (>= y-abs bg-radius)
+                         0
+                         (* 2 (math/sqrt (- r-squared y-squared))))))]
+
+    ;; Distribute segments across lines respecting circular bounds
+    (loop [remaining (reverse segments)
+           lines     []
+           line-idx  0]
+      (if (or (empty? remaining) (>= line-idx max-lines))
+        lines
+        (let [y-pos     (- subject-label-bottom-y
+                           (* line-idx subject-label-line-height))
+              max-width (* (width-at-y y-pos) 0.85)
+              current   (atom "")
+              used      (atom 0)]
+          (doseq [seg remaining]
+            (let [candidate (if (str/blank? @current)
+                              seg
+                              (str @current " • " seg))
+                  width     (* (glyph-width candidate) font-size)]
+              (when (<= width max-width)
+                (reset! current candidate)
+                (swap! used inc))))
+          (if (zero? @used)
+            (recur (rest remaining)
+                   (conj lines (first remaining))
+                   (inc line-idx))
+            (recur (drop @used remaining)
+                   (conj lines @current)
+                   (inc line-idx))))))))
+
+(defn definition-lines
+  "Wrap `definition` into lines of at most 35 characters for the centre of the
+  radial diagram; a longer word gets a line of its own."
+  [definition]
+  (when definition
+    (let [max-chars 35
+          words     (str/split definition #"\s+")]
+      (reduce
+        (fn [lines word]
+          (let [current (peek lines)]
+            (if (> (+ (count current) 1 (count word)) max-chars)
+              (conj lines word)
+              (conj (pop lines) (str current " " word)))))
+        [(first words)]
+        (rest words)))))
+
+(defn remove-braces
   [s]
   (str/replace (str s) #"\{|\}" ""))
 
-(def label-section
+(def sense-subscript
   #"_([^; ,]+)")
 
 (defn remove-subscript
@@ -137,11 +210,11 @@
   This function removes everything from underscore through the subscript
   portion, leaving only the base word form."
   [s]
-  (str/replace (str s) label-section ""))
+  (str/replace (str s) sense-subscript ""))
 
 (def labels-only
   "Composed fn that removes both DDO subscripts and synset braces."
-  (comp remove-subscript remove-parens))
+  (comp remove-subscript remove-braces))
 
 (defn length-penalty
   "Calculate a new size with a penalty based on the visual width of `label`."
@@ -158,11 +231,9 @@
 
   The `synsets` collection should already be sorted by weight (highest first).
   If `:cloud-limit` is specified in `opts`, only the top N synsets are used."
-  [{:keys [k->label cloud-limit] :as opts} synsets]
+  [{:keys [k->label] :as opts} synsets]
   (let [max-size  36
-        synsets'  (if cloud-limit
-                    (take cloud-limit synsets)
-                    synsets)
+        synsets'  (displayed-synsets opts synsets)
         weights   (cloud-normalize synsets')
         n         (count weights)
         min-size  (min 0.33 (/ 10 n))
@@ -175,12 +246,12 @@
     (->> synsets'
          (mapcat (fn [k]
                    (when-let [weight (get weights k)]
-                     (let [s      (remove-parens (k->s k))
-                           labels (shared/sense-labels #"; " s)
-                           n      (count labels)
-                           size   (* (max (/ weight (max 1 (/ n 3)))
-                                          min-size)
-                                     max-size)]
+                     (let [labels   (->> (remove-braces (k->s k))
+                                         (shared/sense-labels #"; "))
+                           n-senses (count labels)
+                           size     (* (max (/ weight (max 1 (/ n-senses 3)))
+                                            min-size)
+                                       max-size)]
                        (for [label labels]
                          (when-not (= label shared/omitted)
                            (let [[s word rest-of-s sub mwe]
@@ -287,15 +358,15 @@
 
   Lower scores indicate better positions for long labels.
 
-  Formula: (corner-dist² - 0.33 × rotation-factor)
+  Formula: (corner-dist² - 0.8 × rotation-factor)
   - Squared corner distance creates steep gradient favoring corners
-  - Subtracting rotation factor gives extra advantage to diagonal positions
+  - Subtracting rotation factor gives extra advantage to positions
     where labels are more tilted (need less horizontal space)
 
-  Result ranges approximately:
-  - Corners (45°, 135°, 225°, 315°): ~-0.15 (best)
-  - Top/Bottom (90°, 270°): ~0.6 (good)
-  - Left/Right (0°, 180°): ~0.7 (worst)"
+  Result ranges approximately, with angle 0 at the top:
+  - Corners (45°, 135°, 225°, 315°): ~-0.4 (best)
+  - Top/Bottom (0°, 180°): ~0.2
+  - Left/Right (90°, 270°): ~1.0 (worst)"
   [angle]
   (let [norm-angle      (mod angle (* 2 math/PI))
 
@@ -308,17 +379,16 @@
                           (/ dist-to-eighth eighth)
                           (- 1.0 (/ dist-to-eighth eighth)))
 
-        ;; Label rotation factor: measures how much labels are tilted
-        ;; More rotation = needs more diagonal/vertical space
-        ;; Less rotation (horizontal) = needs more horizontal space
-        rotation-rad    (if (< norm-angle math/PI)
+        ;; The tilt of the label here in degrees, as balanced-tilt computes it
+        ;; with factor 20 in d3/render-radial-labels; keep the two in step.
+        tilt-deg        (if (< norm-angle math/PI)
                           (* (- (/ math/PI 2) norm-angle) 20)
                           (* (- (* 3 (/ math/PI 2)) norm-angle) 20))
         max-rotation    31.5
-        rotation-factor (/ (abs rotation-rad) max-rotation)]
+        rotation-factor (/ (abs tilt-deg) max-rotation)]
 
     ;; Combined score: squared corner distance with rotation bonus
-    ;; Subtracting rotation gives diagonal positions extra advantage
+    ;; Subtracting rotation favours the top and bottom, where labels tilt most
     (- (* corner-dist corner-dist)
        (* 0.8 rotation-factor))))
 
@@ -379,13 +449,13 @@
 
 (defn- prepare-radial-children
   "Transform entity data into radial tree format with optimized label placement."
-  [entity k->label]
+  [entity label-of]
   (->> entity
        (into []
              (mapcat (fn [[k synsets]]
                        (let [theme (get shared/synset-rel-theme k)
                              xf    (comp (map (fn [synset]
-                                                (let [label (or (k->label synset)
+                                                (let [label (or (label-of synset)
                                                                 (prefix/kw->qname synset))]
                                                   {:name     label
                                                    :theme    theme
@@ -393,19 +463,13 @@
                                                    :href     (prefix/resolve-href synset)
                                                    :title    (labels-only label)})))
                                          (mapcat expand-sense-labels))]
-                         (->> synsets
-                              (into [] xf)
-                              (group-by :relation)
-
-                              ;; Always select values from every relation type.
-                              (top-n-vals radial-limit)
-                              (mapcat val))))))
+                         (into [] xf synsets)))))
 
        ;; Grouping (and group ordering) happens here: groups follow the
        ;; canonical relations/group-order so related relations sit together
        ;; and always appear in roughly the same place.
        (insert-theme-spacers (fn [[k _]]
-                               (relations/relation-sort-key k (k->label k))))
+                               (relations/relation-sort-key k (label-of k))))
 
        ;; Rotate for better placement with few nodes
        (rotate-for-bottom-placement)
@@ -421,9 +485,10 @@
 
 (defn radial-tree
   "The radial diagram of the `subject` and its relations in `subentity`, as a
-  tree for d3.hierarchy, labelled with `k->label` in `languages`."
-  [subject subentity full-entity k->label languages]
-  (let [label      (->> (k->label subject)
+  tree for d3.hierarchy, labelled with `label-of` in `languages`; the centre
+  shows the part of speech and definition of `full-entity`."
+  [subject subentity full-entity label-of languages]
+  (let [label      (->> (label-of subject)
                         (shared/sense-labels shared/synset-sep)
                         (shared/canonical)
                         (map remove-subscript)
@@ -440,11 +505,22 @@
                             str)
         entity'    (->> (keys shared/synset-rel-theme)
                         (select-keys subentity)
+                        ;; Always select values from every relation type.
                         (top-n-vals radial-limit))
-        children   (prepare-radial-children entity' k->label)]
+        children   (prepare-radial-children entity' label-of)]
     {:name       label
      :title      label
      :pos        pos-label
      :definition definition
      :subject    true
      :children   children}))
+
+(comment
+  ;; Testing out relative weights
+  (take 10 (map double (iterate log-inc 1)))
+  (take 100 (map double (iterate log-inc 1)))
+  (take 1000 (map double (iterate log-inc 1)))
+
+  (subject-label-lines ["ab" "abcdefghij" "abcdefghijk"])
+  (definition-lines "pattedyr som har god lugtesans og hørelse, og som")
+  #_.)

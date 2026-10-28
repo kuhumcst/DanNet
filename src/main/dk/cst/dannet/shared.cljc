@@ -95,7 +95,7 @@
     (ci-pattern (str "(?<!\\p{L})(?:" alternation ")\\p{L}*"))))
 
 (defn sense-labels*
-  "Split a `synset` label into sense labels. Work for both old and new formats."
+  "Split the synset `label` at `sep` into its sense labels."
   [sep label]
   (->> (str/split label sep)
        (into [] (comp
@@ -103,6 +103,7 @@
                   (map str/trim)))))
 
 (def sense-labels
+  "Memoised `sense-labels*`."
   #?(:clj  (memo/lru sense-labels* :lru/threshold 2000)
      :cljs (memoize sense-labels*)))
 
@@ -170,7 +171,8 @@
        (= "dn" (namespace subject))))
 
 (defn with-prefix
-  "Return predicate accepting keywords with `prefix` (`except` set of keywords)."
+  "Return a predicate that is true for the [k v] entries whose key has
+  `prefix`, unless the key is in the `except` set."
   [prefix & {:keys [except]}]
   (fn [[k v]]
     (when (keyword? k)
@@ -178,6 +180,7 @@
            (= (namespace k) (name prefix))))))
 
 (def semantic-rels?
+  "True for a [k v] entry of a semantic relation, e.g. wn:hypernym."
   (some-fn (with-prefix 'wn :except #{:wn/partOfSpeech
                                       :wn/definition
                                       :wn/ili
@@ -370,11 +373,7 @@
   ([entity]
    (find-label-key entity label-keys-short))
   ([entity ks]
-   (loop [[candidate & candidates] ks]
-     (if (get entity candidate)
-       candidate
-       (when candidates
-         (recur candidates))))))
+   (some #(when (get entity %) %) ks)))
 
 (defn get-entity-label
   "Returns the label value from `entity` using the first available property in
@@ -485,14 +484,8 @@
 (def pos-abbr-en
   {"noun" "n." "adj" "adj." "adv" "adv." "verb" "v."})
 
-;; See also: https://mathiasbynens.be/notes/html5-id-class
 (comment
   (lexfile->pos "noun.location")
   (lexfile->pos "adv.all")
   (lexfile->pos ["noun.location" "noun.person"])
-
-  ;; Testing out relative weights
-  (take 10 (map double (iterate log-inc 1)))
-  (take 100 (map double (iterate log-inc 1)))
-  (take 1000 (map double (iterate log-inc 1)))
   #_.)

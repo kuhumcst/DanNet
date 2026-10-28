@@ -76,18 +76,18 @@
   and :subtypes, the maps :fe->status and :items, and the string-valued
   lookup maps :label, :definition and :abbreviation."
   []
-  (let [model     (-> (RDFDataMgr/loadDataset downloads/premon-fn17-path)
-                      (.getNamedModel fn17-resource))
-        rdf-type  (prefix/kw->uri :rdf/type)
-        label     (prefix/kw->uri :rdfs/label)
-        defn'     (prefix/kw->uri :skos/definition)
-        abbrev    (prefix/kw->uri :pmo/abbreviation)
-        item      (prefix/kw->uri :pmo/item)
-        core-set  (prefix/kw->uri :pmofn/feCoreSet)
-        sem-type  (prefix/kw->uri :pmofn/semType)
-        subtype   (prefix/kw->uri :pmofn/subTypeOf)
-        sem-class (prefix/kw->uri :pmofn/Frame)
-        st-class  (prefix/kw->uri :pmofn/SemType)]
+  (let [model       (-> (RDFDataMgr/loadDataset downloads/premon-fn17-path)
+                        (.getNamedModel fn17-resource))
+        rdf-type    (prefix/kw->uri :rdf/type)
+        label       (prefix/kw->uri :rdfs/label)
+        definition  (prefix/kw->uri :skos/definition)
+        abbrev      (prefix/kw->uri :pmo/abbreviation)
+        item        (prefix/kw->uri :pmo/item)
+        core-set    (prefix/kw->uri :pmofn/feCoreSet)
+        sem-type    (prefix/kw->uri :pmofn/semType)
+        subtype     (prefix/kw->uri :pmofn/subTypeOf)
+        frame-class (prefix/kw->uri :pmofn/Frame)
+        st-class    (prefix/kw->uri :pmofn/SemType)]
     (reduce (fn [acc ^Statement stmt]
               (let [s (.getSubject stmt)
                     p (.getURI (.getPredicate stmt))
@@ -101,15 +101,15 @@
                     (cond
                       (= p rdf-type)
                       (cond
-                        (= o' sem-class)  (update acc :frames conj s')
-                        (= o' st-class)   (update acc :semtypes conj s')
-                        (fe-status o')    (assoc-in acc [:fe->status s']
-                                                    (fe-status o'))
+                        (= o' frame-class) (update acc :frames conj s')
+                        (= o' st-class)    (update acc :semtypes conj s')
+                        (fe-status o')     (assoc-in acc [:fe->status s']
+                                                     (fe-status o'))
                         :else acc)
 
-                      (= p label)  (assoc-in acc [:label s'] (str'))
-                      (= p defn')  (assoc-in acc [:definition s'] (str'))
-                      (= p abbrev) (assoc-in acc [:abbreviation s'] (str'))
+                      (= p label)      (assoc-in acc [:label s'] (str'))
+                      (= p definition) (assoc-in acc [:definition s'] (str'))
+                      (= p abbrev)     (assoc-in acc [:abbreviation s'] (str'))
 
                       ;; pmo:item also links e.g. annotation sets, so the
                       ;; core set members are filtered out at emission.

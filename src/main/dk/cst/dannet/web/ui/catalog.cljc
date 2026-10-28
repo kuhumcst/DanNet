@@ -58,7 +58,7 @@
               [group-key title desc (sort-by sort-key entries)]))
           group-order)))
 
-(defn k->label
+(defn labels
   "Build a keyword->label map from `catalog` entries that have prefixes."
   [catalog]
   (into {}

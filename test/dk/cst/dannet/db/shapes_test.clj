@@ -3,9 +3,9 @@
   validate small in-memory graphs and do not require a running database.
 
   Every property shape in shapes/base.ttl has a negative fixture below, asserted on
-  the stable [:shape :constraint] identity of the resulting violation --
-  except the sh:sparql constraints, which are identified by :message instead
-  (see the `hypernym-shapes` deftest)."
+  the stable [:shape :constraint] identity of the resulting violation, except
+  the sh:sparql constraints, which are identified by :message or :focus-node
+  instead (see the `hypernym-shapes` deftest)."
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.dannet.db.shapes :as shapes]
@@ -109,8 +109,8 @@ dn:synset-2 a ontolex:LexicalConcept .")
                     :sh/MinCountConstraintComponent]))))
 
 (deftest hypernym-shapes
-  ;; SPARQL constraints all report :sh/SPARQLConstraintComponent and Jena
-  ;; 4.5.0 does not populate ReportEntry#sourceConstraint, so the individual
+  ;; SPARQL constraints all report :sh/SPARQLConstraintComponent and Jena's
+  ;; ReportEntry#sourceConstraint holds the shape, so the individual
   ;; constraint is identified by :severity + :message instead.
   (let [entry-info (fn [ttl]
                      (->> (validate-ttl ttl) :entries
@@ -158,8 +158,8 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."))))))))
 
 (deftest ili-relation-shape
-  ;; SPARQL constraint, so identified by :severity + :message like the
-  ;; hypernym shapes above.
+  ;; SPARQL constraint, so identified by :severity and :focus-node rather than
+  ;; :constraint.
   (testing "eq* relation targeting an ILI entry is a violation (issue #205)"
     (is (contains? (->> (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
@@ -174,8 +174,8 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   dns:eqHyponym <https://en-word.net/id/oewn-02486953-n> .")))))))
 
 (deftest negation-contradiction-shape
-  ;; SPARQL constraint, so identified by :severity + :message like the
-  ;; hypernym shapes above.
+  ;; SPARQL constraint, so identified by :severity and :focus-node rather than
+  ;; :constraint.
   (let [negation "
 [] a owl:NegativePropertyAssertion ;
   owl:sourceIndividual dn:synset-2 ;

@@ -12,9 +12,6 @@
     https://www.mutuallyhuman.com/blog/keydown-is-the-only-keyboard-event-we-need/"
   (:require [clojure.set :as set]))
 
-(def spacebar
-  #{" " "Spacebar"})
-
 (def enter
   #{"Enter"})
 
@@ -23,12 +20,6 @@
 
 (def down
   #{"ArrowDown" "Down"})
-
-(def left
-  #{"ArrowLeft" "Left"})
-
-(def right
-  #{"ArrowRight" "Right"})
 
 (def prev-item
   up)
@@ -50,7 +41,8 @@
     * (optional) kmap: a mapping from keyboard keys to associated functions.
 
   The combobox and listbox elements are resolved at invocation time using the
-  ARIA attributes on the target element.
+  ARIA attributes on the target element. An option has no aria-controls, so
+  its combobox is #search-input.
 
   Note that the options should have onclick handlers roughly equivalent to the
   provided 'submit-fn' for this handler to work properly. Additionally, for

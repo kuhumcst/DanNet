@@ -1,4 +1,6 @@
 (ns dk.cst.dannet.web.ui.markdown
+  "Markdown pages as hiccup: the server parses them and finds the title of each
+  in its first <h1>."
   (:require [clojure.string :as str]
             #?(:clj [nextjournal.markdown :as md])
             #?(:clj [nextjournal.markdown.transform :as md.transform])))

@@ -1,8 +1,11 @@
 (ns dk.cst.dannet.db.bootstrap
-  "Represent DanNet as an in-memory graph or within a persisted database (TDB).
+  "Build the DanNet database from the files of the release it is bootstrapped
+  from (release/from); ->dannet is the entry point.
 
-  Inverse relations are not explicitly created, but rather handled by way of
-  inference using a Jena OWL reasoner."
+  The h/defn forms and values listed in fn-hashes in ->dannet are hashed into
+  the database name, so changing their code or docstrings triggers a rebuild,
+  while comments do not; a new build step must also be listed there. Inverse
+  relations are not asserted but inferred by `reasoner`."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
@@ -26,40 +29,6 @@
            [org.apache.jena.query Dataset DatasetFactory]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.tdb2 TDB2Factory]))
-
-(defn assert-expected-dannet-release!
-  "Assert that the DanNet `model` is the expected release to bootstrap from.
-
-  On mismatch, reports the version actually found so it's diagnosable: the
-  dataset-level <dn> owl:versionInfo is authoritative, but older releases carry
-  no such triple, so we fall back to a sample of any versionInfo values present."
-  [model]
-  (let [graph    (.getGraph ^Model model)
-        expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
-    (when (empty? expected)
-      (let [dn-vers (->> (q/triples graph [md/<dn> :owl/versionInfo '_])
-                         (map #(str (get % '?o)))
-                         (distinct)
-                         (vec))
-            actual  (if (seq dn-vers)
-                      dn-vers
-                      (->> (q/triples graph ['_ :owl/versionInfo '_])
-                           (map #(str (get % '?o)))
-                           (distinct)
-                           (take 5)
-                           (vec)))]
-        (t/log! {:level :error
-                 :id    :dannet.bootstrap/unexpected-release
-                 :data  {:expected release/from
-                         :actual   actual}}
-                "Bootstrap files are not the expected release")
-        (throw (ex-info (str "bootstrap files not the expected release. Expected "
-                             (pr-str release/from) ", found "
-                             (if (seq actual) (pr-str actual) "no owl:versionInfo")
-                             ". Restart with refetch (--refetch, or restart-refetch "
-                             "in the REPL) to download the expected release.")
-                        {:expected release/from
-                         :actual   actual}))))))
 
 (h/defn synset-label
   "The label of a synset given the `labels` of its senses, i.e. the distinct
@@ -200,6 +169,8 @@
       (fn [{:syms [?synset ?label]}]
         (when-let [short (shared/short-label primary tiebreak ?label)]
           [?synset :dns/shortLabel (md/da short)]))
+      ;; Every existing short label is removed first, so none outlives a change
+      ;; that makes rdfs:label suffice.
       (fn [{:syms [?synset ?shortLabel]}]
         (when ?shortLabel
           [?synset :dns/shortLabel ?shortLabel])))))
@@ -341,6 +312,15 @@
       "Created: " (.format now formatter) "\n"
       "Input data: " (str/join ", " filenames))))
 
+(defn logged-db-name
+  "The db-name of the last build recorded in the log at `log-path`, which a
+  start without an input dir reopens."
+  [log-path]
+  (->> (slurp log-path)
+       (re-seq #"Location: (.+)")
+       (last)
+       (second)))
+
 (def reasoner
   "The custom reasoner inferring many triples present in the complete dataset.
 
@@ -383,27 +363,104 @@
        :model      model
        :graph      graph})))
 
-(h/defn ->dannet
-  "Create a Jena database from the latest DanNet export.
+(defn prepare-input-dir!
+  "Check that `input-dir` holds the datasets of release/from, or refetch them
+  when `refetch?`, then reload the indegree cache they include."
+  [input-dir refetch?]
+  (downloads/assert-input-dir! input-dir release/from)
+  (if refetch?
+    (downloads/refetch-datasets! input-dir release/from)
+    (downloads/assert-datasets-present! input-dir))
+  ;; The indegree cache can arrive with the fetch above, i.e. after this
+  ;; namespace was loaded, so the delay is re-derived here.
+  (q/reload-synset-indegrees!))
 
-    :input-dir         - Previous DanNet version TTL export as a File directory.
-    :db-type           - :tdb2, :in-mem, and :in-mem-txn are supported
-    :db-path           - Where to persist the TDB2 data.
-    :schema-uris       - A collection of URIs containing schemas."
+(defn assert-expected-dannet-release!
+  "Assert that the DanNet `model` is the expected release to bootstrap from.
+
+  On mismatch, reports the version actually found so it's diagnosable: the
+  dataset-level <dn> owl:versionInfo is authoritative, but older releases carry
+  no such triple, so we fall back to a sample of any versionInfo values present."
+  [model]
+  (let [graph    (.getGraph ^Model model)
+        expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
+    (when (empty? expected)
+      (let [dn-vers (->> (q/triples graph [md/<dn> :owl/versionInfo '_])
+                         (map #(str (get % '?o)))
+                         (distinct)
+                         (vec))
+            actual  (if (seq dn-vers)
+                      dn-vers
+                      (->> (q/triples graph ['_ :owl/versionInfo '_])
+                           (map #(str (get % '?o)))
+                           (distinct)
+                           (take 5)
+                           (vec)))]
+        (t/log! {:level :error
+                 :id    :dannet.bootstrap/unexpected-release
+                 :data  {:expected release/from
+                         :actual   actual}}
+                "Bootstrap files are not the expected release")
+        (throw (ex-info (str "bootstrap files not the expected release. Expected "
+                             (pr-str release/from) ", found "
+                             (if (seq actual) (pr-str actual) "no owl:versionInfo")
+                             ". Restart with refetch (--refetch, or restart-refetch "
+                             "in the REPL) to download the expected release.")
+                        {:expected release/from
+                         :actual   actual}))))))
+
+(h/defn import-release-zips!
+  "Import the release zips in `input-dir` into their graphs in `dataset`,
+  replacing the dataset metadata of each with what `metadata` holds for its
+  prefix.
+
+  The DanNet graph is checked by assert-expected-dannet-release! before it is
+  added to `dataset`."
+  [dataset input-dir metadata]
+  (let [zip-file? (comp #(str/ends-with? % ".zip") #(.getName %))
+        ttl-file? (comp #(str/ends-with? % ".ttl") #(.getName %))]
+    (doseq [zip-file (filter zip-file? (file-seq input-dir))]
+      ;; unzip writes to (str output-parent (.getName entry)) with no
+      ;; separator, so output-parent must be a dir path ending in "/";
+      ;; otherwise entries get the zip's own path prepended (e.g.
+      ;; "oewn-extension.zipoewn-extension.ttl").
+      (zip/unzip zip-file (str (.getParent ^File zip-file) "/"))
+      ;; Each zip holds one .ttl (beside LICENSE and README.txt) that is deleted
+      ;; after import, so the only .ttl in input-dir is the one just unzipped.
+      (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
+            model-uri (prefix/zip-file->uri (.getName zip-file))
+            prefix    (prefix/uri->prefix model-uri)
+            update!   (when prefix
+                        (partial md/update-metadata! (metadata prefix)))
+            ;; Special behaviour to check bootstrap files version
+            changefn  (if (= prefix 'dn)
+                        (fn [model]
+                          (t/log! {:level :debug
+                                   :id    :dannet.bootstrap/version-check
+                                   :data  {:model (str model-uri)}}
+                                  "Checking bootstrap version")
+                          (assert-expected-dannet-release! model)
+                          (update! model))
+                        update!)]
+        (db/import-files dataset model-uri [ttl-file] changefn)
+        (zip/delete-file ttl-file)))))
+
+(h/defn ->dannet
+  "Create the DanNet db map from the release files in `input-dir`, reusing a
+  completed build with the same db-name.
+
+    :input-dir   - the release/from bootstrap dir as a File; when absent, the
+                   database of the last build in the log is reopened
+    :db-type     - :tdb2, :in-mem or :in-mem-txn; defaults to :in-mem
+    :db-path     - where to persist the TDB2 data and the build log
+    :schema-uris - the schemas behind the inference model
+    :refetch?    - first wipe and re-download the release files in input-dir"
   [& {:keys [^File input-dir db-path db-type schema-uris refetch?]
       :or   {db-type :in-mem} :as opts}]
   (let [log-path (str db-path "/log.txt")]
     (if input-dir
-      ;; Either refetch or assert the datasets are already present. Neither
-      ;; downloads silently on a normal start; both run for side effects before
-      ;; the file-seq below, which expects the inputs on disk.
-      (let [_              (downloads/assert-input-dir! input-dir release/from)
-            _              (if refetch?
-                             (downloads/refetch-datasets! input-dir release/from)
-                             (downloads/assert-datasets-present! input-dir))
-            ;; The indegree cache can arrive with the fetch above, i.e. after
-            ;; this namespace was loaded, so the delay is re-derived here.
-            _              (q/reload-synset-indegrees!)
+      ;; Prepared first, since the file-seq below expects the inputs on disk.
+      (let [_              (prepare-input-dir! input-dir refetch?)
             files          (->> (file-seq input-dir)
                                 (filter #(re-find #"\.zip$" (.getName ^File %))))
             fn-hashes      [(:hash (meta #'add-open-english-wordnet!))
@@ -425,34 +482,20 @@
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))
                             (:hash (meta #'->dannet))
+                            (:hash (meta #'import-release-zips!))
                             (hash prefix/schemas)
-                            ;; The emitted version is baked into the dataset
-                            ;; metadata but isn't captured by any hashed form
-                            ;; above (those hash source, not values), so include
-                            ;; it explicitly -- otherwise cutting a release
-                            ;; (:to bumped away from :from) wouldn't change
-                            ;; db-name and the stale database would be reused.
+                            ;; The hashes above cover code, not the values it
+                            ;; reads, so a version bump also renames the db.
                             release/to
-                            ;; The OEWN edition is likewise only a value: its
-                            ;; ttl isn't among the hashed input zips, so it is
-                            ;; included explicitly; otherwise bumping the
-                            ;; edition wouldn't trigger a rebuild. The same
-                            ;; goes for the PreMOn release behind the framenet
-                            ;; graph.
-                            downloads/oewn-version
+                            release/oewn-version
                             release/premon-version
-                            ;; The COR editions likewise: they only figure as
-                            ;; values, in the dc:hasVersion dataset metadata.
                             release/cor-version
                             release/cor-ext-version
                             release/cor-sem-version]
-            ;; Undo potentially negative number by bit-shifting.
             files-hash     (h/pos-hash files)
             bootstrap-hash (h/pos-hash fn-hashes)
             db-name        (str files-hash "-" bootstrap-hash)
             full-db-path   (str db-path "/" db-name)
-            zip-file?      (comp #(str/ends-with? % ".zip") #(.getName %))
-            ttl-file?      (comp #(str/ends-with? % ".ttl") #(.getName %))
             ;; Written as the final build step below; a directory without it
             ;; is a partial build (e.g. an exception mid-build) and is rebuilt.
             build-complete (io/file full-db-path "build-complete.txt")
@@ -483,29 +526,7 @@
                        :id    :dannet.bootstrap/build-started
                        :data  {:db-name db-name :input (.getName input-dir)}}
                       "Building new database")
-              (doseq [zip-file (filter zip-file? (file-seq input-dir))]
-                ;; unzip writes to (str output-parent (.getName entry)) with no
-                ;; separator, so output-parent must be a dir path ending in "/";
-                ;; otherwise entries get the zip's own path prepended (e.g.
-                ;; "oewn-extension.zipoewn-extension.ttl").
-                (zip/unzip zip-file (str (.getParent ^File zip-file) "/"))
-                (let [ttl-file  (first (filter ttl-file? (file-seq input-dir)))
-                      model-uri (prefix/zip-file->uri (.getName zip-file))
-                      prefix    (prefix/uri->prefix model-uri)
-                      update!   (when prefix
-                                  (partial md/update-metadata! (metadata' prefix)))
-                      ;; Special behaviour to check bootstrap files version
-                      changefn  (if (= prefix 'dn)
-                                  (fn [model]
-                                    (t/log! {:level :debug
-                                             :id    :dannet.bootstrap/version-check
-                                             :data  {:model (str model-uri)}}
-                                            "Checking bootstrap version")
-                                    (assert-expected-dannet-release! model)
-                                    (update! model))
-                                  update!)]
-                  (db/import-files dataset model-uri [ttl-file] changefn)
-                  (zip/delete-file ttl-file)))
+              (import-release-zips! dataset input-dir metadata')
 
               ;; The English is always explicitly added as it is not part of our
               ;; own latest export (only the DanNet-like labels we produce are).
@@ -513,15 +534,11 @@
               ;; need the OEWN graph for lookups.
               (add-open-english-wordnet! dataset)
 
-              ;; The FrameNet frame inventory likewise arrives by download
-              ;; rather than as part of our own export; the dns:frame links
-              ;; added by the release changes below resolve against it.
+              ;; The FrameNet frame inventory likewise arrives by download rather
+              ;; than as part of our own export; add-in-scheme! in the release
+              ;; changes marks it.
               (add-framenet! dataset)
 
-              ;; Effectuate changes for the current release.
-              ;; These are always tied to the current release and depend on the
-              ;; former release, i.e. the contents of this function is versioned
-              ;; together with every single formal release.
               (make-release-changes! dataset)
 
               ;; Runs after the release changes so that the dataset
@@ -537,10 +554,7 @@
               (when (.isDirectory (io/file full-db-path))
                 (spit build-complete new-entry))
               (dataset->db dataset schema-uris)))))
-      (let [db-name      (->> (slurp log-path)
-                              (re-seq #"Location: (.+)")
-                              (last)
-                              (second))
+      (let [db-name      (logged-db-name log-path)
             full-db-path (str db-path "/" db-name)
             dataset      (->dataset db-type full-db-path)]
         (t/log! {:level :warn :id :dannet.bootstrap/no-input-dir}

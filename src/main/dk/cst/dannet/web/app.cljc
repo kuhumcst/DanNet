@@ -71,6 +71,8 @@
   the top."
   [url & [{:keys [replace? keep-scroll?]}]]
   #?(:cljs (if (not-empty url)
+             ;; Not rfe/push-state, which always sets a nil history state: with
+             ;; keep-scroll?, the new entry carries the current scroll position.
              (let [history @rfe/history
                    href    (rfh/-href history url)
                    state   (when keep-scroll? (scroll-state))]
@@ -148,7 +150,11 @@
      ;; Currently lambdaisland/fetch silently loses query strings, so they are
      ;; parsed back out of the URL below to keep them intact.
      (defn fetch!
-       "Request the resource at `url`, returning the response body."
+       "Request the resource at `url` with the lambdaisland.fetch `opts`,
+       returning a promise of the response map.
+
+       The promise resolves to nil when a newer fetch of `url` or a navigation
+       aborts it. Callers clear the fetch with `clear-current-fetch` once done."
        [url & [{:keys [query-params method] :or {method :get} :as opts}]]
 
        (abort-current-fetch url)

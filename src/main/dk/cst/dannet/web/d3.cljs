@@ -1,5 +1,7 @@
 (ns dk.cst.dannet.web.d3
-  "D3-related functions for visualisation support; frontend only!"
+  "Draws the word cloud, the radial relation diagram and the zoomable sunbursts
+  with D3, in that order. The data for the first two comes from web.diagram;
+  the sunburst trees come with the page data. Frontend only!"
   (:require [clojure.math :as math]
             [clojure.string :as str]
             [dk.cst.dannet.shared :as shared]
@@ -28,18 +30,6 @@
     (- (.-clientWidth node)
        (js/parseFloat (.-paddingLeft style))
        (js/parseFloat (.-paddingRight style)))))
-
-;; TODO: fix, doesn't seem to add extra width to text when used
-(defn- append-subscript-tspan
-  "Append a subscript tspan element to D3 `text` selection."
-  [text]
-  (-> text
-      (.append "tspan")
-      (.attr "class" "sense-paragraph")
-      (.attr "dy" "4px")
-      (.text (fn [d]
-               (.-sub d))))
-  text)
 
 (defn- build-once!
   "Run `build!` to draw a diagram in `elem`, unless the last drawing there was
@@ -105,8 +95,8 @@
                      (.on "click" (fn [_ d]
                                     (on-navigate (.-href d))))
 
-                     ;; Insert subscript paragraph, returning parent text
-                     #_(append-subscript-tspan)
+                     ;; TODO: show the sense subscript (.-sub d) in a tspan; an
+                     ;;       attempt here didn't add its width to the text.
 
                      ;; Adding mouseover text (in lieu of a title attribute)
                      (.append "title")
@@ -217,11 +207,11 @@
   This adjusts the tilt of the vertically pointing nodes to be more horizontal."
   [d tilt-factor]
   (if (< (.-x d) js/Math.PI)
-    ;; Top half: rotate proportional to distance from π/2
+    ;; Right half: rotate proportional to distance from π/2
     (* (- (* js/Math.PI 0.5)
           (.-x d))
        tilt-factor)
-    ;; Bottom half: rotate proportional to distance from 3π/2
+    ;; Left half: rotate proportional to distance from 3π/2
     (* (- (* js/Math.PI 1.5)
           (.-x d))
        tilt-factor)))
@@ -257,29 +247,6 @@
                           " L 0," (/ base 2)                ; Draw to top of base
                           " Z"))))))
 
-(defn- wrap-at-bullets
-  "Wrap a bullet-separated string into lines that fit within max-width.
-  
-  Uses glyph-width estimation to determine line breaks. If an individual
-  segment exceeds max-width, it will be placed on its own line (no truncation).
-  Returns a vector of line strings."
-  [s max-width font-scale]
-  (let [segments (str/split s #"\s*•\s*")
-        sep      " • "]
-    (reduce
-      (fn [lines segment]
-        (let [current   (peek lines)
-              candidate (if (str/blank? current)
-                          segment
-                          (str current sep segment))
-              width     (* (diagram/glyph-width candidate) font-scale)]
-          (if (or (str/blank? current)
-                  (<= width max-width))
-            (conj (pop lines) candidate)
-            (conj lines segment))))
-      [""]
-      segments)))
-
 (defn- render-subject-labels-horizontal
   "Render subject labels in upper half, definition in lower half.
   
@@ -290,12 +257,8 @@
         pos-label     (.-pos data)
         label-parts   (->> (str/split (.-name data) #",\s*")
                            (remove str/blank?))
-
-        ;; Circle geometry: viewBox is 800x800, radius ≈ 300
-        ;; Background gradient has radius 0.75 * main radius
-        bg-radius     225
-        font-size     18
-        line-height   48
+        line-height   diagram/subject-label-line-height
+        bottom-y      diagram/subject-label-bottom-y
 
         ;; Sort by width, then distribute longest-first from bottom up
         segments      (->> (str/split (str/join " • " label-parts) #"\s*•\s*")
@@ -304,60 +267,13 @@
         ;; Reduce font size when many long labels exceed threshold
         total-width   (reduce + (map diagram/glyph-width segments))
         small-font?   (> total-width 60)
-
-        ;; Calculate max width for a line at given y-position using circle equation
-        width-at-y    (fn [y]
-                        (let [y-abs     (js/Math.abs y)
-                              r-squared (* bg-radius bg-radius)
-                              y-squared (* y-abs y-abs)]
-                          (if (>= y-abs bg-radius)
-                            0
-                            (* 2 (js/Math.sqrt (- r-squared y-squared))))))
-
-        bottom-y      -5
-        max-lines     5
-
-        ;; Distribute segments across lines respecting circular bounds
-        wrapped-lines (loop [remaining (reverse segments)
-                             lines     []
-                             line-idx  0]
-                        (if (or (empty? remaining) (>= line-idx max-lines))
-                          lines
-                          (let [y-pos     (- bottom-y (* line-idx line-height))
-                                max-width (* (width-at-y y-pos) 0.85)
-                                current   (atom "")
-                                used      (atom 0)]
-                            (doseq [seg remaining]
-                              (let [candidate (if (str/blank? @current)
-                                                seg
-                                                (str @current " • " seg))
-                                    width     (* (diagram/glyph-width candidate) font-size)]
-                                (when (<= width max-width)
-                                  (reset! current candidate)
-                                  (swap! used inc))))
-                            (if (zero? @used)
-                              (recur (rest remaining)
-                                     (conj lines (first remaining))
-                                     (inc line-idx))
-                              (recur (drop @used remaining)
-                                     (conj lines @current)
-                                     (inc line-idx))))))
-
+        wrapped-lines (diagram/subject-label-lines segments)
         n-lines       (count wrapped-lines)
 
         ;; Definition positioning and wrapping
         def-height    24
         def-start-y   40
-        max-def-chars 35
-        def-lines     (when definition
-                        (reduce
-                          (fn [lines word]
-                            (let [current (peek lines)]
-                              (if (> (+ (count current) 1 (count word)) max-def-chars)
-                                (conj lines word)
-                                (conj (pop lines) (str current " " word)))))
-                          [(first (str/split definition #"\s+"))]
-                          (rest (str/split definition #"\s+"))))]
+        def-lines     (diagram/definition-lines definition)]
 
     ;; Render label lines from bottom up
     (doseq [[idx line] (map-indexed vector wrapped-lines)]
@@ -414,11 +330,11 @@
   calls `on-navigate` with its href. Handles complex label rotation,
   multi-line subject labels, and subscript rendering."
   [svg root on-navigate]
-  (let [add-title (fn [d3]
-                    (-> d3
+  (let [add-title (fn [sel]
+                    (-> sel
                         (.append "title")
                         (.text (fn [d] (.-title (.-data d)))))
-                    d3)]
+                    sel)]
     (-> svg
         (.append "g")
         (.attr "class" "radial-tree-labels")
@@ -453,8 +369,8 @@
                                     "rotate(" (if (>= (.-x d) js/Math.PI) 180 0) ") "
 
                                     ;; Stage 4: Subtle tilt adjustment for better legibility
-                                    ;; - Vertical labels (x near π/2 or 3π/2): rotate more
-                                    ;; - Horizontal labels (x near 0 or π): no rotation
+                                    ;; - Vertical labels (x near 0 or π, top and bottom): rotate most
+                                    ;; - Horizontal labels (x near π/2 or 3π/2, the sides): no rotation
                                     ;; - Factor of 20 controls maximum tilt angle (~31.5°)
                                     ;; This makes diagonal labels easier to read by reducing
                                     ;; extreme perpendicular angles
@@ -508,23 +424,55 @@
                    (.-sub (.-data d))))))))
 
 (defn ->localised-labeler
+  "A fn from a resource `k` to its label in the `languages` of `opts`."
   [{:keys [languages k->label] :as opts}]
   (fn [k]
     (some->> (k->label k)
              (i18n/select-label languages))))
+
+(defn render-subject-background
+  "Draw the background of the subject label in `svg`: a white radial gradient
+  out to 0.75 × `radius`, nearly reaching the nodes."
+  [svg radius]
+  (create-radial-gradient svg)
+  (-> svg
+      (.append "circle")
+      (.attr "class" "subject-background")
+      (.attr "cx" 0)
+      (.attr "cy" 0)
+      (.attr "r" (* radius 0.75))
+      (.attr "fill" "url(#subjectBackground)")))
+
+(defn render-full-screen-target
+  "Draw a transparent circle of `radius` in `svg` that toggles full-screen
+  mode, using the state, languages and callback in `opts`."
+  [svg radius {:keys [languages full-screen on-toggle-full-screen]}]
+  (-> svg
+      (.append "circle")
+      (.attr "class" "toggle-full-screen")
+      (.attr "cx" 0)
+      (.attr "cy" 0)
+      (.attr "r" radius)
+      (.attr "fill" "transparent")
+      (.style "cursor" (if full-screen "zoom-out" "zoom-in"))
+      (.on "click" (fn [_] (on-toggle-full-screen)))
+      (.append "title")
+      (.text (if full-screen
+               (i18n/da-en languages "Minimér" "Minimize")
+               (i18n/da-en languages "Maksimér" "Maximize")))))
 
 ;; TODO: apply response resizing of various elements in CSS, e.g. label sizes
 ;;       or padding, and possibly radial radius too
 ;; TODO: use existing theme colours, but vary strokes and final symbols
 ;; Based on https://observablehq.com/@d3/radial-tree/2
 (defn- build-radial!*
-  "Build and render a radial tree diagram in `elem` from `entity`.
+  "Build and render in `elem` a radial tree diagram of the relations in
+  `subentity`.
 
   Orchestrates the complete radial tree visualization: prepares data,
   creates SVG container, and renders links, nodes, and labels with
   optimized positioning and rotation."
-  [subentity elem {:keys [subject languages entity on-navigate
-                          on-toggle-full-screen] :as opts}]
+  [subentity elem {:keys [subject languages entity on-navigate] :as opts}]
   (when elem
     ;; Clear old contents first to prevent duplicate SVGs accumulating in DOM.
     ;; The figure's caption stays.
@@ -534,8 +482,8 @@
           height    800
 
           ;; Prepare hierarchical data structure
-          k->label' (->localised-labeler opts)
-          data      (clj->js (diagram/radial-tree subject subentity entity k->label' languages))
+          label-of  (->localised-labeler opts)
+          data      (clj->js (diagram/radial-tree subject subentity entity label-of languages))
 
           ;; Center coordinates: placing tree center at (0.5, 0.5) of viewBox
           ;; allows equal radius in all directions regardless of aspect ratio
@@ -567,43 +515,18 @@
                         (str "Relationsdiagram for " (.-name data))
                         (str "Relations diagram for " (.-name data))))]
 
-      ;; Add gradient definition
-      (create-radial-gradient svg)
-
       ;; Render all visual elements in layering order
       (render-radial-links svg root)
 
-      ;; Add radial gradient background to fade out the line congestion in center
-      ;; Positioned after links but before nodes/labels for proper layering
-      ;; 75% of diagram radius - nearly to the nodes but not covering labels
-      (let [bg-radius (* radius 0.75)]
-        (-> svg
-            (.append "circle")
-            (.attr "class" "subject-background")
-            (.attr "cx" 0)
-            (.attr "cy" 0)
-            (.attr "r" bg-radius)
-            (.attr "fill" "url(#subjectBackground)")))
+      ;; Drawn after the links and before the nodes, so it fades the link
+      ;; congestion in the centre.
+      (render-subject-background svg radius)
 
       (render-radial-nodes svg root radius)
       (render-radial-labels svg root on-navigate)
 
-      ;; Transparent clickable circle for toggling full-screen mode.
-      ;; Positioned last so it's on top, extending to where the nodes are.
-      (let [languages (:languages opts)]
-        (-> svg
-            (.append "circle")
-            (.attr "class" "toggle-full-screen")
-            (.attr "cx" 0)
-            (.attr "cy" 0)
-            (.attr "r" radius)
-            (.attr "fill" "transparent")
-            (.style "cursor" (if (:full-screen opts) "zoom-out" "zoom-in"))
-            (.on "click" (fn [_] (on-toggle-full-screen)))
-            (.append "title")
-            (.text (if (:full-screen opts)
-                     (i18n/da-en languages "Minimér" "Minimize")
-                     (i18n/da-en languages "Maksimér" "Maximize")))))
+      ;; Last, so that it lies on top of everything, out to the nodes.
+      (render-full-screen-target svg radius opts)
 
       (.node svg))))
 
@@ -616,8 +539,7 @@
                #(build-radial!* subentity elem opts)))
 
 (def sunburst-palette
-  "Per-branch hues, reusing the shared diagram theme colours. Lightness is
-  normalised per arc in `build-sunburst!*`, so only the hue/saturation matter."
+  "Per-branch fills for the sunburst arcs: the shared diagram theme colours."
   (vec shared/theme))
 
 (defn- redistribute-x!
@@ -693,7 +615,8 @@
   24)
 
 (defn- arc-visible?
-  "Whether arc `d` falls within the three rings drawn around the focus."
+  "Whether arc `d` falls in the two rings drawn around the centre, which shows
+  the focus."
   [d]
   (and (<= (.-y1 d) 3) (>= (.-y0 d) 1) (> (.-x1 d) (.-x0 d))))
 
@@ -830,9 +753,69 @@
       (.attr "transform" (fn [d] (label-transform (.-current d))))
       (.text (fn [d] (label-fit d)))))
 
+(defn- centre-parts
+  "The senses of `entity`'s short label in `languages`, shown in the centre at
+  the root, without subscripts, repeats or the omission marker."
+  [entity languages]
+  (->> (i18n/select-label languages (:dns/shortLabel entity))
+       (shared/sense-labels shared/synset-sep)
+       (map diagram/remove-subscript)
+       (remove #{shared/omitted})
+       (distinct)
+       (vec)))
+
+(defn- sunburst-root
+  "Lay out `tree` as a D3 partition with one ring per depth, each node's
+  `current` set to its own coords."
+  [tree]
+  (let [data      (clj->js tree)
+        hierarchy (-> (.hierarchy d3 data)
+                      (.sum (fn [d] (if (.-children d) 0 1)))
+                      ;; Orthogonal-only hyponyms sort after regular ones,
+                      ;; matching the server-side ranking.
+                      (.sort (fn [a b]
+                               (let [ao (boolean (.-orthogonal ^js (.-data a)))
+                                     bo (boolean (.-orthogonal ^js (.-data b)))]
+                                 (if (not= ao bo)
+                                   (if ao 1 -1)
+                                   (- (.-value b) (.-value a)))))))
+        height    (.-height hierarchy)
+        root      ((-> (.partition d3)
+                       (.size #js [(* 2 math/PI) (inc height)]))
+                   hierarchy)]
+    ;; Soften slice sizes so a dominant branch leaves room for siblings.
+    (redistribute-x! root 0.5)
+    ;; Each node is drawn from its `current` coords; a zoom sets `target` and
+    ;; tweens `current` towards it.
+    (.each root (fn [d] (set! (.-current d) d)))
+    root))
+
+(defn- focus-coords
+  "Arc `d`'s partition coords when `p` is the focus: `p`'s angular span
+  stretched to the full circle and its ring moved to the centre."
+  [p d]
+  (let [tau (* 2 math/PI)]
+    #js {:x0 (* (max 0 (min 1 (/ (- (.-x0 d) (.-x0 p))
+                                 (- (.-x1 p) (.-x0 p))))) tau)
+         :x1 (* (max 0 (min 1 (/ (- (.-x1 d) (.-x0 p))
+                                 (- (.-x1 p) (.-x0 p))))) tau)
+         :y0 (max 0 (- (.-y0 d) (.-depth p)))
+         :y1 (max 0 (- (.-y1 d) (.-depth p)))}))
+
+(defn- centre-font-px
+  "The font size that fits the widest of `parts` in the centre, from 16 up to
+  `sunburst-centre-px`."
+  [parts]
+  ;; Size to the widest single sense so each stacked line stays legible rather
+  ;; than shrinking to fit them inline.
+  (let [budget (* 2 sunburst-radius 0.9)
+        maxw   (apply max 1 (map diagram/glyph-width parts))]
+    (max 16 (min sunburst-centre-px (math/floor (/ budget maxw))))))
+
 (defn- build-sunburst!*
-  "Build and render a zoomable hyponym sunburst in `elem` from prepared `tree`
-  data ({:name :href :children}, labels already localised).
+  "Build and render in `elem` the zoomable hyponym, ortho-hyponym or meronym
+  sunburst of the prepared `tree` data ({:name :href :children}, labels
+  already localised).
 
   Arc area is proportional to a softened leaf count; click any wedge (or focus
   it and press Enter/Space) to focus it (zoom). The centre acts like the radial's
@@ -846,35 +829,11 @@
     (when-let [existing (.querySelector elem "svg")]
       (.remove existing))
     (let [tau           (* 2 math/PI)
-          data          (clj->js tree)
-          ;; Centre shows the synset's curated short label(s) (dns:shortLabel):
-          ;; the listed senses minus the "…" marker, joined by the middle dot.
-          subject-parts (->> (i18n/select-label languages (:dns/shortLabel entity))
-                             (shared/sense-labels shared/synset-sep)
-                             (map diagram/remove-subscript)
-                             (remove #{shared/omitted})
-                             (distinct)
-                             (vec))
+          subject-parts (centre-parts entity languages)
           aria-label    (i18n/da-en languages
                           (str "Hyponym-soldiagram for " (str/join " · " subject-parts))
                           (str "Hyponym sunburst for " (str/join " · " subject-parts)))
-          hierarchy     (-> (.hierarchy d3 data)
-                            (.sum (fn [d] (if (.-children d) 0 1)))
-                            ;; Orthogonal-only hyponyms sort after regular ones,
-                            ;; matching the server-side ranking.
-                            (.sort (fn [a b]
-                                     (let [ao (boolean (.-orthogonal ^js (.-data a)))
-                                           bo (boolean (.-orthogonal ^js (.-data b)))]
-                                       (if (not= ao bo)
-                                         (if ao 1 -1)
-                                         (- (.-value b) (.-value a)))))))
-          height        (.-height hierarchy)
-          root          ((-> (.partition d3)
-                             (.size #js [tau (inc height)]))
-                         hierarchy)
-          ;; Soften slice sizes so a dominant branch leaves room for siblings.
-          _             (redistribute-x! root 0.5)
-          _             (.each root (fn [d] (set! (.-current d) d)))
+          root          (sunburst-root tree)
           ;; Reduced motion → instant transitions (the zoom is JS-driven, so CSS
           ;; prefers-reduced-motion can't reach it).
           zoom-ms       (if (reduced-motion?) 0 600)
@@ -928,26 +887,20 @@
                 ;; Root → its short-label senses stacked with a faded dot between
                 ;; them; deeper → the focused node's own name, prefixed with the
                 ;; grey link arrow (the centre navigates there).
-                (let [parts  (if (and (identical? p root) (seq subject-parts))
-                               subject-parts
-                               [(str (.. p -data -name))])
-                      link?  (not (identical? p root))
-                      budget (* 2 sunburst-radius 0.9)
-                      ;; Size to the widest single sense so each stacked line
-                      ;; stays legible rather than shrinking to fit them inline.
-                      maxw   (apply max 1 (map diagram/glyph-width parts))
-                      fit    (max 16 (min sunburst-centre-px (math/floor (/ budget maxw))))]
-                  (.style centre-label "font-size" (str fit "px"))
+                (let [parts (if (and (identical? p root) (seq subject-parts))
+                              subject-parts
+                              [(str (.. p -data -name))])
+                      link? (not (identical? p root))]
+                  (.style centre-label "font-size" (str (centre-font-px parts) "px"))
                   (render-centre-labels! centre-label parts link?)))
               (update-nav! [p]
                 ;; Publish root → focus breadcrumb for the legend column.
                 (reset! nav
-                        (vec (map-indexed
-                               (fn [_ n]
-                                 {:name     (.. n -data -name)
-                                  :last?    (identical? n p)
-                                  :on-click (fn [_] (zoom-to n))})
-                               (reverse (.ancestors p))))))
+                        (mapv (fn [n]
+                                {:name     (.. n -data -name)
+                                 :last?    (identical? n p)
+                                 :on-click (fn [_] (zoom-to n))})
+                              (reverse (.ancestors p)))))
               (zoom-to [p]
                 (reset! focus p)
                 ;; Snap arc colours to the new focus (tweening hues would go muddy).
@@ -960,15 +913,7 @@
                 (-> empty-ring (.transition) (.duration fade-ms)
                     (.attr "fill-opacity" (if (.-children p) 0 1)))
                 (update-nav! p)
-                (.each root
-                       (fn [d]
-                         (set! (.-target d)
-                               #js {:x0 (* (max 0 (min 1 (/ (- (.-x0 d) (.-x0 p))
-                                                            (- (.-x1 p) (.-x0 p))))) tau)
-                                    :x1 (* (max 0 (min 1 (/ (- (.-x1 d) (.-x0 p))
-                                                            (- (.-x1 p) (.-x0 p))))) tau)
-                                    :y0 (max 0 (- (.-y0 d) (.-depth p)))
-                                    :y1 (max 0 (- (.-y1 d) (.-depth p)))})))
+                (.each root (fn [d] (set! (.-target d) (focus-coords p d))))
                 (let [t (-> svg (.transition) (.duration zoom-ms))]
                   (-> path
                       (.transition t)
@@ -1025,9 +970,9 @@
       (.node svg))))
 
 (defn build-sunburst!
-  "Render the hyponym sunburst for `tree` into the ref'd `elem`, publishing its
-  zoom breadcrumb to the `nav` atom (owned by the parent component, so the legend
-  column can react to it).
+  "Render the hyponym, ortho-hyponym or meronym sunburst for `tree` into the
+  ref'd `elem`, publishing its zoom breadcrumb to the `nav` atom (owned by the
+  parent component, so the legend column can react to it).
 
   It is drawn again only when the `tree`, the languages or full-screen mode
   change, since drawing it again discards the user's zoom. The SVG scales with

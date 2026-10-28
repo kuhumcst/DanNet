@@ -52,7 +52,8 @@
 
 ;; TODO: replace with fnil in all places where update is used anyway
 (defn set-merge
-  "Helper function for merge-with in 'entity-label-mapping'."
+  "Merge the values `v1` and `v2`, collecting distinct values in a set; used
+  with merge-with over query results."
   [v1 v2]
   (cond
     (nil? v1)
@@ -66,8 +67,6 @@
 
     :else
     #{v1 v2}))
-
-(declare entity)
 
 (defn- basic-entity
   "Get entity from `entity-query-result`."
@@ -94,9 +93,8 @@
     (basic-entity (remove in-raw? result))))
 
 (defn entity
-  "Return the entity description of `subject` in Graph `g`.
-  
-  For inference graphs, includes metadata with inferred vs. raw triples."
+  "Return the entity description of `subject` in `g`: a map of predicate to
+  object, or to a set of objects, with the subject as metadata."
   [g subject]
   (if-let [result (not-empty (triples g [subject '_ '_]))]
     (with-meta (basic-entity result) {:subject subject})
@@ -122,6 +120,8 @@
 (defn attach-blank-nodes
   "Replace blank node symbols in `entity` of `subject` in `g` with entity maps."
   [g subject entity]
+  ;; prewalk visits each [predicate object] entry before the blank nodes inside
+  ;; it, so the volatile holds the predicate of the symbol being visited.
   (let [predicate (volatile! nil)]
     (walk/prewalk
       (fn [x]
@@ -306,6 +306,8 @@
                     [(str ?label) c])))
           label-rows)))
 
+;; hypernym-ancestry* recurses through the cached hypernym-ancestry, so an
+;; ancestor chain shared by many synsets is built once.
 (declare hypernym-ancestry)
 
 (defn hypernym-ancestry*
@@ -339,10 +341,36 @@
   (1000 entries) since ancestry chains are shared across many synsets."
   (memo/lru hypernym-ancestry* :lru/threshold 1000))
 
+;; COR.SEM senses can be coarser than DanNet's, and the frames were assigned at
+;; COR.SEM's granularity: a sense spanning several synsets may well carry one
+;; frame per facet, so distributing several frames over several synsets would
+;; fabricate attributions no annotator made (e.g. the efterlade sense pairing
+;; Abandonment with "leave behind at one's death" but linking the "bequeath"
+;; synset too).
+;; TODO: consider asserting these derived links in the cor-sem graph instead,
+;;       so they also reach SPARQL and the downloads.
+(defn synset-frames
+  "The FrameNet frames that the COR.SEM `cor-senses` of `subject` in `g`
+  contribute to that synset, or nil.
+
+  A sense contributes its frames only when nothing needs distributing: it
+  links just this synset, or it carries just one frame, which describes its
+  whole meaning and so holds for every synset it spans."
+  [g subject cor-senses]
+  (->> cor-senses
+       (mapcat (fn [sense]
+                 (let [{:dns/keys [linkedSynset frame]} (entity g sense)
+                       frames' (shared/setify frame)]
+                   (when (or (= 1 (count frames'))
+                             (= #{subject} (shared/setify linkedSynset)))
+                     frames'))))
+       (set)
+       (not-empty)))
+
 (defn supplement-synset
   "Supplement `synset` for `subject` in `g` with examples and DDO source links
   gathered from its senses, the English definition of its ILI concept, and the
-  FrameNet frames of the COR.SEM senses linking only this synset.
+  FrameNet frames of its COR.SEM senses (see synset-frames).
   Returns synset with metadata updated with `:supplemented`, `:ancestry`, and
   additional `:entities` labels."
   [g synset subject]
@@ -358,26 +386,7 @@
                          (into #{}
                                (remove cor-senses)
                                (shared/setify (:ontolex/lexicalizedSense synset)))))
-        ;; COR.SEM senses can be coarser than DanNet's, and the frames were
-        ;; assigned at COR.SEM's granularity: a sense spanning several synsets
-        ;; may well carry one frame per facet, so distributing several frames
-        ;; over several synsets would fabricate attributions no annotator made
-        ;; (e.g. the efterlade sense pairing Abandonment with "leave behind at
-        ;; one's death" but linking the "bequeath" synset too). Hence a sense
-        ;; contributes its frames only when nothing needs distributing: it
-        ;; links just this synset, or it carries just one frame, which
-        ;; describes its whole meaning and so holds for every synset it spans.
-        ;; TODO: consider asserting these derived links in the cor-sem graph
-        ;;       instead, so they also reach SPARQL and the downloads.
-        frames       (->> cor-senses
-                          (mapcat (fn [sense]
-                                    (let [{:dns/keys [linkedSynset frame]} (entity g sense)
-                                          frames' (shared/setify frame)]
-                                      (when (or (= 1 (count frames'))
-                                                (= #{subject} (shared/setify linkedSynset)))
-                                        frames'))))
-                          (set)
-                          (not-empty))
+        frames       (synset-frames g subject cor-senses)
         ili-def      (some->> (:wn/ili synset)
                               (entity g)
                               :skos/definition
@@ -509,6 +518,11 @@
 ;; both requests would hit the database for the same entity. The cache ensures
 ;; the deferred request completes in <1ms.
 (def expanded-entity
+  "The `entity` of `subject` in `g` for display: relations sorted by weight,
+  blank nodes attached, :entities labels (and :inferred) in its metadata.
+
+  DanNet synsets and words get supplemented, while COR words and DanNet senses
+  leave out the values they also assert under a dns: subproperty."
   (memo/lru expanded-entity* :lru/threshold 500))
 
 (defn table-query

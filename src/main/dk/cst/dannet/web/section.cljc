@@ -1,4 +1,6 @@
 (ns dk.cst.dannet.web.section
+  "The sections of an entity page and the properties each one shows, chosen
+  by the rdf:type of the entity."
   (:require #?(:clj [clojure.core.memoize :as memo])
             [dk.cst.theophrastus.term :refer [->LangStr]]
             [dk.cst.dannet.shared :as shared]))
@@ -35,7 +37,10 @@
         :default)
     type))
 
-(defmulti defined-sections shape-dispatch :hierarchy #'shape-hierarchy)
+(defmulti defined-sections
+  "The [id ks] sections of `entity`, where ks is a vector of properties or a
+  predicate of [k v] entries, and a nil id is the untitled top section."
+  shape-dispatch :hierarchy #'shape-hierarchy)
 
 (def titles
   "The titles of the page sections, by section id. The :patterns section is

@@ -40,6 +40,11 @@
   source file fetched from https://premon.fbk.eu/download.html."
   "2018a")
 
+(def oewn-version
+  "The Open English WordNet edition the OEWN graph is imported from; named in
+  the source file fetched from https://en-word.net/."
+  "2025")
+
 (def bootstrap-root
   "Parent of the version-named bootstrap directories."
   "bootstrap/from")

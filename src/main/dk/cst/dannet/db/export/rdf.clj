@@ -1,5 +1,6 @@
 (ns dk.cst.dannet.db.export.rdf
-  "Serialization of the graph data in various ways."
+  "Export of the RDF graphs as zipped Turtle files with licence and README.
+  The web responses also use `ttl-entity` to render a single entity as Turtle."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
@@ -135,7 +136,7 @@
     [tmp-dir [(.getPath lic) (.getPath rdm)]]))
 
 (defn export-rdf!
-  "Export the models of the RDF `dataset` into `dir`.
+  "Export the models in the :dataset of the `dannet` db into `dir`.
 
   By default, the complete model is not exported. In the case of a typical
   inference-heavy DanNet instance, this would simply be too slow. To include the
@@ -181,10 +182,6 @@
          (finally
            (delete-dir! tmp-dir))))
 
-     ;; The union of the input datasets.
-     #_(let [union-model (.getUnionModel dataset)]
-         (export-rdf-model! merged-ttl union-model))
-
      ;; The union of the input datasets and schemas + inferred triples.
      ;; This constitutes all data available in the DanNet web presence.
      (if complete
@@ -193,8 +190,8 @@
 
      (println "----")
      (println "RDF Export of DanNet complete!")))
-  ([^Dataset dataset]
-   (export-rdf! dataset "export/rdf/")))
+  ([dannet]
+   (export-rdf! dannet "export/rdf/")))
 
 (def donatello-prefixes-base
   (into {} (map (fn [[k v]]

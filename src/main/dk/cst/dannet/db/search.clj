@@ -6,6 +6,8 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]))
 
+;; The relations a search result shows the query values under; the synset
+;; itself is the result's dc:subject (see web.ui.search/result).
 (def sym->kw
   {'?synset     :dc/subject
    '?definition :skos/definition

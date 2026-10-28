@@ -6,7 +6,6 @@
   (:require [clojure.walk :as walk]
             [dk.cst.dannet.shared :as shared]
             [flatland.ordered.map :as fop]
-            [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.theophrastus.term :as term])
   (:import [dk.cst.theophrastus.term LangStr Literal]))
@@ -51,7 +50,7 @@
   (cond
     (instance? LangStr v)
     {"@value"    (str v)
-     "@language" (i18n/lang v)}
+     "@language" (term/lang v)}
 
     ;; Typed literals, e.g. an xsd:date or xsd:decimal
     (instance? Literal v)
@@ -153,7 +152,6 @@
                 :wn/hypernym #{:dn/synset-123}}
                {:subject :dn/synset-123}))
 
-  (entity->kws test-entity)
   (entity->prefixes test-entity)
   (entity->context test-entity)
   (json-ld-ify test-entity)

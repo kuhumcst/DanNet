@@ -1,4 +1,6 @@
 (ns dk.cst.dannet.web.ui.form
+  "Browser-side helpers for forms. A GET form submits by navigating within the
+  app instead of loading a new page."
   (:require [dk.cst.dannet.web.app :as app]
             #?(:cljs [lambdaisland.uri :as uri])))
 

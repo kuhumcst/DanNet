@@ -23,6 +23,7 @@
          (namespace x))
     (prefix/kw->uri x)
 
+    ;; A symbol stands for a JSON-LD keyword, e.g. 'context becomes "@context".
     (symbol? x)
     (str "@" x)
 
@@ -219,6 +220,12 @@
   (with-open [writer (io/writer f)]
     (csv/write-csv writer rows)))
 
+(defn export-table!
+  "Write the `rows` of `table` as CSV into `dir`, next to its CSVW `metadata`."
+  [dir table rows metadata]
+  (export-csv-rows! (str dir table ".csv") rows)
+  (export-metadata! (str dir table "-metadata.json") metadata))
+
 (defn- non-zip-files
   [dir-path]
   (let [dir-file (io/file dir-path)]
@@ -239,49 +246,34 @@
          senses-ks  '[?sense ?synset ?word ?note]
          zip-path   (str dir (prefix/export-file "csv" 'dn))]
      (println "Fetching table rows:" synsets-ks)
-     (export-csv-rows!
-       (str dir "synsets.csv")
-       (map csv-row (q/table-query g synsets-ks op/csv-synsets)))
-     (export-metadata!
-       (str dir "synsets-metadata.json")
-       synsets-metadata)
+     (export-table! dir "synsets"
+                    (map csv-row (q/table-query g synsets-ks op/csv-synsets))
+                    synsets-metadata)
 
      (println "Fetching table rows:" words-ks)
-     (export-csv-rows!
-       (str dir "words.csv")
-       (map csv-row (q/table-query g words-ks op/csv-words)))
-     (export-metadata!
-       (str dir "words-metadata.json")
-       words-metadata)
+     (export-table! dir "words"
+                    (map csv-row (q/table-query g words-ks op/csv-words))
+                    words-metadata)
 
      (println "Fetching table rows:" senses-ks)
-     (export-csv-rows!
-       (str dir "senses.csv")
-       (map csv-row (q/table-query g senses-ks op/csv-senses)))
-     (export-metadata!
-       (str dir "senses-metadata.json")
-       senses-metadata)
+     (export-table! dir "senses"
+                    (map csv-row (q/table-query g senses-ks op/csv-senses))
+                    senses-metadata)
 
      (println "Fetching inheritance data...")
-     (export-csv-rows!
-       (str dir "inheritance.csv")
-       (map (fn [{:syms [?synset ?rel ?from]}]
-              [(name ?synset)
-               (prefix/kw->uri ?rel)
-               (name ?from)])
-            (q/run g op/csv-inheritance)))
-     (export-metadata!
-       (str dir "inheritance-metadata.json")
-       inheritance-metadata)
+     (export-table! dir "inheritance"
+                    (map (fn [{:syms [?synset ?rel ?from]}]
+                           [(name ?synset)
+                            (prefix/kw->uri ?rel)
+                            (name ?from)])
+                         (q/run g op/csv-inheritance))
+                    inheritance-metadata)
 
      (println "Fetching example data...")
-     (export-csv-rows!
-       (str dir "examples.csv")
-       (map (comp csv-row (juxt '?sense '?example))
-            (q/run g op/csv-examples)))
-     (export-metadata!
-       (str dir "examples-metadata.json")
-       examples-metadata)
+     (export-table! dir "examples"
+                    (map (comp csv-row (juxt '?sense '?example))
+                         (q/run g op/csv-examples))
+                    examples-metadata)
 
      (println "Fetching synset relations...")
      (let [model           (db/get-model dataset prefix/dn-uri)
@@ -289,13 +281,10 @@
            synsets         (->> (q/run g op/synsets)
                                 (map '?synset)
                                 (set))]
-       (export-csv-rows!
-         (str dir "relations.csv")
-         (->> (mapcat synset->triples synsets)
-              (map csv-row))))
-     (export-metadata!
-       (str dir "relations-metadata.json")
-       relations-metadata)
+       (export-table! dir "relations"
+                      (->> (mapcat synset->triples synsets)
+                           (map csv-row))
+                      relations-metadata))
 
      ;; LICENSE + README.txt are written into the export dir so non-zip-files
      ;; picks them up and ships them under those exact names inside the zip.
@@ -315,7 +304,6 @@
   ;; Export DanNet as CSV
   (export-csv! @dk.cst.dannet.web.instance/db)
 
-  (expand-kws x)
   (spit "synsets-metadata.json" (metadata->json synsets-metadata))
   (export-metadata! "synsets-metadata.json" synsets-metadata)
 

@@ -1,15 +1,14 @@
 (ns dk.cst.dannet.db
   "General database access functions.
 
-  Refer to 'dk.cst.dannet.db.boostrap' for how to bootstrap an instance."
+  Refer to 'dk.cst.dannet.db.bootstrap' for how to bootstrap an instance."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [taoensso.telemere :as t]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.tdb2 :as tdb2]
             [dk.cst.theophrastus.txn :as txn]
-            [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.hash :as h])
+            [dk.cst.dannet.db.query :as q])
   (:import [java.io File]
            [org.apache.jena.rdf.model ModelFactory Model]
            [org.apache.jena.query Dataset]))
@@ -69,7 +68,7 @@
   (theo/retract! (q/->db model) patterns))
 
 (defn safe-add!
-  "Add `data` to `g` in a failsafe way."
+  "Add `data` to `g`, logging a warning instead of throwing on failure."
   [g data]
   (try
     (theo/transact! (q/->db g) data)
@@ -78,11 +77,9 @@
                :id    :dannet.db/safe-add-failed
                :error e
                :data  {:data-sample (subs (str data) 0 (min 240 (count (str data))))}}
-              "Failed to add data; continuing"))
-    (finally
-      g)))
+              "Failed to add data; continuing"))))
 
-(h/defn import-files
+(defn import-files
   "Import `files` into a the model defined by `model-uri` in `dataset` in a safe
   way, optionally applying a `changefn` to the temporary model before import."
   ([dataset model-uri files]

@@ -1,5 +1,5 @@
 (ns dk.cst.dannet.web.ui.entity
-  "Rendering of the RDF resources in DanNet."
+  "The parts of an entity page: its header, its sections and its notes."
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
@@ -14,19 +14,6 @@
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.visualization :as viz]))
-
-(defn split-matches
-  "Split `s` into segments of [:text s]/[:match s] according to regex `re`.
-  Unlike str/split, the matched segments are retained in the output."
-  [re s]
-  (let [indices (concat [0] (apply concat (shared/match-bounds re s)) [(count s)])
-        spans   (partition 2 1 indices)
-        kinds   (cycle [:text :match])]
-    (->> (map (fn [kind [start end]]
-                [kind (subs s start end)])
-              kinds
-              spans)
-         (filterv (comp seq second)))))
 
 (defn rdf=
   "An equals which also supports RDF open-ended semantics, i.e. `v` can  also be
@@ -179,6 +166,19 @@
        (remove #{shared/omitted ""})
        (distinct)))
 
+(defn split-matches
+  "Split `s` into segments of [:text s]/[:match s] according to regex `re`.
+  Unlike str/split, the matched segments are retained in the output."
+  [re s]
+  (let [indices (concat [0] (apply concat (shared/match-bounds re s)) [(count s)])
+        spans   (partition 2 1 indices)
+        kinds   (cycle [:text :match])]
+    (->> (map (fn [kind [start end]]
+                [kind (subs s start end)])
+              kinds
+              spans)
+         (filterv (comp seq second)))))
+
 (defn- highlight-matches
   "Emphasise the parts of the string `s` matching `re`."
   [re s]
@@ -232,9 +232,8 @@
   ([{:keys [wn/lexfile dns/ontologicalType] :as subentity}
     {:keys [languages entity] :as opts}
     badge]
-   ;; The Danish and English WordNets differ in how they represent part-of-speech
-   ;; where the Danish WordNet takes the standard OntoLex approach, while the
-   ;; OEWN uses a custom relations
+   ;; DanNet synsets derive their part of speech from wn:lexfile, while OEWN
+   ;; synsets state it in wn:partOfSpeech.
    (let [pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
                                            (some->> entity :wn/partOfSpeech name)))
          ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
@@ -318,6 +317,7 @@
     (= id :semantic)
     (semantic-relations-content id subentity opts)
 
+    ;; The nil id is the untitled first section (see section/defined-sections).
     (and (nil? id)
          (rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
          (not (shared/frame? (:subject opts))))

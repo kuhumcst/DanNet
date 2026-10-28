@@ -57,6 +57,8 @@
      }"))
 
 (def synset-search-labels
+  "The labels of the relations that search results display (see
+  search/sym->kw)."
   (sparql
     "SELECT ?synset ?definition ?ontotype
      WHERE {
@@ -410,6 +412,8 @@
            WHERE { ?subject " (prefix/kw->qname rel) " ?object . }"))
 
 (def sense-label-query
+  "The register, dating and frequency of each sense, which DMLex exports as
+  sense labels."
   (sparql
     "SELECT ?sense ?property ?value
      WHERE {

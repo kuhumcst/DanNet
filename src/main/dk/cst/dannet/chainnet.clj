@@ -174,14 +174,13 @@
   a sense doesn't exist in DanNet. The :derived-from field is pre-filled
   when the relationship is known, and :task explains provenance."
   [{:keys [lemma entry sentence]} senses-by-lemma]
-  (let [senses    (dedup-senses (get senses-by-lemma (str lemma)))
-        suffix    (ddo-entry->suffix entry)
-        p-suffix  (parent-suffix suffix)
-        by-suffix (fn [s] (label->suffix (:label s)))
-        metaphor  (when suffix
-                    (first (filter #(= suffix (by-suffix %)) senses)))
-        base      (when p-suffix
-                    (first (filter #(= p-suffix (by-suffix %)) senses)))]
+  (let [senses     (dedup-senses (get senses-by-lemma (str lemma)))
+        suffix     (ddo-entry->suffix entry)
+        p-suffix   (parent-suffix suffix)
+        by-suffix  (fn [s] (label->suffix (:label s)))
+        sense-with (fn [suf] (first (filter #(= suf (by-suffix %)) senses)))
+        metaphor   (when suffix (sense-with suffix))
+        base       (when p-suffix (sense-with p-suffix))]
     (cond
       ;; lemma not in DanNet at all.
       (empty? senses)
@@ -204,8 +203,8 @@
       (and (nil? entry)
            (let [suffixes (set (keep by-suffix senses))]
              (and (contains? suffixes "§1") (contains? suffixes "§1a"))))
-      (let [root (first (filter #(= "§1" (by-suffix %)) senses))
-            met  (first (filter #(= "§1a" (by-suffix %)) senses))]
+      (let [root (sense-with "§1")
+            met  (sense-with "§1a")]
         [(make-output-row lemma (:sense root) (:def root) nil "-" "verify inferred IDs")
          (make-output-row lemma (:sense met) (:def met) sentence
                           (:sense root) "verify inferred IDs")])
@@ -213,10 +212,10 @@
       ;; Sub-sense sought but only parent exists (e.g. §10a sought, only §10;
       ;; or §1b sought, only §1). Known root + virtual metaphor row.
       (and suffix
-           (parent-suffix suffix)
+           p-suffix
            (not metaphor)
-           (= 1 (count (filter #(= (parent-suffix suffix) (by-suffix %)) senses))))
-      (let [root (first (filter #(= (parent-suffix suffix) (by-suffix %)) senses))]
+           (= 1 (count (filter #(= p-suffix (by-suffix %)) senses))))
+      (let [root (sense-with p-suffix)]
         [(make-output-row lemma (:sense root) (:def root) nil "-" nil)
          (make-output-row lemma "unknown_metaphor" nil sentence (:sense root)
                           "metaphor not in DanNet")])
@@ -337,11 +336,10 @@
       (str/blank? cell-value)
       (str/starts-with? (str cell-value) "unknown")))
 
-(defn style-sheet!
-  "Apply all styling to the sheet in a single pass over the data rows:
+(defn style-rows!
+  "Style the data rows of `sheet`, holding `output-rows`, in a single pass:
   hyperlinks on URI cells, status colours on lemma cells, action highlights
-  on cells the annotator needs to fill in, and group-separating borders.
-  Also sets up the header row, freeze pane, dropdowns, and column widths."
+  on cells the annotator needs to fill in, and group-separating borders."
   [sheet output-rows]
   (let [wb       (.getWorkbook sheet)
         ch       (.getCreationHelper wb)
@@ -414,58 +412,73 @@
                           (.cloneStyleFrom src)
                           (.setBorderBottom BorderStyle/THIN))]
                   (swap! border-cache assoc src-i s)
-                  s))))))
+                  s))))))))
 
-    ;; Bold grey header row with a heavier bottom border, frozen in place
-    ;; so it stays visible while scrolling.
-    (let [header-font (doto (.createFont wb)
-                        (.setBold true))
-          header-style (doto (.createCellStyle wb)
-                         (.setFont header-font)
-                         (.setFillForegroundColor (.getIndex IndexedColors/GREY_25_PERCENT))
-                         (.setFillPattern FillPatternType/SOLID_FOREGROUND)
-                         (.setBorderBottom BorderStyle/MEDIUM))]
-      (doseq [ci (range (count output-columns))
-              :let [cell (.getCell (.getRow sheet 0) ci)]
-              :when cell]
-        (.setCellStyle cell header-style)))
-    (.createFreezePane sheet 0 1)
+(defn style-header!
+  "Make the header row of `sheet` bold and grey with a heavier bottom border,
+  frozen in place so it stays visible while scrolling."
+  [sheet]
+  (let [wb           (.getWorkbook sheet)
+        header-font  (doto (.createFont wb)
+                       (.setBold true))
+        header-style (doto (.createCellStyle wb)
+                       (.setFont header-font)
+                       (.setFillForegroundColor (.getIndex IndexedColors/GREY_25_PERCENT))
+                       (.setFillPattern FillPatternType/SOLID_FOREGROUND)
+                       (.setBorderBottom BorderStyle/MEDIUM))]
+    (doseq [ci (range (count output-columns))
+            :let [cell (.getCell (.getRow sheet 0) ci)]
+            :when cell]
+      (.setCellStyle cell header-style)))
+  (.createFreezePane sheet 0 1))
 
+(defn add-dropdown!
+  "Add a dropdown of the values that `constraint` lists to the column of `k`
+  in the `n` data rows of `sheet`, accepting other values too."
+  [sheet n k constraint]
+  (let [ci         (col-idx k)
+        cells      (CellRangeAddressList. 1 n ci ci)
+        validation (.createValidation (XSSFDataValidationHelper. sheet)
+                                      constraint cells)]
+    (.setShowErrorBox validation false)
+    (.addValidationData sheet validation)))
+
+(defn relations-constraint!
+  "Write the synset relations to a hidden \"relations\" sheet in the workbook
+  of `sheet`, returning a list constraint made with `dvh` that points there.
+
+  The relations are those of the radial diagram legend (shared/synset-rel-theme)
+  and exceed Excel's 255-char limit for an inline list."
+  [sheet dvh]
+  (let [wb        (.getWorkbook sheet)
+        rel-names (->> (keys shared/synset-rel-theme)
+                       (map #(str (namespace %) ":" (name %)))
+                       (sort)
+                       (into [""]))
+        ref-sheet (.createSheet wb "relations")]
+    (doseq [[i v] (map-indexed vector rel-names)]
+      (-> (.createRow ref-sheet i)
+          (.createCell 0)
+          (.setCellValue (str v))))
+    (.setSheetHidden wb (.getSheetIndex wb "relations") true)
+    (.createFormulaListConstraint dvh
+      (str "relations!$A$1:$A$" (count rel-names)))))
+
+(defn style-sheet!
+  "Style `sheet`, which holds `output-rows`: the data rows (see `style-rows!`),
+  the header row, the dropdowns and the column widths."
+  [sheet output-rows]
+  (let [n   (count output-rows)
+        dvh (XSSFDataValidationHelper. sheet)]
+    (style-rows! sheet output-rows)
+    (style-header! sheet)
     ;; Dropdown for qualia roles (Pustejovsky's Generative Lexicon theory).
     ;; The four roles: FORMAL (is-a), CONSTITUTIVE (part-whole),
     ;; TELIC (purpose), AGENTIVE (origin).
-    (let [dvh        (XSSFDataValidationHelper. sheet)
-          constraint (.createExplicitListConstraint dvh
-                       (into-array String ["" "FORMAL" "CONSTITUTIVE" "TELIC" "AGENTIVE"]))
-          qi         (col-idx :qualia-role)
-          range      (CellRangeAddressList. 1 n qi qi)
-          validation (.createValidation dvh constraint range)]
-      (.setShowErrorBox validation false)
-      (.addValidationData sheet validation))
-
-    ;; Dropdown for synset relations, sourced from the same relation set
-    ;; used in the radial diagram legend (shared/synset-rel-theme).
-    ;; The list exceeds Excel's 255-char inline limit, so we put the
-    ;; values on a hidden reference sheet and point the validation there.
-    (let [rel-names  (->> (keys shared/synset-rel-theme)
-                          (map #(str (namespace %) ":" (name %)))
-                          (sort)
-                          (into [""]))
-          ref-sheet  (.createSheet wb "relations")
-          _          (doseq [[i v] (map-indexed vector rel-names)]
-                       (-> (.createRow ref-sheet i)
-                           (.createCell 0)
-                           (.setCellValue (str v))))
-          _          (.setSheetHidden wb (.getSheetIndex wb "relations") true)
-          dvh        (XSSFDataValidationHelper. sheet)
-          constraint (.createFormulaListConstraint dvh
-                       (str "relations!$A$1:$A$" (count rel-names)))
-          ri         (col-idx :relation)
-          range      (CellRangeAddressList. 1 n ri ri)
-          validation (.createValidation dvh constraint range)]
-      (.setShowErrorBox validation false)
-      (.addValidationData sheet validation))
-
+    (add-dropdown! sheet n :qualia-role
+                   (.createExplicitListConstraint dvh
+                     (into-array String ["" "FORMAL" "CONSTITUTIVE" "TELIC" "AGENTIVE"])))
+    (add-dropdown! sheet n :relation (relations-constraint! sheet dvh))
     (doseq [[i w] (map-indexed vector output-column-widths)]
       (.setColumnWidth sheet i (* w 256)))))
 

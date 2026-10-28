@@ -184,9 +184,10 @@
   "A frame tracking the xs:assert of the element `el` that `r` just opened, or
   nil when `el` carries no assert.
 
-  A frame gathers what its assert needs while the element is open: :chars
-  counts the characters inside the child element named by :child, while
-  :sound-file? and :transcription? record what a <pronunciation> offers."
+  A frame gathers what its assert needs while the element is open. :open?
+  holds while the child element named by :child is open, and :chars counts
+  the characters read inside it. :sound-file? and :transcription? record what
+  a <pronunciation> offers."
   [^XMLStreamReader r el]
   (let [line (.getLineNumber (.getLocation r))]
     (cond
@@ -324,10 +325,11 @@
       :else scan)))
 
 (defn read-characters
-  "The `scan` with the `n` characters just read added to every open frame.
+  "The `scan` with the `n` characters just read added to every frame whose
+  child is open.
 
   XPath takes the string value of an element, i.e. the characters of its whole
-  subtree, so an open frame counts every run of text below it."
+  subtree, so a frame counts every run of text below its open child."
   [scan n]
   (update scan :frames
           (partial mapv #(cond-> % (:open? %) (update :chars + n)))))

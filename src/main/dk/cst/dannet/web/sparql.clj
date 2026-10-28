@@ -10,8 +10,7 @@
             [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.anomaly :as anomaly])
-  (:import [java.util.concurrent SynchronousQueue ThreadPoolExecutor TimeUnit
-                                 TimeoutException]
+  (:import [java.util.concurrent SynchronousQueue ThreadPoolExecutor TimeUnit]
            [org.apache.jena.query Query QueryCancelledException
                                   QueryExecution]
            [org.apache.jena.rdf.model Model]
@@ -201,8 +200,6 @@
       #(execute model query-obj timeout fetch-limit
                 :distinct? distinct?
                 :offset offset))
-    (catch TimeoutException e
-      {:anomaly (anomaly/translate e)})
     (catch Exception e
       {:anomaly (anomaly/translate e)})))
 
@@ -213,7 +210,7 @@
        (instance? ResultSetMem sparql-result)
        (zero? (.size ^ResultSetMem sparql-result))))
 
-(defn- select-model
+(defn- run-on-chosen-model
   "Check :inference? in `query-opts` to select appropriate model from `db`:
 
     - false forces base model
@@ -237,7 +234,7 @@
             :inference? true)
           (assoc result :inference? false))))))
 
-(defn- trim-lookahead
+(defn- mark-has-more
   "When `lookahead?` is true and the result has more rows than
   `limit`, mark `:has-more?` on the result (N+1 pagination trick)."
   [limit lookahead? result]
@@ -251,11 +248,11 @@
 
 (defn- execute-query
   "Run a SPARQL query with model selection, inference retry,
-  and N+1 lookahead trim."
+  and the :has-more? mark of the N+1 lookahead."
   [db {:keys [limit lookahead?] :as query-opts}]
   (->> (assoc query-opts :fetch-limit (if lookahead? (inc limit) limit))
-       (select-model db)
-       (trim-lookahead limit lookahead?)))
+       (run-on-chosen-model db)
+       (mark-has-more limit lookahead?)))
 
 ;; Caches query results keyed on the canonical parsed form + execution params.
 ;; The `lookup-or-miss` from core.cache.wrapped ensures the value-fn runs at

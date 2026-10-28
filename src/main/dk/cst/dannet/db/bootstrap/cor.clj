@@ -5,8 +5,9 @@
   over from the previous release's own export, so that every triple remains
   traceable to a source file. The links tying COR IDs to DanNet words and
   senses come from DSL instead: the COR.EXT link file survives, while its COR₁
-  counterpart (a 2022 email attachment) is lost, so those links are carried
-  over from the previous release's graph by bootstrap/rebuild-cor-graph!.
+  counterpart (a 2022 email attachment) is lost, so a rebuild from source must
+  carry those links over from the previous release's graph (as done for the
+  2026-08-21 release, see git history).
   COR words without a link are still imported, as COR is exported as a
   dataset in its own right."
   (:require [clojure.data.csv :as csv]

@@ -1,6 +1,9 @@
 (ns dk.cst.dannet.prefix
   "The prefixes of the various schemas used by DanNet, and conversions between
-  their keywords, qnames, URIs and paths."
+  their keywords, qnames, URIs and paths.
+
+  An RDF resource is a URI in angle brackets, e.g.
+  \"<https://ordregister.dk>\"."
   (:require #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [dk.cst.theophrastus.term :as term]))
@@ -16,6 +19,9 @@
   "https://wordnet.dk/export/")
 
 (def schemas
+  "The namespaces DanNet knows, by prefix, with their :uri. A schema has :alt,
+  its bundled copy (or :no-schema); a dataset has the prefixes of its :export
+  and its :download files. Either may name its RDF :resource."
   {'rdf     {:uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
              :alt "schemas/external/rdf.ttl"}
    'rdfs    {:uri "http://www.w3.org/2000/01/rdf-schema#"
@@ -193,6 +199,8 @@
        (str/join "\n")))
 
 (defn kw->qname
+  "The qname of the namespaced keyword `kw`, e.g. \"dn:synset-1\"; nil for
+  anything else."
   [kw]
   (when (and (keyword? kw) (namespace kw))
     (str/replace-first (str (symbol kw)) #"/" ":")))
@@ -208,6 +216,8 @@
     (kw->qname v)))
 
 (defn kw->uri
+  "The full URI of the keyword `kw` with a known prefix, e.g.
+  \"https://wordnet.dk/dannet/data/synset-1\"."
   [kw]
   (term/iri kw prefixes))
 
@@ -294,7 +304,7 @@
   (-> schemas prefix :uri))
 
 (defn uri->prefix
-  "Return the URI registered for a `prefix`."
+  "Return the prefix registered for `uri`, or nil."
   [uri]
   (loop [[[k m] & schemas'] schemas]
     (if (= uri (:uri m))
@@ -305,7 +315,7 @@
 (def dn-uri
   (prefix->uri 'dn))
 
-;; NOTE: graph covers both oewn and oewnl prefixes
+;; NOTE: graph covers both en and enl prefixes
 (def oewn-uri
   "https://en-word.net/")
 
@@ -442,7 +452,8 @@
                                      (str "?variant=" variant))))
 
 (defn schema-uri
-  "Convert a Resource `uri` into a dataset download URI."
+  "The download URL of the schema registered at `prefix`, e.g.
+  https://wordnet.dk/schema/dns."
   [prefix]
   (assert (get-in schemas [prefix :alt]))
   (str schema-root prefix))
@@ -486,7 +497,6 @@
 
 (comment
   (re-matches uri-parts "http://glen.dk/path/to/file")
-  (download-uri "https://wordnet.dk/dannet/data")
 
   ;; Download links as RDF resources
   (dataset-uri "rdf" 'dn)

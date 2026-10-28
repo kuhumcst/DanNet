@@ -96,27 +96,18 @@
   "Transform a map of `relations` based on `opts` into grouped entries.
 
   Returns a seq of [group-key title description entries] tuples, where entries
-  follow the display order defined in `group-order`; relations not explicitly
-  listed sort alphabetically at the end of their group. Relations not covered
-  by any group end up in the final, fallback group."
+  follow the display order defined in `group-order`. Relations not covered by
+  any group end up in the final, fallback group, sorted by name."
   [relations opts]
-  (let [rel-group (fn [[rel _]]
-                    (or (some (fn [[group-key _ _ rels]]
-                                (when (and rels ((set rels) rel))
-                                  group-key))
-                              group-order)
-                        (first (last group-order))))
-        grouped   (group-by rel-group relations)]
-    (keep (fn [[group-key title desc rels]]
+  (let [grouped (group-by #(get relation->group (key %) :other) relations)]
+    (keep (fn [[group-key title desc]]
             (when-let [entries (get grouped group-key)]
-              (let [rel->idx (zipmap rels (range))]
-                [group-key title desc
-                 (sort-by (fn [[rel _]]
-                            [(get rel->idx rel (count rels)) (name rel)])
-                          entries)])))
+              [group-key title desc
+               (sort-by (fn [[rel _]] (relation-sort-key rel (name rel)))
+                        entries)]))
           group-order)))
 
-(defn k->label
+(defn labels
   "Build a keyword->label map from the `relations` entities based on the
   current `detail-level` (no labels are returned for the :basic level)."
   [relations detail-level]

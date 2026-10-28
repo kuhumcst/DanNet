@@ -9,7 +9,6 @@
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.form :as form]
             [dk.cst.dannet.web.ui.entity :as entity]
-            #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [dk.cst.dannet.web.ui.search.aria :as aria])))
 
 (defn update-suggestions
@@ -130,6 +129,8 @@
 ;;       way from the label to the text. Already broken on master.
 (rum/defc result
   [k {:keys [dc/subject] :as entity} {:keys [detail-level languages] :as opts}]
+  ;; db.search/look-up stores the synset under :dc/subject (so it equals k)
+  ;; and puts the labels of a result in the metadata of its entity.
   (let [{:keys [k->label short-label]} (meta entity)
         opts' (assoc opts :k->label (if (and (not= detail-level :high)
                                              short-label)
