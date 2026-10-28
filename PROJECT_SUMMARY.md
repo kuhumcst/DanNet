@@ -238,7 +238,7 @@ pages/
 ## Dependencies
 
 ### Core RDF/Database
-- **Theophrastus** (`dk.cst/theophrastus`, a Git dependency on the `feature/jena-6` branch of kuhumcst/aristotle): Apache Jena 6.2 (ARQ, TDB2, SHACL) with RDF terms as Clojure data; its `dk.cst.theophrastus.term` namespace (`LangStr`, `Literal`) also runs in ClojureScript, so the frontend shares the server's terms
+- **Theophrastus** (`dk.cst/theophrastus`, a Git dependency on kuhumcst/theophrastus): Apache Jena 6.2 (ARQ, TDB2, SHACL) with RDF terms as Clojure data; its `dk.cst.theophrastus.term` namespace (`LangStr`, `Literal`) also runs in ClojureScript, so the frontend shares the server's terms
 - **donatello** (1.3.6): Turtle writer for the RDF exports (`db.export.rdf`)
 
 ### Web Framework

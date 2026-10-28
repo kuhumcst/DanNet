@@ -20,7 +20,7 @@ SPARQL is the official query language for querying RDF graphs. It is superficial
 
 Clojure
 -------
-From Clojure, you query DanNet with SPARQL through [Theophrastus](https://github.com/kuhumcst/aristotle/tree/feature/jena-6), a Clojure library for Apache Jena that began as a fork of [Aristotle](https://github.com/arachne-framework/aristotle). Each query returns a vector of maps from variable to value, with IRIs as keywords such as `:dn/synset-3047`. You pass values as bindings rather than as SPARQL text:
+From Clojure, you query DanNet with SPARQL through [Theophrastus](https://github.com/kuhumcst/theophrastus), a Clojure library for Apache Jena that began as a fork of [Aristotle](https://github.com/arachne-framework/aristotle). Each query returns a vector of maps from variable to value, with IRIs as keywords such as `:dn/synset-3047`. You pass values as bindings rather than as SPARQL text:
 
 ```clojure
 (require '[dk.cst.dannet.db.query :as q])
@@ -33,7 +33,7 @@ From Clojure, you query DanNet with SPARQL through [Theophrastus](https://github
 The query needs no PREFIX lines for the prefixes that DanNet uses.
 
 ### Relevant links
-* [The Theophrastus README](https://github.com/kuhumcst/aristotle/tree/feature/jena-6#readme)
+* [The Theophrastus README](https://github.com/kuhumcst/theophrastus#readme)
 
 Graph traversal
 ---------------
