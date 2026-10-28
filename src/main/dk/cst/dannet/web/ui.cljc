@@ -188,8 +188,10 @@
       (detail-level-select detail-level languages)]
      (when-not full-diagram?
        (help-arrows page opts))
-     [:div#content {:class (when full-diagram?
-                             "full-screen")}
+     ;; Not {:class (when ...)}: a nil class is left out on the server, but
+     ;; the client renders it as class="", which breaks hydration.
+     [:div#content (when full-diagram?
+                     {:class "full-screen"})
       [:main
        (error/try-render (render opts) (page/error opts))]
       (page-footer languages)]]))
