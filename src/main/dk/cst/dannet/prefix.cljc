@@ -1,9 +1,9 @@
 (ns dk.cst.dannet.prefix
-  "Prefix registration for the various schemas used by DanNet."
-  (:require #?(:clj [arachne.aristotle.registry :as reg])
-            #?(:clj [clojure.java.io :as io])
+  "The prefixes of the various schemas used by DanNet, and conversions between
+  their keywords, qnames, URIs and paths."
+  (:require #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
-            [ont-app.vocabulary.core :as voc]))
+            [dk.cst.theophrastus.term :as term]))
 
 ;; NOTE: you must also edit the DanNet schema files when changing this!
 (def dannet-root
@@ -173,40 +173,24 @@
 (def internal-prefixes
   #{'dn 'dnc 'dns 'dnt 'dnp 'frame})
 
+(def dnf-uri
+  "Namespace for custom ARQ SPARQL functions (registered as the `dnf` prefix)."
+  (str dannet-root "function/"))
+
 (def prefixes
-  (set (keys schemas)))
+  "The prefixes of the `schemas`, plus xsd and the dnf prefix of the SPARQL
+  functions, as Theophrastus takes them: each prefix as a keyword, mapped to
+  its namespace IRI in angle brackets."
+  (into term/default-prefixes
+        (map (fn [[prefix uri]]
+               [(keyword prefix) (str "<" uri ">")]))
+        (assoc (update-vals schemas :uri) 'dnf dnf-uri)))
 
 (def rdfa-prefixes
   (->> schemas
        (map (fn [[k {:keys [uri]}]]
               (str (name k) ": " uri)))
        (str/join "\n")))
-
-;; The ont-app.vocabulary library eagerly claims a handful of common prefixes
-;; (e.g. `dc` -> http://purl.org/dc/elements/1.1/) on its own namespaces at
-;; load time. A plain `put-ns-meta!` on our own ns for the same prefix string
-;; would create two namespaces claiming it, causing `prefix-to-ns` to throw a
-;; DuplicatePrefix error on its next cache rebuild. So if we find an existing
-;; claim on a *different* ns, we dissoc the vann metadata from it first so
-;; that our ns becomes the sole owner. This lets us assert our own preferred
-;; URI (e.g. `dc` -> http://purl.org/dc/terms/) in `prepend-prefix-declarations`
-(defn register
-  "Register `ns-prefix` for `uri` in both Aristotle and igraph."
-  [ns-prefix uri]
-  #?(:clj (reg/prefix ns-prefix uri))
-  (let [prefix-str (name ns-prefix)]
-    #?(:clj
-       (when-let [existing-ns (get (voc/prefix-to-ns) prefix-str)]
-         (when (not= (ns-name existing-ns) ns-prefix)
-           (alter-meta! existing-ns dissoc
-                        :vann/preferredNamespacePrefix
-                        :vann/preferredNamespaceUri))))
-    (voc/put-ns-meta! ns-prefix {:vann/preferredNamespacePrefix prefix-str
-                                 :vann/preferredNamespaceUri    uri})))
-
-;; TODO: is registration necessary in CLJS?
-(doseq [[ns-prefix {:keys [uri]}] schemas]
-  (register ns-prefix uri))
 
 (defn kw->qname
   [kw]
@@ -225,11 +209,7 @@
 
 (defn kw->uri
   [kw]
-  (or (try
-        (voc/uri-for kw)
-        (catch #?(:clj Exception :cljs js/Error) _))
-      (when (empty? (name kw))
-        (get-in schemas [(symbol (namespace kw)) :uri]))))
+  (term/iri kw prefixes))
 
 (defn qname->kw
   [qname]
@@ -346,10 +326,6 @@
 
 (def framenet-uri
   (prefix->uri 'frame))
-
-(def dnf-uri
-  "Namespace for custom ARQ SPARQL functions (registered as the `dnf` prefix)."
-  (str dannet-root "function/"))
 
 (def not-for-export
   #{oewn-uri

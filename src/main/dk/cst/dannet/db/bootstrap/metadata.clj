@@ -1,10 +1,10 @@
 (ns dk.cst.dannet.db.bootstrap.metadata
   "The DanNet dataset metadata applied during bootstrapping."
   (:require [clojure.set :as set]
-            [ont-app.vocabulary.lstr :refer [->LangStr]]
             [taoensso.telemere :as t]
+            [dk.cst.theophrastus.term :refer [->LangStr]]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.hash :as h]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
@@ -262,16 +262,15 @@
 (defn- count-type
   "Count the number of instances of `rdf-type` in `model`."
   [^Model model rdf-type]
-  (txn/transact model
-    (count (iterator-seq
-             (.listStatements model nil RDF/type
-                              (.createResource model (prefix/kw->uri rdf-type)))))))
+  (txn/calculate-read model
+    #(count (iterator-seq
+              (.listStatements model nil RDF/type
+                               (.createResource model (prefix/kw->uri rdf-type)))))))
 
 (defn- triple-count
   "Count the total number of triples in `model`."
   [^Model model]
-  (txn/transact model
-    (.size model)))
+  (txn/calculate-read model #(.size model)))
 
 (defn- avg
   "The ratio of `n` to `d` rounded to two decimal places; nil when undefined."
@@ -321,9 +320,8 @@
                           (count-type sem-model :ontolex/LexicalSense)]
                          [<cor-sem> :void/triples (triple-count sem-model)]]]]
             :let [triples' (remove nil? triples)]]
-      (txn/transact-exec model
-        (t/log! {:level :info
-                 :id    :dannet.bootstrap/dataset-statistics
-                 :data  {:statistics (vec triples')}}
-                "Adding dataset statistics")
-        (db/safe-add! (.getGraph model) triples')))))
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/dataset-statistics
+               :data  {:statistics (vec triples')}}
+              "Adding dataset statistics")
+      (db/safe-add! (.getGraph model) triples'))))

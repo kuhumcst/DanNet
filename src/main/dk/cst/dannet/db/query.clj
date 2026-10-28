@@ -7,20 +7,48 @@
             [clojure.walk :as walk]
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
-            [arachne.aristotle.query :as q]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db.query.operation :as op])
-  (:import [org.apache.jena.reasoner BaseInfGraph]
+  (:import [dk.cst.theophrastus Db]
+           [org.apache.jena.graph Graph]
+           [org.apache.jena.query Dataset]
+           [org.apache.jena.rdf.model Model ModelFactory]
+           [org.apache.jena.reasoner BaseInfGraph]
            [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
 
+(defn ->db
+  "The Theophrastus db of `x`, a Jena Graph, Model or Dataset, with the DanNet
+  prefixes, or `x` itself when it is a db already.
+
+  Unlike theophrastus/db, it leaves the prefixes stored in `x` as they are,
+  since comparing them costs about half a millisecond on TDB2."
+  [x]
+  (condp instance? x
+    Db x
+    Graph (->db (ModelFactory/createModelForGraph x))
+    Model (theo/->Db x nil prefix/prefixes)
+    Dataset (theo/->Db nil x prefix/prefixes)
+    (throw (ex-info (str "Not a Graph, Model or Dataset: " x) {:x x}))))
+
 (defn run
-  "Wraps the 'run' function from Aristotle, providing transactions when needed."
-  [g & remaining-args]
-  (txn/transact g
-    (apply q/run g remaining-args)))
+  "Run the SPARQL `query`, a string or a Jena Query, on `g` with the `bindings`
+  of its variables, e.g. {'?s :dn/synset-1}, in a read transaction. A SELECT
+  returns a vector of maps of variable to value."
+  ([g query]
+   (run g query nil))
+  ([g query bindings]
+   (theo/q query (->db g) bindings)))
+
+(defn triples
+  "The triples of `g` that match the `pattern` [s p o], as maps of ?s, ?p and
+  ?o, where _ matches any value, e.g. ['_ :wn/hypernym :dn/synset-1]."
+  [g pattern]
+  (->> (zipmap '[?s ?p ?o] pattern)
+       (into {} (remove (comp #{'_} val)))
+       (run g op/triples)))
 
 ;; TODO: replace with fnil in all places where update is used anyway
 (defn set-merge
@@ -53,7 +81,7 @@
 (defn find-raw
   "Return the raw entity query result for `subject` in `g` (no inference)."
   [^FBRuleInfGraph g subject]
-  (let [query-graph (fn [graph] (run graph op/entity {'?s subject}))
+  (let [query-graph (fn [graph] (triples graph [subject '_ '_]))
         triple-keys (fn [result] (select-keys result '[?s ?p ?o]))
         xf          (comp (mapcat query-graph) (map triple-keys))]
     (into #{} xf [(.getSchemaGraph g) (.getRawGraph g)])))
@@ -70,7 +98,7 @@
   
   For inference graphs, includes metadata with inferred vs. raw triples."
   [g subject]
-  (if-let [result (not-empty (run g op/entity {'?s subject}))]
+  (if-let [result (not-empty (triples g [subject '_ '_]))]
     (with-meta (basic-entity result) {:subject subject})
     (with-meta {} {:subject subject})))
 
@@ -195,7 +223,7 @@
   strings) from graph `g`. Returns `{resource {label-type #{label-values}}}`."
   [g resources]
   (when (seq resources)
-    (let [result (run g (op/resource-labels-query resources))]
+    (let [result (run g op/resource-labels {'?resource resources})]
       (persistent!
         (reduce
           (fn [acc {:syms [?resource ?labelRel ?label]}]
@@ -288,9 +316,14 @@
                       (shared/setify (:dns/orthogonalHypernym e)))]
     (when (seq hypernyms)
       (mapv (fn [h]
+              ;; dns:shortLabel is a subproperty of rdfs:label, so on the
+              ;; inference graph the short label is an rdfs:label value too.
               (let [h-entity    (entity g h)
-                    label       (:rdfs/label h-entity)
-                    short-label (:dns/shortLabel h-entity)]
+                    short-label (:dns/shortLabel h-entity)
+                    label       (or (->> (shared/setify (:rdfs/label h-entity))
+                                         (remove #{short-label})
+                                         (first))
+                                    short-label)]
                 (cond-> {:wn/hypernym h
                          :rdfs/label  (str label)
                          :ancestors   (hypernym-ancestry g h)}
@@ -432,7 +465,7 @@
 (defn- expanded-entity*
   "Return the expanded entity description of `subject` in Graph `g`."
   [g subject]
-  (if-let [result (not-empty (run g op/entity {'?s subject}))]
+  (if-let [result (not-empty (triples g [subject '_ '_]))]
     (let [entity+   (->> (basic-entity result)
                          (weighted-relations)
                          (attach-blank-nodes g subject))
@@ -482,8 +515,7 @@
   "Run query `q` in `g`, transposing the results as rows of `ks`.
 
   Any one-to-many relationships in the result values are represented as set
-  values contained in the resulting table rows. This is the main difference
-  from the built-in vector transposition in 'arachne.aristotle.query/run'."
+  values contained in the resulting table rows."
   [g ks q]
   (map (fn [m] (mapv m ks))
        (-> (group-by #(get % (first ks)) (run g q))

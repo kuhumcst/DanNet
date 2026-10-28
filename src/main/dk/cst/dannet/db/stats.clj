@@ -523,8 +523,8 @@
   (let [dn        (db/get-graph dataset prefix/dn-uri)
         base      (.getGraph (.getUnionModel dataset))
         edges     (relation-edges dn)
-        synsets   (->> (q/run dn '[:bgp [?s :rdf/type :ontolex/LexicalConcept]])
-                       (map '?s))
+        synsets   (->> (q/run dn op/synsets)
+                       (map '?synset))
         relations (frequencies (map second edges))
         inverses  (inverse-relations graph)]
     {:version     release/to

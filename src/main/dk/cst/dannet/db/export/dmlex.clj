@@ -14,7 +14,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
-            [ont-app.vocabulary.lstr :as lstr]
+            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.db.query :as q]
@@ -1096,9 +1096,9 @@
      ;; The domain names are language-tagged full names (see the bootstrap
      ;; release change name-subject-domains!), so both domain indices key on
      ;; the language first.
-     :domains-of        (update-vals (group-by (comp lstr/lang '?domain) domains)
+     :domains-of        (update-vals (group-by (comp term/lang '?domain) domains)
                                      #(index-many % '?synset (comp str '?domain)))
-     :domain-strings    (update-vals (group-by (comp lstr/lang '?domain) domains)
+     :domain-strings    (update-vals (group-by (comp term/lang '?domain) domains)
                                      #(vec (sort (set (map (comp str '?domain) %)))))
      :lexfiles-of       (index-many lexfiles '?synset (comp str '?lexfile))
      :lexfile-strings   (sort (set (map (comp str '?lexfile) lexfiles)))

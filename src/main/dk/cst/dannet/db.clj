@@ -4,18 +4,15 @@
   Refer to 'dk.cst.dannet.db.boostrap' for how to bootstrap an instance."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [arachne.aristotle :as aristotle]
-            [ont-app.vocabulary.core :as voc]
             [taoensso.telemere :as t]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.tdb2 :as tdb2]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.hash :as h]
-            [dk.cst.dannet.db.transaction :as txn])
+            [dk.cst.dannet.hash :as h])
   (:import [java.io File]
-           [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.rdf.model ModelFactory Model ResourceFactory]
-           [org.apache.jena.query Dataset]
-           [org.apache.jena.tdb2 DatabaseMgr]))
+           [org.apache.jena.rdf.model ModelFactory Model]
+           [org.apache.jena.query Dataset]))
 
 ;; https://jena.apache.org/documentation/io/index.html
 (defn ->schema-model
@@ -42,11 +39,12 @@
 (defn get-model
   "Idempotently get the model in the `dataset` for the given `model-uri`."
   [^Dataset dataset ^String model-uri]
-  (txn/transact dataset
-    (if (.containsNamedModel dataset model-uri)
-      (.getNamedModel dataset model-uri)
-      (-> (.addNamedModel dataset model-uri (ModelFactory/createDefaultModel))
-          (.getNamedModel model-uri)))))
+  (txn/calculate dataset
+    (fn []
+      (if (.containsNamedModel dataset model-uri)
+        (.getNamedModel dataset model-uri)
+        (-> (.addNamedModel dataset model-uri (ModelFactory/createDefaultModel))
+            (.getNamedModel model-uri))))))
 
 (defn get-graph
   "Idempotently get the graph in the `dataset` for the given `model-uri`."
@@ -61,49 +59,20 @@
   compacted, and a cycle of `make-release-changes!` can leave the majority of
   the files as dead space."
   [^Dataset dataset]
-  (DatabaseMgr/compact (.asDatasetGraph dataset) true))
+  (tdb2/compact! dataset))
 
 (defn remove!
-  "Remove a `triple` from the Apache Jena `model`.
-
-  NOTE: as with Aristotle queries, _ works as a wildcard value."
-  [^Model model [s p o :as triple]]
-  {:pre [(some? s) (some? p) (some? o)]}
-  (.removeAll
-    model
-    (when (not= s '_)
-      (cond
-        (keyword? s)
-        (ResourceFactory/createResource (voc/uri-for s))
-
-        (prefix/rdf-resource? s)
-        (ResourceFactory/createResource (subs s 1 (dec (count s))))))
-    (when (not= p '_)
-      (cond
-        (keyword? p)
-        (ResourceFactory/createProperty (voc/uri-for p))
-
-        (prefix/rdf-resource? p)
-        (ResourceFactory/createProperty (subs p 1 (dec (count p))))))
-    (when (not= o '_)
-      (cond
-        (keyword? o)
-        (ResourceFactory/createResource (voc/uri-for o))
-
-        (prefix/rdf-resource? o)
-        (ResourceFactory/createResource (subs o 1 (dec (count o))))
-
-        (instance? LangStr o)
-        (ResourceFactory/createLangLiteral (str o) (.lang o))
-
-        :else
-        (ResourceFactory/createTypedLiteral o)))))
+  "Remove the triples that the `patterns` match from the Apache Jena `model`
+  in one write transaction: one [s p o] pattern or a coll of them, in which _
+  matches any value, as in theophrastus/retract!."
+  [^Model model patterns]
+  (theo/retract! (q/->db model) patterns))
 
 (defn safe-add!
   "Add `data` to `g` in a failsafe way."
   [g data]
   (try
-    (aristotle/add g data)
+    (theo/transact! (q/->db g) data)
     (catch Exception e
       (t/log! {:level :warn
                :id    :dannet.db/safe-add-failed
@@ -124,11 +93,9 @@
             :data  {:model model-uri
                     :files (mapv #(if (instance? File %) (.getName ^File %) %) files)}}
            "Importing files")
-   (let [temp-model (ModelFactory/createDefaultModel)
-         temp-graph (.getGraph temp-model)]
+   (let [temp-model (ModelFactory/createDefaultModel)]
      (t/log! {:level :debug :id :dannet.db/temp-graph-create} "Creating temporary in-memory graph")
-     (doseq [file files]
-       (aristotle/read temp-graph file))
+     (theo/read! (q/->db temp-model) files)
 
      (when changefn
        (t/log! {:level :debug :id :dannet.db/temp-graph-changes} "Applying changes to temporary graph")
@@ -138,12 +105,12 @@
               :id    :dannet.db/temp-graph-persist
               :data  {:model model-uri}}
              "Persisting temporary graph")
-     (txn/transact-exec dataset
-       (aristotle/add (get-graph dataset model-uri) temp-graph)))))
+     (theo/transact! (q/->db (get-graph dataset model-uri)) temp-model))))
 
 (defn update-triples!
   "Update triples in named model `uri` of `dataset` by mapping `f` to `query`
-  result maps producing new triples.
+  result maps producing new triples. The `query` may also be a [query bindings]
+  pair, with bindings as in q/run.
 
   Optionally, supply one or more `triples-to-remove` which may either be generic
   triple patterns -OR- if only a one `removal` is supplied it may serve as an fn
@@ -151,25 +118,22 @@
   [uri dataset query f & [removal :as triples-to-remove]]
   (let [g                  (get-graph dataset uri)
         model              (get-model dataset uri)
-        ms                 (set (q/run g query))
+        ms                 (set (apply q/run g (if (vector? query) query [query])))
         triples-to-add     (remove nil? (map f ms))
         triples-to-remove' (if (fn? removal)
                              (remove nil? (map removal ms))
                              triples-to-remove)]
     (when (not (empty? triples-to-remove'))
-      (txn/transact-exec model
-        (t/log! {:level :debug
-                 :id    :dannet.db/remove-triples
-                 :data  {:count   (count triples-to-remove')
-                         :example (first triples-to-remove')}}
-                "Removing triples")
-        (doseq [triple triples-to-remove']
-          (remove! model triple))))
-    (txn/transact-exec g
       (t/log! {:level :debug
-               :id    :dannet.db/add-triples
-               :data  {:added   (count triples-to-add)
-                       :results (count ms)
-                       :query   query}}
-              "Adding updated triples")
-      (safe-add! g triples-to-add))))
+               :id    :dannet.db/remove-triples
+               :data  {:count   (count triples-to-remove')
+                       :example (first triples-to-remove')}}
+              "Removing triples")
+      (remove! model triples-to-remove'))
+    (t/log! {:level :debug
+             :id    :dannet.db/add-triples
+             :data  {:added   (count triples-to-add)
+                     :results (count ms)
+                     :query   query}}
+            "Adding updated triples")
+    (safe-add! g triples-to-add)))

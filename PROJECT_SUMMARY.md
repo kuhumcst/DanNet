@@ -18,13 +18,16 @@ The system includes:
 ## Key Architecture Components
 
 ### Database Layer (`dk.cst.dannet.db`)
-- **Apache Jena** as the core RDF triplestore
-- Support for both in-memory and persistent (TDB/TDB2) graph storage
+- **Apache Jena** 6 as the core RDF triplestore, used through **Theophrastus** (kuhumcst's successor to Aristotle), which gives RDF terms as Clojure data
+- Support for both in-memory and persistent (TDB2) graph storage
 - Automatic transaction management for persistent stores
 - OWL inference support for deriving implicit relationships
+- `prefix/prefixes` is the one prefix map, shared by the queries, the writes, the RDF exports and the frontend (`prefix/kw->uri`); `q/->db` wraps a Jena Graph, Model or Dataset as a Theophrastus db with it
 
 ### Query System (`dk.cst.dannet.db.query`)
-- Multiple query methods: SPARQL, SPARQL Algebra, Aristotle DSL
+- SPARQL queries through `q/run` (Theophrastus's `q`): rows are maps of `?var` symbols, IRIs are keywords, language-tagged strings are `LangStr`, other typed literals `Literal`, and blank nodes `_label` symbols
+- The queries in `dk.cst.dannet.db.query.operation` are parsed once with the DanNet prefixes; values go in as bindings, e.g. `{'?s :dn/synset-1}`, which become a VALUES block of RDF terms
+- `q/triples` matches one [s p o] pattern, with `_` for any value, e.g. `(q/triples g ['_ :wn/hypernym '_])`, returning maps of `?s`, `?p` and `?o`
 - Entity expansion and blank node resolution
 - Weighted synset algorithms for semantic similarity
 
@@ -62,7 +65,8 @@ The system includes:
 - CodeMirror integration: bracket matching, line numbers, prefix block folding, error display
 
 ### SPARQL Backend (`dk.cst.dannet.web.sparql`)
-- Read-only SPARQL endpoint with query validation (read-only check, length limit, timeout)
+- Read-only SPARQL endpoint with query validation (read-only check, length limit, timeout); SELECT and ASK results render as HTML, transit and SPARQL JSON
+- Hard timeout through `txn/with-hard-timeout` on two thread pools without queues, so a full pool rejects a query at once
 - Result caching using `core.cache` with TTL, whitespace-independent cache keys via Jena's query AST
 - Coalescing of concurrent identical requests
 - Configurable result limits, offsets, and DISTINCT enforcement
@@ -71,8 +75,7 @@ The system includes:
 ### Similarity Metrics (`dk.cst.dannet.similarity`)
 - Taxonomy-based synset similarity measures over the DanNet hypernym graph, porting the `wn` Python tool's metrics: `path`, `lch` (Leacock-Chodorow), and `wup` (Wu-Palmer), plus information-content measures (`res`, `jcn`, `lin`)
 - Runs over a precomputed `{child #{parents}}` hypernym graph built once from the base (asserted) graph; ancestor-distance maps are memoized so scoring one synset against many is cheap. Handles multiple-inheritance DAGs partitioned by language (no DanNet↔OEWN hypernym edges). `build-hyponym-graph` inverts this into a `{parent #{children}}` map (the hyponym direction is the un-asserted inverse of `:wn/hypernym`), which feeds the hyponym sunburst
-- Exposed as `dnf:path` / `dnf:lch` / `dnf:wup` SPARQL functions via `register!`; the hypernym-graph context is held by `dk.cst.dannet.web.resources/hypernym-graph` (a lazy `delay`, initialised on server start) and derefed lazily on first call
-- **`dk.cst.dannet.db.query.function`**: generic ARQ plumbing — `->function` lifts a plain `(ctx & args -> double|nil)` fn into a `FunctionFactory` (nil result ⇒ unbound), and `register-functions!` adds them to the global `FunctionRegistry` under a chosen RDF namespace, so any SPARQL query can call them regardless of inference mode
+- Exposed as `dnf:path` / `dnf:lch` / `dnf:wup` SPARQL functions via `register!`, which registers them with `dk.cst.theophrastus.function` in Jena's global function registry, so any SPARQL query can call them regardless of inference mode (a nil score leaves the result unbound); the hypernym-graph context is held by `dk.cst.dannet.web.resources/hypernym-graph` (a lazy `delay`, initialised on server start) and derefed lazily on first call
 
 ### MCP Server (`mcp/`)
 - Python-based Model Context Protocol server for AI application integration
@@ -94,7 +97,7 @@ The system includes:
 
 ### SHACL Validation (`dk.cst.dannet.db.shapes`)
 - Validates the `dn:` dataset against SHACL shapes in `resources/schemas/internal/shapes/` (`base.ttl` for the asserted graph, `inferred.ttl` for the inference model, `editorial.ttl` for future write gating); all shapes use SPARQL-based targets scoped to the `dn:` namespace
-- Returns violations as plain Clojure data; counts are compared to a known baseline (`resources/schemas/internal/shapes-baseline.edn`), so the enforced invariant is "no regressions" rather than "zero violations"
+- Returns violations as plain Clojure data (via `dk.cst.theophrastus.shacl`); counts are compared to a known baseline (`resources/schemas/internal/shapes-baseline.edn`), so the enforced invariant is "no regressions" rather than "zero violations"
 - `validate-db`: non-fatal check of the asserted graph, run async at boot; `validate-export!`: release gate aborting RDF exports of the `dn:` model on baseline regressions; `validate-node`: targeted single-node validation intended for the future RDF Patch write pipeline (#194)
 - Fixture-based tests (`test/dk/cst/dannet/db/shapes_test.clj`) run via `clojure -X:validate:test`, also executed by the GitHub Actions workflow (`.github/workflows/test.yml`)
 
@@ -146,12 +149,10 @@ src/main/dk/cst/dannet/
 │   │   └── dmlex_validate.clj # DMLex schema validation (needs :validate alias)
 │   ├── query.clj             # Main query interface and navigation
 │   ├── query/
-│   │   ├── operation.clj     # Query operations and transformations
-│   │   └── function.clj      # Generic ARQ custom SPARQL function registry plumbing
+│   │   └── operation.clj     # SPARQL queries, parsed once with the DanNet prefixes
 │   ├── search.clj            # Text search and indexing
 │   ├── shapes.clj            # SHACL validation (boot check, export gate, node validation)
-│   ├── stats.clj             # Release statistics vs. DanNet 2.2 (paper tables as EDN/Markdown/LaTeX)
-│   └── transaction.clj       # Transaction management utilities
+│   └── stats.clj             # Release statistics vs. DanNet 2.2 (paper tables as EDN/Markdown/LaTeX)
 ├── hash.clj                   # Content hashing and caching
 ├── prefix.cljc               # RDF namespace prefix management
 └── shared.cljc               # Shared utilities between CLJ/CLJS
@@ -235,8 +236,7 @@ pages/
 ## Dependencies
 
 ### Core RDF/Database
-- **Apache Jena** (via `aristotle`): RDF triplestore and SPARQL
-- **ont-app/vocabulary**: RDF vocabulary management (incl. `lstr`/`->LangStr` for language-tagged strings)
+- **Theophrastus** (`dk.cst/theophrastus`, a Git dependency on the `feature/jena-6` branch of kuhumcst/aristotle): Apache Jena 6.2 (ARQ, TDB2, SHACL) with RDF terms as Clojure data; its `dk.cst.theophrastus.term` namespace (`LangStr`, `Literal`) also runs in ClojureScript, so the frontend shares the server's terms
 - **donatello** (1.3.6): Turtle writer for the RDF exports (`db.export.rdf`)
 
 ### Web Framework
@@ -407,9 +407,9 @@ npx shadow-cljs compile test
 - `dk.cst.dannet.web.ui.*` - Modular UI components
 
 ### Transaction Handling
-- Automatic transaction wrapping for TDB operations
-- Use `dk.cst.dannet.transaction/transact` for explicit transactions
-- Read operations are implicitly transactional
+- Automatic transaction wrapping for TDB operations: each `q/run` reads, and each Theophrastus write (`transact!`, `retract!`, `read!`) writes, in a transaction of its own
+- Use `txn/calculate` or `txn/calculate-read` from `dk.cst.theophrastus.txn` to group several calls in one transaction; a transaction inside another on the same dataset joins it, and a write inside `txn/calculate` promotes it
+- `db/remove!` takes one [s p o] pattern or a coll of them and removes them all in one write transaction
 
 ### Error Handling
 - `try-render` in `dk.cst.dannet.web.ui.error` (a React error boundary plus try/catch) wraps the page, each entity section and each diagram
@@ -493,15 +493,18 @@ WHERE {
 
 ### Clojure Query Example
 ```clojure
-(require '[dk.cst.dannet.db.query :as q])
+(require '[dk.cst.dannet.db.query :as q]
+         '[dk.cst.theophrastus.term :as term])
 
 ;; Find all senses of "kage"
 (q/run graph
-  '[:bgp
-    [?entry :ontolex/canonicalForm ?form]
-    [?form :ontolex/writtenRep "kage"@da]
-    [?entry :ontolex/sense ?sense]
-    [?sense :ontolex/isLexicalizedSenseOf ?synset]])
+       "SELECT ?entry ?sense ?synset
+        WHERE {
+          ?entry ontolex:canonicalForm/ontolex:writtenRep ?rep ;
+                 ontolex:sense ?sense .
+          ?sense ontolex:isLexicalizedSenseOf ?synset .
+        }"
+       {'?rep (term/->LangStr "kage" "da")})
 ```
 
 ## Performance Considerations

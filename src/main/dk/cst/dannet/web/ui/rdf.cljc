@@ -1,7 +1,7 @@
 (ns dk.cst.dannet.web.ui.rdf
   (:require [clojure.string :as str]
             [rum.core :as rum]
-            [ont-app.vocabulary.core :as voc]
+            #?(:clj [dk.cst.theophrastus.term :as term])
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -9,7 +9,7 @@
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:clj [better-cond.core :refer [cond]])
             #?(:clj [clojure.core.memoize :as memo]))
-  #?(:clj (:import [org.apache.jena.datatypes BaseDatatype$TypedValue]))
+  #?(:clj (:import [dk.cst.theophrastus.term Literal]))
   #?(:cljs (:require-macros [better-cond.core :refer [cond]]))
   (:refer-clojure :exclude [cond]))
 
@@ -23,7 +23,7 @@
     (if (keyword? term)
       [(symbol (namespace term))
        (name term)
-       (voc/uri-for term)]
+       (prefix/kw->uri term)]
       (let [uri (str/replace term #"<|>" "")]
         [nil uri uri]))))
 
@@ -222,12 +222,12 @@
   "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
    (cond
-     ;; RDF typed literals: TypedValue on backend, {:uri :value} map on frontend.
+     ;; RDF typed literals: Literal on backend, {:uri :value} map on frontend.
      #?@(:clj
-         [(instance? BaseDatatype$TypedValue v)
+         [(instance? Literal v)
           (transform-rdf-datatype
-            {:uri   (.-datatypeURI ^BaseDatatype$TypedValue v)
-             :value (.-lexicalValue ^BaseDatatype$TypedValue v)})]
+            {:uri   (prefix/rdf-resource->uri (term/datatype v))
+             :value (str v)})]
          :cljs
          [(rdf-datatype? v)
           (transform-rdf-datatype v)])

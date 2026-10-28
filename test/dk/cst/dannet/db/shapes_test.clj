@@ -7,6 +7,7 @@
   except the sh:sparql constraints, which are identified by :message instead
   (see the `hypernym-shapes` deftest)."
   (:require [clojure.test :refer [deftest is testing]]
+            [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.test-util :as util]))
 
@@ -147,7 +148,7 @@ dn:form-3 ontolex:writtenRep \"b\"@da ."
                             (map (juxt :shape :severity :focus-node)) set)
                        [:dns/HypernymPOSShape :sh/Warning :dn/synset-2]))
         ;; Warnings never block, cf. the write-gating/baseline semantics.
-        (is (not (shapes/blocking? result)))))
+        (is (not (shacl/blocking? result)))))
     (testing "hierarchy with agreeing POS produces no hypernym entries"
       (is (empty? (filter (comp #{:dns/HypernymHierarchyShape
                                   :dns/HypernymPOSShape} :shape)
@@ -223,7 +224,7 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
       (is (contains? (->> (:entries result)
                           (map (juxt :shape :severity :focus-node)) set)
                      [:dns/EqRelationShape :sh/Violation :dn/synset-2]))
-      (is (shapes/blocking? result))))
+      (is (shacl/blocking? result))))
   (testing "eq* relations to different synsets produce no eq* entries"
     (is (empty? (filter (comp #{:dns/EqRelationShape} :shape)
                         (:entries (validate-ttl "

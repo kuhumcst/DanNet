@@ -66,7 +66,7 @@ Yderligere udviklerorienteret dokumentation:
 
 * [Python-eksempler][examples] — tutorial og eksempler til at arbejde med DanNet i Python
 * [SPARQL-guide][SPARQL guide] — en praktisk introduktion til at forespørge DanNet med SPARQL
-* [Forespørgsler i DanNet][queries] (en) — SPARQL, Aristotle DSL og graftraversering
+* [Forespørgsler i DanNet][queries] (en) — SPARQL, Clojure og graftraversering
 * [Sense/synset-labelformat][label-rewrite] (en)
 * [Rationale][rationale] (en)
 

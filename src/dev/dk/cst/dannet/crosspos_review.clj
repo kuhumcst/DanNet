@@ -152,17 +152,21 @@
   partOfSpeech without a canonicalForm/writtenRep, and joining the two would
   silently drop such synsets from the PoS comparison."
   [g]
-  (let [labels (into {} (map (juxt '?s (comp str '?l)))
-                     (q/run g '[:bgp [?s :rdfs/label ?l]]))
-        pos    (q/run g '[:bgp
-                          [?synset :ontolex/lexicalizedSense ?sense]
-                          [?word :ontolex/sense ?sense]
-                          [?word :wn/partOfSpeech ?pos]])
-        lemmas (q/run g '[:bgp
-                          [?synset :ontolex/lexicalizedSense ?sense]
-                          [?word :ontolex/sense ?sense]
-                          [?word :ontolex/canonicalForm ?form]
-                          [?form :ontolex/writtenRep ?rep]])]
+  (let [labels (into {} (map (juxt '?s (comp str '?o)))
+                     (q/triples g ['_ :rdfs/label '_]))
+        pos    (q/run g "SELECT ?synset ?pos
+                         WHERE {
+                           ?synset ontolex:lexicalizedSense ?sense .
+                           ?word ontolex:sense ?sense ;
+                                 wn:partOfSpeech ?pos .
+                         }")
+        lemmas (q/run g "SELECT ?synset ?rep
+                         WHERE {
+                           ?synset ontolex:lexicalizedSense ?sense .
+                           ?word ontolex:sense ?sense ;
+                                 ontolex:canonicalForm ?form .
+                           ?form ontolex:writtenRep ?rep .
+                         }")]
     (as-> (into {} (map (fn [[s l]] [s {:label l}])) labels) $
           (reduce (fn [m {:syms [?synset ?pos]}]
                     (update-in m [?synset :pos] (fnil conj #{}) ?pos))
@@ -175,7 +179,7 @@
   "Every wn:hypernym pair the HypernymPOSShape flags, i.e. any pair whose
   synsets are lexicalized by words disagreeing in PoS."
   [g idx]
-  (->> (q/run g '[:bgp [?s :wn/hypernym ?o]])
+  (->> (q/triples g ['_ :wn/hypernym '_])
        (keep (fn [{:syms [?s ?o]}]
                (let [a (get-in idx [?s :pos]) b (get-in idx [?o :pos])]
                  (when (and (str/starts-with? (str ?o) ":dn/")
@@ -201,7 +205,7 @@
 (defn deferred-crosspos
   "The dns:crossPoSHypernym triples deliberately retained for review."
   [g]
-  (->> (q/run g '[:bgp [?s :dns/crossPoSHypernym ?o]])
+  (->> (q/triples g ['_ :dns/crossPoSHypernym '_])
        (map (fn [{:syms [?s ?o]}] {:source ?s :target ?o}))))
 
 (defn- uri [k] (str (prefix/kw->uri k)))

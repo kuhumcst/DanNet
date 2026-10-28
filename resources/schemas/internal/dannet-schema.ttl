@@ -19,16 +19,16 @@
   dc:issued "2023-09-08" ;
   dc:title "DanNet-skema"@da, "DanNet schema"@en;
   dc:description "Skema for DanNet-specifikke relationer."@da, "Schema for DanNet-specific relations."@en ;
-  dc:publisher "<https://cst.dk>";
+  dc:publisher <https://cst.dk>;
   vann:preferredNamespacePrefix "dns";
   vann:preferredNamespaceUri "https://wordnet.dk/dannet/schema/";
-  foaf:homepage "<https://cst.ku.dk/projekter/dannet>";
-  dc:license "<https://creativecommons.org/licenses/by-sa/4.0/>";
-  dcat:downloadURL "<https://wordnet.dk/schema/dns>";
+  foaf:homepage <https://cst.ku.dk/projekter/dannet>;
+  dc:license <https://creativecommons.org/licenses/by-sa/4.0/>;
+  dcat:downloadURL <https://wordnet.dk/schema/dns>;
   dc:title "DanNet-skema"@da, "DanNet schema"@en;
   dc:rights "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature."@en, "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab."@da;
-  dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
-  rdfs:seeAlso "<https://wordnet.dk/dannet/concepts>", "<https://wordnet.dk/dannet/data>" .
+  dc:contributor <https://simongray.dk>, <https://cst.dk>, <https://dsl.dk>;
+  rdfs:seeAlso <https://wordnet.dk/dannet/concepts>, <https://wordnet.dk/dannet/data> .
 
 :shortLabel a owl:DatatypeProperty ;
   rdfs:label "short label"@en;
@@ -117,7 +117,7 @@
   rdfs:comment "Et DanNet-synset der fungerer som overbegreb for subjekt-betydningen, som kurateret i betydningens eget inventar (COR.SEM-feltet overbegreb-DanNet); det forankrer en betydning fra et andet datasæt i DanNets taksonomi, uanset om DanNet selv har et synset for betydningen."@da ;
   rdfs:label "hypernym anchor"@en ;
   rdfs:label "overbegrebsanker"@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :Gender a owl:Class ;
@@ -281,7 +281,7 @@
   rdfs:label "COR.SEM-koncept"@da ;
   rdfs:comment "An ontological concept from the simplified ontology of the COR.SEM project which has no counterpart among the DanNet/EuroWordNet concepts."@en ;
   rdfs:comment "Et ontologisk koncept fra COR.SEM-projektets forenklede ontologi som ikke har et modstykke blandt DanNet/EuroWordNet-koncepterne."@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :OntologicalType a owl:Class ;
@@ -327,7 +327,7 @@
   rdfs:comment "Subjekt-formens skriftlige repræsentation med tryktegnet ˈ foran det betonede ord, sådan som Den Danske Ordbog viser den, fx \"se ˈtil\". DDO viser oftest tegnet, hvor trykket adskiller to udtryk med samme stavemåde, fx \"se til\" og \"se ˈtil\". Kun de former, som DDO viser med tegnet, har en værdi. DanNet 2 markerede også det forudsigelige tryk i mange andre flerordsudtryk, fx på partiklen i \"slå op\", men DDO viser ikke det tryk, så denne egenskab medtager det ikke."@da ;
   rdfs:label "stressed representation"@en ;
   rdfs:label "betonet repræsentation"@da ;
-  rdfs:seeAlso "<https://ordnet.dk/ddo>" ;
+  rdfs:seeAlso <https://ordnet.dk/ddo> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :crossPoSHypernym a wn:SynsetRelType ;
@@ -363,8 +363,8 @@
   rdfs:comment "Den Berkeley FrameNet-ramme som subjekt-betydningen fremkalder."@da ;
   rdfs:label "frame"@en ;
   rdfs:label "ramme"@da ;
-  rdfs:seeAlso "<https://framenet.icsi.berkeley.edu/>" ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://framenet.icsi.berkeley.edu/> ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :frameOf a owl:ObjectProperty ;
@@ -388,7 +388,7 @@
   rdfs:comment "Den ramme (eller anden semantisk klasse) som definerer subjekt-rammeelementet; den afledte inverse af pmo:semRole."@da ;
   rdfs:label "role in"@en ;
   rdfs:label "rolle i"@da ;
-  rdfs:seeAlso "<http://premon.fbk.eu/ontology/core>" ;
+  rdfs:seeAlso <http://premon.fbk.eu/ontology/core> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :inheritedByFrame a owl:ObjectProperty ;
@@ -402,7 +402,7 @@
   rdfs:comment "En ramme som nedarver fra subjekt-rammen; den afledte inverse af pmofn:inheritsFrom."@da ;
   rdfs:label "inherited by frame"@en ;
   rdfs:label "nedarves af ramme"@da ;
-  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:seeAlso <http://premon.fbk.eu/ontology/fn> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :inheritedByRole a owl:ObjectProperty ;
@@ -413,7 +413,7 @@
   rdfs:comment "Et rammeelement som nedarver fra subjekt-rammeelementet langs rammenedarvningen; den afledte inverse af pmofn:inheritsFromFER."@da ;
   rdfs:label "inherited by role"@en ;
   rdfs:label "nedarves af rolle"@da ;
-  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:seeAlso <http://premon.fbk.eu/ontology/fn> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :semTypeOf a owl:ObjectProperty ;
@@ -423,7 +423,7 @@
   rdfs:comment "En ramme eller et rammeelement som bærer den semantiske subjekt-type; den afledte inverse af pmofn:semType."@da ;
   rdfs:label "semantic type of"@en ;
   rdfs:label "semantisk type for"@da ;
-  rdfs:seeAlso "<http://premon.fbk.eu/ontology/fn>" ;
+  rdfs:seeAlso <http://premon.fbk.eu/ontology/fn> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :centrality a owl:DatatypeProperty ;
@@ -432,7 +432,7 @@
   rdfs:comment "Subjekt-betydningens centralitet i det danske kerneordforråd, overført fra COR.SEM-feltet centralitet: 1 = nøgleord i Den Danske Begrebsordbog, 2 = centralt begreb i DanNet, dvs. koblet til Princeton WordNets Core WordNet, 3 = begge dele; betydninger som ikke er centrale i nogen af dem, bærer ingen værdi."@da ;
   rdfs:label "centrality"@en ;
   rdfs:label "centralitet"@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :PolysemyPattern a owl:Class ;
@@ -441,9 +441,9 @@
   rdfs:label "polysemimønster"@da ;
   rdfs:comment "A systematic polysemy pattern, e.g. dnp:Plant-Food: an rdf:Seq of the pattern's two readings in order, each either an ontological concept or, where no concept matches, the reading's name in the pattern inventory of COR.SEM 1.0, a refinement of the 28-pattern typology published in Sørensen, Nimb & Pedersen (2023), which also records per-pattern sense representation decisions. A concept matches a reading either by name or, as stated in a comment on the pattern, by distributional evidence."@en ;
   rdfs:comment "Et systematisk polysemimønster, fx dnp:Plant-Food: en rdf:Seq af mønstrets to læsninger i rækkefølge, hver enten et ontologisk koncept eller, hvor intet koncept svarer til læsningen, dens navn i mønsterinventaret fra COR.SEM 1.0, en viderebearbejdning af typologien med 28 mønstre publiceret i Sørensen, Nimb & Pedersen (2023), som også fastlægger betydningsrepræsentationen for hvert mønster. Et koncept svarer til en læsning enten ved navn eller, som angivet i en kommentar på mønstret, ved distributionel evidens."@da ;
-  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
-  rdfs:seeAlso "<https://github.com/kuhumcst/pycor/tree/master/data/systematic_polysemy>" ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://aclanthology.org/2023.gwc-1.14/> ;
+  rdfs:seeAlso <https://github.com/kuhumcst/pycor/tree/master/data/systematic_polysemy> ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :polysemyPattern a owl:ObjectProperty ;
@@ -454,7 +454,7 @@
   rdfs:comment "Et systematisk polysemimønster som subjekt-betydningen indgår i, fx dnp:Plant-Food: det samme ord har, eller kunne forudsigeligt have, en betydning med mønstrets anden læsning."@da ;
   rdfs:label "polysemy pattern"@en ;
   rdfs:label "polysemimønster"@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :polysemyPatternOf a owl:ObjectProperty ;
@@ -473,7 +473,7 @@
   rdfs:comment "Subjekt-polysemimønstrets gruppe i den publicerede typologis inddeling efter Lyons' ordener af entiteter: 1 = begge læsninger førsteordens (konkrete), 2 = andenordens (/førsteordens), 3 = første-/tredjeordens, 4 = anden-/tredjeordens, 5 = begge tredjeordens (abstrakte); mønstre føjet til inventaret efter publikationen bærer ingen gruppe."@da ;
   rdfs:label "pattern group"@en ;
   rdfs:label "mønstergruppe"@da ;
-  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:seeAlso <https://aclanthology.org/2023.gwc-1.14/> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :alternatesWith a owl:ObjectProperty ;
@@ -482,7 +482,7 @@
   rdfs:comment "En betydning eller et synset som dækker den ene læsning i et systematisk polysemimønster for et ord, forbundet med betydningen eller synsettet for ordets anden læsning; afledt af COR.SEM-betydninger af samme ord med samme dns:polysemyPattern. Symmetrisk og uden retning, da kildedataene ikke ordner læsningerne; par hvis læsningsfordeling kan afledes, bærer i stedet den orienterede dns:alternatesTo, som medfører denne egenskab."@da ;
   rdfs:label "alternates with"@en ;
   rdfs:label "veksler med"@da ;
-  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:seeAlso <https://aclanthology.org/2023.gwc-1.14/> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :alternatesTo a owl:ObjectProperty ;
@@ -492,7 +492,7 @@
   rdfs:comment "Betydningen eller synsettet som dækker den anden læsning i et systematisk polysemimønster, set fra den som dækker den første. Retningen følger læsningsrækkefølgen i mønstrets navn og er afledt ved ontotype-diskrimination: et par ordnes kun hvor præcis det ene medlems ontologiske type indeholder en læsnings koncept; par som ikke kan ordnes, bærer i stedet den uorienterede dns:alternatesWith."@da ;
   rdfs:label "alternates to"@en ;
   rdfs:label "veksler til"@da ;
-  rdfs:seeAlso "<https://aclanthology.org/2023.gwc-1.14/>" ;
+  rdfs:seeAlso <https://aclanthology.org/2023.gwc-1.14/> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :alternatesFrom a owl:ObjectProperty ;
@@ -513,7 +513,7 @@
   rdfs:comment "Synsettet i et andet datasæt som subjekt-betydningen leksikaliserer, fx en COR.SEM-betydning forbundet med et DanNet-synset; en underegenskab der holder de to betydningsinventarer adskilt."@da ;
   rdfs:label "linked synset"@en ;
   rdfs:label "forbundet synset"@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :linkedSynsetOf a owl:ObjectProperty ;
@@ -557,7 +557,7 @@
   rdfs:comment "Subjekt-betydningens ontologiske type i den forenklede COR-ontologi, fx dnt:Human-Object; en reduceret udgave af den DanNet/EuroWordNet-ontologi som dns:ontologicalType betjener."@da ;
   rdfs:label "simple ontotype"@en ;
   rdfs:label "simpel ontotype"@da ;
-  rdfs:seeAlso "<https://ordregister.dk/files/COR.SEM_1.0_specifikation.html>" ;
+  rdfs:seeAlso <https://ordregister.dk/files/COR.SEM_1.0_specifikation.html> ;
   rdfs:isDefinedBy <https://wordnet.dk/dannet/schema> .
 
 :simpleOntologicalTypeOf a owl:ObjectProperty ;

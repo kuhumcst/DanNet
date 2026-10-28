@@ -6,15 +6,14 @@
             [clojure.walk :as walk]
             [clojure.data.json :as json]
             [clj-file-zip.core :as zip]
-            [ont-app.vocabulary.core :as voc]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.release :as release]
-            [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.db.transaction :as txn])
+            [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.rdf.model Model Statement]))
 
 (defn- expand-kw
@@ -197,19 +196,20 @@
   The function basically exists because I wasn't able to perform a similar query
   in a performant way, e.g. doing this for all synsets would take ~45 minutes."
   [^Model model synset]
-  (txn/transact model
-    (->> (voc/uri-for synset)
-         (.getResource model)
-         (.listProperties)
-         (iterator-seq)
-         (keep (fn [^Statement statement]
-                 (let [prefix (str prefix/dn-uri "synset-")
-                       obj    (str (.getObject statement))]
-                   (when (str/starts-with? obj prefix)
-                     [synset
-                      (str (.getPredicate statement))
-                      (voc/keyword-for obj)]))))
-         (doall))))
+  (txn/calculate-read model
+    (fn []
+      (->> (prefix/kw->uri synset)
+           (.getResource model)
+           (.listProperties)
+           (iterator-seq)
+           (keep (fn [^Statement statement]
+                   (let [prefix (str prefix/dn-uri "synset-")
+                         obj    (str (.getObject statement))]
+                     (when (str/starts-with? obj prefix)
+                       [synset
+                        (str (.getPredicate statement))
+                        (keyword "dn" (subs obj (count prefix/dn-uri)))]))))
+           (doall)))))
 
 (defn export-csv-rows!
   "Write CSV `rows` to file `f`."
@@ -235,7 +235,7 @@
    (println "----")
    (let [g          (db/get-graph dataset prefix/dn-uri)
          synsets-ks '[?synset ?definition ?onto]
-         words-ks   '[?word ?written-rep ?pos ?rdf-type]
+         words-ks   '[?word ?writtenRep ?pos ?rdfType]
          senses-ks  '[?sense ?synset ?word ?note]
          zip-path   (str dir (prefix/export-file "csv" 'dn))]
      (println "Fetching table rows:" synsets-ks)
@@ -267,7 +267,7 @@
        (str dir "inheritance.csv")
        (map (fn [{:syms [?synset ?rel ?from]}]
               [(name ?synset)
-               (voc/uri-for ?rel)
+               (prefix/kw->uri ?rel)
                (name ?from)])
             (q/run g op/csv-inheritance)))
      (export-metadata!
@@ -277,7 +277,8 @@
      (println "Fetching example data...")
      (export-csv-rows!
        (str dir "examples.csv")
-       (map csv-row (q/run g '[?sense ?example] op/csv-examples)))
+       (map (comp csv-row (juxt '?sense '?example))
+            (q/run g op/csv-examples)))
      (export-metadata!
        (str dir "examples-metadata.json")
        examples-metadata)

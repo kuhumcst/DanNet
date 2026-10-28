@@ -9,7 +9,7 @@
             #?(:cljs [cognitect.transit :as transit])
             #?(:cljs [lambdaisland.fetch :as fetch])
             #?(:cljs [lambdaisland.uri :as uri])
-            #?(:cljs [ont-app.vocabulary.lstr :as lstr])))
+            #?(:cljs [dk.cst.theophrastus.term :as term])))
 
 (def default-state
   "The user's state before any page is shown. The preferences (languages,
@@ -88,14 +88,18 @@
 
 #?(:cljs
    (do
+     (defn- read-lstr
+       "The LangStr of the Transit `rep` s@lang, split at its last @."
+       [rep]
+       (let [i (str/last-index-of rep "@")]
+         (term/->LangStr (subs rep 0 i) (subs rep (inc i)))))
+
      (def transit-read-handlers
-       {"lstr"         lstr/read-LangStr
+       {"lstr"         read-lstr
         "rdfdatatype"  identity
         "f"            parse-double                         ; BigDecimal
-        "sparqlresult" identity
-        "datetime"     identity})
+        "sparqlresult" identity})
 
-     ;; TODO: handle datetime more satisfyingly typewise and in the web UI
      (def transit-reader
        (transit/reader :json {:handlers transit-read-handlers}))
 

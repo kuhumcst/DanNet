@@ -5,12 +5,13 @@
   inference using a Jena OWL reasoner."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [arachne.aristotle :as aristotle]
             [clj-file-zip.core :as zip]
             [taoensso.telemere :as t]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.rules :as rules]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
-            [dk.cst.dannet.db.transaction :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap.corsem :as corsem]
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
@@ -25,9 +26,7 @@
            [java.time.format DateTimeFormatter]
            [java.util.regex Pattern]
            [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.rdf.model Model ModelFactory]
-           [org.apache.jena.reasoner.rulesys GenericRuleReasoner Rule]
-           [org.apache.jena.tdb TDBFactory]
+           [org.apache.jena.rdf.model Model]
            [org.apache.jena.tdb2 TDB2Factory]))
 
 (defn assert-expected-dannet-release!
@@ -38,16 +37,16 @@
   no such triple, so we fall back to a sample of any versionInfo values present."
   [model]
   (let [graph    (.getGraph ^Model model)
-        expected (q/run graph [:bgp [md/<dn> :owl/versionInfo release/from]])]
+        expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
     (when (empty? expected)
-      (let [dn-vers (->> (q/run graph [:bgp [md/<dn> :owl/versionInfo '?v]])
-                         (map #(str (get % '?v)))
+      (let [dn-vers (->> (q/triples graph [md/<dn> :owl/versionInfo '_])
+                         (map #(str (get % '?o)))
                          (distinct)
                          (vec))
             actual  (if (seq dn-vers)
                       dn-vers
-                      (->> (q/run graph '[:bgp [?s :owl/versionInfo ?v]])
-                           (map #(str (get % '?v)))
+                      (->> (q/triples graph ['_ :owl/versionInfo '_])
+                           (map #(str (get % '?o)))
                            (distinct)
                            (take 5)
                            (vec)))]
@@ -80,41 +79,38 @@
           ms          (q/run oewn-graph op/oewn-label-targets)
           collect-rep (fn [m {:syms [?synset ?rep]}]
                         (update m ?synset conj (str ?rep)))]
-      (txn/transact-exec dataset
-        (t/log! {:level :debug
-                 :id    :dannet.bootstrap/oewn-synset-labels
-                 :data  {:graph (str prefix/oewn-extension-uri)}}
-                "Adding OEWN synset labels")
-        (->> (reduce collect-rep {} ms)
-             (map (fn [[synset labels]]
-                    [synset :rdfs/label (synset-label md/en labels)]))
-             (aristotle/add label-graph)))
-      (txn/transact-exec dataset
-        (t/log! {:level :debug
-                 :id    :dannet.bootstrap/oewn-word-labels
-                 :data  {:graph (str prefix/oewn-extension-uri)}}
-                "Adding OEWN sense and word labels")
-        (->> ms
-             (mapcat (fn [{:syms [?sense ?word ?rep]}]
-                       [[?word :rdfs/label (md/en "\"" ?rep "\"")]
-                        [?sense :rdfs/label ?rep]]))
-             (aristotle/add label-graph)))
+      (t/log! {:level :debug
+               :id    :dannet.bootstrap/oewn-synset-labels
+               :data  {:graph (str prefix/oewn-extension-uri)}}
+              "Adding OEWN synset labels")
+      (->> (reduce collect-rep {} ms)
+           (map (fn [[synset labels]]
+                  [synset :rdfs/label (synset-label md/en labels)]))
+           (theo/transact! (q/->db label-graph)))
+      (t/log! {:level :debug
+               :id    :dannet.bootstrap/oewn-word-labels
+               :data  {:graph (str prefix/oewn-extension-uri)}}
+              "Adding OEWN sense and word labels")
+      (->> ms
+           (mapcat (fn [{:syms [?sense ?word ?rep]}]
+                     [[?word :rdfs/label (md/en "\"" ?rep "\"")]
+                      [?sense :rdfs/label ?rep]]))
+           (theo/transact! (q/->db label-graph)))
       ;; Carry the CC BY 4.0 licence in the RDF itself, not just the export zip
       ;; (issue #96): the OEWN label extension is our derivative of the Open
       ;; English Wordnet, published under the same CC BY 4.0 licence.
-      (txn/transact-exec dataset
-        (t/log! {:level :debug
-                 :id    :dannet.bootstrap/oewn-license
-                 :data  {:graph (str prefix/oewn-extension-uri)}}
-                "Adding OEWN extension licence metadata")
-        (let [oewn-ext (prefix/uri->rdf-resource prefix/oewn-extension-uri)]
-          (aristotle/add
-            label-graph
-            [[oewn-ext :dc/license "<https://creativecommons.org/licenses/by/4.0/>"]
-             ["<https://creativecommons.org/licenses/by/4.0/>" :rdfs/label "CC BY 4.0"]
-             [oewn-ext :dc/rights (md/en "DanNet-style labels for the Open English Wordnet; "
-                                         "© the Open English Wordnet contributors, "
-                                         "licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).")]]))))))
+      (t/log! {:level :debug
+               :id    :dannet.bootstrap/oewn-license
+               :data  {:graph (str prefix/oewn-extension-uri)}}
+              "Adding OEWN extension licence metadata")
+      (let [oewn-ext (prefix/uri->rdf-resource prefix/oewn-extension-uri)]
+        (theo/transact!
+          (q/->db label-graph)
+          [[oewn-ext :dc/license "<https://creativecommons.org/licenses/by/4.0/>"]
+           ["<https://creativecommons.org/licenses/by/4.0/>" :rdfs/label "CC BY 4.0"]
+           [oewn-ext :dc/rights (md/en "DanNet-style labels for the Open English Wordnet; "
+                                       "© the Open English Wordnet contributors, "
+                                       "licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).")]])))))
 
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!
@@ -124,7 +120,9 @@
     (let [oewn-changefn (fn [temp-model]
                           (t/log! {:level :debug :id :dannet.bootstrap/oewn-clean}
                                   "Removing problematic OEWN entries")
-                          (db/remove! temp-model [prefix/oewn-uri :lime/entry '_]))]
+                          (db/remove! temp-model
+                                      [(prefix/uri->rdf-resource prefix/oewn-uri)
+                                       :lime/entry '_]))]
       (db/import-files dataset prefix/oewn-uri [downloads/oewn-ttl-path] oewn-changefn)
       (db/import-files dataset prefix/ili-uri [downloads/ili-path])))
   (add-open-english-wordnet-labels! dataset))
@@ -137,10 +135,9 @@
     (let [graph (db/get-graph dataset prefix/framenet-uri)
           model (db/get-model dataset prefix/framenet-uri)]
       (doseq [chunk (partition-all 500000 (premon/source-triples))]
-        (txn/transact-exec graph
-          (db/safe-add! graph chunk)))
-      (txn/transact-exec model
-        (md/update-metadata! (get (md/metadata) 'frame) model)))))
+        (db/safe-add! graph chunk))
+      (txn/calculate model
+        #(md/update-metadata! (get (md/metadata) 'frame) model)))))
 
 (h/defn add-in-scheme!
   "Add skos:inScheme to all DanNet, COR and COR.SEM resources (GitHub issue
@@ -161,20 +158,20 @@
                                      [prefix/framenet-uri prefix/framenet-uri md/<framenet>]]]
     (let [model    (db/get-model dataset model-uri)
           g        (db/get-graph dataset model-uri)
-          subjects (txn/transact model
-                     (->> (iterator-seq (.listSubjects model))
-                          (filter #(.isURIResource %))
-                          (map #(.getURI %))
-                          (filter #(str/starts-with? % ns-uri))
-                          (doall)))]
-      (txn/transact-exec g
-        (t/log! {:level :info
-                 :id    :dannet.bootstrap/add-in-scheme
-                 :data  {:scheme scheme
-                         :count  (count subjects)}}
-                "Adding skos:inScheme to resources")
-        (db/safe-add! g (for [uri subjects]
-                          [(prefix/uri->rdf-resource uri) :skos/inScheme scheme]))))))
+          subjects (txn/calculate-read model
+                     (fn []
+                       (->> (iterator-seq (.listSubjects model))
+                            (filter #(.isURIResource %))
+                            (map #(.getURI %))
+                            (filter #(str/starts-with? % ns-uri))
+                            (doall))))]
+      (t/log! {:level :info
+               :id    :dannet.bootstrap/add-in-scheme
+               :data  {:scheme scheme
+                       :count  (count subjects)}}
+              "Adding skos:inScheme to resources")
+      (db/safe-add! g (for [uri subjects]
+                        [(prefix/uri->rdf-resource uri) :skos/inScheme scheme])))))
 
 (h/defn regenerate-short-labels!
   "Regenerate every dns:shortLabel from its synset's rdfs:label, ranking the
@@ -304,23 +301,24 @@
             (str "expected 268 negations, found " (count negations)))
     (assert (= 203 (count inherited))
             (str "expected 203 inherited negations, found " (count inherited)))
-    (assert (every? #(seq (q/run g [:bgp (first %)])) negations)
+    (assert (every? #(seq (q/triples g (first %))) negations)
             "expected every negated relation to be asserted")
-    (txn/transact-exec model
-      (doseq [[triple] negations]
-        (db/remove! model triple)))
-    (txn/transact-exec g
-      (db/safe-add! g (mapcat #(apply negation-triples %) negations)))
+    (db/remove! model (map first negations))
+    (db/safe-add! g (mapcat #(apply negation-triples %) negations))
     (let [sources (for [[[s p] from] inherited
-                        :when (empty? (q/run g [:bgp [s p '?o] [from p '?o]]))]
+                        :when (empty? (q/run g
+                                             "SELECT ?o
+                                              WHERE { ?s ?p ?o . ?from ?p ?o }"
+                                             {'?s s '?p p '?from from}))]
                     [s p from])]
       (t/log! {:level :info
                :id    :dannet.bootstrap/remove-inheritance-sources
                :data  {:count (count sources)}}
               "Removing inheritance sources that only negations justified")
-      (txn/transact-exec model
-        (doseq [[s p from] sources]
-          (remove-inheritance-source! model s p from))))))
+      (txn/calculate model
+        (fn []
+          (doseq [[s p from] sources]
+            (remove-inheritance-source! model s p from)))))))
 
 (def dannet-2-csv-dir
   "The DanNet 2.5.1 CSV release, the source of the DanNet 2 sense examples.
@@ -569,7 +567,7 @@
                             {}
                             (q/run (db/get-graph dataset prefix/cor-uri)
                                    op/cor-word-forms))
-        synset      (->> '[:bgp [?synset :ontolex/lexicalizedSense ?sense]]
+        synset      (->> op/synset-senses
                          (q/run g)
                          (map (juxt '?sense '?synset))
                          (into {}))
@@ -581,7 +579,7 @@
         placements  (mapcat (partial place-dannet-2-examples inflections
                                      (partial current-sense senses synset))
                             (dannet-2-example-synsets dir))
-        examples    (->> '[:bgp [?sense :lexinfo/senseExample ?example]]
+        examples    (->> op/csv-examples
                          (q/run g)
                          (map (juxt '?sense '?example)))]
     (assoc (example-changes synset examples placements)
@@ -626,16 +624,14 @@
              :id    :dannet.bootstrap/dannet-2-example-changes
              :data  counts}
             "Changing the DanNet 2 usage examples")
-    (txn/transact-exec model
-      (doseq [[sense example] remove]
-        (db/remove! model [sense :lexinfo/senseExample example])))
-    (txn/transact-exec g
-      (db/safe-add! g (concat
-                        (for [[sense example] add]
-                          [sense :lexinfo/senseExample (md/da example)])
-                        (for [sense tied
-                              comment comments]
-                          [sense :rdfs/comment comment]))))))
+    (db/remove! model (for [[sense example] remove]
+                        [sense :lexinfo/senseExample example]))
+    (db/safe-add! g (concat
+                      (for [[sense example] add]
+                        [sense :lexinfo/senseExample (md/da example)])
+                      (for [sense tied
+                            comment comments]
+                        [sense :rdfs/comment comment])))))
 
 (h/defn move-renamed-synset-ili!
   "Move the wn:ili of dn:synset-78106 in `dataset` to dn:synset-78881, the id
@@ -653,16 +649,14 @@
         model    (db/get-model dataset prefix/dn-uri)
         old      :dn/synset-78106
         new      :dn/synset-78881
-        ilis     (map '?ili (q/run g [:bgp [old :wn/ili '?ili]]))
+        ilis     (map '?o (q/triples g [old :wn/ili '_]))
         expected 1]
     (assert (= expected (count ilis))
             (str "expected " expected " ILI to move, found " (count ilis)))
-    (txn/transact-exec model
-      (db/remove! model [old '_ '_]))
-    (txn/transact-exec g
-      (db/safe-add! g (cons [new :dns/subsumed old]
-                            (for [ili ilis]
-                              [new :wn/ili ili]))))))
+    (db/remove! model [old '_ '_])
+    (db/safe-add! g (cons [new :dns/subsumed old]
+                          (for [ili ilis]
+                            [new :wn/ili ili])))))
 
 (h/defn add-ili-eq-synonyms!
   "Add a wn:eq_synonym from each dn: synset in `dataset` to the OEWN synset
@@ -683,20 +677,23 @@
   Must run after add-open-english-wordnet!, which supplies the ILI -> synset
   mapping, and after move-renamed-synset-ili!."
   [dataset]
-  (let [ili->oewn (->> (q/run (db/get-graph dataset prefix/oewn-uri)
-                              '[:bgp [?synset :wn/ili ?ili]])
-                       (group-by '?ili)
+  (let [ili->oewn (->> (q/triples (db/get-graph dataset prefix/oewn-uri)
+                                  ['_ :wn/ili '_])
+                       (group-by '?o)
                        (into {} (keep (fn [[ili ms]]
                                         (when (= 1 (count ms))
-                                          [ili (get (first ms) '?synset)])))))
+                                          [ili (get (first ms) '?s)])))))
         g         (db/get-graph dataset prefix/dn-uri)
         linked    (set (for [p [:wn/eq_synonym :dns/eqHypernym :dns/eqHyponym
                                 :dns/eqSimilar]
-                             {:syms [?s ?o]} (q/run g [:bgp ['?s p '?o]])]
+                             {:syms [?s ?o]} (q/triples g ['_ p '_])]
                          [?s ?o]))
-        equated   (set (map '?s (q/run g '[:bgp [?s :wn/eq_synonym ?o]])))
-        ili-links (->> (q/run g '[:bgp [?synset :rdf/type :ontolex/LexicalConcept]
-                                        [?synset :wn/ili ?ili]])
+        equated   (set (map '?s (q/triples g ['_ :wn/eq_synonym '_])))
+        ili-links (->> (q/run g "SELECT ?synset ?ili
+                                 WHERE {
+                                   ?synset rdf:type ontolex:LexicalConcept ;
+                                           wn:ili ?ili .
+                                 }")
                        (group-by '?synset))
         triples   (set (for [[synset ms] ili-links
                              :when (and (= 1 (count ms))
@@ -713,8 +710,7 @@
     (assert (= expected (count triples))
             (str "expected " expected " wn:eq_synonym triples, found "
                  (count triples)))
-    (txn/transact-exec g
-      (db/safe-add! g triples))))
+    (db/safe-add! g triples)))
 
 (h/defn register-triples
   "The triples of the DanNet 2 `register` text of `sense`, the way the 2023
@@ -742,8 +738,8 @@
           "Restoring the DanNet 2 register of split senses")
   (let [g        (db/get-graph dataset prefix/dn-uri)
         senses   (reduce (fn [m {:syms [?synset ?sense]}] (update m ?synset conj ?sense))
-                         {} (q/run g '[:bgp [?synset :ontolex/lexicalizedSense ?sense]]))
-        noted    (set (map '?s (q/run g '[:bgp [?s :lexinfo/usageNote ?note]])))
+                         {} (q/run g op/synset-senses))
+        noted    (set (map '?s (q/triples g ['_ :lexinfo/usageNote '_])))
         triples  (set (for [[id _ synset register] (read-dannet-2-csv dannet-2-csv-dir
                                                                        "wordsenses.csv")
                             :when (not (str/blank? register))
@@ -757,8 +753,7 @@
         expected 41]
     (assert (= expected restored)
             (str "expected " expected " senses to restore, found " restored))
-    (txn/transact-exec g
-      (db/safe-add! g triples))))
+    (db/safe-add! g triples)))
 
 (h/defn retarget-dangling-sentiments!
   "Move the DDS sentiments in `dataset` of dn: senses that no longer exist to
@@ -775,9 +770,11 @@
   (let [dn-g      (db/get-graph dataset prefix/dn-uri)
         dds-g     (db/get-graph dataset prefix/dds-uri)
         model     (db/get-model dataset prefix/dds-uri)
-        senses    (set (map '?s (q/run dn-g '[:bgp [?s :rdf/type :ontolex/LexicalSense]])))
-        subsumer  (into {} (map (juxt '?old '?s))
-                        (q/run dn-g '[:bgp [?s :dns/subsumed ?old]]))
+        senses    (->> (q/triples dn-g ['_ :rdf/type :ontolex/LexicalSense])
+                       (map '?s)
+                       (set))
+        subsumer  (into {} (map (juxt '?o '?s))
+                        (q/triples dn-g ['_ :dns/subsumed '_]))
         readings  (fn [s]
                     (let [reading (re-pattern (str (name s) "-i\\d+"))]
                       (filter #(re-matches reading (name %)) senses)))
@@ -786,7 +783,8 @@
                         (when-let [merged (subsumer s)]
                           (when (str/starts-with? (name merged) (str (name s) "_"))
                             [merged]))))
-        moves     (into {} (for [{:syms [?s]} (q/run dds-g '[:bgp [?s :dns/sentiment ?o]])
+        moves     (into {} (for [{:syms [?s]} (q/triples dds-g
+                                                         ['_ :dns/sentiment '_])
                                  :when (and (= "dn" (namespace ?s))
                                             (str/starts-with? (name ?s) "sense-")
                                             (not (senses ?s)))]
@@ -798,15 +796,16 @@
         sentiment (.getProperty model (prefix/kw->uri :dns/sentiment))]
     (assert (= expected counts)
             (str "expected sentiment moves " expected ", found " counts))
-    (txn/transact-exec model
-      (doseq [[s targets] moves
-              stmt (vec (iterator-seq (.listProperties (resource s) sentiment)))
-              :let [opinion (.getObject stmt)]]
-        (doseq [target targets]
-          (.add model (resource target) sentiment opinion))
-        (when (empty? targets)
-          (.removeAll model (.asResource opinion) nil nil))
-        (.remove model stmt)))))
+    (txn/calculate model
+      (fn []
+        (doseq [[s targets] moves
+                stmt (vec (iterator-seq (.listProperties (resource s) sentiment)))
+                :let [opinion (.getObject stmt)]]
+          (doseq [target targets]
+            (.add model (resource target) sentiment opinion))
+          (when (empty? targets)
+            (.removeAll model (.asResource opinion) nil nil))
+          (.remove model stmt))))))
 
 (def collapsed-readings
   "The merged senses that took the readings of another synset, each with that
@@ -835,7 +834,7 @@
   (let [g        (db/get-graph dataset prefix/dn-uri)
         model    (db/get-model dataset prefix/dn-uri)
         changes  (for [[merged [synset suffix]] collapsed-readings
-                       :let [triples  (q/run g [:bgp [merged '?p '?o]])
+                       :let [triples  (q/triples g [merged '_ '_])
                              objects  (fn [p] (keep #(when (= p (get % '?p)) (get % '?o))
                                                     triples))
                              index    (subs suffix 1)
@@ -855,7 +854,7 @@
                                         (first (filter #(= (swap label (if (= index "1") 2 1))
                                                            (str %))
                                                        kept)))
-                             word     (some '?w (q/run g [:bgp ['?w :ontolex/sense merged]]))]]
+                             word     (some '?s (q/triples g ['_ :ontolex/sense merged]))]]
                    {:remove (concat (for [l (filter own? alts)] [merged :skos/altLabel l])
                                     (for [r readings] [merged :dns/subsumed r])
                                     (when kept'
@@ -877,18 +876,19 @@
         expected 4]
     (assert (= expected (count changes))
             (str "expected " expected " synsets to restore, found " (count changes)))
-    (txn/transact-exec model
-      (doseq [triple (mapcat :remove changes)]
-        (db/remove! model triple)))
-    (txn/transact-exec g
-      (db/safe-add! g (mapcat :add changes)))
+    (db/remove! model (mapcat :remove changes))
+    (db/safe-add! g (mapcat :add changes))
     ;; The synset of a merged sense whose main label moved to the restored
     ;; sense names the label in its own label too.
     (doseq [[old new] (keep :relabel changes)]
       (db/update-triples! prefix/dn-uri dataset
-                          [:bgp ['?synset :ontolex/lexicalizedSense '?sense]
-                           ['?sense :rdfs/label new]
-                           ['?synset :rdfs/label '?label]]
+                          ["SELECT ?synset ?label
+                            WHERE {
+                              ?synset ontolex:lexicalizedSense ?sense ;
+                                      rdfs:label ?label .
+                              ?sense rdfs:label ?new .
+                            }"
+                           {'?new new}]
         (fn [{:syms [?synset ?label]}]
           [?synset :rdfs/label (md/da (str/replace (str ?label) (str old) (str new)))])
         (fn [{:syms [?synset ?label]}]
@@ -907,7 +907,7 @@
            :id    :dannet.bootstrap/restore-at-sign-synsets}
           "Restoring synsets whose DanNet 2 row has an @ in its gloss")
   (let [g        (db/get-graph dataset prefix/dn-uri)
-        defined  (set (map '?s (q/run g '[:bgp [?s :skos/definition ?d]])))
+        defined  (set (map '?s (q/triples g ['_ :skos/definition '_])))
         triples  (for [row (read-dannet-2-csv dannet-2-csv-dir "synsets.csv")
                        :let [n      (count row)
                              synset (keyword "dn" (str "synset-" (first row)))]
@@ -926,8 +926,7 @@
         expected 1]
     (assert (= expected (count triples))
             (str "expected " expected " synsets to restore, found " (count triples)))
-    (txn/transact-exec g
-      (db/safe-add! g (apply concat triples)))))
+    (db/safe-add! g (apply concat triples))))
 
 (def duplicates-removed-in-2023
   "The DanNet 2 synsets that the 2023 conversion removed as duplicates
@@ -974,8 +973,8 @@
   (let [g        (db/get-graph dataset prefix/dn-uri)
         model    (db/get-model dataset prefix/dn-uri)
         synset   #(keyword "dn" (str "synset-" %))
-        typed    (set (map '?s (q/run g '[:bgp [?s :rdf/type :ontolex/LexicalConcept]])))
-        left     (fn [old] (seq (q/run g [:bgp [(synset old) '?p '?o]])))
+        typed    (set (map '?synset (q/run g op/synsets)))
+        left     (fn [old] (seq (q/triples g [(synset old) '_ '_])))
         links    (for [[old twin] (merge duplicates-removed-in-2023
                                          duplicates-merged-in-2026)
                        :when (and (not (typed (synset old)))
@@ -986,12 +985,10 @@
         expected {:links 63 :stubs 52}]
     (assert (= expected counts)
             (str "expected duplicates " expected ", found " counts))
-    (txn/transact-exec model
-      (doseq [old stubs]
-        (db/remove! model [(synset old) '_ '_])))
-    (txn/transact-exec g
-      (db/safe-add! g (for [[old twin] links]
-                        [twin :dns/subsumed old])))))
+    (db/remove! model (for [old stubs]
+                        [(synset old) '_ '_]))
+    (db/safe-add! g (for [[old twin] links]
+                      [twin :dns/subsumed old]))))
 
 (h/defn unstressed
   "Remove the DanNet 2 stress marks from `s`: one or two apostrophes before a
@@ -1039,33 +1036,34 @@
                      (for [p    [:ontolex/canonicalForm :ontolex/otherForm]
                            stmt (iterator-seq (.listProperties word (prop p)))]
                        (.getResource stmt))))
-        marked   (txn/transact model
-                   (vec (for [p    [(prop :rdfs/label) rep]
-                              stmt (iterator-seq (.listStatements model nil p nil))
-                              :when (not= (.getString stmt)
-                                          (unstressed (.getString stmt)))]
-                          stmt)))
-        stresses (txn/transact model
-                   (vec (for [[id form] (read-dannet-2-csv dannet-2-csv-dir "words.csv")
-                              :when (str/includes? form "''")
-                              variant (form-variants form)
-                              f       (forms id)
-                              stmt    (iterator-seq (.listProperties f rep))
-                              :when (= (unstressed variant)
-                                       (unstressed (.getString stmt)))]
-                          [f (stressed variant)])))
+        marked   (txn/calculate-read model
+                   #(vec (for [p    [(prop :rdfs/label) rep]
+                               stmt (iterator-seq (.listStatements model nil p nil))
+                               :when (not= (.getString stmt)
+                                           (unstressed (.getString stmt)))]
+                           stmt)))
+        stresses (txn/calculate-read model
+                   #(vec (for [[id form] (read-dannet-2-csv dannet-2-csv-dir "words.csv")
+                               :when (str/includes? form "''")
+                               variant (form-variants form)
+                               f       (forms id)
+                               stmt    (iterator-seq (.listProperties f rep))
+                               :when (= (unstressed variant)
+                                        (unstressed (.getString stmt)))]
+                           [f (stressed variant)])))
         counts   {:unmarked (count marked) :stressed (count stresses)}
         expected {:unmarked 76 :stressed 76}]
     (assert (= expected counts)
             (str "expected stress marks " expected ", found " counts))
-    (txn/transact-exec model
-      (doseq [stmt marked
-              :let [lit (.getLiteral stmt)]]
-        (.remove model stmt)
-        (.add model (.getSubject stmt) (.getPredicate stmt)
-              (.createLiteral model (unstressed (.getString lit)) (.getLanguage lit))))
-      (doseq [[f s] stresses]
-        (.add model f (prop :dns/stressedRep) (.createLiteral model s "da"))))))
+    (txn/calculate model
+      (fn []
+        (doseq [stmt marked
+                :let [lit (.getLiteral stmt)]]
+          (.remove model stmt)
+          (.add model (.getSubject stmt) (.getPredicate stmt)
+                (.createLiteral model (unstressed (.getString lit)) (.getLanguage lit))))
+        (doseq [[f s] stresses]
+          (.add model f (prop :dns/stressedRep) (.createLiteral model s "da")))))))
 
 (def dangling-oewn-link-changes
   "The English links of the dn: synsets whose wn:eq_synonym target is missing
@@ -1118,20 +1116,44 @@
         model    (db/get-model dataset prefix/dn-uri)
         oewn-g   (db/get-graph dataset prefix/oewn-uri)
         changes  dangling-oewn-link-changes
-        found?   (fn [graph triple] (seq (q/run graph [:bgp triple])))
         target?  (fn [[_ p o]]
                    (and (= :wn/eq_synonym p)
-                        (found? oewn-g [o :rdf/type :ontolex/LexicalConcept])))
-        counts   {:removed (count (filter #(found? g %) (:remove changes)))
+                        (seq (q/triples oewn-g [o :rdf/type :ontolex/LexicalConcept]))))
+        counts   {:removed (count (filter #(seq (q/triples g %)) (:remove changes)))
                   :targets (count (filter target? (:add changes)))}
         expected {:removed 17 :targets 4}]
     (assert (= expected counts)
             (str "expected OEWN link changes " expected ", found " counts))
-    (txn/transact-exec model
-      (doseq [triple (:remove changes)]
-        (db/remove! model triple)))
-    (txn/transact-exec g
-      (db/safe-add! g (:add changes)))))
+    (db/remove! model (:remove changes))
+    (db/safe-add! g (:add changes))))
+
+(h/defn retype-long-literals!
+  "Rewrite the xsd:long literals in the graphs of `dataset` as xsd:integer
+  literals of the same value.
+
+  Aristotle wrote a Clojure long as an xsd:long, while Theophrastus writes it
+  as an xsd:integer, like a bare number in SPARQL and Turtle. The earlier
+  releases hold xsd:long values in the cor-sem: and dds: graphs, which a query
+  matching an xsd:integer by term would miss."
+  [dataset]
+  (t/log! {:level :info
+           :id    :dannet.bootstrap/retype-long-literals}
+          "Rewriting the xsd:long literals as xsd:integer")
+  (let [longs    "SELECT (COUNT(*) AS ?n)
+                  WHERE {
+                    GRAPH ?g { ?s ?p ?o FILTER(datatype(?o) = xsd:long) }
+                  }"
+        found    (get (first (q/run dataset longs)) '?n)
+        expected 24549]
+    (assert (= expected found)
+            (str "expected " expected " xsd:long literals, found " found))
+    (theo/update! (q/->db dataset)
+                  "DELETE { GRAPH ?g { ?s ?p ?o } }
+                   INSERT { GRAPH ?g { ?s ?p ?integer } }
+                   WHERE {
+                     GRAPH ?g { ?s ?p ?o FILTER(datatype(?o) = xsd:long) }
+                     BIND(xsd:integer(?o) AS ?integer)
+                   }")))
 
 (h/defn make-release-changes!
   "Apply the changes that produce this release, i.e. deletions and additions
@@ -1165,20 +1187,19 @@
     (restore-stress-marks! dataset)
     ;; For the release after 2026-10-02.
     (fix-dangling-oewn-links! dataset)
+    (retype-long-literals! dataset)
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
     (regenerate-short-labels! dataset)))
 
 (defn ->dataset
-  "Get a Dataset object of the given `db-type`. TDB also requires a `db-path`.
+  "Get a Dataset object of the given `db-type`. TDB2 also requires a `db-path`.
 
-  NOTE: TDB 1 does not require transactions until after the first transaction
-  has taken place, while TDB 2 *always* requires transactions when reading from
-  or writing to the database."
+  NOTE: TDB2 *always* requires transactions when reading from or writing to
+  the database."
   [db-type & [db-path]]
   (case db-type
-    :tdb1 (TDBFactory/createDataset ^String db-path)
     :tdb2 (TDB2Factory/connectDataset ^String db-path)
     :in-mem (DatasetFactory/create)
     :in-mem-txn (DatasetFactory/createTxnMem)))
@@ -1201,10 +1222,9 @@
 
   The rules in 'dannet.rules' are purpose-built for DanNet, covering only
   owl:inverseOf and rdfs:subPropertyOf entailment as tabled backward rules."
-  (let [rules (Rule/parseRules (slurp (io/resource "etc/dannet.rules")))]
-    (doto (GenericRuleReasoner. rules)
-      (.setMode GenericRuleReasoner/HYBRID)
-      (.setTransitiveClosureCaching true))))
+  (rules/->reasoner (rules/parse (io/resource "etc/dannet.rules"))
+                    {:mode                        :hybrid
+                     :transitive-closure-caching? true}))
 
 (defn dataset->db
   "Construct a database map from an Apache Jena `dataset`.
@@ -1218,7 +1238,7 @@
   (if schema-uris
     (let [schema    (db/->schema-model schema-uris)
           model     (.getUnionModel dataset)
-          inf-model (ModelFactory/createInfModel reasoner schema model)
+          inf-model (rules/->inf-model reasoner schema model)
           inf-graph (.getGraph inf-model)]
       ;; A plain :info log, not a trace! around createInfModel: Jena builds the
       ;; InfModel lazily, so tracing here would report a near-zero runtime. The
@@ -1243,8 +1263,8 @@
   "Create a Jena database from the latest DanNet export.
 
     :input-dir         - Previous DanNet version TTL export as a File directory.
-    :db-type           - :tdb1, :tdb2, :in-mem, and :in-mem-txn are supported
-    :db-path           - Where to persist the TDB1/TDB2 data.
+    :db-type           - :tdb2, :in-mem, and :in-mem-txn are supported
+    :db-path           - Where to persist the TDB2 data.
     :schema-uris       - A collection of URIs containing schemas."
   [& {:keys [^File input-dir db-path db-type schema-uris refetch?]
       :or   {db-type :in-mem} :as opts}]
@@ -1286,6 +1306,9 @@
                             (:hash (meta #'stressed))
                             (:hash (meta #'form-variants))
                             (:hash (meta #'restore-stress-marks!))
+                            (hash dangling-oewn-link-changes)
+                            (:hash (meta #'fix-dangling-oewn-links!))
+                            (:hash (meta #'retype-long-literals!))
                             (:hash (meta #'synset-label))
                             (:hash (meta #'add-in-scheme!))
                             (:hash (meta #'regenerate-short-labels!))

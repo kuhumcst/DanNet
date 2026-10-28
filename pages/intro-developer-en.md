@@ -66,7 +66,7 @@ Additional developer-oriented documentation:
 
 * [Python examples][examples] — tutorial and example scripts for working with DanNet in Python
 * [SPARQL guide][SPARQL guide] — a hands-on introduction to querying DanNet with SPARQL
-* [Querying DanNet][queries] — SPARQL, Aristotle DSL, and graph traversal
+* [Querying DanNet][queries] — SPARQL, Clojure, and graph traversal
 * [Sense/synset label format][label-rewrite]
 * [Design rationale][rationale]
 

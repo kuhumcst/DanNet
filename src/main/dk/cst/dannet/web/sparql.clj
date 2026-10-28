@@ -6,13 +6,14 @@
   (e.g. a classroom of students all running the same query)."
   (:require [clojure.core.cache :as cache]
             [clojure.core.cache.wrapped :as cw]
-            [dk.cst.dannet.db.transaction :as tx]
-            [dk.cst.dannet.web.anomaly :as anomaly]
-            [ont-app.vocabulary.core :as voc])
-  (:import [java.util.concurrent TimeUnit TimeoutException]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.txn :as txn]
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.web.anomaly :as anomaly])
+  (:import [java.util.concurrent SynchronousQueue ThreadPoolExecutor TimeUnit
+                                 TimeoutException]
            [org.apache.jena.query Query QueryCancelledException
-                                  QueryExecution QueryExecutionFactory
-                                  QueryFactory]
+                                  QueryExecution]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.sparql.resultset ResultSetMem]
            [org.apache.jena.update UpdateFactory]))
@@ -20,6 +21,52 @@
 (def ^:const max-timeout 30000)
 (def ^:const max-results-limit 100)
 (def ^:const max-query-length 5000)
+
+;; ## Hard timeout
+;;
+;; Jena's built-in query timeout is cooperative: it sets a cancellation flag
+;; that the query engine's iterator checks between bindings. This works fine for
+;; queries against plain Models or TDB datasets.
+;;
+;; However, DanNet uses an InfModel backed by a GenericRuleReasoner (OWL, HYBRID
+;; mode) for deriving inverse relations and transitive closures. When the query
+;; engine asks the InfGraph for the next matching triple, the reasoner can spend
+;; an arbitrarily long time in its internal forward-chaining rule engine, and
+;; that code never checks the cancellation flag. A single .next() call on the
+;; query iterator can block for minutes while the reasoner churns.
+;;
+;; The QueryExec builder API has the same limitation: its AlarmClock-based
+;; timeout still relies on QueryIterator.cancel(), which only takes effect when
+;; the iterator yields, i.e. it can't interrupt the reasoner.
+;;
+;; The solution is a Future-based hard timeout (txn/with-hard-timeout in
+;; Theophrastus): we submit the work to a thread pool and call
+;; Future.get(timeout). If the deadline passes, the caller gets a
+;; TimeoutException immediately. The abandoned thread runs to completion on its
+;; own; we intentionally do NOT interrupt it (cancel(false)), because
+;; Thread.interrupt() would cause NIO's FileChannel.map() to throw
+;; ClosedChannelException, permanently closing the underlying TDB2 file channels
+;; and breaking all subsequent requests.
+;;
+;; Two fixed-size thread pools are used: a larger one for queries against the
+;; base model (no inference, fast and predictable) and a smaller one for queries
+;; that opt in to inference (where abandoned threads may linger). When all slots
+;; in a pool are occupied, new submissions fail fast with a TimeoutException
+;; rather than queueing up. The Jena timeout is kept as a belt-and-suspenders
+;; measure for the (common) case where the query engine *does* check its flag
+;; between bindings.
+
+(defn- ->rejecting-executor
+  "A pool of `n` threads with no queue, which rejects a call when all its
+  threads are busy."
+  [n]
+  (ThreadPoolExecutor. n n 0 TimeUnit/MILLISECONDS (SynchronousQueue.)))
+
+(defonce query-executor
+  (->rejecting-executor 8))
+
+(defonce inference-query-executor
+  (->rejecting-executor 4))
 
 (defn read-only?
   "Check if `query-obj` is safe for read-only execution."
@@ -32,8 +79,8 @@
 (defn validate
   "Validate that a SPARQL `query-str` is safe to execute.
 
-  Returns a Jena Query object on success; throw on failure. Known prefixes are
-  prepended before parsing."
+  Returns a Jena Query object on success; throw on failure. The query is parsed
+  with the DanNet prefixes, so it needs no PREFIX lines for them."
   [query-str]
   (when (> (count query-str) max-query-length)
     (throw (ex-info "Query too long"
@@ -41,9 +88,7 @@
                      :max    max-query-length
                      :actual (count query-str)})))
   (try
-    (let [query-with-prefixes (voc/prepend-prefix-declarations query-str)
-          query-obj           (QueryFactory/create
-                                ^String query-with-prefixes)]
+    (let [query-obj (theo/query query-str prefix/prefixes)]
       (when-not (read-only? query-obj)
         (throw (ex-info "Only SELECT/ASK/CONSTRUCT/DESCRIBE allowed!"
                         {:type       :unsafe-query-type
@@ -109,41 +154,42 @@
   [^Model model ^Query query-obj timeout results-limit
    & {:keys [distinct? offset]
       :or   {distinct? true offset 0}}]
-  (tx/transact-read model
-    (let [query (cond-> query-obj
-                  ;; TODO: is this necessary when we automatically apply limits?
-                  ;; DISTINCT applies to all SELECT queries to reduce duplicates
-                  ;; and improve performance.
-                  distinct? (ensure-distinct!)
-                  true (offset-results! offset)
-                  true (limit-results! results-limit))
-          qexec (doto ^QueryExecution
-                      (QueryExecutionFactory/create query-obj model)
-                  (.setTimeout ^Long timeout
-                               TimeUnit/MILLISECONDS))]
-      (try
-        (cond
-          (.isSelectType query)
-          {:sparql-type   :select
-           :result-vars   (mapv (fn [v] (symbol (str "?" v)))
-                                (.getResultVars query))
-           :sparql-result (.materialise (.execSelect qexec))}
+  (txn/calculate-read model
+    (fn []
+      (let [query (cond-> query-obj
+                    ;; TODO: is this necessary when we automatically apply limits?
+                    ;; DISTINCT applies to all SELECT queries to reduce duplicates
+                    ;; and improve performance.
+                    distinct? (ensure-distinct!)
+                    true (offset-results! offset)
+                    true (limit-results! results-limit))
+            qexec (-> (QueryExecution/model model)
+                      (.query ^Query query-obj)
+                      (.timeout (long timeout) TimeUnit/MILLISECONDS)
+                      (.build))]
+        (try
+          (cond
+            (.isSelectType query)
+            {:sparql-type   :select
+             :result-vars   (mapv (fn [v] (symbol (str "?" v)))
+                                  (.getResultVars query))
+             :sparql-result (.materialise (.execSelect qexec))}
 
-          (.isAskType query)
-          {:sparql-type   :ask
-           :sparql-result (.materialise (.execAsk qexec))}
+            (.isAskType query)
+            {:sparql-type   :ask
+             :sparql-result (.execAsk qexec)}
 
-          (.isConstructType query)
-          {:sparql-type   :construct
-           :sparql-result (.execConstruct qexec)}
+            (.isConstructType query)
+            {:sparql-type   :construct
+             :sparql-result (.execConstruct qexec)}
 
-          (.isDescribeType query)
-          {:sparql-type   :describe
-           :sparql-result (.execDescribe qexec)})
-        (catch QueryCancelledException e
-          {:anomaly (anomaly/translate e)})
-        (finally
-          (.close qexec))))))
+            (.isDescribeType query)
+            {:sparql-type   :describe
+             :sparql-result (.execDescribe qexec)})
+          (catch QueryCancelledException e
+            {:anomaly (anomaly/translate e)})
+          (finally
+            (.close qexec)))))))
 
 (defn- run-query
   "Run SPARQL query `query-opts` against `model` using `executor` thread pool
@@ -151,7 +197,7 @@
   [model executor {:keys [query-obj timeout fetch-limit distinct? offset]
                    :as   query-opts}]
   (try
-    (tx/with-hard-timeout executor timeout
+    (txn/with-hard-timeout executor timeout
       #(execute model query-obj timeout fetch-limit
                 :distinct? distinct?
                 :offset offset))
@@ -177,17 +223,17 @@
   (let [{:keys [base-model model]} db]
     (case inference?
       false
-      (assoc (run-query base-model tx/query-executor query-opts)
+      (assoc (run-query base-model query-executor query-opts)
         :inference? false)
 
       true
-      (assoc (run-query model tx/inference-query-executor query-opts)
+      (assoc (run-query model inference-query-executor query-opts)
         :inference? true)
 
       ;; When "auto" try base model first & retry with inference model if empty.
-      (let [result (run-query base-model tx/query-executor query-opts)]
+      (let [result (run-query base-model query-executor query-opts)]
         (if (empty-select-result? result)
-          (assoc (run-query model tx/inference-query-executor query-opts)
+          (assoc (run-query model inference-query-executor query-opts)
             :inference? true)
           (assoc result :inference? false))))))
 

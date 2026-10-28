@@ -371,6 +371,13 @@
     :as   opts}]
   [:output {:aria-live "polite"}
    (cond
+     ;; The result of an ASK query.
+     (boolean? sparql-result)
+     [:p.note [:strong (if sparql-result "⊤ " "⊥ ")]
+      (if sparql-result
+        (i18n/da-en languages "sandt" "true")
+        (i18n/da-en languages "falsk" "false"))]
+
      (seq sparql-result)
      [:<>
       (result-table opts sparql-result)

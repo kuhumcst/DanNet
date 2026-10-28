@@ -7,7 +7,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
-            [dk.cst.dannet.db.transaction :as tx]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.query QueryFactory QueryExecutionFactory]
            [org.apache.poi.common.usermodel HyperlinkType]
@@ -128,23 +128,24 @@
 (defn fetch-all-senses
   "Fetch all Danish senses in one bulk query to `model`, returning a map of
   lemma -> deduplicated sense vectors. Grouping and deduplication happen
-  outside the Jena transaction (large update-vals inside transact-read
+  outside the Jena transaction (large update-vals inside the read transaction
   causes segment errors)."
   [model]
-  (let [raw (tx/transact-read model
-              (let [query (QueryFactory/create all-senses-query)]
-                (with-open [qe (QueryExecutionFactory/create query model)]
-                  (let [rs (.execSelect qe)]
-                    (loop [acc []]
-                      (if (.hasNext rs)
-                        (let [sol (.next rs)]
-                          (recur (conj acc
-                                       {:lemma (.getString (.getLiteral sol "lemma"))
-                                        :sense (.getURI (.getResource sol "sense"))
-                                        :label (.getString (.getLiteral sol "label"))
-                                        :def   (when-let [d (.get sol "def")]
-                                                 (.getString (.asLiteral d)))})))
-                        acc))))))]
+  (let [raw (txn/calculate-read model
+              (fn []
+                (let [query (QueryFactory/create all-senses-query)]
+                  (with-open [qe (QueryExecutionFactory/create query model)]
+                    (let [rs (.execSelect qe)]
+                      (loop [acc []]
+                        (if (.hasNext rs)
+                          (let [sol (.next rs)]
+                            (recur (conj acc
+                                         {:lemma (.getString (.getLiteral sol "lemma"))
+                                          :sense (.getURI (.getResource sol "sense"))
+                                          :label (.getString (.getLiteral sol "label"))
+                                          :def   (when-let [d (.get sol "def")]
+                                                   (.getString (.asLiteral d)))})))
+                          acc)))))))]
     (update-vals (group-by :lemma raw) dedup-senses)))
 
 ;; Root rows are marked with "-" in derived-from, qualia-role, and relation

@@ -8,9 +8,8 @@
             [flatland.ordered.map :as fop]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.prefix :as prefix]
-            [ont-app.vocabulary.lstr :as lstr])
-  (:import [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.datatypes BaseDatatype$TypedValue]))
+            [dk.cst.theophrastus.term :as term])
+  (:import [dk.cst.theophrastus.term LangStr Literal]))
 
 (defn entity->prefixes
   "Extract unique prefixes from namespaced keywords in RDF resource `entity`."
@@ -54,10 +53,10 @@
     {"@value"    (str v)
      "@language" (i18n/lang v)}
 
-    ;; Should handle e.g. XSDDateTime and other special values
-    (instance? BaseDatatype$TypedValue v)
-    {"@value" (.getLexicalValue v)
-     "@type"  (str (.getDatatypeURI v))}
+    ;; Typed literals, e.g. an xsd:date or xsd:decimal
+    (instance? Literal v)
+    {"@value" (str v)
+     "@type"  (prefix/rdf-resource->uri (term/datatype v))}
 
     (shared/multi-valued? v)
     (if (= (count v) 1)
@@ -67,7 +66,7 @@
            ;; TODO: consider filtering languages dynamically based on prefs
            (filter (fn [x]
                      (if (instance? LangStr x)
-                       (get #{"da" "en"} (lstr/lang x))
+                       (get #{"da" "en"} (term/lang x))
                        true)))
            (map transform-value)))
 

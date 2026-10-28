@@ -1,9 +1,9 @@
 (ns dk.cst.dannet.web.i18n
   "Functions for working with RDF LangStrings."
-  #?(:clj  (:require [ont-app.vocabulary.lstr :as lstr]
+  #?(:clj  (:require [dk.cst.theophrastus.term :as term]
                      [clojure.core.memoize :as memo])
-     :cljs (:require [ont-app.vocabulary.lstr :as lstr :refer [LangStr]]))
-  #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
+     :cljs (:require [dk.cst.theophrastus.term :as term :refer [LangStr]]))
+  #?(:clj (:import [dk.cst.theophrastus.term LangStr])))
 
 ;; TODO: derive dynamically?
 (def supported-languages
@@ -32,15 +32,16 @@
   "Return the language abbreviation of `s` if available or nil if not."
   [s]
   (when (instance? LangStr s)
-    (lstr/lang s)))
+    (term/lang s)))
 
 ;; TODO: compare with https://www.rfc-editor.org/info/bcp47
 (defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
-  If `x` is a not a set, e.g. a string, it is just returned as-is."
+  If `x` is a not a set, e.g. a string, it is just returned as-is. Of several
+  labels in one language, the first in alphabetical order is selected."
   [languages x]
   (if (coll? x)
-    (let [lang->s (into {} (map (juxt lang identity) x))]
+    (let [lang->s (update-vals (group-by lang (sort-by str x)) first)]
       (loop [[head & tail] languages]
         (if-let [ret (lang->s head)]
           ret

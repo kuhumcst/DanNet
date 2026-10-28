@@ -3,19 +3,17 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
-            [arachne.aristotle.registry :as registry]
             [clojure.walk :as walk]
             [donatello.ttl :as ttl]
             [quoll.rdf :refer [print-escape]]
-            [ont-app.vocabulary.lstr :as lstr]
+            [dk.cst.theophrastus.term :as term]
+            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.release :as release]
-            [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db.transaction :as txn])
+            [dk.cst.dannet.prefix :as prefix])
   (:import [clojure.lang Symbol]
-           [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.datatypes.xsd XSDDateTime]
+           [dk.cst.theophrastus.term LangStr Literal]
            [org.apache.jena.riot RDFDataMgr RDFFormat]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.query Dataset]
@@ -23,12 +21,13 @@
            [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 
-(defn add-registry-prefixes!
-  "Adds prefixes in use from the Aristotle registry to the `model`."
+(defn add-prefixes!
+  "Adds the DanNet prefixes, or the subset of them in `prefixes`, to the
+  `model`."
   [^Model model & {:keys [prefixes]}]
-  (doseq [[prefix m] (cond->> (:prefixes registry/*registry*)
-                       prefixes (filter (comp prefixes symbol first)))]
-    (.setNsPrefix model prefix (::registry/= m))))
+  (doseq [[prefix ns-iri] (cond->> prefix/prefixes
+                            prefixes (filter (comp prefixes symbol first)))]
+    (.setNsPrefix model (name prefix) (prefix/rdf-resource->uri ns-iri))))
 
 (defn- ttl-path
   [path]
@@ -41,8 +40,8 @@
 (defn export-rdf-model!
   "Export the `model` to the given zip file `path`. Content defaults to Turtle.
 
-  The current prefixes in the Aristotle registry are used for the output,
-  although a desired subset of :prefixes may also be specified.
+  The DanNet prefixes are used for the output, although a desired subset of
+  :prefixes may also be specified.
 
   When :validate is true, the written .ttl file is SHACL-validated against
   the base shapes before zipping; validation failure aborts the export
@@ -52,21 +51,22 @@
   [path ^Model model & {:keys [fmt prefixes validate extra-files]
                         :or   {fmt RDFFormat/TURTLE_PRETTY}}]
   (let [ttl-file (ttl-path path)]
-    (txn/transact-exec model
-      ;; Clear potentially imported prefixes, e.g. from TTL files
-      (.clearNsPrefixMap model)
-      (println "Exporting" path (str "(" (.size model) ")")
-               "with prefixes:" (or prefixes "ALL"))
-      ;; Temporarily add prefixes for export
-      (add-registry-prefixes! model :prefixes prefixes)
-      (io/make-parents path)
-      (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
-      ;; Release gate: validate exactly what ships, before it is zipped.
-      (when validate
-        (shapes/validate-export! ttl-file))
-      (zip/zip-files (into [ttl-file] extra-files) path)
-      ;; Clear temporarily added prefixes
-      (.clearNsPrefixMap model)))
+    (txn/calculate model
+      (fn []
+        ;; Clear potentially imported prefixes, e.g. from TTL files
+        (.clearNsPrefixMap model)
+        (println "Exporting" path (str "(" (.size model) ")")
+                 "with prefixes:" (or prefixes "ALL"))
+        ;; Temporarily add prefixes for export
+        (add-prefixes! model :prefixes prefixes)
+        (io/make-parents path)
+        (RDFDataMgr/write (io/output-stream ttl-file) model ^RDFFormat fmt)
+        ;; Release gate: validate exactly what ships, before it is zipped.
+        (when validate
+          (shapes/validate-export! ttl-file))
+        (zip/zip-files (into [ttl-file] extra-files) path)
+        ;; Clear temporarily added prefixes
+        (.clearNsPrefixMap model))))
   nil)
 
 (defn- export-prefixes
@@ -145,10 +145,10 @@
    (let [in-dir       (partial str dir)
          version      release/to
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
-         model-uris   (txn/transact dataset
-                        (->> (iterator-seq (.listNames ^Dataset dataset))
-                             (remove prefix/not-for-export)
-                             (doall)))]
+         model-uris   (txn/calculate-read dataset
+                        #(->> (iterator-seq (.listNames ^Dataset dataset))
+                              (remove prefix/not-for-export)
+                              (doall)))]
      (println "Beginning RDF export of DanNet into" dir)
      (println "----")
 
@@ -201,16 +201,16 @@
                   [(keyword k) (:uri v)])
                 prefix/schemas)))
 
-;; Donatello compatibility with Aristotle blank nodes and ont-app LangStrings.
+;; Donatello compatibility with the blank nodes and literals of Theophrastus.
 (extend-protocol ttl/Serializable
   Symbol
   (serialize [x] (str "_:" (subs (str x) 1)))
 
   LangStr
-  (serialize [x] (str \" (print-escape (str x)) "\"@" (lstr/lang x)))
+  (serialize [x] (str \" (print-escape (str x)) "\"@" (term/lang x)))
 
-  XSDDateTime
-  (serialize [x] (str "\"" x "\"^^xsd:dateTime")))
+  Literal
+  (serialize [x] (str \" (print-escape (str x)) "\"^^" (term/datatype x))))
 
 (defn flatten-nested-sets
   "Flatten nested sets in `entity` values. Converts #{#{a b}} to #{a b}."

@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
+            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -72,8 +73,8 @@
         select-label* (partial i18n/select-label languages)
         label         (select-label* (k->label subject))
         label-lang    (i18n/lang label)
-        a-titles      [#voc/lstr "Visit this location directly@en"
-                       #voc/lstr "Besøg denne lokation direkte@da"]
+        a-titles      [(term/->LangStr "Visit this location directly" "en")
+                       (term/->LangStr "Besøg denne lokation direkte" "da")]
         uri-only?     (and (not label) (= local-name rdf-uri))]
     [:header.page-header
      [:h1

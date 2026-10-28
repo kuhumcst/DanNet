@@ -2,7 +2,7 @@
   "For handling search input and presenting search suggestions/results."
   (:require [dk.cst.dannet.web.ui.rdf :as rdf]
             [rum.core :as rum]
-            [ont-app.vocabulary.lstr :as lstr]
+            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -63,8 +63,8 @@
         completion-items    (get completion s')
         suggestions?        (boolean (not-empty completion-items))
         submit-label        (i18n/select-label languages
-                                               [(lstr/->LangStr "Søg" "da")
-                                                (lstr/->LangStr "Search" "en")])
+                                               [(term/->LangStr "Søg" "da")
+                                                (term/->LangStr "Search" "en")])
         on-key-down #?(:clj nil :cljs
                        (aria/keydown-handler
                          #(let [form (js/document.getElementById "search-form")]

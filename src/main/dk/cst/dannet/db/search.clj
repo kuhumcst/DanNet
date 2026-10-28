@@ -2,7 +2,7 @@
   "Graph database search functionality."
   (:require [clojure.set :as set]
             [flatland.ordered.map :as fop]
-            [ont-app.vocabulary.lstr :refer [->LangStr]]
+            [dk.cst.theophrastus.term :refer [->LangStr]]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]))
 

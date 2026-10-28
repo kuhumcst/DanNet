@@ -104,7 +104,7 @@ Once connected, you can query DanNet's semantic relations directly through Claud
 
 ## Implementation
 
-The database backend is [Apache Jena](https://jena.apache.org/), a mature RDF triplestore with [OWL](https://www.w3.org/OWL/) inference support. When represented in Jena, DanNet's relations form a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). DanNet is developed in Clojure, using libraries like [Aristotle](https://github.com/arachne-framework/aristotle) to interact with Jena.
+The database backend is [Apache Jena](https://jena.apache.org/), a mature RDF triplestore with [OWL](https://www.w3.org/OWL/) inference support. When represented in Jena, DanNet's relations form a queryable [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph). DanNet is developed in Clojure, using [Theophrastus](https://github.com/kuhumcst/aristotle/tree/feature/jena-6), our fork of [Aristotle](https://github.com/arachne-framework/aristotle), to interact with Jena.
 
 See [rationale.md](pages/rationale-en.md) for more on the design decisions.
 

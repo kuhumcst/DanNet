@@ -13,15 +13,15 @@
   dc:issued "2023-06-01";
   dc:title "DanNet-koncepter"@da, "DanNet concepts"@en;
   dc:description "Skema der indholder alle DanNet/EuroWordNet-koncepter."@da, "Schema containing all DanNet/EuroWordNet concepts."@en;
-  dc:publisher "<https://cst.dk>";
+  dc:publisher <https://cst.dk>;
   vann:preferredNamespacePrefix "dnc";
   vann:preferredNamespaceUri "https://wordnet.dk/dannet/concepts/";
-  dc:license "<https://creativecommons.org/licenses/by-sa/4.0/>";
-  dcat:downloadURL "<https://wordnet.dk/schema/dnc>";
-  foaf:homepage "<https://cst.ku.dk/projekter/dannet>";
+  dc:license <https://creativecommons.org/licenses/by-sa/4.0/>;
+  dcat:downloadURL <https://wordnet.dk/schema/dnc>;
+  foaf:homepage <https://cst.ku.dk/projekter/dannet>;
   dc:rights "Copyright © Centre for Language Technology (University of Copenhagen) & The Society for Danish Language and Literature."@en, "Copyright © Center for Sprogteknologi (Københavns Universitet) & Det Danske Sprog- og Litteraturselskab."@da;
-  dc:contributor "<https://simongray.dk>", "<https://cst.dk>", "<https://dsl.dk>";
-  rdfs:seeAlso "<https://wordnet.dk/dannet/schema>", "<https://wordnet.dk/dannet/data>".
+  dc:contributor <https://simongray.dk>, <https://cst.dk>, <https://dsl.dk>;
+  rdfs:seeAlso <https://wordnet.dk/dannet/schema>, <https://wordnet.dk/dannet/data>.
 
 # Descriptions of the EuroWordNet concepts are adapted from the EuroWordNet
 # Top Ontology; see <https://archive.illc.uva.nl/EuroWordNet/corebcs/ewnTopOntology.html>.

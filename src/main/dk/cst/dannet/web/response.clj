@@ -4,8 +4,8 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [cognitect.transit :as t]
-            [arachne.aristotle.graph :as graph]
-            [ont-app.vocabulary.lstr]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.term :as term]
             [rum.core :as rum]
             [dk.simongray.conneg :as conneg]
             [dk.cst.dannet.shared :as shared]
@@ -17,9 +17,7 @@
             [dk.cst.dannet.db.query :as q])
   (:import [java.io ByteArrayOutputStream]
            [java.util Date]
-           [ont_app.vocabulary.lstr LangStr]
-           [org.apache.jena.datatypes BaseDatatype$TypedValue]
-           [org.apache.jena.datatypes.xsd XSDDateTime]
+           [dk.cst.theophrastus.term LangStr Literal]
            [org.apache.jena.query ResultSet]
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
@@ -87,20 +85,18 @@
 
 (defn- lstr->s
   [lstr]
-  (str (.s lstr) "@" (.lang lstr)))
+  (str lstr "@" (term/lang lstr)))
 
 (defn- ->json-safe
   "Convert RDF data to JSON-compatible format."
   [data]
   (cond
     (instance? LangStr data)
-    {:value (.s data) :lang (.lang data)}
+    {:value (str data) :lang (term/lang data)}
 
-    (instance? BaseDatatype$TypedValue data)
-    {:value (.-lexicalValue data) :datatype (str (.-datatypeURI data))}
-
-    (instance? XSDDateTime data)
-    {:value (str data) :datatype "xsd:dateTime"}
+    (instance? Literal data)
+    {:value    (str data)
+     :datatype (prefix/rdf-resource->uri (term/datatype data))}
 
     ;; Blank nodes from attach-blank-nodes carry their data as metadata.
     (symbol? data)
@@ -113,31 +109,31 @@
     (coll? data) (mapv ->json-safe data)
     :else data))
 
-(defn- typed-value->m
-  [o]
-  {:value (.-lexicalValue o)
-   :uri   (.-datatypeURI o)})
+(defn- literal->m
+  [literal]
+  {:value (str literal)
+   :uri   (prefix/rdf-resource->uri (term/datatype literal))})
 
 ;; TODO: this is a data concern rather than an HTTP one; it may want to follow
 ;;       find-catalog-resources to the db side.
 (defn sparql-result->rows
-  "Convert a `sparql-result` to a vector of Clojure maps using Aristotle's
-  'graph/data' for node conversion, matching the output format of 'q/run'."
+  "Convert a `sparql-result` to a vector of Clojure maps using Theophrastus's
+  node conversion, matching the output format of 'q/run'."
   [^ResultSet sparql-result]
   (when sparql-result
     (mapv (fn [qs]
             (let [^Binding binding (.getBinding qs)]
               (into {}
                     (map (fn [var]
-                           [(graph/data var) (graph/data (.get binding var))])
-                         (iterator-seq (.vars binding))))))
+                           [(theo/data var prefix/prefixes)
+                            (theo/data (.get binding var) prefix/prefixes)]))
+                    (iterator-seq (.vars binding)))))
           (iterator-seq sparql-result))))
 
 (def transit-write-handlers
-  {LangStr                 (t/write-handler "lstr" lstr->s)
-   BaseDatatype$TypedValue (t/write-handler "rdfdatatype" typed-value->m)
-   XSDDateTime             (t/write-handler "datetime" str)
-   ResultSetMem            (t/write-handler "array" sparql-result->rows)})
+  {LangStr      (t/write-handler "lstr" lstr->s)
+   Literal      (t/write-handler "rdfdatatype" literal->m)
+   ResultSetMem (t/write-handler "array" sparql-result->rows)})
 
 (def transit-default-handler
   "Write a value of a type with no Transit handler as its printed form."
@@ -165,7 +161,7 @@
    (fn [_ page]
      ;; The page is both rendered and embedded, so the result set is read once.
      (html-page (cond-> page
-                  (get-in page [:data :sparql-result])
+                  (instance? ResultSet (get-in page [:data :sparql-result]))
                   (update-in [:data :sparql-result] sparql-result->rows))))
 
    "text/turtle"
@@ -199,9 +195,11 @@
    ;; https://www.w3.org/TR/sparql11-results-json/
    "application/sparql-results+json"
    (fn [{:keys [sparql-result]} & _]
-     (when sparql-result
+     (when (some? sparql-result)
        (let [out (ByteArrayOutputStream.)]
-         (ResultSetMgr/write out ^ResultSet sparql-result ResultSetLang/RS_JSON)
+         (if (boolean? sparql-result)
+           (ResultSetMgr/write out (boolean sparql-result) ResultSetLang/RS_JSON)
+           (ResultSetMgr/write out ^ResultSet sparql-result ResultSetLang/RS_JSON))
          (.toString out "UTF-8"))))
 
    "application/json"

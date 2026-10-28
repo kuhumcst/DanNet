@@ -4,7 +4,6 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.cst.dannet.web.sparql :as sparql]
-            [arachne.aristotle.registry :as reg]
             [dk.simongray.conneg :as conneg]
             [dk.simongray.conneg.pedestal :as conneg.pedestal]
             [io.pedestal.http.body-params :refer [body-params]]
@@ -295,9 +294,9 @@
                   (str/replace "+" "%2B")
                   (decode-query-part))]
     (cond
-      ;; Aristotle can't look up a keyword with an unregistered prefix.
+      ;; A keyword with an unknown prefix has no IRI to look up.
       prefix
-      (when (get-in reg/*registry* [:prefixes (name prefix)])
+      (when (get prefix/prefixes (keyword (name prefix)))
         (keyword (name prefix) s))
 
       ;; A generic consumer such as the DMLex browser sends a bare URI, not a
@@ -388,7 +387,7 @@
         uri      (cond
                    (keyword? subject) (prefix/kw->uri subject)
                    (string? subject) (prefix/rdf-resource->uri subject))
-        subsumer (some '?s (q/run g [:bgp ['?s :dns/subsumed subject]]))]
+        subsumer (some '?s (q/triples g ['_ :dns/subsumed subject]))]
     (cond
       (and alt (not-empty (q/entity g alt)))
       (assoc ctx :replace alt)
@@ -923,9 +922,10 @@
   (q/entity (:graph @instance/db) :dn/synset-46015)
 
   ;; Test for existence of duplicate ontotypes
-  (->> (q/run (:graph @instance/db) '[:bgp
-                                      [?s1 :dns/ontologicalType ?o1]
-                                      [?s1 :dns/ontologicalType ?o2]])
+  (->> (q/run (:graph @instance/db) "SELECT ?s1 ?o1 ?o2
+                                     WHERE {
+                                       ?s1 dns:ontologicalType ?o1 , ?o2 .
+                                     }")
        (filter (fn [{:syms [?o1 ?o2]}] (not= ?o1 ?o2))))
 
   ;; TODO: systematic polysemy
@@ -934,9 +934,11 @@
                        (into #{} [?ontotype ?otherOntotype])))))
 
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
-  (q/run (:graph @instance/db) [:bgp
-                                ['?word :ontolex/canonicalForm '?form]
-                                ['?form :ontolex/writtenRep "fandens karl"]])
+  (q/run (:graph @instance/db) "SELECT ?word ?form
+                                WHERE {
+                                  ?word ontolex:canonicalForm ?form .
+                                  ?form ontolex:writtenRep \"fandens karl\"@da .
+                                }")
 
   ;; Return all DanNet words that have identical PoS and writtenRep (issue #35)
   (->> (q/run (:graph @instance/db) op/word-clones)

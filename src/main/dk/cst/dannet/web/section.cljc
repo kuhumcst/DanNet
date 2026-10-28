@@ -1,8 +1,7 @@
 (ns dk.cst.dannet.web.section
   (:require #?(:clj [clojure.core.memoize :as memo])
-            [ont-app.vocabulary.lstr :refer [->LangStr #?(:cljs LangStr)]]
-            [dk.cst.dannet.shared :as shared])
-  #?(:clj (:import [ont_app.vocabulary.lstr LangStr])))
+            [dk.cst.theophrastus.term :refer [->LangStr]]
+            [dk.cst.dannet.shared :as shared]))
 
 (def core-shapes
   "The core shapes that have custom section definitions."

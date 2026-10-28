@@ -25,9 +25,9 @@
    - disconnected synsets yield no path; `wn`'s `simulate_root` option
      (a virtual root joining all roots) is not yet implemented."
   (:require [clojure.string :as str]
+            [dk.cst.theophrastus.function :as function]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db.query :as q]
-            [dk.cst.dannet.db.query.function :as function]))
+            [dk.cst.dannet.db.query :as q]))
 
 ;; TODO: ~27 hypernym edges are asserted only in the :wn/hyponym direction;
 ;;       folding in inverted hyponyms would recover them, but interacts with the
@@ -48,7 +48,7 @@
                           (reduce (fn [m b]
                                     (update m (get b '?s) (fnil conj #{}) (get b '?o)))
                                   {}
-                                  (q/run g [:bgp ['?s pred '?o]])))
+                                  (q/triples g ['_ pred '_])))
         H               (adjacency :wn/hypernym)
         O               (adjacency :dns/orthogonalHypernym)
         orthogonal-only (into #{} (remove H) (keys O))
@@ -86,7 +86,7 @@
                               (update m (get b whole-var)
                                       (fnil conj #{}) (get b part-var)))
                             {}
-                            (q/run g [:bgp ['?s pred '?o]])))]
+                            (q/triples g ['_ pred '_])))]
     (apply merge-with into
            (concat
              (for [p [:wn/mero_part :wn/mero_member
@@ -115,14 +115,16 @@
   (merge
     (into {}
           (map (fn [b] [(get b '?s)
-                        (first (str/split (str (get b '?lf)) #"\."))]))
-          (q/run g '[:bgp [?s :wn/lexfile ?lf]]))
+                        (first (str/split (str (get b '?o)) #"\."))]))
+          (q/triples g ['_ :wn/lexfile '_]))
     (into {}
           (keep (fn [b] (when-let [pos (wn-pos->pos (get b '?p))]
                           [(get b '?s) pos])))
-          (q/run g '[:bgp
-                     [?s :rdf/type :ontolex/LexicalConcept]
-                     [?s :wn/partOfSpeech ?p]]))))
+          (q/run g "SELECT ?s ?p
+                    WHERE {
+                      ?s rdf:type ontolex:LexicalConcept ;
+                         wn:partOfSpeech ?p .
+                    }"))))
 
 (defn max-depth
   "Length of the longest hypernym path from `synset` up to a root in `hg`.
@@ -363,13 +365,14 @@
   `ctx-fn` is a 0-arg fn returning the similarity context map (hypernym graph,
   per-node depths, taxonomy depths and a memoized `ancestor-distances`; see
   `dk.cst.dannet.web.instance/hypernym-graph`); it is derefed lazily, on first
-  use."
+  use. A synset that isn't a keyword IRI leaves the score unbound."
   [ctx-fn]
-  (function/register-functions!
-    'dnf prefix/dnf-uri
-    (update-vals scorers
-                 (fn [score]
-                   (function/->function ctx-fn function/node->keyword score)))))
+  (doseq [[local score] scorers]
+    (function/register! (keyword "dnf" local)
+                        (fn [& synsets]
+                          (when (every? keyword? synsets)
+                            (some-> (apply score (ctx-fn) synsets) (double))))
+                        prefix/prefixes)))
 
 (comment
   ;; Build the graph from the base (asserted) model; see

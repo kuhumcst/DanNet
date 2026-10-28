@@ -63,8 +63,8 @@
 (defn- ->superproperty-closure
   []
   (delay
-    (let [pairs (->> (q/run (:graph @db) '[:bgp [?p :rdfs/subPropertyOf ?q]])
-                     (map (juxt '?p '?q))
+    (let [pairs (->> (q/triples (:graph @db) ['_ :rdfs/subPropertyOf '_])
+                     (map (juxt '?s '?o))
                      (filter (fn [[p q]]
                                (and (keyword? p) (keyword? q) (not= p q))))
                      (set))]
@@ -225,8 +225,9 @@
   []
   (let [dataset (:dataset @db)
         words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
-                            '[?writtenRep] op/written-representations)
-                     (map (comp str first)))
+                            op/written-representations)
+                     (into #{} (map '?writtenRep))
+                     (map str))
         forms   (->> (q/run (db/get-graph dataset prefix/cor-uri)
                             op/cor-word-forms)
                      (map (juxt (comp str '?lemma) (comp str '?rep))))
@@ -391,15 +392,14 @@ capped at 200 items."}
   ;; Same, but keeping the result around for closer inspection.
   (def validation-result (shapes/validate-db @db))
   (shapes/by-shape (:entries validation-result))
-  (shapes/by-severity (:entries validation-result))
+  (require '[dk.cst.theophrastus.shacl :as shacl])
+  (shacl/by-severity (:entries validation-result))
 
   ;; SHACL-validate a single synset (cheap), e.g. against the editorial
   ;; shapes, the same call that will eventually gate writes.
-  (require '[dk.cst.dannet.db.transaction :as txn])
-  (txn/transact-read (:dataset @db)
-    (shapes/validate-node (.getGraph (:base-model @db))
-                          @shapes/editorial-shapes
-                          :dn/synset-1522))
+  (shapes/validate-node (.getGraph (:base-model @db))
+                        @shapes/editorial-shapes
+                        :dn/synset-1522)
 
   ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.
   (shapes/validate-inferred-db @db)

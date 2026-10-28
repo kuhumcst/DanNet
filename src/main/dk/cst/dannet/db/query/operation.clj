@@ -1,47 +1,43 @@
 (ns dk.cst.dannet.db.query.operation
-  "Pre-built Apache Jena query operation objects (Op)."
+  "Pre-built Apache Jena queries, parsed once with the DanNet prefixes."
   (:require [clojure.string :as str]
-            [arachne.aristotle.query :as q]
-            [ont-app.vocabulary.core :as voc]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.shared :as shared]
-
-            ;; Prefix registration required for the queries below to build.
             [dk.cst.dannet.prefix :as prefix]))
 
-(def sparql
-  (comp q/parse voc/prepend-prefix-declarations str))
+(defn sparql
+  "The Jena Query of the SPARQL text `strs`, joined and parsed with the DanNet
+  prefixes, so that the text needs no PREFIX lines for them."
+  [& strs]
+  (theo/query (apply str strs) prefix/prefixes))
 
-(def entity
-  (q/build
-    '[:bgp [?s ?p ?o]]))
+(def triples
+  (sparql
+    "SELECT ?s ?p ?o WHERE { ?s ?p ?o }"))
 
-(defn resource-labels-query
-  "Build a SPARQL Op that fetches labels for a collection of `resources`,
-  given as keywords or bracketed RDF resource strings."
-  [resources]
-  (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))
-        values     (->> resources
-                        (map #(if (keyword? %) (prefix/kw->rdf-resource %) %))
-                        (str/join " "))]
+(def resource-labels
+  "The labels of the bound ?resource values, given as keywords or bracketed
+  RDF resource strings."
+  (let [label-rels (str/join " " (map prefix/kw->qname shared/label-keys-short))]
     (sparql
       "SELECT ?resource ?labelRel ?label
        WHERE {
-         VALUES ?resource { " values " }
          VALUES ?labelRel { " label-rels " }
          ?resource ?labelRel ?label .
        }")))
 
 (def synsets
-  (q/build
-    '[:bgp
-      [?synset :rdf/type :ontolex/LexicalConcept]]))
+  (sparql
+    "SELECT ?synset WHERE { ?synset rdf:type ontolex:LexicalConcept }"))
+
+(def synset-senses
+  (sparql
+    "SELECT ?synset ?sense
+     WHERE { ?synset ontolex:lexicalizedSense ?sense }"))
 
 (def synset-search
   "Look up synsets based on a bound ?lemma, incl. via the inflected forms of
-  any COR words linked through owl:sameAs.
-
-  NB: ?lemma must stay in the SELECT clause; a bound variable that the
-  projection leaves out is not seen inside it, so every form would match."
+  any COR words linked through owl:sameAs."
   (sparql
     "SELECT ?lemma ?form ?word ?synset ?label ?shortLabel ?definition ?ontoType ?lexfile
      WHERE {
@@ -66,32 +62,28 @@
      }"))
 
 (def synset-search-labels
-  (q/build
-    [:bgp
-     [:dc/subject :rdfs/label '?synset]
-     [:skos/definition :rdfs/label '?definition]
-     [:dns/ontologicalType :rdfs/label '?ontotype]]))
+  (sparql
+    "SELECT ?synset ?definition ?ontotype
+     WHERE {
+       dc:subject rdfs:label ?synset .
+       skos:definition rdfs:label ?definition .
+       dns:ontologicalType rdfs:label ?ontotype .
+     }"))
 
 (def ontotype-labels
-  ;; NB: Aristotle's :union is strictly binary and silently DROPS any clause
-  ;; beyond the second, so the nesting below is load-bearing.
-  (q/build
-    [:union
-     [:union
-      [:bgp
-       ['?ontotype :rdfs/label '?label]
-       ['?ontotype :rdf/type :dns/DanNetConcept]]
-      [:bgp
-       ['?ontotype :rdfs/label '?label]
-       ['?ontotype :rdf/type :dns/EuroWordNetConcept]]]
-     [:bgp
-      ['?ontotype :rdfs/label '?label]
-      ['?ontotype :rdf/type :dns/OntologicalType]]]))
+  (sparql
+    "SELECT ?ontotype ?label
+     WHERE {
+       { ?ontotype rdfs:label ?label ; rdf:type dns:DanNetConcept . }
+       UNION
+       { ?ontotype rdfs:label ?label ; rdf:type dns:EuroWordNetConcept . }
+       UNION
+       { ?ontotype rdfs:label ?label ; rdf:type dns:OntologicalType . }
+     }"))
 
 (def written-representations
-  (q/build
-    [:bgp
-     '[?form :ontolex/writtenRep ?writtenRep]]))
+  (sparql
+    "SELECT ?form ?writtenRep WHERE { ?form ontolex:writtenRep ?writtenRep }"))
 
 (def cor-word-forms
   "Inflected forms of the COR words linked to DanNet words via owl:sameAs;
@@ -105,15 +97,17 @@
      }"))
 
 (def word-clones
-  (q/build
-    '[:filter (not= ?w1 ?w2)
-      [:bgp
-       [?w1 :ontolex/canonicalForm ?f1]
-       [?f1 :ontolex/writtenRep ?writtenRep]
-       [?f2 :ontolex/writtenRep ?writtenRep]
-       [?w2 :ontolex/canonicalForm ?f2]
-       [?w1 :wn/partOfSpeech ?pos]
-       [?w2 :wn/partOfSpeech ?pos]]]))
+  (sparql
+    "SELECT *
+     WHERE {
+       ?w1 ontolex:canonicalForm ?f1 .
+       ?f1 ontolex:writtenRep ?writtenRep .
+       ?f2 ontolex:writtenRep ?writtenRep .
+       ?w2 ontolex:canonicalForm ?f2 .
+       ?w1 wn:partOfSpeech ?pos .
+       ?w2 wn:partOfSpeech ?pos .
+       FILTER (?w1 != ?w2)
+     }"))
 
 ;; TODO: use for systematic polysemy?
 (def synset-intersection
@@ -182,12 +176,14 @@
 
 (def csv-words
   "Columns to export for words.csv."
-  (q/build
-    '[:bgp
-      [?word :ontolex/canonicalForm ?form]
-      [?form :ontolex/writtenRep ?written-rep]
-      [?word :wn/partOfSpeech ?pos]
-      [?word :rdf/type ?rdf-type]]))
+  (sparql
+    "SELECT ?word ?form ?writtenRep ?pos ?rdfType
+     WHERE {
+       ?word ontolex:canonicalForm ?form .
+       ?form ontolex:writtenRep ?writtenRep .
+       ?word wn:partOfSpeech ?pos .
+       ?word rdf:type ?rdfType .
+     }"))
 
 (def csv-senses
   (sparql
@@ -201,16 +197,17 @@
      }"))
 
 (def csv-inheritance
-  (q/build
-    '[:bgp
-      [?synset :dns/inherited ?inherit]
-      [?inherit :dns/inheritedFrom ?from]
-      [?inherit :dns/inheritedRelation ?rel]]))
+  (sparql
+    "SELECT ?synset ?inherit ?from ?rel
+     WHERE {
+       ?synset dns:inherited ?inherit .
+       ?inherit dns:inheritedFrom ?from .
+       ?inherit dns:inheritedRelation ?rel .
+     }"))
 
 (def csv-examples
-  (q/build
-    '[:bgp
-      [?sense :lexinfo/senseExample ?example]]))
+  (sparql
+    "SELECT ?sense ?example WHERE { ?sense lexinfo:senseExample ?example }"))
 
 ;; The current version of the query came about after some help from quoll:
 ;; https://clojurians.slack.com/archives/C09GHBXRC/p1691768521526469?thread_ts=1691410647.536539&cid=C09GHBXRC
