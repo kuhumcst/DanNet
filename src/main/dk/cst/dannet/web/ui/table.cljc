@@ -26,7 +26,7 @@
       [:td.attr-combo                                       ; fixes alignment
        (rdf/resource-hyperlink v opts)])
 
-    ;; A blank node as a map of its properties (or a typed literal).
+    ;; A blank node as a map of its properties.
     (map? v)
     [:td (rdf/blank-node opts v)]
 

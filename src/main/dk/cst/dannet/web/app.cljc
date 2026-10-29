@@ -91,18 +91,11 @@
 
 #?(:cljs
    (do
-     (defn- read-lstr
-       "The LangString of the Transit `rep` s@lang, split at its last @."
-       [rep]
-       (let [i (str/last-index-of rep "@")]
-         (term/->LangString (subs rep 0 i) (subs rep (inc i)))))
-
      (def transit-read-handlers
-       {"lstr"         read-lstr
-        "omap"         #(into (fop/ordered-map) %)
-        "rdfdatatype"  identity
-        "f"            parse-double                         ; BigDecimal
-        "sparqlresult" identity})
+       {"rdf/langstring" term/read-langstring
+        "rdf/literal"    term/read-literal
+        "omap"           #(into (fop/ordered-map) %)
+        "f"              parse-double})                     ; BigDecimal
 
      (def transit-reader
        (transit/reader :json {:handlers transit-read-handlers}))

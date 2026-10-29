@@ -100,12 +100,13 @@
                       {:default-handler (reify DefaultReadHandler
                                           (fromRep [_ tag rep]
                                             {:tag tag :rep rep}))
-                       :handlers        {"lstr"      (t/read-handler
-                                                       #(str "#lstr " %))
-                                         "with-meta" (t/read-handler
-                                                       (fn [[x m]]
-                                                         {:with-meta x
-                                                          :meta      m}))}}))))
+                       :handlers        {"rdf/langstring" (t/read-handler
+                                                            #(str "#lstr "
+                                                                  (str/join "@" %)))
+                                         "with-meta"      (t/read-handler
+                                                            (fn [[x m]]
+                                                              {:with-meta x
+                                                               :meta      m}))}}))))
 
 (defn- format-body
   [media-type body]

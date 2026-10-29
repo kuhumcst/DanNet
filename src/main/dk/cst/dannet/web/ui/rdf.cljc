@@ -6,7 +6,8 @@
   its symbol as :rdf/about."
   (:require [clojure.string :as str]
             [rum.core :as rum]
-            #?(:clj [dk.cst.theophrastus.term :as term])
+            #?(:clj  [dk.cst.theophrastus.term :as term]
+               :cljs [dk.cst.theophrastus.term :as term :refer [Literal]])
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -28,11 +29,6 @@
        (prefix/kw->uri term)]
       (let [uri (str/replace term #"<|>" "")]
         [nil uri uri]))))
-
-(defn rdf-datatype?
-  "Is `x` a typed literal as the browser receives it, a {:value :uri} map?"
-  [x]
-  (and (map? x) (:value x) (:uri x)))
 
 (defn blank-node?
   "Is `x` a blank node, i.e. a map of its properties with its symbol as
@@ -200,11 +196,12 @@
   #"^<(.+)>$")
 
 (defn- transform-rdf-datatype
-  "Render an RDF datatype value as a span with title/datatype attributes."
-  [{:keys [uri value]}]
-  [:span {:title    uri
-          :datatype uri}
-   value])
+  "Render the typed literal `x` as a span with title/datatype attributes."
+  [x]
+  (let [uri (prefix/rdf-resource->uri (term/datatype x))]
+    [:span {:title    uri
+            :datatype uri}
+     (str x)]))
 
 (def ^:private sense-label-token
   "Matches a DSL entry marker (e.g. `_§35`) or a regular piece of text."
@@ -253,15 +250,9 @@
   "Implementation of transform-val without error handling."
   ([v {:keys [attr-key entity] :as opts}]
    (cond
-     ;; RDF typed literals: Literal on backend, {:uri :value} map on frontend.
-     #?@(:clj
-         [(instance? Literal v)
-          (transform-rdf-datatype
-            {:uri   (prefix/rdf-resource->uri (term/datatype v))
-             :value (str v)})]
-         :cljs
-         [(rdf-datatype? v)
-          (transform-rdf-datatype v)])
+     ;; RDF typed literals, e.g. an xsd:date
+     (instance? Literal v)
+     (transform-rdf-datatype v)
 
      ;; Transformations of non-strings
      ;; TODO: properly implement date parsing
@@ -415,9 +406,6 @@
   (let [m         (dissoc m :rdf/about)
         container (partial blank-node-container languages attr-key)]
     (cond
-      (rdf-datatype? m)
-      (container (transform-val m))
-
       (= (keys m) [:rdf/value])
       (container (transform-text opts (:rdf/value m)))
 

@@ -89,10 +89,6 @@
                     :dangerouslySetInnerHTML {:__html (script-safe (->transit page))}}]
           [:script {:src (str "/js/compiled/" shared/main-js)}]]]))))
 
-(defn- lstr->s
-  [lstr]
-  (str lstr "@" (term/lang lstr)))
-
 (defn- ->json-safe
   "Convert RDF data to JSON-compatible format."
   [data]
@@ -112,11 +108,6 @@
                       (dissoc data :rdf/about))
     (coll? data) (mapv ->json-safe data)
     :else data))
-
-(defn- literal->m
-  [literal]
-  {:value (str literal)
-   :uri   (prefix/rdf-resource->uri (term/datatype literal))})
 
 ;; TODO: this is a data concern rather than an HTTP one; it may want to follow
 ;;       catalog/find-resources to the db side.
@@ -144,11 +135,13 @@
     (RDFDataMgr/write out m format)
     (.toString out "UTF-8")))
 
+;; The RDF terms have the tags and values of their reader tags, e.g.
+;; #rdf/langstring ["hund" "da"], so the browser reads them as the same types.
 ;; ClojureScript reads a plain map of more than 8 entries as a hash map, which
 ;; loses the order of e.g. the search results, so an ordered map gets a tag.
 (def transit-write-handlers
-  {LangString   (t/write-handler "lstr" lstr->s)
-   Literal      (t/write-handler "rdfdatatype" literal->m)
+  {LangString   (t/write-handler "rdf/langstring" (juxt str term/lang))
+   Literal      (t/write-handler "rdf/literal" (juxt str term/datatype))
    OrderedMap   (t/write-handler "omap" vec)
    ResultSetMem (t/write-handler "array" sparql-result->rows)
    Model        (t/write-handler "array" sparql-result->rows)})
