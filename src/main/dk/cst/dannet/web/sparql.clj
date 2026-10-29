@@ -7,7 +7,8 @@
             [clojure.core.cache.wrapped :as cw]
             [clojure.string :as str]
             [dk.cst.theophrastus.endpoint :as endpoint])
-  (:import [java.util.concurrent SynchronousQueue ThreadPoolExecutor TimeUnit]
+  (:import [java.util.concurrent SynchronousQueue ThreadFactory
+                                  ThreadPoolExecutor TimeUnit]
            [org.apache.jena.query Query]
            [org.apache.jena.sparql.core Var]
            [org.apache.jena.sparql.engine ResultSetStream]
@@ -26,12 +27,16 @@
 ;; so the queries run on pools with no queue, where the hard timeout of
 ;; endpoint/run holds (see txn/with-hard-timeout). A query that needs the
 ;; inference model gets a smaller pool, since its abandoned thread may run
-;; on for minutes.
+;; on for minutes. The threads are daemons, so they never keep the JVM from
+;; exiting, e.g. at the end of a test run.
 (defn- ->rejecting-executor
-  "A pool of `n` threads with no queue, which rejects a call when all its
-  threads are busy."
+  "A pool of `n` daemon threads with no queue, which rejects a call when all
+  its threads are busy."
   [n]
-  (ThreadPoolExecutor. n n 0 TimeUnit/MILLISECONDS (SynchronousQueue.)))
+  (ThreadPoolExecutor. n n 0 TimeUnit/MILLISECONDS (SynchronousQueue.)
+                       (reify ThreadFactory
+                         (newThread [_ r]
+                           (doto (Thread. r) (.setDaemon true))))))
 
 (defonce query-executor
   (->rejecting-executor 8))
