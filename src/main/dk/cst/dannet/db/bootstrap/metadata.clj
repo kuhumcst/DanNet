@@ -10,8 +10,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared])
-  (:import [org.apache.jena.rdf.model Model]
-           [org.apache.jena.vocabulary RDF]))
+  (:import [org.apache.jena.rdf.model Model]))
 
 (defn da
   "Concatenate `s` into a literal tagged as Danish (da)."
@@ -266,11 +265,7 @@
 (defn- count-type
   "Count the number of instances of `rdf-type` in `graph`."
   [graph rdf-type]
-  (let [^Model model (:model graph)]
-    (txn/with-read-transaction model
-      (count (iterator-seq
-               (.listStatements model nil RDF/type
-                                (.createResource model (prefix/kw->uri rdf-type))))))))
+  (count (theo/triples graph ['_ :rdf/type rdf-type])))
 
 (defn- triple-count
   "Count the total number of triples in `graph`."

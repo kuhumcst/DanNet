@@ -26,12 +26,13 @@
       [:td.attr-combo                                       ; fixes alignment
        (rdf/resource-hyperlink v opts)])
 
-    ;; Using blank node entity data included as a metadata map.
+    ;; A blank node as a map of its properties (or a typed literal).
     (map? v)
     [:td (rdf/blank-node opts v)]
 
-    ;; Doubly inlined tables are omitted entirely.
-    (nil? v)
+    ;; Doubly inlined tables, i.e. blank nodes inside blank nodes, arrive as
+    ;; symbols and are omitted entirely.
+    (symbol? v)
     (i18n/da-en languages
       [:td.omitted "(detaljer udeladt)"]
       [:td.omitted "(details omitted)"])
@@ -185,11 +186,7 @@
        (shared/multi-valued? v)
        (cond
          (= 1 (count v))
-         (let [v* (first v)]
-           (rum/with-key (value-cell opts+attr-key (if (symbol? v*)
-                                                     (meta v*)
-                                                     v*))
-                         v))
+         (rum/with-key (value-cell opts+attr-key (first v)) v)
 
          (every? i18n/rdf-string? v)
          (string-list-cell opts+attr-key v)
@@ -197,11 +194,8 @@
          :else
          [:td (multi-value-cell opts+attr-key v)])
 
-       (keyword? v)
+       (or (keyword? v) (symbol? v) (rdf/blank-node? v))
        (rum/with-key (value-cell opts+attr-key v) v)
-
-       (symbol? v)
-       (rum/with-key (value-cell opts+attr-key (meta v)) v)
 
        :else
        [:td {:lang (i18n/lang v) :key v}

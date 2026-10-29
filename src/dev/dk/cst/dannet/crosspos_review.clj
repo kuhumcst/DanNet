@@ -15,7 +15,6 @@
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
             [dk.cst.theophrastus :as theo]
-            [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.poi.common.usermodel HyperlinkType]
@@ -157,8 +156,8 @@
   partOfSpeech without a canonicalForm/writtenRep, and joining the two would
   silently drop such synsets from the PoS comparison."
   [g]
-  (let [labels (into {} (map (juxt '?s (comp str '?o)))
-                     (q/triples g ['_ :rdfs/label '_]))
+  (let [labels (into {} (map (juxt first (comp str last)))
+                     (theo/triples g ['_ :rdfs/label '_]))
         pos    (theo/q g "SELECT ?synset ?pos
                           WHERE {
                             ?synset ontolex:lexicalizedSense ?sense .
@@ -184,12 +183,12 @@
   "Every wn:hypernym pair the HypernymPOSShape flags, i.e. any pair whose
   synsets are lexicalized by words disagreeing in PoS."
   [g idx]
-  (->> (q/triples g ['_ :wn/hypernym '_])
-       (keep (fn [{:syms [?s ?o]}]
-               (let [a (get-in idx [?s :pos]) b (get-in idx [?o :pos])]
-                 (when (and (str/starts-with? (str ?o) ":dn/")
+  (->> (theo/triples g ['_ :wn/hypernym '_])
+       (keep (fn [[s _ o]]
+               (let [a (get-in idx [s :pos]) b (get-in idx [o :pos])]
+                 (when (and (str/starts-with? (str o) ":dn/")
                             (seq a) (seq b) (not= 1 (count (into a b))))
-                   {:source ?s :target ?o :spos a :tpos b}))))))
+                   {:source s :target o :spos a :tpos b}))))))
 
 (defn partition-pairs
   "Split the flagged pairs into the four disjoint groups documented in
@@ -210,8 +209,8 @@
 (defn deferred-crosspos
   "The dns:crossPoSHypernym triples deliberately retained for review."
   [g]
-  (->> (q/triples g ['_ :dns/crossPoSHypernym '_])
-       (map (fn [{:syms [?s ?o]}] {:source ?s :target ?o}))))
+  (->> (theo/triples g ['_ :dns/crossPoSHypernym '_])
+       (map (fn [[s _ o]] {:source s :target o}))))
 
 (defn- uri [k] (str (prefix/kw->uri k)))
 

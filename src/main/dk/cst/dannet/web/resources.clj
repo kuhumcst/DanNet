@@ -380,7 +380,7 @@
         uri      (cond
                    (keyword? subject) (prefix/kw->uri subject)
                    (string? subject) (prefix/rdf-resource->uri subject))
-        subsumer (some '?s (q/triples g ['_ :dns/subsumed subject]))]
+        subsumer (ffirst (theo/triples g ['_ :dns/subsumed subject]))]
     (cond
       (and alt (not-empty (q/entity g alt)))
       (assoc ctx :replace alt)

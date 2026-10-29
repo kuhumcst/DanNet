@@ -4,24 +4,13 @@
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [clojure.walk :as walk]
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
             [dk.cst.theophrastus :as theo]
-            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.entity :as ent]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.db.query.operation :as op])
-  (:import [org.apache.jena.reasoner BaseInfGraph]
-           [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
-
-(defn triples
-  "The triples of `g` that match the `pattern` [s p o], as maps of ?s, ?p and
-  ?o, where _ matches any value, e.g. ['_ :wn/hypernym :dn/synset-1]."
-  [g pattern]
-  (->> (zipmap '[?s ?p ?o] pattern)
-       (into {} (remove (comp #{'_} val)))
-       (theo/q g op/triples)))
+            [dk.cst.dannet.db.query.operation :as op]))
 
 ;; TODO: replace with fnil in all places where update is used anyway
 (defn set-merge
@@ -41,81 +30,52 @@
     :else
     #{v1 v2}))
 
-(defn- basic-entity
-  "Get entity from `entity-query-result`."
-  [entity-query-result]
-  (persistent!
-    (reduce (fn [m {:syms [?p ?o]}]
-              (assoc! m ?p (set-merge (get m ?p) ?o)))
-            (transient {})
-            entity-query-result)))
+;; theo/entity expands a blank node into a map with its :rdf/about, at any
+;; depth, while DanNet expands it one level deep.
+(defn- about
+  "The symbol of `x` when it's the map of a blank node, otherwise `x`."
+  [x]
+  (if (map? x) (:rdf/about x) x))
 
-(defn find-raw
-  "Return the raw entity query result for `subject` in the inference db `g`,
-  from its schema and raw graphs (no inference)."
-  [g subject]
-  (let [^FBRuleInfGraph inf (theo/jena-graph g)
-        query-graph         (fn [graph]
-                              (-> (theo/db graph {:prefixes (:prefixes g)})
-                                  (triples [subject '_ '_])))
-        triple-keys         (fn [result] (select-keys result '[?s ?p ?o]))
-        xf                  (comp (mapcat query-graph) (map triple-keys))]
-    (into #{} xf [(.getSchemaGraph inf) (.getRawGraph inf)])))
+(defn- blank-node
+  "`x` with every value but its :rdf/about as a set, and any blank node in
+  them as its symbol, when it's the map of a blank node; otherwise `x`.
 
-(defn inferred-entity
-  "Determine inferred parts of `result` given `raw-result` triples."
-  [result raw-result]
-  (let [triple-keys (fn [item] (select-keys item '[?s ?p ?o]))
-        in-raw?     (fn [item] (contains? raw-result (triple-keys item)))]
-    (basic-entity (remove in-raw? result))))
+  NB: multi-valued properties are already sets and must NOT be wrapped again;
+  nested sets, e.g. in the dns:inheritedFrom of inheritance nodes with
+  multiple parent synsets, crash the frontend rendering."
+  [x]
+  (if (map? x)
+    (assoc (update-vals (dissoc x :rdf/about)
+                        #(into #{} (map about) (shared/setify %)))
+      :rdf/about (:rdf/about x))
+    x))
+
+(defn- update-objects
+  "Apply `f` to each object in the entity `e` from theo/entity, leaving out
+  its :rdf/about."
+  [e f]
+  (update-vals (dissoc e :rdf/about)
+               #(if (set? %) (into #{} (map f) %) (f %))))
 
 (defn entity
   "Return the entity description of `subject` in `g`: a map of predicate to
   object, or to a set of objects, with the subject as metadata."
   [g subject]
-  (if-let [result (not-empty (triples g [subject '_ '_]))]
-    (with-meta (basic-entity result) {:subject subject})
-    (with-meta {} {:subject subject})))
+  (with-meta (update-objects (theo/entity g subject) about)
+             {:subject subject}))
 
-;; TODO: can it use basic-entity instead of entity?
-;; TODO: what about blank-expanded-entity?
-(defn blank-node
-  "Retrieve the blank object entity of `subject` and `predicate` in Graph `g`.
-
-  Every value is normalised to a set. NB: multi-valued properties are already
-  sets in the entity map and must NOT be wrapped again; doing so produced
-  nested sets, e.g. for the dns:inheritedFrom of inheritance nodes with
-  multiple parent synsets, crashing the frontend rendering."
-  [g subject predicate blank-object]
-  (when (and subject predicate)
-    (->> (entity g blank-object)
-         (reduce (fn [acc [?p ?o]]
-                   (update acc ?p (fnil into #{}) (shared/setify ?o)))
-                 {}))))
-
-;; I am not smart enough to do this through SPARQL/algebra!
 (defn attach-blank-nodes
-  "Replace blank node symbols in `entity` of `subject` in `g` with entity maps."
-  [g subject entity]
-  ;; prewalk visits each [predicate object] entry before the blank nodes inside
-  ;; it, so the volatile holds the predicate of the symbol being visited.
-  (let [predicate (volatile! nil)]
-    (walk/prewalk
-      (fn [x]
-        (cond
-          (vector? x)
-          (do (vreset! predicate (first x)) x)
+  "Replace each blank node symbol in `entity` with the map of its properties
+  in `g`, as expanded-entity does."
+  [g entity]
+  (update-objects entity #(if (symbol? %)
+                            (blank-node (assoc (theo/entity g %) :rdf/about %))
+                            %)))
 
-          (symbol? x)
-          (with-meta x (blank-node g subject @predicate x))
-
-          :else x))
-      entity)))
-
-;; TODO: reuse attach-blank-nodes (requires re-think of data flow for SPARQL)
-;; Due to the flow in how SPARQL results are handled, we can't attach metadata
-;; the same way we do in 'attach-blank-nodes' above, so we need this other
-;; function to do the job.
+;; TODO: SPARQL result rows could carry their blank nodes as maps, as
+;;       attach-blank-nodes makes them, rather than in a separate :blank-nodes
+;;       map that the SPARQL UI looks them up in.
 (defn collect-blank-nodes
   "Collect blank node entity maps in SPARQL result `rows` in graph `g`.
   Returns a map from blank node symbol to its entity description."
@@ -364,10 +324,10 @@
                                (remove cor-senses)
                                (shared/setify (:ontolex/lexicalizedSense synset)))))
         frames       (synset-frames g subject cor-senses)
-        ili-def      (some->> (:wn/ili synset)
-                              (entity g)
-                              :skos/definition
-                              (shared/setify))
+        ili-def      (->> (shared/setify (:wn/ili synset))
+                          (mapcat #(shared/setify (:skos/definition (entity g %))))
+                          (set)
+                          (not-empty))
         ancestry     (hypernym-ancestry g subject)
         synset'      (cond-> synset
                        examples (assoc :lexinfo/senseExample examples)
@@ -435,43 +395,20 @@
         (dissoc entity super)))
     entity))
 
-(defn- embedded-resources
-  "Collect keyword resources (predicates and objects) found in the blank node
-  entity maps attached as metadata on symbols within `entity` values."
-  [entity]
-  (let [->coll #(if (coll? %) % [%])]
-    (into #{}
-          (comp (mapcat ->coll)
-                (filter symbol?)
-                (keep meta)
-                (mapcat (fn [m] (concat (keys m) (mapcat ->coll (vals m)))))
-                (filter keyword?))
-          (vals entity))))
-
 (defn- expanded-entity*
   "Return the expanded entity description of `subject` in `g`."
   [g subject]
-  (if-let [result (not-empty (triples g [subject '_ '_]))]
-    (let [entity+   (->> (basic-entity result)
-                         (weighted-relations)
-                         (attach-blank-nodes g subject))
+  (if-let [e (theo/entity g subject)]
+    (let [entity+  (-> (update-objects e blank-node)
+                       (weighted-relations))
           ;; Labels are fetched in one batched VALUES query; joining them onto
           ;; every entity triple multiplied result rows for large synsets.
-          resources (into #{}
-                          (comp (mapcat (juxt '?p '?o))
-                                (filter prefix/resource?))
-                          result)
-          entities  (resource-labels g resources)
-          ;; Labels for resources inside blank node entity maps are fetched
-          ;; separately for use in the nested attr-val tables.
-          entities+ (merge entities
-                           (resource-labels
-                             g (remove entities (embedded-resources entity+))))
-          entity*   (with-meta entity+
-                               (cond-> {:entities entities+
-                                        :subject  subject}
-                                 (instance? BaseInfGraph (theo/jena-graph g))
-                                 (assoc :inferred (inferred-entity result (find-raw g subject)))))]
+          entities (resource-labels g (ent/displayed-resources entity+))
+          ;; theo/entity puts the :inferred part of an inference graph in the
+          ;; metadata.
+          entity*  (with-meta entity+
+                              (assoc (meta e) :entities entities
+                                              :subject subject))]
       (cond
         (shared/dn-synset? subject entity*)
         (supplement-synset g entity* subject)

@@ -2,8 +2,8 @@
   "Components for RDF values: links to resources, prefix badges, literals,
   blank nodes and lists of values.
 
-  On entity and search pages, a blank node is a symbol whose metadata is its
-  entity map."
+  On entity and search pages, a blank node is a map of its properties and its
+  :rdf/about."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             #?(:clj [dk.cst.theophrastus.term :as term])
@@ -34,6 +34,11 @@
   [x]
   (and (map? x) (:value x) (:uri x)))
 
+(defn blank-node?
+  "Is `x` a blank node, i.e. a map of its properties and :rdf/about?"
+  [x]
+  (and (map? x) (contains? x :rdf/about)))
+
 (defn bag->coll
   "Extract member values from an RDF Bag map `m` into a flat sorted collection."
   [{:keys [rdf/type] :as m}]
@@ -50,7 +55,10 @@
   Returns vectors so that identical labels are sorted by keywords secondly."
   [{:keys [languages k->label] :as opts}]
   (fn [item]
-    (let [k (if (map-entry? item) (first item) item)]
+    (let [k (cond
+              (map-entry? item) (first item)
+              (blank-node? item) (:rdf/about item)
+              :else item)]
       [(str (i18n/select-label languages (get k->label k)))
        (str k)])))
 
@@ -403,7 +411,8 @@
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
-  (let [container (partial blank-node-container languages attr-key)]
+  (let [m         (dissoc m :rdf/about)
+        container (partial blank-node-container languages attr-key)]
     (cond
       (rdf-datatype? m)
       (container (transform-val m))
@@ -464,10 +473,12 @@
     (keyword? item)
     [:li (resource-hyperlink item opts)]
 
+    (blank-node? item)
+    [:li (blank-node opts item)]
+
+    ;; a blank node inside a blank node
     (symbol? item)
-    (if-let [m (not-empty (meta item))]
-      [:li (blank-node opts m)]
-      [:li.omitted (str item)])
+    [:li.omitted (str item)]
 
     :else
     [:li {:lang (i18n/lang item)}

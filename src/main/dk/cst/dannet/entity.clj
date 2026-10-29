@@ -9,7 +9,7 @@
   [v]
   (cond
     (set? v) v
-    (coll? v) (set v)
+    (shared/multi-valued? v) (set v)
     :else #{v}))
 
 (defn- entailing-relations
@@ -37,7 +37,7 @@
   [entity super subs]
   (let [covered (into #{} (mapcat (comp ->set entity)) subs)
         super-v (entity super)]
-    (if (coll? super-v)
+    (if (shared/multi-valued? super-v)
       (every? covered super-v)
       (contains? covered super-v))))
 
@@ -72,16 +72,16 @@
      :folded (folded-relations subs-of pruned)}))
 
 (defn- prune-blank-node
-  "Prune the entity map carried as metadata by the blank node symbol `x` using
-  `k->supers`, returning `x` unchanged when nothing was pruned.
+  "Prune `x` using `k->supers` when it's a blank node, i.e. a map of its
+  properties and :rdf/about, returning `x` unchanged when nothing was pruned.
 
-  The pruned entity retains its own :folded map as metadata, which is read by
+  The pruned blank node has its own :folded map as metadata, which is read by
   the frontend when rendering nested attr-val tables (see issue #195)."
   [k->supers x]
-  (if-let [m (and (symbol? x) (not-empty (meta x)))]
-    (let [{:keys [entity folded]} (prune-entailed-superproperties k->supers m)]
+  (if (map? x)
+    (let [{:keys [entity folded]} (prune-entailed-superproperties k->supers x)]
       (if (not-empty folded)
-        (with-meta x (with-meta entity {:folded folded}))
+        (with-meta entity {:folded folded})
         x))
     x))
 
@@ -91,18 +91,18 @@
   [k->supers v]
   (let [prune #(prune-blank-node k->supers %)]
     (cond
-      (symbol? v) (prune v)
+      (map? v) (prune v)
 
       ;; Values without blank nodes (e.g. large collections of synset
       ;; relations) are returned as-is rather than being needlessly rebuilt.
-      (not (and (coll? v) (some symbol? v))) v
+      (not (and (coll? v) (some map? v))) v
 
       (set? v) (into (empty v) (map prune) v)
       :else (with-meta (mapv prune v) (meta v)))))
 
 (defn prune-embedded-entities
-  "Apply 'prune-entailed-superproperties' with `k->supers` to the blank node
-  entity maps embedded as metadata on symbols within the values of `entity`."
+  "Apply 'prune-entailed-superproperties' with `k->supers` to the blank nodes
+  within the values of `entity`."
   [k->supers entity]
   (update-vals entity #(prune-blank-nodes k->supers %)))
 
@@ -125,14 +125,15 @@
 
 (defn displayed-resources
   "Collect the set of resources rendered for `entity`: its relation keys, the
-  keyword and RDF-resource values, and the resources found inside blank node
-  entity maps attached as metadata on symbols.
+  keyword and RDF-resource values, and the resources found inside its blank
+  nodes.
 
   Used to trim the label map sent to the client down to the displayed part."
   [entity]
   (let [xf (comp (mapcat ->set)
-                 (mapcat #(if-let [m (and (symbol? %) (meta %))]
-                            (concat (keys m) (mapcat ->set (vals m)))
+                 (mapcat #(if (map? %)
+                            (let [m (dissoc % :rdf/about)]
+                              (concat (keys m) (mapcat ->set (vals m))))
                             [%]))
                  (filter prefix/resource?))]
     (into (set (filter prefix/resource? (keys entity)))

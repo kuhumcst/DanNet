@@ -145,7 +145,7 @@
      ;; the Transit format changes; cached responses in the old format are then
      ;; never used.
      (def transit-param
-       {:transit 3})
+       {:transit 4})
 
      ;; Currently lambdaisland/fetch silently loses query strings, so they are
      ;; parsed back out of the URL below to keep them intact.

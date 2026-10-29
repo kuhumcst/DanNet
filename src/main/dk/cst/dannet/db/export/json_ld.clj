@@ -74,16 +74,19 @@
       qname
       (str v))
 
-    ;; Symbols are used in the Clojure map to represent complex sub-entities.
-    ;; Their metadata comprises the realised data and can be substituted.
-    (symbol? v)
-    (let [blank-node (entity->properties (meta v))]
+    ;; A blank node is a map of its properties and :rdf/about.
+    (map? v)
+    (let [blank-node (entity->properties (dissoc v :rdf/about))]
       ;; Special handling of rdf:Bag type (sets) used for e.g. ontological type.
       (if (= (get blank-node "rdf:type") "rdf:Bag")
         {"@set" (->> (dissoc blank-node "rdf:type")
                      (sort-by first)
                      (map second))}
         blank-node))
+
+    ;; A blank node beyond the first level, whose properties are left out.
+    (symbol? v)
+    {}
     :else (str v)))
 
 (defn- entity->properties

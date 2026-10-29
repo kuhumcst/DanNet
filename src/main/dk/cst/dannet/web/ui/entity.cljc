@@ -206,7 +206,7 @@
 
     example
     (for [ex (->> (shared/setify example)
-                  (keep (comp first :rdf/value meta))       ; blank node values
+                  (keep (comp first :rdf/value))            ; blank node values
                   (sort-by str))]
       ["wn:example" ex])))
 
@@ -259,7 +259,7 @@
          (when-let [definition (:wn/definition subentity)]
            [:span {:property "wn:definition"
                    :title    "wn:definition"}
-            (rdf/blank-node opts (meta definition))]))
+            (rdf/blank-node opts definition)]))
        badge]
       (synset-examples subentity opts)
       (when ontologicalType
@@ -269,7 +269,7 @@
            (rdf/resource-hyperlink ontologicalType
                                    (assoc opts :attr-key :dns/ontologicalType))
            (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
-                           (meta ontologicalType)))])])))
+                           ontologicalType))])])))
 
 (rum/defc summary-badge
   "Generic dictionary entry-style badge for use in summary components.

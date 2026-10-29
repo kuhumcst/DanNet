@@ -11,10 +11,6 @@
   [& strs]
   (theo/query (apply str strs) prefix/prefixes))
 
-(def triples
-  (sparql
-    "SELECT ?s ?p ?o WHERE { ?s ?p ?o }"))
-
 (def resource-labels
   "The labels of the bound ?resource values, given as keywords or bracketed
   RDF resource strings."

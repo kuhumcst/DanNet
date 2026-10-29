@@ -27,17 +27,16 @@
   (:require [clojure.string :as str]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.function :as function]
-            [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db.query :as q]))
+            [dk.cst.dannet.prefix :as prefix]))
 
 (defn adjacency
-  "The {x #{y}} map of the `pred` triples of `g`, from the `from` binding to
-  the `to` binding."
+  "The {x #{y}} map of the `pred` triples of `g`, from the `from` part of each
+  [s p o] triple to its `to` part, e.g. first and last."
   [g pred from to]
-  (reduce (fn [m b]
-            (update m (get b from) (fnil conj #{}) (get b to)))
+  (reduce (fn [m t]
+            (update m (from t) (fnil conj #{}) (to t)))
           {}
-          (q/triples g ['_ pred '_])))
+          (theo/triples g ['_ pred '_])))
 
 ;; TODO: ~27 hypernym edges are asserted only in the :wn/hyponym direction;
 ;;       folding in inverted hyponyms would recover them, but interacts with the
@@ -53,8 +52,8 @@
   Children resolved purely via the orthogonal fallback are attached as
   `:orthogonal-only` metadata, leaving the map's own shape unchanged."
   [g]
-  (let [hypernyms       (adjacency g :wn/hypernym '?s '?o)
-        orthogonals     (adjacency g :dns/orthogonalHypernym '?s '?o)
+  (let [hypernyms       (adjacency g :wn/hypernym first last)
+        orthogonals     (adjacency g :dns/orthogonalHypernym first last)
         orthogonal-only (into #{} (remove hypernyms) (keys orthogonals))
         hg              (into hypernyms
                               (map (fn [c] [c (orthogonals c)]))
@@ -90,10 +89,10 @@
          (concat
            (for [p [:wn/mero_part :wn/mero_member
                     :wn/mero_substance :wn/mero_location]]
-             (adjacency g p '?s '?o))
+             (adjacency g p first last))
            (for [p [:wn/holo_part :wn/holo_member
                     :wn/holo_substance :wn/holo_location]]
-             (adjacency g p '?o '?s)))))
+             (adjacency g p last first)))))
 
 ;; DanNet stores PoS in :wn/lexfile; OEWN synsets store it in :wn/partOfSpeech.
 (def ^:private wn-pos->pos
@@ -113,9 +112,8 @@
   [g]
   (merge
     (into {}
-          (map (fn [b] [(get b '?s)
-                        (first (str/split (str (get b '?o)) #"\."))]))
-          (q/triples g ['_ :wn/lexfile '_]))
+          (map (fn [[s _ o]] [s (first (str/split (str o) #"\."))]))
+          (theo/triples g ['_ :wn/lexfile '_]))
     (into {}
           (keep (fn [b] (when-let [pos (wn-pos->pos (get b '?p))]
                           [(get b '?s) pos])))

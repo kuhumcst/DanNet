@@ -67,8 +67,9 @@
 (defn- ->superproperty-closure
   []
   (delay
-    (let [pairs (->> (q/triples (:inference @db) ['_ :rdfs/subPropertyOf '_])
-                     (map (juxt '?s '?o))
+    (let [pairs (->> ['_ :rdfs/subPropertyOf '_]
+                     (theo/triples (:inference @db))
+                     (map (juxt first last))
                      (filter (fn [[p q]]
                                (and (keyword? p) (keyword? q) (not= p q))))
                      (set))]

@@ -40,12 +40,10 @@
 (defn inherited
   "The relations that `entity` inherits from its hypernym.
 
-  Inheritance is marked by anonymous resources (#182) carrying their entity
-  data as metadata."
+  Inheritance is marked by anonymous resources (#182), i.e. blank nodes."
   [entity]
   (->> (shared/setify (:dns/inherited entity))
-       (keep #(some-> (meta %)
-                      (get :dns/inheritedRelation)
+       (keep #(some-> (get % :dns/inheritedRelation)
                       (shared/unwrap)))
        (set)))
 

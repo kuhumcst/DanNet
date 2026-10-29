@@ -45,7 +45,7 @@
                                             '?shortLabel
                                             '?sense)
                                     (set/rename-keys sym->kw)
-                                    (->> (q/attach-blank-nodes g k)))
+                                    (->> (q/attach-blank-nodes g)))
                       v         (with-meta subentity
                                            {:k->label    (assoc k->label
                                                            ?synset ?label)

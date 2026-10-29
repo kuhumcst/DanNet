@@ -7,14 +7,12 @@
             [clojure.data.json :as json]
             [clj-file-zip.core :as zip]
             [dk.cst.theophrastus :as theo]
-            [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.release :as release]
-            [dk.cst.dannet.shared :as shared])
-  (:import [org.apache.jena.rdf.model Model Statement]))
+            [dk.cst.dannet.shared :as shared]))
 
 (defn- expand-kw
   [x]
@@ -191,25 +189,18 @@
   [row]
   (mapv csv-table-cell row))
 
+;; A query for the relations of every synset at once took ~45 minutes, while
+;; theo/entity reads each synset with Graph.find.
 (defn synset-rel-table
-  "A performant way to fetch synset->synset relations for `synset` in `model`.
-
-  The function basically exists because I wasn't able to perform a similar query
-  in a performant way, e.g. doing this for all synsets would take ~45 minutes."
-  [^Model model synset]
-  (txn/with-read-transaction model
-    (->> (prefix/kw->uri synset)
-         (.getResource model)
-         (.listProperties)
-         (iterator-seq)
-         (keep (fn [^Statement statement]
-                 (let [prefix (str prefix/dn-uri "synset-")
-                       obj    (str (.getObject statement))]
-                   (when (str/starts-with? obj prefix)
-                     [synset
-                      (str (.getPredicate statement))
-                      (keyword "dn" (subs obj (count prefix/dn-uri)))]))))
-         (doall))))
+  "The synset->synset relations of `synset` in `g`, as rows of the synset,
+  the IRI of the relation and the other synset."
+  [g synset]
+  (for [[p v] (dissoc (theo/entity g synset) :rdf/about)
+        o     (shared/setify v)
+        :when (and (keyword? o)
+                   (= "dn" (namespace o))
+                   (str/starts-with? (name o) "synset-"))]
+    [synset (prefix/kw->uri p) o]))
 
 (defn export-csv-rows!
   "Write CSV `rows` to file `f`."
@@ -275,7 +266,7 @@
                     examples-metadata)
 
      (println "Fetching synset relations...")
-     (let [synset->triples (partial synset-rel-table (:model g))
+     (let [synset->triples (partial synset-rel-table g)
            synsets         (->> (theo/q g op/synsets)
                                 (map '?synset)
                                 (set))]

@@ -208,16 +208,12 @@
     entity))
 
 (defn inline-blank-nodes
-  "Replace blank node symbols (with metadata) in `entity` with their property
-  maps, allowing Donatello to serialize them as inline [ ... ] blank nodes.
-  Properties are sorted by key to ensure a deterministic output order."
+  "Replace the blank node maps in `entity` with their properties, sorted by
+  key, which Donatello serializes as inline [ ... ] blank nodes in a
+  deterministic order."
   [entity]
-  (walk/postwalk
-    (fn [x]
-      (if (and (symbol? x) (meta x))
-        (into (array-map) (sort-by key (meta x)))
-        x))
-    entity))
+  (let [sorted (fn [m] (into (array-map) (sort-by key (dissoc m :rdf/about))))]
+    (update-vals entity (partial walk/postwalk #(if (map? %) (sorted %) %)))))
 
 (defn donatello-prefixes
   "Prepare prefixes in `entity` for Donatello TTL output."

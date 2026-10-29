@@ -4,7 +4,7 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [cognitect.transit :as t]
-            [dk.cst.theophrastus.convert :as convert]
+            [dk.cst.theophrastus.sparql :as theo.sparql]
             [dk.cst.theophrastus.term :as term]
             [rum.core :as rum]
             [dk.simongray.conneg :as conneg]
@@ -21,7 +21,7 @@
            [org.apache.jena.query ResultSet]
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
-           [org.apache.jena.sparql.engine.binding Binding]
+           [org.apache.jena.sparql.core ResultBinding]
            [org.apache.jena.sparql.resultset ResultSetMem]))
 
 (def one-day-cache
@@ -98,14 +98,12 @@
     {:value    (str data)
      :datatype (prefix/rdf-resource->uri (term/datatype data))}
 
-    ;; Blank nodes from attach-blank-nodes carry their data as metadata.
-    (symbol? data)
-    (if-let [m (meta data)]
-      (->json-safe m)
-      (str data))
-
+    (symbol? data) (str data)
     (keyword? data) (or (prefix/kw->qname data) (name data))
-    (map? data) (into {} (map (fn [[k v]] [(->json-safe k) (->json-safe v)]) data))
+    ;; the :rdf/about of a blank node is left out
+    (map? data) (into {}
+                      (map (fn [[k v]] [(->json-safe k) (->json-safe v)]))
+                      (dissoc data :rdf/about))
     (coll? data) (mapv ->json-safe data)
     :else data))
 
@@ -117,17 +115,11 @@
 ;; TODO: this is a data concern rather than an HTTP one; it may want to follow
 ;;       catalog/find-resources to the db side.
 (defn sparql-result->rows
-  "Convert a `sparql-result` to a vector of Clojure maps using Theophrastus's
-  node conversion, matching the output format of theo/q."
+  "Convert a `sparql-result` to a vector of Clojure maps, as theo/q returns
+  them."
   [^ResultSet sparql-result]
   (when sparql-result
-    (mapv (fn [qs]
-            (let [^Binding binding (.getBinding qs)]
-              (into {}
-                    (map (fn [var]
-                           [(convert/data var prefix/prefixes)
-                            (convert/data (.get binding var) prefix/prefixes)]))
-                    (iterator-seq (.vars binding)))))
+    (mapv #(theo.sparql/row (.getBinding ^ResultBinding %) prefix/prefixes)
           (iterator-seq sparql-result))))
 
 (def transit-write-handlers

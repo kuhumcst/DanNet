@@ -224,8 +224,8 @@
         changes  dangling-oewn-link-changes
         target?  (fn [[_ p o]]
                    (and (= :wn/eq_synonym p)
-                        (seq (q/triples oewn-g [o :rdf/type :ontolex/LexicalConcept]))))
-        counts   {:removed (count (filter #(seq (q/triples g %)) (:remove changes)))
+                        (seq (theo/triples oewn-g [o :rdf/type :ontolex/LexicalConcept]))))
+        counts   {:removed (count (filter #(seq (theo/triples g %)) (:remove changes)))
                   :targets (count (filter target? (:add changes)))}
         expected {:removed 17 :targets 4}]
     (assert (= expected counts)
@@ -371,16 +371,16 @@
   dataset-level <dn> owl:versionInfo is authoritative, but older releases carry
   no such triple, so we fall back to a sample of any versionInfo values present."
   [graph]
-  (let [expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
+  (let [expected (theo/triples graph [md/<dn> :owl/versionInfo release/from])]
     (when (empty? expected)
-      (let [dn-vers (->> (q/triples graph [md/<dn> :owl/versionInfo '_])
-                         (map #(str (get % '?o)))
+      (let [dn-vers (->> (theo/triples graph [md/<dn> :owl/versionInfo '_])
+                         (map (comp str last))
                          (distinct)
                          (vec))
             actual  (if (seq dn-vers)
                       dn-vers
-                      (->> (q/triples graph ['_ :owl/versionInfo '_])
-                           (map #(str (get % '?o)))
+                      (->> (theo/triples graph ['_ :owl/versionInfo '_])
+                           (map (comp str last))
                            (distinct)
                            (take 5)
                            (vec)))]
