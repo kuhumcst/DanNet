@@ -56,11 +56,13 @@
         ;; @lang and is matched in CSS to hide redundant language superscripts.
         ;; The detail level is mirrored in :data-detail-level since the CSS only
         ;; hides redundant superscripts below the :high detail level.
-        ;; The frontend reads the development flag from a data attribute.
+        ;; The frontend reads the development flag and the name of its own JS
+        ;; file from data attributes.
         [:html {:prefix            prefix/rdfa-prefixes
                 :lang              (i18n/da-en languages "da" "en")
                 :data-detail-level (some-> detail-level name)
-                :data-development  (str shared/development?)}
+                :data-development  (str shared/development?)
+                :data-js           shared/main-js}
          [:head
           [:title title]
           [:meta {:charset "UTF-8"}]

@@ -145,9 +145,12 @@
      ;; sometimes results in transit data being displayed rather than an HTML
      ;; page. Responses are cached for a day, so its value is bumped whenever
      ;; the Transit format changes; cached responses in the old format are then
-     ;; never used.
+     ;; never used. The server compares it, and the :js file name of the app,
+     ;; with its own and has an app from before a deploy load the page again.
      (def transit-param
-       {:transit 4})
+       (let [js (.. js/document -documentElement -dataset -js)]
+         (cond-> {:transit shared/transit-version}
+           js (assoc :js js))))
 
      ;; Currently lambdaisland/fetch silently loses query strings, so they are
      ;; parsed back out of the URL below to keep them intact.

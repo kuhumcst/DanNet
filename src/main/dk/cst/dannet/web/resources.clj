@@ -128,6 +128,15 @@
                                :headers {"Location" location}}))
                 ctx)))})
 
+(defn- outdated-app?
+  "Did a frontend app from before a deploy make the `request`? The app sends
+  its Transit version and the name of its JS file, which then differ."
+  [{:keys [query-params] :as request}]
+  (let [{:keys [transit js]} query-params]
+    (and transit
+         (or (not= transit (str shared/transit-version))
+             (and js (not= js shared/main-js))))))
+
 (def response-body-ic
   "Generate a response containing the content body (if available)."
   {:name  ::response-body
@@ -144,6 +153,16 @@
               (-> ctx
                   (update :response merge
                           (cond
+                            ;; An outdated app may not read the data, so it
+                            ;; loads the page again: the router follows a
+                            ;; redirect that isn't a path with
+                            ;; window.location.replace, and "" is the page.
+                            (and page-meta
+                                 (= content-type "application/transit+json")
+                                 (outdated-app? request))
+                            {:status 200
+                             :body   (resp/->transit {:redirect ""})}
+
                             (and (empty? content) (empty? page-meta))
                             {:status  404
                              :headers {}}
@@ -228,7 +247,7 @@
 (defn remove-internal-params
   [query-string]
   (when query-string
-    (str/replace query-string #"&?(transit=[^&]*|format=turtle)" "")))
+    (str/replace query-string #"&?(transit=[^&]*|js=[^&]*|format=turtle)" "")))
 
 (def linked-media-types
   "The media types of an entity that get a URL in its Link header and

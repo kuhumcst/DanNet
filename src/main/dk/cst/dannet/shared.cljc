@@ -20,6 +20,11 @@
   #?(:clj  (= main-js "main.js")
      :cljs (= "true" js/document.documentElement.dataset.development)))
 
+(def transit-version
+  "The version of the Transit data that the frontend app reads, which it sends
+  as the transit query parameter. It goes up whenever the format changes."
+  4)
+
 (def theme
   ["#901a1e"
    "#55f"
