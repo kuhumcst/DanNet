@@ -22,6 +22,8 @@
            io.pedestal/pedestal.route     {:mvn/version "0.8.2"}
            io.pedestal/pedestal.jetty     {:mvn/version "0.8.2"}
            dk.simongray/conneg-clj        {:mvn/version "0.1.0"}
+           dk.simongray/ratelimit-clj     {:git/url "https://github.com/simongray/ratelimit-clj.git"
+                                           :sha     "efcdf847332f762a9e7dc0353b981599a65633be"}
            ring/ring-core                 {:mvn/version "1.15.5"}
            com.cognitect/transit-clj      {:mvn/version "1.1.357"}
            dk.ative/docjure               {:mvn/version "1.22.0"}
