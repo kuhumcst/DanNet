@@ -35,9 +35,10 @@
   (and (map? x) (:value x) (:uri x)))
 
 (defn blank-node?
-  "Is `x` a blank node, i.e. a map of its properties and :rdf/about?"
+  "Is `x` a blank node, i.e. a map of its properties with its symbol as
+  :rdf/about?"
   [x]
-  (and (map? x) (contains? x :rdf/about)))
+  (and (map? x) (symbol? (:rdf/about x))))
 
 (defn bag->coll
   "Extract member values from an RDF Bag map `m` into a flat sorted collection."
