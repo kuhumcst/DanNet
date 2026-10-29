@@ -4,12 +4,14 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [cognitect.transit :as t]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.sparql :as theo.sparql]
             [dk.cst.theophrastus.term :as term]
             [rum.core :as rum]
             [dk.simongray.conneg :as conneg]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.sparql :as sparql]
             [dk.cst.dannet.web.ui :as ui]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.export.rdf :as export.rdf]
@@ -20,7 +22,8 @@
            [dk.cst.theophrastus.term LangString Literal]
            [flatland.ordered.map OrderedMap]
            [org.apache.jena.query ResultSet]
-           [org.apache.jena.riot ResultSetMgr]
+           [org.apache.jena.rdf.model Model]
+           [org.apache.jena.riot RDFDataMgr RDFFormat ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
            [org.apache.jena.sparql.core ResultBinding]
            [org.apache.jena.sparql.resultset ResultSetMem]))
@@ -119,11 +122,27 @@
 ;;       catalog/find-resources to the db side.
 (defn sparql-result->rows
   "Convert a `sparql-result` to a vector of Clojure maps, as theo/q returns
-  them."
-  [^ResultSet sparql-result]
-  (when sparql-result
+  them. The Model of a CONSTRUCT or DESCRIBE query has a row per triple."
+  [sparql-result]
+  (cond
+    (instance? ResultSet sparql-result)
     (mapv #(theo.sparql/row (.getBinding ^ResultBinding %) prefix/prefixes)
-          (iterator-seq sparql-result))))
+          (iterator-seq sparql-result))
+
+    ;; A copy, since a db of the Model itself would replace the prefixes of
+    ;; the cached result.
+    (instance? Model sparql-result)
+    (let [db (theo/db {:prefixes prefix/prefixes :transactional? false})]
+      (theo/transact! db (.getGraph ^Model sparql-result))
+      (mapv #(zipmap sparql/graph-result-vars %)
+            (theo/triples db '[_ _ _])))))
+
+(defn- write-model
+  "Write the Model `m` as text in the RDF `format`."
+  [^Model m ^RDFFormat format]
+  (let [out (ByteArrayOutputStream.)]
+    (RDFDataMgr/write out m format)
+    (.toString out "UTF-8")))
 
 ;; ClojureScript reads a plain map of more than 8 entries as a hash map, which
 ;; loses the order of e.g. the search results, so an ordered map gets a tag.
@@ -131,7 +150,8 @@
   {LangString   (t/write-handler "lstr" lstr->s)
    Literal      (t/write-handler "rdfdatatype" literal->m)
    OrderedMap   (t/write-handler "omap" vec)
-   ResultSetMem (t/write-handler "array" sparql-result->rows)})
+   ResultSetMem (t/write-handler "array" sparql-result->rows)
+   Model        (t/write-handler "array" sparql-result->rows)})
 
 (def transit-default-handler
   "Write a value of a type with no Transit handler as its printed form."
@@ -160,15 +180,20 @@
   the page; the others render the content."
   {"text/html"
    (fn [_ page]
-     ;; The page is both rendered and embedded, so the result set is read once.
-     (html-page (cond-> page
-                  (instance? ResultSet (get-in page [:data :sparql-result]))
-                  (update-in [:data :sparql-result] sparql-result->rows))))
+     ;; The page is both rendered and embedded, so the result is read once.
+     (let [result (get-in page [:data :sparql-result])]
+       (html-page (cond-> page
+                    (or (instance? ResultSet result) (instance? Model result))
+                    (update-in [:data :sparql-result] sparql-result->rows)))))
 
    "text/turtle"
-   (fn [{:keys [entity href]} & _]
-     (when entity
-       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))))
+   (fn [{:keys [entity href sparql-result]} & _]
+     (cond
+       entity
+       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))
+
+       (instance? Model sparql-result)
+       (write-model sparql-result RDFFormat/TURTLE_PRETTY)))
 
    ;; TODO: should this match the JSON output? Or be used for debugging Transit?
    "application/edn"
@@ -176,28 +201,30 @@
      (pr-str data))
 
    "application/ld+json"
-   (fn [{:keys [entity entities search-results lemma]} & _]
-     (some-> (cond
-               entity
-               (json-ld-ify
-                 (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
-                 (for [[subject m] entities]
-                   (assoc m :rdf/about subject)))
+   (fn [{:keys [entity entities search-results lemma sparql-result]} & _]
+     (if (instance? Model sparql-result)
+       (write-model sparql-result RDFFormat/JSONLD11_PRETTY)
+       (some-> (cond
+                 entity
+                 (json-ld-ify
+                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
+                   (for [[subject m] entities]
+                     (assoc m :rdf/about subject)))
 
-               search-results
-               (json-ld-ify
-                 {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                 ;; search/look-up keeps the synset under dc:subject too
-                 (for [[subject m] search-results]
-                   (assoc (dissoc m :dc/subject) :rdf/about subject))))
+                 search-results
+                 (json-ld-ify
+                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                   ;; search/look-up keeps the synset under dc:subject too
+                   (for [[subject m] search-results]
+                     (assoc (dissoc m :dc/subject) :rdf/about subject))))
 
-             (json/write-str {:indent         true
-                              :escape-unicode false})))
+               (json/write-str {:indent         true
+                                :escape-unicode false}))))
 
    ;; https://www.w3.org/TR/sparql11-results-json/
    "application/sparql-results+json"
    (fn [{:keys [sparql-result]} & _]
-     (when (some? sparql-result)
+     (when (or (boolean? sparql-result) (instance? ResultSet sparql-result))
        (let [out (ByteArrayOutputStream.)]
          (if (boolean? sparql-result)
            (ResultSetMgr/write out (boolean sparql-result) ResultSetLang/RS_JSON)

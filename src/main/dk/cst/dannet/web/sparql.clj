@@ -23,6 +23,11 @@
 (def ^:const max-results-limit 100)
 (def ^:const max-query-length 5000)
 
+(def graph-result-vars
+  "The variables of the rows that the result of a CONSTRUCT or DESCRIBE query
+  is shown as, one row per triple."
+  '[?subject ?predicate ?object])
+
 ;; ## Hard timeout
 ;;
 ;; Jena's built-in query timeout is cooperative: it sets a cancellation flag
@@ -181,10 +186,12 @@
 
           (.isConstructType query)
           {:sparql-type   :construct
+           :result-vars   graph-result-vars
            :sparql-result (.execConstruct qexec)}
 
           (.isDescribeType query)
           {:sparql-type   :describe
+           :result-vars   graph-result-vars
            :sparql-result (.execDescribe qexec)})
         (catch QueryCancelledException e
           {:anomaly (anomaly/translate e)})

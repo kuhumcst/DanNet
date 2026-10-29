@@ -670,14 +670,21 @@
     3. No query     -> the ctx has no :sparql, editor page is rendered."
   {:name  ::sparql-validation
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query-params body]} request
-                  query-str (or (:query query-params)
-                                (when (string? body) body))]
+            (let [{:keys [query-params form-params headers body]} request
+                  params    (merge query-params form-params)
+                  ;; SPARQL 1.1 Protocol, section 2.1: the query is a
+                  ;; parameter of the URL or a form, or the body itself
+                  query-str (or (:query params)
+                                (when (some-> (get headers "content-type")
+                                              (str/lower-case)
+                                              (str/starts-with?
+                                                "application/sparql-query"))
+                                  (slurp body)))]
               (if query-str
                 (try
                   (let [query-obj (sparql/validate query-str)]
                     (assoc ctx :sparql (sparql-query-opts query-str query-obj
-                                                          query-params)))
+                                                          params)))
                   (catch ExceptionInfo e
                     (sparql-validation-error ctx query-str e)))
                 ctx)))})
@@ -767,6 +774,7 @@
 (def sparql-route
   [prefix/sparql-path
    :any [negotiation-ic
+         (body-params)
          sparql-validation-ic
          sparql-execution-ic
          response-body-ic]
