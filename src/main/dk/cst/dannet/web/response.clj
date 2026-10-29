@@ -177,21 +177,22 @@
 
    "application/ld+json"
    (fn [{:keys [entity entities search-results lemma]} & _]
-     (let [kv->entity (fn [[subject m]]
-                        (assoc m :dc/subject subject))]
-       (some-> (cond
-                 entity
-                 (json-ld-ify
-                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
-                   (map kv->entity entities))
+     (some-> (cond
+               entity
+               (json-ld-ify
+                 (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
+                 (for [[subject m] entities]
+                   (assoc m :rdf/about subject)))
 
-                 search-results
-                 (json-ld-ify
-                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                   (map kv->entity search-results)))
+               search-results
+               (json-ld-ify
+                 {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                 ;; search/look-up keeps the synset under dc:subject too
+                 (for [[subject m] search-results]
+                   (assoc (dissoc m :dc/subject) :rdf/about subject))))
 
-               (json/write-str {:indent         true
-                                :escape-unicode false}))))
+             (json/write-str {:indent         true
+                              :escape-unicode false})))
 
    ;; https://www.w3.org/TR/sparql11-results-json/
    "application/sparql-results+json"

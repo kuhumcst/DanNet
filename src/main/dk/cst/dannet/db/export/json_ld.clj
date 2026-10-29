@@ -44,6 +44,14 @@
 
 (declare entity->properties)
 
+(defn- node-id
+  "The @id of the resource `x`: a compact IRI for a keyword, e.g.
+  \"dn:synset-1\", and the IRI itself for an IRI string."
+  [x]
+  (if (keyword? x)
+    (or (prefix/kw->qname x) (str x))
+    (term/iri x nil)))
+
 (defn- transform-value
   "Transform `v` into a valid JSON-LD representation."
   [v]
@@ -69,24 +77,22 @@
                        true)))
            (map transform-value)))
 
-    (keyword? v)
-    (if-let [qname (prefix/kw->qname v)]
-      qname
-      (str v))
+    ;; A resource is a node object, since JSON-LD reads a string as a literal.
+    (or (keyword? v) (term/iri-string? v))
+    {"@id" (node-id v)}
 
     ;; A blank node is a map of its properties with its symbol as :rdf/about.
     (map? v)
-    (let [blank-node (entity->properties (dissoc v :rdf/about))]
-      ;; Special handling of rdf:Bag type (sets) used for e.g. ontological type.
-      (if (= (get blank-node "rdf:type") "rdf:Bag")
-        {"@set" (->> (dissoc blank-node "rdf:type")
-                     (sort-by first)
-                     (map second))}
-        blank-node))
+    (entity->properties (dissoc v :rdf/about))
 
     ;; A blank node beyond the first level, whose properties are left out.
     (symbol? v)
     {}
+
+    ;; JSON-LD reads a JSON number or boolean as a typed literal.
+    (or (number? v) (boolean? v))
+    v
+
     :else (str v)))
 
 (defn- entity->properties
@@ -110,15 +116,19 @@
   "Convert DanNet `entity` map to a JSON-LD structure. Optionally, a coll of
   supporting `entities` may be supplied as a graph around the core entity.
 
+  The subject of a map is the :subject of its metadata, or its :rdf/about.
+
   NOTE: outputs JSON-LD 1.1 which allows combining one RDF resource defined by
         @id with a @graph of other RDF resources. In JSON-LD 1.0 this would be
         either-or."
-  [{:keys [dc/subject rdf/type rdfs/label rdfs/comment] :as entity} & [entities]]
+  [{:keys [rdf/about rdf/type rdfs/label rdfs/comment] :as entity} & [entities]]
   ;; TODO: include any dissoc'd parts that make sense (if at all possible)
   (let [subject        (or (:subject (meta entity))
-                           subject)
-        core-entity    (apply dissoc entity :dc/subject :rdf/type non-rdf-ks)
-        core-context   (into (sorted-map) (entity->context core-entity))
+                           about)
+        core-entity    (apply dissoc entity :rdf/about :rdf/type non-rdf-ks)
+        ;; The @id and @type need the prefixes of their compact IRIs too.
+        core-context   (into (sorted-map)
+                             (entity->context [subject type core-entity]))
         graph-entities (not-empty (map json-ld-ify entities))
         graph-contexts (map #(get % "@context") graph-entities)
         context        (apply merge core-context graph-contexts)
@@ -130,8 +140,10 @@
 
       ;; Semantic ordering: @context, @id, and @type come first.
       (seq context) (assoc "@context" context)
-      subject (assoc "@id" (transform-value subject))
-      type (assoc "@type" (transform-value type))
+      subject (assoc "@id" (node-id subject))
+      type (assoc "@type" (if (shared/multi-valued? type)
+                            (mapv node-id type)
+                            (node-id type)))
 
       ;; Important RDFS properties come next: label and comment.
       ;; NOTE: rdfs:comment is often used to explain what's inside the @graph.

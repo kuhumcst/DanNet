@@ -184,10 +184,17 @@
                   [(keyword k) (:uri v)])
                 prefix/schemas)))
 
-;; Donatello compatibility with the blank nodes and literals of Theophrastus.
+;; Donatello compatibility with the blank nodes, IRI strings and literals of
+;; Theophrastus. This replaces Donatello's own String serialization, which
+;; writes every string as a literal.
 (extend-protocol ttl/Serializable
   Symbol
   (serialize [x] (str "_:" (subs (str x) 1)))
+
+  String
+  (serialize [x] (if (term/iri-string? x)
+                   x
+                   (str \" (print-escape x) \")))
 
   LangString
   (serialize [x] (str \" (print-escape (str x)) "\"@" (term/lang x)))
@@ -206,6 +213,13 @@
         (first x)
         x))
     entity))
+
+(defn- unsort-values
+  "The `entity` with its sequential values as sets, since Donatello writes a
+  sequence as an RDF list, while e.g. weighted-relations sorts the values of a
+  relation only for display."
+  [entity]
+  (update-vals entity #(if (sequential? %) (set %) %)))
 
 (defn inline-blank-nodes
   "Replace the blank node maps in `entity` with their properties, sorted by
@@ -260,7 +274,10 @@
 (defn ttl-entity
   "Get TTL output for expanded `entity` with inlined blank nodes + labels."
   [entity & [base]]
-  (let [entity*        (-> entity flatten-nested-sets inline-blank-nodes)
+  (let [entity*        (-> entity
+                           (unsort-values)
+                           (flatten-nested-sets)
+                           (inline-blank-nodes))
         label-entities (:entities (meta entity))
         {:keys [relations
                 synsets
