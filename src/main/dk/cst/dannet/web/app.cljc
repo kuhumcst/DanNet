@@ -7,6 +7,7 @@
             #?(:cljs [reitit.frontend.easy :as rfe])
             #?(:cljs [reitit.frontend.history :as rfh])
             #?(:cljs [cognitect.transit :as transit])
+            #?(:cljs [flatland.ordered.map :as fop])
             #?(:cljs [lambdaisland.fetch :as fetch])
             #?(:cljs [lambdaisland.uri :as uri])
             #?(:cljs [dk.cst.theophrastus.term :as term])))
@@ -98,6 +99,7 @@
 
      (def transit-read-handlers
        {"lstr"         read-lstr
+        "omap"         #(into (fop/ordered-map) %)
         "rdfdatatype"  identity
         "f"            parse-double                         ; BigDecimal
         "sparqlresult" identity})

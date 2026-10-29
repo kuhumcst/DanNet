@@ -18,6 +18,7 @@
   (:import [java.io ByteArrayOutputStream]
            [java.util Date]
            [dk.cst.theophrastus.term LangString Literal]
+           [flatland.ordered.map OrderedMap]
            [org.apache.jena.query ResultSet]
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
@@ -122,9 +123,12 @@
     (mapv #(theo.sparql/row (.getBinding ^ResultBinding %) prefix/prefixes)
           (iterator-seq sparql-result))))
 
+;; ClojureScript reads a plain map of more than 8 entries as a hash map, which
+;; loses the order of e.g. the search results, so an ordered map gets a tag.
 (def transit-write-handlers
   {LangString   (t/write-handler "lstr" lstr->s)
    Literal      (t/write-handler "rdfdatatype" literal->m)
+   OrderedMap   (t/write-handler "omap" vec)
    ResultSetMem (t/write-handler "array" sparql-result->rows)})
 
 (def transit-default-handler
