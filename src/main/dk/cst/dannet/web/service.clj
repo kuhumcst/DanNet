@@ -6,11 +6,13 @@
             [io.pedestal.http.cors :as cors]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.ring-middlewares :as middleware]
+            [io.pedestal.interceptor]
             [taoensso.telemere :as t]
             [taoensso.telemere.utils :as tu]
+            [dk.simongray.ratelimit :as ratelimit]
+            [dk.simongray.ratelimit.pedestal :as ratelimit.pedestal]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
-            [dk.cst.dannet.web.rate-limit :as rl]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
@@ -71,17 +73,38 @@
                   (update-in [:request :uri] remove-trailing-slash)
                   (update-in [:request :path-info] remove-trailing-slash)))}))
 
+(defn req->composite-key
+  "Generate composite key from `req` using IP, User-Agent, and Accept-Language.
+
+  The IP is the last X-Forwarded-For address, i.e. the one appended by our own
+  reverse proxy, falling back to the remote address."
+  [req]
+  [(ratelimit/client-address req {:proxies 1})
+   (get-in req [:headers "user-agent"])
+   (get-in req [:headers "accept-language"])])
+
+(defn log-rate-limit!
+  "Log that the `decision` refused a request."
+  [_ decision]
+  (let [{:keys [key quota]} (first (remove :allowed? (:results decision)))]
+    (t/log! {:level :warn
+             :data  {:key key :quota quota}}
+            "Rate limit exceeded")))
+
 ;; 400 requests/minute based on fingerprinting; only the costly routes count, so
 ;; page assets and autocomplete keystrokes don't eat the quota.
 (def dannet-rate-limit-ic
   (let [costly-paths [(prefix/uri->path prefix/dn-uri)
                       prefix/external-path
                       prefix/sparql-path]]
-    (rl/->rate-limit-ic {:quota     400
-                         :window-ms 60000
-                         :limit?    (fn [{:keys [uri]}]
-                                      (some #(str/starts-with? uri %)
-                                            costly-paths))})))
+    (io.pedestal.interceptor/interceptor
+      (ratelimit.pedestal/rate-limit
+        {:quota  400
+         :window :minute
+         :key    req->composite-key
+         :when   (fn [{:keys [uri]}]
+                   (some #(str/starts-with? uri %) costly-paths))}
+        {:on-limit log-rate-limit!}))))
 
 (defn ->service-map
   [conf]
@@ -211,8 +234,4 @@
   (restart)
   (restart-refetch)                                         ; wipe + re-fetch the expected datasets
   (stop-dev)
-
-  ;; Rate-limiting
-  @rl/registry
-  (reset! rl/registry {})
   #_.)

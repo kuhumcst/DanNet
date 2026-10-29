@@ -40,7 +40,7 @@ The system includes:
 - Progressive enhancement: works with or without JavaScript
 - Content negotiation of media type and language by conneg-clj (`resources/negotiation`, `negotiation-ic`), with `?format=`, `?lang=` and the `:languages` cookie as overrides, a Vary header per response and a 406 when no format is acceptable. Entity pages also get a Link header to their HTML, Turtle and JSON-LD representations and a Content-Location (`entity-negotiation-ic`, `entity-href`)
 - Internationalization support (Danish/English)
-- Rate limiting for API endpoints
+- Rate limiting by ratelimit-clj in production (`service/dannet-rate-limit-ic`): 400 requests a minute per client on the entity, external and SPARQL routes. A client is its address behind Caddy, its User-Agent and its Accept-Language (`service/req->composite-key`)
 - Deferred loading of large semantic relations (truncate on server, fetch remainder on client)
 - Full-screen visualization mode with persistent user preferences
 - COR inflected forms are valid search terms: autocomplete suggests them as "lemma (inflected form)" pairs, the synset search query resolves them via `owl:sameAs`, and DanNet word entities are supplemented with the `ontolex:otherForm` forms of their linked COR words
@@ -162,11 +162,10 @@ src/main/dk/cst/dannet/
 ### Web Application
 ```
 src/main/dk/cst/dannet/web/
-├── service.clj               # Pedestal HTTP service and routing
+├── service.clj               # Pedestal HTTP service, routing and the rate limit
 ├── resources.clj             # Resource handlers (interceptors), content negotiation, entity truncation; attaches :hyponym-tree to synset entities
 ├── instance.clj              # The live database and its cached derived structures (hypernym/hyponym graphs, search index)
 ├── response.clj              # Response bodies per media type, page values, request languages
-├── rate_limit.clj            # Rate limiting functionality
 ├── sparql.clj                # SPARQL endpoint: validation, execution, result caching
 ├── hyponymy.clj              # Pure bounded hyponym-subtree construction for the sunburst
 ├── anomaly.cljc              # Exception translation to cognitect.anomalies (bilingual error pages)
@@ -245,6 +244,7 @@ pages/
 ### Web Framework
 - **Pedestal** (0.8.2): HTTP service and routing (still through `io.pedestal.http`, deprecated since 0.8.0)
 - **conneg-clj** (0.1.0): proactive content negotiation of media type and language, with Vary and 406
+- **ratelimit-clj** (Git dependency, efcdf84): per-client rate limits as policy maps, with Retry-After and a Pedestal interceptor
 - **Rum**: React-like UI components (custom fork)
 - **reitit-frontend** (0.11.0): Client-side routing for SPA
 - **Shadow-cljs** (3.4.11): ClojureScript compilation (`:frontend` alias)
