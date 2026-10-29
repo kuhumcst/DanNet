@@ -142,17 +142,25 @@ New releases are bootstrapped from the [preceding release](https://github.com/ku
 > English datasets in `./bootstrap/other/english/`. Missing files are downloaded
 > automatically, so manual placement is only needed when working offline.
 
+The rest of `./bootstrap/other/` holds files curated by hand, which aren't downloaded. If the COR files (`cor*.tsv`, `*.cordiff` and `cor.sem.*.tsv`) go missing, you can download them again from [ordregister.dk](https://ordregister.dk/files/).
+
+If a database build fails partway, delete the half-built `db/tdb2/<name>` directory before you start again; the build error gives its path. A build only checks that the directory exists, so it would otherwise reuse the incomplete database.
+
 ## Setup
 
 DanNet requires Java and Clojure's [official CLI tools](https://clojure.org/guides/deps_and_cli). Dependencies are specified in [deps.edn](deps.edn).
 
 ### Development
 
-1. Start the web service using `(restart)` in [dk.cst.dannet.web.service](src/main/dk/cst/dannet/web/service.clj) — available at `localhost:3456`
-2. Run the frontend with shadow-cljs:
+1. Start an nREPL on port 7888 with `clojure -M:nrepl`
+2. Start the web service using `(restart)` in [dk.cst.dannet.web.service](src/main/dk/cst/dannet/web/service.clj) — available at `localhost:3456`
+3. Run the frontend with shadow-cljs:
    ```shell
    npx shadow-cljs watch app
    ```
+   It serves the app at `localhost:7777`, in front of the web service.
+
+Most changes can be tried in the REPL without restarting the web service. Run the tests with `clojure -X:validate:test`, where the `:validate` alias adds the validators that the DMLex tests need.
 
 ### Testing a Release Build
 

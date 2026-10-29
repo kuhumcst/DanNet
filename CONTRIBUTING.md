@@ -11,20 +11,6 @@ npm init -y
 npm install react@17 react-dom@17 create-react-class@17
 ```
 
-## AI-Assisted Development with clojure-mcp
+## AI-Assisted Development
 
-The project has experimental support for [clojure-mcp](https://github.com/bhauman/clojure-mcp), an MCP server for AI-assisted Clojure development.
-
-### REPL Setup
-
-When integrating with clojure-mcp, start an external nREPL on localhost:7888:
-
-```shell
-clojure -M:nrepl
-```
-
-You can then connect to this REPL from your editor (e.g., IntelliJ IDEA) and share it with the LLM.
-
-### Configuration
-
-See [ai-stuff](https://github.com/simongray/ai-stuff) for AI/LLM setup documentation.
+The nREPL from the README's development steps (`clojure -M:nrepl`, port 7888) can be shared between your editor and an AI assistant. See [ai-stuff](https://github.com/simongray/ai-stuff) for AI/LLM setup documentation.

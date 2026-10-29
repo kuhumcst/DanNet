@@ -125,6 +125,8 @@ Development is REPL-driven; artifacts should reflect that.
 - Use `delay` for expensive dev data so loading the namespace stays cheap.
 - Verify one specific aspect per evaluation; short focused evals over
   exhaustive test sweeps.
+- After editing a .clj or .cljc file, reload its namespace with
+  `(require '[the.namespace] :reload)`, so the running REPL has the change.
 
 ## Use sparingly
 
