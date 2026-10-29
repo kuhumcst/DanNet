@@ -38,8 +38,8 @@
   (if (map? x) (:rdf/about x) x))
 
 (defn- blank-node
-  "`x` with every value but its :rdf/about as a set, and any blank node in
-  them as its symbol, when it's the map of a blank node; otherwise `x`.
+  "The blank node map `x` with each property made a set of values, and any
+  blank node among them as its symbol; any other `x` as it is.
 
   NB: multi-valued properties are already sets and must NOT be wrapped again;
   nested sets, e.g. in the dns:inheritedFrom of inheritance nodes with
@@ -65,7 +65,7 @@
   (with-meta (update-objects (theo/entity g subject) about)
              {:subject subject}))
 
-(defn attach-blank-nodes
+(defn expand-blank-nodes
   "Replace each blank node symbol in `entity` with the map of its properties
   in `g`, as expanded-entity does."
   [g entity]
@@ -74,7 +74,7 @@
                             %)))
 
 ;; TODO: SPARQL result rows could carry their blank nodes as maps, as
-;;       attach-blank-nodes makes them, rather than in a separate :blank-nodes
+;;       expand-blank-nodes makes them, rather than in a separate :blank-nodes
 ;;       map that the SPARQL UI looks them up in.
 (defn collect-blank-nodes
   "Collect blank node entity maps in SPARQL result `rows` in graph `g`.
@@ -401,8 +401,6 @@
   (if-let [e (theo/entity g subject)]
     (let [entity+  (-> (update-objects e blank-node)
                        (weighted-relations))
-          ;; Labels are fetched in one batched VALUES query; joining them onto
-          ;; every entity triple multiplied result rows for large synsets.
           entities (resource-labels g (ent/displayed-resources entity+))
           ;; theo/entity puts the :inferred part of an inference graph in the
           ;; metadata.
@@ -426,14 +424,14 @@
     (with-meta {} {:subject subject})))
 
 ;; Large synsets can have thousands of semantic relations (e.g. synset-2119 has
-;; 1165 hyponyms) which take ~3s to query from Jena. To improve perceived
+;; 1165 hyponyms), which are slow to read and label. To improve perceived
 ;; performance, the web layer truncates large entities on initial page load and
 ;; fetches the remaining data via a second "deferred" request. Without caching,
 ;; both requests would hit the database for the same entity. The cache ensures
 ;; the deferred request completes in <1ms.
 (def expanded-entity
   "The `entity` of `subject` in `g` for display: relations sorted by weight,
-  blank nodes attached, :entities labels (and :inferred) in its metadata.
+  blank nodes as maps, :entities labels (and :inferred) in its metadata.
 
   DanNet synsets and words get supplemented, while COR words and DanNet senses
   leave out the values they also assert under a dns: subproperty."

@@ -189,7 +189,7 @@
   [row]
   (mapv csv-table-cell row))
 
-;; A query for the relations of every synset at once took ~45 minutes, while
+;; A query for the relations of every synset at once is very slow, while
 ;; theo/entity reads each synset with Graph.find.
 (defn synset-rel-table
   "The synset->synset relations of `synset` in `g`, as rows of the synset,

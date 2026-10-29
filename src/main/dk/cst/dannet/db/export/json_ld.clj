@@ -74,7 +74,7 @@
       qname
       (str v))
 
-    ;; A blank node is a map of its properties and :rdf/about.
+    ;; A blank node is a map of its properties with its symbol as :rdf/about.
     (map? v)
     (let [blank-node (entity->properties (dissoc v :rdf/about))]
       ;; Special handling of rdf:Bag type (sets) used for e.g. ontological type.

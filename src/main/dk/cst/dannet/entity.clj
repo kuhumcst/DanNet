@@ -73,7 +73,8 @@
 
 (defn- prune-blank-node
   "Prune `x` using `k->supers` when it's a blank node, i.e. a map of its
-  properties and :rdf/about, returning `x` unchanged when nothing was pruned.
+  properties with its symbol as :rdf/about, returning `x` unchanged when
+  nothing was pruned.
 
   The pruned blank node has its own :folded map as metadata, which is read by
   the frontend when rendering nested attr-val tables (see issue #195)."

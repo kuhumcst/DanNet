@@ -145,10 +145,11 @@
      ;; sometimes results in transit data being displayed rather than an HTML
      ;; page. Responses are cached for a day, so its value is bumped whenever
      ;; the Transit format changes; cached responses in the old format are then
-     ;; never used. The server compares it, and the :js file name of the app,
-     ;; with its own and has an app from before a deploy load the page again.
+     ;; never used. The app also sends the name of its JS file as :js; when
+     ;; either differs from the server's, the server has the app load the page
+     ;; again (see resources/outdated-app?).
      (def transit-param
-       (let [js (.. js/document -documentElement -dataset -js)]
+       (let [js js/document.documentElement.dataset.js]
          (cond-> {:transit shared/transit-version}
            js (assoc :js js))))
 

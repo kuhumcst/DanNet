@@ -2,8 +2,8 @@
   "Components for RDF values: links to resources, prefix badges, literals,
   blank nodes and lists of values.
 
-  On entity and search pages, a blank node is a map of its properties and its
-  :rdf/about."
+  On entity and search pages, a blank node is a map of its properties with
+  its symbol as :rdf/about."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             #?(:clj [dk.cst.theophrastus.term :as term])

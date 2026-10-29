@@ -43,8 +43,7 @@
   Inheritance is marked by anonymous resources (#182), i.e. blank nodes."
   [entity]
   (->> (shared/setify (:dns/inherited entity))
-       (keep #(some-> (get % :dns/inheritedRelation)
-                      (shared/unwrap)))
+       (keep (comp shared/unwrap :dns/inheritedRelation))
        (set)))
 
 (defn render-opts
