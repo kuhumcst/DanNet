@@ -20,7 +20,7 @@ curl -H "Accept: application/ld+json" https://wordnet.dk/dannet/data/synset-5028
 ### SPARQL endpoint
 A public [SPARQL endpoint][SPARQL endpoint] is available for querying. In a browser, it serves an interactive query editor. See the [SPARQL guide][SPARQL guide] for an introduction to querying DanNet.
 
-The SPARQL endpoint also accepts programmatic requests via GET (with a `query` parameter) or POST (with the query as the request body), and supports content negotiation (including serving as `application/sparql-results+json`). Additional query parameters: `limit`, `offset`, `timeout`, `inference`, and `distinct`. There are restrictions on result set size and query execution time, though, so if you need to make some more resource-intensive queries you are better off querying the dataset in a local RDF graph.
+The SPARQL endpoint also answers programmatic requests, as the [SPARQL 1.1 Protocol][SPARQL protocol] describes: a GET with a `query` parameter, or a POST of a form or of the query itself as `application/sparql-query`. Results come as JSON, XML, CSV or TSV, and the graphs of `CONSTRUCT` and `DESCRIBE` queries as Turtle, N-Triples, RDF/XML or JSON-LD, by content negotiation or e.g. `?format=csv`. A GET with no query returns a description of the service. Additional query parameters: `limit`, `offset`, `timeout` (in seconds), `inference`, and `distinct`. There are restrictions on result set size and query execution time, though, so if you need to make some more resource-intensive queries you are better off querying the dataset in a local RDF graph.
 
 ### WN-LMF + Python
 The [WN-LMF][wn-lmf] format can be used with the [wn][wn] Python library. A [tutorial script][tutorial] is available in the GitHub repo covering polysemy, relations, taxonomy, similarity, ILI, and more:
@@ -84,6 +84,7 @@ Additional developer-oriented documentation:
 [about]: /dannet/page/about "About DanNet"
 [SPARQL]: https://www.w3.org/TR/sparql11-query/ "SPARQL 1.1 Query Language specification"
 [SPARQL endpoint]: /dannet/sparql "SPARQL endpoint"
+[SPARQL protocol]: https://www.w3.org/TR/sparql11-protocol/ "SPARQL 1.1 Protocol"
 [SPARQL guide]: /dannet/page/sparql "SPARQL guide"
 [mcp]: /dannet/page/mcp "MCP server"
 [JSON-LD]: https://json-ld.org/ "JSON for Linking Data"

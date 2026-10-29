@@ -17,6 +17,7 @@
             [ring.util.response :as ring]
             [taoensso.telemere :as tel]
             [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.endpoint :as endpoint]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.anomaly :as anomaly]
@@ -30,8 +31,7 @@
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.web.hyponymy :as hyponymy])
-  (:import [clojure.lang ExceptionInfo]
-           [java.io File]
+  (:import [java.io File]
            [org.apache.jena.sparql.resultset ResultSetMem]))
 
 (def negotiation
@@ -45,7 +45,6 @@
                           "text/turtle"
                           "application/edn"
                           "application/ld+json"
-                          "application/sparql-results+json"
                           "application/json"
                           "application/transit+json"]
                 :query   "format"
@@ -592,102 +591,68 @@
          response-body-ic]
    :route-name ::autocomplete])
 
+(def sparql-config
+  "The options of DanNet's SPARQL endpoint, over endpoint/defaults. Its
+  queries resolve relative IRIs against the public endpoint, which the
+  service description names too, and SPARQL JSON results also come as
+  application/json, which many clients ask for."
+  {:prefixes    prefix/prefixes
+   :endpoint    (str prefix/dannet-root "sparql")
+   :max-length  5000
+   :media-types (-> endpoint/media-types
+                    (update :select conj "application/json")
+                    (update :ask conj "application/json"))
+   ;; The timeout of endpoint/defaults applies in development too. To lift
+   ;; it there, use (if shared/development? nil 30000) as the :timeout; a
+   ;; query then runs for the seconds of its timeout parameter, or forever.
+   :headers     (assoc endpoint/safety "Cache-Control" resp/one-day-cache)})
+
+(def sparql-page-types
+  "The media types of the pages of the SPARQL editor; the endpoint writes
+  every other media type that the SPARQL route offers."
+  #{"text/html" "application/transit+json"})
+
+(def sparql-negotiation
+  "The negotiation of the SPARQL route: the pages of the editor, and the
+  formats that the endpoint writes results and graphs in. A format is
+  negotiated once more by the form of the query, see sparql-execution-ic."
+  (assoc negotiation
+    :media-type {:offers  (into ["text/html" "application/transit+json"]
+                                (comp cat (distinct))
+                                (vals (:media-types sparql-config)))
+                 :query   "format"
+                 :aliases (into {"html"    "text/html"
+                                 "transit" "application/transit+json"}
+                                (vals endpoint/aliases))}))
+
+(def sparql-negotiation-ic
+  (conneg.pedestal/negotiate sparql-negotiation))
+
+(defn- sparql-page?
+  "Whether the `request` asks for a page of the SPARQL editor."
+  [request]
+  (contains? sparql-page-types
+             (get-in request [::conneg/decision :media-type])))
+
+(def sparql-prepare-ic
+  "Read the query of the request and prepare it, as the SPARQL endpoint does,
+  then restrict it to the page that the editor asks for, unless the editor
+  only formats it (noop). The operation goes on the ctx, under :sparql."
+  {:name  ::sparql-prepare
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [sparql params] :as op}
+                  (-> (endpoint/operation request sparql-config)
+                      (endpoint/prepare (endpoint/prepare-opts sparql-config
+                                                               request)))]
+              (assoc ctx :sparql (cond-> op
+                                   (and sparql (not (:noop params)))
+                                   (sparql/page params)))))})
+
 (defn sparql-page-meta
   "The page-meta of a SPARQL page titled `da` or `en`, as `languages` prefer."
   [languages da en]
   {:title (i18n/da-en languages da en)
    :page  :sparql})
-
-(defn- sparql-query-opts
-  "The :sparql map of the parsed `query-obj` of `query-str`, with the
-  execution options read from the `query-params`."
-  [query-str query-obj {:keys [timeout limit offset
-                               distinct inference lookahead noop enrichment]}]
-  (let [timeout'   (if (not-empty timeout)
-                     (let [ms (* (Long/parseLong timeout) 1000)]
-                       (if shared/development?
-                         ms
-                         (min ms sparql/max-timeout)))
-                     sparql/max-timeout)
-        limit'     (min (or (sparql/user-limit query-obj)
-                            (when limit (Long/parseLong limit))
-                            sparql/max-results-limit)
-                        sparql/max-results-limit)
-        offset'    (if offset
-                     (Long/parseLong offset)
-                     0)
-        distinct?  (= distinct "true")
-        ;; Lookahead (N+1) is on by default for pagination.
-        ;; Disable when the query contains LIMIT/OFFSET or
-        ;; when explicitly opted out via lookahead=false.
-        user-pag?  (sparql/has-user-pagination? query-obj)
-        lookahead? (and (not= lookahead "false")
-                        (not user-pag?))
-        ;; Three-way: nil (auto), true (force), false (base only)
-        inference? (case inference
-                     "true" true
-                     "false" false
-                     nil)]
-    {:input       {:query      query-str
-                   :inference  inference
-                   :distinct   distinct
-                   :enrichment enrichment}
-     :query-obj   query-obj
-     :noop?       (some? noop)
-     :timeout     timeout'
-     :limit       limit'
-     :offset      offset'
-     :distinct?   distinct?
-     :lookahead?  lookahead?
-     :inference?  inference?
-     :enrichment? (= enrichment "true")}))
-
-(defn- sparql-validation-error
-  "Put the error page for the invalid `query-str` on the `ctx`, with the
-  status and message of the validation exception `e`."
-  [{:keys [request] :as ctx} query-str e]
-  (let [anomaly   (anomaly/translate e)
-        languages (resp/request->languages request)]
-    (assoc ctx
-      :sparql {:input {:query query-str}}
-      :response-status (:status anomaly)
-      :content {:languages languages
-                :input     {:query query-str}
-                :anomaly   anomaly}
-      :page-meta (sparql-page-meta languages
-                                   "SPARQL-valideringsfejl"
-                                   "SPARQL validation error"))))
-
-(def sparql-validation-ic
-  "Validate and parse SPARQL query parameters, placing results in a single
-  `:sparql` map on the ctx. On validation failure, short-circuits by setting
-  `:content`/`:page-meta`/`:response-status` directly so that response-body-ic
-  handles the error response normally.
-
-  Three code paths reach sparql-execution-ic downstream:
-    1. Valid query  -> :sparql has :query-obj, execution proceeds.
-    2. Invalid query -> :content/:page-meta already set (400), execution skips.
-    3. No query     -> the ctx has no :sparql, editor page is rendered."
-  {:name  ::sparql-validation
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [query-params form-params headers body]} request
-                  params    (merge query-params form-params)
-                  ;; SPARQL 1.1 Protocol, section 2.1: the query is a
-                  ;; parameter of the URL or a form, or the body itself
-                  query-str (or (:query params)
-                                (when (some-> (get headers "content-type")
-                                              (str/lower-case)
-                                              (str/starts-with?
-                                                "application/sparql-query"))
-                                  (slurp body)))]
-              (if query-str
-                (try
-                  (let [query-obj (sparql/validate query-str)]
-                    (assoc ctx :sparql (sparql-query-opts query-str query-obj
-                                                          params)))
-                  (catch ExceptionInfo e
-                    (sparql-validation-error ctx query-str e)))
-                ctx)))})
 
 (def max-label-resources
   "Maximum number of unique resources to fetch labels for in SPARQL results.
@@ -714,70 +679,108 @@
                          (update-vals (q/resource-labels g kws)
                                       entity-label*))))))
 
+(defn- sparql-page
+  "The `ctx` with the content and page-meta of the editor's page for the
+  operation under :sparql: its result or error, the normalized query when
+  the editor only formats it (noop), or else the editor itself.
+
+  For a SELECT, the content has the blank nodes of the result, so that the UI
+  can render them inline, and the labels of its resources when the editor
+  asks for enrichment."
+  [{:keys [request] {:keys [query sparql error params form result vars]
+                     :as   op} :sparql
+    :as   ctx}]
+  (let [languages (resp/request->languages request)
+        input     (assoc (select-keys params [:inference :distinct :enrichment])
+                    :query query)]
+    (cond
+      error
+      (let [anomaly (anomaly/from-error error)]
+        (assoc ctx
+          :response-status (:status anomaly)
+          :content {:input     input
+                    :languages languages
+                    :anomaly   anomaly}
+          :page-meta (if (< (:status anomaly) 500)
+                       (sparql-page-meta languages
+                                         "SPARQL-valideringsfejl"
+                                         "SPARQL validation error")
+                       (sparql-page-meta languages
+                                         "SPARQL-fejl" "SPARQL error"))))
+
+      (and sparql (:noop params))
+      (assoc ctx :content {:normalized-query (str sparql)})
+
+      sparql
+      (assoc ctx
+        :content (cond-> (-> op
+                             (select-keys [:limit :offset :lookahead?
+                                           :has-more? :cached? :inference?])
+                             (assoc :input input
+                                    :languages languages
+                                    :sparql-result result
+                                    :result-vars (if (= :select form)
+                                                   vars
+                                                   sparql/graph-result-vars)))
+                   (= :select form)
+                   (enrich-select-result result
+                                         (= "true" (:enrichment params))))
+        :page-meta (sparql-page-meta languages "SPARQL-result" "SPARQL result"))
+
+      :else
+      (assoc ctx
+        :content {:input     input
+                  :languages languages}
+        :page-meta (sparql-page-meta languages
+                                     "SPARQL-editor" "SPARQL editor")))))
+
 (def sparql-execution-ic
-  "Execute the validated SPARQL query, or render the editor page if no query.
+  "Run the query of the operation in :sparql, as sparql/run-cached does,
+  unless it has an :error, the editor only formats it, or the client accepts
+  no format of its result.
 
-  Delegates to sparql/execute-cached which handles caching, request coalescing,
-  model selection (base vs inference), and the N+1 pagination lookahead.
-
-  For SELECT results, collects blank node entity data so that the UI can render
-  blank nodes inline, and fetches labels for all keyword resources in the result
-  so that the UI can display human-readable labels (works for both SSR and SPA)."
+  A page of the editor gets its content, see sparql-page. Any other media
+  type is negotiated once more, by the form of the query, as the endpoint
+  does, and the decision goes under :sparql-decision."
   {:name  ::sparql-execution
-   :enter (fn [{:keys [sparql request] :as ctx}]
-            (let [{:keys [input query-obj noop? limit offset lookahead? enrichment?]} sparql
-                  languages (resp/request->languages request)]
-              (cond
-                ;; Validation error -> :content already set, pass through.
-                (:content ctx)
-                ctx
+   :enter (fn [{:keys [request] {:keys [sparql error params] :as op} :sparql
+                :as   ctx}]
+            (let [page?    (sparql-page? request)
+                  decision (when-not page?
+                             (conneg/negotiate (endpoint/negotiation
+                                                 op sparql-config)
+                                               request))
+                  op       (if (and sparql
+                                    (not error)
+                                    (not (:noop params))
+                                    (not (:not-acceptable decision)))
+                             (sparql/run-cached @instance/db op
+                                                (endpoint/run-opts sparql-config
+                                                                   op))
+                             op)]
+              (if page?
+                (sparql-page (assoc ctx :sparql op))
+                (assoc ctx :sparql op :sparql-decision decision))))})
 
-                ;; Noop -> return normalized query without executing.
-                (and query-obj noop?)
-                (assoc ctx :content {:normalized-query (str query-obj)})
-
-                ;; Valid query -> execute (with caching) and return results.
-                query-obj
-                (let [result (sparql/execute-cached @instance/db sparql)]
-                  (if-let [anomaly (:anomaly result)]
-                    (assoc ctx
-                      :response-status (:status anomaly)
-                      :content {:input     input
-                                :languages languages
-                                :anomaly   anomaly}
-                      :page-meta (sparql-page-meta languages
-                                                   "SPARQL-fejl" "SPARQL error"))
-                    (let [{:keys [sparql-result sparql-type]} result
-                          content (cond-> (assoc result
-                                            :input input
-                                            :languages languages
-                                            :limit limit
-                                            :offset offset
-                                            :lookahead? lookahead?)
-                                    (= sparql-type :select)
-                                    (enrich-select-result sparql-result enrichment?))]
-                      (assoc ctx
-                        :content content
-                        :page-meta (sparql-page-meta languages
-                                                     "SPARQL-result"
-                                                     "SPARQL result")))))
-
-                ;; No query -> render the SPARQL editor page.
-                :else
-                (assoc ctx
-                  :content {:input     input
-                            :languages languages}
-                  :page-meta (sparql-page-meta languages
-                                               "SPARQL-editor" "SPARQL editor")))))})
+(def sparql-response-ic
+  "Answer with the editor's page, as response-body-ic does, or else as the
+  SPARQL endpoint does: with the result in the negotiated format, the
+  service description when there is no query, or the error as plain text."
+  {:name  ::sparql-response
+   :leave (fn [{:keys [request sparql sparql-decision] :as ctx}]
+            (if (sparql-page? request)
+              ((:leave response-body-ic) ctx)
+              (assoc ctx :response (endpoint/respond request sparql
+                                                     sparql-decision
+                                                     sparql-config))))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route
   [prefix/sparql-path
-   :any [negotiation-ic
-         (body-params)
-         sparql-validation-ic
+   :any [sparql-negotiation-ic
+         sparql-prepare-ic
          sparql-execution-ic
-         response-body-ic]
+         sparql-response-ic]
    :route-name ::sparql])
 
 (def metadata-ic

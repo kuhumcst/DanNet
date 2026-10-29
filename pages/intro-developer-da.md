@@ -20,7 +20,7 @@ curl -H "Accept: application/ld+json" https://wordnet.dk/dannet/data/synset-5028
 ### SPARQL-endpoint
 Et offentligt [SPARQL-endpoint][SPARQL endpoint] er tilgængeligt til forespørgsler. I en browser viser det en interaktiv forespørgselseditor. Se [SPARQL-guiden][SPARQL guide] for en introduktion til at forespørge DanNet.
 
-SPARQL-endpointet accepterer også programmatiske forespørgsler via GET (med en `query`-parameter) eller POST (med forespørgslen som request body), og understøtter content negotiation (herunder `application/sparql-results+json`). Yderligere forespørgselsparametre: `limit`, `offset`, `timeout`, `inference` og `distinct`. Der er dog begrænsninger på resultatsætstørrelse og forespørgselstid, så hvis du har brug for mere ressourcekrævende forespørgsler, er det bedre at forespørge datasættet i en lokal RDF-graf.
+SPARQL-endpointet besvarer også programmatiske forespørgsler, som [SPARQL 1.1-protokollen][SPARQL protocol] beskriver dem: en GET med en `query`-parameter, eller en POST af en formular eller af selve forespørgslen som `application/sparql-query`. Resultater kommer som JSON, XML, CSV eller TSV, og graferne fra `CONSTRUCT`- og `DESCRIBE`-forespørgsler som Turtle, N-Triples, RDF/XML eller JSON-LD, via content negotiation eller fx `?format=csv`. En GET uden forespørgsel returnerer en beskrivelse af tjenesten. Yderligere forespørgselsparametre: `limit`, `offset`, `timeout` (i sekunder), `inference` og `distinct`. Der er dog begrænsninger på resultatsætstørrelse og forespørgselstid, så hvis du har brug for mere ressourcekrævende forespørgsler, er det bedre at forespørge datasættet i en lokal RDF-graf.
 
 ### WN-LMF + Python
 [WN-LMF][wn-lmf]-formatet kan bruges med Python-biblioteket [wn][wn]. Et [tutorialscript][tutorial] er tilgængeligt i GitHub-repoet og dækker polysemi, relationer, taksonomi, lighed, ILI m.m.:
@@ -84,6 +84,7 @@ Yderligere udviklerorienteret dokumentation:
 [about]: /dannet/page/about "Om DanNet"
 [SPARQL]: https://www.w3.org/TR/sparql11-query/ "SPARQL 1.1 Query Language specification"
 [SPARQL endpoint]: /dannet/sparql "SPARQL-endpoint"
+[SPARQL protocol]: https://www.w3.org/TR/sparql11-protocol/ "SPARQL 1.1-protokollen"
 [SPARQL guide]: /dannet/page/sparql "SPARQL-guide"
 [mcp]: /dannet/page/mcp "MCP-server"
 [JSON-LD]: https://json-ld.org/ "JSON for Linking Data"

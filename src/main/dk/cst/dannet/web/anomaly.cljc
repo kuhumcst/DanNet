@@ -1,30 +1,28 @@
 (ns dk.cst.dannet.web.anomaly
-  "Exception translation for user-facing error pages using Cognitect Anomalies.
+  "Errors for user-facing error pages, as Cognitect Anomalies.
   Inspired by this post: https://mbezjak.github.io/posts/exception-translation/
 
-  Classifies exceptions into anomaly categories using the qualified keywords
+  Classifies errors into anomaly categories using the qualified keywords
   from cognitect.anomalies and provides bilingual (DA/EN) user-friendly
-  messages. The `translate` function maps Java exceptions at the boundary
-  into anomaly maps that the UI can render.
+  messages. The `from-error` function maps the errors of the SPARQL
+  endpoint, and `translate` any other exception at the boundary, into
+  anomaly maps that the UI can render.
 
   An anomaly map has the shape:
     {::anom/category  ::anom/busy
      ::anom/message   \"The query took too long.\" ; localised
      :message         {:da \"...\" :en \"...\"}    ; bilingual source
      :retry?          true
-     :status          504
+     :status          503
      :details         \"...\"}                     ; optional, dev only"
-  (:require [cognitect.anomalies :as-alias anom])
-  #?(:clj (:import [clojure.lang ExceptionInfo]
-                   [java.util.concurrent TimeoutException]
-                   [org.apache.jena.query QueryCancelledException])))
+  (:require [cognitect.anomalies :as-alias anom]))
 
 (def categories
   {::anom/busy
    {:message {:da "Forespørgslen tog for lang tid. Prøv igen senere eller forenkl din forespørgsel."
               :en "The query took too long. Please try again later or simplify your query."}
     :retry?  true
-    :status  504}
+    :status  503}
 
    ::anom/incorrect
    {:message {:da "Forespørgslen er ugyldig."
@@ -64,39 +62,29 @@
   (let [lang (if (= "da" (first languages)) :da :en)]
     (assoc anomaly ::anom/message (get-in anomaly [:message lang]))))
 
+(def error-categories
+  "The anomaly category of each type of error of the SPARQL endpoint that
+  isn't ::anom/incorrect, the category of the rest, e.g. :parse-error."
+  {:timeout             ::anom/busy
+   :form-not-allowed    ::anom/forbidden
+   :service-not-allowed ::anom/forbidden
+   :java-not-allowed    ::anom/forbidden
+   :update-not-allowed  ::anom/forbidden
+   :execution-failed    ::anom/fault})
+
+(defn from-error
+  "The anomaly map of the `error` of an operation of the SPARQL endpoint,
+  with its status, and its message or the :details it keeps from clients as
+  the details."
+  [{:keys [status type message details]}]
+  (-> (make (error-categories type ::anom/incorrect)
+            :details (or details message))
+      (assoc :status status)))
+
 #?(:clj
-   (do
-     (def ^:private validation-type->category
-       "Maps SPARQL validation ex-data :type to anomaly category."
-       {:parse-error        ::anom/incorrect
-        :query-too-long     ::anom/incorrect
-        :unsafe-query-type  ::anom/forbidden
-        :update-not-allowed ::anom/forbidden})
-
-     (defn translate
-       "Translate an exception into an anomaly map.
-
-       Handles known exception types with specific categories and messages;
-       falls back to ::anom/fault for unknown exceptions. Always returns
-       an anomaly."
-       [ex]
-       (cond
-         ;; ExceptionInfo with :type in ex-data (SPARQL validation errors)
-         (and (instance? ExceptionInfo ex)
-              (contains? (ex-data ex) :type))
-         (let [{:keys [type cause max actual]} (ex-data ex)
-               category (get validation-type->category type ::anom/fault)
-               details  (cond-> (or cause (ex-message ex))
-                          max (str " (max: " max ", actual: " actual ")"))]
-           (make category :details details))
-
-         ;; Query timeout (Jena cancellation or hard timeout)
-         (or (instance? QueryCancelledException ex)
-             (instance? TimeoutException ex))
-         (make ::anom/busy)
-
-         ;; Generic fallback
-         :else
-         (make ::anom/fault
-               :details (str (.getSimpleName (class ex))
-                             ": " (ex-message ex)))))))
+   (defn translate
+     "Translate the exception `ex` into an anomaly map of ::anom/fault, with
+     its class and message as the details."
+     [ex]
+     (make ::anom/fault
+           :details (str (.getSimpleName (class ex)) ": " (ex-message ex)))))

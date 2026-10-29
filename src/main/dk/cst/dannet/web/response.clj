@@ -23,8 +23,6 @@
            [flatland.ordered.map OrderedMap]
            [org.apache.jena.query ResultSet]
            [org.apache.jena.rdf.model Model]
-           [org.apache.jena.riot RDFDataMgr RDFFormat ResultSetMgr]
-           [org.apache.jena.riot.resultset ResultSetLang]
            [org.apache.jena.sparql.core ResultBinding]
            [org.apache.jena.sparql.resultset ResultSetMem]))
 
@@ -128,13 +126,6 @@
       (mapv #(zipmap sparql/graph-result-vars %)
             (theo/triples db '[_ _ _])))))
 
-(defn- write-model
-  "Write the Model `m` as text in the RDF `format`."
-  [^Model m ^RDFFormat format]
-  (let [out (ByteArrayOutputStream.)]
-    (RDFDataMgr/write out m format)
-    (.toString out "UTF-8")))
-
 ;; The RDF terms have the tags and values of their reader tags, e.g.
 ;; #rdf/langstring ["hund" "da"], so the browser reads them as the same types.
 ;; ClojureScript reads a plain map of more than 8 entries as a hash map, which
@@ -180,13 +171,9 @@
                     (update-in [:data :sparql-result] sparql-result->rows)))))
 
    "text/turtle"
-   (fn [{:keys [entity href sparql-result]} & _]
-     (cond
-       entity
-       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))
-
-       (instance? Model sparql-result)
-       (write-model sparql-result RDFFormat/TURTLE_PRETTY)))
+   (fn [{:keys [entity href]} & _]
+     (when entity
+       (export.rdf/ttl-entity entity (str "https://wordnet.dk" href))))
 
    ;; TODO: should this match the JSON output? Or be used for debugging Transit?
    "application/edn"
@@ -194,35 +181,23 @@
      (pr-str data))
 
    "application/ld+json"
-   (fn [{:keys [entity entities search-results lemma sparql-result]} & _]
-     (if (instance? Model sparql-result)
-       (write-model sparql-result RDFFormat/JSONLD11_PRETTY)
-       (some-> (cond
-                 entity
-                 (json-ld-ify
-                   (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
-                   (for [[subject m] entities]
-                     (assoc m :rdf/about subject)))
+   (fn [{:keys [entity entities search-results lemma]} & _]
+     (some-> (cond
+               entity
+               (json-ld-ify
+                 (with-comment entity "The @graph contains labels for the properties and values of the core RDF resource defined @id.")
+                 (for [[subject m] entities]
+                   (assoc m :rdf/about subject)))
 
-                 search-results
-                 (json-ld-ify
-                   {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
-                   ;; search/look-up keeps the synset under dc:subject too
-                   (for [[subject m] search-results]
-                     (assoc (dissoc m :dc/subject) :rdf/about subject))))
+               search-results
+               (json-ld-ify
+                 {:rdfs/comment (str "The @graph represents an ordered DanNet synset search result for the lemma \"" lemma "\".")}
+                 ;; search/look-up keeps the synset under dc:subject too
+                 (for [[subject m] search-results]
+                   (assoc (dissoc m :dc/subject) :rdf/about subject))))
 
-               (json/write-str {:indent         true
-                                :escape-unicode false}))))
-
-   ;; https://www.w3.org/TR/sparql11-results-json/
-   "application/sparql-results+json"
-   (fn [{:keys [sparql-result]} & _]
-     (when (or (boolean? sparql-result) (instance? ResultSet sparql-result))
-       (let [out (ByteArrayOutputStream.)]
-         (if (boolean? sparql-result)
-           (ResultSetMgr/write out (boolean sparql-result) ResultSetLang/RS_JSON)
-           (ResultSetMgr/write out ^ResultSet sparql-result ResultSetLang/RS_JSON))
-         (.toString out "UTF-8"))))
+             (json/write-str {:indent         true
+                              :escape-unicode false})))
 
    "application/json"
    (fn [data & _]
@@ -239,7 +214,6 @@
   when they are available."
   [& args]
   (or (apply (content-type->body-fn "application/ld+json") args)
-      (apply (content-type->body-fn "application/sparql-results+json") args)
       (apply (content-type->body-fn "application/json") args)))
 
 ;; TODO: select-label and select-str match tags exactly, so only the top

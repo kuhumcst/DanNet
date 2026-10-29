@@ -9,7 +9,7 @@
 
            ;; Our successor to Aristotle, on Jena 6.
            dk.cst/theophrastus            {:git/url "https://github.com/kuhumcst/theophrastus.git"
-                                           :sha     "e1e89bc0fb22ba6697a5014c68547e1c54bcba4e"}
+                                           :sha     "9309205e9eb554cc7e8cd531685ed0fa0bbc1eb9"}
            org.clojars.quoll/donatello    {:mvn/version "1.3.6"}
 
            org.flatland/ordered           {:mvn/version "1.15.12"}
