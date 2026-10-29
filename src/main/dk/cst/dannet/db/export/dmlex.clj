@@ -21,8 +21,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clj-file-zip.core :as zip]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]
-            [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.export.rdf :as rdf]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
@@ -511,17 +511,17 @@
   [g lang concepts]
   (let [other  (if (= lang "da") "en" "da")
         values (str/join " " (map prefix/kw->qname concepts))
-        rows   (q/run g (op/sparql
-                          "SELECT ?concept ?comment ?label ?otherLabel
-                           WHERE {
-                             VALUES ?concept { " values " }
-                             OPTIONAL { ?concept rdfs:comment ?comment .
-                                        FILTER(LANG(?comment) = \"" lang "\") . }
-                             OPTIONAL { ?concept rdfs:label ?label .
-                                        FILTER(LANG(?label) = \"" lang "\") . }
-                             OPTIONAL { ?concept rdfs:label ?otherLabel .
-                                        FILTER(LANG(?otherLabel) = \"" other "\") . }
-                           }"))
+        rows   (theo/q g (op/sparql
+                           "SELECT ?concept ?comment ?label ?otherLabel
+                            WHERE {
+                              VALUES ?concept { " values " }
+                              OPTIONAL { ?concept rdfs:comment ?comment .
+                                         FILTER(LANG(?comment) = \"" lang "\") . }
+                              OPTIONAL { ?concept rdfs:label ?label .
+                                         FILTER(LANG(?label) = \"" lang "\") . }
+                              OPTIONAL { ?concept rdfs:label ?otherLabel .
+                                         FILTER(LANG(?otherLabel) = \"" other "\") . }
+                            }"))
         first-copy #(first (str/split (str %) #" // "))]
     (reduce (fn [m {:syms [?concept ?comment ?label ?otherLabel]}]
               (let [description (or ?comment ?label ?otherLabel)
@@ -540,7 +540,7 @@
   [g]
   (into {} (comp (map (juxt '?a '?b))
                  (filter (fn [[a b]] (and (keyword? a) (keyword? b)))))
-        (q/run g op/inverse-query)))
+        (theo/q g op/inverse-query)))
 
 (defn dannet-pair?
   "Is every synset of `pair` in DanNet? A relation to another dataset cannot
@@ -553,10 +553,10 @@
   relation are flipped into the direction of `rel`. A symmetric relation gets
   one pair for each unordered pair of synsets."
   [g rel obverse]
-  (let [rows      (map (juxt '?subject '?object) (q/run g (op/relation-query rel)))
+  (let [rows      (map (juxt '?subject '?object) (theo/q g (op/relation-query rel)))
         symmetric (= rel obverse)
         flipped   (when (and obverse (not symmetric))
-                    (map (juxt '?object '?subject) (q/run g (op/relation-query obverse))))]
+                    (map (juxt '?object '?subject) (theo/q g (op/relation-query obverse))))]
     (into #{}
           (comp (filter dannet-pair?)
                 (remove (fn [[a b]] (= a b)))
@@ -566,56 +566,56 @@
 (defn run-queries
   "Fetch the DMLex source data from `db`. Everything but the schema statements
   comes from the raw graphs, which hold only what the DanNet releases state."
-  [{:keys [dataset graph]}]
-  (let [g            (db/get-graph dataset prefix/dn-uri)
-        cor-g        (db/get-graph dataset prefix/cor-uri)
-        dds-g        (db/get-graph dataset prefix/dds-uri)
-        oewn-g       (db/get-graph dataset prefix/oewn-uri)
-        ili-g        (db/get-graph dataset prefix/ili-uri)
-        sem-g        (db/get-graph dataset prefix/cor-sem-uri)
-        obverse-of   (inverse-relations graph)
-        types        (q/run g op/ontological-type-query)
-        genders      (q/run g op/gender-query)
-        sense-labels (q/run g op/sense-label-query)
+  [{:keys [dataset inference]}]
+  (let [g            (theo/named-graph dataset prefix/dn-graph)
+        cor-g        (theo/named-graph dataset prefix/cor-graph)
+        dds-g        (theo/named-graph dataset prefix/dds-graph)
+        oewn-g       (theo/named-graph dataset prefix/oewn-graph)
+        ili-g        (theo/named-graph dataset prefix/ili-graph)
+        sem-g        (theo/named-graph dataset prefix/cor-sem-graph)
+        obverse-of   (inverse-relations inference)
+        types        (theo/q g op/ontological-type-query)
+        genders      (theo/q g op/gender-query)
+        sense-labels (theo/q g op/sense-label-query)
         concepts     (distinct (concat (map '?gender genders)
                                        (map '?value sense-labels)
                                        exported-relations
                                        cor-sem-relations))
-        strings-da   (tag-strings graph "da" concepts)
-        strings-en   (tag-strings graph "en" concepts)]
-    {:words             (q/run g op/word-query)
-     :senses            (q/run g op/sense-query)
-     :definitions       (q/run g op/definition-query)
-     :examples          (q/run g op/example-query)
-     :sources           (q/run g op/source-query)
-     :domains           (q/run g op/domain-query)
-     :lexfiles          (q/run g op/lexfile-query)
-     :word-variants     (q/run g op/variant-query)
+        strings-da   (tag-strings inference "da" concepts)
+        strings-en   (tag-strings inference "en" concepts)]
+    {:words             (theo/q g op/word-query)
+     :senses            (theo/q g op/sense-query)
+     :definitions       (theo/q g op/definition-query)
+     :examples          (theo/q g op/example-query)
+     :sources           (theo/q g op/source-query)
+     :domains           (theo/q g op/domain-query)
+     :lexfiles          (theo/q g op/lexfile-query)
+     :word-variants     (theo/q g op/variant-query)
      :ontological-types types
-     :synset-labels     (q/run g op/synset-label-query)
-     :short-labels      (q/run g op/short-label-query)
-     :member-labels     (q/run g op/synset-sense-label-query)
-     :polysemy          (q/run g op/sense-label-polysemy)
+     :synset-labels     (theo/q g op/synset-label-query)
+     :short-labels      (theo/q g op/short-label-query)
+     :member-labels     (theo/q g op/synset-sense-label-query)
+     :polysemy          (theo/q g op/sense-label-polysemy)
      :genders           genders
      :sense-labels      sense-labels
-     :usage-notes       (q/run g op/usage-note-query)
-     :ilis              (q/run g op/ili-query)
-     :ili-definitions   (q/run ili-g op/ili-definition-query)
-     :oewn-lemmas       (q/run oewn-g op/oewn-lemma-query)
-     :cor-links         (q/run cor-g op/cor-link-query)
-     :cor-forms         (q/run cor-g op/cor-form-query)
-     :sentiment         (concat (q/run dds-g op/sentiment-query)
-                                (q/run g op/sentiment-query))
-     :eq-senses         (q/run sem-g op/eq-sense-query)
-     :eq-sense-matches  (q/run sem-g op/eq-sense-match-query)
-     :corsem-frames     (q/run sem-g op/corsem-frame-query)
-     :linked-synsets    (q/run sem-g op/linked-synset-query)
-     :corsem-patterns   (q/run sem-g op/polysemy-pattern-query)
-     :pattern-labels    (q/run sem-g op/pattern-label-query)
-     :centralities      (q/run sem-g op/centrality-query)
-     :simple-ontotypes  (q/run sem-g op/simple-ontotype-query)
-     :ontotype-members  (q/run sem-g op/ontotype-members-query)
-     :corsem-notes      (q/run sem-g op/usage-note-query)
+     :usage-notes       (theo/q g op/usage-note-query)
+     :ilis              (theo/q g op/ili-query)
+     :ili-definitions   (theo/q ili-g op/ili-definition-query)
+     :oewn-lemmas       (theo/q oewn-g op/oewn-lemma-query)
+     :cor-links         (theo/q cor-g op/cor-link-query)
+     :cor-forms         (theo/q cor-g op/cor-form-query)
+     :sentiment         (concat (theo/q dds-g op/sentiment-query)
+                                (theo/q g op/sentiment-query))
+     :eq-senses         (theo/q sem-g op/eq-sense-query)
+     :eq-sense-matches  (theo/q sem-g op/eq-sense-match-query)
+     :corsem-frames     (theo/q sem-g op/corsem-frame-query)
+     :linked-synsets    (theo/q sem-g op/linked-synset-query)
+     :corsem-patterns   (theo/q sem-g op/polysemy-pattern-query)
+     :pattern-labels    (theo/q sem-g op/pattern-label-query)
+     :centralities      (theo/q sem-g op/centrality-query)
+     :simple-ontotypes  (theo/q sem-g op/simple-ontotype-query)
+     :ontotype-members  (theo/q sem-g op/ontotype-members-query)
+     :corsem-notes      (theo/q sem-g op/usage-note-query)
      :descriptions      {"da" (:description strings-da)
                          "en" (:description strings-en)}
      :tag-names         {"da" (:name strings-da)

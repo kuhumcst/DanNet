@@ -62,8 +62,8 @@
         completion-items    (get completion s')
         suggestions?        (boolean (not-empty completion-items))
         submit-label        (i18n/select-label languages
-                                               [(term/->LangStr "Søg" "da")
-                                                (term/->LangStr "Search" "en")])
+                                               [(term/->LangString "Søg" "da")
+                                                (term/->LangString "Search" "en")])
         on-key-down #?(:clj nil :cljs
                        (aria/keydown-handler
                          #(let [form (js/document.getElementById "search-form")]

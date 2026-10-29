@@ -91,10 +91,10 @@
 #?(:cljs
    (do
      (defn- read-lstr
-       "The LangStr of the Transit `rep` s@lang, split at its last @."
+       "The LangString of the Transit `rep` s@lang, split at its last @."
        [rep]
        (let [i (str/last-index-of rep "@")]
-         (term/->LangStr (subs rep 0 i) (subs rep (inc i)))))
+         (term/->LangString (subs rep 0 i) (subs rep (inc i)))))
 
      (def transit-read-handlers
        {"lstr"         read-lstr

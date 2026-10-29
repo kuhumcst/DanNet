@@ -3,6 +3,7 @@
   used to populate the catalog page of the DanNet web app."
   (:require [clojure.string :as str]
             [flatland.ordered.map :as ordered]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]))
@@ -22,7 +23,7 @@
         (comp (map '?source)
               (filter catalog-source?)
               (map #(cond-> % (keyword? %) prefix/kw->rdf-resource)))
-        (q/run g op/catalog-resources)))
+        (theo/q g op/catalog-resources)))
 
 (defn- canonical-resources
   "The members of `sources` that are not mere separator variants of another
@@ -89,7 +90,7 @@
        (into (ordered/ordered-map))))
 
 (comment
-  (find-resources (:graph @dk.cst.dannet.web.instance/db))
+  (find-resources (:inference @dk.cst.dannet.web.instance/db))
 
   ;; The separator variants of a source are dropped, the canonical one is kept.
   (canonical-resources #{"<https://wordnet.dk/dannet>"

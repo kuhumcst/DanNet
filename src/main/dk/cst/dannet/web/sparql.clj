@@ -155,42 +155,41 @@
   [^Model model ^Query query-obj timeout results-limit
    & {:keys [distinct? offset]
       :or   {distinct? true offset 0}}]
-  (txn/calculate-read model
-    (fn []
-      (let [query (cond-> query-obj
-                    ;; TODO: is this necessary when we automatically apply limits?
-                    ;; DISTINCT applies to all SELECT queries to reduce duplicates
-                    ;; and improve performance.
-                    distinct? (ensure-distinct!)
-                    true (offset-results! offset)
-                    true (limit-results! results-limit))
-            qexec (-> (QueryExecution/model model)
-                      (.query ^Query query-obj)
-                      (.timeout (long timeout) TimeUnit/MILLISECONDS)
-                      (.build))]
-        (try
-          (cond
-            (.isSelectType query)
-            {:sparql-type   :select
-             :result-vars   (mapv (fn [v] (symbol (str "?" v)))
-                                  (.getResultVars query))
-             :sparql-result (.materialise (.execSelect qexec))}
+  (txn/with-read-transaction model
+    (let [query (cond-> query-obj
+                  ;; TODO: is this necessary when we automatically apply limits?
+                  ;; DISTINCT applies to all SELECT queries to reduce duplicates
+                  ;; and improve performance.
+                  distinct? (ensure-distinct!)
+                  true (offset-results! offset)
+                  true (limit-results! results-limit))
+          qexec (-> (QueryExecution/model model)
+                    (.query ^Query query-obj)
+                    (.timeout (long timeout) TimeUnit/MILLISECONDS)
+                    (.build))]
+      (try
+        (cond
+          (.isSelectType query)
+          {:sparql-type   :select
+           :result-vars   (mapv (fn [v] (symbol (str "?" v)))
+                                (.getResultVars query))
+           :sparql-result (.materialise (.execSelect qexec))}
 
-            (.isAskType query)
-            {:sparql-type   :ask
-             :sparql-result (.execAsk qexec)}
+          (.isAskType query)
+          {:sparql-type   :ask
+           :sparql-result (.execAsk qexec)}
 
-            (.isConstructType query)
-            {:sparql-type   :construct
-             :sparql-result (.execConstruct qexec)}
+          (.isConstructType query)
+          {:sparql-type   :construct
+           :sparql-result (.execConstruct qexec)}
 
-            (.isDescribeType query)
-            {:sparql-type   :describe
-             :sparql-result (.execDescribe qexec)})
-          (catch QueryCancelledException e
-            {:anomaly (anomaly/translate e)})
-          (finally
-            (.close qexec)))))))
+          (.isDescribeType query)
+          {:sparql-type   :describe
+           :sparql-result (.execDescribe qexec)})
+        (catch QueryCancelledException e
+          {:anomaly (anomaly/translate e)})
+        (finally
+          (.close qexec))))))
 
 (defn- run-query
   "Run SPARQL query `query-opts` against `model` using `executor` thread pool
@@ -199,9 +198,9 @@
                    :as   query-opts}]
   (try
     (txn/with-hard-timeout executor timeout
-      #(execute model query-obj timeout fetch-limit
-                :distinct? distinct?
-                :offset offset))
+      (execute model query-obj timeout fetch-limit
+               :distinct? distinct?
+               :offset offset))
     (catch Exception e
       {:anomaly (anomaly/translate e)})))
 
@@ -219,7 +218,8 @@
     - true forces inference model
     - otherwise: tries base first then retries with inference on empty result."
   [db {:keys [inference?] :as query-opts}]
-  (let [{:keys [base-model model]} db]
+  (let [base-model (:model (:base db))
+        model      (:model (:inference db))]
     (case inference?
       false
       (assoc (run-query base-model query-executor query-opts)
@@ -327,7 +327,7 @@
 
   ;; Test with real model (requires data to be loaded)
   (let [db    @dk.cst.dannet.web.instance/db
-        model (:model db)
+        model (:model (:inference db))
         query (validate "SELECT ?s ?p ?o WHERE { ?s ?p ?o }")]
     (execute model query 10000 100))
 

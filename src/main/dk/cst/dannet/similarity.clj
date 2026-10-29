@@ -25,6 +25,7 @@
    - disconnected synsets yield no path; `wn`'s `simulate_root` option
      (a virtual root joining all roots) is not yet implemented."
   (:require [clojure.string :as str]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.function :as function]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]))
@@ -118,11 +119,11 @@
     (into {}
           (keep (fn [b] (when-let [pos (wn-pos->pos (get b '?p))]
                           [(get b '?s) pos])))
-          (q/run g "SELECT ?s ?p
-                    WHERE {
-                      ?s rdf:type ontolex:LexicalConcept ;
-                         wn:partOfSpeech ?p .
-                    }"))))
+          (theo/q g "SELECT ?s ?p
+                     WHERE {
+                       ?s rdf:type ontolex:LexicalConcept ;
+                          wn:partOfSpeech ?p .
+                     }"))))
 
 (defn max-depth
   "Length of the longest hypernym path from `synset` up to a root in `hg`.
@@ -377,7 +378,7 @@
   ;; Build the graph from the base (asserted) model; see
   ;; dk.cst.dannet.web.instance/hypernym-graph for the boot-time delay.
   (require '[dk.cst.dannet.web.instance :as instance])
-  (def bg (.getGraph (:base-model @instance/db)))
+  (def bg (:base @instance/db))
   (def hg (build-hypernym-graph bg))                        ; ~1.9s, ~154k entries
 
   ;; Known chain: synset-54219 -> 5619 -> 2355 -> 20633 (root).

@@ -2,8 +2,8 @@
   "Functions for working with RDF LangStrings."
   #?(:clj  (:require [dk.cst.theophrastus.term :as term]
                      [clojure.core.memoize :as memo])
-     :cljs (:require [dk.cst.theophrastus.term :as term :refer [LangStr]]))
-  #?(:clj (:import [dk.cst.theophrastus.term LangStr])))
+     :cljs (:require [dk.cst.theophrastus.term :as term :refer [LangString]]))
+  #?(:clj (:import [dk.cst.theophrastus.term LangString])))
 
 ;; TODO: derive dynamically?
 (def supported-languages
@@ -28,12 +28,12 @@
 
 (def rdf-string?
   "Tests whether the input is an RDF string value."
-  (some-fn string? #(instance? LangStr %)))
+  (some-fn string? #(instance? LangString %)))
 
 (defn lang
   "Return the language abbreviation of `s` if available or nil if not."
   [s]
-  (when (instance? LangStr s)
+  (when (instance? LangString s)
     (term/lang s)))
 
 ;; TODO: compare with https://www.rfc-editor.org/info/bcp47

@@ -12,6 +12,7 @@
             [taoensso.telemere :as t]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.rules :as rules]
+            [dk.cst.theophrastus.tdb2 :as tdb2]
             [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
@@ -26,9 +27,7 @@
   (:import [java.io File]
            [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]
-           [org.apache.jena.query Dataset DatasetFactory]
-           [org.apache.jena.rdf.model Model]
-           [org.apache.jena.tdb2 TDB2Factory]))
+           [org.apache.jena.rdf.model Model]))
 
 (h/defn synset-label
   "The label of a synset given the `labels` of its senses, i.e. the distinct
@@ -41,9 +40,9 @@
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
   [dataset]
   (t/trace! {:id :dannet.bootstrap/oewn-labels :run-val :elided}
-    (let [oewn-graph  (db/get-graph dataset prefix/oewn-uri)
-          label-graph (db/get-graph dataset prefix/oewn-extension-uri)
-          ms          (q/run oewn-graph op/oewn-label-targets)
+    (let [oewn-graph  (theo/named-graph dataset prefix/oewn-graph)
+          label-graph (theo/named-graph dataset prefix/oewn-extension-graph)
+          ms          (theo/q oewn-graph op/oewn-label-targets)
           collect-rep (fn [m {:syms [?synset ?rep]}]
                         (update m ?synset conj (str ?rep)))]
       (t/log! {:level :debug
@@ -53,7 +52,7 @@
       (->> (reduce collect-rep {} ms)
            (map (fn [[synset labels]]
                   [synset :rdfs/label (synset-label md/en labels)]))
-           (theo/transact! (q/->db label-graph)))
+           (theo/transact! label-graph))
       (t/log! {:level :debug
                :id    :dannet.bootstrap/oewn-word-labels
                :data  {:graph (str prefix/oewn-extension-uri)}}
@@ -62,7 +61,7 @@
            (mapcat (fn [{:syms [?sense ?word ?rep]}]
                      [[?word :rdfs/label (md/en "\"" ?rep "\"")]
                       [?sense :rdfs/label ?rep]]))
-           (theo/transact! (q/->db label-graph)))
+           (theo/transact! label-graph))
       ;; Carry the CC BY 4.0 licence in the RDF itself, not just the export zip
       ;; (issue #96): the OEWN label extension is our derivative of the Open
       ;; English Wordnet, published under the same CC BY 4.0 licence.
@@ -72,7 +71,7 @@
               "Adding OEWN extension licence metadata")
       (let [oewn-ext (prefix/uri->rdf-resource prefix/oewn-extension-uri)]
         (theo/transact!
-          (q/->db label-graph)
+          label-graph
           [[oewn-ext :dc/license "<https://creativecommons.org/licenses/by/4.0/>"]
            ["<https://creativecommons.org/licenses/by/4.0/>" :rdfs/label "CC BY 4.0"]
            [oewn-ext :dc/rights (md/en "DanNet-style labels for the Open English Wordnet; "
@@ -81,17 +80,17 @@
 
 ;; TODO: move to separate ns
 (h/defn add-open-english-wordnet!
-  "Add the Open English WordNet to a Jena `dataset`."
+  "Add the Open English WordNet to the `dataset`."
   [dataset]
   (t/trace! {:id :dannet.bootstrap/import-oewn :run-val :elided}
-    (let [oewn-changefn (fn [temp-model]
+    (let [oewn-changefn (fn [temp]
                           (t/log! {:level :debug :id :dannet.bootstrap/oewn-clean}
                                   "Removing problematic OEWN entries")
-                          (db/remove! temp-model
-                                      [(prefix/uri->rdf-resource prefix/oewn-uri)
-                                       :lime/entry '_]))]
-      (db/import-files dataset prefix/oewn-uri [downloads/oewn-ttl-path] oewn-changefn)
-      (db/import-files dataset prefix/ili-uri [downloads/ili-path])))
+                          (theo/retract! temp
+                                         [(prefix/uri->rdf-resource prefix/oewn-uri)
+                                          :lime/entry '_]))]
+      (db/import-files dataset prefix/oewn-graph [downloads/oewn-ttl-path] oewn-changefn)
+      (db/import-files dataset prefix/ili-graph [downloads/ili-path])))
   (add-open-english-wordnet-labels! dataset))
 
 (h/defn add-framenet!
@@ -99,12 +98,11 @@
   converted from the PreMOn dump by the premon ns."
   [dataset]
   (t/trace! {:id :dannet.bootstrap/import-framenet :run-val :elided}
-    (let [graph (db/get-graph dataset prefix/framenet-uri)
-          model (db/get-model dataset prefix/framenet-uri)]
+    (let [graph (theo/named-graph dataset prefix/framenet-graph)]
       (doseq [chunk (partition-all 500000 (premon/source-triples))]
         (db/safe-add! graph chunk))
-      (txn/calculate model
-        #(md/update-metadata! (get (md/metadata) 'frame) model)))))
+      (txn/with-transaction (:model graph)
+        (md/update-metadata! (get (md/metadata) 'frame) graph)))))
 
 (h/defn add-in-scheme!
   "Add skos:inScheme to all DanNet, COR and COR.SEM resources (GitHub issue
@@ -119,19 +117,18 @@
   its own, only annotations of dn: resources; the OEWN label extensions don't
   need it either."
   [dataset]
-  (doseq [[model-uri ns-uri scheme] [[prefix/dn-uri prefix/dn-uri md/<dn>]
-                                     [prefix/cor-uri prefix/cor-uri md/<cor>]
-                                     [prefix/cor-sem-uri (str prefix/cor-uri "COR.SEM.") md/<cor-sem>]
-                                     [prefix/framenet-uri prefix/framenet-uri md/<framenet>]]]
-    (let [model    (db/get-model dataset model-uri)
-          g        (db/get-graph dataset model-uri)
-          subjects (txn/calculate-read model
-                     (fn []
-                       (->> (iterator-seq (.listSubjects model))
-                            (filter #(.isURIResource %))
-                            (map #(.getURI %))
-                            (filter #(str/starts-with? % ns-uri))
-                            (doall))))]
+  (doseq [[graph ns-uri scheme] [[prefix/dn-graph prefix/dn-uri md/<dn>]
+                                 [prefix/cor-graph prefix/cor-uri md/<cor>]
+                                 [prefix/cor-sem-graph (str prefix/cor-uri "COR.SEM.") md/<cor-sem>]
+                                 [prefix/framenet-graph prefix/framenet-uri md/<framenet>]]]
+    (let [g            (theo/named-graph dataset graph)
+          ^Model model (:model g)
+          subjects     (txn/with-read-transaction model
+                         (->> (iterator-seq (.listSubjects model))
+                              (filter #(.isURIResource %))
+                              (map #(.getURI %))
+                              (filter #(str/starts-with? % ns-uri))
+                              (doall)))]
       (t/log! {:level :info
                :id    :dannet.bootstrap/add-in-scheme
                :data  {:scheme scheme
@@ -154,18 +151,18 @@
   (t/log! {:level :info
            :id    :dannet.bootstrap/regenerate-short-labels}
           "Regenerating short synset labels")
-  (let [g          (db/get-graph dataset prefix/dn-uri)
-        sem-g      (db/get-graph dataset prefix/cor-sem-uri)
+  (let [g          (theo/named-graph dataset prefix/dn-graph)
+        sem-g      (theo/named-graph dataset prefix/cor-sem-graph)
         centrality (q/label-centralities
-                     (q/run sem-g op/centrality-query)
-                     (q/run sem-g op/eq-sense-match-query)
-                     (q/run g op/synset-sense-label-query))
-        polysemy   (->> (q/run g op/sense-label-polysemy)
+                     (theo/q sem-g op/centrality-query)
+                     (theo/q sem-g op/eq-sense-match-query)
+                     (theo/q g op/synset-sense-label-query))
+        polysemy   (->> (theo/q g op/sense-label-polysemy)
                         (map (juxt (comp str '?senseLabel) '?polysemy))
                         (into {}))
         primary    (shared/centrality-primary centrality)
         tiebreak   (shared/polysemy-tiebreak polysemy)]
-    (db/update-triples! prefix/dn-uri dataset op/synset-long-short-labels
+    (db/update-triples! dataset prefix/dn-graph op/synset-long-short-labels
       (fn [{:syms [?synset ?label]}]
         (when-let [short (shared/short-label primary tiebreak ?label)]
           [?synset :dns/shortLabel (md/da short)]))
@@ -222,9 +219,8 @@
   (t/log! {:level :info
            :id    :dannet.bootstrap/fix-dangling-oewn-links}
           "Replacing links to synsets missing from OEWN 2025")
-  (let [g        (db/get-graph dataset prefix/dn-uri)
-        model    (db/get-model dataset prefix/dn-uri)
-        oewn-g   (db/get-graph dataset prefix/oewn-uri)
+  (let [g        (theo/named-graph dataset prefix/dn-graph)
+        oewn-g   (theo/named-graph dataset prefix/oewn-graph)
         changes  dangling-oewn-link-changes
         target?  (fn [[_ p o]]
                    (and (= :wn/eq_synonym p)
@@ -234,7 +230,7 @@
         expected {:removed 17 :targets 4}]
     (assert (= expected counts)
             (str "expected OEWN link changes " expected ", found " counts))
-    (db/remove! model (:remove changes))
+    (theo/retract! g (:remove changes))
     (db/safe-add! g (:add changes))))
 
 (h/defn retype-long-literals!
@@ -253,11 +249,11 @@
                   WHERE {
                     GRAPH ?g { ?s ?p ?o FILTER(datatype(?o) = xsd:long) }
                   }"
-        found    (get (first (q/run dataset longs)) '?n)
+        found    (get (first (theo/q dataset longs)) '?n)
         expected 24549]
     (assert (= expected found)
             (str "expected " expected " xsd:long literals, found " found))
-    (theo/update! (q/->db dataset)
+    (theo/update! dataset
                   "DELETE { GRAPH ?g { ?s ?p ?o } }
                    INSERT { GRAPH ?g { ?s ?p ?integer } }
                    WHERE {
@@ -289,15 +285,15 @@
     (regenerate-short-labels! dataset)))
 
 (defn ->dataset
-  "Get a Dataset object of the given `db-type`. TDB2 also requires a `db-path`.
+  "The db of a dataset of the given `db-type`, :tdb2 or :in-mem, with the
+  DanNet prefixes. TDB2 also requires a `db-path`.
 
   NOTE: TDB2 *always* requires transactions when reading from or writing to
   the database."
   [db-type & [db-path]]
   (case db-type
-    :tdb2 (TDB2Factory/connectDataset ^String db-path)
-    :in-mem (DatasetFactory/create)
-    :in-mem-txn (DatasetFactory/createTxnMem)))
+    :tdb2 (tdb2/connect db-path {:prefixes prefix/prefixes})
+    :in-mem (theo/db {:prefixes prefix/prefixes})))
 
 (defn- log-entry
   [db-name db-type input-dir]
@@ -326,42 +322,34 @@
 
   The rules in 'dannet.rules' are purpose-built for DanNet, covering only
   owl:inverseOf and rdfs:subPropertyOf entailment as tabled backward rules."
-  (rules/->reasoner (rules/parse (io/resource "etc/dannet.rules"))
-                    {:mode                        :hybrid
-                     :transitive-closure-caching? true}))
+  (rules/reasoner (rules/parse (io/resource "etc/dannet.rules"))
+                  {:mode                        :hybrid
+                   :transitive-closure-caching? true}))
 
 (defn dataset->db
-  "Construct a database map from an Apache Jena `dataset`.
+  "The DanNet db map of the `dataset` db: the :dataset itself, the :base union
+  of its named graphs, and the :inference db, which infers with the schemas
+  of `schema-uris` when they are provided and is the :base db otherwise.
 
-  If `schema-uris` are provided, the returned model & graph contain inferences;
-  otherwise, the model/graph is of union of the models/graphs in the dataset.
-
-  The base (non-inference) model is always available as :base-model for use by
-  the SPARQL endpoint, where inference is opt-in."
-  [^Dataset dataset & [schema-uris]]
-  (if schema-uris
-    (let [schema    (db/->schema-model schema-uris)
-          model     (.getUnionModel dataset)
-          inf-model (rules/->inf-model reasoner schema model)
-          inf-graph (.getGraph inf-model)]
-      ;; A plain :info log, not a trace! around createInfModel: Jena builds the
-      ;; InfModel lazily, so tracing here would report a near-zero runtime. The
-      ;; real inference cost is realized later, on first traversal; see the
-      ;; :dannet.graph/* traces in dk.cst.dannet.web.instance.
-      (t/log! {:level :info
-               :id    :dannet.graph/inference-model
-               :data  {:schema-count (count schema-uris)}}
-              "Constructing inference model")
-      {:dataset    dataset
-       :base-model model
-       :model      inf-model
-       :graph      inf-graph})
-    (let [model (.getUnionModel dataset)
-          graph (.getGraph model)]
-      {:dataset    dataset
-       :base-model model
-       :model      model
-       :graph      graph})))
+  The SPARQL endpoint queries the :base db, since inference is opt-in there."
+  [dataset & [schema-uris]]
+  (let [base (theo/union-graph dataset)]
+    {:dataset   dataset
+     :base      base
+     :inference (if schema-uris
+                  (let [schema (db/->schema-model schema-uris)]
+                    ;; A plain :info log, not a trace! around createInfModel:
+                    ;; Jena builds the InfModel lazily, so tracing here would
+                    ;; report a near-zero runtime. The real inference cost is
+                    ;; realized later, on first traversal; see the
+                    ;; :dannet.graph/* traces in dk.cst.dannet.web.instance.
+                    (t/log! {:level :info
+                             :id    :dannet.graph/inference-model
+                             :data  {:schema-count (count schema-uris)}}
+                            "Constructing inference model")
+                    (theo/db (rules/inf-model reasoner schema (:model base))
+                             {:prefixes (:prefixes dataset)}))
+                  base)}))
 
 (defn prepare-input-dir!
   "Check that `input-dir` holds the datasets of release/from, or refetch them
@@ -376,14 +364,14 @@
   (q/reload-synset-indegrees!))
 
 (defn assert-expected-dannet-release!
-  "Assert that the DanNet `model` is the expected release to bootstrap from.
+  "Assert that the DanNet data in `graph` is the expected release to bootstrap
+  from.
 
   On mismatch, reports the version actually found so it's diagnosable: the
   dataset-level <dn> owl:versionInfo is authoritative, but older releases carry
   no such triple, so we fall back to a sample of any versionInfo values present."
-  [model]
-  (let [graph    (.getGraph ^Model model)
-        expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
+  [graph]
+  (let [expected (q/triples graph [md/<dn> :owl/versionInfo release/from])]
     (when (empty? expected)
       (let [dn-vers (->> (q/triples graph [md/<dn> :owl/versionInfo '_])
                          (map #(str (get % '?o)))
@@ -437,15 +425,16 @@
                         (partial md/update-metadata! (metadata prefix)))
             ;; Special behaviour to check bootstrap files version
             changefn  (if (= prefix 'dn)
-                        (fn [model]
+                        (fn [temp]
                           (t/log! {:level :debug
                                    :id    :dannet.bootstrap/version-check
                                    :data  {:model (str model-uri)}}
                                   "Checking bootstrap version")
-                          (assert-expected-dannet-release! model)
-                          (update! model))
+                          (assert-expected-dannet-release! temp)
+                          (update! temp))
                         update!)]
-        (db/import-files dataset model-uri [ttl-file] changefn)
+        (db/import-files dataset (prefix/uri->rdf-resource model-uri) [ttl-file]
+                         changefn)
         (zip/delete-file ttl-file)))))
 
 (h/defn ->dannet
@@ -454,7 +443,7 @@
 
     :input-dir   - the release/from bootstrap dir as a File; when absent, the
                    database of the last build in the log is reopened
-    :db-type     - :tdb2, :in-mem or :in-mem-txn; defaults to :in-mem
+    :db-type     - :tdb2 or :in-mem; defaults to :in-mem
     :db-path     - where to persist the TDB2 data and the build log
     :schema-uris - the schemas behind the inference model
     :refetch?    - first wipe and re-download the release files in input-dir"
@@ -553,7 +542,7 @@
                        :data  {:db-name db-name}}
                       "Database created")
               (spit log-path (str new-entry "\n----\n") :append true)
-              ;; The :in-mem db types never create the directory.
+              ;; An :in-mem db never creates the directory.
               (when (.isDirectory (io/file full-db-path))
                 (spit build-complete new-entry))
               (dataset->db dataset schema-uris)))))

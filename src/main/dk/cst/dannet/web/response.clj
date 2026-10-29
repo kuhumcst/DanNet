@@ -4,7 +4,7 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [cognitect.transit :as t]
-            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.convert :as convert]
             [dk.cst.theophrastus.term :as term]
             [rum.core :as rum]
             [dk.simongray.conneg :as conneg]
@@ -17,7 +17,7 @@
             [dk.cst.dannet.db.query :as q])
   (:import [java.io ByteArrayOutputStream]
            [java.util Date]
-           [dk.cst.theophrastus.term LangStr Literal]
+           [dk.cst.theophrastus.term LangString Literal]
            [org.apache.jena.query ResultSet]
            [org.apache.jena.riot ResultSetMgr]
            [org.apache.jena.riot.resultset ResultSetLang]
@@ -91,7 +91,7 @@
   "Convert RDF data to JSON-compatible format."
   [data]
   (cond
-    (instance? LangStr data)
+    (instance? LangString data)
     {:value (str data) :lang (term/lang data)}
 
     (instance? Literal data)
@@ -118,20 +118,20 @@
 ;;       catalog/find-resources to the db side.
 (defn sparql-result->rows
   "Convert a `sparql-result` to a vector of Clojure maps using Theophrastus's
-  node conversion, matching the output format of 'q/run'."
+  node conversion, matching the output format of theo/q."
   [^ResultSet sparql-result]
   (when sparql-result
     (mapv (fn [qs]
             (let [^Binding binding (.getBinding qs)]
               (into {}
                     (map (fn [var]
-                           [(theo/data var prefix/prefixes)
-                            (theo/data (.get binding var) prefix/prefixes)]))
+                           [(convert/data var prefix/prefixes)
+                            (convert/data (.get binding var) prefix/prefixes)]))
                     (iterator-seq (.vars binding)))))
           (iterator-seq sparql-result))))
 
 (def transit-write-handlers
-  {LangStr      (t/write-handler "lstr" lstr->s)
+  {LangString   (t/write-handler "lstr" lstr->s)
    Literal      (t/write-handler "rdfdatatype" literal->m)
    ResultSetMem (t/write-handler "array" sparql-result->rows)})
 
@@ -256,7 +256,7 @@
     :detail-level (or (shared/get-cookie request :detail-level)
                       :normal)))
 
-;; TODO: eventually support LangStr for titles too
+;; TODO: eventually support LangString for titles too
 (defn ->page
   "The page value for `content` and its `page-meta`, which the UI renders.
 

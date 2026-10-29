@@ -9,11 +9,11 @@
             [clojure.core.memoize :as memo]
             [cognitect.transit :as transit]
             [taoensso.telemere :as tel]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.similarity :as sim]
-            [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.bootstrap :as bootstrap]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.db.query :as q]
@@ -56,8 +56,8 @@
                           (tel/error! {:id :dannet.shapes/validate-error} e)))))
                   dannet))))
 
-(defonce ^{:doc "Delay of the DanNet database: a map of the :dataset, its
-asserted :base-model and the inference :model with its :graph."}
+(defonce ^{:doc "Delay of the DanNet database: a map of Theophrastus dbs, the
+:dataset, its asserted :base union and the :inference db."}
   db
   (delay (build-db! false)))
 
@@ -67,7 +67,7 @@ asserted :base-model and the inference :model with its :graph."}
 (defn- ->superproperty-closure
   []
   (delay
-    (let [pairs (->> (q/triples (:graph @db) ['_ :rdfs/subPropertyOf '_])
+    (let [pairs (->> (q/triples (:inference @db) ['_ :rdfs/subPropertyOf '_])
                      (map (juxt '?s '?o))
                      (filter (fn [[p q]]
                                (and (keyword? p) (keyword? q) (not= p q))))
@@ -130,7 +130,7 @@ asserted :base-model and the inference :model with its :graph."}
   "Build the cached part of `hypernym-graph` from the base graph."
   []
   (tel/trace! {:id :dannet.graph/hypernym-graph :run-val :elided}
-              (let [bg  (.getGraph (:base-model @db))
+              (let [bg  (:base @db)
                     hg  (sim/build-hypernym-graph bg)
                     nd  (sim/node-depths hg)
                     pos (sim/synset->pos bg)]
@@ -188,7 +188,7 @@ asserted :base-model and the inference :model with its :graph."}
   sunburst trees over it unchanged; no meronym is orthogonal-only."
   []
   (tel/trace! {:id :dannet.graph/meronym-graph :run-val :elided}
-              (let [bg (.getGraph (:base-model @db))]
+              (let [bg (:base @db)]
                 {:graph           (sim/build-meronym-graph bg)
                  :orthogonal-only #{}})))
 
@@ -228,12 +228,12 @@ asserted :base-model and the inference :model with its :graph."}
   DanNet written representation and COR word form."
   []
   (let [dataset (:dataset @db)
-        words   (->> (q/run (db/get-graph dataset prefix/dn-uri)
-                            op/written-representations)
+        words   (->> (theo/q (theo/named-graph dataset prefix/dn-graph)
+                             op/written-representations)
                      (into #{} (map '?writtenRep))
                      (map str))
-        forms   (->> (q/run (db/get-graph dataset prefix/cor-uri)
-                            op/cor-word-forms)
+        forms   (->> (theo/q (theo/named-graph dataset prefix/cor-graph)
+                             op/cor-word-forms)
                      (map (juxt (comp str '?lemma) (comp str '?rep))))
         entries (reduce add-form-entry
                         (reduce add-word-entry {} words)
@@ -308,9 +308,9 @@ capped at 200 items."}
   Returns a map of `{rel entity}` where each entity is pruned to the label
   properties and rdfs:comment."
   [g]
-  (let [in-use?    (fn [rel] (seq (q/run g (op/relation-usage-query rel))))
+  (let [in-use?    (fn [rel] (seq (theo/q g (op/relation-usage-query rel))))
         cross-rels (filter in-use? (second section/cross-link-section))
-        rels       (map '?rel (q/run g op/synset-relation-types))
+        rels       (map '?rel (theo/q g op/synset-relation-types))
         ks         (cons :rdfs/comment shared/label-keys-full)]
     (->> (concat rels cross-rels)
          (distinct)
@@ -322,7 +322,7 @@ capped at 200 items."}
   []
   (delay
     (tel/trace! {:id :dannet.graph/synset-relations :run-val :elided}
-                (find-synset-relations (:graph @db)))))
+                (find-synset-relations (:inference @db)))))
 
 (defonce synset-rels (->synset-rels))
 
@@ -332,7 +332,7 @@ capped at 200 items."}
   Their entity look-ups are by far the slowest (multiple seconds when cold),
   so warming the LRU cache at boot spares the first visitor of each page."
   [n]
-  (let [g (:graph @db)]
+  (let [g (:inference @db)]
     (tel/trace! {:id      :dannet.graph/warm-entity-cache
                  :run-val :elided
                  :data    {:n n}}
@@ -395,11 +395,11 @@ capped at 200 items."}
   (def validation-result (shapes/validate-db @db))
   (shapes/by-shape (:entries validation-result))
   (require '[dk.cst.theophrastus.shacl :as shacl])
-  (shacl/by-severity (:entries validation-result))
+  (shacl/by-severity validation-result)
 
   ;; SHACL-validate a single synset (cheap), e.g. against the editorial
   ;; shapes, the same call that will eventually gate writes.
-  (shapes/validate-node (.getGraph (:base-model @db))
+  (shapes/validate-node (:base @db)
                         @shapes/editorial-shapes
                         :dn/synset-1522)
 

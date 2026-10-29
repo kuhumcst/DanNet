@@ -24,7 +24,7 @@
 
 (defn- validate-ttl
   [ttl]
-  (shapes/validate (util/ttl->graph (str prefixes ttl))))
+  (shapes/validate (util/ttl->db (str prefixes ttl))))
 
 (defn- shape+constraint
   "The set of [shape constraint] pairs among the violations for `ttl`."
@@ -148,7 +148,7 @@ dn:form-3 ontolex:writtenRep \"b\"@da ."
                             (map (juxt :shape :severity :focus-node)) set)
                        [:dns/HypernymPOSShape :sh/Warning :dn/synset-2]))
         ;; Warnings never block, cf. the write-gating/baseline semantics.
-        (is (not (shacl/blocking? result)))))
+        (is (not (shacl/violations? result)))))
     (testing "hierarchy with agreeing POS produces no hypernym entries"
       (is (empty? (filter (comp #{:dns/HypernymHierarchyShape
                                   :dns/HypernymPOSShape} :shape)
@@ -224,7 +224,7 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
       (is (contains? (->> (:entries result)
                           (map (juxt :shape :severity :focus-node)) set)
                      [:dns/EqRelationShape :sh/Violation :dn/synset-2]))
-      (is (shacl/blocking? result))))
+      (is (shacl/violations? result))))
   (testing "eq* relations to different synsets produce no eq* entries"
     (is (empty? (filter (comp #{:dns/EqRelationShape} :shape)
                         (:entries (validate-ttl "
@@ -245,7 +245,7 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 
 (deftest validate-node-targeting
   (testing "targeted validation only checks the given focus node"
-    (let [g (util/ttl->graph (str prefixes "
+    (let [g (util/ttl->db (str prefixes "
 dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;

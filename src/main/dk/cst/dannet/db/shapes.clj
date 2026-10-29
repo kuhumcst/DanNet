@@ -17,14 +17,14 @@
       (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.shacl Shapes]
-           [org.apache.jena.graph Graph GraphUtil Node NodeFactory Triple]
+           [org.apache.jena.graph Graph Node NodeFactory Triple]
            [org.apache.jena.riot RDFDataMgr]))
 
 ;; TODO: shapes are kept internal for now, but since SHACL shapes are plain
@@ -42,10 +42,7 @@
   "Parse the SHACL shapes at one or more classpath `resources` into a single
   Jena `Shapes`, merging the shape graphs."
   [resource & resources]
-  (let [graph (RDFDataMgr/loadGraph resource)]
-    (doseq [r resources]
-      (GraphUtil/addInto graph (RDFDataMgr/loadGraph r)))
-    (Shapes/parse graph)))
+  (shacl/parse (map io/resource (cons resource resources))))
 
 (def shapes
   "The default shapes for the asserted (base) graph, parsed once."
@@ -69,28 +66,28 @@
 ;; against the EDN baseline. :shape is the stable identity used for baselines
 ;; and grouping; the reason every property shape in the TTL has an explicit
 ;; IRI instead of the usual blank node. :sh/Violation blocks a write (see
-;; shacl/blocking?); :sh/Warning only surfaces in the UI.
+;; shacl/violations?); :sh/Warning only surfaces in the UI.
 (defn validate
-  "Validate `graph` against `shapes` (a Jena `Shapes`) in a read transaction,
+  "Validate `db` against `shapes` (a Jena `Shapes`) in a read transaction,
   returning
 
-    {:conforms? boolean, :n long, :entries [{:focus-node ...} ...]}."
-  ([^Graph graph]
-   (validate graph @shapes))
-  ([^Graph graph ^Shapes shapes]
-   (shacl/validate (q/->db graph) shapes)))
+    {:conforms? boolean, :entries [{:focus-node ...} ...]}."
+  ([db]
+   (validate db @shapes))
+  ([db ^Shapes shapes]
+   (shacl/validate db shapes)))
 
 (defn validate-node
-  "Validate a single focus `node` of `graph` against `shapes` in a read
+  "Validate a single focus `node` of `db` against `shapes` in a read
   transaction. Only shapes targeting the node are checked, making this cheap
   enough to gate individual writes (e.g. an RDF Patch).
 
   The `node` may be a Jena Node, a prefixed keyword (e.g. :dn/synset-999), or
   an IRI in angle brackets. Returns the same result map as `validate`."
-  ([^Graph graph node]
-   (validate-node graph @shapes node))
-  ([^Graph graph ^Shapes shapes node]
-   (shacl/validate (q/->db graph) shapes node)))
+  ([db node]
+   (validate-node db @shapes node))
+  ([db ^Shapes shapes node]
+   (shacl/validate db shapes node)))
 
 (def baseline-resource
   "schemas/internal/shapes-baseline.edn")
@@ -122,7 +119,7 @@
   entries to the known `baseline`; warnings never count against it.
   Also adds :violations (the blocking entry count) for logging purposes."
   [result]
-  (let [violations (:sh/Violation (shacl/by-severity (:entries result)))]
+  (let [violations (:sh/Violation (shacl/by-severity result))]
     (assoc result
       :violations (count violations)
       :exceeded (exceeding-baseline (by-shape violations) @baseline))))
@@ -139,9 +136,8 @@
   [db]
   ;; Called async at boot from dk.cst.dannet.web.instance; deliberately
   ;; non-fatal so a validation problem can never take the service down.
-  (let [graph (.getGraph ^Model (:base-model db))
-        {:keys [violations exceeded] :as result}
-        (against-baseline (validate graph))]
+  (let [{:keys [violations exceeded] :as result}
+        (against-baseline (validate (:base db)))]
     (t/log! {:level (cond (seq exceeded) :error
                           (not (:conforms? result)) :warn
                           :else :info)
@@ -161,12 +157,13 @@
   traverses the entire inference graph, forcing materialization of inferred
   triples. Expect this to take a long time on the full dataset."
   [db]
-  (let [result (validate (:graph db) @inferred-shapes)
+  (let [result (validate (:inference db) @inferred-shapes)
         counts (by-shape (:entries result))]
     (t/log! {:level (if (:conforms? result) :info :warn)
              :id    :dannet.shapes/validate-inferred
              :data  {:conforms?  (:conforms? result)
-                     :violations (:n result)
+                     :violations (count (:sh/Violation
+                                          (shacl/by-severity result)))
                      :by-shape   counts}}
             "SHACL validation of inferred graph")
     result))
@@ -214,7 +211,7 @@
         graph     (RDFDataMgr/loadGraph path)
         undefined (undefined-predicates graph @schema-graph)
         {:keys [violations exceeded] :as result}
-        (against-baseline (validate graph))]
+        (against-baseline (validate (theo/db graph {:prefixes prefix/prefixes})))]
     (t/log! {:level (cond (or (seq exceeded) (seq undefined)) :error
                           (not (:conforms? result)) :warn
                           :else :info)

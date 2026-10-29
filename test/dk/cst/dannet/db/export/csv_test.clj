@@ -5,6 +5,7 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.export.csv :as export]
             [dk.cst.dannet.test-util :as util])
@@ -60,12 +61,13 @@ dn:form-4 ontolex:writtenRep \"dyr\"@da .
 ")
 
 (defn- ttl->dataset
-  "An in-memory dataset holding `ttl` as its dn: graph."
+  "An in-memory dataset db holding `ttl` as its dn: graph."
   [ttl]
-  (doto (DatasetFactory/createTxnMem)
-    (.addNamedModel prefix/dn-uri
-                    (ModelFactory/createModelForGraph
-                      (util/ttl->graph (str prefixes ttl))))))
+  (theo/db (doto (DatasetFactory/createTxnMem)
+             (.addNamedModel prefix/dn-uri
+                             (ModelFactory/createModelForGraph
+                               (util/ttl->graph (str prefixes ttl)))))
+           {:prefixes prefix/prefixes}))
 
 (defn- export-tables!
   "Export `ttl` as CSV into a fresh temporary directory and read the tables

@@ -7,28 +7,19 @@
             [clojure.walk :as walk]
             [donatello.ttl :as ttl]
             [quoll.rdf :refer [print-escape]]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]
             [dk.cst.theophrastus.txn :as txn]
-            [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.prefix :as prefix])
   (:import [clojure.lang Symbol]
-           [dk.cst.theophrastus.term LangStr Literal]
-           [org.apache.jena.riot RDFDataMgr RDFFormat]
+           [dk.cst.theophrastus.term LangString Literal]
            [org.apache.jena.rdf.model Model]
            [org.apache.jena.query Dataset]
            [java.io File StringWriter]
            [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
-
-(defn add-prefixes!
-  "Adds the DanNet prefixes, or the subset of them in `prefixes`, to the
-  `model`."
-  [^Model model & {:keys [prefixes]}]
-  (doseq [[prefix ns-iri] (cond->> prefix/prefixes
-                            prefixes (filter (comp prefixes symbol first)))]
-    (.setNsPrefix model (name prefix) (prefix/rdf-resource->uri ns-iri))))
 
 (defn- ttl-path
   [path]
@@ -37,38 +28,32 @@
         parent-dir (str/join "/" (butlast parts))]
     (str parent-dir "/" filename ".ttl")))
 
-;; TODO: alternative RDF formats will not match filepath given by ttl-path
 (defn export-rdf-model!
-  "Export the `model` to the given zip file `path`. Content defaults to Turtle.
+  "Export `db` as Turtle to the given zip file `path`.
 
   The DanNet prefixes are used for the output, although a desired subset of
   :prefixes may also be specified.
 
   When :validate is true, the written .ttl file is SHACL-validated against
   the base shapes before zipping; validation failure aborts the export
-  (see shapes/validate-export!).
-
-  See: https://jena.apache.org/documentation/io/rdf-output.html"
-  [path ^Model model & {:keys [fmt prefixes validate extra-files]
-                        :or   {fmt RDFFormat/TURTLE_PRETTY}}]
-  (let [ttl-file (ttl-path path)]
-    (txn/calculate model
-      (fn []
-        ;; Clear potentially imported prefixes, e.g. from TTL files
-        (.clearNsPrefixMap model)
-        (println "Exporting" path (str "(" (.size model) ")")
-                 "with prefixes:" (or prefixes "ALL"))
-        ;; Temporarily add prefixes for export
-        (add-prefixes! model :prefixes prefixes)
-        (io/make-parents path)
-        (with-open [out (io/output-stream ttl-file)]
-          (RDFDataMgr/write out model ^RDFFormat fmt))
-        ;; Release gate: validate exactly what ships, before it is zipped.
-        (when validate
-          (shapes/validate-export! ttl-file))
-        (zip/zip-files (into [ttl-file] extra-files) path)
-        ;; Clear temporarily added prefixes
-        (.clearNsPrefixMap model))))
+  (see shapes/validate-export!)."
+  [path db & {:keys [prefixes validate extra-files]}]
+  (let [ttl-file     (ttl-path path)
+        ^Model model (:model db)
+        prefixes'    (cond->> prefix/prefixes
+                       prefixes (into {} (filter (comp prefixes symbol key))))]
+    (txn/with-transaction model
+      (println "Exporting" path (str "(" (.size model) ")")
+               "with prefixes:" (or prefixes "ALL"))
+      (io/make-parents path)
+      ;; The export prefixes temporarily replace those of the model, e.g. the
+      ;; ones imported from TTL files.
+      (theo/write (theo/db model {:prefixes prefixes'}) ttl-file)
+      ;; Release gate: validate exactly what ships, before it is zipped.
+      (when validate
+        (shapes/validate-export! ttl-file))
+      (zip/zip-files (into [ttl-file] extra-files) path)
+      (.clearNsPrefixMap model)))
   nil)
 
 (defn- export-prefixes
@@ -141,29 +126,30 @@
   By default, the complete model is not exported. In the case of a typical
   inference-heavy DanNet instance, this would simply be too slow. To include the
   complete model as an export target, set :complete to true."
-  ([{:keys [model dataset] :as dannet} dir & {:keys [complete]
-                                              :or   {complete false}}]
+  ([{:keys [dataset inference] :as dannet} dir & {:keys [complete]
+                                                  :or   {complete false}}]
    (let [in-dir       (partial str dir)
          version      release/to
          complete-ttl (in-dir (prefix/export-file "rdf" 'dn "complete"))
-         model-uris   (txn/calculate-read dataset
-                        #(->> (iterator-seq (.listNames ^Dataset dataset))
-                              (remove prefix/not-for-export)
-                              (doall)))]
+         ^Dataset ds  (:dataset dataset)
+         model-uris   (txn/with-read-transaction ds
+                        (->> (iterator-seq (.listNames ds))
+                             (remove prefix/not-for-export)
+                             (doall)))]
      (println "Beginning RDF export of DanNet into" dir)
      (println "----")
 
      ;; The individual models contained in the dataset.
      (doseq [model-uri model-uris
-             :let [^Model model (db/get-model dataset model-uri)
-                   prefix       (prefix/uri->prefix model-uri)
-                   filename     (in-dir (prefix/export-file "rdf" prefix))]]
+             :let [graph    (prefix/uri->rdf-resource model-uri)
+                   prefix   (prefix/uri->prefix model-uri)
+                   filename (in-dir (prefix/export-file "rdf" prefix))]]
        ;; TODO: also gate the other named models (dnc, dns, cor, ...) once
        ;; shapes targeting their namespaces exist; today the SPARQL-based
        ;; targets are scoped to dn:, so validating them would be a no-op.
        (let [[tmp-dir extra-files] (stage-export-files! prefix version)]
          (try
-           (export-rdf-model! filename model
+           (export-rdf-model! filename (theo/named-graph dataset graph)
                               :prefixes (export-prefixes prefix)
                               :validate (= prefix 'dn)
                               :extra-files extra-files)
@@ -176,7 +162,7 @@
        (try
          (export-rdf-model!
            (in-dir (get-in prefix/oewn-extension [:download "rdf" :default]))
-           (db/get-model dataset prefix/oewn-extension-uri)
+           (theo/named-graph dataset prefix/oewn-extension-graph)
            :prefixes (get prefix/oewn-extension :export)
            :extra-files extra-files)
          (finally
@@ -185,7 +171,7 @@
      ;; The union of the input datasets and schemas + inferred triples.
      ;; This constitutes all data available in the DanNet web presence.
      (if complete
-       (export-rdf-model! complete-ttl model)
+       (export-rdf-model! complete-ttl inference)
        (println "(skipping export of complete.ttl)"))
 
      (println "----")
@@ -203,7 +189,7 @@
   Symbol
   (serialize [x] (str "_:" (subs (str x) 1)))
 
-  LangStr
+  LangString
   (serialize [x] (str \" (print-escape (str x)) "\"@" (term/lang x)))
 
   Literal
@@ -300,18 +286,22 @@
   (def dataset (:dataset @dk.cst.dannet.web.instance/db))
 
   ;; Export individual models
-  (export-rdf-model! "export/rdf/dannet.zip" (db/get-model dataset prefix/dn-uri)
+  (export-rdf-model! "export/rdf/dannet.zip"
+                     (theo/named-graph dataset prefix/dn-graph)
                      :prefixes (export-prefixes 'dn))
   ;; ... with the SHACL release gate enabled, as done by export-rdf!
-  (export-rdf-model! "export/rdf/dannet.zip" (db/get-model dataset prefix/dn-uri)
+  (export-rdf-model! "export/rdf/dannet.zip"
+                     (theo/named-graph dataset prefix/dn-graph)
                      :prefixes (export-prefixes 'dn)
                      :validate true)
-  (export-rdf-model! "export/rdf/dds.zip" (db/get-model dataset prefix/dds-uri)
+  (export-rdf-model! "export/rdf/dds.zip"
+                     (theo/named-graph dataset prefix/dds-graph)
                      :prefixes (export-prefixes 'dds))
-  (export-rdf-model! "export/rdf/cor.zip" (db/get-model dataset prefix/cor-uri)
+  (export-rdf-model! "export/rdf/cor.zip"
+                     (theo/named-graph dataset prefix/cor-graph)
                      :prefixes (export-prefixes 'cor))
   (export-rdf-model! "export/rdf/oewn-extension.zip"
-                     (db/get-model dataset prefix/oewn-extension-uri)
+                     (theo/named-graph dataset prefix/oewn-extension-graph)
                      :prefixes (get prefix/oewn-extension :export))
 
   ;; Export the entire dataset as RDF

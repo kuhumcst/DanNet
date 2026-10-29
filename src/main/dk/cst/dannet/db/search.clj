@@ -2,7 +2,8 @@
   "Graph database search functionality."
   (:require [clojure.set :as set]
             [flatland.ordered.map :as fop]
-            [dk.cst.theophrastus.term :refer [->LangStr]]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.term :refer [->LangString]]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]))
 
@@ -19,8 +20,8 @@
 (def label-lookup
   (memoize
     (fn [g]
-      (let [search-labels   (q/run g op/synset-search-labels)
-            ontotype-labels (q/run g op/ontotype-labels)]
+      (let [search-labels   (theo/q g op/synset-search-labels)
+            ontotype-labels (theo/q g op/ontotype-labels)]
         (merge (set/rename-keys (apply merge-with q/set-merge search-labels)
                                 sym->kw)
                (->> (for [{:syms [?ontotype ?label]} ontotype-labels]
@@ -28,10 +29,10 @@
                     (apply merge-with q/set-merge)))))))
 
 (defn look-up
-  "Look up synsets in Graph `g` based on the given `lemma`."
+  "Look up synsets in `g` based on the given `lemma`."
   [g lemma]
   (let [k->label (label-lookup g)]
-    (->> (q/run g op/synset-search {'?lemma (->LangStr lemma "da")})
+    (->> (theo/q g op/synset-search {'?lemma (->LangString lemma "da")})
          (group-by '?synset)
          (map (fn [[k ms]]
                 (let [{:syms [?label ?shortLabel ?synset]
@@ -56,6 +57,6 @@
 
 (comment
   ;; Look up synsets based on the lemma "have"
-  (look-up (:graph @dk.cst.dannet.web.instance/db) "have")
-  (label-lookup (:graph @dk.cst.dannet.web.instance/db))
+  (look-up (:inference @dk.cst.dannet.web.instance/db) "have")
+  (label-lookup (:inference @dk.cst.dannet.web.instance/db))
   #_.)

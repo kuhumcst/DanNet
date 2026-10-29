@@ -8,10 +8,9 @@
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
-            [dk.cst.dannet.db :as db]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.shared :as shared])
   (:import [java.util.zip GZIPOutputStream]))
@@ -130,7 +129,7 @@
   "Synset -> its hypernyms of another part of speech in the graph `g`, which
   the export leaves out."
   [g]
-  (->> (q/run g op/cross-pos-hypernymy)
+  (->> (theo/q g op/cross-pos-hypernymy)
        (map (fn [{:syms [?synset ?hypernym]}]
               {?synset (shared/setify ?hypernym)}))
        (apply merge-with set/union)))
@@ -280,7 +279,7 @@
   (loop [out []
          [rel & rels] supported-wn-relations]
     (if rel
-      (recur (->> (q/run g (->wn-relations-query rel))
+      (recur (->> (theo/q g (->wn-relations-query rel))
                   (map #(assoc % '?rel rel))
                   (concat out))
              rels)
@@ -309,28 +308,28 @@
 
   These hold the rows of each lexical entry, the relation rows of each synset
   and the attributes, definition and examples of each synset."
-  [{:keys [dataset graph] :as db}]
-  (let [dannet-graph          (db/get-graph dataset prefix/dn-uri)
+  [{:keys [dataset inference] :as db}]
+  (let [dannet-graph          (theo/named-graph dataset prefix/dn-graph)
         excluded-hypernyms    (excluded-hypernymy dannet-graph)
         excluded-hyponyms     (map-invert-multi excluded-hypernyms)
         lexical-entry-res     (label-time
                                 'lexical-entry-res
-                                (q/run dannet-graph lexical-entry-query))
+                                (theo/q dannet-graph lexical-entry-query))
         sense-example-res     (label-time
                                 'sense-example-res
-                                (q/run dannet-graph sense-example-query))
+                                (theo/q dannet-graph sense-example-query))
         ili-query-res         (label-time
                                 'ili-query-res
-                                (q/run dannet-graph ili-query))
+                                (theo/q dannet-graph ili-query))
         definition-query-res  (label-time
                                 'definition-query-res
-                                (q/run dannet-graph definition-query))
+                                (theo/q dannet-graph definition-query))
         supersense-query-res  (label-time
                                 'supersense-query-res
-                                (q/run dannet-graph supersense-query))
+                                (theo/q dannet-graph supersense-query))
         get-relations-res     (label-time
                                 'get-supported-relations
-                                (get-supported-relations graph))
+                                (get-supported-relations inference))
         lexical-entry-res'    (remove (comp excluded-synsets '?synset)
                                       lexical-entry-res)
         entry-synset-grouping (group-by '?synset lexical-entry-res')
@@ -422,7 +421,8 @@
   (println "WN-LMF export of DanNet complete!"))
 
 (comment
-  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.instance/db) prefix/dn-uri)]
+  (let [g (theo/named-graph (:dataset @dk.cst.dannet.web.instance/db)
+                            prefix/dn-graph)]
     (get (excluded-hypernymy g) :dn/synset-30829))
   (xml-str (run-queries @dk.cst.dannet.web.instance/db))
   (time (export-xml! @dk.cst.dannet.web.instance/db

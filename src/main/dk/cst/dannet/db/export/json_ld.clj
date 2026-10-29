@@ -8,7 +8,7 @@
             [flatland.ordered.map :as fop]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.theophrastus.term :as term])
-  (:import [dk.cst.theophrastus.term LangStr Literal]))
+  (:import [dk.cst.theophrastus.term LangString Literal]))
 
 (defn entity->prefixes
   "Extract unique prefixes from namespaced keywords in RDF resource `entity`."
@@ -48,7 +48,7 @@
   "Transform `v` into a valid JSON-LD representation."
   [v]
   (cond
-    (instance? LangStr v)
+    (instance? LangString v)
     {"@value"    (str v)
      "@language" (term/lang v)}
 
@@ -64,7 +64,7 @@
            ;; Removes any labels that are not in Danish or English
            ;; TODO: consider filtering languages dynamically based on prefs
            (filter (fn [x]
-                     (if (instance? LangStr x)
+                     (if (instance? LangString x)
                        (get #{"da" "en"} (term/lang x))
                        true)))
            (map transform-value)))
@@ -158,7 +158,7 @@
 
   ;; testing with a real entity
   (let [entity         (dk.cst.dannet.db.query/expanded-entity
-                         (:graph @dk.cst.dannet.web.instance/db)
+                         (:inference @dk.cst.dannet.web.instance/db)
                          :dn/synset-s50002104)
         graph-entities (map (fn [[subject entity]] (assoc entity :rdf/about subject))
                             (:entities (meta entity)))]

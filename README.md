@@ -246,7 +246,7 @@ When releasing a new version of the database:
    (dk.cst.dannet.db.export.dmlex/export-dmlex-variants! @dk.cst.dannet.web.instance/db "export/dmlex/")
    ;; ~6 minutes
    (dk.cst.dannet.db.query/save-synset-indegrees!
-     (:graph @dk.cst.dannet.web.instance/db))
+     (:inference @dk.cst.dannet.web.instance/db))
    ```
    This writes `export/rdf/` (`dannet.zip`, `cor.zip`, `cor-sem.zip`,
    `framenet.zip`, `dds.zip`, `oewn-extension.zip`), `export/csv/dannet-csv.zip`,
@@ -262,7 +262,7 @@ When releasing a new version of the database:
 
 5. Compact the database, then zip it on the dev machine, ready for transfer:
    ```clojure
-   (dk.cst.dannet.db/compact! (:dataset @dk.cst.dannet.web.instance/db))
+   (dk.cst.theophrastus.tdb2/compact! (:dataset @dk.cst.dannet.web.instance/db))
    ```
    TDB2 only reclaims the space left by in-place updates when compacted, and
    writes a new `Data-000N` generation, so restart the service afterwards.

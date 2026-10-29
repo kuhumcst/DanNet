@@ -7,10 +7,10 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
-            [dk.cst.theophrastus.txn :as txn]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
-  (:import [org.apache.jena.query QueryFactory QueryExecutionFactory]
-           [org.apache.poi.common.usermodel HyperlinkType]
+  (:import [org.apache.poi.common.usermodel HyperlinkType]
            [org.apache.poi.ss.usermodel BorderStyle CellType FillPatternType Font IndexedColors]
            [org.apache.poi.ss.util CellRangeAddressList]
            [org.apache.poi.xssf.usermodel XSSFDataValidationHelper]))
@@ -126,27 +126,17 @@
    }")
 
 (defn fetch-all-senses
-  "Fetch all Danish senses in one bulk query to `model`, returning a map of
-  lemma -> deduplicated sense vectors. Grouping and deduplication happen
-  outside the Jena transaction (large update-vals inside the read transaction
-  causes segment errors)."
-  [model]
-  (let [raw (txn/calculate-read model
-              (fn []
-                (let [query (QueryFactory/create all-senses-query)]
-                  (with-open [qe (QueryExecutionFactory/create query model)]
-                    (let [rs (.execSelect qe)]
-                      (loop [acc []]
-                        (if (.hasNext rs)
-                          (let [sol (.next rs)]
-                            (recur (conj acc
-                                         {:lemma (.getString (.getLiteral sol "lemma"))
-                                          :sense (.getURI (.getResource sol "sense"))
-                                          :label (.getString (.getLiteral sol "label"))
-                                          :def   (when-let [d (.get sol "def")]
-                                                   (.getString (.asLiteral d)))})))
-                          acc)))))))]
-    (update-vals (group-by :lemma raw) dedup-senses)))
+  "Fetch all Danish senses in one bulk query to `g`, returning a map of
+  lemma -> deduplicated sense vectors."
+  [g]
+  (-> (->> (theo/q g all-senses-query)
+           (map (fn [{:syms [?lemma ?sense ?label ?def]}]
+                  {:lemma (str ?lemma)
+                   :sense (prefix/kw->uri ?sense)
+                   :label (str ?label)
+                   :def   (some-> ?def str)}))
+           (group-by :lemma))
+      (update-vals dedup-senses)))
 
 ;; Root rows are marked with "-" in derived-from, qualia-role, and relation
 ;; since those fields only apply to the metaphor sense. Virtual sense IDs
@@ -502,10 +492,8 @@
 (comment
   (require '[dk.cst.dannet.web.instance :as instance])
 
-  (def model (:model @instance/db))
-
   ;; Fetch all senses (bulk, ~2 min)
-  (def senses-by-lemma (fetch-all-senses model))
+  (def senses-by-lemma (fetch-all-senses (:inference @instance/db)))
 
   ;; Load spreadsheet and generate output
   (def rows (load-sheet :SN-DDO SN-columns))

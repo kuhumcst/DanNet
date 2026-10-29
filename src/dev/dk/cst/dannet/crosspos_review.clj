@@ -14,7 +14,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [dk.ative.docjure.spreadsheet :as xl]
-            [dk.cst.dannet.db :as db]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
@@ -159,19 +159,19 @@
   [g]
   (let [labels (into {} (map (juxt '?s (comp str '?o)))
                      (q/triples g ['_ :rdfs/label '_]))
-        pos    (q/run g "SELECT ?synset ?pos
-                         WHERE {
-                           ?synset ontolex:lexicalizedSense ?sense .
-                           ?word ontolex:sense ?sense ;
-                                 wn:partOfSpeech ?pos .
-                         }")
-        lemmas (q/run g "SELECT ?synset ?rep
-                         WHERE {
-                           ?synset ontolex:lexicalizedSense ?sense .
-                           ?word ontolex:sense ?sense ;
-                                 ontolex:canonicalForm ?form .
-                           ?form ontolex:writtenRep ?rep .
-                         }")]
+        pos    (theo/q g "SELECT ?synset ?pos
+                          WHERE {
+                            ?synset ontolex:lexicalizedSense ?sense .
+                            ?word ontolex:sense ?sense ;
+                                  wn:partOfSpeech ?pos .
+                          }")
+        lemmas (theo/q g "SELECT ?synset ?rep
+                          WHERE {
+                            ?synset ontolex:lexicalizedSense ?sense .
+                            ?word ontolex:sense ?sense ;
+                                  ontolex:canonicalForm ?form .
+                            ?form ontolex:writtenRep ?rep .
+                          }")]
     (as-> (into {} (map (fn [[s l]] [s {:label l}])) labels) $
           (reduce (fn [m {:syms [?synset ?pos]}]
                     (update-in m [?synset :pos] (fnil conj #{}) ?pos))
@@ -467,7 +467,7 @@
 (defn regenerate!
   "Rewrite both review workbooks from `dataset`, preserving manual columns."
   [dataset]
-  (let [g        (db/get-graph dataset prefix/dn-uri)
+  (let [g        (theo/named-graph dataset prefix/dn-graph)
         idx      (index g)
         flagged  (flagged-pairs g idx)
         deferred (deferred-crosspos g)

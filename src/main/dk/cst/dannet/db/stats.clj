@@ -19,8 +19,7 @@
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
-            [dk.cst.dannet.db :as db]
-            [dk.cst.dannet.db.query :as q]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]))
@@ -367,7 +366,7 @@
   ([g where var]
    (let [aggregate (if var (str "COUNT(DISTINCT " var ")") "COUNT(*)")
          query     (op/sparql "SELECT (" aggregate " AS ?n) WHERE { " where " }")]
-     (or (some-> (q/run g query) first (get '?n)) 0))))
+     (or (some-> (theo/q g query) first (get '?n)) 0))))
 
 (defn relation-edges
   "The asserted [source relation target] triples of wn: and dns: relations
@@ -376,8 +375,8 @@
   dns:subsumed is not a relation: it links a synset to the id of a removed
   one."
   [g]
-  (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { ?s ?p ?o . "
-                           (synset-filter "?s") (synset-filter "?o") " }"))
+  (->> (theo/q g (op/sparql "SELECT ?s ?p ?o WHERE { ?s ?p ?o . "
+                            (synset-filter "?s") (synset-filter "?o") " }"))
        (keep (fn [{:syms [?s ?p ?o]}]
                (when (and (#{"wn" "dns"} (namespace ?p))
                           (not= :dns/subsumed ?p))
@@ -387,10 +386,10 @@
   "The [source relation target] triples that an owl:NegativePropertyAssertion
   denies for dn: synsets in the base graph `g`."
   [g]
-  (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { "
-                           "?n a owl:NegativePropertyAssertion ; "
-                           "owl:sourceIndividual ?s ; owl:assertionProperty ?p ; "
-                           "owl:targetIndividual ?o . " (synset-filter "?s") " }"))
+  (->> (theo/q g (op/sparql "SELECT ?s ?p ?o WHERE { "
+                            "?n a owl:NegativePropertyAssertion ; "
+                            "owl:sourceIndividual ?s ; owl:assertionProperty ?p ; "
+                            "owl:targetIndividual ?o . " (synset-filter "?s") " }"))
        (map (fn [{:syms [?s ?p ?o]}] [?s ?p ?o]))))
 
 (defn similar-breakdown
@@ -406,7 +405,7 @@
   "The owl:inverseOf pairs declared by the schemas in graph `g`, as a map in
   both directions."
   [g]
-  (->> (q/run g (op/sparql "SELECT ?p ?q WHERE { ?p owl:inverseOf ?q }"))
+  (->> (theo/q g (op/sparql "SELECT ?p ?q WHERE { ?p owl:inverseOf ?q }"))
        (mapcat (fn [{:syms [?p ?q]}] [[?p ?q] [?q ?p]]))
        (into {})))
 
@@ -509,16 +508,16 @@
   "The lime and void statistics every dataset declares about itself in the
   base union graph `g`."
   [g]
-  (->> (q/run g (op/sparql
-                  "SELECT DISTINCT ?d ?triples ?entries ?concepts ?lexicalizations
-                   WHERE {
-                     VALUES ?type { dcat:Dataset lime:Lexicon }
-                     ?d a ?type .
-                     OPTIONAL { ?d void:triples ?triples }
-                     OPTIONAL { ?d lime:lexicalEntries ?entries }
-                     OPTIONAL { ?d lime:concepts ?concepts }
-                     OPTIONAL { ?d lime:lexicalizations ?lexicalizations }
-                   }"))
+  (->> (theo/q g (op/sparql
+                   "SELECT DISTINCT ?d ?triples ?entries ?concepts ?lexicalizations
+                    WHERE {
+                      VALUES ?type { dcat:Dataset lime:Lexicon }
+                      ?d a ?type .
+                      OPTIONAL { ?d void:triples ?triples }
+                      OPTIONAL { ?d lime:lexicalEntries ?entries }
+                      OPTIONAL { ?d lime:concepts ?concepts }
+                      OPTIONAL { ?d lime:lexicalizations ?lexicalizations }
+                    }"))
        (map (fn [{:syms [?d ?triples ?entries ?concepts ?lexicalizations]}]
               [(str ?d) ?triples ?entries ?concepts ?lexicalizations]))
        (sort-by first)
@@ -528,14 +527,13 @@
   "The statistics of the live db map `dannet`: the asserted dn: graph for the
   counts, the base union graph for the links to other datasets, and the
   inference graph for the navigable relations."
-  [{:keys [dataset graph] :as dannet}]
-  (let [dn        (db/get-graph dataset prefix/dn-uri)
-        base      (.getGraph (.getUnionModel dataset))
+  [{:keys [dataset base inference] :as dannet}]
+  (let [dn        (theo/named-graph dataset prefix/dn-graph)
         edges     (relation-edges dn)
-        synsets   (->> (q/run dn op/synsets)
+        synsets   (->> (theo/q dn op/synsets)
                        (map '?synset))
         relations (frequencies (map second edges))
-        inverses  (inverse-relations graph)]
+        inverses  (inverse-relations inference)]
     {:version     release/to
      :synsets     (count synsets)
      :senses      (count-in dn "?s a ontolex:LexicalSense")
@@ -549,7 +547,7 @@
      :degrees     (degree-stats synsets edges)
      :similar     (similar-breakdown edges)
      :closure     (inverse-closure inverses edges)
-     :navigable   (navigable-relations graph inverses (keys relations))
+     :navigable   (navigable-relations inference inverses (keys relations))
      :links       (count-links base)
      :datasets    (dataset-stats base)}))
 
@@ -562,16 +560,16 @@
   "The asserted [synset relation target] links from dn: synsets to the OEWN
   and the ILI in graph `g`."
   [g]
-  (->> (q/run g (op/sparql "SELECT ?s ?p ?o WHERE { VALUES ?p { wn:eq_synonym "
-                           "wn:ili dns:eqHypernym dns:eqHyponym dns:eqSimilar } "
-                           "?s ?p ?o . " (synset-filter "?s") " }"))
+  (->> (theo/q g (op/sparql "SELECT ?s ?p ?o WHERE { VALUES ?p { wn:eq_synonym "
+                            "wn:ili dns:eqHypernym dns:eqHyponym dns:eqSimilar } "
+                            "?s ?p ?o . " (synset-filter "?s") " }"))
        (map (fn [{:syms [?s ?p ?o]}] [?s ?p ?o]))))
 
 (defn oewn-synsets-by-ili
   "The OEWN synsets of each ILI concept in graph `g`."
   [g]
-  (->> (q/run g (op/sparql "SELECT ?e ?i WHERE { ?e wn:ili ?i . "
-                           "FILTER(STRSTARTS(STR(?e), \"" prefix/oewn-uri "\")) }"))
+  (->> (theo/q g (op/sparql "SELECT ?e ?i WHERE { ?e wn:ili ?i . "
+                            "FILTER(STRSTARTS(STR(?e), \"" prefix/oewn-uri "\")) }"))
        (reduce (fn [m {:syms [?e ?i]}] (update m ?i (fnil conj #{}) ?e)) {})))
 
 (defn english-targets
@@ -631,12 +629,12 @@
   "What became of the DanNet 2.2 links to Princeton WordNet in the legacy CSV
   release in `dir`, and the origin of the current links of the live db map
   `dannet`; see legacy-link-outcomes and link-origins."
-  [dir {:keys [dataset] :as dannet}]
+  [dir {:keys [dataset base] :as dannet}]
   (let [rows    (->> (read-legacy-rows (io/file dir "relations.csv"))
                      (filter (comp cross-lingual-relations second)))
-        oewn    (oewn-synsets-by-ili (.getGraph (.getUnionModel dataset)))
+        oewn    (oewn-synsets-by-ili base)
         targets (english-targets english-dir oewn)
-        links   (link-edges (db/get-graph dataset prefix/dn-uri))]
+        links   (link-edges (theo/named-graph dataset prefix/dn-graph))]
     {:outcomes (legacy-link-outcomes targets links rows)
      :origins  (link-origins targets links rows)}))
 
@@ -852,7 +850,7 @@
   ([dannet dir legacy-dir]
    (println "Computing statistics against" legacy-dir)
    (let [current (current-stats dannet)
-         legacy  (legacy-stats legacy-dir (inverse-relations (:graph dannet)))
+         legacy  (legacy-stats legacy-dir (inverse-relations (:inference dannet)))
          links   (link-stats legacy-dir dannet)
          tables  (paper-tables legacy current links)
          in-dir  (partial str dir)]
@@ -899,10 +897,10 @@ include them.
   doc/relation-mapping.md, with the DanNet 2.2 release in `legacy-dir`."
   ([dannet]
    (export-relation-mapping! dannet "doc/relation-mapping.md" legacy-dir))
-  ([{:keys [dataset graph] :as dannet} f legacy-dir]
+  ([{:keys [dataset inference] :as dannet} f legacy-dir]
    (let [rows     (read-legacy-rows (io/file legacy-dir "relations.csv"))
-         dn       (db/get-graph dataset prefix/dn-uri)
-         outcomes (relation-outcomes (inverse-relations graph) rows
+         dn       (theo/named-graph dataset prefix/dn-graph)
+         outcomes (relation-outcomes (inverse-relations inference) rows
                                      (relation-edges dn)
                                      (set (negated-edges dn)))
          table    (mapping-table rows outcomes release/to)]
@@ -911,7 +909,7 @@ include them.
      table)))
 
 (comment
-  (legacy-stats legacy-dir (inverse-relations (:graph @dk.cst.dannet.web.instance/db)))
+  (legacy-stats legacy-dir (inverse-relations (:inference @dk.cst.dannet.web.instance/db)))
   (current-stats @dk.cst.dannet.web.instance/db)
   (export-stats! @dk.cst.dannet.web.instance/db)
   (export-relation-mapping! @dk.cst.dannet.web.instance/db)

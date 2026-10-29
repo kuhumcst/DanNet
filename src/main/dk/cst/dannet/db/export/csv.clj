@@ -6,8 +6,8 @@
             [clojure.walk :as walk]
             [clojure.data.json :as json]
             [clj-file-zip.core :as zip]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.txn :as txn]
-            [dk.cst.dannet.db :as db]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
@@ -197,20 +197,19 @@
   The function basically exists because I wasn't able to perform a similar query
   in a performant way, e.g. doing this for all synsets would take ~45 minutes."
   [^Model model synset]
-  (txn/calculate-read model
-    (fn []
-      (->> (prefix/kw->uri synset)
-           (.getResource model)
-           (.listProperties)
-           (iterator-seq)
-           (keep (fn [^Statement statement]
-                   (let [prefix (str prefix/dn-uri "synset-")
-                         obj    (str (.getObject statement))]
-                     (when (str/starts-with? obj prefix)
-                       [synset
-                        (str (.getPredicate statement))
-                        (keyword "dn" (subs obj (count prefix/dn-uri)))]))))
-           (doall)))))
+  (txn/with-read-transaction model
+    (->> (prefix/kw->uri synset)
+         (.getResource model)
+         (.listProperties)
+         (iterator-seq)
+         (keep (fn [^Statement statement]
+                 (let [prefix (str prefix/dn-uri "synset-")
+                       obj    (str (.getObject statement))]
+                   (when (str/starts-with? obj prefix)
+                     [synset
+                      (str (.getPredicate statement))
+                      (keyword "dn" (subs obj (count prefix/dn-uri)))]))))
+         (doall))))
 
 (defn export-csv-rows!
   "Write CSV `rows` to file `f`."
@@ -240,7 +239,7 @@
   ([{:keys [dataset] :as dannet} dir]
    (println "Beginning CSV export of DanNet into" dir)
    (println "----")
-   (let [g          (db/get-graph dataset prefix/dn-uri)
+   (let [g          (theo/named-graph dataset prefix/dn-graph)
          synsets-ks '[?synset ?definition ?onto]
          words-ks   '[?word ?writtenRep ?pos ?rdfType]
          senses-ks  '[?sense ?synset ?word ?note]
@@ -266,19 +265,18 @@
                            [(name ?synset)
                             (prefix/kw->uri ?rel)
                             (name ?from)])
-                         (q/run g op/csv-inheritance))
+                         (theo/q g op/csv-inheritance))
                     inheritance-metadata)
 
      (println "Fetching example data...")
      (export-table! dir "examples"
                     (map (comp csv-row (juxt '?sense '?example))
-                         (q/run g op/csv-examples))
+                         (theo/q g op/csv-examples))
                     examples-metadata)
 
      (println "Fetching synset relations...")
-     (let [model           (db/get-model dataset prefix/dn-uri)
-           synset->triples (partial synset-rel-table model)
-           synsets         (->> (q/run g op/synsets)
+     (let [synset->triples (partial synset-rel-table (:model g))
+           synsets         (->> (theo/q g op/synsets)
                                 (map '?synset)
                                 (set))]
        (export-table! dir "relations"
@@ -308,7 +306,7 @@
   (export-metadata! "synsets-metadata.json" synsets-metadata)
 
   ;; Generate new synset labels for Thomas Troelsgård
-  (->> (q/run (:graph @dk.cst.dannet.web.instance/db) op/synset-long-short-labels)
+  (->> (theo/q (:inference @dk.cst.dannet.web.instance/db) op/synset-long-short-labels)
        (map (fn [{:syms [?synset ?label ?shortLabel]}]
               [(second (str/split (name ?synset) #"-s?"))
                (->> (or ?shortLabel ?label)
@@ -322,7 +320,8 @@
        (export-csv-rows! "synset-labels.csv"))
 
   ;; Test CSV table data
-  (let [g (db/get-graph (:dataset @dk.cst.dannet.web.instance/db) prefix/dn-uri)]
+  (let [g (theo/named-graph (:dataset @dk.cst.dannet.web.instance/db)
+                            prefix/dn-graph)]
     (->> (q/table-query g '[?synset ?definition ?onto] op/csv-synsets)
          (take 10)))
   #_.)

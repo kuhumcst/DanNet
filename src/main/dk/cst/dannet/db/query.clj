@@ -12,35 +12,8 @@
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.query.operation :as op])
-  (:import [dk.cst.theophrastus Db]
-           [org.apache.jena.graph Graph]
-           [org.apache.jena.query Dataset]
-           [org.apache.jena.rdf.model Model ModelFactory]
-           [org.apache.jena.reasoner BaseInfGraph]
+  (:import [org.apache.jena.reasoner BaseInfGraph]
            [org.apache.jena.reasoner.rulesys FBRuleInfGraph]))
-
-(defn ->db
-  "The Theophrastus db of `x`, a Jena Graph, Model or Dataset, with the DanNet
-  prefixes, or `x` itself when it is a db already.
-
-  Unlike theophrastus/db, it leaves the prefixes stored in `x` as they are,
-  since comparing them costs about half a millisecond on TDB2."
-  [x]
-  (condp instance? x
-    Db x
-    Graph (->db (ModelFactory/createModelForGraph x))
-    Model (theo/->Db x nil prefix/prefixes)
-    Dataset (theo/->Db nil x prefix/prefixes)
-    (throw (ex-info (str "Not a Graph, Model or Dataset: " x) {:x x}))))
-
-(defn run
-  "Run the SPARQL `query`, a string or a Jena Query, on `g` with the `bindings`
-  of its variables, e.g. {'?s :dn/synset-1}, in a read transaction. A SELECT
-  returns a vector of maps of variable to value."
-  ([g query]
-   (run g query nil))
-  ([g query bindings]
-   (theo/q query (->db g) bindings)))
 
 (defn triples
   "The triples of `g` that match the `pattern` [s p o], as maps of ?s, ?p and
@@ -48,7 +21,7 @@
   [g pattern]
   (->> (zipmap '[?s ?p ?o] pattern)
        (into {} (remove (comp #{'_} val)))
-       (run g op/triples)))
+       (theo/q g op/triples)))
 
 ;; TODO: replace with fnil in all places where update is used anyway
 (defn set-merge
@@ -78,12 +51,16 @@
             entity-query-result)))
 
 (defn find-raw
-  "Return the raw entity query result for `subject` in `g` (no inference)."
-  [^FBRuleInfGraph g subject]
-  (let [query-graph (fn [graph] (triples graph [subject '_ '_]))
-        triple-keys (fn [result] (select-keys result '[?s ?p ?o]))
-        xf          (comp (mapcat query-graph) (map triple-keys))]
-    (into #{} xf [(.getSchemaGraph g) (.getRawGraph g)])))
+  "Return the raw entity query result for `subject` in the inference db `g`,
+  from its schema and raw graphs (no inference)."
+  [g subject]
+  (let [^FBRuleInfGraph inf (theo/jena-graph g)
+        query-graph         (fn [graph]
+                              (-> (theo/db graph {:prefixes (:prefixes g)})
+                                  (triples [subject '_ '_])))
+        triple-keys         (fn [result] (select-keys result '[?s ?p ?o]))
+        xf                  (comp (mapcat query-graph) (map triple-keys))]
+    (into #{} xf [(.getSchemaGraph inf) (.getRawGraph inf)])))
 
 (defn inferred-entity
   "Determine inferred parts of `result` given `raw-result` triples."
@@ -179,7 +156,7 @@
    (save-synset-indegrees! g indegrees-export))
   ([g dest]
    (io/make-parents dest)
-   (->> (run g op/synset-indegree)
+   (->> (theo/q g op/synset-indegree)
         (map (juxt '?o '?indegree))
         (sort-by first)
         (pprint/pprint)
@@ -223,7 +200,7 @@
   strings) from graph `g`. Returns `{resource {label-type #{label-values}}}`."
   [g resources]
   (when (seq resources)
-    (let [result (run g op/resource-labels {'?resource resources})]
+    (let [result (theo/q g op/resource-labels {'?resource resources})]
       (persistent!
         (reduce
           (fn [acc {:syms [?resource ?labelRel ?label]}]
@@ -472,7 +449,7 @@
           (vals entity))))
 
 (defn- expanded-entity*
-  "Return the expanded entity description of `subject` in Graph `g`."
+  "Return the expanded entity description of `subject` in `g`."
   [g subject]
   (if-let [result (not-empty (triples g [subject '_ '_]))]
     (let [entity+   (->> (basic-entity result)
@@ -493,7 +470,7 @@
           entity*   (with-meta entity+
                                (cond-> {:entities entities+
                                         :subject  subject}
-                                 (instance? BaseInfGraph g)
+                                 (instance? BaseInfGraph (theo/jena-graph g))
                                  (assoc :inferred (inferred-entity result (find-raw g subject)))))]
       (cond
         (shared/dn-synset? subject entity*)
@@ -532,13 +509,13 @@
   values contained in the resulting table rows."
   [g ks q]
   (map (fn [m] (mapv m ks))
-       (-> (group-by #(get % (first ks)) (run g q))
+       (-> (group-by #(get % (first ks)) (theo/q g q))
            (update-vals #(apply merge-with set-merge %))
            (vals))))
 
 (comment
-  (entity (:graph @dk.cst.dannet.web.instance/db) :dn/synset-1771)
-  (gathered-sense-values (:graph @dk.cst.dannet.web.instance/db)
+  (entity (:inference @dk.cst.dannet.web.instance/db) :dn/synset-1771)
+  (gathered-sense-values (:inference @dk.cst.dannet.web.instance/db)
                          :dn/synset-3047 :lexinfo/senseExample)
-  (hypernym-ancestry (:graph @dk.cst.dannet.web.instance/db) :dn/synset-3047)
+  (hypernym-ancestry (:inference @dk.cst.dannet.web.instance/db) :dn/synset-3047)
   #_.)

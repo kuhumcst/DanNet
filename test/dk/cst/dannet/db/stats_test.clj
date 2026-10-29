@@ -113,7 +113,7 @@ dn:synset-3 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 .
 ")
 
 (deftest current-queries
-  (let [g (util/ttl->graph (str prefixes fixture))]
+  (let [g (util/ttl->db (str prefixes fixture))]
     (is (= {:wn/hypernym 2 :dns/usedFor 1}
            (frequencies (map second (stats/relation-edges g)))))
     (is (= 3 (stats/count-in g "?s a ontolex:LexicalConcept")))
@@ -121,7 +121,7 @@ dn:synset-3 a ontolex:LexicalConcept ; wn:hypernym dn:synset-2 .
     (is (= 1 (stats/count-in g "?s wn:hypernym ?o" "?o"))))
   (testing "a negation surfaces as the edge it denies"
     (is (= [[:dn/synset-3 :dns/usedFor :dn/synset-1]]
-           (stats/negated-edges (util/ttl->graph (str prefixes "
+           (stats/negated-edges (util/ttl->db (str prefixes "
 [] a owl:NegativePropertyAssertion ; owl:sourceIndividual dn:synset-3 ;
   owl:assertionProperty dns:usedFor ; owl:targetIndividual dn:synset-1 .")))))))
 

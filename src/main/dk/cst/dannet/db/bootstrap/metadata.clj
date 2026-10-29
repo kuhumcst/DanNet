@@ -2,7 +2,8 @@
   "The DanNet dataset metadata applied during bootstrapping."
   (:require [clojure.set :as set]
             [taoensso.telemere :as t]
-            [dk.cst.theophrastus.term :refer [->LangStr]]
+            [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.term :refer [->LangString]]
             [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.hash :as h]
@@ -15,12 +16,12 @@
 (defn da
   "Concatenate `s` into a literal tagged as Danish (da)."
   [& s]
-  (->LangStr (apply str s) "da"))
+  (->LangString (apply str s) "da"))
 
 (defn en
   "Concatenate `s` into a literal tagged as English (en)."
   [& s]
-  (->LangStr (apply str s) "en"))
+  (->LangString (apply str s) "en"))
 
 (def <simongray>
   "<https://simongray.dk>")
@@ -90,18 +91,18 @@
          [source :rdfs/seeAlso v])))
 
 (h/defn update-metadata!
-  "Remove old dataset metadata from `model` and add current `dataset-metadata`.
+  "Remove old dataset metadata from `graph` and add current `dataset-metadata`.
 
   The resources to remove are derived from the subjects of the incoming
   `dataset-metadata` rather than kept in a hand-maintained list, ensuring that
   the removals can never go out of date as metadata is added or changed from
   release to release."
-  [dataset-metadata model]
+  [dataset-metadata graph]
   (t/log! {:level :debug :id :dannet.bootstrap/update-metadata}
           "Updating dataset metadata")
   (doseq [rdf-resource (set (map first dataset-metadata))]
-    (db/remove! model [rdf-resource '_ '_]))
-  (db/safe-add! (.getGraph ^Model model) dataset-metadata))
+    (theo/retract! graph [rdf-resource '_ '_]))
+  (db/safe-add! graph dataset-metadata))
 
 (h/defn metadata
   "The dataset metadata triples, keyed by graph prefix.
@@ -263,17 +264,19 @@
             [<framenet> :rdfs/seeAlso (prefix/uri->rdf-resource "https://premon.fbk.eu/")]}})
 
 (defn- count-type
-  "Count the number of instances of `rdf-type` in `model`."
-  [^Model model rdf-type]
-  (txn/calculate-read model
-    #(count (iterator-seq
-              (.listStatements model nil RDF/type
-                               (.createResource model (prefix/kw->uri rdf-type)))))))
+  "Count the number of instances of `rdf-type` in `graph`."
+  [graph rdf-type]
+  (let [^Model model (:model graph)]
+    (txn/with-read-transaction model
+      (count (iterator-seq
+               (.listStatements model nil RDF/type
+                                (.createResource model (prefix/kw->uri rdf-type))))))))
 
 (defn- triple-count
-  "Count the total number of triples in `model`."
-  [^Model model]
-  (txn/calculate-read model #(.size model)))
+  "Count the total number of triples in `graph`."
+  [graph]
+  (let [^Model model (:model graph)]
+    (txn/with-read-transaction model (.size model))))
 
 (defn- avg
   "The ratio of `n` to `d` rounded to two decimal places; nil when undefined."
@@ -291,40 +294,40 @@
   exported. Stale statistics never survive a rebuild since update-metadata!
   removes every dataset resource triple during the initial import."
   [dataset]
-  (let [dn-model  (db/get-model dataset prefix/dn-uri)
-        dds-model (db/get-model dataset prefix/dds-uri)
-        cor-model (db/get-model dataset prefix/cor-uri)
-        sem-model (db/get-model dataset prefix/cor-sem-uri)
+  (let [dn       (theo/named-graph dataset prefix/dn-graph)
+        dds      (theo/named-graph dataset prefix/dds-graph)
+        cor      (theo/named-graph dataset prefix/cor-graph)
+        sem      (theo/named-graph dataset prefix/cor-sem-graph)
         ;; dn: words are typed ontolex:Word, ontolex:MultiwordExpression or
         ;; ontolex:Affix -- never ontolex:LexicalEntry directly.
-        entries   (+ (count-type dn-model :ontolex/Word)
-                     (count-type dn-model :ontolex/MultiwordExpression)
-                     (count-type dn-model :ontolex/Affix))
-        senses    (count-type dn-model :ontolex/LexicalSense)
-        concepts  (count-type dn-model :ontolex/LexicalConcept)]
-    (doseq [[^Model model triples]
-            [[dn-model [[<dn> :lime/language "da"]
-                        [<dn> :lime/lexicalEntries entries]
-                        [<dn> :lime/lexicalizations senses]
-                        [<dn> :lime/concepts concepts]
-                        (when-let [x (avg senses entries)]
-                          [<dn> :lime/avgAmbiguity x])
-                        (when-let [x (avg senses concepts)]
-                          [<dn> :lime/avgSynonymy x])
-                        [<dn> :void/triples (triple-count dn-model)]]]
-             [dds-model [[<dds> :void/triples (triple-count dds-model)]]]
-             [cor-model [[<cor> :lime/language "da"]
-                         [<cor> :lime/lexicalEntries
-                          (transduce (map #(count-type cor-model %))
-                                     + shared/cor-word-types)]
-                         [<cor> :void/triples (triple-count cor-model)]]]
-             [sem-model [[<cor-sem> :lime/language "da"]
-                         [<cor-sem> :lime/lexicalizations
-                          (count-type sem-model :ontolex/LexicalSense)]
-                         [<cor-sem> :void/triples (triple-count sem-model)]]]]
+        entries  (+ (count-type dn :ontolex/Word)
+                    (count-type dn :ontolex/MultiwordExpression)
+                    (count-type dn :ontolex/Affix))
+        senses   (count-type dn :ontolex/LexicalSense)
+        concepts (count-type dn :ontolex/LexicalConcept)]
+    (doseq [[graph triples]
+            [[dn [[<dn> :lime/language "da"]
+                  [<dn> :lime/lexicalEntries entries]
+                  [<dn> :lime/lexicalizations senses]
+                  [<dn> :lime/concepts concepts]
+                  (when-let [x (avg senses entries)]
+                    [<dn> :lime/avgAmbiguity x])
+                  (when-let [x (avg senses concepts)]
+                    [<dn> :lime/avgSynonymy x])
+                  [<dn> :void/triples (triple-count dn)]]]
+             [dds [[<dds> :void/triples (triple-count dds)]]]
+             [cor [[<cor> :lime/language "da"]
+                   [<cor> :lime/lexicalEntries
+                    (transduce (map #(count-type cor %))
+                               + shared/cor-word-types)]
+                   [<cor> :void/triples (triple-count cor)]]]
+             [sem [[<cor-sem> :lime/language "da"]
+                   [<cor-sem> :lime/lexicalizations
+                    (count-type sem :ontolex/LexicalSense)]
+                   [<cor-sem> :void/triples (triple-count sem)]]]]
             :let [triples' (remove nil? triples)]]
       (t/log! {:level :info
                :id    :dannet.bootstrap/dataset-statistics
                :data  {:statistics (vec triples')}}
               "Adding dataset statistics")
-      (db/safe-add! (.getGraph model) triples'))))
+      (db/safe-add! graph triples'))))

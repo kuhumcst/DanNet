@@ -2,7 +2,7 @@
   "The sections of an entity page and the properties each one shows, chosen
   by the rdf:type of the entity."
   (:require #?(:clj [clojure.core.memoize :as memo])
-            [dk.cst.theophrastus.term :refer [->LangStr]]
+            [dk.cst.theophrastus.term :refer [->LangString]]
             [dk.cst.dannet.shared :as shared]))
 
 (def core-shapes
@@ -46,20 +46,20 @@
   "The titles of the page sections, by section id. The :patterns section is
   shared by the systematic polysemy rows on sense/synset pages and the
   frame-to-frame relations on frame pages."
-  {:lexical        #{(->LangStr "Lexical context" "en")
-                     (->LangStr "Leksikalsk kontekst" "da")}
-   :semantic       #{(->LangStr "Semantic relations" "en")
-                     (->LangStr "Betydningsrelationer" "da")}
-   :cross-link     #{(->LangStr "External links" "en")
-                     (->LangStr "Eksterne forbindelser" "da")}
-   :usage          #{(->LangStr "Usage" "en")
-                     (->LangStr "Anvendelse" "da")}
-   :patterns       #{(->LangStr "Systematic patterns" "en")
-                     (->LangStr "Systematiske mønstre" "da")}
-   :frame-elements #{(->LangStr "Frame elements" "en")
-                     (->LangStr "Rammeelementer" "da")}
-   :other          #{(->LangStr "Other" "en")
-                     (->LangStr "Andet" "da")}})
+  {:lexical        #{(->LangString "Lexical context" "en")
+                     (->LangString "Leksikalsk kontekst" "da")}
+   :semantic       #{(->LangString "Semantic relations" "en")
+                     (->LangString "Betydningsrelationer" "da")}
+   :cross-link     #{(->LangString "External links" "en")
+                     (->LangString "Eksterne forbindelser" "da")}
+   :usage          #{(->LangString "Usage" "en")
+                     (->LangString "Anvendelse" "da")}
+   :patterns       #{(->LangString "Systematic patterns" "en")
+                     (->LangString "Systematiske mønstre" "da")}
+   :frame-elements #{(->LangString "Frame elements" "en")
+                     (->LangString "Rammeelementer" "da")}
+   :other          #{(->LangString "Other" "en")
+                     (->LangString "Andet" "da")}})
 
 (def frame-relations
   "The semantic FrameNet frame-to-frame relations, including our declared

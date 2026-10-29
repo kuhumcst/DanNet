@@ -8,7 +8,7 @@ DanNet can queried in a variety of ways. This plurality is intentional as explai
 
 Furthermore, by importing DanNet into another RDF-supporting database, the query language of this database may also be used to query DanNet, e.g. Neo4j's Cypher query language.
 
-> **NOTE:** when you query Apache Jena's persisted TDB2 database rather than an in-memory graph, every read and write must happen inside a transaction. The `q/run` function of `dk.cst.dannet.db.query` runs each query in a read transaction of its own. To group several calls in one transaction, use `txn/calculate` or `txn/calculate-read` from `dk.cst.theophrastus.txn`.
+> **NOTE:** when you query Apache Jena's persisted TDB2 database rather than an in-memory graph, every read and write must happen inside a transaction. Theophrastus's `q` function runs each query in a read transaction of its own. To group several calls in one transaction, wrap them in `txn/with-transaction` or `txn/with-read-transaction` from `dk.cst.theophrastus.txn`.
 
 SPARQL
 ------
@@ -23,11 +23,11 @@ Clojure
 From Clojure, you query DanNet with SPARQL through [Theophrastus](https://github.com/kuhumcst/theophrastus), a Clojure library for Apache Jena that began as a fork of [Aristotle](https://github.com/arachne-framework/aristotle). Each query returns a vector of maps from variable to value, with IRIs as keywords such as `:dn/synset-3047`. You pass values as bindings rather than as SPARQL text:
 
 ```clojure
-(require '[dk.cst.dannet.db.query :as q])
+(require '[dk.cst.theophrastus :as theo])
 
-(q/run graph
-       "SELECT ?label WHERE { ?synset rdfs:label ?label }"
-       {'?synset :dn/synset-3047})
+(theo/q db
+        "SELECT ?label WHERE { ?synset rdfs:label ?label }"
+        {'?synset :dn/synset-3047})
 ```
 
 The query needs no PREFIX lines for the prefixes that DanNet uses.

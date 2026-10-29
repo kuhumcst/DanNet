@@ -372,6 +372,17 @@
   [uri]
   (str "<" uri ">"))
 
+;; The named graphs of the dataset, as theophrastus/named-graph takes them.
+;; Each graph has the URI of the namespace whose data it holds.
+(def dn-graph (uri->rdf-resource dn-uri))
+(def oewn-graph (uri->rdf-resource oewn-uri))
+(def oewn-extension-graph (uri->rdf-resource oewn-extension-uri))
+(def ili-graph (uri->rdf-resource ili-uri))
+(def dds-graph (uri->rdf-resource dds-uri))
+(def cor-graph (uri->rdf-resource cor-uri))
+(def cor-sem-graph (uri->rdf-resource cor-sem-uri))
+(def framenet-graph (uri->rdf-resource framenet-uri))
+
 (defn kw->rdf-resource
   [kw]
   (some-> (kw->uri kw)

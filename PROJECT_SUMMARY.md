@@ -22,10 +22,11 @@ The system includes:
 - Support for both in-memory and persistent (TDB2) graph storage
 - Automatic transaction management for persistent stores
 - OWL inference support for deriving implicit relationships
-- `prefix/prefixes` is the one prefix map, shared by the queries, the writes, the RDF exports and the frontend (`prefix/kw->uri`); `q/->db` wraps a Jena Graph, Model or Dataset as a Theophrastus db with it
+- `prefix/prefixes` is the one prefix map, shared by the queries, the writes, the RDF exports and the frontend (`prefix/kw->uri`); every Theophrastus db that DanNet creates has it
+- `bootstrap/->dannet` returns a map of three Theophrastus dbs: the TDB2 `:dataset`, its asserted `:base` union graph and the `:inference` db. A named graph is a view of the dataset, e.g. `(theo/named-graph dataset prefix/dn-graph)`, and Jena code takes a db's Model as `(:model db)`
 
 ### Query System (`dk.cst.dannet.db.query`)
-- SPARQL queries through `q/run` (Theophrastus's `q`): rows are maps of `?var` symbols, IRIs are keywords, language-tagged strings are `LangStr`, other typed literals `Literal`, and blank nodes `_label` symbols
+- SPARQL queries through `theo/q`, which takes the db first: rows are maps of `?var` symbols, IRIs are keywords, language-tagged strings are `LangString`, other typed literals `Literal`, and blank nodes `_label` symbols
 - The queries in `dk.cst.dannet.db.query.operation` are parsed once with the DanNet prefixes; values go in as bindings, e.g. `{'?s :dn/synset-1}`, which become a VALUES block of RDF terms
 - `q/triples` matches one [s p o] pattern, with `_` for any value, e.g. `(q/triples g ['_ :wn/hypernym '_])`, returning maps of `?s`, `?p` and `?o`
 - Entity expansion and blank node resolution
@@ -107,7 +108,7 @@ The system includes:
 - Generates new releases with full data validation
 - Exports to multiple formats (RDF, CSV, WN-LMF, JSON-LD, DMLex)
 - **`dk.cst.dannet.db.bootstrap.downloads`**: fetches bootstrap datasets on-demand — DanNet release assets via the GitHub releases API, the Open English WordNet (OEWN), the CILI interlingual index (ILI), and the PreMOn FrameNet 1.7 dump. Missing files are downloaded automatically (`ensure-bootstrap-datasets!`, `ensure-english-datasets!`, `ensure-framenet-dataset!`), so manual placement is no longer required. The release assets (dataset zips plus the synset-indegree cache) land in a version-named directory under `bootstrap/from/`; the English datasets live in the shared `bootstrap/other/english` and the PreMOn dump in `bootstrap/other/framenet`, where several editions may coexist since the edition is part of the filename.
-- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangStr` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`, `<cor-sem>`, `<framenet>`). `update-metadata!` swaps old metadata for current during bootstrap.
+- **`dk.cst.dannet.db.bootstrap.metadata`**: holds the DanNet dataset metadata (DCAT/lime/foaf/dc triples), the `da`/`en` `LangString` helpers, and the dataset RDF resource URIs (`<dn>`, `<dns>`, `<dnc>`, `<dds>`, `<cor>`, `<cor-sem>`, `<framenet>`). `update-metadata!` swaps old metadata for current during bootstrap.
 - **`dk.cst.dannet.db.bootstrap.cor`**: converts the COR source files (COR₁ + COR.EXT TSVs and the COR.EXT link file, downloaded from ordregister.dk into `bootstrap/other/cor`) into the triples of the `cor:` graph, and parses the official `.cordiff` changelogs into a lemma-ID remap (`id-remap`). The graph was last rebuilt from source for the 2026-08-21 release and is carried forward as data since; the conversion functions remain for future COR edition bumps.
 - **`dk.cst.dannet.db.bootstrap.corsem`**: converts the COR.SEM sense inventory (`cor.sem.1.0.tsv` from ordregister.dk in `bootstrap/other/cor`) into the triples of the `cor-sem:` graph: one `ontolex:LexicalSense` per row in the `cor:` namespace, linked from `cor:` words via `ontolex:sense` and to `dn:` synsets via `dns:linkedSynset` (DanNet-link) and `dns:hypernymAnchor` (hypernym anchors), carrying FrameNet frame links (`dns:frame`, pointing at the `frame:` resources of the framenet graph; only the handful of post-1.7 frames outside that graph get a minimal `frame:` resource here), sentiment (`dns:sentiment` + marl, like DDS), simplified ontological types (`dns:simpleOntologicalType`, pointing at the shared named `dnt:` ontological types, e.g. `dnt:Human-Object` — `dns:OntologicalType` bags of 1..n `dnc:` concepts), systematic polysemy patterns (`dns:polysemyPattern`), topic domains (`dc:subject`) and restriction/centrality comments. The graph was built from source for the 2026-09-21 release, which also pruned/remapped its links, derived the sense-level `dns:eqSense`/`dns:eqNearSense` correspondences to `dn:` senses, and replaced the `dn:` graph's blank ontotype bags with the same named `dnt:` types (browsable through the inverse relations `dns:ontologicalTypeOf`/`dns:simpleOntologicalTypeOf`). It is carried forward as data since (`cor-sem.zip` is a bootstrap asset); the conversion functions remain for future COR.SEM edition bumps.
 - **`dk.cst.dannet.db.bootstrap.premon`**: converts the PreMOn rendition of FrameNet 1.7 (`premon-2018a-fn17-noinf.nq` in `bootstrap/other/framenet`, CC BY-SA 4.0) into the triples of the framenet graph, its own dataset at `https://wordnet.dk/framenet` imported by `bootstrap/add-framenet!`: all 1,221 frames (label, `skos:definition`, Berkeley `rdfs:seeAlso`, `owl:sameAs` to PreMOn), their 11,428 frame elements as `frame:Frame@Element` resources (typed with the four `pmofn:` status classes, linked from frames via `pmo:semRole`, carrying definitions and `pmo:abbreviation`), the seven semantic `pmofn:` frame-to-frame relations (`inheritsFrom`, `uses`, `subframeOf`, `perspectiveOn`, `precedes`, `isCausativeOf`, `isInchoativeOf`) mirrored between roles by their FER counterparts plus the excludes/requires constraints, the FE core sets (`pmofn:feCoreSet` blank nodes grouping the core roles that fill the same slot), and the 109 `pmofn:SemType` resources (suffixed `_semType`, 14 sharing their name with a frame) linked from frames and roles via `pmofn:semType`; the editorial relations and English lexical units are left out. PreMOn's lowercased IRIs are renamed using the Berkeley spellings from their labels, which exactly match the COR.SEM frame names. The `pmo`/`pmofn` ontologies are bundled in `resources/schemas/external/`.
@@ -238,7 +239,7 @@ pages/
 ## Dependencies
 
 ### Core RDF/Database
-- **Theophrastus** (`dk.cst/theophrastus`, a Git dependency on kuhumcst/theophrastus): Apache Jena 6.2 (ARQ, TDB2, SHACL) with RDF terms as Clojure data; its `dk.cst.theophrastus.term` namespace (`LangStr`, `Literal`) also runs in ClojureScript, so the frontend shares the server's terms
+- **Theophrastus** (`dk.cst/theophrastus`, a Git dependency on kuhumcst/theophrastus): Apache Jena 6.2 (ARQ, TDB2, SHACL) with RDF terms as Clojure data; its `dk.cst.theophrastus.term` namespace (`LangString`, `Literal`) also runs in ClojureScript, so the frontend shares the server's terms
 - **donatello** (1.3.6): Turtle writer for the RDF exports (`db.export.rdf`)
 
 ### Web Framework
@@ -409,9 +410,9 @@ npx shadow-cljs compile test
 - `dk.cst.dannet.web.ui.*` - Modular UI components
 
 ### Transaction Handling
-- Automatic transaction wrapping for TDB operations: each `q/run` reads, and each Theophrastus write (`transact!`, `retract!`, `read!`) writes, in a transaction of its own
-- Use `txn/calculate` or `txn/calculate-read` from `dk.cst.theophrastus.txn` to group several calls in one transaction; a transaction inside another on the same dataset joins it, and a write inside `txn/calculate` promotes it
-- `db/remove!` takes one [s p o] pattern or a coll of them and removes them all in one write transaction
+- Automatic transaction wrapping for TDB operations: each `theo/q` reads, and each Theophrastus write (`transact!`, `retract!`, `read!`) writes, in a transaction of its own
+- Use `txn/with-transaction` or `txn/with-read-transaction` from `dk.cst.theophrastus.txn` to group several calls in one transaction; a transaction inside another on the same dataset joins it, and a write inside `txn/with-transaction` promotes it
+- `theo/retract!` takes one [s p o] pattern or a coll of them and removes them all in one write transaction
 
 ### Error Handling
 - `try-render` in `dk.cst.dannet.web.ui.error` (a React error boundary plus try/catch) wraps the page, each entity section and each diagram
@@ -495,18 +496,18 @@ WHERE {
 
 ### Clojure Query Example
 ```clojure
-(require '[dk.cst.dannet.db.query :as q]
+(require '[dk.cst.theophrastus :as theo]
          '[dk.cst.theophrastus.term :as term])
 
 ;; Find all senses of "kage"
-(q/run graph
-       "SELECT ?entry ?sense ?synset
-        WHERE {
-          ?entry ontolex:canonicalForm/ontolex:writtenRep ?rep ;
-                 ontolex:sense ?sense .
-          ?sense ontolex:isLexicalizedSenseOf ?synset .
-        }"
-       {'?rep (term/->LangStr "kage" "da")})
+(theo/q (:inference @dk.cst.dannet.web.instance/db)
+        "SELECT ?entry ?sense ?synset
+         WHERE {
+           ?entry ontolex:canonicalForm/ontolex:writtenRep ?rep ;
+                  ontolex:sense ?sense .
+           ?sense ontolex:isLexicalizedSenseOf ?synset .
+         }"
+        {'?rep (term/->LangString "kage" "da")})
 ```
 
 ## Performance Considerations

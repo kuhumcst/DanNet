@@ -16,6 +16,7 @@
             [io.pedestal.interceptor :as interceptor]
             [ring.util.response :as ring]
             [taoensso.telemere :as tel]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.anomaly :as anomaly]
@@ -369,7 +370,7 @@
           (assoc :folded folded)
 
           synset?
-          (merge (sunburst-trees (:graph @instance/db) languages subject))))))
+          (merge (sunburst-trees (:inference @instance/db) languages subject))))))
 
 (defn- missing-entity
   "Send `ctx` on to where the missing `subject` (shown as `qname`) can be
@@ -417,7 +418,7 @@
                                  subject)
                   content-type (or (get-in request [::conneg/decision :media-type])
                                    "application/json")
-                  g            (:graph @instance/db)
+                  g            (:inference @instance/db)
                   raw-entity   (when subject
                                  (if (expand-content-types content-type)
                                    (q/expanded-entity g subject)
@@ -531,7 +532,7 @@
                   :redirect-params query-params)
 
                 :else
-                (let [results (look-up-any-case (:graph @instance/db) lemma)]
+                (let [results (look-up-any-case (:inference @instance/db) lemma)]
                   (if (= (count results) 1)
                     (assoc ctx
                       :replace (ffirst results)
@@ -678,7 +679,7 @@
   then attaches :blank-nodes and (when `enrichment?`) :k->label to `content`."
   [content ^ResultSetMem sparql-result enrichment?]
   (let [rows (resp/sparql-result->rows sparql-result)
-        g    (:graph @instance/db)
+        g    (:inference @instance/db)
         kws  (collect-keywords rows)]
     (.reset sparql-result)
     (cond-> (assoc content :blank-nodes (q/collect-blank-nodes g rows))
@@ -758,7 +759,7 @@
             (let [languages (resp/request->languages request)]
               (assoc ctx
                 :content {:languages languages
-                          :catalog   (catalog/find-resources (:graph @instance/db))}
+                          :catalog   (catalog/find-resources (:inference @instance/db))}
                 :page-meta {:title (i18n/da-en languages "Metadata" "Metadata")
                             :page  :metadata})))})
 
@@ -904,7 +905,7 @@
                            (map col/int24)
                            (filter not-in-theme)
                            (map col/as-css))
-          rels        (->> (q/run (:graph @instance/db) op/synset-relation-types)
+          rels        (->> (theo/q (:inference @instance/db) op/synset-relation-types)
                            (map '?rel)
                            (remove (set fixed-rels))
                            (remove (set other-rels)))
@@ -921,36 +922,36 @@
   ;; Generate the theme used for e.g. radial diagrams
   (generate-synset-rels-theme)
 
-  (meta (q/expanded-entity (:graph @instance/db) :ontolex/isEvokedBy))
-  (q/entity (:graph @instance/db) :dn/synset-78300)
+  (meta (q/expanded-entity (:inference @instance/db) :ontolex/isEvokedBy))
+  (q/entity (:inference @instance/db) :dn/synset-78300)
   (require '[dk.cst.dannet.db.export.rdf :as export.rdf])
   (let [subject :dn/synset-78300
-        entity  (q/expanded-entity (:graph @instance/db) subject)]
+        entity  (q/expanded-entity (:inference @instance/db) subject)]
     (export.rdf/ttl-entity entity))
 
-  (q/entity (:graph @instance/db) :dn/synset-46015)
+  (q/entity (:inference @instance/db) :dn/synset-46015)
 
   ;; Test for existence of duplicate ontotypes
-  (->> (q/run (:graph @instance/db) "SELECT ?s1 ?o1 ?o2
-                                     WHERE {
-                                       ?s1 dns:ontologicalType ?o1 , ?o2 .
-                                     }")
+  (->> (theo/q (:inference @instance/db) "SELECT ?s1 ?o1 ?o2
+                                          WHERE {
+                                            ?s1 dns:ontologicalType ?o1 , ?o2 .
+                                          }")
        (filter (fn [{:syms [?o1 ?o2]}] (not= ?o1 ?o2))))
 
   ;; TODO: systematic polysemy
-  (-> (->> (q/run (:graph @instance/db) op/synset-intersection)
+  (-> (->> (theo/q (:inference @instance/db) op/synset-intersection)
            (group-by (fn [{:syms [?ontotype ?otherOntotype]}]
                        (into #{} [?ontotype ?otherOntotype])))))
 
   ;; Other examples: "brun kartoffel", "åbne vejen for", "snakkes ved"
-  (q/run (:graph @instance/db) "SELECT ?word ?form
-                                WHERE {
-                                  ?word ontolex:canonicalForm ?form .
-                                  ?form ontolex:writtenRep \"fandens karl\"@da .
-                                }")
+  (theo/q (:inference @instance/db) "SELECT ?word ?form
+                                     WHERE {
+                                       ?word ontolex:canonicalForm ?form .
+                                       ?form ontolex:writtenRep \"fandens karl\"@da .
+                                     }")
 
   ;; Return all DanNet words that have identical PoS and writtenRep (issue #35)
-  (->> (q/run (:graph @instance/db) op/word-clones)
+  (->> (theo/q (:inference @instance/db) op/word-clones)
        (filter (fn [{:syms [?w1 ?w2]}]
                  (and (= "dn" (namespace ?w1))
                       (= "dn" (namespace ?w2)))))
@@ -959,16 +960,16 @@
 
   ;; Store the synset indegrees (the file is used during bootstrap).
   ;; The default lands among the export artifacts, ready to attach to the release.
-  (q/save-synset-indegrees! (:graph @instance/db))
+  (q/save-synset-indegrees! (:inference @instance/db))
 
   ;; Or write it straight to a location that gets read: the legacy db/ override
   ;; (which takes precedence), or the version dir of the release being produced,
   ;; where the next cycle will look for it once release/from is bumped.
   (require '[dk.cst.dannet.release :as release])
-  (q/save-synset-indegrees! (:graph @instance/db) (first q/indegrees-files))
-  (q/save-synset-indegrees! (:graph @instance/db) (q/indegrees-file release/to))
+  (q/save-synset-indegrees! (:inference @instance/db) (first q/indegrees-files))
+  (q/save-synset-indegrees! (:inference @instance/db) (q/indegrees-file release/to))
 
   ;; Find unlabeled senses (count: 0)
-  (count (q/run (:graph @instance/db) op/unlabeled-senses))
+  (count (theo/q (:inference @instance/db) op/unlabeled-senses))
 
   #_.)
