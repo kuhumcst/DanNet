@@ -9,6 +9,7 @@
             [dk.cst.theophrastus.term :as term]
             [rum.core :as rum]
             [dk.simongray.conneg :as conneg]
+            [dk.simongray.ratelimit :as ratelimit]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.sparql :as sparql]
@@ -272,6 +273,13 @@
      (str "attachment; filename=\""
           (str/replace title #":" "_")
           extension "\"")}))
+
+(defn client-address
+  "The address of the client of the `request`: the last X-Forwarded-For
+  address, i.e. the one appended by our own reverse proxy, or else the remote
+  address."
+  [request]
+  (ratelimit/client-address request {:proxies 1}))
 
 (defn error-content-type
   "Determine the response content-type for an error response.

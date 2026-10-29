@@ -30,12 +30,13 @@
 (defn- sparql-href
   "A link to the SPARQL page for the query in `input` and its options, plus
   the extra query `params` as [k v] pairs, e.g. the limit and offset."
-  [{:keys [query inference distinct enrichment]} params]
+  [{:keys [query inference distinct enrichment timeout]} params]
   (->> (concat [[:query query]]
                params
                [[:inference inference]
                 [:distinct distinct]
-                [:enrichment enrichment]])
+                [:enrichment enrichment]
+                [:timeout timeout]])
        (keep (fn [[k v]]
                (when (some? v)
                  (str (name k) "=" (url-encode (str v))))))
@@ -206,7 +207,9 @@
         enrichment?     (if (:query input)
                           (= (:enrichment input) "true")
                           true)]
-    [:div.sparql-editor__controls
+    ;; The controls take their values from the input when they mount, so
+    ;; they mount again for each new input, e.g. the next page.
+    [:div.sparql-editor__controls {:key (hash input)}
      [:label.page-size-select
       {:title (if limit-in-query?
                 (i18n/da-en languages
@@ -227,7 +230,8 @@
                 "Choose whether to query raw or logically inferred data")}
       (i18n/da-en languages "Kilde " "Source ")
       [:select {:name          "inference"
-                :default-value "auto"}
+                :default-value (get #{"true" "false"} (:inference input)
+                                    "auto")}
        [:option {:value "auto"}
         "Auto"]
        [:option {:value "false"}
@@ -240,11 +244,12 @@
                 "Max timeout in seconds")}
       (i18n/da-en languages "Tid " "Time ")
       ;; TODO: switch to type=text with inputtype=numeric for more precise styling
-      [:input (cond-> {:type        "number"
-                       :name        "timeout"
-                       :min         "1"
-                       :step        "1"
-                       :placeholder "15"}
+      [:input (cond-> {:type          "number"
+                       :name          "timeout"
+                       :min           "1"
+                       :step          "1"
+                       :placeholder   "30"
+                       :default-value (:timeout input)}
                 (not shared/development?)
                 (assoc :max "30"))]]
      [:label.distinct-select
@@ -339,13 +344,17 @@
 
 
 (rum/defc pagination
-  "Previous/next page controls for SPARQL results."
-  [{:keys [languages input limit offset has-more? sparql-result]
+  "Previous/next page controls for SPARQL results. In auto mode, the other
+  pages run on the model that this one ran on."
+  [{:keys [languages input limit offset has-more? sparql-result inference?]
     :as   opts}]
   (let [limit'  (or limit default-page-size)
         offset' (or offset 0)
         prev?   (pos? offset')
-        next?   has-more?]
+        next?   has-more?
+        input   (cond-> input
+                  (not (#{"true" "false"} (:inference input)))
+                  (assoc :inference (str (boolean inference?))))]
     (when (and (:query input) (or prev? next?))
       [:nav.sparql-pagination
        (if prev?
@@ -376,7 +385,7 @@
 (rum/defc result-notes
   "Notes on the SPARQL result in `opts`, e.g. whether it was served from the
   cache, and a link to download it as JSON."
-  [{:keys [languages input inference? cached? lookahead? limit offset]
+  [{:keys [languages input form inference? cached? lookahead? limit offset]
     :as   opts}]
   [:aside.notes
    (when inference?
@@ -399,9 +408,15 @@
    (when (false? lookahead?)
      [:p.note
       [:strong "⊘ "]
-      (i18n/da-en languages
-        "paginering deaktiveret (indeholder LIMIT eller OFFSET)"
-        "pagination disabled (contains LIMIT or OFFSET)")])
+      (if (= :select form)
+        (i18n/da-en languages
+          "paginering deaktiveret (indeholder LIMIT eller OFFSET)"
+          "pagination disabled (contains LIMIT or OFFSET)")
+        (i18n/da-en languages
+          (str "ingen paginering for CONSTRUCT og DESCRIBE; højst "
+               limit " løsninger")
+          (str "no pagination for CONSTRUCT and DESCRIBE; at most "
+               limit " solutions")))])
    (when (:query input)
      [:p.note
       [:strong "↓ "]

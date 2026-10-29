@@ -66,11 +66,19 @@
   "The anomaly category of each type of error of the SPARQL endpoint that
   isn't ::anom/incorrect, the category of the rest, e.g. :parse-error."
   {:timeout             ::anom/busy
+   :too-many-queries    ::anom/busy
    :form-not-allowed    ::anom/forbidden
    :service-not-allowed ::anom/forbidden
    :java-not-allowed    ::anom/forbidden
    :update-not-allowed  ::anom/forbidden
    :execution-failed    ::anom/fault})
+
+(def error-messages
+  "The messages of the types of error of the SPARQL endpoint that the
+  message of their anomaly category doesn't fit."
+  {:too-many-queries
+   {:da "Du kører for mange forespørgsler på én gang. Prøv igen om lidt."
+    :en "You are running too many queries at once. Please try again shortly."}})
 
 (defn from-error
   "The anomaly map of the `error` of an operation of the SPARQL endpoint,
@@ -78,6 +86,7 @@
   the details."
   [{:keys [status type message details]}]
   (-> (make (error-categories type ::anom/incorrect)
+            :message (error-messages type)
             :details (or details message))
       (assoc :status status)))
 

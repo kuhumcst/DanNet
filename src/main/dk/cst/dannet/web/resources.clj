@@ -8,6 +8,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [cognitect.anomalies :as-alias anom]
             [dk.cst.dannet.web.sparql :as sparql]
             [dk.simongray.conneg :as conneg]
             [dk.simongray.conneg.pedestal :as conneg.pedestal]
@@ -213,13 +214,22 @@
                            :data  {:uri    (:uri request)
                                    :method (:request-method request)}}
                           "Unhandled exception")
+                ;; A media type with no page, e.g. SPARQL results, gets the
+                ;; message as plain text, as the SPARQL endpoint's errors do.
                 (assoc ctx
                   :response {:status  (:status anomaly)
-                             :headers (cond-> {"Content-Type" content-type}
+                             :headers (cond-> {"Content-Type"
+                                               (if body-fn
+                                                 content-type
+                                                 "text/plain;charset=utf-8")}
                                         vary (assoc "Vary" vary))
-                             :body    (body-fn (resp/with-cookies request content)
-                                               (resp/->page request content
-                                                            page-meta))})))}))
+                             :body    (if body-fn
+                                        (body-fn (resp/with-cookies request
+                                                                    content)
+                                                 (resp/->page request content
+                                                              page-meta))
+                                        (str (::anom/message anomaly)
+                                             "\n"))})))}))
 
 (defn frontpage-redirect
   [_]
@@ -636,17 +646,28 @@
 
 (def sparql-prepare-ic
   "Read the query of the request and prepare it, as the SPARQL endpoint does,
-  then restrict it to the page that the editor asks for, unless the editor
-  only formats it (noop). The operation goes on the ctx, under :sparql."
+  then restrict it to the page that the editor asks for. The operation goes
+  on the ctx, under :sparql.
+
+  A parameter that repeats counts by its first value. When the editor only
+  formats the query (noop=true), the query is normalized and prepared once
+  more, as the editor will send it, and the operation gets :noop?."
   {:name  ::sparql-prepare
    :enter (fn [{:keys [request] :as ctx}]
-            (let [{:keys [sparql params] :as op}
+            (let [opts  (endpoint/prepare-opts sparql-config request)
+                  {:keys [sparql params] :as op}
                   (-> (endpoint/operation request sparql-config)
-                      (endpoint/prepare (endpoint/prepare-opts sparql-config
-                                                               request)))]
-              (assoc ctx :sparql (cond-> op
-                                   (and sparql (not (:noop params)))
-                                   (sparql/page params)))))})
+                      (update :params update-vals #(cond-> % (vector? %) first))
+                      (endpoint/prepare opts))
+                  noop? (and (sparql-page? request) (= "true" (:noop params)))]
+              (assoc ctx :sparql (cond
+                                   (nil? sparql) op
+                                   noop? (-> op
+                                             (assoc :query
+                                               (sparql/normalize sparql))
+                                             (endpoint/prepare opts)
+                                             (assoc :noop? true))
+                                   :else (sparql/page op params)))))})
 
 (defn sparql-page-meta
   "The page-meta of a SPARQL page titled `da` or `en`, as `languages` prefer."
@@ -687,12 +708,13 @@
   For a SELECT, the content has the blank nodes of the result, so that the UI
   can render them inline, and the labels of its resources when the editor
   asks for enrichment."
-  [{:keys [request] {:keys [query sparql error params form result vars]
+  [{:keys [request] {:keys [query sparql error params form result vars noop?]
                      :as   op} :sparql
     :as   ctx}]
   (let [languages (resp/request->languages request)
-        input     (assoc (select-keys params [:inference :distinct :enrichment])
-                    :query query)]
+        input     (-> params
+                      (select-keys [:inference :distinct :enrichment :timeout])
+                      (assoc :query query))]
     (cond
       error
       (let [anomaly (anomaly/from-error error)]
@@ -708,13 +730,13 @@
                        (sparql-page-meta languages
                                          "SPARQL-fejl" "SPARQL error"))))
 
-      (and sparql (:noop params))
-      (assoc ctx :content {:normalized-query (str sparql)})
+      noop?
+      (assoc ctx :content {:normalized-query query})
 
       sparql
       (assoc ctx
         :content (cond-> (-> op
-                             (select-keys [:limit :offset :lookahead?
+                             (select-keys [:form :limit :offset :lookahead?
                                            :has-more? :cached? :inference?])
                              (assoc :input input
                                     :languages languages
@@ -735,15 +757,15 @@
                                      "SPARQL-editor" "SPARQL editor")))))
 
 (def sparql-execution-ic
-  "Run the query of the operation in :sparql, as sparql/run-cached does,
-  unless it has an :error, the editor only formats it, or the client accepts
-  no format of its result.
+  "Run the query of the operation in :sparql, as sparql/run-cached does for
+  the address of the client, unless it has an :error, the editor only
+  formats it, or the client accepts no format of its result.
 
   A page of the editor gets its content, see sparql-page. Any other media
   type is negotiated once more, by the form of the query, as the endpoint
   does, and the decision goes under :sparql-decision."
   {:name  ::sparql-execution
-   :enter (fn [{:keys [request] {:keys [sparql error params] :as op} :sparql
+   :enter (fn [{:keys [request] {:keys [sparql error noop?] :as op} :sparql
                 :as   ctx}]
             (let [page?    (sparql-page? request)
                   decision (when-not page?
@@ -752,9 +774,11 @@
                                                request))
                   op       (if (and sparql
                                     (not error)
-                                    (not (:noop params))
+                                    (not noop?)
                                     (not (:not-acceptable decision)))
-                             (sparql/run-cached @instance/db op
+                             (sparql/run-cached @instance/db
+                                                (assoc op :client
+                                                  (resp/client-address request))
                                                 (endpoint/run-opts sparql-config
                                                                    op))
                              op)]
@@ -762,17 +786,31 @@
                 (sparql-page (assoc ctx :sparql op))
                 (assoc ctx :sparql op :sparql-decision decision))))})
 
+(def retry-after
+  "The seconds that a client waits before it asks a busy endpoint again: the
+  longest that a query holds a thread."
+  (-> (merge endpoint/defaults sparql-config) :timeout (quot 1000) str))
+
+(defn- with-error-headers
+  "The `response` with the fields that its status calls for in RFC 9110:
+  Allow for a 405, and Retry-After when the client has to wait."
+  [{:keys [status] :as response}]
+  (cond-> response
+    (= 405 status) (assoc-in [:headers "Allow"] endpoint/allowed-methods)
+    (#{429 503} status) (assoc-in [:headers "Retry-After"] retry-after)))
+
 (def sparql-response-ic
   "Answer with the editor's page, as response-body-ic does, or else as the
   SPARQL endpoint does: with the result in the negotiated format, the
   service description when there is no query, or the error as plain text."
   {:name  ::sparql-response
    :leave (fn [{:keys [request sparql sparql-decision] :as ctx}]
-            (if (sparql-page? request)
-              ((:leave response-body-ic) ctx)
-              (assoc ctx :response (endpoint/respond request sparql
-                                                     sparql-decision
-                                                     sparql-config))))})
+            (-> (if (sparql-page? request)
+                  ((:leave response-body-ic) ctx)
+                  (assoc ctx :response (endpoint/respond request sparql
+                                                         sparql-decision
+                                                         sparql-config)))
+                (update :response with-error-headers)))})
 
 ;; TODO: should have a differentiated rate limit (more limited)
 (def sparql-route

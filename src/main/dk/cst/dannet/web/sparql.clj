@@ -5,6 +5,7 @@
   queries (e.g. a classroom of students all running the same query)."
   (:require [clojure.core.cache :as cache]
             [clojure.core.cache.wrapped :as cw]
+            [clojure.string :as str]
             [dk.cst.theophrastus.endpoint :as endpoint])
   (:import [java.util.concurrent SynchronousQueue ThreadPoolExecutor TimeUnit]
            [org.apache.jena.query Query]
@@ -72,6 +73,18 @@
       :offset start
       :lookahead? lookahead?)))
 
+(defn normalize
+  "The text of the Query `q` as Jena writes it, with the PREFIX lines of only
+  the prefixes that it uses, since DanNet's own would make up most of a
+  short query, and of the URL that the editor sends it in."
+  [^Query q]
+  (let [lines  (str/split-lines (str q))
+        prefix #(second (re-matches #"PREFIX\s+(\S*:).*" %))
+        body   (str/join "\n" (remove prefix lines))]
+    (->> lines
+         (filter #(if-let [p (prefix %)] (str/includes? body p) true))
+         (str/join "\n"))))
+
 (defn- empty-select-result?
   "Whether the operation `op` has the empty result of a SELECT."
   [{:keys [form result]}]
@@ -86,9 +99,10 @@
 
     - false forces the base model
     - true forces the inference model
-    - otherwise it tries the base model, and the inference model when that
-      returns no results."
-  [db {:keys [params] :as op} opts]
+    - otherwise it tries the base model, and on the first page the inference
+      model when that returns no results. The editor's links to the other
+      pages force the model that the first one ran on."
+  [db {:keys [params offset] :as op} opts]
   (let [run-on (fn [k executor]
                  (assoc (endpoint/run op (k db) (assoc opts :executor executor))
                    :inference? (= :inference k)))]
@@ -96,7 +110,7 @@
       "false" (run-on :base query-executor)
       "true" (run-on :inference inference-query-executor)
       (let [op' (run-on :base query-executor)]
-        (if (empty-select-result? op')
+        (if (and (empty-select-result? op') (zero? (or offset 0)))
           (run-on :inference inference-query-executor)
           op')))))
 
@@ -140,30 +154,76 @@
     (instance? ResultSetMem result)
     (assoc :result (ResultSetMem. ^ResultSetMem result))))
 
+(def max-client-queries
+  "The most queries that one client address runs at once, so that a single
+  client can't take every thread of the pools."
+  4)
+
+(defonce client-queries
+  (atom {}))
+
+(defn- acquire!
+  "Count one more query of the `client` as running, unless it already runs
+  max-client-queries. Return whether it was counted."
+  [client]
+  (let [[old new] (swap-vals! client-queries
+                              (fn [m]
+                                (cond-> m
+                                  (< (get m client 0) max-client-queries)
+                                  (update client (fnil inc 0)))))]
+    (not= old new)))
+
+(defn- release!
+  "Count one query of the `client` less as running."
+  [client]
+  (swap! client-queries
+         (fn [m]
+           (let [n (dec (get m client))]
+             (if (pos? n) (assoc m client n) (dissoc m client))))))
+
 (defn run-cached
   "The operation `op` run on `db` as run-on-chosen-model does, with the
   `opts` of endpoint/run, through the result cache.
 
-  The cache key is the query as Jena writes it, which the page has already
-  restricted, and the inference parameter. An :error isn't cached, and the
-  result has :cached? when it came from the cache."
-  [db {:keys [^Query sparql params] :as op} opts]
-  (let [k       [(.serialize sparql) (:inference params)]
+  The cache key is what the result depends on: the query as Jena writes it,
+  which the page has already restricted, the inference parameter and the
+  graphs of the request. The row that a page looks ahead by is trimmed after
+  the cache, so that a page and a query with the same LIMIT share a result.
+  An :error isn't cached, and the result has :cached? when it came from the
+  cache.
+
+  A query that isn't in the cache counts against the max-client-queries of
+  the :client of `op`, and gets an :error of 429 when there are too many."
+  [db {:keys [^Query sparql params default-graph-uri named-graph-uri client]
+       :as   op} opts]
+  (let [k       [(.serialize sparql) (:inference params)
+                 default-graph-uri named-graph-uri]
         cached? (cache/has? @result-cache k)]
-    ;; NOTE: small race window where an error result is briefly
-    ;; visible in the cache between `lookup-or-miss` storing it
-    ;; and the subsequent `evict`. Harmless in practice: a
-    ;; concurrent request would see a real error, and the eviction
-    ;; follows immediately so the next request retries.
-    (-> (cw/lookup-or-miss
-          result-cache k
-          (fn [_]
-            (let [op' (trim-lookahead (run-on-chosen-model db op opts))]
-              (when (:error op')
-                (cw/evict result-cache k))
-              op')))
-        (copy-result)
-        (assoc :cached? cached?))))
+    (if-not (or cached? (acquire! client))
+      (assoc op :error {:status  429
+                        :type    :too-many-queries
+                        :message "Too many of your queries are running."})
+      (try
+        ;; NOTE: small race window where an error result is briefly
+        ;; visible in the cache between `lookup-or-miss` storing it
+        ;; and the subsequent `evict`. Harmless in practice: a
+        ;; concurrent request would see a real error, and the eviction
+        ;; follows immediately so the next request retries.
+        (-> (merge op (cw/lookup-or-miss
+                        result-cache k
+                        (fn [_]
+                          (let [run (-> (run-on-chosen-model db op opts)
+                                        (select-keys [:result :vars :error
+                                                      :inference?]))]
+                            (when (:error run)
+                              (cw/evict result-cache k))
+                            run))))
+            (copy-result)
+            (trim-lookahead)
+            (assoc :cached? cached?))
+        (finally
+          (when-not cached?
+            (release! client)))))))
 
 (comment
   ;; A page of a query, run on a live db; run it twice to hit the cache.

@@ -192,9 +192,6 @@
                     :class "unknown"}
       "???"])))
 
-(def rdf-resource-re
-  #"^<(.+)>$")
-
 (defn- transform-rdf-datatype
   "Render the typed literal `x` as a span with title/datatype attributes."
   [x]
@@ -266,14 +263,15 @@
      (displays? opts :prefix?)
      (prefix-badge (symbol s) {:independent-prefix true})
 
-     :let [[rdf-resource uri] (re-find rdf-resource-re s)]
+     :let [uri (when (prefix/rdf-resource? s)
+                 (prefix/rdf-resource->uri s))]
      (re-matches #"\{.+\}" s)
      (transform-synset-label s)
 
-     (and rdf-resource (re-find ddo-ordbog-query uri))
+     (and uri (re-find ddo-ordbog-query uri))
      (ddo-hyperlink uri)
 
-     rdf-resource
+     uri
      (rdf-uri-hyperlink uri opts)
 
      ;; Labels that don't parse as sense labels (e.g. the FrameNet frame

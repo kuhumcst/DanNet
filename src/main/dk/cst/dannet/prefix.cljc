@@ -389,11 +389,11 @@
           (uri->rdf-resource)))
 
 (defn rdf-resource?
-  "Is `s` an RDF resource string?"
+  "Is `s` an RDF resource string, i.e. an absolute IRI in angle brackets?
+  Theophrastus has the same rule for the literals that it reads, so a
+  literal such as \"<b>bold</b>\" isn't one."
   [s]
-  (and (string? s)
-       (str/starts-with? s "<")
-       (str/ends-with? s ">")))
+  (term/iri-string? s))
 
 (defn resource?
   "Is `x` a reference to a resource, i.e. a keyword or RDF resource string?"

@@ -63,13 +63,15 @@
     (.toString (.. view -state -doc))))
 
 (defn set-doc!
-  "Replace the entire document content of `view` with `text`."
+  "Replace the entire document content of `view` with `text`, scrolled to its
+  start, since the old scroll position belongs to the old text."
   [view text]
   (when view
     (.dispatch view
                #js {:changes #js {:from   0
                                   :to     (.. view -state -doc -length)
-                                  :insert (or text "")}})))
+                                  :insert (or text "")}
+                    :effects (.scrollIntoView EditorView 0)})))
 
 (defn fold-all!
   "Fold all foldable ranges in `view` (e.g. PREFIX declarations)."

@@ -9,10 +9,10 @@
             [io.pedestal.interceptor]
             [taoensso.telemere :as t]
             [taoensso.telemere.utils :as tu]
-            [dk.simongray.ratelimit :as ratelimit]
             [dk.simongray.ratelimit.pedestal :as ratelimit.pedestal]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
+            [dk.cst.dannet.web.response :as resp]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared])
   (:import [org.apache.jena.sparql.expr NodeValue])
@@ -74,12 +74,10 @@
                   (update-in [:request :path-info] remove-trailing-slash)))}))
 
 (defn req->composite-key
-  "Generate composite key from `req` using IP, User-Agent, and Accept-Language.
-
-  The IP is the last X-Forwarded-For address, i.e. the one appended by our own
-  reverse proxy, falling back to the remote address."
+  "Generate composite key from `req` using IP, User-Agent, and Accept-Language,
+  with the IP from resp/client-address."
   [req]
-  [(ratelimit/client-address req {:proxies 1})
+  [(resp/client-address req)
    (get-in req [:headers "user-agent"])
    (get-in req [:headers "accept-language"])])
 
