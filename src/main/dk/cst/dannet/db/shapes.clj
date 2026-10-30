@@ -62,16 +62,16 @@
   (delay (load-shapes (:base shapes-resources)
                       (:editorial shapes-resources))))
 
-;; The report entries have DanNet keywords for IRIs, so they can be diffed
-;; against the EDN baseline. :shape is the stable identity used for baselines
-;; and grouping; the reason every property shape in the TTL has an explicit
-;; IRI instead of the usual blank node. :sh/Violation blocks a write (see
+;; The report results have DanNet keywords for IRIs, so they can be diffed
+;; against the EDN baseline. :source-shape is the stable identity used for
+;; baselines and grouping; the reason every property shape in the TTL has an
+;; explicit IRI instead of the usual blank node. :sh/Violation blocks a write (see
 ;; shacl/violations?); :sh/Warning only surfaces in the UI.
 (defn validate
   "Validate `db` against `shapes` (a Jena `Shapes`) in a read transaction,
   returning
 
-    {:conforms? boolean, :entries [{:focus-node ...} ...]}."
+    {:conforms? boolean, :results [{:focus-node ...} ...]}."
   ([db]
    (validate db @shapes))
   ([db ^Shapes shapes]
@@ -99,9 +99,9 @@
   (delay (some-> (io/resource baseline-resource) slurp edn/read-string)))
 
 (defn by-shape
-  "Frequencies of violation `entries` grouped by their source property shape."
-  [entries]
-  (frequencies (map :shape entries)))
+  "Frequencies of violation `results` grouped by their source property shape."
+  [results]
+  (frequencies (map :source-shape results)))
 
 (defn exceeding-baseline
   "The part of a `by-shape` frequency map exceeding the `baseline`, as a map of
@@ -116,8 +116,8 @@
 
 (defn- against-baseline
   "Add :exceeded to a validation `result` by comparing its :sh/Violation
-  entries to the known `baseline`; warnings never count against it.
-  Also adds :violations (the blocking entry count) for logging purposes."
+  results to the known `baseline`; warnings never count against it.
+  Also adds :violations (the blocking result count) for logging purposes."
   [result]
   (let [violations (:sh/Violation (shacl/by-severity result))]
     (assoc result
@@ -144,7 +144,7 @@
              :id    :dannet.shapes/validate
              :data  {:conforms?  (:conforms? result)
                      :violations violations
-                     :by-shape   (by-shape (:entries result))
+                     :by-shape   (by-shape (:results result))
                      :exceeded   exceeded}}
             "SHACL validation of asserted graph")
     result))
@@ -158,7 +158,7 @@
   triples. Expect this to take a long time on the full dataset."
   [db]
   (let [result (validate (:inference db) @inferred-shapes)
-        counts (by-shape (:entries result))]
+        counts (by-shape (:results result))]
     (t/log! {:level (if (:conforms? result) :info :warn)
              :id    :dannet.shapes/validate-inferred
              :data  {:conforms?  (:conforms? result)

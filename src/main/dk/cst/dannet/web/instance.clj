@@ -394,7 +394,7 @@ capped at 200 items."}
 
   ;; Same, but keeping the result around for closer inspection.
   (def validation-result (shapes/validate-db @db))
-  (shapes/by-shape (:entries validation-result))
+  (shapes/by-shape (:results validation-result))
   (require '[dk.cst.theophrastus.shacl :as shacl])
   (shacl/by-severity validation-result)
 

@@ -13,8 +13,9 @@
   "The LIMIT and OFFSET of the `query` on the page of the `params`, nil for
   none, and the :limit, :offset and :lookahead? of the page."
   [query params]
-  (let [{:keys [^Query sparql] :as op} (sparql/page {:sparql (theo/query query)}
-                                                    params)]
+  (let [{:keys [^Query sparql] :as op} (sparql/page
+                                         {:sparql (theo/parse-query query)}
+                                         params)]
     [(when (.hasLimit sparql) (.getLimit sparql))
      (when (.hasOffset sparql) (.getOffset sparql))
      (select-keys op [:limit :offset :lookahead?])]))
@@ -99,7 +100,7 @@
   (is (= (str "PREFIX  ex:   <http://example.org/>\n\n"
               "SELECT  ?o\nWHERE\n  { ex:a  ex:p  ?o }")
          (sparql/normalize
-           (theo/query "SELECT ?o { ex:a ex:p ?o }"
-                       (assoc prefixes
-                         :unused "<http://example.org/unused#>"))))
+           (theo/parse-query "SELECT ?o { ex:a ex:p ?o }"
+                             (assoc prefixes
+                               :unused "<http://example.org/unused#>"))))
       "the PREFIX lines of the prefixes that the query uses"))

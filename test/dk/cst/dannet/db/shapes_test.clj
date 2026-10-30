@@ -3,9 +3,9 @@
   validate small in-memory graphs and do not require a running database.
 
   Every property shape in shapes/base.ttl has a negative fixture below, asserted on
-  the stable [:shape :constraint] identity of the resulting violation, except
-  the sh:sparql constraints, which are identified by :message or :focus-node
-  instead (see the `hypernym-shapes` deftest)."
+  the stable [:source-shape :constraint-component] identity of the resulting
+  violation, except the sh:sparql constraints, which are identified by
+  :message or :focus-node instead (see the `hypernym-shapes` deftest)."
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.dannet.db.shapes :as shapes]
@@ -29,7 +29,10 @@
 (defn- shape+constraint
   "The set of [shape constraint] pairs among the violations for `ttl`."
   [ttl]
-  (->> (validate-ttl ttl) :entries (map (juxt :shape :constraint)) set))
+  (->> (validate-ttl ttl)
+       :results
+       (map (juxt :source-shape :constraint-component))
+       set))
 
 (deftest conforming-fixtures
   (testing "well-formed entry + sense + synset conforms"
@@ -93,11 +96,12 @@ dn:e a ontolex:LexicalEntry ; rdfs:label \"hund\" ;
 
 (deftest lexical-sense-shape
   (testing "missing rdfs:label, flagged with its focus node"
-    (let [{:keys [conforms? entries]} (validate-ttl "
+    (let [{:keys [conforms? results]} (validate-ttl "
 dn:sense-2 a ontolex:LexicalSense .")]
       (is (false? conforms?))
-      (is (some #(= :dn/sense-2 (:focus-node %)) entries))
-      (is (contains? (set (map (juxt :shape :constraint) entries))
+      (is (some #(= :dn/sense-2 (:focus-node %)) results))
+      (is (contains? (set (map (juxt :source-shape :constraint-component)
+                               results))
                      [:dns/LexicalSenseShape-label
                       :sh/MinCountConstraintComponent])))))
 
@@ -113,8 +117,8 @@ dn:synset-2 a ontolex:LexicalConcept .")
   ;; ReportEntry#sourceConstraint holds the shape, so the individual
   ;; constraint is identified by :severity + :message instead.
   (let [entry-info (fn [ttl]
-                     (->> (validate-ttl ttl) :entries
-                          (map (juxt :shape :severity :message)) set))]
+                     (->> (validate-ttl ttl) :results
+                          (map (juxt :source-shape :severity :message)) set))]
     (testing "self-hypernymy is a violation"
       (is (contains? (entry-info "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
@@ -144,38 +148,40 @@ dn:word-3 a ontolex:Word ; rdfs:label \"b\" ; wn:partOfSpeech wn:verb ;
 dn:form-2 ontolex:writtenRep \"a\"@da .
 dn:form-3 ontolex:writtenRep \"b\"@da ."
             result (validate-ttl ttl)]
-        (is (contains? (->> (:entries result)
-                            (map (juxt :shape :severity :focus-node)) set)
+        (is (contains? (->> (:results result)
+                            (map (juxt :source-shape :severity :focus-node)) set)
                        [:dns/HypernymPOSShape :sh/Warning :dn/synset-2]))
         ;; Warnings never block, cf. the write-gating/baseline semantics.
         (is (not (shacl/violations? result)))))
     (testing "hierarchy with agreeing POS produces no hypernym entries"
       (is (empty? (filter (comp #{:dns/HypernymHierarchyShape
-                                  :dns/HypernymPOSShape} :shape)
-                          (:entries (validate-ttl "
+                                  :dns/HypernymPOSShape} :source-shape)
+                          (:results (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:hypernym dn:synset-3 .
 dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."))))))))
 
 (deftest ili-relation-shape
   ;; SPARQL constraint, so identified by :severity and :focus-node rather than
-  ;; :constraint.
+  ;; :constraint-component.
   (testing "eq* relation targeting an ILI entry is a violation (issue #205)"
     (is (contains? (->> (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   dns:eqHyponym ili:i48720 .")
-                        :entries (map (juxt :shape :severity :focus-node)) set)
+                        :results
+                        (map (juxt :source-shape :severity :focus-node))
+                        set)
                    [:dns/IliRelationShape :sh/Violation :dn/synset-2])))
   (testing "wn:ili and eq* to a synset produce no ILI entries"
-    (is (empty? (filter (comp #{:dns/IliRelationShape} :shape)
-                        (:entries (validate-ttl "
+    (is (empty? (filter (comp #{:dns/IliRelationShape} :source-shape)
+                        (:results (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:ili ili:i48720 ;
   dns:eqHyponym <https://en-word.net/id/oewn-02486953-n> .")))))))
 
 (deftest negation-contradiction-shape
   ;; SPARQL constraint, so identified by :severity and :focus-node rather than
-  ;; :constraint.
+  ;; :constraint-component.
   (let [negation "
 [] a owl:NegativePropertyAssertion ;
   owl:sourceIndividual dn:synset-2 ;
@@ -186,16 +192,18 @@ dn:synset-3 a ontolex:LexicalConcept ; rdfs:label \"{b}\" ."]
     (testing "a relation that a negation denies is a violation"
       (is (contains? (->> (validate-ttl (str negation "
 dn:synset-2 wn:agent dn:synset-3 ."))
-                          :entries (map (juxt :shape :severity :focus-node)) set)
+                          :results
+                          (map (juxt :source-shape :severity :focus-node))
+                          set)
                      [:dns/NegationContradictionShape :sh/Violation :dn/synset-2])))
     (testing "a negation alone produces no negation entries"
-      (is (empty? (filter (comp #{:dns/NegationContradictionShape} :shape)
-                          (:entries (validate-ttl negation))))))))
+      (is (empty? (filter (comp #{:dns/NegationContradictionShape} :source-shape)
+                          (:results (validate-ttl negation))))))))
 
 (deftest ili-shapes
   (let [entries (fn [ttl]
-                  (->> (validate-ttl ttl) :entries
-                       (map (juxt :shape :severity :focus-node)) set))]
+                  (->> (validate-ttl ttl) :results
+                       (map (juxt :source-shape :severity :focus-node)) set))]
     (testing "several wn:ili on one synset are a violation"
       (is (contains? (entries "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
@@ -221,13 +229,13 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:eq_synonym <https://en-word.net/id/oewn-02486953-n> ;
   dns:eqSimilar <https://en-word.net/id/oewn-02486953-n> .")]
-      (is (contains? (->> (:entries result)
-                          (map (juxt :shape :severity :focus-node)) set)
+      (is (contains? (->> (:results result)
+                          (map (juxt :source-shape :severity :focus-node)) set)
                      [:dns/EqRelationShape :sh/Violation :dn/synset-2]))
       (is (shacl/violations? result))))
   (testing "eq* relations to different synsets produce no eq* entries"
-    (is (empty? (filter (comp #{:dns/EqRelationShape} :shape)
-                        (:entries (validate-ttl "
+    (is (empty? (filter (comp #{:dns/EqRelationShape} :source-shape)
+                        (:results (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   wn:eq_synonym <https://en-word.net/id/oewn-02486953-n> ;
   dns:eqHypernym <https://en-word.net/id/oewn-02084071-n> .")))))))
@@ -238,8 +246,8 @@ dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
 dn:synset-2 rdfs:label \"{a}\" ; ontolex:lexicalizedSense dn:sense-2 .")
                    [:dns/SynsetTypeShape :sh/ClassConstraintComponent])))
   (testing "a typed synset produces no type entries"
-    (is (empty? (filter (comp #{:dns/SynsetTypeShape} :shape)
-                        (:entries (validate-ttl "
+    (is (empty? (filter (comp #{:dns/SynsetTypeShape} :source-shape)
+                        (:results (validate-ttl "
 dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
   ontolex:lexicalizedSense dn:sense-2 .")))))))
 
@@ -259,8 +267,8 @@ dn:sense-2 a ontolex:LexicalSense ;
       (is (:conforms? (shapes/validate-node g :dn/entry-1)))
       ;; ...while the bad sense is still flagged when targeted directly
       (is (= [[:dns/LexicalSenseShape-label :sh/MinCountConstraintComponent]]
-             (map (juxt :shape :constraint)
-                  (:entries (shapes/validate-node g :dn/sense-2))))))))
+             (map (juxt :source-shape :constraint-component)
+                  (:results (shapes/validate-node g :dn/sense-2))))))))
 
 (deftest validate-export-gate
   (let [->ttl-file (fn [ttl]

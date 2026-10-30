@@ -9,7 +9,7 @@
   "The Jena Query of the SPARQL text `strs`, joined and parsed with the DanNet
   prefixes, so that the text needs no PREFIX lines for them."
   [& strs]
-  (theo/query (apply str strs) prefix/prefixes))
+  (theo/parse-query (apply str strs) prefix/prefixes))
 
 (def resource-labels
   "The labels of the bound ?resource values, given as keywords or bracketed

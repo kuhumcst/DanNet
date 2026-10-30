@@ -615,7 +615,8 @@
    ;; The timeout of endpoint/defaults applies in development too. To lift
    ;; it there, use (if shared/development? nil 30000) as the :timeout; a
    ;; query then runs for the seconds of its timeout parameter, or forever.
-   :headers     (assoc endpoint/safety "Cache-Control" resp/one-day-cache)})
+   :headers     (assoc endpoint/safety-headers
+                  "Cache-Control" resp/one-day-cache)})
 
 (def sparql-page-types
   "The media types of the pages of the SPARQL editor; the endpoint writes
