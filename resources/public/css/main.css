@@ -307,30 +307,8 @@ pre.message {
     padding: 0;
 }
 
-/* Definition lists */
-dl {
+dl.search-results {
     margin: 0;
-    padding: 0;
-}
-
-dt {
-    font-size: var(--font-size-m-l);
-    font-weight: normal;
-    padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
-    margin: 0;
-    letter-spacing: var(--letter-spacing-base);
-    font-variant: small-caps;
-    word-break: normal;
-}
-
-dd {
-    margin: var(--spacing-m) 0 var(--spacing-l) 0;
-    padding: var(--spacing-s) var(--spacing-m) var(--spacing-m) var(--spacing-m);
-    font-size: var(--font-size-s);
-}
-
-dd + dt {
-    padding-top: var(--spacing-m);
 }
 
 dl.search-results dt .dannet * {
@@ -361,20 +339,16 @@ dl.search-results > div:focus-visible {
     border-color: var(--color-dark);
 }
 
-/* Reset dt/dd spacing — handled by the wrapping div. */
 dl.search-results dt {
-    padding: 0 0 var(--spacing-m) 0;
-    margin: 0;
-}
-
-/* Cancel global dd + dt rule inside result divs. */
-dl.search-results dd + dt {
-    padding-top: 0;
+    font-size: var(--font-size-m-l);
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+    padding-bottom: var(--spacing-m);
 }
 
 dl.search-results dd {
-    padding: 0;
-    margin: var(--spacing-m) 0 0 0; /* reset global dd margins */
+    margin: var(--spacing-m) 0 0 0;
+    font-size: var(--font-size-s);
 }
 
 ul.synset-summary {
@@ -387,7 +361,6 @@ ul.synset-summary {
 }
 
 /* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
-.rdf-resource ul.synset-summary { box-shadow: none; }
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-m);
     background-color: rgba(255, 255, 255, 1);
@@ -499,10 +472,6 @@ ol.four-digits + details > summary {
 ol.five-digits,
 ol.five-digits + details > summary {
     padding-left: 52px;
-}
-
-li {
-    padding: 0;
 }
 
 li + li {
@@ -1541,6 +1510,23 @@ span.marker {
     border-top: var(--subtle-border);
     margin-top: var(--spacing-m);
     padding-top: var(--spacing-l);
+}
+
+.synset-diagram-container dl {
+    margin: 0;
+}
+
+.synset-diagram-container dt {
+    font-size: var(--font-size-m-l);
+    padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+}
+
+.synset-diagram-container dd {
+    margin: var(--spacing-m) 0 var(--spacing-l) 0;
+    padding: var(--spacing-s) var(--spacing-m) var(--spacing-m) var(--spacing-m);
+    font-size: var(--font-size-s);
 }
 
 abbr.pos-label {
