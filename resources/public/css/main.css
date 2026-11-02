@@ -861,7 +861,6 @@ nav#main-nav .nav-icon:focus-visible {
 
 nav#main-nav a.title span {
     display: inline-block;
-    color: inherit; /* Override namespace-specific colors */
 }
 
 nav#main-nav select.language {
@@ -904,6 +903,11 @@ nav#main-nav select.detail-level {
     background-image: url("/images/text-box.svg");
     background-color: transparent;
     background-size: 26px;
+}
+
+/* The selects above hide their text, which the options would inherit. */
+nav#main-nav select option {
+    color: var(--color-dark);
 }
 
 nav#main-nav.full-screen {
@@ -1332,28 +1336,23 @@ nav#main-nav.prefix.wordnet {
 }
 
 /* Namespace-specific text colors */
-.dannet,
-.dannet * {
+.dannet {
     color: var(--color-dannet);
 }
 
-.w3c,
-.w3c * {
+.w3c {
     color: var(--color-w3c);
 }
 
-.meta,
-.meta * {
+.meta {
     color: var(--color-meta);
 }
 
-.ontolex,
-.ontolex * {
+.ontolex {
     color: var(--color-ontolex);
 }
 
-.wordnet,
-.wordnet * {
+.wordnet {
     color: var(--color-wordnet);
 }
 
