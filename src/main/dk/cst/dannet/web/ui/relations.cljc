@@ -87,11 +87,6 @@
   [k label]
   [(get relation->rank k (count relation-order)) (str label)])
 
-(defn relation->class
-  "Generic CSS class marking the group of relation `k`."
-  [k]
-  (str (name (or (relation->group k) :other)) "-rel"))
-
 (defn prepare-groups
   "Transform a map of `relations` based on `opts` into grouped entries.
 

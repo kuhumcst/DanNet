@@ -1558,14 +1558,6 @@ span.marker {
     padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
 }
 
-.synset-diagram-container .synset-diagram__header {
-    display: flex;
-    align-items: center;
-    border-bottom: var(--normal-border);
-    padding: 0 0 var(--spacing-m) 0;
-    margin-bottom: var(--spacing-m);
-}
-
 .synset-diagram-container aside.synset-diagram__metadata {
     display: flex;
     align-items: center;
@@ -1594,12 +1586,6 @@ abbr.pos-label {
     margin-right: var(--spacing-m);
     border-right: var(--subtle-border);
     align-self: stretch;
-}
-
-.synset-diagram-container .synset-diagram__definition {
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
 }
 
 /* Radial tree layout */
@@ -1655,18 +1641,6 @@ fieldset.viz-mode-toggle {
 }
 
 /* Legend kept for screen-reader grouping, hidden for sighted users. */
-fieldset.viz-mode-toggle legend {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
 fieldset.viz-mode-toggle label {
     display: inline-flex;
     align-items: center;
@@ -1747,14 +1721,7 @@ fieldset.radial-tree-legend ul li + li {
     margin-top: var(--spacing-xs);
 }
 
-/* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
-fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
-fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
-fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
-fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
-fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
-fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
-fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+fieldset.radial-tree-legend ul li.rel-group-begin {
     margin-top: var(--rel-group-gap);
     padding-top: var(--rel-group-gap);
     border-top: var(--subtle-border);
@@ -2450,14 +2417,7 @@ span.render-error {
         align-items: center;
         padding-top: 0;
     }
-    /* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
-    fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
-    fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
-    fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
-    fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
-    fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
-    fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
-    fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+    fieldset.radial-tree-legend ul li.rel-group-begin {
         border-top: none;
         padding: 0;
         margin: 0;
@@ -2526,10 +2486,6 @@ span.render-error {
     table.attr-val.attr-val--nested col:nth-child(2) {
         min-width: 10ch;
     }
-    .synset-diagram-container .synset-diagram__definition {
-        flex-direction: column;
-        margin: 0 auto 0 0;
-    }
     .icon.maximize,
     .icon.minimize {
         align-self: flex-start;
@@ -2583,14 +2539,7 @@ span.render-error {
         /* Single column again, so the group gap is meaningful once more. */
         --rel-group-gap: var(--spacing-m);
     }
-    /* TODO: maybe we can insert a .rel-group-begin class to make this CSS less complex */
-    fieldset.radial-tree-legend ul li:not(.taxonomic-rel) + li.taxonomic-rel,
-    fieldset.radial-tree-legend ul li:not(.part-whole-rel) + li.part-whole-rel,
-    fieldset.radial-tree-legend ul li:not(.similarity-rel) + li.similarity-rel,
-    fieldset.radial-tree-legend ul li:not(.roles-rel) + li.roles-rel,
-    fieldset.radial-tree-legend ul li:not(.domain-rel) + li.domain-rel,
-    fieldset.radial-tree-legend ul li:not(.cross-link-rel) + li.cross-link-rel,
-    fieldset.radial-tree-legend ul li:not(.other-rel) + li.other-rel {
+    fieldset.radial-tree-legend ul li.rel-group-begin {
         margin-top: var(--rel-group-gap);
         padding-top: var(--rel-group-gap);
         border-top: var(--subtle-border);

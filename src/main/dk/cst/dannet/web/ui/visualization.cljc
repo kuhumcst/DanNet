@@ -144,15 +144,19 @@
                      "Filter relation types")}
       [:ul.radial-tree-legend
        ;; Relations are ordered by the canonical relations/group-order so the
-       ;; legend matches the diagram, and each <li> is tagged with its group
-       ;; class so the grouping can be styled in CSS without splitting the list.
-       (for [k (sort-by #(relations/relation-sort-key % (label-of %))
-                        (keys subentity))]
-         (when-let [theme (get shared/synset-rel-theme k)]
-           (let [label        (label-of k)
+       ;; legend matches the diagram, and the <li> that begins a new group is
+       ;; marked so the grouping can be styled in CSS without splitting the list.
+       (let [ks (->> (keys subentity)
+                     (filter shared/synset-rel-theme)
+                     (sort-by #(relations/relation-sort-key % (label-of %))))]
+         (for [[prev k] (map vector (cons nil ks) ks)]
+           (let [theme        (get shared/synset-rel-theme k)
+                 label        (label-of k)
                  is-selected? (= @selected theme)]
-             [:li {:key   k
-                   :class (relations/relation->class k)}
+             [:li (cond-> {:key k}
+                    (and prev (not= (relations/relation->group prev)
+                                    (relations/relation->group k)))
+                    (assoc :class "rel-group-begin"))
               [:label {:lang (i18n/lang label)} (str label)
                [:input {:type      "radio"
                         :name      "radial-tree-filter"
@@ -275,7 +279,7 @@
      ;; diagrams no longer shifts the radios.
      [:div.synset-diagram__toolbar
       [:fieldset.viz-mode-toggle
-       [:legend (i18n/da-en languages "Diagram" "Diagram")]
+       [:legend.visually-hidden (i18n/da-en languages "Diagram" "Diagram")]
        (mode-radio :radial mode
                    (i18n/da-en languages "relationer" "relations"))
        (when (:children hyponym-tree)
