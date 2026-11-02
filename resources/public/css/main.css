@@ -1,3 +1,9 @@
+/* ####################################################################
+   base.css: Design tokens, keyframes, the reset and the default look of plain
+   HTML elements. Every other file builds on this one.
+   #################################################################### */
+
+
 /* ===========================================
    CSS VARIABLES (Design Tokens)
    =========================================== */
@@ -151,25 +157,6 @@ html, body {
     background: #fff var(--bg-texture);
 }
 
-#app {
-    display: flex;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-
-    color: var(--color-dark);
-    font-family: var(--font-family);
-    letter-spacing: var(--letter-spacing-base);
-}
-
-@media only screen and (max-width: 700px) {
-    #app {
-        flex-direction: column;
-    }
-}
-
 button {
     cursor: pointer;
 }
@@ -246,17 +233,6 @@ h1 img {
     width: clamp(80px, 33vw, 420px);
 }
 
-h1 span.prefix {
-    align-self: center;
-    transition: background var(--transition-slower);
-    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
-    padding: var(--spacing-prefix) var(--spacing-m);
-    border-radius: 3px;
-
-    letter-spacing: var(--spacing-prefix);
-    padding-right: var(--spacing-prefix); /* account for letter-spacing */
-}
-
 h2 {
     font-size: var(--font-size-xl);
     text-align: center;
@@ -300,6 +276,7 @@ pre code {
     background: none;
     color: white;
 }
+
 pre {
     text-shadow: none !important;
     color: white;
@@ -317,144 +294,6 @@ pre.message {
     color: black;
     background: transparent;
     padding: 0;
-}
-
-dl.search-results {
-    margin: 0;
-}
-
-dl.search-results dt .dannet * {
-    color: var(--color-dark);
-}
-
-dl.search-results dt .set__content {
-    font-size: var(--font-size-xl);
-    text-align: left;
-}
-
-dl.search-results dt .set__content sub {
-    font-size: var(--font-size-m);
-}
-
-dl.search-results > div {
-    transition: transform var(--transition-fast);
-    cursor: pointer;
-    padding: var(--spacing-m);
-    margin-bottom: var(--spacing-xxl);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-}
-
-dl.search-results > div:hover,
-dl.search-results > div:focus-visible {
-    border-color: var(--color-dark);
-}
-
-dl.search-results dt {
-    font-size: var(--font-size-m-l);
-    letter-spacing: var(--letter-spacing-base);
-    font-variant: small-caps;
-    padding-bottom: var(--spacing-m);
-}
-
-dl.search-results dd {
-    margin: var(--spacing-m) 0 0 0;
-    font-size: var(--font-size-s);
-}
-
-ul.synset-summary {
-    line-height: 1.5;
-    list-style-type: none;
-    padding: 0 0 0 var(--spacing-m);
-    font-size: var(--font-size-m);
-    margin: 0;
-    border-left: var(--spacing-l) solid var(--color-dannet);
-}
-
-/* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
-section.subentity:has(ul.synset-summary) {
-    padding: var(--spacing-m);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-    margin: 0 auto;
-}
-
-/* The main line of a summary lays out its parts (e.g. PoS + definition) in a
-   flex row; any summary badges are pushed to the far right side. */
-ul.synset-summary > li.summary-main {
-    display: flex;
-    align-items: first baseline;
-    gap: var(--spacing-xs);
-}
-
-ul.synset-summary > li.summary-main:not(:last-child) {
-    border-bottom: var(--subtle-border);
-    padding-bottom: var(--spacing-s);
-}
-
-/* Dictionary-style usage examples inside the synset summary. */
-ul.synset-summary li.sense-example {
-    font-size: var(--font-size-s);
-    list-style-type: "↪";
-    margin-left: var(--spacing-xl);
-    padding-left: var(--spacing-s);
-}
-
-ul.synset-summary li.sense-example:nth-child(2) { margin-top: var(--spacing-m); }
-
-ul.synset-summary li.sense-example::marker {
-    color: var(--color-subtle);
-}
-
-ul.synset-summary li.sense-example strong {
-    font-weight: bold;
-    text-decoration: underline;
-    text-decoration-style: dashed;
-    text-underline-offset: var(--spacing-xs);
-}
-
-ul.synset-summary li.sense-example + li[property="dns:ontologicalType"] {
-    margin-top: var(--spacing-m);
-}
-
-/* Generic dictionary entry-style badge for summary components,
-   e.g. displaying the (otherwise hidden) rdf:type of a summary. */
-span.summary-badge {
-    margin-left: auto;
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--color-subtle);
-    border-radius: var(--border-radius-s);
-    padding: var(--spacing-xxs) var(--spacing-xs);
-    text-align: center;
-}
-
-span.summary-badge:hover {
-    border: 1px solid var(--color-dark);
-}
-
-@media only screen and (max-width: 700px) {
-    ul.synset-summary {
-        font-size: var(--font-size-s);
-    }
-}
-
-
-dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
-dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
-dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
-dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
-dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
-
-/* Resets some for search results. */
-dl.search-results dt .set__left-bracket,
-dl.search-results dt .set__right-bracket,
-dl.search-results a::after,
-ul.synset-summary .set__left-bracket,
-ul.synset-summary .set__right-bracket,
-ul.synset-summary a::after {
-    display: none;
 }
 
 /* Ordered lists */
@@ -501,79 +340,114 @@ li::marker {
     font-size: var(--font-size-xs);
 }
 
-/* Details/summary (collapsible sections) */
-details.reactive-list {
-    margin: var(--spacing-s) 0 0 0;
-    border-top: 1px solid transparent;
+hr {
+    border: none;
+    border-top: var(--normal-border);
+    width: 100%;
+    margin: 0 0 var(--spacing-xl) 0;
 }
 
-details.reactive-list summary {
-    cursor: pointer;
-    border-radius: var(--border-radius-s);
-    color: rgba(0,0,0,var(--opacity-interactive));
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
+
+/* ===========================================
+   TABLES
+   =========================================== */
+
+td, th {
+    padding: var(--spacing-m);
+    vertical-align: top;
 }
 
-details.reactive-list summary:hover {
-    text-decoration: underline;
-    text-underline-offset: var(--spacing-xs);
+th {
+    font-weight: bold;
+    font-variant: small-caps;
+    font-size: var(--font-size-m);
+    border-bottom: var(--subtle-border);
+    background:var(--bg-texture);
+    text-align: left;
+    text-shadow: none !important;
 }
 
-details.reactive-list[open] {
-    border-top: var(--subtle-border);
-    padding-bottom: var(--spacing-m);
+tr:nth-child(odd),
+tr tr:nth-child(even) {
+    background-color: white;
 }
 
-summary + ol {
-    margin-top: var(--spacing-m);
+tr:nth-child(even),
+tr tr:nth-child(odd) {
+    background-color: var(--color-bg-alt);
 }
 
-/* Subheadings and notes */
-.subheading {
-    text-align: center;
-    font-size: var(--font-size-m-l);
-    margin: var(--spacing-l) 0;
-    color: var(--color-muted);
-}
-
-label.subheading {
-    display: block;
-}
-
-label.subheading select {
-    font-size: var(--font-size-m-l);
-    padding: var(--spacing-xxs) var(--spacing-prefix);
-}
-
-p.note {
-    text-align: center;
-    font-style: italic;
-    font-size: var(--font-size-s);
-    margin: var(--spacing-l) 0 0 0;
-    color: var(--color-muted);
-}
-
-p.note + p.note {
-    margin-top: var(--spacing-s);
-}
-
-p.note strong {
-    color: var(--color-dark);
-    vertical-align: baseline;
-    margin-right: var(--spacing-xs);
-}
-
-@media only screen and (max-width: 500px) {
-    p.note.desktop-only {
-        display: none;
+@media only screen and (max-width: 700px) {
+    td {
+        font-size: var(--font-size-s);
     }
 }
 
 
 /* ===========================================
-   LAYOUT
+   NAMESPACE COLORS & LANGUAGE TAGS
    =========================================== */
+
+/* Namespace colors: the text color of links, and the background of prefix
+   badges and the nav bar. */
+.dannet  { --ns-color: var(--color-dannet); }
+.w3c     { --ns-color: var(--color-w3c); }
+.meta    { --ns-color: var(--color-meta); }
+.ontolex { --ns-color: var(--color-ontolex); }
+.wordnet { --ns-color: var(--color-wordnet); }
+
+.dannet, .w3c, .meta, .ontolex, .wordnet {
+    color: var(--ns-color);
+}
+
+/* Language tags shown as superscript after lang-attributed elements. */
+[lang]:not(html, footer, footer *, h1 span, article)::after {
+    content: attr(lang);
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+    font-variant: small-caps;
+}
+
+/* Hide the superscript when it matches the UI language declared on <html>;
+   [lang|=...] also covers regional subtags such as en-GB. At the "high"
+   detail level (= long labels) all language tags remain visible. */
+html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
+html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
+    content: none;
+}
+
+
+/* ####################################################################
+   layout.css: How the page is divided: the app frame, the nav bar, the content
+   column, the page header and footer, and full-screen mode.
+   #################################################################### */
+
+
+/* ===========================================
+   PAGE
+   =========================================== */
+
+#app {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    color: var(--color-dark);
+    font-family: var(--font-family);
+    letter-spacing: var(--letter-spacing-base);
+}
+
+@media only screen and (max-width: 700px) {
+    #app {
+        flex-direction: column;
+    }
+}
 
 #content {
     flex-grow: 1;
@@ -625,162 +499,6 @@ article > section:last-child {
     margin-bottom: var(--spacing-m);
 }
 
-/* Document-style articles (e.g. about page) */
-article.document {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    max-width: var(--content-max-width-narrow);
-    font-size: var(--font-size-m);
-}
-
-article.document > div {
-    padding: var(--spacing-m);
-}
-
-article.document > div > ul:first-child {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-
-    list-style: none;
-    padding: var(--spacing-l) var(--spacing-m);
-    margin: 0 0 var(--spacing-xl) 0;
-    gap: var(--spacing-l);
-
-    border: var(--subtle-border);
-    background: var(--bg-texture);
-    border-radius: var(--border-radius-s);
-}
-
-article.document > div > ul:first-child li {
-    padding: 0;
-}
-
-@media only screen and (max-width: 700px) {
-    article.document > div > ul:first-child {
-        gap: var(--spacing-m);
-        font-size: var(--font-size-s);
-    }
-}
-
-/* Cycle colours of the nav tabs above and lists of links. */
-article.document > div > ul:first-child > li:nth-of-type(5n+1) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1) {
-    color: var(--color-w3c);
-    text-decoration-color: var(--color-w3c);
-}
-article.document > div > ul:first-child > li:nth-of-type(5n+2) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+2) {
-    color: var(--color-meta);
-    text-decoration-color: var(--color-meta);
-}
-article.document > div > ul:first-child > li:nth-of-type(5n+3) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+3) {
-    color: var(--color-ontolex);
-    text-decoration-color: var(--color-ontolex);
-}
-article.document > div > ul:first-child > li:nth-of-type(5n+4) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+4) {
-    color: var(--color-dannet);
-    text-decoration-color: var(--color-dannet);
-}
-article.document > div > ul:first-child > li:nth-of-type(5n+5) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+5) {
-    color: var(--color-wordnet);
-    text-decoration-color: var(--color-wordnet);
-}
-
-/* Reset the cycle for single hyperlinks. */
-article.document > div > ul:not(:first-child) > li > a:first-of-type:last-of-type {
-    color: var(--color-link);
-}
-
-article.document h1 {
-    font-size: var(--font-size-xxl);
-    margin-bottom: var(--spacing-xl);
-}
-
-article.document p {
-    margin: 1.5em 0 1.5em 0;
-}
-
-article.document li > a {
-    font-weight: bold;
-}
-
-article.document a {
-    transition: text-decoration-color var(--transition-base);
-    text-decoration: underline;
-    text-decoration-color: var(--color-link-underline);
-    text-underline-offset: var(--spacing-xs);
-}
-
-article.document a:hover {
-    text-decoration-color: var(--color-link-underline-hover);
-}
-
-/* Styles affecting images in the root of the document. */
-article.document > div > table,
-article.document > div > img,
-article.document > div > p > img,
-article.document > div > p > a > img {
-    max-width: 90%;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-
-    /* Centering */
-    display: block;
-    margin: var(--spacing-l) auto;
-}
-article.document > div > table:not(code) {
-    line-height: 1.6;
-}
-
-
-article.document ul {
-    line-height: var(--line-height-prose);
-    padding: 0 var(--spacing-xl);
-}
-
-article.document li {
-    padding: 0 0 0 var(--spacing-s);
-    margin: 0;
-}
-
-article.document li + li {
-    padding-top: var(--spacing-s);
-}
-
-article.document li strong:first-child {
-    text-transform: uppercase;
-    margin-right: var(--spacing-xs);
-}
-
-article.document blockquote { margin: var(--spacing-xl) ;}
-article.document blockquote p {
-    padding: var(--spacing-l) var(--spacing-xl);
-    margin: var(--spacing-xl) 0;
-    border: var(--subtle-border);
-    background: var(--bg-texture);
-    border-radius: var(--border-radius-s);
-}
-
-article.document blockquote > p > strong:first-child {
-    text-transform: uppercase;
-}
-
-article.search {
-    width: fit-content;
-}
-
-/* Search results article */
-article.search table.attr-val + table.attr-val {
-    margin-top: var(--spacing-xxl);
-    margin-bottom: var(--spacing-l);
-}
-
 header.page-header,
 footer.page-footer {
     text-align: center;
@@ -800,15 +518,18 @@ footer.page-footer p {
     margin: var(--spacing-m);
 }
 
-hr {
-    border: none;
-    border-top: var(--normal-border);
-    width: 100%;
-    margin: 0 0 var(--spacing-xl) 0;
-}
-
 aside.notes {
     margin-top: var(--spacing-xl);
+}
+
+#content.full-screen > main > article {
+    max-width: none;
+    width: fit-content;
+    flex-grow: 1;
+}
+
+#content.full-screen footer.page-footer {
+    padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
 }
 
 
@@ -959,6 +680,13 @@ html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.
         margin: 0 auto;
     }
 }
+
+
+/* ####################################################################
+   components.css: The parts placed inside the layout: search, attribute tables,
+   prefixes, synsets, search results, document pages and small
+   controls.
+   #################################################################### */
 
 
 /* ===========================================
@@ -1122,42 +850,12 @@ nav.full-screen search:not(.search-active) {
    TABLES
    =========================================== */
 
-article.document table,
-table.attr-val,
-table.sparql-results {
-    font-size: var(--font-size-m);
-    border-collapse: collapse;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-    width: 100%;
-}
-
-article.document table {
-    width: fit-content;
-    margin: 0 auto;
-}
-
 table.attr-val col:nth-child(2) {
     min-width: 12ch;
 }
 
 table.attr-val col:nth-child(3) {
     width: 80ch;
-}
-
-td, th {
-    padding: var(--spacing-m);
-    vertical-align: top;
-}
-
-th {
-    font-weight: bold;
-    font-variant: small-caps;
-    font-size: var(--font-size-m);
-    border-bottom: var(--subtle-border);
-    background:var(--bg-texture);
-    text-align: left;
-    text-shadow: none !important;
 }
 
 td.attr-prefix {
@@ -1248,44 +946,12 @@ tr + tr td.attr-prefix,
 tr + tr td.attr-name {
 }
 
-tr:nth-child(odd),
-tr tr:nth-child(even) {
-    background-color: white;
-}
-
-tr:nth-child(even),
-tr tr:nth-child(odd) {
-    background-color: var(--color-bg-alt);
-}
-
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
 .attr-combo > span {
     vertical-align: top;
 }
 
-table.sparql-results {
-    min-width: 100%;
-    width: auto;
-}
-
-/* Constrain individual cell content to prevent a single long URI from
-   dominating the column width distribution in multi-column results. */
-.sparql-results__cell {
-    max-width: 66vw;
-    overflow-wrap: break-word;
-}
-
-th.sparql-results__count,
-td.sparql-results__count {
-    text-align: right;
-    width: 1%;
-    white-space: nowrap;
-}
-
 @media only screen and (max-width: 700px) {
-    td {
-        font-size: var(--font-size-s);
-    }
     table.attr-val.attr-val--nested td {
         font-size: var(--font-size-xs);
     }
@@ -1297,6 +963,12 @@ td.sparql-results__count {
 @media only screen and (max-width: 500px) {
     table.attr-val col:nth-child(2) {
         min-width: 10ch;
+    }
+}
+
+@media only screen and (max-width: 700px) {
+    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+        content: "";
     }
 }
 
@@ -1355,16 +1027,15 @@ span.prefix__sep {
     display: none;
 }
 
-/* Namespace colors: the text color of links, and the background of prefix
-   badges and the nav bar. */
-.dannet  { --ns-color: var(--color-dannet); }
-.w3c     { --ns-color: var(--color-w3c); }
-.meta    { --ns-color: var(--color-meta); }
-.ontolex { --ns-color: var(--color-ontolex); }
-.wordnet { --ns-color: var(--color-wordnet); }
+h1 span.prefix {
+    align-self: center;
+    transition: background var(--transition-slower);
+    margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
+    padding: var(--spacing-prefix) var(--spacing-m);
+    border-radius: 3px;
 
-.dannet, .w3c, .meta, .ontolex, .wordnet {
-    color: var(--ns-color);
+    letter-spacing: var(--spacing-prefix);
+    padding-right: var(--spacing-prefix); /* account for letter-spacing */
 }
 
 /* Unknown namespace */
@@ -1433,31 +1104,6 @@ header > .rdf-uri .rdf-uri__name {
 @media only screen and (max-width: 700px) {
     header > .rdf-uri {
         font-size: var(--font-size-xs);
-    }
-}
-
-/* Language tags shown as superscript after lang-attributed elements. */
-[lang]:not(html, footer, footer *, h1 span, article)::after {
-    content: attr(lang);
-    margin-left: 0.4ch;
-    vertical-align: top;
-    font-size: 60%;
-    opacity: var(--opacity-muted);
-    text-decoration: none;
-    font-variant: small-caps;
-}
-
-/* Hide the superscript when it matches the UI language declared on <html>;
-   [lang|=...] also covers regional subtags such as en-GB. At the "high"
-   detail level (= long labels) all language tags remain visible. */
-html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
-html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
-    content: none;
-}
-
-@media only screen and (max-width: 700px) {
-    td.attr-name > [lang]:not(footer, h1 span, article)::after {
-        content: "";
     }
 }
 
@@ -1542,9 +1188,829 @@ span.marker {
     vertical-align: baseline;
 }
 
+ul.synset-summary {
+    line-height: 1.5;
+    list-style-type: none;
+    padding: 0 0 0 var(--spacing-m);
+    font-size: var(--font-size-m);
+    margin: 0;
+    border-left: var(--spacing-l) solid var(--color-dannet);
+}
+
+/* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
+section.subentity:has(ul.synset-summary) {
+    padding: var(--spacing-m);
+    background-color: rgba(255, 255, 255, 1);
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+    margin: 0 auto;
+}
+
+/* The main line of a summary lays out its parts (e.g. PoS + definition) in a
+   flex row; any summary badges are pushed to the far right side. */
+ul.synset-summary > li.summary-main {
+    display: flex;
+    align-items: first baseline;
+    gap: var(--spacing-xs);
+}
+
+ul.synset-summary > li.summary-main:not(:last-child) {
+    border-bottom: var(--subtle-border);
+    padding-bottom: var(--spacing-s);
+}
+
+/* Dictionary-style usage examples inside the synset summary. */
+ul.synset-summary li.sense-example {
+    font-size: var(--font-size-s);
+    list-style-type: "↪";
+    margin-left: var(--spacing-xl);
+    padding-left: var(--spacing-s);
+}
+
+ul.synset-summary li.sense-example:nth-child(2) { margin-top: var(--spacing-m); }
+
+ul.synset-summary li.sense-example::marker {
+    color: var(--color-subtle);
+}
+
+ul.synset-summary li.sense-example strong {
+    font-weight: bold;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-underline-offset: var(--spacing-xs);
+}
+
+ul.synset-summary li.sense-example + li[property="dns:ontologicalType"] {
+    margin-top: var(--spacing-m);
+}
+
+/* Generic dictionary entry-style badge for summary components,
+   e.g. displaying the (otherwise hidden) rdf:type of a summary. */
+span.summary-badge {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    border: 1px solid var(--color-subtle);
+    border-radius: var(--border-radius-s);
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    text-align: center;
+}
+
+span.summary-badge:hover {
+    border: 1px solid var(--color-dark);
+}
+
+@media only screen and (max-width: 700px) {
+    ul.synset-summary {
+        font-size: var(--font-size-s);
+    }
+}
+
+abbr.pos-label {
+    color: var(--color-dark);
+    font-variant: small-caps;
+    font-weight: bold;
+    padding: 0 var(--spacing-s) 0 0;
+    margin-right: var(--spacing-m);
+    border-right: var(--subtle-border);
+    align-self: stretch;
+}
+
 
 /* ===========================================
-   RADIAL DIAGRAM
+   HYPERNYM CHAIN
+   =========================================== */
+
+ul.hypernym-chain {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+ul.hypernym-chain ul.hypernym-chain {
+    padding-left: 1ch;
+    margin: 0.8em 0;
+}
+
+.hypernym-chain--root li:first-child {
+    margin-top: 0;
+}
+
+ul.hypernym-chain li::before {
+    content: "↳";
+    color: var(--color-dark);
+    margin-right: 1ch;
+    vertical-align: middle;
+}
+
+ul.hypernym-chain .set__left-bracket,
+ul.hypernym-chain .set__right-bracket {
+    display: none;
+}
+
+ul.hypernym-chain .set__content {
+    text-align: left;
+}
+
+/* Subject item in hypernym chain - no arrow, styled as inactive */
+ul.hypernym-chain > li.subject {
+    color: var(--color-dark);
+}
+
+ul.hypernym-chain > li.subject::before {
+    content: "";
+    margin-right: 0;
+}
+
+
+/* ===========================================
+   SEARCH RESULTS
+   =========================================== */
+
+dl.search-results {
+    margin: 0;
+}
+
+dl.search-results dt .dannet * {
+    color: var(--color-dark);
+}
+
+dl.search-results dt .set__content {
+    font-size: var(--font-size-xl);
+    text-align: left;
+}
+
+dl.search-results dt .set__content sub {
+    font-size: var(--font-size-m);
+}
+
+dl.search-results > div {
+    transition: transform var(--transition-fast);
+    cursor: pointer;
+    padding: var(--spacing-m);
+    margin-bottom: var(--spacing-xxl);
+    background-color: rgba(255, 255, 255, 1);
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+dl.search-results > div:hover,
+dl.search-results > div:focus-visible {
+    border-color: var(--color-dark);
+}
+
+dl.search-results dt {
+    font-size: var(--font-size-m-l);
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+    padding-bottom: var(--spacing-m);
+}
+
+dl.search-results dd {
+    margin: var(--spacing-m) 0 0 0;
+    font-size: var(--font-size-s);
+}
+
+
+dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
+dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
+dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
+dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
+dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
+
+/* Resets some for search results. */
+dl.search-results dt .set__left-bracket,
+dl.search-results dt .set__right-bracket,
+dl.search-results a::after,
+ul.synset-summary .set__left-bracket,
+ul.synset-summary .set__right-bracket,
+ul.synset-summary a::after {
+    display: none;
+}
+
+article.search {
+    width: fit-content;
+}
+
+/* Search results article */
+article.search table.attr-val + table.attr-val {
+    margin-top: var(--spacing-xxl);
+    margin-bottom: var(--spacing-l);
+}
+
+
+/* ===========================================
+   DOCUMENT PAGES
+   =========================================== */
+
+/* Document-style articles (e.g. about page) */
+article.document {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: var(--content-max-width-narrow);
+    font-size: var(--font-size-m);
+}
+
+article.document > div {
+    padding: var(--spacing-m);
+}
+
+article.document > div > ul:first-child {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+
+    list-style: none;
+    padding: var(--spacing-l) var(--spacing-m);
+    margin: 0 0 var(--spacing-xl) 0;
+    gap: var(--spacing-l);
+
+    border: var(--subtle-border);
+    background: var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+article.document > div > ul:first-child li {
+    padding: 0;
+}
+
+@media only screen and (max-width: 700px) {
+    article.document > div > ul:first-child {
+        gap: var(--spacing-m);
+        font-size: var(--font-size-s);
+    }
+}
+
+/* Cycle colours of the nav tabs above and lists of links. */
+article.document > div > ul:first-child > li:nth-of-type(5n+1) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1) {
+    color: var(--color-w3c);
+    text-decoration-color: var(--color-w3c);
+}
+
+article.document > div > ul:first-child > li:nth-of-type(5n+2) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+2) {
+    color: var(--color-meta);
+    text-decoration-color: var(--color-meta);
+}
+
+article.document > div > ul:first-child > li:nth-of-type(5n+3) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+3) {
+    color: var(--color-ontolex);
+    text-decoration-color: var(--color-ontolex);
+}
+
+article.document > div > ul:first-child > li:nth-of-type(5n+4) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+4) {
+    color: var(--color-dannet);
+    text-decoration-color: var(--color-dannet);
+}
+
+article.document > div > ul:first-child > li:nth-of-type(5n+5) a,
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+5) {
+    color: var(--color-wordnet);
+    text-decoration-color: var(--color-wordnet);
+}
+
+/* Reset the cycle for single hyperlinks. */
+article.document > div > ul:not(:first-child) > li > a:first-of-type:last-of-type {
+    color: var(--color-link);
+}
+
+article.document h1 {
+    font-size: var(--font-size-xxl);
+    margin-bottom: var(--spacing-xl);
+}
+
+article.document p {
+    margin: 1.5em 0 1.5em 0;
+}
+
+article.document li > a {
+    font-weight: bold;
+}
+
+article.document a {
+    transition: text-decoration-color var(--transition-base);
+    text-decoration: underline;
+    text-decoration-color: var(--color-link-underline);
+    text-underline-offset: var(--spacing-xs);
+}
+
+article.document a:hover {
+    text-decoration-color: var(--color-link-underline-hover);
+}
+
+/* Styles affecting images in the root of the document. */
+article.document > div > table,
+article.document > div > img,
+article.document > div > p > img,
+article.document > div > p > a > img {
+    max-width: 90%;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+
+    /* Centering */
+    display: block;
+    margin: var(--spacing-l) auto;
+}
+
+article.document > div > table:not(code) {
+    line-height: 1.6;
+}
+
+
+article.document ul {
+    line-height: var(--line-height-prose);
+    padding: 0 var(--spacing-xl);
+}
+
+article.document li {
+    padding: 0 0 0 var(--spacing-s);
+    margin: 0;
+}
+
+article.document li + li {
+    padding-top: var(--spacing-s);
+}
+
+article.document li strong:first-child {
+    text-transform: uppercase;
+    margin-right: var(--spacing-xs);
+}
+
+article.document blockquote { margin: var(--spacing-xl) ;}
+
+article.document blockquote p {
+    padding: var(--spacing-l) var(--spacing-xl);
+    margin: var(--spacing-xl) 0;
+    border: var(--subtle-border);
+    background: var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+article.document blockquote > p > strong:first-child {
+    text-transform: uppercase;
+}
+
+article.document table,
+table.attr-val,
+table.sparql-results {
+    font-size: var(--font-size-m);
+    border-collapse: collapse;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+    width: 100%;
+}
+
+article.document table {
+    width: fit-content;
+    margin: 0 auto;
+}
+
+
+/* ===========================================
+   SUBHEADINGS & NOTES
+   =========================================== */
+
+/* Subheadings and notes */
+.subheading {
+    text-align: center;
+    font-size: var(--font-size-m-l);
+    margin: var(--spacing-l) 0;
+    color: var(--color-muted);
+}
+
+label.subheading {
+    display: block;
+}
+
+label.subheading select {
+    font-size: var(--font-size-m-l);
+    padding: var(--spacing-xxs) var(--spacing-prefix);
+}
+
+p.note {
+    text-align: center;
+    font-style: italic;
+    font-size: var(--font-size-s);
+    margin: var(--spacing-l) 0 0 0;
+    color: var(--color-muted);
+}
+
+p.note + p.note {
+    margin-top: var(--spacing-s);
+}
+
+p.note strong {
+    color: var(--color-dark);
+    vertical-align: baseline;
+    margin-right: var(--spacing-xs);
+}
+
+@media only screen and (max-width: 500px) {
+    p.note.desktop-only {
+        display: none;
+    }
+}
+
+
+/* ===========================================
+   COLLAPSIBLE LISTS
+   =========================================== */
+
+/* Details/summary (collapsible sections) */
+details.reactive-list {
+    margin: var(--spacing-s) 0 0 0;
+    border-top: 1px solid transparent;
+}
+
+details.reactive-list summary {
+    cursor: pointer;
+    border-radius: var(--border-radius-s);
+    color: rgba(0,0,0,var(--opacity-interactive));
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
+}
+
+details.reactive-list summary:hover {
+    text-decoration: underline;
+    text-underline-offset: var(--spacing-xs);
+}
+
+details.reactive-list[open] {
+    border-top: var(--subtle-border);
+    padding-bottom: var(--spacing-m);
+}
+
+summary + ol {
+    margin-top: var(--spacing-m);
+}
+
+
+/* ===========================================
+   BUTTONS, HELP OVERLAY & ERRORS
+   =========================================== */
+
+/* Generic icon button */
+.icon {
+    height: var(--icon-size);
+    width: var(--icon-size);
+    padding: var(--spacing-m);
+    background-color: white;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+}
+
+.icon:hover,
+.icon:focus-visible {
+    border-color: var(--color-dark);
+}
+
+.icon.maximize,
+.icon.minimize {
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 20px 20px;
+    margin-bottom: var(--spacing-m);
+}
+
+.icon.maximize {
+    background-image: url("/images/maximize.svg");
+}
+
+.icon.minimize {
+    background-image: url("/images/minimize.svg");
+}
+
+@media only screen and (max-width: 700px) {
+    .icon.maximize,
+    .icon.minimize {
+        align-self: flex-start;
+    }
+}
+
+/* Display options dropdown */
+select.display-options {
+    appearance: none;
+    display: block;
+
+    background: transparent url(/images/caret-down.svg) 2px center no-repeat;
+    background-size: var(--font-size-s);
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-s);
+    padding: 2px 4px 2px 18px;
+    font-size: var(--font-size-xs);
+
+    color: var(--color-dark);
+    cursor: pointer;
+    opacity: 0.67;
+}
+
+select.display-options:hover,
+select.display-options:focus-visible {
+    text-decoration: underline;
+    border: var(--normal-border);
+    opacity: 1;
+}
+
+/* Help overlay (shown on wide screens) */
+.help-overlay {
+    opacity: 0;
+    transition: opacity 1s;
+    user-select: none;
+    pointer-events: none;
+}
+
+.help-overlay__item {
+    position: absolute;
+    opacity: 0;
+    transition: opacity var(--transition-fast) ease-in;
+    animation: var(--transition-slow) ease-in infinite alternate point;
+    text-transform: uppercase;
+    left: 58px;
+    z-index: var(--z-help);
+    background: white;
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
+    border-radius: var(--border-radius-s);
+    border: 1px solid var(--color-faint);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+.help-overlay__item::before {
+    content: "⭠";
+    font-size: var(--font-size-l);
+    vertical-align: middle;
+    margin-right: var(--spacing-s);
+}
+
+nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
+    opacity: 1;
+}
+
+@media only screen and (min-width: 700px) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+@media only screen and (max-width: 700px) {
+    /* Turn the nav bar horizontal on mobile. */
+    .help-overlay {
+        display: none;
+    }
+}
+
+/* Error boundary fallback */
+details.render-error[open] {
+    margin: 0;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+details.render-error > summary {
+    font-size: inherit;
+    padding: 0;
+}
+
+/* Inline render error (red squiggly underline) */
+span.render-error {
+    text-decoration: underline wavy red;
+    text-underline-offset: 5px;
+    cursor: help;
+}
+
+
+/* ####################################################################
+   sparql.css: The SPARQL editor and its results.
+   #################################################################### */
+
+
+/* ===========================================
+   SPARQL EDITOR
+   =========================================== */
+
+.sparql-editor + output {
+    display: block;
+    margin-top: var(--spacing-xxl);
+    overflow-x: auto;
+}
+
+.sparql-editor__input {
+    display: flex;
+    gap: var(--spacing-m);
+}
+
+.sparql-editor__buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+}
+
+.sparql-editor__buttons input[type=submit] {
+    flex: 3;
+}
+
+.sparql-editor__buttons button {
+    flex: 1;
+}
+
+label.timeout-select input[type=number],
+.sparql-editor button,
+.sparql-editor select,
+.sparql-editor input[type=submit] {
+    padding: var(--spacing-xs) var(--spacing-s);
+}
+
+/* CodeMirror 6 editor */
+.sparql-editor__input .cm-wrapper {
+    flex-grow: 1;
+    min-width: 0; /* Prevent flex child from expanding beyond container */
+    min-height: 5em;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    box-shadow: var(--shadow-card-subtle);
+}
+
+/* Before CM6 mounts, show a styled placeholder matching the editor appearance */
+.sparql-editor__input .cm-wrapper:empty {
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Fake gutter strip — mirrors .cm-gutters background and border-right */
+.sparql-editor__input .cm-wrapper:empty::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 32px; /* approximate width of line-number + fold gutter */
+    background: var(--color-bg-alt);
+    border-right: 1px solid rgba(0, 0, 0, var(--border-opacity-subtle));
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor {
+    flex-grow: 1;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    transition: border-color var(--transition-base),
+                box-shadow var(--transition-base);
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor.cm-focused {
+    outline: none;
+    border-color: var(--color-link);
+    box-shadow: 0 0 0 1px var(--color-link);
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor.cm-invalid {
+    border-color: var(--color-dannet);
+    box-shadow: 0 0 0 1px var(--color-dannet);
+}
+
+.cm-validation-error {
+    color: white;
+    background: black;
+    box-shadow: inset 0 0 4px rgba(255,255,255,0.33);
+    padding: var(--spacing-m);
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: normal;
+    text-shadow: none !important;
+    font-size: var(--font-size-s);
+    white-space: pre-wrap;
+}
+
+.sparql-editor__input .cm-wrapper .cm-scroller {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: var(--font-size-s);
+    line-height: 1.5;
+    overflow-x: auto !important; /* Scroll horizontally instead of expanding the editor width */
+}
+
+.sparql-editor__input .cm-wrapper .cm-content {
+    padding: var(--spacing-s) 0;
+    color: var(--color-subtle); /* base colour for untagged tokens: { } . , ; etc. */
+}
+
+.sparql-editor__input .cm-wrapper .cm-gutters {
+    background: var(--color-bg-alt);
+    border-right: var(--normal-border);
+    color: var(--color-subtle);
+    font-size: var(--font-size-xs);
+}
+
+/* TODO: this is work in progress, probably needs further adjustment */
+/* SPARQL syntax highlighting via classHighlighter .tok-* classes */
+.sparql-editor__input .tok-keyword      { color: var(--color-w3c); font-weight: bold; }
+.sparql-editor__input .tok-variableName { color: var(--color-ontolex); }
+.sparql-editor__input .tok-namespace    { color: var(--color-meta); }
+.sparql-editor__input .tok-url          { color: var(--color-meta); } /* <IRI> literals */
+.sparql-editor__input .tok-atom         { color: var(--color-wordnet); } /* QNames e.g. wn:foo */
+.sparql-editor__input .tok-string       { color: var(--color-dark); }
+
+.sparql-editor__input .tok-number,
+.sparql-editor__input .tok-float,
+.sparql-editor__input .tok-bool        { color: var(--color-dannet); }
+.sparql-editor__input .tok-comment     { color: var(--color-subtle); font-style: italic; }
+.sparql-editor__input .tok-annotation  { color: var(--color-meta); }
+.sparql-editor__input .tok-typeName    { color: var(--color-ontolex); }
+
+.sparql-editor__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-m);
+    margin-top: var(--spacing-m);
+}
+
+label.timeout-select input[type=number] {
+    width: 5ch;
+}
+
+.sparql-pagination {
+    display: flex;
+    padding: var(--spacing-m) 0 0 0;
+    gap: var(--spacing-m);
+    justify-content: space-between;
+}
+
+.sparql-pagination__info {
+    font-weight: bold;
+}
+
+label.distinct-select {
+    margin-left: auto;
+}
+
+.sparql-progress {
+    height: var(--spacing-s);
+    margin-top: var(--spacing-xs);
+    background: transparent;
+}
+
+html[data-fetching] .sparql-progress {
+    background: var(--color-dannet);
+    animation: sparql-fill 15s ease forwards;
+}
+
+@media only screen and (max-width: 700px) {
+    .sparql-editor__input {
+        flex-direction: column;
+    }
+    .sparql-editor__buttons {
+        flex-direction: row;
+    }
+    .sparql-editor__controls {
+        justify-content: flex-end;
+    }
+}
+
+@keyframes sparql-fill {
+    from { transform: scaleX(0); transform-origin: left; }
+    to   { transform: scaleX(1); transform-origin: left; }
+}
+
+
+/* ===========================================
+   SPARQL RESULTS
+   =========================================== */
+
+table.sparql-results {
+    min-width: 100%;
+    width: auto;
+}
+
+/* Constrain individual cell content to prevent a single long URI from
+   dominating the column width distribution in multi-column results. */
+.sparql-results__cell {
+    max-width: 66vw;
+    overflow-wrap: break-word;
+}
+
+th.sparql-results__count,
+td.sparql-results__count {
+    text-align: right;
+    width: 1%;
+    white-space: nowrap;
+}
+
+
+/* ####################################################################
+   diagrams.css: The synset diagrams: the radial tree and its legend, the sunburst
+   and its zoom history, and the word cloud.
+   #################################################################### */
+
+
+/* ===========================================
+   SYNSET DIAGRAMS
    =========================================== */
 
 .synset-diagram-container {
@@ -1566,16 +2032,6 @@ span.marker {
 
 #content.full-screen .synset-diagram {
     flex-grow: 1;
-}
-
-#content.full-screen > main > article {
-    max-width: none;
-    width: fit-content;
-    flex-grow: 1;
-}
-
-#content.full-screen footer.page-footer {
-    padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
 }
 
 .synset-diagram-container aside.synset-diagram__metadata {
@@ -1647,16 +2103,6 @@ span.marker {
     .synset-diagram-container {
         font-size: var(--font-size-s);
     }
-}
-
-abbr.pos-label {
-    color: var(--color-dark);
-    font-variant: small-caps;
-    font-weight: bold;
-    padding: 0 var(--spacing-s) 0 0;
-    margin-right: var(--spacing-m);
-    border-right: var(--subtle-border);
-    align-self: stretch;
 }
 
 /* Radial tree layout */
@@ -2120,20 +2566,6 @@ svg.hyponym-sunburst-diagram__svg {
     }
 }
 
-/* Visually hide content while keeping it available to assistive tech (e.g.
-   the diagram <figcaption>s that name each figure). */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
 /* The history breadcrumb is wrapped in a <nav> landmark; it carries no box of
    its own — the surrounding fieldset and the list do the layout. */
 .hyponym-sunburst-history-nav {
@@ -2174,243 +2606,14 @@ svg:hover .word-cloud-item {
 }
 
 
-/* ===========================================
-   HYPERNYM CHAIN
-   =========================================== */
-
-ul.hypernym-chain {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-}
-
-ul.hypernym-chain ul.hypernym-chain {
-    padding-left: 1ch;
-    margin: 0.8em 0;
-}
-
-.hypernym-chain--root li:first-child {
-    margin-top: 0;
-}
-
-ul.hypernym-chain li::before {
-    content: "↳";
-    color: var(--color-dark);
-    margin-right: 1ch;
-    vertical-align: middle;
-}
-
-ul.hypernym-chain .set__left-bracket,
-ul.hypernym-chain .set__right-bracket {
-    display: none;
-}
-
-ul.hypernym-chain .set__content {
-    text-align: left;
-}
-
-/* Subject item in hypernym chain - no arrow, styled as inactive */
-ul.hypernym-chain > li.subject {
-    color: var(--color-dark);
-}
-
-ul.hypernym-chain > li.subject::before {
-    content: "";
-    margin-right: 0;
-}
+/* ####################################################################
+   utilities.css: Single-purpose classes that hide or mute an element. Loaded last,
+   so they win over other rules of the same specificity.
+   #################################################################### */
 
 
 /* ===========================================
-   SPARQL EDITOR
-   =========================================== */
-
-.sparql-editor + output {
-    display: block;
-    margin-top: var(--spacing-xxl);
-    overflow-x: auto;
-}
-
-.sparql-editor__input {
-    display: flex;
-    gap: var(--spacing-m);
-}
-
-.sparql-editor__buttons {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-s);
-}
-
-.sparql-editor__buttons input[type=submit] {
-    flex: 3;
-}
-
-.sparql-editor__buttons button {
-    flex: 1;
-}
-
-label.timeout-select input[type=number],
-.sparql-editor button,
-.sparql-editor select,
-.sparql-editor input[type=submit] {
-    padding: var(--spacing-xs) var(--spacing-s);
-}
-
-/* CodeMirror 6 editor */
-.sparql-editor__input .cm-wrapper {
-    flex-grow: 1;
-    min-width: 0; /* Prevent flex child from expanding beyond container */
-    min-height: 5em;
-    display: flex;
-    flex-direction: column;
-    background: white;
-    box-shadow: var(--shadow-card-subtle);
-}
-
-/* Before CM6 mounts, show a styled placeholder matching the editor appearance */
-.sparql-editor__input .cm-wrapper:empty {
-    border: var(--normal-border);
-    border-radius: var(--border-radius-s);
-    background: white;
-    position: relative;
-    overflow: hidden;
-}
-
-/* Fake gutter strip — mirrors .cm-gutters background and border-right */
-.sparql-editor__input .cm-wrapper:empty::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 32px; /* approximate width of line-number + fold gutter */
-    background: var(--color-bg-alt);
-    border-right: 1px solid rgba(0, 0, 0, var(--border-opacity-subtle));
-}
-
-.sparql-editor__input .cm-wrapper .cm-editor {
-    flex-grow: 1;
-    border: var(--normal-border);
-    border-radius: var(--border-radius-s);
-    transition: border-color var(--transition-base),
-                box-shadow var(--transition-base);
-}
-
-.sparql-editor__input .cm-wrapper .cm-editor.cm-focused {
-    outline: none;
-    border-color: var(--color-link);
-    box-shadow: 0 0 0 1px var(--color-link);
-}
-
-.sparql-editor__input .cm-wrapper .cm-editor.cm-invalid {
-    border-color: var(--color-dannet);
-    box-shadow: 0 0 0 1px var(--color-dannet);
-}
-
-.cm-validation-error {
-    color: white;
-    background: black;
-    box-shadow: inset 0 0 4px rgba(255,255,255,0.33);
-    padding: var(--spacing-m);
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
-    font-weight: normal;
-    text-shadow: none !important;
-    font-size: var(--font-size-s);
-    white-space: pre-wrap;
-}
-
-.sparql-editor__input .cm-wrapper .cm-scroller {
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
-    font-size: var(--font-size-s);
-    line-height: 1.5;
-    overflow-x: auto !important; /* Scroll horizontally instead of expanding the editor width */
-}
-
-.sparql-editor__input .cm-wrapper .cm-content {
-    padding: var(--spacing-s) 0;
-    color: var(--color-subtle); /* base colour for untagged tokens: { } . , ; etc. */
-}
-
-.sparql-editor__input .cm-wrapper .cm-gutters {
-    background: var(--color-bg-alt);
-    border-right: var(--normal-border);
-    color: var(--color-subtle);
-    font-size: var(--font-size-xs);
-}
-
-/* TODO: this is work in progress, probably needs further adjustment */
-/* SPARQL syntax highlighting via classHighlighter .tok-* classes */
-.sparql-editor__input .tok-keyword      { color: var(--color-w3c); font-weight: bold; }
-.sparql-editor__input .tok-variableName { color: var(--color-ontolex); }
-.sparql-editor__input .tok-namespace    { color: var(--color-meta); }
-.sparql-editor__input .tok-url          { color: var(--color-meta); } /* <IRI> literals */
-.sparql-editor__input .tok-atom         { color: var(--color-wordnet); } /* QNames e.g. wn:foo */
-.sparql-editor__input .tok-string       { color: var(--color-dark); }
-.sparql-editor__input .tok-number,
-.sparql-editor__input .tok-float,
-.sparql-editor__input .tok-bool        { color: var(--color-dannet); }
-.sparql-editor__input .tok-comment     { color: var(--color-subtle); font-style: italic; }
-.sparql-editor__input .tok-annotation  { color: var(--color-meta); }
-.sparql-editor__input .tok-typeName    { color: var(--color-ontolex); }
-
-.sparql-editor__controls {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-m);
-    margin-top: var(--spacing-m);
-}
-
-label.timeout-select input[type=number] {
-    width: 5ch;
-}
-
-.sparql-pagination {
-    display: flex;
-    padding: var(--spacing-m) 0 0 0;
-    gap: var(--spacing-m);
-    justify-content: space-between;
-}
-
-.sparql-pagination__info {
-    font-weight: bold;
-}
-
-label.distinct-select {
-    margin-left: auto;
-}
-
-.sparql-progress {
-    height: var(--spacing-s);
-    margin-top: var(--spacing-xs);
-    background: transparent;
-}
-
-html[data-fetching] .sparql-progress {
-    background: var(--color-dannet);
-    animation: sparql-fill 15s ease forwards;
-}
-
-@media only screen and (max-width: 700px) {
-    .sparql-editor__input {
-        flex-direction: column;
-    }
-    .sparql-editor__buttons {
-        flex-direction: row;
-    }
-    .sparql-editor__controls {
-        justify-content: flex-end;
-    }
-}
-
-@keyframes sparql-fill {
-    from { transform: scaleX(0); transform-origin: left; }
-    to   { transform: scaleX(1); transform-origin: left; }
-}
-
-
-/* ===========================================
-   UTILITIES & MISCELLANEOUS
+   UTILITIES
    =========================================== */
 
 /* Used to hide prefixes. */
@@ -2428,132 +2631,16 @@ span.subtle {
     opacity: var(--opacity-decorative);
 }
 
-/* Generic icon button */
-.icon {
-    height: var(--icon-size);
-    width: var(--icon-size);
-    padding: var(--spacing-m);
-    background-color: white;
-    border: var(--normal-border);
-    border-radius: var(--border-radius-s);
-}
-
-.icon:hover,
-.icon:focus-visible {
-    border-color: var(--color-dark);
-}
-
-.icon.maximize,
-.icon.minimize {
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 20px 20px;
-    margin-bottom: var(--spacing-m);
-}
-
-.icon.maximize {
-    background-image: url("/images/maximize.svg");
-}
-
-.icon.minimize {
-    background-image: url("/images/minimize.svg");
-}
-
-@media only screen and (max-width: 700px) {
-    .icon.maximize,
-    .icon.minimize {
-        align-self: flex-start;
-    }
-}
-
-/* Display options dropdown */
-select.display-options {
-    appearance: none;
-    display: block;
-
-    background: transparent url(/images/caret-down.svg) 2px center no-repeat;
-    background-size: var(--font-size-s);
-    border: 1px solid transparent;
-    border-radius: var(--border-radius-s);
-    padding: 2px 4px 2px 18px;
-    font-size: var(--font-size-xs);
-
-    color: var(--color-dark);
-    cursor: pointer;
-    opacity: 0.67;
-}
-
-select.display-options:hover,
-select.display-options:focus-visible {
-    text-decoration: underline;
-    border: var(--normal-border);
-    opacity: 1;
-}
-
-/* Help overlay (shown on wide screens) */
-.help-overlay {
-    opacity: 0;
-    transition: opacity 1s;
-    user-select: none;
-    pointer-events: none;
-}
-
-.help-overlay__item {
+/* Visually hide content while keeping it available to assistive tech (e.g.
+   the diagram <figcaption>s that name each figure). */
+.visually-hidden {
     position: absolute;
-    opacity: 0;
-    transition: opacity var(--transition-fast) ease-in;
-    animation: var(--transition-slow) ease-in infinite alternate point;
-    text-transform: uppercase;
-    left: 58px;
-    z-index: var(--z-help);
-    background: white;
-    font-size: var(--font-size-xs);
-    line-height: 1;
-    padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
-    border-radius: var(--border-radius-s);
-    border: 1px solid var(--color-faint);
-    box-shadow: var(--shadow-card-subtle);
-}
-
-.help-overlay__item::before {
-    content: "⭠";
-    font-size: var(--font-size-l);
-    vertical-align: middle;
-    margin-right: var(--spacing-s);
-}
-
-nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
-    opacity: 1;
-}
-
-@media only screen and (min-width: 700px) {
-    .help-overlay {
-        opacity: 1;
-    }
-}
-
-@media only screen and (max-width: 700px) {
-    /* Turn the nav bar horizontal on mobile. */
-    .help-overlay {
-        display: none;
-    }
-}
-
-/* Error boundary fallback */
-details.render-error[open] {
-    margin: 0;
-    overflow: auto;
-    box-sizing: border-box;
-}
-
-details.render-error > summary {
-    font-size: inherit;
+    width: 1px;
+    height: 1px;
     padding: 0;
-}
-
-/* Inline render error (red squiggly underline) */
-span.render-error {
-    text-decoration: underline wavy red;
-    text-underline-offset: 5px;
-    cursor: help;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
