@@ -1,5 +1,7 @@
-/* Single-purpose classes that hide or mute an element. Loaded last, so they
-   win over other rules of the same specificity. */
+/* Single-purpose classes that hide or mute an element. They are in the last
+   layer, so they win over the rules in every other file but sparql.css. */
+
+@layer utilities {
 
 
 /* ===========================================
@@ -33,4 +35,6 @@ span.subtle {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
 }

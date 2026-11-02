@@ -38,7 +38,8 @@
 (def stylesheets
   "The CSS files in resources/public/css, in load order.
 
-  Each file builds on the ones before it, so the order is part of the cascade."
+  base.css comes first, since it declares the order of the CSS layers that
+  the other files put their rules in; sparql.css is not in a layer."
   ["base" "layout" "components" "sparql" "diagrams" "utilities"])
 
 (declare ->transit)

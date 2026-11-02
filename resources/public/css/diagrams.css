@@ -1,6 +1,8 @@
 /* The synset diagrams: the radial tree and its legend, the sunburst and its
    zoom history, and the word cloud. */
 
+@layer diagrams {
+
 
 /* ===========================================
    SYNSET DIAGRAMS
@@ -460,7 +462,7 @@ svg.hyponym-sunburst-diagram__svg {
    radial's white background, but a visible halo on coloured arcs). */
 .hyponym-sunburst__label,
 .hyponym-sunburst__centre {
-    text-shadow: none !important;
+    text-shadow: none;
 }
 
 .hyponym-sunburst__empty-ring {
@@ -596,4 +598,6 @@ svg:hover .word-cloud-item {
 .word-cloud-item:hover {
     text-decoration: underline;
     cursor: pointer;
+}
+
 }

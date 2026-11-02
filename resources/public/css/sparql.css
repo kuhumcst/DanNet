@@ -95,7 +95,7 @@ label.timeout-select input[type=number],
     padding: var(--spacing-m);
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     font-weight: normal;
-    text-shadow: none !important;
+    text-shadow: none;
     font-size: var(--font-size-s);
     white-space: pre-wrap;
 }

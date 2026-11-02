@@ -1,6 +1,14 @@
 /* Design tokens, keyframes, the reset and the default look of plain HTML
    elements. Every other file builds on this one. */
 
+/* Rules in a later layer win over rules in an earlier one, whatever
+   their specificity. sparql.css is not in a layer: CodeMirror injects
+   its own styles outside any layer, and those would otherwise win over
+   the editor styles in sparql.css. */
+@layer base, layout, components, diagrams, utilities;
+
+@layer base {
+
 
 /* ===========================================
    CSS VARIABLES (Design Tokens)
@@ -155,6 +163,12 @@ html, body {
     background: #fff var(--bg-texture);
 }
 
+/* A faint white shadow that sharpens dark text in the content column.
+   :where() gives it no specificity, so any other rule can turn it off. */
+:where(#content *) {
+    text-shadow: 1px 0px rgba(255,255,255,0.8);
+}
+
 button {
     cursor: pointer;
 }
@@ -260,7 +274,7 @@ sub {
 code {
     background: rgba(255,255, 255,0.67);
     color: black;
-    text-shadow: none !important;
+    text-shadow: none;
     padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
     font-size: var(--font-size-s);
@@ -269,14 +283,14 @@ code {
 }
 
 pre code {
-    text-shadow: none !important;
+    text-shadow: none;
     padding: 0;
     background: none;
     color: white;
 }
 
 pre {
-    text-shadow: none !important;
+    text-shadow: none;
     color: white;
     box-shadow:
       inset 0 0 4px rgba(255,255,255,0.33),
@@ -309,23 +323,19 @@ ul li {
 }
 
 ol,
-ol.two-digits,
-ol.two-digits + details > summary {
+ol.two-digits {
     padding-left: var(--spacing-l);
 }
 
-ol.three-digits,
-ol.three-digits + details > summary {
+ol.three-digits {
     padding-left: var(--spacing-xl);
 }
 
-ol.four-digits,
-ol.four-digits + details > summary {
+ol.four-digits {
     padding-left: var(--spacing-xxl);
 }
 
-ol.five-digits,
-ol.five-digits + details > summary {
+ol.five-digits {
     padding-left: 52px;
 }
 
@@ -362,7 +372,7 @@ th {
     border-bottom: var(--subtle-border);
     background:var(--bg-texture);
     text-align: left;
-    text-shadow: none !important;
+    text-shadow: none;
 }
 
 tr:nth-child(odd),
@@ -415,4 +425,6 @@ tr tr:nth-child(odd) {
 html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
 html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
     content: none;
+}
+
 }

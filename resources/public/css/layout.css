@@ -1,6 +1,8 @@
 /* How the page is divided: the app frame, the nav bar, the content column, the
    page header and footer, and full-screen mode. */
 
+@layer layout {
+
 
 /* ===========================================
    PAGE
@@ -49,11 +51,6 @@
 
 #content.full-screen hr {
     border-top: var(--normal-border);
-}
-
-/* This essentially works like sharpening/emboss effect on non-white text. */
-#content *:not(.prefix) {
-    text-shadow: 1px 0px rgba(255,255,255,0.8);
 }
 
 main {
@@ -255,4 +252,6 @@ html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.
         text-orientation: initial;
         margin: 0 auto;
     }
+}
+
 }

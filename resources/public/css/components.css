@@ -1,6 +1,8 @@
 /* The parts placed inside the layout: search, attribute tables, prefixes,
    synsets, search results, document pages and small controls. */
 
+@layer components {
+
 
 /* ===========================================
    SEARCH
@@ -281,7 +283,7 @@ tr + tr td.attr-name {
 
 @media only screen and (max-width: 700px) {
     td.attr-name > [lang]:not(footer, h1 span, article)::after {
-        content: "";
+        content: none;
     }
 }
 
@@ -947,6 +949,23 @@ details.reactive-list summary {
     padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
 }
 
+/* Line the summary up with the item numbers of the list above it. */
+ol.two-digits + details > summary {
+    padding-left: var(--spacing-l);
+}
+
+ol.three-digits + details > summary {
+    padding-left: var(--spacing-xl);
+}
+
+ol.four-digits + details > summary {
+    padding-left: var(--spacing-xxl);
+}
+
+ol.five-digits + details > summary {
+    padding-left: 52px;
+}
+
 details.reactive-list summary:hover {
     text-decoration: underline;
     text-underline-offset: var(--spacing-xs);
@@ -1094,4 +1113,6 @@ span.render-error {
     text-decoration: underline wavy red;
     text-underline-offset: 5px;
     cursor: help;
+}
+
 }
