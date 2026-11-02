@@ -822,7 +822,7 @@ nav#main-nav {
     flex-direction: column;
     justify-content: space-between;
     padding: var(--spacing-s);
-    background: var(--bg-dark);
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     box-shadow: var(--shadow-nav);
     border: 1px solid transparent;
     border-right: var(--normal-border);
@@ -1274,7 +1274,7 @@ td.sparql-results__count {
 }
 
 span.prefix {
-    background: var(--bg-dark);
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     font-variant: small-caps;
     color: rgba(255,255,255,255);
     border-radius: var(--border-radius-s);
@@ -1319,51 +1319,16 @@ span.prefix__sep {
     display: none;
 }
 
-/* Namespace-specific prefix colors */
-.prefix.dannet,
-nav#main-nav.prefix.dannet {
-    background-color: var(--color-dannet);
-}
+/* Namespace colors: the text color of links, and the background of prefix
+   badges and the nav bar. */
+.dannet  { --ns-color: var(--color-dannet); }
+.w3c     { --ns-color: var(--color-w3c); }
+.meta    { --ns-color: var(--color-meta); }
+.ontolex { --ns-color: var(--color-ontolex); }
+.wordnet { --ns-color: var(--color-wordnet); }
 
-.prefix.w3c,
-nav#main-nav.prefix.w3c {
-    background-color: var(--color-w3c);
-}
-
-.prefix.meta,
-nav#main-nav.prefix.meta {
-    background-color: var(--color-meta);
-}
-
-.prefix.ontolex,
-nav#main-nav.prefix.ontolex {
-    background-color: var(--color-ontolex);
-}
-
-.prefix.wordnet,
-nav#main-nav.prefix.wordnet {
-    background-color: var(--color-wordnet);
-}
-
-/* Namespace-specific text colors */
-.dannet {
-    color: var(--color-dannet);
-}
-
-.w3c {
-    color: var(--color-w3c);
-}
-
-.meta {
-    color: var(--color-meta);
-}
-
-.ontolex {
-    color: var(--color-ontolex);
-}
-
-.wordnet {
-    color: var(--color-wordnet);
+.dannet, .w3c, .meta, .ontolex, .wordnet {
+    color: var(--ns-color);
 }
 
 /* Unknown namespace */
