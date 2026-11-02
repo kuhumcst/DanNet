@@ -79,11 +79,11 @@
                      (.selectAll "text")
                      (.data words)
                      (.join "text")
-                     (.style "font-size" (fn [d] (str (.-size d) "px")))
+                     (.style "font-size" (fn [^js d] (str (.-size d) "px")))
                      (.style "font-family" "Georgia")
                      (.style "text-shadow" "1px 0px rgba(255,255,255,0.8)")
                      (.style "fill" next-colour)
-                     (.attr "class" (fn [d]
+                     (.attr "class" (fn [^js d]
                                       (if (.-highlight d)
                                         "word-cloud-item word-cloud-item__top"
                                         "word-cloud-item")))
