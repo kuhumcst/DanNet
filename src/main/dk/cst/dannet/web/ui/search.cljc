@@ -160,6 +160,6 @@
                               #?(:cljs (when (= "Enter" (.-key e))
                                          (app/navigate-to href))))}
      [:dt {:id dt-id}
-      (rdf/entity-link subject opts')]
+      (rdf/entity-link subject (assoc opts' :bare-sets? true))]
      [:dd
       (entity/synset-summary entity opts')]]))

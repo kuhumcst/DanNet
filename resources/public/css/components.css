@@ -378,7 +378,7 @@ h1 span.prefix {
     align-items: center;
 }
 
-.qname a .set {
+.qname .set {
     vertical-align: middle;
 }
 
@@ -451,16 +451,16 @@ span.inheritance sub {
 /* Render the parent synset links as plain inline content; the inline-flex
    used for regular set notation otherwise exports a synthesized baseline,
    placing the synset labels a few pixels above the surrounding text. */
-span.inheritance a .set,
-span.inheritance a .set__content {
+span.inheritance .set,
+span.inheritance .set__content {
     display: inline;
 }
 
 /* The bracket spans are empty and normally sized by the set flex layout,
    so they must be given explicit dimensions to show their background SVGs
    in the inline context above. */
-span.inheritance a .set__left-bracket,
-span.inheritance a .set__right-bracket {
+span.inheritance .set__left-bracket,
+span.inheritance .set__right-bracket {
     display: inline-block;
     width: 1ch;
     height: 1em;
@@ -617,11 +617,6 @@ ul.hypernym-chain li::before {
     vertical-align: middle;
 }
 
-ul.hypernym-chain .set__left-bracket,
-ul.hypernym-chain .set__right-bracket {
-    display: none;
-}
-
 ul.hypernym-chain .set__content {
     text-align: left;
 }
@@ -645,6 +640,7 @@ dl.search-results {
     margin: 0;
 }
 
+dl.search-results dt .dannet,
 dl.search-results dt .dannet * {
     color: var(--color-dark);
 }
@@ -692,13 +688,11 @@ dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ont
 dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
 dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
 
-/* Resets some for search results. */
-dl.search-results dt .set__left-bracket,
-dl.search-results dt .set__right-bracket,
+/* No language tags in search results and synset summaries. */
 dl.search-results a::after,
-ul.synset-summary .set__left-bracket,
-ul.synset-summary .set__right-bracket,
-ul.synset-summary a::after {
+dl.search-results .set-link::after,
+ul.synset-summary a::after,
+ul.synset-summary .set-link::after {
     display: none;
 }
 

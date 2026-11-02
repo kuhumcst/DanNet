@@ -197,10 +197,7 @@ a[href^="/schema/"]:not(.rdf-uri)::before {
     mask-repeat: no-repeat;
 }
 
-/* TODO: span.set markup is inconsistent - sometimes inside <a>, sometimes not.
-   Unifying this would allow a simpler selector (see rdf.cljc). */
-a:hover,
-a:hover span.set > * {
+a:hover {
     text-decoration: underline;
 }
 
