@@ -1,0 +1,599 @@
+/* The synset diagrams: the radial tree and its legend, the sunburst and its
+   zoom history, and the word cloud. */
+
+
+/* ===========================================
+   SYNSET DIAGRAMS
+   =========================================== */
+
+.synset-diagram-container {
+    transition: font-size var(--transition-base);
+    padding: var(--spacing-m);
+    height: 100%;
+
+    background: white;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+#content.full-screen .synset-diagram-container {
+    border: none;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+}
+
+#content.full-screen .synset-diagram {
+    flex-grow: 1;
+}
+
+.synset-diagram-container aside.synset-diagram__metadata {
+    display: flex;
+    align-items: center;
+    border-right: var(--subtle-border);
+    margin: 0;
+    padding-right: var(--spacing-m);
+    max-width: 20vw;
+}
+
+#content:not(.full-screen) aside.synset-diagram__metadata,
+#content:not(.full-screen) footer.synset-diagram__footer {
+    display: none;
+}
+
+.synset-diagram-container footer.synset-diagram__footer {
+    border-top: var(--subtle-border);
+    margin-top: var(--spacing-m);
+    padding-top: var(--spacing-l);
+}
+
+.synset-diagram-container dl {
+    margin: 0;
+}
+
+.synset-diagram-container dt {
+    font-size: var(--font-size-m-l);
+    padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
+    letter-spacing: var(--letter-spacing-base);
+    font-variant: small-caps;
+}
+
+.synset-diagram-container dd {
+    margin: var(--spacing-m) 0 var(--spacing-l) 0;
+    padding: var(--spacing-s) var(--spacing-m) var(--spacing-m) var(--spacing-m);
+    font-size: var(--font-size-s);
+}
+
+@media only screen and (min-width: 1200px) {
+    /* Hide "fake" footer items until diagram view turns into single column view. */
+    #content.full-screen aside.synset-diagram__metadata .synset-diagram__footer-item {
+        display: none;
+    }
+    /* Make the fonts a bit bigger. */
+    #content.full-screen fieldset.radial-tree-legend ul,
+    #content.full-screen .synset-diagram-container,
+    #content.full-screen .synset-diagram-container dd {
+        font-size: var(--font-size-m);
+    }
+}
+
+@media only screen and (max-width: 1200px) {
+    #content.full-screen aside.synset-diagram__metadata {
+        order: 3;
+        border-right: none;
+        border-top: var(--subtle-border);
+        max-width: none;
+        margin: 0;
+        padding: var(--spacing-l) 0 0 0;
+    }
+    /* Remove real footer items once the metadata column becomes the footer. */
+    #content.full-screen .synset-diagram-container footer.synset-diagram__footer {
+        display: none;
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    .synset-diagram-container {
+        font-size: var(--font-size-s);
+    }
+}
+
+/* Radial tree layout */
+.synset-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    height: 100%;
+}
+
+/* Shared top bar above the diagram and legend. A 1fr/auto/1fr grid keeps the
+   mode radios truly centred while the full-screen toggle stays pinned right (a
+   flex row can't centre the middle item once a sibling is right-aligned). */
+.synset-diagram__toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    margin-bottom: var(--spacing-s);
+    border-bottom: var(--subtle-border);
+}
+
+.synset-diagram__toolbar > .viz-mode-toggle {
+    grid-column: 2;
+}
+
+.synset-diagram__toolbar > button.icon {
+    grid-column: 3;
+    justify-self: end;
+}
+
+/* The diagram and legend/history side by side, filling the space below the bar. */
+.synset-diagram__body {
+    display: flex;
+    align-items: stretch;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+/* Diagram column; the legend/history sits beside it in the body row. */
+.synset-diagram__main {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+}
+
+@media only screen and (max-width: 1200px) {
+    /* Stack the diagram and legend vertically; the toolbar stays as the top
+       bar above them. */
+    .synset-diagram__body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* Mode radio group (Relations / Hyponyms / Ortho-hyponyms), centred in the toolbar grid. */
+fieldset.viz-mode-toggle {
+    margin: var(--spacing-xs);
+    padding: 0;
+    border: none;
+    text-align: center;
+    line-height: var(--line-height-prose);
+}
+
+/* Legend kept for screen-reader grouping, hidden for sighted users. */
+fieldset.viz-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0 var(--spacing-s);
+    font-size: var(--font-size-m);
+    cursor: pointer;
+}
+
+figure.radial-tree-diagram,
+svg.radial-tree-diagram__svg {
+    /* Always make sure the diagram is fully visible. */
+    max-height: calc(80vh - var(--spacing-l));
+}
+
+figure.radial-tree-diagram {
+    flex-grow: 1; /* Fix width in Safari. */
+    text-align: center;
+    display: flex;
+}
+
+svg.radial-tree-diagram__svg {
+    /*  The viewBox keeps the diagram the same, but additional width allows for
+        certain long labels to avoid clipping. */
+    width: 100%;
+}
+
+#content.full-screen figure.radial-tree-diagram,
+#content.full-screen svg.radial-tree-diagram__svg {
+    /* Always make sure the diagram to is fully visible. */
+    max-height: calc(100vh - var(--layout-fullscreen-header));
+}
+
+@media only screen and (max-width: 1200px) {
+    #content.full-screen figure.radial-tree-diagram,
+    #content.full-screen svg.radial-tree-diagram__svg {
+        max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
+    }
+}
+
+/* More targeted transitions - only animate colors, not font sizes */
+figure.radial-tree-diagram * {
+    transition: fill var(--transition-base), stroke var(--transition-base), opacity var(--transition-base);
+}
+
+/* Radial tree legend */
+fieldset.radial-tree-legend {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    /* reset fieldset vals*/
+    padding: 0;
+    margin: 0;
+    border: none;
+
+    border-left: var(--subtle-border);
+}
+
+fieldset.radial-tree-legend ul {
+    min-width: fit-content;
+    margin: auto 0;
+
+    list-style: none;
+    padding: 0 0 0 var(--spacing-m);
+
+    font-variant: small-caps;
+    font-size: var(--font-size-m);
+
+    /* Vertical gap inserted above each relation group (see the group-start rule
+       below); reset to the normal item gap in the multi-column layouts. */
+    --rel-group-gap: var(--spacing-m);
+}
+
+fieldset.radial-tree-legend ul label {
+    display: block;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: var(--spacing-prefix) var(--spacing-prefix) var(--spacing-prefix) var(--spacing-xl);
+}
+
+fieldset.radial-tree-legend ul li + li {
+    margin-top: var(--spacing-xs);
+}
+
+fieldset.radial-tree-legend ul li.rel-group-begin {
+    margin-top: var(--rel-group-gap);
+    padding-top: var(--rel-group-gap);
+    border-top: var(--subtle-border);
+}
+
+fieldset.radial-tree-legend ul input[type=radio] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.radial-tree-legend__bullet {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--spacing-m);
+    margin-right: 1ch;
+    display: inline-block;
+    align-self: center;
+    transition: transform var(--transition-base), opacity var(--transition-base);
+
+    position: absolute;
+    top: 10px;
+    left: var(--spacing-m);
+    background-color: var(--color-bg-alt);
+}
+
+/* When ANY radio is checked, make unchecked ones appear inactive */
+fieldset.radial-tree-legend ul:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
+    transform: scale(var(--opacity-decorative));
+    opacity: var(--opacity-decorative);
+}
+
+fieldset.radial-tree-legend ul > li {
+    border-radius: var(--border-radius-s);
+    padding: 0;
+    margin-bottom: 1px;
+}
+
+fieldset.radial-tree-legend ul > li label:hover {
+    border: var(--normal-border);
+    border-color: var(--color-dark);
+    cursor: pointer;
+}
+
+fieldset.radial-tree-legend ul > li:focus-within label {
+    border: var(--normal-border);
+}
+
+@media only screen and (min-width: 1200px) {
+    #content.full-screen .radial-tree-legend__bullet {
+        width: 14px;
+        height: 14px;
+        top: 10px;
+        left: var(--spacing-s);
+    }
+    #content.full-screen fieldset.radial-tree-legend ul label {
+        padding-left: var(--spacing-xl);
+    }
+    #content.full-screen fieldset.radial-tree-legend ul li + li {
+        margin-top: var(--spacing-prefix);
+    }
+}
+
+@media only screen and (max-width: 1200px) {
+    fieldset.radial-tree-legend {
+        border-left: none;
+        border-top: var(--subtle-border);
+    }
+    fieldset.radial-tree-legend ul {
+        columns: 3;
+        margin: var(--spacing-m) auto 0 auto;
+        padding: 0;
+
+        /* Multi-column: drop the group gap back to the normal item gap so it
+           doesn't dent the tops of columns. */
+        --rel-group-gap: var(--spacing-xs);
+    }
+    fieldset.radial-tree-legend ul li.rel-group-begin {
+        border-top: none;
+        padding: 0;
+        margin: 0;
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    fieldset.radial-tree-legend ul {
+        columns: 2;
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    fieldset.radial-tree-legend ul {
+        columns: 1;
+
+        /* Single column again, so the group gap is meaningful once more. */
+        --rel-group-gap: var(--spacing-m);
+    }
+    fieldset.radial-tree-legend ul li.rel-group-begin {
+        margin-top: var(--rel-group-gap);
+        padding-top: var(--rel-group-gap);
+        border-top: var(--subtle-border);
+    }
+}
+
+/* Radial tree items (SVG text) */
+.radial-item {
+    text-underline-offset: 0.25ch;
+    transition: font-size var(--transition-base);
+    font-size: var(--font-size-m);
+}
+
+.radial-item--de-emphasized {
+    opacity: 0.1;
+}
+
+.radial-item:not(.radial-item--subject):hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Shared SVG text outline effect */
+.svg-text-outlined {
+    stroke: white;
+    stroke-width: 6px;
+    paint-order: stroke fill;
+}
+
+.radial-item--subject {
+    /* Make the subject label easier to read in busy diagrams. */
+    font-size: 40px;
+}
+
+/* Smaller font for subject labels when there are many long labels */
+tspan.subject-label-small {
+    font-size: 28px;
+}
+
+/* Subtle styling for bullet separators in subject labels */
+tspan.subject-label-separator {
+    opacity: var(--opacity-decorative);
+}
+
+/* Sense paragraph subscripts in radial labels */
+tspan.sense-paragraph {
+    font-size: 10px;
+    fill: var(--color-faint);
+}
+
+/* Definition styling in radial diagram */
+.definition-pos,
+.definition-text {
+    fill: var(--color-dark);
+}
+
+.definition-pos {
+    font-weight: bold;
+}
+
+@media only screen and (max-width: 600px) {
+    .radial-item:not(.radial-item--subject) {
+        font-size: var(--font-size-m-l);
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    .radial-item:not(.radial-item--subject) {
+        font-size: var(--font-size-m-xl);
+    }
+}
+
+/* Hyponym sunburst diagram */
+
+/* Match the radial diagram's footprint exactly. */
+figure.hyponym-sunburst-diagram,
+svg.hyponym-sunburst-diagram__svg {
+    max-height: calc(80vh - var(--spacing-l));
+}
+
+figure.hyponym-sunburst-diagram {
+    flex-grow: 1;
+    margin: 0;
+    text-align: center;
+    display: flex;
+}
+
+svg.hyponym-sunburst-diagram__svg {
+    width: 100%;
+}
+
+#content.full-screen figure.hyponym-sunburst-diagram,
+#content.full-screen svg.hyponym-sunburst-diagram__svg {
+    max-height: calc(100vh - var(--layout-fullscreen-header));
+}
+
+.hyponym-sunburst__centre {
+    /* White halo so the stacked label reads like the radial subject label. */
+    stroke: white;
+    stroke-width: 4px;
+    paint-order: stroke;
+}
+
+/* On-arc labels: contrast colour is set per-arc in JS; no outline. */
+.hyponym-sunburst__label {
+    font-size: 14px;
+}
+
+/* Keep diagram text free of the global #content text-shadow (invisible on the
+   radial's white background, but a visible halo on coloured arcs). */
+.hyponym-sunburst__label,
+.hyponym-sunburst__centre {
+    text-shadow: none !important;
+}
+
+.hyponym-sunburst__empty-ring {
+    pointer-events: none;
+}
+
+/* Zoom-history column shown in sunburst mode. It reuses the radial legend shell
+   (.radial-tree-legend) for the border, layout and full-screen toggle, so the
+   toggle sits in the exact same spot. `margin: auto 0` centres the list,
+   pinning the toggle to the top just like the radial's filter list does. */
+.hyponym-sunburst-history {
+    margin: auto 0;
+    min-width: 14ch;
+    max-width: 24ch;
+    padding-left: var(--spacing-m);
+    list-style: none;
+    overflow-y: auto;
+
+    /* Match the radial legend's typographic language. */
+    font-variant: small-caps;
+    font-size: var(--font-size-m);
+}
+
+/* Down-arrow separators between breadcrumb steps (root → … → current). */
+.hyponym-sunburst-history > li:not(:first-child)::before {
+    content: "\2193";
+    display: block;
+    text-align: center;
+    padding: var(--spacing-xs) 0;
+    color: var(--color-ontolex);
+    font-size: 1em;
+    line-height: 1;
+}
+
+.hyponym-sunburst-history button,
+.hyponym-sunburst-history > li.current span {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: var(--spacing-l);
+    padding: var(--spacing-prefix);
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-s);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: inherit;
+    color: inherit;
+}
+
+/* Ancestors are clickable (zoom back up): give them the legend's hover box. */
+.hyponym-sunburst-history button {
+    background: transparent;
+    cursor: pointer;
+}
+
+.hyponym-sunburst-history button:hover {
+    border-color: var(--color-dark);
+}
+
+/* Current focus: the synset you're on — muted, not interactive. */
+.hyponym-sunburst-history > li.current span {
+    border: var(--normal-border);
+}
+
+@media only screen and (max-width: 1200px) {
+    /* Below the diagram there's width but little height, so lay the zoom history
+       out as a horizontal wrapping breadcrumb rather than the tall vertical list
+       the short space would otherwise clip down to just the first label. */
+    .hyponym-sunburst-history {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        margin: var(--spacing-m) auto 0;
+        max-width: none;
+        padding-left: 0;
+        overflow: visible;
+    }
+    .hyponym-sunburst-history > li {
+        display: flex;
+        align-items: center;
+        padding-top: 0;
+    }
+    /* Right-arrow between inline steps instead of the column's down-arrow. */
+    .hyponym-sunburst-history > li:not(:first-child)::before {
+        content: "\2192";
+        display: inline;
+        padding: 0 var(--spacing-xs);
+    }
+    .hyponym-sunburst-history button,
+    .hyponym-sunburst-history > li.current span {
+        width: auto;
+        margin: 0 var(--spacing-m);
+    }
+}
+
+/* The history breadcrumb is wrapped in a <nav> landmark; it carries no box of
+   its own — the surrounding fieldset and the list do the layout. */
+.hyponym-sunburst-history-nav {
+    display: contents;
+}
+
+/* Keyboard focus affordance for the focusable sunburst arcs and centre target
+   (operable via Enter/Space, mirroring a click). */
+.hyponym-sunburst-diagram__svg [role="button"]:focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 1px;
+}
+
+/* Respect reduced-motion: dampen the word-cloud reveal transition. The
+   sunburst's JS-driven zoom is collapsed separately in d3.cljs, since CSS
+   can't reach a D3 transition. */
+@media (prefers-reduced-motion: reduce) {
+    .word-cloud-item,
+    svg:hover .word-cloud-item {
+        transition: none;
+    }
+}
+
+/* Word cloud items */
+.word-cloud-item {
+    filter: grayscale(1) opacity(var(--opacity-interactive));
+    transition: filter var(--transition-base);
+}
+
+/* Only reveal colours when hovering parent SVG container. */
+svg:hover .word-cloud-item {
+    filter: grayscale(0) opacity(1);
+}
+
+.word-cloud-item:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}

@@ -1,0 +1,36 @@
+/* Single-purpose classes that hide or mute an element. Loaded last, so they
+   win over other rules of the same specificity. */
+
+
+/* ===========================================
+   UTILITIES
+   =========================================== */
+
+/* Used to hide prefixes. */
+.hidden,
+.hidden * {
+    display: none;
+}
+
+.omitted {
+    color: var(--color-faint);
+    font-style: italic;
+}
+
+span.subtle {
+    opacity: var(--opacity-decorative);
+}
+
+/* Visually hide content while keeping it available to assistive tech (e.g.
+   the diagram <figcaption>s that name each figure). */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

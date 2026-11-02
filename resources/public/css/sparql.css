@@ -1,0 +1,215 @@
+/* The SPARQL editor and its results. */
+
+
+/* ===========================================
+   SPARQL EDITOR
+   =========================================== */
+
+.sparql-editor + output {
+    display: block;
+    margin-top: var(--spacing-xxl);
+    overflow-x: auto;
+}
+
+.sparql-editor__input {
+    display: flex;
+    gap: var(--spacing-m);
+}
+
+.sparql-editor__buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+}
+
+.sparql-editor__buttons input[type=submit] {
+    flex: 3;
+}
+
+.sparql-editor__buttons button {
+    flex: 1;
+}
+
+label.timeout-select input[type=number],
+.sparql-editor button,
+.sparql-editor select,
+.sparql-editor input[type=submit] {
+    padding: var(--spacing-xs) var(--spacing-s);
+}
+
+/* CodeMirror 6 editor */
+.sparql-editor__input .cm-wrapper {
+    flex-grow: 1;
+    min-width: 0; /* Prevent flex child from expanding beyond container */
+    min-height: 5em;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    box-shadow: var(--shadow-card-subtle);
+}
+
+/* Before CM6 mounts, show a styled placeholder matching the editor appearance */
+.sparql-editor__input .cm-wrapper:empty {
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Fake gutter strip — mirrors .cm-gutters background and border-right */
+.sparql-editor__input .cm-wrapper:empty::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 32px; /* approximate width of line-number + fold gutter */
+    background: var(--color-bg-alt);
+    border-right: 1px solid rgba(0, 0, 0, var(--border-opacity-subtle));
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor {
+    flex-grow: 1;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    transition: border-color var(--transition-base),
+                box-shadow var(--transition-base);
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor.cm-focused {
+    outline: none;
+    border-color: var(--color-link);
+    box-shadow: 0 0 0 1px var(--color-link);
+}
+
+.sparql-editor__input .cm-wrapper .cm-editor.cm-invalid {
+    border-color: var(--color-dannet);
+    box-shadow: 0 0 0 1px var(--color-dannet);
+}
+
+.cm-validation-error {
+    color: white;
+    background: black;
+    box-shadow: inset 0 0 4px rgba(255,255,255,0.33);
+    padding: var(--spacing-m);
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: normal;
+    text-shadow: none !important;
+    font-size: var(--font-size-s);
+    white-space: pre-wrap;
+}
+
+.sparql-editor__input .cm-wrapper .cm-scroller {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: var(--font-size-s);
+    line-height: 1.5;
+    overflow-x: auto !important; /* Scroll horizontally instead of expanding the editor width */
+}
+
+.sparql-editor__input .cm-wrapper .cm-content {
+    padding: var(--spacing-s) 0;
+    color: var(--color-subtle); /* base colour for untagged tokens: { } . , ; etc. */
+}
+
+.sparql-editor__input .cm-wrapper .cm-gutters {
+    background: var(--color-bg-alt);
+    border-right: var(--normal-border);
+    color: var(--color-subtle);
+    font-size: var(--font-size-xs);
+}
+
+/* TODO: this is work in progress, probably needs further adjustment */
+/* SPARQL syntax highlighting via classHighlighter .tok-* classes */
+.sparql-editor__input .tok-keyword      { color: var(--color-w3c); font-weight: bold; }
+.sparql-editor__input .tok-variableName { color: var(--color-ontolex); }
+.sparql-editor__input .tok-namespace    { color: var(--color-meta); }
+.sparql-editor__input .tok-url          { color: var(--color-meta); } /* <IRI> literals */
+.sparql-editor__input .tok-atom         { color: var(--color-wordnet); } /* QNames e.g. wn:foo */
+.sparql-editor__input .tok-string       { color: var(--color-dark); }
+
+.sparql-editor__input .tok-number,
+.sparql-editor__input .tok-float,
+.sparql-editor__input .tok-bool        { color: var(--color-dannet); }
+.sparql-editor__input .tok-comment     { color: var(--color-subtle); font-style: italic; }
+.sparql-editor__input .tok-annotation  { color: var(--color-meta); }
+.sparql-editor__input .tok-typeName    { color: var(--color-ontolex); }
+
+.sparql-editor__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-m);
+    margin-top: var(--spacing-m);
+}
+
+label.timeout-select input[type=number] {
+    width: 5ch;
+}
+
+.sparql-pagination {
+    display: flex;
+    padding: var(--spacing-m) 0 0 0;
+    gap: var(--spacing-m);
+    justify-content: space-between;
+}
+
+.sparql-pagination__info {
+    font-weight: bold;
+}
+
+label.distinct-select {
+    margin-left: auto;
+}
+
+.sparql-progress {
+    height: var(--spacing-s);
+    margin-top: var(--spacing-xs);
+    background: transparent;
+}
+
+html[data-fetching] .sparql-progress {
+    background: var(--color-dannet);
+    animation: sparql-fill 15s ease forwards;
+}
+
+@media only screen and (max-width: 700px) {
+    .sparql-editor__input {
+        flex-direction: column;
+    }
+    .sparql-editor__buttons {
+        flex-direction: row;
+    }
+    .sparql-editor__controls {
+        justify-content: flex-end;
+    }
+}
+
+@keyframes sparql-fill {
+    from { transform: scaleX(0); transform-origin: left; }
+    to   { transform: scaleX(1); transform-origin: left; }
+}
+
+
+/* ===========================================
+   SPARQL RESULTS
+   =========================================== */
+
+table.sparql-results {
+    min-width: 100%;
+    width: auto;
+}
+
+/* Constrain individual cell content to prevent a single long URI from
+   dominating the column width distribution in multi-column results. */
+.sparql-results__cell {
+    max-width: 66vw;
+    overflow-wrap: break-word;
+}
+
+th.sparql-results__count,
+td.sparql-results__count {
+    text-align: right;
+    width: 1%;
+    white-space: nowrap;
+}

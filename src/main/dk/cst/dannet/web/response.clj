@@ -35,6 +35,12 @@
   "Unique versioning of the frontend app; used for cache busting."
   (abs (hash (Date.))))
 
+(def stylesheets
+  "The CSS files in resources/public/css, in load order.
+
+  Each file builds on the ones before it, so the order is part of the cascade."
+  ["base" "layout" "components" "sparql" "diagrams" "utilities"])
+
 (declare ->transit)
 
 (defn- script-safe
@@ -70,7 +76,9 @@
           [:meta {:charset "UTF-8"}]
           [:meta {:name    "viewport"
                   :content "width=device-width, initial-scale=1.0"}]
-          [:link {:rel "stylesheet" :href (str "/css/main.css?hash=" version-hash)}]
+          (for [sheet stylesheets]
+            [:link {:rel  "stylesheet"
+                    :href (str "/css/" sheet ".css?hash=" version-hash)}])
 
           ;; Favicon section
           [:link {:rel "apple-touch-icon" :sizes "180x180" :href "/apple-touch-icon.png"}]
