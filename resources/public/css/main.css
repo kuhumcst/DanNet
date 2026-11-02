@@ -164,6 +164,12 @@ html, body {
     letter-spacing: var(--letter-spacing-base);
 }
 
+@media only screen and (max-width: 700px) {
+    #app {
+        flex-direction: column;
+    }
+}
+
 button {
     cursor: pointer;
 }
@@ -263,6 +269,12 @@ h3 {
     border-bottom: var(--normal-border);
     margin: var(--spacing-xxl) 0 var(--spacing-m) 0;
     padding: 0 0 var(--spacing-xs) 0;
+}
+
+@media only screen and (max-width: 500px) {
+    h1, h2 {
+        font-size: var(--font-size-l);
+    }
 }
 
 sub {
@@ -422,6 +434,12 @@ span.summary-badge:hover {
     border: 1px solid var(--color-dark);
 }
 
+@media only screen and (max-width: 700px) {
+    ul.synset-summary {
+        font-size: var(--font-size-s);
+    }
+}
+
 
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
 dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
@@ -546,6 +564,12 @@ p.note strong {
     margin-right: var(--spacing-xs);
 }
 
+@media only screen and (max-width: 500px) {
+    p.note.desktop-only {
+        display: none;
+    }
+}
+
 
 /* ===========================================
    LAYOUT
@@ -632,6 +656,13 @@ article.document > div > ul:first-child {
 
 article.document > div > ul:first-child li {
     padding: 0;
+}
+
+@media only screen and (max-width: 700px) {
+    article.document > div > ul:first-child {
+        gap: var(--spacing-m);
+        font-size: var(--font-size-s);
+    }
 }
 
 /* Cycle colours of the nav tabs above and lists of links. */
@@ -910,6 +941,24 @@ html[data-fetching] nav#main-nav a.title span:nth-child(3) { animation-delay: 0.
 html[data-fetching] nav#main-nav a.title span:nth-child(4) { animation-delay: 0.3s; }
 html[data-fetching] nav#main-nav a.title span:nth-child(5) { animation-delay: 0.4s; }
 html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.5s; }
+
+@media only screen and (max-width: 700px) {
+    /* Turn the nav bar horizontal on mobile. */
+    nav#main-nav {
+        flex-direction: row;
+        border: 1px solid transparent;
+        border-bottom: var(--normal-border);
+    }
+    nav#main-nav:has(search.search-active) a.sparql-link {
+        margin-top: 0;
+        margin-left: calc(var(--icon-size) + var(--spacing-s));
+    }
+    nav#main-nav a.title {
+        writing-mode: initial;
+        text-orientation: initial;
+        margin: 0 auto;
+    }
+}
 
 
 /* ===========================================
@@ -1233,6 +1282,24 @@ td.sparql-results__count {
     white-space: nowrap;
 }
 
+@media only screen and (max-width: 700px) {
+    td {
+        font-size: var(--font-size-s);
+    }
+    table.attr-val.attr-val--nested td {
+        font-size: var(--font-size-xs);
+    }
+    table.attr-val.attr-val--nested col:nth-child(2) {
+        min-width: 10ch;
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    table.attr-val col:nth-child(2) {
+        min-width: 10ch;
+    }
+}
+
 
 /* ===========================================
    RDF & PREFIXES
@@ -1311,6 +1378,13 @@ span.prefix__sep {
     color: var(--color-dark);
 }
 
+@media only screen and (max-width: 500px) {
+    td.attr-prefix > *,
+    span.prefix:not(.independent) {
+        display: none;
+    }
+}
+
 /* QName display */
 .qname {
     display: inline-flex;
@@ -1356,6 +1430,12 @@ header > .rdf-uri .rdf-uri__name {
     margin-left: 2px;
 }
 
+@media only screen and (max-width: 700px) {
+    header > .rdf-uri {
+        font-size: var(--font-size-xs);
+    }
+}
+
 /* Language tags shown as superscript after lang-attributed elements. */
 [lang]:not(html, footer, footer *, h1 span, article)::after {
     content: attr(lang);
@@ -1373,6 +1453,12 @@ header > .rdf-uri .rdf-uri__name {
 html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
 html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
     content: none;
+}
+
+@media only screen and (max-width: 700px) {
+    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+        content: "";
+    }
 }
 
 
@@ -1529,6 +1615,40 @@ span.marker {
     font-size: var(--font-size-s);
 }
 
+@media only screen and (min-width: 1200px) {
+    /* Hide "fake" footer items until diagram view turns into single column view. */
+    #content.full-screen aside.synset-diagram__metadata .synset-diagram__footer-item {
+        display: none;
+    }
+    /* Make the fonts a bit bigger. */
+    #content.full-screen fieldset.radial-tree-legend ul,
+    #content.full-screen .synset-diagram-container,
+    #content.full-screen .synset-diagram-container dd {
+        font-size: var(--font-size-m);
+    }
+}
+
+@media only screen and (max-width: 1200px) {
+    #content.full-screen aside.synset-diagram__metadata {
+        order: 3;
+        border-right: none;
+        border-top: var(--subtle-border);
+        max-width: none;
+        margin: 0;
+        padding: var(--spacing-l) 0 0 0;
+    }
+    /* Remove real footer items once the metadata column becomes the footer. */
+    #content.full-screen .synset-diagram-container footer.synset-diagram__footer {
+        display: none;
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    .synset-diagram-container {
+        font-size: var(--font-size-s);
+    }
+}
+
 abbr.pos-label {
     color: var(--color-dark);
     font-variant: small-caps;
@@ -1582,6 +1702,15 @@ abbr.pos-label {
     display: flex;
 }
 
+@media only screen and (max-width: 1200px) {
+    /* Stack the diagram and legend vertically; the toolbar stays as the top
+       bar above them. */
+    .synset-diagram__body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 /* Mode radio group (Relations / Hyponyms / Ortho-hyponyms), centred in the toolbar grid. */
 fieldset.viz-mode-toggle {
     margin: var(--spacing-xs);
@@ -1623,6 +1752,13 @@ svg.radial-tree-diagram__svg {
 #content.full-screen svg.radial-tree-diagram__svg {
     /* Always make sure the diagram to is fully visible. */
     max-height: calc(100vh - var(--layout-fullscreen-header));
+}
+
+@media only screen and (max-width: 1200px) {
+    #content.full-screen figure.radial-tree-diagram,
+    #content.full-screen svg.radial-tree-diagram__svg {
+        max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
+    }
 }
 
 /* More targeted transitions - only animate colors, not font sizes */
@@ -1723,6 +1859,62 @@ fieldset.radial-tree-legend ul > li:focus-within label {
     border: var(--normal-border);
 }
 
+@media only screen and (min-width: 1200px) {
+    #content.full-screen .radial-tree-legend__bullet {
+        width: 14px;
+        height: 14px;
+        top: 10px;
+        left: var(--spacing-s);
+    }
+    #content.full-screen fieldset.radial-tree-legend ul label {
+        padding-left: var(--spacing-xl);
+    }
+    #content.full-screen fieldset.radial-tree-legend ul li + li {
+        margin-top: var(--spacing-prefix);
+    }
+}
+
+@media only screen and (max-width: 1200px) {
+    fieldset.radial-tree-legend {
+        border-left: none;
+        border-top: var(--subtle-border);
+    }
+    fieldset.radial-tree-legend ul {
+        columns: 3;
+        margin: var(--spacing-m) auto 0 auto;
+        padding: 0;
+
+        /* Multi-column: drop the group gap back to the normal item gap so it
+           doesn't dent the tops of columns. */
+        --rel-group-gap: var(--spacing-xs);
+    }
+    fieldset.radial-tree-legend ul li.rel-group-begin {
+        border-top: none;
+        padding: 0;
+        margin: 0;
+    }
+}
+
+@media only screen and (max-width: 750px) {
+    fieldset.radial-tree-legend ul {
+        columns: 2;
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    fieldset.radial-tree-legend ul {
+        columns: 1;
+
+        /* Single column again, so the group gap is meaningful once more. */
+        --rel-group-gap: var(--spacing-m);
+    }
+    fieldset.radial-tree-legend ul li.rel-group-begin {
+        margin-top: var(--rel-group-gap);
+        padding-top: var(--rel-group-gap);
+        border-top: var(--subtle-border);
+    }
+}
+
 /* Radial tree items (SVG text) */
 .radial-item {
     text-underline-offset: 0.25ch;
@@ -1775,6 +1967,18 @@ tspan.sense-paragraph {
 
 .definition-pos {
     font-weight: bold;
+}
+
+@media only screen and (max-width: 600px) {
+    .radial-item:not(.radial-item--subject) {
+        font-size: var(--font-size-m-l);
+    }
+}
+
+@media only screen and (max-width: 500px) {
+    .radial-item:not(.radial-item--subject) {
+        font-size: var(--font-size-m-xl);
+    }
 }
 
 /* Hyponym sunburst diagram */
@@ -1882,6 +2086,38 @@ svg.hyponym-sunburst-diagram__svg {
 /* Current focus: the synset you're on — muted, not interactive. */
 .hyponym-sunburst-history > li.current span {
     border: var(--normal-border);
+}
+
+@media only screen and (max-width: 1200px) {
+    /* Below the diagram there's width but little height, so lay the zoom history
+       out as a horizontal wrapping breadcrumb rather than the tall vertical list
+       the short space would otherwise clip down to just the first label. */
+    .hyponym-sunburst-history {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        margin: var(--spacing-m) auto 0;
+        max-width: none;
+        padding-left: 0;
+        overflow: visible;
+    }
+    .hyponym-sunburst-history > li {
+        display: flex;
+        align-items: center;
+        padding-top: 0;
+    }
+    /* Right-arrow between inline steps instead of the column's down-arrow. */
+    .hyponym-sunburst-history > li:not(:first-child)::before {
+        content: "\2192";
+        display: inline;
+        padding: 0 var(--spacing-xs);
+    }
+    .hyponym-sunburst-history button,
+    .hyponym-sunburst-history > li.current span {
+        width: auto;
+        margin: 0 var(--spacing-m);
+    }
 }
 
 /* Visually hide content while keeping it available to assistive tech (e.g.
@@ -2155,6 +2391,18 @@ html[data-fetching] .sparql-progress {
     animation: sparql-fill 15s ease forwards;
 }
 
+@media only screen and (max-width: 700px) {
+    .sparql-editor__input {
+        flex-direction: column;
+    }
+    .sparql-editor__buttons {
+        flex-direction: row;
+    }
+    .sparql-editor__controls {
+        justify-content: flex-end;
+    }
+}
+
 @keyframes sparql-fill {
     from { transform: scaleX(0); transform-origin: left; }
     to   { transform: scaleX(1); transform-origin: left; }
@@ -2209,6 +2457,13 @@ span.subtle {
 
 .icon.minimize {
     background-image: url("/images/minimize.svg");
+}
+
+@media only screen and (max-width: 700px) {
+    .icon.maximize,
+    .icon.minimize {
+        align-self: flex-start;
+    }
 }
 
 /* Display options dropdown */
@@ -2271,6 +2526,19 @@ nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
     opacity: 1;
 }
 
+@media only screen and (min-width: 700px) {
+    .help-overlay {
+        opacity: 1;
+    }
+}
+
+@media only screen and (max-width: 700px) {
+    /* Turn the nav bar horizontal on mobile. */
+    .help-overlay {
+        display: none;
+    }
+}
+
 /* Error boundary fallback */
 details.render-error[open] {
     margin: 0;
@@ -2288,219 +2556,4 @@ span.render-error {
     text-decoration: underline wavy red;
     text-underline-offset: 5px;
     cursor: help;
-}
-
-
-/* ===========================================
-   MEDIA QUERIES
-   =========================================== */
-
-/* --- Large screens (min-width, ascending) --- */
-
-@media only screen and (min-width: 1200px) {
-    /* Hide "fake" footer items until diagram view turns into single column view. */
-    #content.full-screen aside.synset-diagram__metadata .synset-diagram__footer-item {
-        display: none;
-    }
-    /* Make the fonts a bit bigger. */
-    #content.full-screen fieldset.radial-tree-legend ul,
-    #content.full-screen .synset-diagram-container,
-    #content.full-screen .synset-diagram-container dd {
-        font-size: var(--font-size-m);
-    }
-    #content.full-screen .radial-tree-legend__bullet {
-        width: 14px;
-        height: 14px;
-        top: 10px;
-        left: var(--spacing-s);
-    }
-    #content.full-screen fieldset.radial-tree-legend ul label {
-        padding-left: var(--spacing-xl);
-    }
-    #content.full-screen fieldset.radial-tree-legend ul li + li {
-        margin-top: var(--spacing-prefix);
-    }
-}
-
-@media only screen and (min-width: 700px) {
-    .help-overlay {
-        opacity: 1;
-    }
-}
-
-/* --- Small screens (max-width, descending) --- */
-
-@media only screen and (max-width: 1200px) {
-    /* Stack the diagram and legend vertically; the toolbar stays as the top
-       bar above them. */
-    .synset-diagram__body {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    fieldset.radial-tree-legend {
-        border-left: none;
-        border-top: var(--subtle-border);
-    }
-    fieldset.radial-tree-legend ul {
-        columns: 3;
-        margin: var(--spacing-m) auto 0 auto;
-        padding: 0;
-
-        /* Multi-column: drop the group gap back to the normal item gap so it
-           doesn't dent the tops of columns. */
-        --rel-group-gap: var(--spacing-xs);
-    }
-    /* Below the diagram there's width but little height, so lay the zoom history
-       out as a horizontal wrapping breadcrumb rather than the tall vertical list
-       the short space would otherwise clip down to just the first label. */
-    .hyponym-sunburst-history {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        margin: var(--spacing-m) auto 0;
-        max-width: none;
-        padding-left: 0;
-        overflow: visible;
-    }
-    .hyponym-sunburst-history > li {
-        display: flex;
-        align-items: center;
-        padding-top: 0;
-    }
-    fieldset.radial-tree-legend ul li.rel-group-begin {
-        border-top: none;
-        padding: 0;
-        margin: 0;
-    }
-    /* Right-arrow between inline steps instead of the column's down-arrow. */
-    .hyponym-sunburst-history > li:not(:first-child)::before {
-        content: "\2192";
-        display: inline;
-        padding: 0 var(--spacing-xs);
-    }
-    .hyponym-sunburst-history button,
-    .hyponym-sunburst-history > li.current span {
-        width: auto;
-        margin: 0 var(--spacing-m);
-    }
-    #content.full-screen aside.synset-diagram__metadata {
-        order: 3;
-        border-right: none;
-        border-top: var(--subtle-border);
-        max-width: none;
-        margin: 0;
-        padding: var(--spacing-l) 0 0 0;
-    }
-    #content.full-screen figure.radial-tree-diagram,
-    #content.full-screen svg.radial-tree-diagram__svg {
-        max-height: calc(88vh - var(--layout-responsive-offset) - var(--spacing-l));
-    }
-    /* Remove real footer items once the metadata column becomes the footer. */
-    #content.full-screen .synset-diagram-container footer.synset-diagram__footer {
-        display: none;
-    }
-}
-
-@media only screen and (max-width: 750px) {
-    .synset-diagram-container {
-        font-size: var(--font-size-s);
-    }
-    fieldset.radial-tree-legend ul {
-        columns: 2;
-    }
-}
-
-/* Mobile view (minimalist) */
-@media only screen and (max-width: 700px) {
-    .sparql-editor__input {
-        flex-direction: column;
-    }
-    .sparql-editor__buttons {
-        flex-direction: row;
-    }
-    .sparql-editor__controls {
-        justify-content: flex-end;
-    }
-    td.attr-name > [lang]:not(footer, h1 span, article)::after {
-        content: "";
-    }
-
-    ul.synset-summary,
-    td {
-        font-size: var(--font-size-s);
-    }
-    header > .rdf-uri,
-    table.attr-val.attr-val--nested td {
-        font-size: var(--font-size-xs);
-    }
-    table.attr-val.attr-val--nested col:nth-child(2) {
-        min-width: 10ch;
-    }
-    .icon.maximize,
-    .icon.minimize {
-        align-self: flex-start;
-    }
-
-    /* Turn the nav bar horizontal on mobile. */
-    .help-overlay {
-        display: none;
-    }
-    #app {
-        flex-direction: column;
-    }
-    nav#main-nav {
-        flex-direction: row;
-        border: 1px solid transparent;
-        border-bottom: var(--normal-border);
-    }
-    nav#main-nav:has(search.search-active) a.sparql-link {
-        margin-top: 0;
-        margin-left: calc(var(--icon-size) + var(--spacing-s));
-    }
-    nav#main-nav a.title {
-        writing-mode: initial;
-        text-orientation: initial;
-        margin: 0 auto;
-    }
-    article.document > div > ul:first-child  {
-        gap: var(--spacing-m);
-        font-size: var(--font-size-s);
-    }
-}
-
-@media only screen and (max-width: 600px) {
-    .radial-item:not(.radial-item--subject) {
-        font-size: var(--font-size-m-l);
-    }
-}
-
-@media only screen and (max-width: 500px) {
-    p.note.desktop-only,
-    td.attr-prefix > *,
-    span.prefix:not(.independent) {
-        display: none;
-    }
-    table.attr-val col:nth-child(2) {
-        min-width: 10ch;
-    }
-    fieldset.radial-tree-legend ul {
-        columns: 1;
-
-        /* Single column again, so the group gap is meaningful once more. */
-        --rel-group-gap: var(--spacing-m);
-    }
-    fieldset.radial-tree-legend ul li.rel-group-begin {
-        margin-top: var(--rel-group-gap);
-        padding-top: var(--rel-group-gap);
-        border-top: var(--subtle-border);
-    }
-    .radial-item:not(.radial-item--subject) {
-        font-size: var(--font-size-m-xl);
-    }
-
-
-    h1, h2 {
-        font-size: var(--font-size-l);
-    }
 }
