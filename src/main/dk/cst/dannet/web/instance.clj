@@ -282,6 +282,21 @@
     [(str/lower-case item) 0 item]
     [(str/lower-case (second item)) 1 (first item)]))
 
+(defn- one-per-lemma
+  "Keep one of the sorted autocompletion `items` per lemma: the word match if
+  there is one, otherwise the first inflected form."
+  [items]
+  (let [seen (volatile! (into #{}
+                              (comp (filter string?)
+                                    (map shared/search-string))
+                              items))]
+    (into [] (filter (fn [item]
+                       (or (string? item)
+                           (let [lemma (shared/search-string (first item))]
+                             (when-not (@seen lemma)
+                               (vswap! seen conj lemma))))))
+          items)))
+
 (defn- ->autocomplete
   []
   (memo/lu
@@ -289,11 +304,12 @@
       (->> (prefix-entries @search-index s)
            (mapcat completion-items)
            (sort-by completion-sort-key)
+           (one-per-lemma)
            (take 200)))                                     ; cap the payload
     :lu/threshold 2000))
 
-(defonce ^{:doc "Return auto-completions for `s` found in the graph,
-capped at 200 items."}
+(defonce ^{:doc "Return auto-completions for `s` found in the graph, one per
+lemma, capped at 200 items."}
   autocomplete
   (->autocomplete))
 

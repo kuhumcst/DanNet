@@ -1078,6 +1078,16 @@ search.search-active ul li:focus-visible {
     background: rgba(255,255,255,var(--opacity-overlay-light));
 }
 
+.suggestion__lemma {
+    margin-left: 1ch;
+    font-size: var(--font-size-m);
+    opacity: var(--opacity-muted);
+}
+
+.suggestion__lemma::before {
+    content: "→ ";
+}
+
 /* Disable scrolling when search is focused (prevents iOS Firefox scroll issue) */
 nav:has(search.search-active) ~ #content {
     overflow: hidden;

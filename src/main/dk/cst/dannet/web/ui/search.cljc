@@ -32,23 +32,29 @@
   (str "search-completion-item-" v))
 
 (rum/defc suggestion
-  [v on-key-down]
+  [v languages on-key-down]
   (let [[lemma inflected] (if (vector? v) v [v])
-        display      (if inflected
-                       (str lemma " (" inflected ")")
-                       lemma)
         handle-click (fn [_]
                        #?(:cljs (let [form  (js/document.getElementById "search-form")
                                       input (js/document.getElementById "search-input")]
                                   (set! (.-value input) lemma)
                                   (form/submit-form form (str "lemma=" lemma)))
                           :clj  nil))]
-    [:li {:role        "option"
-          :tab-index   "-1"
-          :on-key-down on-key-down
-          :id          (completion-item-id display)
-          :on-click    handle-click}
-     display]))
+    [:li (cond-> {:role        "option"
+                  :tab-index   "-1"
+                  :on-key-down on-key-down
+                  :id          (completion-item-id (if inflected
+                                                     (str inflected "-" lemma)
+                                                     lemma))
+                  :on-click    handle-click}
+           inflected (assoc :aria-label (i18n/da-en languages
+                                          (str inflected
+                                               ", bøjningsform af " lemma)
+                                          (str inflected
+                                               ", inflected form of " lemma))))
+     (if inflected
+       [:<> inflected [:span.suggestion__lemma lemma]]
+       lemma)]))
 
 (rum/defcs form < (rum/local false ::open)
   [state {:keys [lemma search languages] :as opts}]
@@ -121,7 +127,7 @@
                :id        "search-completion"}
           (when suggestions?
             (for [v completion-items]
-              (rum/with-key (suggestion v on-key-down) (str v))))]]])]))
+              (rum/with-key (suggestion v languages on-key-down) (str v))))]]])]))
 
 ;; TODO: hydration fails on /dannet/search?lemma=bank: in the link inside a
 ;;       result's <dt>, the server renders "bank" and the client "banke". Both
