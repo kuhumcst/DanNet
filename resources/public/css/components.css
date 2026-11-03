@@ -208,8 +208,6 @@ td.attr-name .attr-name__extras > details.entailed[open] {
 
 /* Superproperty relations folded into a more specific relation's row. */
 td.attr-name details.entailed {
-    display: block;
-    margin-left: 0;
     padding-top: 2px; /*  match display options select next to it. */
     font-size: var(--font-size-xs);
 }
@@ -243,7 +241,6 @@ td.attr-name details.entailed[open] + * {
 
 td.attr-name details.entailed .entailed__rels {
     list-style: none;
-    margin: 0;
     padding: 0;
 }
 
@@ -434,7 +431,6 @@ header > .rdf-uri .rdf-uri__name {
 span.set {
     display: inline-flex;
     flex-basis: 100%;
-    vertical-align: baseline;
 }
 
 /* Inheritance display (anonymous dns:inherited nodes, cf. GitHub issue #182):
@@ -462,7 +458,6 @@ span.inheritance .set__content {
 span.inheritance .set__left-bracket,
 span.inheritance .set__right-bracket {
     display: inline-block;
-    width: 1ch;
     height: 1em;
     vertical-align: text-bottom;
 }
@@ -500,15 +495,12 @@ span.marker {
     margin-right: var(--spacing-xs);
     color: var(--color-muted);
     cursor: help;
-    vertical-align: baseline;
 }
 
 ul.synset-summary {
     line-height: 1.5;
     list-style-type: none;
-    padding: 0 0 0 var(--spacing-m);
     font-size: var(--font-size-m);
-    margin: 0;
     border-left: var(--spacing-l) solid var(--color-dannet);
 }
 
@@ -549,7 +541,6 @@ ul.synset-summary li.sense-example::marker {
 }
 
 ul.synset-summary li.sense-example strong {
-    font-weight: bold;
     text-decoration: underline;
     text-decoration-style: dashed;
     text-underline-offset: var(--spacing-xs);
@@ -598,16 +589,11 @@ abbr.pos-label {
 ul.hypernym-chain {
     list-style: none;
     padding-left: 0;
-    margin: 0;
 }
 
 ul.hypernym-chain ul.hypernym-chain {
     padding-left: 1ch;
     margin: 0.8em 0;
-}
-
-.hypernym-chain--root li:first-child {
-    margin-top: 0;
 }
 
 ul.hypernym-chain li::before {
@@ -837,7 +823,6 @@ article.document ul {
 
 article.document li {
     padding: 0 0 0 var(--spacing-s);
-    margin: 0;
 }
 
 article.document li + li {
@@ -914,7 +899,6 @@ p.note + p.note {
 
 p.note strong {
     color: var(--color-dark);
-    vertical-align: baseline;
     margin-right: var(--spacing-xs);
 }
 

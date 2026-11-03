@@ -49,10 +49,6 @@
     background: white;
 }
 
-#content.full-screen hr {
-    border-top: var(--normal-border);
-}
-
 main {
     display: flex;
     justify-content: center;
@@ -173,7 +169,6 @@ nav#main-nav select.language {
 }
 
 nav#main-nav a.sparql-link {
-    cursor: pointer;
     width: var(--icon-size);
     height: var(--icon-size);
     background-image: url("/images/sparql-icon.svg");

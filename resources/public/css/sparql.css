@@ -197,7 +197,6 @@ html[data-fetching] .sparql-progress {
 
 table.sparql-results {
     min-width: 100%;
-    width: auto;
 }
 
 /* Constrain individual cell content to prevent a single long URI from

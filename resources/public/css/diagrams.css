@@ -33,7 +33,6 @@
     display: flex;
     align-items: center;
     border-right: var(--subtle-border);
-    margin: 0;
     padding-right: var(--spacing-m);
     max-width: 20vw;
 }
@@ -85,7 +84,6 @@
         border-right: none;
         border-top: var(--subtle-border);
         max-width: none;
-        margin: 0;
         padding: var(--spacing-l) 0 0 0;
     }
     /* Remove real footer items once the metadata column becomes the footer. */
@@ -226,7 +224,6 @@ fieldset.radial-tree-legend ul {
     margin: auto 0;
 
     list-style: none;
-    padding: 0 0 0 var(--spacing-m);
 
     font-variant: small-caps;
     font-size: var(--font-size-m);
@@ -268,14 +265,12 @@ fieldset.radial-tree-legend ul input[type=radio] {
     height: 10px;
     border-radius: var(--spacing-m);
     margin-right: 1ch;
-    display: inline-block;
     align-self: center;
     transition: transform var(--transition-base), opacity var(--transition-base);
 
     position: absolute;
     top: 10px;
     left: var(--spacing-m);
-    background-color: var(--color-bg-alt);
 }
 
 /* When ANY radio is checked, make unchecked ones appear inactive */
@@ -304,11 +299,7 @@ fieldset.radial-tree-legend ul > li:focus-within label {
     #content.full-screen .radial-tree-legend__bullet {
         width: 14px;
         height: 14px;
-        top: 10px;
         left: var(--spacing-s);
-    }
-    #content.full-screen fieldset.radial-tree-legend ul label {
-        padding-left: var(--spacing-xl);
     }
     #content.full-screen fieldset.radial-tree-legend ul li + li {
         margin-top: var(--spacing-prefix);

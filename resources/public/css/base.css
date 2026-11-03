@@ -46,7 +46,6 @@
     --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
     
     /* BORDERS */
-    --border-opacity-normal: 0.67;
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
 
@@ -97,7 +96,6 @@
     
     /* BACKGROUNDS */
     --bg-texture: url(/images/exclusive-paper.png);
-    --bg-dark: var(--color-dark) var(--bg-texture);
     
     /* INTERACTIVE ELEMENT SIZING */
     --icon-size: 32px;
@@ -110,10 +108,8 @@
     
     /* Z-INDEX SCALE */
     --z-base: 1;
-    --z-error: 10;
     --z-help: 66;
     --z-search: 99;
-    --z-modal: 10000;
 }
 
 
@@ -157,7 +153,6 @@ span.prefix,
 }
 
 html, body {
-    padding: 0;
     margin: 0;
     height: 100%;
     background: #fff var(--bg-texture);
@@ -222,7 +217,6 @@ h1 {
     justify-content: center;
     font-size: var(--font-size-xl);
     margin: var(--spacing-m) auto var(--spacing-m) auto;
-    word-break: normal;
 }
 
 h1 sub {
@@ -265,7 +259,6 @@ h3 {
 sub {
     font-size: 70%;
     opacity: var(--opacity-muted);
-    text-decoration: none;
 }
 
 code {
@@ -280,7 +273,6 @@ code {
 }
 
 pre code {
-    text-shadow: none;
     padding: 0;
     background: none;
     color: white;
@@ -348,7 +340,6 @@ li::marker {
 hr {
     border: none;
     border-top: var(--normal-border);
-    width: 100%;
     margin: 0 0 var(--spacing-xl) 0;
 }
 
@@ -363,7 +354,6 @@ td, th {
 }
 
 th {
-    font-weight: bold;
     font-variant: small-caps;
     font-size: var(--font-size-m);
     border-bottom: var(--subtle-border);
