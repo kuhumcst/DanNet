@@ -748,7 +748,7 @@ article.document > div > p > a > img {
     margin: var(--spacing-l) auto;
 }
 
-article.document > div > table:not(code) {
+article.document > div > table {
     line-height: var(--line-height-prose);
 }
 
@@ -918,7 +918,7 @@ select.display-options {
     background-size: var(--font-size-s);
     border: 1px solid transparent;
     border-radius: var(--border-radius-s);
-    padding: 2px 4px 2px 18px;
+    padding: var(--spacing-xxs) var(--spacing-xs) var(--spacing-xxs) 18px;
     font-size: var(--font-size-xs);
 
     color: var(--color-dark);
