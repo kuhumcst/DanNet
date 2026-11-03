@@ -148,6 +148,7 @@
         href  (prefix/resolve-href subject)]
     ;; NOTE: divs are actually allowed by the spec as grouping elements in a dl!
     [:div {:role            "group"
+           :class           "card"
            :aria-labelledby dt-id
            :tab-index       "0"
            :title           (i18n/da-en languages

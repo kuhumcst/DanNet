@@ -4,6 +4,14 @@
 @layer components {
 
 
+.card {
+    padding: var(--spacing-m);
+    background-color: white;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+
 /* ===========================================
    SEARCH
    =========================================== */
@@ -504,14 +512,6 @@ ul.synset-summary {
     border-left: var(--spacing-l) solid var(--color-dannet);
 }
 
-/* The synset summary at the top of a synset page, shown as a card. */
-.synset-header {
-    padding: var(--spacing-m);
-    background-color: white;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-}
-
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
    flex row; any summary badges are pushed to the far right side. */
 ul.synset-summary > li.summary-main {
@@ -642,11 +642,7 @@ dl.search-results dt .set__content sub {
 dl.search-results > div {
     transition: transform var(--transition-fast);
     cursor: pointer;
-    padding: var(--spacing-m);
     margin-bottom: var(--spacing-xxl);
-    background-color: white;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 dl.search-results > div:hover,

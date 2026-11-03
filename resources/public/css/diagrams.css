@@ -10,12 +10,7 @@
 
 .synset-diagram-container {
     transition: font-size var(--transition-base);
-    padding: var(--spacing-m);
     height: 100%;
-
-    background: white;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 #content.full-screen .synset-diagram-container {
