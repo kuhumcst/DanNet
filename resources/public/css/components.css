@@ -283,7 +283,7 @@ tr + tr td.attr-name {
 
 span.prefix {
     --prefix-padding: var(--spacing-prefix);
-    --prefix-tracking: 1px;
+    --prefix-tracking: var(--letter-spacing-base);
     background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     font-variant: small-caps;
     color: white;
