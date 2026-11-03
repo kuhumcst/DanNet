@@ -1,5 +1,4 @@
-/* Design tokens, keyframes, the reset and the default look of plain HTML
-   elements. Every other file builds on this one. */
+/* Every other file builds on this one. */
 
 /* Rules in a later layer win over rules in an earlier one, whatever
    their specificity. sparql.css is not in a layer: CodeMirror injects
@@ -8,45 +7,28 @@
 @layer base, layout, components, diagrams, utilities;
 
 @layer base {
-
-
-/* ===========================================
-   CSS VARIABLES (Design Tokens)
-   =========================================== */
-
 :root {
-    /* COLOR PALETTE */
-    
-    /* Core neutrals */
     --color-dark: #333;
     --color-muted: #666;
     --color-subtle: #999;
-    --color-faint: #AAA;
     --color-bg-alt: #F2F2F2;
-    
-    /* Primary accent (links) */
+
     --color-link: #0066BB;
     --color-link-underline: #0066BB55;
     --color-link-underline-hover: #0066BBFF;
-    --color-link-muted: #006699;  /* Darker blue for secondary links */
-    
-    /* Namespace/prefix colors */
+
     --color-dannet: #901a1e;
     --color-w3c: #55f;
     --color-meta: #019fa1;
     --color-ontolex: #df7300;
     --color-wordnet: #387111;
-    
-    /* OPACITY SCALE */
+
     --opacity-interactive: 0.8;       /* Default state for clickable elements */
     --opacity-interactive-hover: 1;   /* Hover state */
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
     --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
-    --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
-    
-    /* BORDERS */
-    --border-opacity-normal: 0.67;
+
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
 
@@ -54,32 +36,27 @@
     --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
 
     --border-radius-s: 2px;
-    
-    /* SHADOWS */
+
     --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.25);
     --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
     --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
-    
-    /* TYPOGRAPHY */
+
     --font-family: Georgia, serif;
+    --font-family-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     --letter-spacing-base: 0.2ch;
     --line-height-prose: 1.8;
-    
-    /* Font size scale */
+
     --font-size-xs: 12px;
     --font-size-s: 14px;
     --font-size-m: 16px;
     --font-size-m-l: 18px;  /* Bridge between medium and large */
-    --font-size-m-xl: 20px; /* Another step toward large */
     --font-size-l: 24px;
     --font-size-xl: 32px;
     --font-size-xxl: 48px;
-    
-    /* CONTENT WIDTH */
+
     --content-max-width: 110ch;        /* Main article content */
     --content-max-width-narrow: 90ch;  /* Document-style articles */
-    
-    /* SPACING */
+
     --spacing-xxs: 2px;
     --spacing-xs: 4px;
     --spacing-s: 8px;
@@ -88,38 +65,25 @@
     --spacing-xl: 32px;
     --spacing-xxl: 48px;
     --spacing-prefix: 6px;
-    
-    /* TRANSITIONS */
+
     --transition-fast: 0.1s;
     --transition-base: 0.2s;
     --transition-slow: 0.33s;
     --transition-slower: 0.66s;
-    
-    /* BACKGROUNDS */
+
     --bg-texture: url(/images/exclusive-paper.png);
-    --bg-dark: var(--color-dark) var(--bg-texture);
-    
-    /* INTERACTIVE ELEMENT SIZING */
+
     --icon-size: 32px;
-    
-    /* LAYOUT OFFSETS (for viewport calculations) */
+
     --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
     --layout-search-horizontal-offset: 92px;   /* Left padding + icon area in search */
     --layout-fullscreen-header: 104px;         /* Header height in full-screen diagram mode */
     --layout-responsive-offset: 45px;          /* Additional offset at responsive breakpoint */
-    
-    /* Z-INDEX SCALE */
+
     --z-base: 1;
-    --z-error: 10;
     --z-help: 66;
     --z-search: 99;
-    --z-modal: 10000;
 }
-
-
-/* ===========================================
-   KEYFRAME ANIMATIONS
-   =========================================== */
 
 @keyframes fade-in {
     0% { opacity: 0; }
@@ -139,11 +103,6 @@
     88%, 100% { transform: scale(1); }
 }
 
-
-/* ===========================================
-   BASE & RESET
-   =========================================== */
-
 /* Apply hyphenation to text-containing elements */
 p,
 h1, h2, h3,
@@ -157,10 +116,9 @@ span.prefix,
 }
 
 html, body {
-    padding: 0;
     margin: 0;
     height: 100%;
-    background: #fff var(--bg-texture);
+    background: white var(--bg-texture);
 }
 
 /* A faint white shadow that sharpens dark text in the content column.
@@ -201,10 +159,10 @@ a:hover {
     text-decoration: underline;
 }
 
-
-/* ===========================================
-   TYPOGRAPHY
-   =========================================== */
+:focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 1px;
+}
 
 p {
     line-height: var(--line-height-prose);
@@ -222,7 +180,6 @@ h1 {
     justify-content: center;
     font-size: var(--font-size-xl);
     margin: var(--spacing-m) auto var(--spacing-m) auto;
-    word-break: normal;
 }
 
 h1 sub {
@@ -265,7 +222,6 @@ h3 {
 sub {
     font-size: 70%;
     opacity: var(--opacity-muted);
-    text-decoration: none;
 }
 
 code {
@@ -275,12 +231,11 @@ code {
     padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
     font-size: var(--font-size-s);
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-family: var(--font-family-mono);
     font-weight: normal;
 }
 
 pre code {
-    text-shadow: none;
     padding: 0;
     background: none;
     color: white;
@@ -305,7 +260,6 @@ pre.message {
     padding: 0;
 }
 
-/* Ordered lists */
 ol {
     margin: 0;
 }
@@ -348,14 +302,8 @@ li::marker {
 hr {
     border: none;
     border-top: var(--normal-border);
-    width: 100%;
     margin: 0 0 var(--spacing-xl) 0;
 }
-
-
-/* ===========================================
-   TABLES
-   =========================================== */
 
 td, th {
     padding: var(--spacing-m);
@@ -363,7 +311,6 @@ td, th {
 }
 
 th {
-    font-weight: bold;
     font-variant: small-caps;
     font-size: var(--font-size-m);
     border-bottom: var(--subtle-border);
@@ -388,13 +335,6 @@ tr tr:nth-child(odd) {
     }
 }
 
-
-/* ===========================================
-   NAMESPACE COLORS & LANGUAGE TAGS
-   =========================================== */
-
-/* Namespace colors: the text color of links, and the background of prefix
-   badges and the nav bar. */
 .dannet  { --ns-color: var(--color-dannet); }
 .w3c     { --ns-color: var(--color-w3c); }
 .meta    { --ns-color: var(--color-meta); }
@@ -419,8 +359,8 @@ tr tr:nth-child(odd) {
 /* Hide the superscript when it matches the UI language declared on <html>;
    [lang|=...] also covers regional subtags such as en-GB. At the "high"
    detail level (= long labels) all language tags remain visible. */
-html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
-html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
+html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]::after,
+html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]::after {
     content: none;
 }
 

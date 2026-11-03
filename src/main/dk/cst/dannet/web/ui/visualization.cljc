@@ -310,7 +310,7 @@
   "The diagram of the relations in `subentity`, with the examples and
   hypernyms of the synset in `opts` below it."
   [subentity {:keys [entity ancestry] :as opts}]
-  [:div.synset-diagram-container {:key (str (hash subentity))}
+  [:div.synset-diagram-container.card {:key (str (hash subentity))}
    (synset-diagram subentity opts)
    (let [{:keys [lexinfo/senseExample]} entity]
      (when (or senseExample ancestry)

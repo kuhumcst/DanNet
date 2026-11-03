@@ -1,21 +1,7 @@
-/* The synset diagrams: the radial tree and its legend, the sunburst and its
-   zoom history, and the word cloud. */
-
 @layer diagrams {
-
-
-/* ===========================================
-   SYNSET DIAGRAMS
-   =========================================== */
-
 .synset-diagram-container {
     transition: font-size var(--transition-base);
-    padding: var(--spacing-m);
     height: 100%;
-
-    background: white;
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 #content.full-screen .synset-diagram-container {
@@ -33,7 +19,6 @@
     display: flex;
     align-items: center;
     border-right: var(--subtle-border);
-    margin: 0;
     padding-right: var(--spacing-m);
     max-width: 20vw;
 }
@@ -85,7 +70,6 @@
         border-right: none;
         border-top: var(--subtle-border);
         max-width: none;
-        margin: 0;
         padding: var(--spacing-l) 0 0 0;
     }
     /* Remove real footer items once the metadata column becomes the footer. */
@@ -100,7 +84,6 @@
     }
 }
 
-/* Radial tree layout */
 .synset-diagram {
     display: flex;
     flex-direction: column;
@@ -207,7 +190,6 @@ figure.radial-tree-diagram * {
     transition: fill var(--transition-base), stroke var(--transition-base), opacity var(--transition-base);
 }
 
-/* Radial tree legend */
 fieldset.radial-tree-legend {
     display: flex;
     flex-direction: column;
@@ -226,7 +208,6 @@ fieldset.radial-tree-legend ul {
     margin: auto 0;
 
     list-style: none;
-    padding: 0 0 0 var(--spacing-m);
 
     font-variant: small-caps;
     font-size: var(--font-size-m);
@@ -237,12 +218,13 @@ fieldset.radial-tree-legend ul {
 }
 
 fieldset.radial-tree-legend ul label {
+    --label-padding: var(--spacing-prefix);
     display: block;
     position: relative;
     cursor: pointer;
     user-select: none;
     border: 1px solid transparent;
-    padding: var(--spacing-prefix) var(--spacing-prefix) var(--spacing-prefix) var(--spacing-xl);
+    padding: var(--label-padding) var(--label-padding) var(--label-padding) var(--spacing-xl);
 }
 
 fieldset.radial-tree-legend ul li + li {
@@ -264,23 +246,21 @@ fieldset.radial-tree-legend ul input[type=radio] {
 }
 
 .radial-tree-legend__bullet {
-    width: 10px;
-    height: 10px;
-    border-radius: var(--spacing-m);
-    margin-right: 1ch;
-    display: inline-block;
-    align-self: center;
+    --bullet-size: 10px;
+    width: var(--bullet-size);
+    height: var(--bullet-size);
+    border-radius: 50%;
     transition: transform var(--transition-base), opacity var(--transition-base);
 
+    /* Centred on the first line of the label, not on the whole label. */
     position: absolute;
-    top: 10px;
+    top: calc(var(--label-padding) + (1lh - var(--bullet-size)) / 2);
     left: var(--spacing-m);
-    background-color: var(--color-bg-alt);
 }
 
 /* When ANY radio is checked, make unchecked ones appear inactive */
 fieldset.radial-tree-legend ul:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
-    transform: scale(var(--opacity-decorative));
+    transform: scale(0.33);
     opacity: var(--opacity-decorative);
 }
 
@@ -302,13 +282,8 @@ fieldset.radial-tree-legend ul > li:focus-within label {
 
 @media only screen and (min-width: 1200px) {
     #content.full-screen .radial-tree-legend__bullet {
-        width: 14px;
-        height: 14px;
-        top: 10px;
+        --bullet-size: 14px;
         left: var(--spacing-s);
-    }
-    #content.full-screen fieldset.radial-tree-legend ul label {
-        padding-left: var(--spacing-xl);
     }
     #content.full-screen fieldset.radial-tree-legend ul li + li {
         margin-top: var(--spacing-prefix);
@@ -356,7 +331,6 @@ fieldset.radial-tree-legend ul > li:focus-within label {
     }
 }
 
-/* Radial tree items (SVG text) */
 .radial-item {
     text-underline-offset: 0.25ch;
     transition: font-size var(--transition-base);
@@ -397,10 +371,9 @@ tspan.subject-label-separator {
 /* Sense paragraph subscripts in radial labels */
 tspan.sense-paragraph {
     font-size: 10px;
-    fill: var(--color-faint);
+    fill: var(--color-subtle);
 }
 
-/* Definition styling in radial diagram */
 .definition-pos,
 .definition-text {
     fill: var(--color-dark);
@@ -418,11 +391,9 @@ tspan.sense-paragraph {
 
 @media only screen and (max-width: 500px) {
     .radial-item:not(.radial-item--subject) {
-        font-size: var(--font-size-m-xl);
+        font-size: 20px;
     }
 }
-
-/* Hyponym sunburst diagram */
 
 /* Match the radial diagram's footprint exactly. */
 figure.hyponym-sunburst-diagram,
@@ -567,13 +538,6 @@ svg.hyponym-sunburst-diagram__svg {
     display: contents;
 }
 
-/* Keyboard focus affordance for the focusable sunburst arcs and centre target
-   (operable via Enter/Space, mirroring a click). */
-.hyponym-sunburst-diagram__svg [role="button"]:focus-visible {
-    outline: 2px solid var(--color-link);
-    outline-offset: 1px;
-}
-
 /* Respect reduced-motion: dampen the word-cloud reveal transition. The
    sunburst's JS-driven zoom is collapsed separately in d3.cljs, since CSS
    can't reach a D3 transition. */
@@ -584,7 +548,6 @@ svg.hyponym-sunburst-diagram__svg {
     }
 }
 
-/* Word cloud items */
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
     transition: filter var(--transition-base);

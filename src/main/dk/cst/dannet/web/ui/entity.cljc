@@ -312,16 +312,22 @@
                    "Data may be omitted; view table for full details.")]]
      (table/attr-val-table opts subentity))])
 
+(defn- synset-header?
+  "True if section `id` of `subentity` holds the summary at the top of a
+  synset page: the untitled first section (see section/defined-sections) of
+  a synset that isn't a frame."
+  [id subentity opts]
+  (and (nil? id)
+       (rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
+       (not (shared/frame? (:subject opts)))))
+
 (rum/defc entity-section-content
   [id subentity opts]
   (cond
     (= id :semantic)
     (semantic-relations-content id subentity opts)
 
-    ;; The nil id is the untitled first section (see section/defined-sections).
-    (and (nil? id)
-         (rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
-         (not (shared/frame? (:subject opts))))
+    (synset-header? id subentity opts)
     (synset-header-content subentity opts)
 
     :else
@@ -335,8 +341,9 @@
                            :aria-labelledby title-id}
        [:h2 {:id title-id} (str (i18n/select-label languages title))]
        (error/try-render (entity-section-content id subentity opts))])
-    [:section.subentity {:key        :no-title
-                         :aria-label "RDF resource summary"}
+    [:section.subentity (cond-> {:key        :no-title
+                                 :aria-label "RDF resource summary"}
+                          (synset-header? id subentity opts) (assoc :class "card"))
      (error/try-render (entity-section-content id subentity opts))]))
 
 (rum/defc full-screen-content

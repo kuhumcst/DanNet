@@ -1,12 +1,10 @@
-/* The parts placed inside the layout: search, attribute tables, prefixes,
-   synsets, search results, document pages and small controls. */
-
 @layer components {
-
-
-/* ===========================================
-   SEARCH
-   =========================================== */
+.card {
+    padding: var(--spacing-m);
+    background-color: white;
+    border: var(--normal-border);
+    box-shadow: var(--shadow-card-subtle);
+}
 
 search {
     display: flex;
@@ -66,7 +64,7 @@ search.search-active input[role=combobox] {
     font-size: var(--font-size-xl);
     margin-left: 56px;
     color: var(--color-dark);
-    opacity: 0.9;
+    opacity: 1;
     padding: var(--spacing-xxs) var(--spacing-s);
     position: sticky; /* Keeps search input visible at top when scrolling results */
     top: var(--spacing-s);
@@ -94,7 +92,7 @@ search.search-active input[type=submit] {
 }
 
 search.search-active input[type=submit]:hover {
-    color: rgba(255,255,255,1);
+    color: white;
 }
 
 search.search-active output {
@@ -123,7 +121,7 @@ search.search-active ul li {
     color: white;
     cursor: pointer;
     list-style-type: none;
-    font-size: var(--font-size-m-xl);
+    font-size: var(--font-size-m-l);
 
     overflow: hidden;
     white-space: nowrap;
@@ -157,13 +155,8 @@ nav:has(search.search-active) ~ #content {
 /* Darken the search icon in full-screen mode. */
 nav.full-screen search:not(.search-active) {
     filter: invert(1);
-    opacity: var(--opacity-fullscreen-icon);
+    opacity: var(--opacity-interactive);
 }
-
-
-/* ===========================================
-   TABLES
-   =========================================== */
 
 table.attr-val col:nth-child(2) {
     min-width: 12ch;
@@ -208,8 +201,6 @@ td.attr-name .attr-name__extras > details.entailed[open] {
 
 /* Superproperty relations folded into a more specific relation's row. */
 td.attr-name details.entailed {
-    display: block;
-    margin-left: 0;
     padding-top: 2px; /*  match display options select next to it. */
     font-size: var(--font-size-xs);
 }
@@ -217,7 +208,7 @@ td.attr-name details.entailed {
 td.attr-name details.entailed summary {
     display: inline;
     cursor: pointer;
-    opacity: 0.5;
+    opacity: var(--opacity-muted);
     user-select: none;
     font-size: var(--font-size-s);
 }
@@ -243,7 +234,6 @@ td.attr-name details.entailed[open] + * {
 
 td.attr-name details.entailed .entailed__rels {
     list-style: none;
-    margin: 0;
     padding: 0;
 }
 
@@ -282,31 +272,29 @@ tr + tr td.attr-name {
 }
 
 @media only screen and (max-width: 700px) {
-    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+    td.attr-name > [lang]::after {
         content: none;
     }
 }
-
-
-/* ===========================================
-   RDF & PREFIXES
-   =========================================== */
 
 .prefix {
     text-shadow: none;
 }
 
 span.prefix {
+    --prefix-padding: var(--spacing-prefix);
+    --prefix-tracking: var(--letter-spacing-base);
     background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     font-variant: small-caps;
-    color: rgba(255,255,255,255);
+    color: white;
     border-radius: var(--border-radius-s);
     border: var(--subtle-border);
-    padding: var(--spacing-xxs) var(--spacing-prefix);
+    padding: var(--spacing-xxs) var(--prefix-padding);
     margin-right: var(--spacing-prefix);
 
-    letter-spacing: 1px;
-    padding-right: 4px; /* account for letter-spacing */
+    /* The letter-spacing also adds space after the last letter. */
+    letter-spacing: var(--prefix-tracking);
+    padding-right: calc(var(--prefix-padding) - var(--prefix-tracking));
 }
 
 span.prefix + a,
@@ -333,27 +321,20 @@ span.prefix.truncatable:focus {
     text-overflow: unset;
 }
 
-span.prefix.truncatable:focus-visible {
-    outline: 2px solid var(--color-link);
-    outline-offset: 1px;
-}
-
 span.prefix__sep {
     display: none;
 }
 
 h1 span.prefix {
+    --prefix-padding: var(--spacing-m);
+    --prefix-tracking: 6px;
     align-self: center;
     transition: background var(--transition-slower);
     margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
-    padding: var(--spacing-prefix) var(--spacing-m);
+    padding-block: var(--spacing-prefix);
     border-radius: 3px;
-
-    letter-spacing: var(--spacing-prefix);
-    padding-right: var(--spacing-prefix); /* account for letter-spacing */
 }
 
-/* Unknown namespace */
 .prefix.unknown {
     background-color: white;
     border: 1px dashed var(--color-subtle);
@@ -371,7 +352,6 @@ h1 span.prefix {
     }
 }
 
-/* QName display */
 .qname {
     display: inline-flex;
     /* TODO: doesn't center properly with multiline names + lang tag... */
@@ -382,15 +362,9 @@ h1 span.prefix {
     vertical-align: middle;
 }
 
-/* RDF URI display */
 header > .rdf-uri {
     font-size: var(--font-size-s);
     font-style: italic;
-}
-
-header > .rdf-uri .rdf-uri__prefix,
-header > .rdf-uri .rdf-uri__name {
-    color: var(--color-link-muted);
 }
 
 header > .rdf-uri .rdf-uri__prefix {
@@ -403,7 +377,7 @@ header > .rdf-uri .rdf-uri__name {
 
 .rdf-uri::before,
 .rdf-uri::after {
-    opacity: 0.3;
+    opacity: var(--opacity-decorative);
 }
 
 .rdf-uri::before {
@@ -422,11 +396,6 @@ header > .rdf-uri .rdf-uri__name {
     }
 }
 
-
-/* ===========================================
-   SYNSETS
-   =========================================== */
-
 .set__word {
     white-space: nowrap;
 }
@@ -434,7 +403,6 @@ header > .rdf-uri .rdf-uri__name {
 span.set {
     display: inline-flex;
     flex-basis: 100%;
-    vertical-align: baseline;
 }
 
 /* Inheritance display (anonymous dns:inherited nodes, cf. GitHub issue #182):
@@ -462,7 +430,6 @@ span.inheritance .set__content {
 span.inheritance .set__left-bracket,
 span.inheritance .set__right-bracket {
     display: inline-block;
-    width: 1ch;
     height: 1em;
     vertical-align: text-bottom;
 }
@@ -480,7 +447,7 @@ span.set__right-bracket {
     min-width: 1ch;
     background-size: auto 100%;
     background-repeat: no-repeat;
-    opacity: 0.4;
+    opacity: var(--opacity-decorative);
     transition: opacity var(--transition-fast);
 }
 
@@ -500,25 +467,13 @@ span.marker {
     margin-right: var(--spacing-xs);
     color: var(--color-muted);
     cursor: help;
-    vertical-align: baseline;
 }
 
 ul.synset-summary {
     line-height: 1.5;
     list-style-type: none;
-    padding: 0 0 0 var(--spacing-m);
     font-size: var(--font-size-m);
-    margin: 0;
     border-left: var(--spacing-l) solid var(--color-dannet);
-}
-
-/* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
-section.subentity:has(ul.synset-summary) {
-    padding: var(--spacing-m);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
-    margin: 0 auto;
 }
 
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
@@ -549,7 +504,6 @@ ul.synset-summary li.sense-example::marker {
 }
 
 ul.synset-summary li.sense-example strong {
-    font-weight: bold;
     text-decoration: underline;
     text-decoration-style: dashed;
     text-underline-offset: var(--spacing-xs);
@@ -590,24 +544,14 @@ abbr.pos-label {
     align-self: stretch;
 }
 
-
-/* ===========================================
-   HYPERNYM CHAIN
-   =========================================== */
-
 ul.hypernym-chain {
     list-style: none;
     padding-left: 0;
-    margin: 0;
 }
 
 ul.hypernym-chain ul.hypernym-chain {
     padding-left: 1ch;
     margin: 0.8em 0;
-}
-
-.hypernym-chain--root li:first-child {
-    margin-top: 0;
 }
 
 ul.hypernym-chain li::before {
@@ -631,11 +575,6 @@ ul.hypernym-chain > li.subject::before {
     margin-right: 0;
 }
 
-
-/* ===========================================
-   SEARCH RESULTS
-   =========================================== */
-
 dl.search-results {
     margin: 0;
 }
@@ -657,11 +596,7 @@ dl.search-results dt .set__content sub {
 dl.search-results > div {
     transition: transform var(--transition-fast);
     cursor: pointer;
-    padding: var(--spacing-m);
     margin-bottom: var(--spacing-xxl);
-    background-color: rgba(255, 255, 255, 1);
-    border: var(--normal-border);
-    box-shadow: var(--shadow-card-subtle);
 }
 
 dl.search-results > div:hover,
@@ -681,14 +616,12 @@ dl.search-results dd {
     font-size: var(--font-size-s);
 }
 
-
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
 dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
 dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
 dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
 dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
 
-/* No language tags in search results and synset summaries. */
 dl.search-results a::after,
 dl.search-results .set-link::after,
 ul.synset-summary a::after,
@@ -700,16 +633,10 @@ article.search {
     width: fit-content;
 }
 
-/* Search results article */
 article.search table.attr-val + table.attr-val {
     margin-top: var(--spacing-xxl);
     margin-bottom: var(--spacing-l);
 }
-
-
-/* ===========================================
-   DOCUMENT PAGES
-   =========================================== */
 
 /* Document-style articles (e.g. about page) */
 article.document {
@@ -751,9 +678,10 @@ article.document > div > ul:first-child li {
     }
 }
 
-/* Cycle colours of the nav tabs above and lists of links. */
+/* Cycle colours of the nav tabs above and lists of links. A link that is
+   alone in its list item keeps the normal link style. */
 article.document > div > ul:first-child > li:nth-of-type(5n+1) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1) {
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1):not(:only-of-type) {
     color: var(--color-w3c);
     text-decoration-color: var(--color-w3c);
 }
@@ -780,11 +708,6 @@ article.document > div > ul:first-child > li:nth-of-type(5n+5) a,
 article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+5) {
     color: var(--color-wordnet);
     text-decoration-color: var(--color-wordnet);
-}
-
-/* Reset the cycle for single hyperlinks. */
-article.document > div > ul:not(:first-child) > li > a:first-of-type:last-of-type {
-    color: var(--color-link);
 }
 
 article.document h1 {
@@ -825,10 +748,9 @@ article.document > div > p > a > img {
     margin: var(--spacing-l) auto;
 }
 
-article.document > div > table:not(code) {
-    line-height: 1.6;
+article.document > div > table {
+    line-height: var(--line-height-prose);
 }
-
 
 article.document ul {
     line-height: var(--line-height-prose);
@@ -837,7 +759,6 @@ article.document ul {
 
 article.document li {
     padding: 0 0 0 var(--spacing-s);
-    margin: 0;
 }
 
 article.document li + li {
@@ -878,26 +799,11 @@ article.document table {
     margin: 0 auto;
 }
 
-
-/* ===========================================
-   SUBHEADINGS & NOTES
-   =========================================== */
-
-/* Subheadings and notes */
 .subheading {
     text-align: center;
     font-size: var(--font-size-m-l);
     margin: var(--spacing-l) 0;
     color: var(--color-muted);
-}
-
-label.subheading {
-    display: block;
-}
-
-label.subheading select {
-    font-size: var(--font-size-m-l);
-    padding: var(--spacing-xxs) var(--spacing-prefix);
 }
 
 p.note {
@@ -914,7 +820,6 @@ p.note + p.note {
 
 p.note strong {
     color: var(--color-dark);
-    vertical-align: baseline;
     margin-right: var(--spacing-xs);
 }
 
@@ -924,12 +829,6 @@ p.note strong {
     }
 }
 
-
-/* ===========================================
-   COLLAPSIBLE LISTS
-   =========================================== */
-
-/* Details/summary (collapsible sections) */
 details.reactive-list {
     margin: var(--spacing-s) 0 0 0;
     border-top: 1px solid transparent;
@@ -974,12 +873,6 @@ summary + ol {
     margin-top: var(--spacing-m);
 }
 
-
-/* ===========================================
-   BUTTONS, HELP OVERLAY & ERRORS
-   =========================================== */
-
-/* Generic icon button */
 .icon {
     height: var(--icon-size);
     width: var(--icon-size);
@@ -1017,7 +910,6 @@ summary + ol {
     }
 }
 
-/* Display options dropdown */
 select.display-options {
     appearance: none;
     display: block;
@@ -1026,12 +918,12 @@ select.display-options {
     background-size: var(--font-size-s);
     border: 1px solid transparent;
     border-radius: var(--border-radius-s);
-    padding: 2px 4px 2px 18px;
+    padding: var(--spacing-xxs) var(--spacing-xs) var(--spacing-xxs) 18px;
     font-size: var(--font-size-xs);
 
     color: var(--color-dark);
     cursor: pointer;
-    opacity: 0.67;
+    opacity: var(--opacity-muted);
 }
 
 select.display-options:hover,
@@ -1041,7 +933,6 @@ select.display-options:focus-visible {
     opacity: 1;
 }
 
-/* Help overlay (shown on wide screens) */
 .help-overlay {
     opacity: 0;
     transition: opacity 1s;
@@ -1062,7 +953,7 @@ select.display-options:focus-visible {
     line-height: 1;
     padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
     border-radius: var(--border-radius-s);
-    border: 1px solid var(--color-faint);
+    border: 1px solid var(--color-subtle);
     box-shadow: var(--shadow-card-subtle);
 }
 
@@ -1090,7 +981,6 @@ nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
     }
 }
 
-/* Error boundary fallback */
 details.render-error[open] {
     margin: 0;
     overflow: auto;
