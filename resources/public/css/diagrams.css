@@ -1,13 +1,4 @@
-/* The synset diagrams: the radial tree and its legend, the sunburst and its
-   zoom history, and the word cloud. */
-
 @layer diagrams {
-
-
-/* ===========================================
-   SYNSET DIAGRAMS
-   =========================================== */
-
 .synset-diagram-container {
     transition: font-size var(--transition-base);
     height: 100%;
@@ -93,7 +84,6 @@
     }
 }
 
-/* Radial tree layout */
 .synset-diagram {
     display: flex;
     flex-direction: column;
@@ -200,7 +190,6 @@ figure.radial-tree-diagram * {
     transition: fill var(--transition-base), stroke var(--transition-base), opacity var(--transition-base);
 }
 
-/* Radial tree legend */
 fieldset.radial-tree-legend {
     display: flex;
     flex-direction: column;
@@ -342,7 +331,6 @@ fieldset.radial-tree-legend ul > li:focus-within label {
     }
 }
 
-/* Radial tree items (SVG text) */
 .radial-item {
     text-underline-offset: 0.25ch;
     transition: font-size var(--transition-base);
@@ -386,7 +374,6 @@ tspan.sense-paragraph {
     fill: var(--color-faint);
 }
 
-/* Definition styling in radial diagram */
 .definition-pos,
 .definition-text {
     fill: var(--color-dark);
@@ -407,8 +394,6 @@ tspan.sense-paragraph {
         font-size: var(--font-size-m-xl);
     }
 }
-
-/* Hyponym sunburst diagram */
 
 /* Match the radial diagram's footprint exactly. */
 figure.hyponym-sunburst-diagram,
@@ -570,7 +555,6 @@ svg.hyponym-sunburst-diagram__svg {
     }
 }
 
-/* Word cloud items */
 .word-cloud-item {
     filter: grayscale(1) opacity(var(--opacity-interactive));
     transition: filter var(--transition-base);

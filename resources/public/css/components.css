@@ -1,20 +1,10 @@
-/* The parts placed inside the layout: search, attribute tables, prefixes,
-   synsets, search results, document pages and small controls. */
-
 @layer components {
-
-
 .card {
     padding: var(--spacing-m);
     background-color: white;
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 }
-
-
-/* ===========================================
-   SEARCH
-   =========================================== */
 
 search {
     display: flex;
@@ -168,11 +158,6 @@ nav.full-screen search:not(.search-active) {
     opacity: var(--opacity-fullscreen-icon);
 }
 
-
-/* ===========================================
-   TABLES
-   =========================================== */
-
 table.attr-val col:nth-child(2) {
     min-width: 12ch;
 }
@@ -292,11 +277,6 @@ tr + tr td.attr-name {
     }
 }
 
-
-/* ===========================================
-   RDF & PREFIXES
-   =========================================== */
-
 .prefix {
     text-shadow: none;
 }
@@ -358,7 +338,6 @@ h1 span.prefix {
     padding-right: var(--spacing-prefix); /* account for letter-spacing */
 }
 
-/* Unknown namespace */
 .prefix.unknown {
     background-color: white;
     border: 1px dashed var(--color-subtle);
@@ -376,7 +355,6 @@ h1 span.prefix {
     }
 }
 
-/* QName display */
 .qname {
     display: inline-flex;
     /* TODO: doesn't center properly with multiline names + lang tag... */
@@ -387,7 +365,6 @@ h1 span.prefix {
     vertical-align: middle;
 }
 
-/* RDF URI display */
 header > .rdf-uri {
     font-size: var(--font-size-s);
     font-style: italic;
@@ -426,11 +403,6 @@ header > .rdf-uri .rdf-uri__name {
         font-size: var(--font-size-xs);
     }
 }
-
-
-/* ===========================================
-   SYNSETS
-   =========================================== */
 
 .set__word {
     white-space: nowrap;
@@ -580,11 +552,6 @@ abbr.pos-label {
     align-self: stretch;
 }
 
-
-/* ===========================================
-   HYPERNYM CHAIN
-   =========================================== */
-
 ul.hypernym-chain {
     list-style: none;
     padding-left: 0;
@@ -615,11 +582,6 @@ ul.hypernym-chain > li.subject::before {
     content: "";
     margin-right: 0;
 }
-
-
-/* ===========================================
-   SEARCH RESULTS
-   =========================================== */
 
 dl.search-results {
     margin: 0;
@@ -662,14 +624,12 @@ dl.search-results dd {
     font-size: var(--font-size-s);
 }
 
-
 dl.search-results div:nth-child(5n+1) dd ul { border-left-color: var(--color-dannet); }
 dl.search-results div:nth-child(5n+2) dd ul { border-left-color: var(--color-meta); }
 dl.search-results div:nth-child(5n+3) dd ul { border-left-color: var(--color-ontolex); }
 dl.search-results div:nth-child(5n+4) dd ul { border-left-color: var(--color-w3c); }
 dl.search-results div:nth-child(5n+5) dd ul { border-left-color: var(--color-wordnet); }
 
-/* No language tags in search results and synset summaries. */
 dl.search-results a::after,
 dl.search-results .set-link::after,
 ul.synset-summary a::after,
@@ -681,16 +641,10 @@ article.search {
     width: fit-content;
 }
 
-/* Search results article */
 article.search table.attr-val + table.attr-val {
     margin-top: var(--spacing-xxl);
     margin-bottom: var(--spacing-l);
 }
-
-
-/* ===========================================
-   DOCUMENT PAGES
-   =========================================== */
 
 /* Document-style articles (e.g. about page) */
 article.document {
@@ -810,7 +764,6 @@ article.document > div > table:not(code) {
     line-height: 1.6;
 }
 
-
 article.document ul {
     line-height: var(--line-height-prose);
     padding: 0 var(--spacing-xl);
@@ -858,12 +811,6 @@ article.document table {
     margin: 0 auto;
 }
 
-
-/* ===========================================
-   SUBHEADINGS & NOTES
-   =========================================== */
-
-/* Subheadings and notes */
 .subheading {
     text-align: center;
     font-size: var(--font-size-m-l);
@@ -903,12 +850,6 @@ p.note strong {
     }
 }
 
-
-/* ===========================================
-   COLLAPSIBLE LISTS
-   =========================================== */
-
-/* Details/summary (collapsible sections) */
 details.reactive-list {
     margin: var(--spacing-s) 0 0 0;
     border-top: 1px solid transparent;
@@ -953,12 +894,6 @@ summary + ol {
     margin-top: var(--spacing-m);
 }
 
-
-/* ===========================================
-   BUTTONS, HELP OVERLAY & ERRORS
-   =========================================== */
-
-/* Generic icon button */
 .icon {
     height: var(--icon-size);
     width: var(--icon-size);
@@ -996,7 +931,6 @@ summary + ol {
     }
 }
 
-/* Display options dropdown */
 select.display-options {
     appearance: none;
     display: block;
@@ -1020,7 +954,6 @@ select.display-options:focus-visible {
     opacity: 1;
 }
 
-/* Help overlay (shown on wide screens) */
 .help-overlay {
     opacity: 0;
     transition: opacity 1s;
@@ -1069,7 +1002,6 @@ nav:hover:has(search:not(.search-active)) ~ .help-overlay .help-overlay__item {
     }
 }
 
-/* Error boundary fallback */
 details.render-error[open] {
     margin: 0;
     overflow: auto;

@@ -1,13 +1,6 @@
-/* Single-purpose classes that hide or mute an element. They are in the last
-   layer, so they win over the rules in every other file but sparql.css. */
+/* The last layer, so these rules win over every other file but sparql.css. */
 
 @layer utilities {
-
-
-/* ===========================================
-   UTILITIES
-   =========================================== */
-
 /* Used to hide prefixes. */
 .hidden,
 .hidden * {

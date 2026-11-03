@@ -249,8 +249,7 @@
   "Show `content` as a set, e.g. {hund • køter}, after the prefix `badge`, if
   any.
 
-  The brackets are left out when `opts` has :bare-sets?, which the hypernym
-  chain, the synset summary and the search result headings ask for."
+  The brackets are left out when `opts` has :bare-sets?."
   [badge content {:keys [bare-sets?]}]
   [:span.set
    badge

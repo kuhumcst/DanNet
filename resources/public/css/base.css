@@ -1,5 +1,4 @@
-/* Design tokens, keyframes, the reset and the default look of plain HTML
-   elements. Every other file builds on this one. */
+/* Every other file builds on this one. */
 
 /* Rules in a later layer win over rules in an earlier one, whatever
    their specificity. sparql.css is not in a layer: CodeMirror injects
@@ -8,44 +7,31 @@
 @layer base, layout, components, diagrams, utilities;
 
 @layer base {
-
-
-/* ===========================================
-   CSS VARIABLES (Design Tokens)
-   =========================================== */
-
 :root {
-    /* COLOR PALETTE */
-    
-    /* Core neutrals */
     --color-dark: #333;
     --color-muted: #666;
     --color-subtle: #999;
     --color-faint: #AAA;
     --color-bg-alt: #F2F2F2;
-    
-    /* Primary accent (links) */
+
     --color-link: #0066BB;
     --color-link-underline: #0066BB55;
     --color-link-underline-hover: #0066BBFF;
     --color-link-muted: #006699;  /* Darker blue for secondary links */
-    
-    /* Namespace/prefix colors */
+
     --color-dannet: #901a1e;
     --color-w3c: #55f;
     --color-meta: #019fa1;
     --color-ontolex: #df7300;
     --color-wordnet: #387111;
-    
-    /* OPACITY SCALE */
+
     --opacity-interactive: 0.8;       /* Default state for clickable elements */
     --opacity-interactive-hover: 1;   /* Hover state */
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
     --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
     --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
-    
-    /* BORDERS */
+
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
 
@@ -53,19 +39,16 @@
     --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
 
     --border-radius-s: 2px;
-    
-    /* SHADOWS */
+
     --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.25);
     --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
     --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
-    
-    /* TYPOGRAPHY */
+
     --font-family: Georgia, serif;
     --font-family-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     --letter-spacing-base: 0.2ch;
     --line-height-prose: 1.8;
-    
-    /* Font size scale */
+
     --font-size-xs: 12px;
     --font-size-s: 14px;
     --font-size-m: 16px;
@@ -74,12 +57,10 @@
     --font-size-l: 24px;
     --font-size-xl: 32px;
     --font-size-xxl: 48px;
-    
-    /* CONTENT WIDTH */
+
     --content-max-width: 110ch;        /* Main article content */
     --content-max-width-narrow: 90ch;  /* Document-style articles */
-    
-    /* SPACING */
+
     --spacing-xxs: 2px;
     --spacing-xs: 4px;
     --spacing-s: 8px;
@@ -88,35 +69,25 @@
     --spacing-xl: 32px;
     --spacing-xxl: 48px;
     --spacing-prefix: 6px;
-    
-    /* TRANSITIONS */
+
     --transition-fast: 0.1s;
     --transition-base: 0.2s;
     --transition-slow: 0.33s;
     --transition-slower: 0.66s;
-    
-    /* BACKGROUNDS */
+
     --bg-texture: url(/images/exclusive-paper.png);
-    
-    /* INTERACTIVE ELEMENT SIZING */
+
     --icon-size: 32px;
-    
-    /* LAYOUT OFFSETS (for viewport calculations) */
+
     --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
     --layout-search-horizontal-offset: 92px;   /* Left padding + icon area in search */
     --layout-fullscreen-header: 104px;         /* Header height in full-screen diagram mode */
     --layout-responsive-offset: 45px;          /* Additional offset at responsive breakpoint */
-    
-    /* Z-INDEX SCALE */
+
     --z-base: 1;
     --z-help: 66;
     --z-search: 99;
 }
-
-
-/* ===========================================
-   KEYFRAME ANIMATIONS
-   =========================================== */
 
 @keyframes fade-in {
     0% { opacity: 0; }
@@ -135,11 +106,6 @@
     75% { transform: scale(1.3); }
     88%, 100% { transform: scale(1); }
 }
-
-
-/* ===========================================
-   BASE & RESET
-   =========================================== */
 
 /* Apply hyphenation to text-containing elements */
 p,
@@ -196,11 +162,6 @@ a[href^="/schema/"]:not(.rdf-uri)::before {
 a:hover {
     text-decoration: underline;
 }
-
-
-/* ===========================================
-   TYPOGRAPHY
-   =========================================== */
 
 p {
     line-height: var(--line-height-prose);
@@ -298,7 +259,6 @@ pre.message {
     padding: 0;
 }
 
-/* Ordered lists */
 ol {
     margin: 0;
 }
@@ -344,11 +304,6 @@ hr {
     margin: 0 0 var(--spacing-xl) 0;
 }
 
-
-/* ===========================================
-   TABLES
-   =========================================== */
-
 td, th {
     padding: var(--spacing-m);
     vertical-align: top;
@@ -379,13 +334,6 @@ tr tr:nth-child(odd) {
     }
 }
 
-
-/* ===========================================
-   NAMESPACE COLORS & LANGUAGE TAGS
-   =========================================== */
-
-/* Namespace colors: the text color of links, and the background of prefix
-   badges and the nav bar. */
 .dannet  { --ns-color: var(--color-dannet); }
 .w3c     { --ns-color: var(--color-w3c); }
 .meta    { --ns-color: var(--color-meta); }

@@ -1,13 +1,4 @@
-/* How the page is divided: the app frame, the nav bar, the content column, the
-   page header and footer, and full-screen mode. */
-
 @layer layout {
-
-
-/* ===========================================
-   PAGE
-   =========================================== */
-
 #app {
     display: flex;
     position: fixed;
@@ -100,11 +91,6 @@ aside.notes {
 #content.full-screen footer.page-footer {
     padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
 }
-
-
-/* ===========================================
-   NAVIGATION
-   =========================================== */
 
 #main-nav {
     transition: background var(--transition-slow);
