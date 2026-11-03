@@ -810,15 +810,6 @@ article.document table {
     color: var(--color-muted);
 }
 
-label.subheading {
-    display: block;
-}
-
-label.subheading select {
-    font-size: var(--font-size-m-l);
-    padding: var(--spacing-xxs) var(--spacing-prefix);
-}
-
 p.note {
     text-align: center;
     font-style: italic;

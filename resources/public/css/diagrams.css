@@ -250,8 +250,6 @@ fieldset.radial-tree-legend ul input[type=radio] {
     width: var(--bullet-size);
     height: var(--bullet-size);
     border-radius: 50%;
-    margin-right: 1ch;
-    align-self: center;
     transition: transform var(--transition-base), opacity var(--transition-base);
 
     /* Centred on the first line of the label, not on the whole label. */
