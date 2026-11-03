@@ -11,13 +11,11 @@
     --color-dark: #333;
     --color-muted: #666;
     --color-subtle: #999;
-    --color-faint: #AAA;
     --color-bg-alt: #F2F2F2;
 
     --color-link: #0066BB;
     --color-link-underline: #0066BB55;
     --color-link-underline-hover: #0066BBFF;
-    --color-link-muted: #006699;  /* Darker blue for secondary links */
 
     --color-dannet: #901a1e;
     --color-w3c: #55f;

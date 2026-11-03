@@ -8,7 +8,7 @@
 }
 
 .omitted {
-    color: var(--color-faint);
+    color: var(--color-subtle);
     font-style: italic;
 }
 

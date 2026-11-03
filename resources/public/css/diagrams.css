@@ -373,7 +373,7 @@ tspan.subject-label-separator {
 /* Sense paragraph subscripts in radial labels */
 tspan.sense-paragraph {
     font-size: 10px;
-    fill: var(--color-faint);
+    fill: var(--color-subtle);
 }
 
 .definition-pos,

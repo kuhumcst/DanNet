@@ -372,11 +372,6 @@ header > .rdf-uri {
     font-style: italic;
 }
 
-header > .rdf-uri .rdf-uri__prefix,
-header > .rdf-uri .rdf-uri__name {
-    color: var(--color-link-muted);
-}
-
 header > .rdf-uri .rdf-uri__prefix {
     opacity: var(--opacity-muted);
 }
@@ -976,7 +971,7 @@ select.display-options:focus-visible {
     line-height: 1;
     padding: var(--spacing-xxs) var(--spacing-prefix) 0 var(--spacing-prefix);
     border-radius: var(--border-radius-s);
-    border: 1px solid var(--color-faint);
+    border: 1px solid var(--color-subtle);
     box-shadow: var(--shadow-card-subtle);
 }
 
