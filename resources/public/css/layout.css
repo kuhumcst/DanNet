@@ -106,7 +106,7 @@ aside.notes {
    NAVIGATION
    =========================================== */
 
-nav#main-nav {
+#main-nav {
     transition: background var(--transition-slow);
     display: flex;
     flex-direction: column;
@@ -120,7 +120,7 @@ nav#main-nav {
     gap: var(--spacing-s);
 }
 
-nav#main-nav a.title {
+#main-nav a.title {
     /* letter-spacing transition has 1s delay to match loading animation */
     transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing var(--transition-slow) ease-in-out 1s;
     color: white;
@@ -136,24 +136,24 @@ nav#main-nav a.title {
 }
 
 /* Shared styles for nav icons */
-nav#main-nav .nav-icon {
+#main-nav .nav-icon {
     transition: opacity var(--transition-base), transform var(--transition-base);
     background-repeat: no-repeat;
     background-position: center;
 }
 
-nav#main-nav a.title:hover,
-nav#main-nav a.title:focus-visible,
-nav#main-nav .nav-icon:hover,
-nav#main-nav .nav-icon:focus-visible {
+#main-nav a.title:hover,
+#main-nav a.title:focus-visible,
+#main-nav .nav-icon:hover,
+#main-nav .nav-icon:focus-visible {
     transform: scale(110%);
 }
 
-nav#main-nav a.title span {
+#main-nav a.title span {
     display: inline-block;
 }
 
-nav#main-nav select.language {
+#main-nav select.language {
     /* Remove default styling */
     color: transparent;
     border: none;
@@ -168,18 +168,18 @@ nav#main-nav select.language {
     background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
 }
 
-nav#main-nav a.sparql-link {
+#main-nav a.sparql-link {
     width: var(--icon-size);
     height: var(--icon-size);
     background-image: url("/images/sparql-icon.svg");
     background-size: 26px;
 }
 
-nav#main-nav:has(search.search-active) a.sparql-link {
+#main-nav:has(search.search-active) a.sparql-link {
     margin-top: calc(var(--icon-size) + var(--spacing-m));
 }
 
-nav#main-nav select.detail-level {
+#main-nav select.detail-level {
     /* Remove default styling */
     color: transparent;
     border: none;
@@ -195,18 +195,18 @@ nav#main-nav select.detail-level {
 }
 
 /* The selects above hide their text, which the options would inherit. */
-nav#main-nav select option {
+#main-nav select option {
     color: var(--color-dark);
 }
 
-nav#main-nav.full-screen {
+#main-nav.full-screen {
     background: white;
     box-shadow: none;
 }
 
 /* Darken the icons in the nav bar in full-screen mode. */
-nav#main-nav.full-screen a.title,
-nav#main-nav.full-screen .nav-icon {
+#main-nav.full-screen a.title,
+#main-nav.full-screen .nav-icon {
     filter: invert(1);
     opacity: var(--opacity-fullscreen-icon);
 }
@@ -216,33 +216,33 @@ html[data-fetching] #content {
     cursor: progress;
 }
 
-html[data-fetching] nav#main-nav a.title {
+html[data-fetching] #main-nav a.title {
     letter-spacing: 8px;
 }
 
-html[data-fetching] nav#main-nav a.title span {
+html[data-fetching] #main-nav a.title span {
     animation: title-pulse 1.6s ease-in-out infinite;
 }
 
 /* Staggered animation delays create a wave effect across the 6 letters */
-html[data-fetching] nav#main-nav a.title span:nth-child(2) { animation-delay: 0.1s; }
-html[data-fetching] nav#main-nav a.title span:nth-child(3) { animation-delay: 0.2s; }
-html[data-fetching] nav#main-nav a.title span:nth-child(4) { animation-delay: 0.3s; }
-html[data-fetching] nav#main-nav a.title span:nth-child(5) { animation-delay: 0.4s; }
-html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.5s; }
+html[data-fetching] #main-nav a.title span:nth-child(2) { animation-delay: 0.1s; }
+html[data-fetching] #main-nav a.title span:nth-child(3) { animation-delay: 0.2s; }
+html[data-fetching] #main-nav a.title span:nth-child(4) { animation-delay: 0.3s; }
+html[data-fetching] #main-nav a.title span:nth-child(5) { animation-delay: 0.4s; }
+html[data-fetching] #main-nav a.title span:nth-child(6) { animation-delay: 0.5s; }
 
 @media only screen and (max-width: 700px) {
     /* Turn the nav bar horizontal on mobile. */
-    nav#main-nav {
+    #main-nav {
         flex-direction: row;
         border: 1px solid transparent;
         border-bottom: var(--normal-border);
     }
-    nav#main-nav:has(search.search-active) a.sparql-link {
+    #main-nav:has(search.search-active) a.sparql-link {
         margin-top: 0;
         margin-left: calc(var(--icon-size) + var(--spacing-s));
     }
-    nav#main-nav a.title {
+    #main-nav a.title {
         writing-mode: initial;
         text-orientation: initial;
         margin: 0 auto;
