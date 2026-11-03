@@ -279,7 +279,7 @@ tr + tr td.attr-name {
 }
 
 @media only screen and (max-width: 700px) {
-    td.attr-name > [lang]:not(footer, h1 span, article)::after {
+    td.attr-name > [lang]::after {
         content: none;
     }
 }
