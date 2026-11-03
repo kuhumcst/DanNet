@@ -290,7 +290,8 @@
 (rum/defc synset-header-content
   [subentity opts]
   ;; The search page reuses the synset summary without the badge.
-  (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts)))
+  [:div.synset-header
+   (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts))])
 
 (rum/defc semantic-relations-content
   [id subentity {:keys [languages] :as opts}]

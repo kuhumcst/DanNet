@@ -504,13 +504,12 @@ ul.synset-summary {
     border-left: var(--spacing-l) solid var(--color-dannet);
 }
 
-/* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
-section.subentity:has(ul.synset-summary) {
+/* The synset summary at the top of a synset page, shown as a card. */
+.synset-header {
     padding: var(--spacing-m);
     background-color: white;
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
-    margin: 0 auto;
 }
 
 /* The main line of a summary lays out its parts (e.g. PoS + definition) in a
