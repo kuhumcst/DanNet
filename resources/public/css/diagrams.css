@@ -391,7 +391,7 @@ tspan.sense-paragraph {
 
 @media only screen and (max-width: 500px) {
     .radial-item:not(.radial-item--subject) {
-        font-size: var(--font-size-m-xl);
+        font-size: 20px;
     }
 }
 

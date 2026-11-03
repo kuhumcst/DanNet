@@ -121,7 +121,7 @@ search.search-active ul li {
     color: white;
     cursor: pointer;
     list-style-type: none;
-    font-size: var(--font-size-m-xl);
+    font-size: var(--font-size-m-l);
 
     overflow: hidden;
     white-space: nowrap;

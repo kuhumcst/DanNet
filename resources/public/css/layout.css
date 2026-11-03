@@ -153,7 +153,7 @@ aside.notes {
     cursor: pointer;
     width: var(--icon-size);
     height: var(--icon-size);
-    font-size: var(--font-size-m-xl);
+    font-size: var(--font-size-m-l);
     background-image: url(/images/globe.svg);
     background-color: transparent;
     background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
@@ -179,7 +179,7 @@ aside.notes {
     cursor: pointer;
     width: var(--icon-size);
     height: var(--icon-size);
-    font-size: var(--font-size-m-xl);
+    font-size: var(--font-size-m-l);
     background-image: url("/images/text-box.svg");
     background-color: transparent;
     background-size: 26px;
