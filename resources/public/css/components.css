@@ -282,16 +282,19 @@ tr + tr td.attr-name {
 }
 
 span.prefix {
+    --prefix-padding: var(--spacing-prefix);
+    --prefix-tracking: 1px;
     background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     font-variant: small-caps;
     color: white;
     border-radius: var(--border-radius-s);
     border: var(--subtle-border);
-    padding: var(--spacing-xxs) var(--spacing-prefix);
+    padding: var(--spacing-xxs) var(--prefix-padding);
     margin-right: var(--spacing-prefix);
 
-    letter-spacing: 1px;
-    padding-right: 4px; /* account for letter-spacing */
+    /* The letter-spacing also adds space after the last letter. */
+    letter-spacing: var(--prefix-tracking);
+    padding-right: calc(var(--prefix-padding) - var(--prefix-tracking));
 }
 
 span.prefix + a,
@@ -328,14 +331,13 @@ span.prefix__sep {
 }
 
 h1 span.prefix {
+    --prefix-padding: var(--spacing-m);
+    --prefix-tracking: 6px;
     align-self: center;
     transition: background var(--transition-slower);
     margin: calc(-1 * var(--spacing-s)) var(--spacing-s) 0 0; /* Negative top pulls badge closer to heading */
-    padding: var(--spacing-prefix) var(--spacing-m);
+    padding-block: var(--spacing-prefix);
     border-radius: 3px;
-
-    letter-spacing: var(--spacing-prefix);
-    padding-right: var(--spacing-prefix); /* account for letter-spacing */
 }
 
 .prefix.unknown {

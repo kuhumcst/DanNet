@@ -218,12 +218,13 @@ fieldset.radial-tree-legend ul {
 }
 
 fieldset.radial-tree-legend ul label {
+    --label-padding: var(--spacing-prefix);
     display: block;
     position: relative;
     cursor: pointer;
     user-select: none;
     border: 1px solid transparent;
-    padding: var(--spacing-prefix) var(--spacing-prefix) var(--spacing-prefix) var(--spacing-xl);
+    padding: var(--label-padding) var(--label-padding) var(--label-padding) var(--spacing-xl);
 }
 
 fieldset.radial-tree-legend ul li + li {
@@ -245,15 +246,17 @@ fieldset.radial-tree-legend ul input[type=radio] {
 }
 
 .radial-tree-legend__bullet {
-    width: 10px;
-    height: 10px;
-    border-radius: var(--spacing-m);
+    --bullet-size: 10px;
+    width: var(--bullet-size);
+    height: var(--bullet-size);
+    border-radius: 50%;
     margin-right: 1ch;
     align-self: center;
     transition: transform var(--transition-base), opacity var(--transition-base);
 
+    /* Centred on the first line of the label, not on the whole label. */
     position: absolute;
-    top: 10px;
+    top: calc(var(--label-padding) + (1lh - var(--bullet-size)) / 2);
     left: var(--spacing-m);
 }
 
@@ -281,8 +284,7 @@ fieldset.radial-tree-legend ul > li:focus-within label {
 
 @media only screen and (min-width: 1200px) {
     #content.full-screen .radial-tree-legend__bullet {
-        width: 14px;
-        height: 14px;
+        --bullet-size: 14px;
         left: var(--spacing-s);
     }
     #content.full-screen fieldset.radial-tree-legend ul li + li {
