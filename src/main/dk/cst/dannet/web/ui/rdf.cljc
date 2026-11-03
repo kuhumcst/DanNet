@@ -223,25 +223,40 @@
             (marker->sub sub)
             token))))
 
-(defn- transform-synset-label
-  "Render the synset label `s`, e.g. {hund_1§1; køter_§1}, as a set of words."
+(defn- synset-label?
+  "True if the string `s` is a synset label, e.g. {hund_1§1; køter_§1}."
   [s]
+  (boolean (re-matches #"\{.+\}" s)))
+
+(defn- synset-words
+  "The words of the synset label `s`, separated by bullets."
+  [s]
+  (into [:<>]
+        (interpose
+          [:span.subtle " • "]                              ; semicolon->bullet
+          (for [label (shared/sense-labels shared/synset-sep s)]
+            (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
+              [:<>
+               [:span.set__word
+                (if (= word shared/omitted)
+                  [:span.subtle word]
+                  word)
+                (some-> sub marker->sub)]
+               (some-> mwe subscript-markers)]
+              label)))))
+
+(defn- set-notation
+  "Show `content` as a set, e.g. {hund • køter}, after the prefix `badge`, if
+  any.
+
+  The brackets are left out when `opts` has :bare-sets?, which the hypernym
+  chain, the synset summary and the search result headings ask for."
+  [badge content {:keys [bare-sets?]}]
   [:span.set
-   [:span.set__left-bracket]
-   (into [:span.set__content]
-         (interpose
-           [:span.subtle " • "]                             ; semicolon->bullet
-           (for [label (shared/sense-labels shared/synset-sep s)]
-             (if-let [[_ word _ sub mwe] (re-matches shared/sense-label label)]
-               [:<>
-                [:span.set__word
-                 (if (= word shared/omitted)
-                   [:span.subtle word]
-                   word)
-                 (some-> sub marker->sub)]
-                (some-> mwe subscript-markers)]
-               label))))
-   [:span.set__right-bracket]])
+   badge
+   (when-not bare-sets? [:span.set__left-bracket])
+   [:span.set__content content]
+   (when-not bare-sets? [:span.set__right-bracket])])
 
 (defn- transform-val*
   "Implementation of transform-val without error handling."
@@ -265,8 +280,8 @@
 
      :let [uri (when (prefix/rdf-resource? s)
                  (prefix/rdf-resource->uri s))]
-     (re-matches #"\{.+\}" s)
-     (transform-synset-label s)
+     (synset-label? s)
+     (set-notation nil (synset-words s) opts)
 
      (and uri (re-find ddo-ordbog-query uri))
      (ddo-hyperlink uri)
@@ -329,16 +344,24 @@
           ;; attribute-specific transformations to the label.
           opts'  (if (= resource attr-key)
                    (dissoc opts :attr-key)
-                   opts)]
-      [:a (cond-> {:href  (or link-href (prefix/resolve-href resource))
-                   :title (or link-title (str prefix ":" (name resource)))
-                   :lang  (i18n/lang label)
-                   :class (or class (get prefix/prefix->class prefix "unknown"))}
-            ;; Add RDFa :resource when rendering a value to complete the triple
-            ;; begun by the parent [:tr {:property ...}].
-            (not= resource attr-key) (assoc :resource (prefix/kw->uri resource)))
-       (or (transform-val label opts')
-           (name resource))])
+                   opts)
+          attrs  (cond-> {:href  (or link-href (prefix/resolve-href resource))
+                          :title (or link-title (str prefix ":" (name resource)))
+                          :lang  (i18n/lang label)
+                          :class (or class (get prefix/prefix->class prefix "unknown"))}
+                   ;; Add RDFa :resource when rendering a value to complete the
+                   ;; triple begun by the parent [:tr {:property ...}].
+                   (not= resource attr-key) (assoc :resource (prefix/kw->uri resource)))
+          s      (str/trim (str label))]
+      (if (synset-label? s)
+        ;; The link goes inside the set, so the hover underline reaches the
+        ;; words. The outer span keeps the language tag after the closing
+        ;; bracket, in the colour of the namespace.
+        [:span.set-link (select-keys attrs [:lang :class])
+         (set-notation nil [:a (dissoc attrs :lang) (synset-words s)] opts')]
+        [:a attrs
+         (or (transform-val label opts')
+             (name resource))]))
     ;; RDF predicates represented as IRIs Since the namespace is unknown,
     ;; we likely have no label data either and do not bother to fetch it.
     ;; See 'rdf-uri-hyperlink' for how objects are represented!
@@ -434,17 +457,16 @@
 
       :let [resources (bag->coll m)]
       resources
-      (container [:span.set
-                  (when (and (every? keyword? resources)
-                             (apply = (map namespace resources)))
-                    (let [prefix (symbol (namespace (first resources)))]
-                      (prefix-badge prefix opts)))
-                  [:span.set__left-bracket]
-                  (into [:span.set__content]
-                        (->> resources
-                             (map #(entity-link % opts))
-                             (interpose [:span.subtle " • "])))
-                  [:span.set__right-bracket]])
+      (container (set-notation
+                   (when (and (every? keyword? resources)
+                              (apply = (map namespace resources)))
+                     (let [prefix (symbol (namespace (first resources)))]
+                       (prefix-badge prefix opts)))
+                   (into [:<>]
+                         (->> resources
+                              (map #(entity-link % opts))
+                              (interpose [:span.subtle " • "])))
+                   opts))
 
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
@@ -555,10 +577,11 @@
   Handles multiple hypernyms per synset, creating nested sublists. Respects
   `:detail-level` in `opts` to select full/short labels."
   ([subject-label ancestry opts]
-   [:ul.hypernym-chain.hypernym-chain--root
-    [:li.subject
-     (transform-val subject-label opts)
-     (hypernym-chain ancestry opts)]])
+   (let [opts' (assoc opts :bare-sets? true)]
+     [:ul.hypernym-chain.hypernym-chain--root
+      [:li.subject
+       (transform-val subject-label opts')
+       (hypernym-chain ancestry opts')]]))
   ([ancestry {:keys [detail-level] :as opts}]
    (when (seq ancestry)
      (into [:ul.hypernym-chain]
@@ -567,7 +590,8 @@
                                label
                                (or shortLabel label))]]
              [:li
-              (entity-link hypernym (assoc opts :k->label {hypernym label}))
+              (entity-link hypernym (assoc opts :k->label {hypernym label}
+                                                :bare-sets? true))
               (hypernym-chain ancestors opts)])))))
 
 (rum/defc resource

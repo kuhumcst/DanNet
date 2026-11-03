@@ -1,0 +1,427 @@
+/* Design tokens, keyframes, the reset and the default look of plain HTML
+   elements. Every other file builds on this one. */
+
+/* Rules in a later layer win over rules in an earlier one, whatever
+   their specificity. sparql.css is not in a layer: CodeMirror injects
+   its own styles outside any layer, and those would otherwise win over
+   the editor styles in sparql.css. */
+@layer base, layout, components, diagrams, utilities;
+
+@layer base {
+
+
+/* ===========================================
+   CSS VARIABLES (Design Tokens)
+   =========================================== */
+
+:root {
+    /* COLOR PALETTE */
+    
+    /* Core neutrals */
+    --color-dark: #333;
+    --color-muted: #666;
+    --color-subtle: #999;
+    --color-faint: #AAA;
+    --color-bg-alt: #F2F2F2;
+    
+    /* Primary accent (links) */
+    --color-link: #0066BB;
+    --color-link-underline: #0066BB55;
+    --color-link-underline-hover: #0066BBFF;
+    --color-link-muted: #006699;  /* Darker blue for secondary links */
+    
+    /* Namespace/prefix colors */
+    --color-dannet: #901a1e;
+    --color-w3c: #55f;
+    --color-meta: #019fa1;
+    --color-ontolex: #df7300;
+    --color-wordnet: #387111;
+    
+    /* OPACITY SCALE */
+    --opacity-interactive: 0.8;       /* Default state for clickable elements */
+    --opacity-interactive-hover: 1;   /* Hover state */
+    --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
+    --opacity-muted: 0.6;             /* Language tags, subscripts */
+    --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
+    --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
+    
+    /* BORDERS */
+    --border-opacity-normal: 0.67;
+    --border-opacity-subtle: 0.33;
+    --border-opacity-very-subtle: 0.1;
+
+    --normal-border: 1px solid rgba(0,0,0,var(--border-opacity-subtle));
+    --subtle-border: 1px solid rgba(0,0,0,var(--border-opacity-very-subtle));
+
+    --border-radius-s: 2px;
+    
+    /* SHADOWS */
+    --shadow-card-subtle: 0 0 4px rgba(0,0,0,0.25);
+    --shadow-nav: 0 0 12px rgba(0,0,0,0.67);
+    --shadow-heading: 0 8px 12px rgba(0,0,0,0.2);
+    
+    /* TYPOGRAPHY */
+    --font-family: Georgia, serif;
+    --letter-spacing-base: 0.2ch;
+    --line-height-prose: 1.8;
+    
+    /* Font size scale */
+    --font-size-xs: 12px;
+    --font-size-s: 14px;
+    --font-size-m: 16px;
+    --font-size-m-l: 18px;  /* Bridge between medium and large */
+    --font-size-m-xl: 20px; /* Another step toward large */
+    --font-size-l: 24px;
+    --font-size-xl: 32px;
+    --font-size-xxl: 48px;
+    
+    /* CONTENT WIDTH */
+    --content-max-width: 110ch;        /* Main article content */
+    --content-max-width-narrow: 90ch;  /* Document-style articles */
+    
+    /* SPACING */
+    --spacing-xxs: 2px;
+    --spacing-xs: 4px;
+    --spacing-s: 8px;
+    --spacing-m: 12px;
+    --spacing-l: 24px;
+    --spacing-xl: 32px;
+    --spacing-xxl: 48px;
+    --spacing-prefix: 6px;
+    
+    /* TRANSITIONS */
+    --transition-fast: 0.1s;
+    --transition-base: 0.2s;
+    --transition-slow: 0.33s;
+    --transition-slower: 0.66s;
+    
+    /* BACKGROUNDS */
+    --bg-texture: url(/images/exclusive-paper.png);
+    --bg-dark: var(--color-dark) var(--bg-texture);
+    
+    /* INTERACTIVE ELEMENT SIZING */
+    --icon-size: 32px;
+    
+    /* LAYOUT OFFSETS (for viewport calculations) */
+    --layout-search-mobile-offset: 96px;       /* Approximate offset for mobile keyboard in search */
+    --layout-search-horizontal-offset: 92px;   /* Left padding + icon area in search */
+    --layout-fullscreen-header: 104px;         /* Header height in full-screen diagram mode */
+    --layout-responsive-offset: 45px;          /* Additional offset at responsive breakpoint */
+    
+    /* Z-INDEX SCALE */
+    --z-base: 1;
+    --z-error: 10;
+    --z-help: 66;
+    --z-search: 99;
+    --z-modal: 10000;
+}
+
+
+/* ===========================================
+   KEYFRAME ANIMATIONS
+   =========================================== */
+
+@keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes point {
+    from { transform: translateX(4px); }
+    to { transform: translateX(0); }
+}
+
+/* Loading indicator - title letters pulse when fetching.
+   62% of 1.6s = ~1s idle before pulse; matches letter-spacing transition delay. */
+@keyframes title-pulse {
+    0%, 62% { transform: scale(1); }
+    75% { transform: scale(1.3); }
+    88%, 100% { transform: scale(1); }
+}
+
+
+/* ===========================================
+   BASE & RESET
+   =========================================== */
+
+/* Apply hyphenation to text-containing elements */
+p,
+h1, h2, h3,
+td, th,
+dt, dd,
+li,
+span.set__content,
+span.prefix,
+.qname {
+    hyphens: auto;
+}
+
+html, body {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    background: #fff var(--bg-texture);
+}
+
+/* A faint white shadow that sharpens dark text in the content column.
+   :where() gives it no specificity, so any other rule can turn it off. */
+:where(#content *) {
+    text-shadow: 1px 0px rgba(255,255,255,0.8);
+}
+
+button {
+    cursor: pointer;
+}
+
+a {
+    color: var(--color-link);
+    text-decoration: none;
+}
+
+/*  Dataset download links are styled with a prefixed icon.
+    a.rdf-uri is purposefully left out as it would clash with the established
+    use of < ... > to display these. */
+a[href^="/export/"]:not(.rdf-uri)::before,
+a[href^="/schema/"]:not(.rdf-uri)::before {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    margin-right: 0.33em;
+
+    /* Inherit the colour of the text. */
+    background-color: currentColor;
+    mask-image: url('/images/download.svg');
+    mask-size: contain;
+    mask-repeat: no-repeat;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+
+/* ===========================================
+   TYPOGRAPHY
+   =========================================== */
+
+p {
+    line-height: var(--line-height-prose);
+}
+
+h1, h2, h3 {
+    font-weight: normal;
+    font-variant: small-caps;
+    letter-spacing: var(--letter-spacing-base);
+    filter: drop-shadow(var(--shadow-heading));
+}
+
+h1 {
+    display: flex;
+    justify-content: center;
+    font-size: var(--font-size-xl);
+    margin: var(--spacing-m) auto var(--spacing-m) auto;
+    word-break: normal;
+}
+
+h1 sub {
+    font-size: 50%;
+}
+
+h1 sup {
+    user-select: none;
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+}
+
+h1 img {
+    width: clamp(80px, 33vw, 420px);
+}
+
+h2 {
+    font-size: var(--font-size-xl);
+    text-align: center;
+    margin: var(--spacing-xxl) 0 var(--spacing-l) 0;
+}
+
+h3 {
+    font-size: var(--font-size-l);
+    text-align: left;
+    border-bottom: var(--normal-border);
+    margin: var(--spacing-xxl) 0 var(--spacing-m) 0;
+    padding: 0 0 var(--spacing-xs) 0;
+}
+
+@media only screen and (max-width: 500px) {
+    h1, h2 {
+        font-size: var(--font-size-l);
+    }
+}
+
+sub {
+    font-size: 70%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+}
+
+code {
+    background: rgba(255,255, 255,0.67);
+    color: black;
+    text-shadow: none;
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    border-radius: var(--border-radius-s);
+    font-size: var(--font-size-s);
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: normal;
+}
+
+pre code {
+    text-shadow: none;
+    padding: 0;
+    background: none;
+    color: white;
+}
+
+pre {
+    text-shadow: none;
+    color: white;
+    box-shadow:
+      inset 0 0 4px rgba(255,255,255,0.33),
+      0 0 4px rgba(0,0,0,0.25);
+    background: rgba(0,0,0,0.85);
+    padding: var(--spacing-m);
+    margin: var(--spacing-xl);
+    overflow: scroll;
+    border-radius: var(--border-radius-s);
+}
+
+pre.message {
+    color: black;
+    background: transparent;
+    padding: 0;
+}
+
+/* Ordered lists */
+ol {
+    margin: 0;
+}
+
+ul {
+    padding-left: var(--spacing-m);
+    margin: 0;
+}
+
+ul li {
+    padding-left: var(--spacing-xs);
+}
+
+ol,
+ol.two-digits {
+    padding-left: var(--spacing-l);
+}
+
+ol.three-digits {
+    padding-left: var(--spacing-xl);
+}
+
+ol.four-digits {
+    padding-left: var(--spacing-xxl);
+}
+
+ol.five-digits {
+    padding-left: 52px;
+}
+
+li + li {
+    padding-top: 1.5ch;
+}
+
+li::marker {
+    color: var(--color-subtle);
+    font-size: var(--font-size-xs);
+}
+
+hr {
+    border: none;
+    border-top: var(--normal-border);
+    width: 100%;
+    margin: 0 0 var(--spacing-xl) 0;
+}
+
+
+/* ===========================================
+   TABLES
+   =========================================== */
+
+td, th {
+    padding: var(--spacing-m);
+    vertical-align: top;
+}
+
+th {
+    font-weight: bold;
+    font-variant: small-caps;
+    font-size: var(--font-size-m);
+    border-bottom: var(--subtle-border);
+    background:var(--bg-texture);
+    text-align: left;
+    text-shadow: none;
+}
+
+tr:nth-child(odd),
+tr tr:nth-child(even) {
+    background-color: white;
+}
+
+tr:nth-child(even),
+tr tr:nth-child(odd) {
+    background-color: var(--color-bg-alt);
+}
+
+@media only screen and (max-width: 700px) {
+    td {
+        font-size: var(--font-size-s);
+    }
+}
+
+
+/* ===========================================
+   NAMESPACE COLORS & LANGUAGE TAGS
+   =========================================== */
+
+/* Namespace colors: the text color of links, and the background of prefix
+   badges and the nav bar. */
+.dannet  { --ns-color: var(--color-dannet); }
+.w3c     { --ns-color: var(--color-w3c); }
+.meta    { --ns-color: var(--color-meta); }
+.ontolex { --ns-color: var(--color-ontolex); }
+.wordnet { --ns-color: var(--color-wordnet); }
+
+.dannet, .w3c, .meta, .ontolex, .wordnet {
+    color: var(--ns-color);
+}
+
+/* Language tags shown as superscript after lang-attributed elements. */
+[lang]:not(html, footer, footer *, h1 span, article)::after {
+    content: attr(lang);
+    margin-left: 0.4ch;
+    vertical-align: top;
+    font-size: 60%;
+    opacity: var(--opacity-muted);
+    text-decoration: none;
+    font-variant: small-caps;
+}
+
+/* Hide the superscript when it matches the UI language declared on <html>;
+   [lang|=...] also covers regional subtags such as en-GB. At the "high"
+   detail level (= long labels) all language tags remain visible. */
+html[lang="da"]:not([data-detail-level="high"]) [lang|="da"]:not(footer, footer *, h1 span, article)::after,
+html[lang="en"]:not([data-detail-level="high"]) [lang|="en"]:not(footer, footer *, h1 span, article)::after {
+    content: none;
+}
+
+}

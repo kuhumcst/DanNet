@@ -184,7 +184,7 @@
                           "Gå til forsiden"
                           "Go to the front page")
                  :href  (shared/page-href "frontpage")}
-       ;; Wrapped in spans for staggered loading animation (see main.css).
+       ;; Wrapped in spans for staggered loading animation (see layout.css).
        [:span "D"] [:span "a"] [:span "n"] [:span "N"] [:span "e"] [:span "t"]]
       (language-select languages)
       (detail-level-select detail-level languages)]

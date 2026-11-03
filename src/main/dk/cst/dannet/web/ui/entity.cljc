@@ -234,7 +234,8 @@
     badge]
    ;; DanNet synsets derive their part of speech from wn:lexfile, while OEWN
    ;; synsets state it in wn:partOfSpeech.
-   (let [pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
+   (let [opts     (assoc opts :bare-sets? true)
+         pos      (da-en-pos languages (or (some->> lexfile shared/lexfile->pos)
                                            (some->> entity :wn/partOfSpeech name)))
          ;; OEWN uses dc:subject despite the GWA defining wn:lexfile explicitly!
          lexfile' (or lexfile (:dc/subject entity))]

@@ -1,0 +1,257 @@
+/* How the page is divided: the app frame, the nav bar, the content column, the
+   page header and footer, and full-screen mode. */
+
+@layer layout {
+
+
+/* ===========================================
+   PAGE
+   =========================================== */
+
+#app {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    color: var(--color-dark);
+    font-family: var(--font-family);
+    letter-spacing: var(--letter-spacing-base);
+}
+
+@media only screen and (max-width: 700px) {
+    #app {
+        flex-direction: column;
+    }
+}
+
+#content {
+    flex-grow: 1;
+    overflow-y: auto;
+
+    /* Texture lives on the scroller (not body) and uses `local` attachment so
+       it scrolls along with the content rather than staying fixed behind it. */
+    background: #fff var(--bg-texture);
+    background-attachment: local;
+
+    padding: var(--spacing-m);
+
+    /* Center content & footer horizontally. */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+#content.full-screen {
+    padding: 0;
+    background: white;
+}
+
+#content.full-screen hr {
+    border-top: var(--normal-border);
+}
+
+main {
+    display: flex;
+    justify-content: center;
+    flex-grow: 1;
+}
+
+/* For table to inherit. */
+main > article {
+    width: 100%;
+}
+
+article {
+    max-width: var(--content-max-width);
+}
+
+article > section:last-child {
+    margin-bottom: var(--spacing-m);
+}
+
+header.page-header,
+footer.page-footer {
+    text-align: center;
+}
+
+header.page-header {
+    margin-bottom: var(--spacing-xl);
+}
+
+footer.page-footer {
+    padding: var(--spacing-l) 0 var(--spacing-m) 0;
+    margin-top: var(--spacing-s);
+}
+
+footer.page-footer p {
+    font-size: var(--font-size-s);
+    margin: var(--spacing-m);
+}
+
+aside.notes {
+    margin-top: var(--spacing-xl);
+}
+
+#content.full-screen > main > article {
+    max-width: none;
+    width: fit-content;
+    flex-grow: 1;
+}
+
+#content.full-screen footer.page-footer {
+    padding: var(--spacing-xl) var(--spacing-m) var(--spacing-xxl) var(--spacing-m);
+}
+
+
+/* ===========================================
+   NAVIGATION
+   =========================================== */
+
+nav#main-nav {
+    transition: background var(--transition-slow);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--spacing-s);
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    box-shadow: var(--shadow-nav);
+    border: 1px solid transparent;
+    border-right: var(--normal-border);
+    z-index: var(--z-base);
+    gap: var(--spacing-s);
+}
+
+nav#main-nav a.title {
+    /* letter-spacing transition has 1s delay to match loading animation */
+    transition: opacity var(--transition-base), transform var(--transition-base), letter-spacing var(--transition-slow) ease-in-out 1s;
+    color: white;
+    user-select: none;
+    writing-mode: vertical-rl;
+    text-orientation: sideways;
+    font-size: var(--font-size-l);
+    line-height: var(--icon-size); /* centre align */
+    margin: auto 0;
+    font-variant: small-caps;
+    justify-self: center;
+    letter-spacing: 4px;
+}
+
+/* Shared styles for nav icons */
+nav#main-nav .nav-icon {
+    transition: opacity var(--transition-base), transform var(--transition-base);
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+nav#main-nav a.title:hover,
+nav#main-nav a.title:focus-visible,
+nav#main-nav .nav-icon:hover,
+nav#main-nav .nav-icon:focus-visible {
+    transform: scale(110%);
+}
+
+nav#main-nav a.title span {
+    display: inline-block;
+}
+
+nav#main-nav select.language {
+    /* Remove default styling */
+    color: transparent;
+    border: none;
+    appearance: none;
+
+    cursor: pointer;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    font-size: var(--font-size-m-xl);
+    background-image: url(/images/globe.svg);
+    background-color: transparent;
+    background-size: 28px; /* Compensates for internal SVG padding to match 26px visual size of other nav icons */
+}
+
+nav#main-nav a.sparql-link {
+    cursor: pointer;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    background-image: url("/images/sparql-icon.svg");
+    background-size: 26px;
+}
+
+nav#main-nav:has(search.search-active) a.sparql-link {
+    margin-top: calc(var(--icon-size) + var(--spacing-m));
+}
+
+nav#main-nav select.detail-level {
+    /* Remove default styling */
+    color: transparent;
+    border: none;
+    appearance: none;
+
+    cursor: pointer;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    font-size: var(--font-size-m-xl);
+    background-image: url("/images/text-box.svg");
+    background-color: transparent;
+    background-size: 26px;
+}
+
+/* The selects above hide their text, which the options would inherit. */
+nav#main-nav select option {
+    color: var(--color-dark);
+}
+
+nav#main-nav.full-screen {
+    background: white;
+    box-shadow: none;
+}
+
+/* Darken the icons in the nav bar in full-screen mode. */
+nav#main-nav.full-screen a.title,
+nav#main-nav.full-screen .nav-icon {
+    filter: invert(1);
+    opacity: var(--opacity-fullscreen-icon);
+}
+
+/* Loading indicator - animates title letters when fetching */
+html[data-fetching] #content {
+    cursor: progress;
+}
+
+html[data-fetching] nav#main-nav a.title {
+    letter-spacing: 8px;
+}
+
+html[data-fetching] nav#main-nav a.title span {
+    animation: title-pulse 1.6s ease-in-out infinite;
+}
+
+/* Staggered animation delays create a wave effect across the 6 letters */
+html[data-fetching] nav#main-nav a.title span:nth-child(2) { animation-delay: 0.1s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(3) { animation-delay: 0.2s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(4) { animation-delay: 0.3s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(5) { animation-delay: 0.4s; }
+html[data-fetching] nav#main-nav a.title span:nth-child(6) { animation-delay: 0.5s; }
+
+@media only screen and (max-width: 700px) {
+    /* Turn the nav bar horizontal on mobile. */
+    nav#main-nav {
+        flex-direction: row;
+        border: 1px solid transparent;
+        border-bottom: var(--normal-border);
+    }
+    nav#main-nav:has(search.search-active) a.sparql-link {
+        margin-top: 0;
+        margin-left: calc(var(--icon-size) + var(--spacing-s));
+    }
+    nav#main-nav a.title {
+        writing-mode: initial;
+        text-orientation: initial;
+        margin: 0 auto;
+    }
+}
+
+}
