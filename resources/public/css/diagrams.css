@@ -260,7 +260,7 @@ fieldset.radial-tree-legend ul input[type=radio] {
 
 /* When ANY radio is checked, make unchecked ones appear inactive */
 fieldset.radial-tree-legend ul:has(input[type=radio]:checked) input[type=radio]:not(:checked) ~ .radial-tree-legend__bullet {
-    transform: scale(var(--opacity-decorative));
+    transform: scale(0.33);
     opacity: var(--opacity-decorative);
 }
 
