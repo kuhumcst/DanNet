@@ -61,6 +61,7 @@
     
     /* TYPOGRAPHY */
     --font-family: Georgia, serif;
+    --font-family-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
     --letter-spacing-base: 0.2ch;
     --line-height-prose: 1.8;
     
@@ -155,7 +156,7 @@ span.prefix,
 html, body {
     margin: 0;
     height: 100%;
-    background: #fff var(--bg-texture);
+    background: white var(--bg-texture);
 }
 
 /* A faint white shadow that sharpens dark text in the content column.
@@ -268,7 +269,7 @@ code {
     padding: var(--spacing-xxs) var(--spacing-xs);
     border-radius: var(--border-radius-s);
     font-size: var(--font-size-s);
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-family: var(--font-family-mono);
     font-weight: normal;
 }
 

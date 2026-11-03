@@ -94,7 +94,7 @@ search.search-active input[type=submit] {
 }
 
 search.search-active input[type=submit]:hover {
-    color: rgba(255,255,255,1);
+    color: white;
 }
 
 search.search-active output {
@@ -296,7 +296,7 @@ tr + tr td.attr-name {
 span.prefix {
     background: var(--ns-color, var(--color-dark)) var(--bg-texture);
     font-variant: small-caps;
-    color: rgba(255,255,255,255);
+    color: white;
     border-radius: var(--border-radius-s);
     border: var(--subtle-border);
     padding: var(--spacing-xxs) var(--spacing-prefix);
@@ -507,7 +507,7 @@ ul.synset-summary {
 /* TODO: look at fixing/normalizing the HTML structure requiring these weird CSS rules */
 section.subentity:has(ul.synset-summary) {
     padding: var(--spacing-m);
-    background-color: rgba(255, 255, 255, 1);
+    background-color: white;
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
     margin: 0 auto;
@@ -645,7 +645,7 @@ dl.search-results > div {
     cursor: pointer;
     padding: var(--spacing-m);
     margin-bottom: var(--spacing-xxl);
-    background-color: rgba(255, 255, 255, 1);
+    background-color: white;
     border: var(--normal-border);
     box-shadow: var(--shadow-card-subtle);
 }

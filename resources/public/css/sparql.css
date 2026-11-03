@@ -93,7 +93,7 @@ label.timeout-select input[type=number],
     background: black;
     box-shadow: inset 0 0 4px rgba(255,255,255,0.33);
     padding: var(--spacing-m);
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-family: var(--font-family-mono);
     font-weight: normal;
     text-shadow: none;
     font-size: var(--font-size-s);
@@ -101,7 +101,7 @@ label.timeout-select input[type=number],
 }
 
 .sparql-editor__input .cm-wrapper .cm-scroller {
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-s);
     line-height: 1.5;
     overflow-x: auto !important; /* Scroll horizontally instead of expanding the editor width */
