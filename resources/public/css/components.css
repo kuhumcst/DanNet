@@ -678,9 +678,10 @@ article.document > div > ul:first-child li {
     }
 }
 
-/* Cycle colours of the nav tabs above and lists of links. */
+/* Cycle colours of the nav tabs above and lists of links. A link that is
+   alone in its list item keeps the normal link style. */
 article.document > div > ul:first-child > li:nth-of-type(5n+1) a,
-article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1) {
+article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+1):not(:only-of-type) {
     color: var(--color-w3c);
     text-decoration-color: var(--color-w3c);
 }
@@ -707,11 +708,6 @@ article.document > div > ul:first-child > li:nth-of-type(5n+5) a,
 article.document > div > ul:not(:first-child) > li > a:nth-of-type(5n+5) {
     color: var(--color-wordnet);
     text-decoration-color: var(--color-wordnet);
-}
-
-/* Reset the cycle for single hyperlinks. */
-article.document > div > ul:not(:first-child) > li > a:first-of-type:last-of-type {
-    color: var(--color-link);
 }
 
 article.document h1 {
