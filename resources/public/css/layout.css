@@ -194,7 +194,7 @@ aside.notes {
 #main-nav.full-screen a.title,
 #main-nav.full-screen .nav-icon {
     filter: invert(1);
-    opacity: var(--opacity-fullscreen-icon);
+    opacity: var(--opacity-interactive);
 }
 
 /* Loading indicator - animates title letters when fetching */

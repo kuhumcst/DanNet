@@ -64,7 +64,7 @@ search.search-active input[role=combobox] {
     font-size: var(--font-size-xl);
     margin-left: 56px;
     color: var(--color-dark);
-    opacity: 0.9;
+    opacity: 1;
     padding: var(--spacing-xxs) var(--spacing-s);
     position: sticky; /* Keeps search input visible at top when scrolling results */
     top: var(--spacing-s);
@@ -155,7 +155,7 @@ nav:has(search.search-active) ~ #content {
 /* Darken the search icon in full-screen mode. */
 nav.full-screen search:not(.search-active) {
     filter: invert(1);
-    opacity: var(--opacity-fullscreen-icon);
+    opacity: var(--opacity-interactive);
 }
 
 table.attr-val col:nth-child(2) {
@@ -208,7 +208,7 @@ td.attr-name details.entailed {
 td.attr-name details.entailed summary {
     display: inline;
     cursor: pointer;
-    opacity: 0.5;
+    opacity: var(--opacity-muted);
     user-select: none;
     font-size: var(--font-size-s);
 }
@@ -387,7 +387,7 @@ header > .rdf-uri .rdf-uri__name {
 
 .rdf-uri::before,
 .rdf-uri::after {
-    opacity: 0.3;
+    opacity: var(--opacity-decorative);
 }
 
 .rdf-uri::before {
@@ -457,7 +457,7 @@ span.set__right-bracket {
     min-width: 1ch;
     background-size: auto 100%;
     background-repeat: no-repeat;
-    opacity: 0.4;
+    opacity: var(--opacity-decorative);
     transition: opacity var(--transition-fast);
 }
 
@@ -946,7 +946,7 @@ select.display-options {
 
     color: var(--color-dark);
     cursor: pointer;
-    opacity: 0.67;
+    opacity: var(--opacity-muted);
 }
 
 select.display-options:hover,

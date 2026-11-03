@@ -30,7 +30,6 @@
     --opacity-decorative: 0.33;       /* Decorative flourishes (h2 ornaments, brackets) */
     --opacity-muted: 0.6;             /* Language tags, subscripts */
     --opacity-overlay-light: 0.25;    /* Light overlay for hover states on dark backgrounds */
-    --opacity-fullscreen-icon: 0.75;  /* Full-screen mode inverted icons */
 
     --border-opacity-subtle: 0.33;
     --border-opacity-very-subtle: 0.1;
