@@ -540,13 +540,6 @@ svg.hyponym-sunburst-diagram__svg {
     display: contents;
 }
 
-/* Keyboard focus affordance for the focusable sunburst arcs and centre target
-   (operable via Enter/Space, mirroring a click). */
-.hyponym-sunburst-diagram__svg [role="button"]:focus-visible {
-    outline: 2px solid var(--color-link);
-    outline-offset: 1px;
-}
-
 /* Respect reduced-motion: dampen the word-cloud reveal transition. The
    sunburst's JS-driven zoom is collapsed separately in d3.cljs, since CSS
    can't reach a D3 transition. */

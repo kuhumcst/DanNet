@@ -321,11 +321,6 @@ span.prefix.truncatable:focus {
     text-overflow: unset;
 }
 
-span.prefix.truncatable:focus-visible {
-    outline: 2px solid var(--color-link);
-    outline-offset: 1px;
-}
-
 span.prefix__sep {
     display: none;
 }

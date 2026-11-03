@@ -135,6 +135,11 @@ aside.notes {
     transform: scale(110%);
 }
 
+/* The nav takes the namespace colour, which can be close to the link blue. */
+#main-nav :focus-visible {
+    outline-color: white;
+}
+
 #main-nav a.title span {
     display: inline-block;
 }
