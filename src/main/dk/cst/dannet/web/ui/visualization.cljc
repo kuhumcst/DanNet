@@ -1,5 +1,5 @@
 (ns dk.cst.dannet.web.ui.visualization
-  "The synset diagrams (radial and sunbursts) with their toolbar and legends,
+  "The synset diagrams (radial and sunbursts) with their mode bar and legends,
   and the word clouds. The server renders their containers; web.d3 draws into
   them from ref callbacks in the browser."
   (:require [rum.core :as rum]
@@ -74,46 +74,27 @@
    ;; callback and also carries role="img" + a label.
    [:figcaption.visually-hidden caption]])
 
-(rum/defc full-screen-toggle
-  "The maximize/minimize button shared by the radial legend and the sunburst
-  history column, so it stays in place across diagram modes."
-  [{:keys [full-screen languages]}]
-  [:button.icon {:class    (if full-screen
-                             "minimize"
-                             "maximize")
-                 :title    (if full-screen
-                             (i18n/da-en languages "Minimér" "Minimize")
-                             (i18n/da-en languages "Maksimér" "Maximize"))
-                 :on-click (fn [_] (app/toggle-full-screen!))}])
-
-(rum/defc diagram-legend
-  "Right-hand column shell shared by the radial and sunburst diagrams: holds the
-  mode-specific `content` in a fieldset that lines up across modes. The
-  full-screen toggle lives in the shared top bar, not here."
-  [attrs content]
-  [:fieldset.radial-tree-legend attrs
-   content])
-
 (rum/defc sunburst-legend < rum/reactive
   [{:keys [languages sunburst-nav] :as opts}]
   (let [trail #?(:cljs (when sunburst-nav (rum/react sunburst-nav))
                  :clj nil)]
-    (diagram-legend
-      {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
-      (when (seq trail)
-        ;; The breadcrumb is navigation through the zoom history, so it reads as
-        ;; a <nav> landmark rather than a bare list.
-        [:nav.hyponym-sunburst-history-nav
-         {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
-         (into [:ol.hyponym-sunburst-history]
-               (map-indexed
-                 (fn [i {:keys [name last? on-click]}]
-                   [:li {:key   i
-                         :class (when last? "current")}
-                    (if last?
-                      [:span {:aria-current "true"} name]
-                      [:button {:type "button" :on-click on-click} name])])
-                 trail))]))))
+    ;; the same fieldset as the radial legend, so the two columns line up
+    [:fieldset.radial-tree-legend
+     {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
+     (when (seq trail)
+       ;; The breadcrumb is navigation through the zoom history, so it reads as
+       ;; a <nav> landmark rather than a bare list.
+       [:nav.hyponym-sunburst-history-nav
+        {:aria-label (i18n/da-en languages "Zoomhistorik" "Zoom history")}
+        (into [:ol.hyponym-sunburst-history]
+              (map-indexed
+                (fn [i {:keys [name last? on-click]}]
+                  [:li {:key   i
+                        :class (when last? "current")}
+                   (if last?
+                     [:span {:aria-current "true"} name]
+                     [:button {:type "button" :on-click on-click} name])])
+                trail))])]))
 
 (def radial-tree-selector
   ".radial-tree-nodes [data-theme],
@@ -138,40 +119,40 @@
                    (if (= detail-level :basic)
                      (prefix/kw->qname k)
                      (i18n/select-label languages (k->label k))))]
-    (diagram-legend
-      {:aria-label (i18n/da-en languages
-                     "Filtrer relationstyper"
-                     "Filter relation types")}
-      [:ul.radial-tree-legend
-       ;; Relations are ordered by the canonical relations/group-order so the
-       ;; legend matches the diagram, and the <li> that begins a new group is
-       ;; marked so the grouping can be styled in CSS without splitting the list.
-       (let [ks (->> (keys subentity)
-                     (filter shared/synset-rel-theme)
-                     (sort-by #(relations/relation-sort-key % (label-of %))))]
-         (for [[prev k] (map vector (cons nil ks) ks)]
-           (let [theme        (get shared/synset-rel-theme k)
-                 label        (label-of k)
-                 is-selected? (= @selected theme)]
-             [:li (cond-> {:key k}
-                    (and prev (not= (relations/relation->group prev)
-                                    (relations/relation->group k)))
-                    (assoc :class "rel-group-begin"))
-              [:label {:lang (i18n/lang label)} (str label)
-               [:input {:type      "radio"
-                        :name      "radial-tree-filter"
-                        :value     theme
-                        :checked   is-selected?
-                        :read-only true
-                        :on-click  (fn [e]
-                                     (let [new-selection (if is-selected? nil theme)
-                                           diagram       (-> (.-target e)
-                                                             (.closest ".synset-diagram")
-                                                             (.querySelector ".radial-tree-diagram"))]
-                                       (reset! selected new-selection)
-                                       (filter-radial-diagram! diagram new-selection)))}]
-               [:span {:class "radial-tree-legend__bullet"
-                       :style {:background theme}}]]])))])))
+    [:fieldset.radial-tree-legend
+     {:aria-label (i18n/da-en languages
+                    "Filtrer relationstyper"
+                    "Filter relation types")}
+     [:ul.radial-tree-legend
+      ;; Relations are ordered by the canonical relations/group-order so the
+      ;; legend matches the diagram, and the <li> that begins a new group is
+      ;; marked so the grouping can be styled in CSS without splitting the list.
+      (let [ks (->> (keys subentity)
+                    (filter shared/synset-rel-theme)
+                    (sort-by #(relations/relation-sort-key % (label-of %))))]
+        (for [[prev k] (map vector (cons nil ks) ks)]
+          (let [theme        (get shared/synset-rel-theme k)
+                label        (label-of k)
+                is-selected? (= @selected theme)]
+            [:li (cond-> {:key k}
+                   (and prev (not= (relations/relation->group prev)
+                                   (relations/relation->group k)))
+                   (assoc :class "rel-group-begin"))
+             [:label {:lang (i18n/lang label)} (str label)
+              [:input {:type      "radio"
+                       :name      "radial-tree-filter"
+                       :value     theme
+                       :checked   is-selected?
+                       :read-only true
+                       :on-click  (fn [e]
+                                    (let [new-selection (if is-selected? nil theme)
+                                          diagram       (-> (.-target e)
+                                                            (.closest ".synset-diagram")
+                                                            (.querySelector ".radial-tree-diagram"))]
+                                      (reset! selected new-selection)
+                                      (filter-radial-diagram! diagram new-selection)))}]
+             [:span {:class "radial-tree-legend__bullet"
+                     :style {:background theme}}]]])))]]))
 
 ;; TODO: use a heuristic for high-lighting the relevant word
 (rum/defc examples-dt+dd
@@ -242,8 +223,8 @@
    label])
 
 (rum/defcs synset-diagram
-  "The toolbar, diagram and legend for `subentity`: the radial diagram or a
-  sunburst, by the diagram mode in `opts`."
+  "The diagram for `subentity` with its mode bar below it, and its legend: the
+  radial diagram or a sunburst, by the diagram mode in `opts`."
   < (rum/local nil ::nav)
   [state subentity {:keys [languages full-screen hyponym-tree
                            orthogonal-hyponym-tree meronym-tree] :as opts}]
@@ -264,11 +245,16 @@
                     (i18n/da-en languages
                       "Hyponym-soldiagram for det aktuelle synset"
                       "Hyponym sunburst for the current synset"))]
-    [:div.synset-diagram {:key (str (hash subentity))}
-     ;; Shared top bar above both columns: mode radios centred, full-screen
-     ;; toggle pinned right. Keeping it out of the diagram column means swapping
-     ;; diagrams no longer shifts the radios.
-     [:div.synset-diagram__toolbar
+    [:div.synset-diagram
+     (when full-screen
+       (synset-metadata opts))
+     [:div.synset-diagram__main
+      ;; The figure keeps the same footprint in every mode, so the mode bar
+      ;; right below it stays put when switching diagrams.
+      [:div.synset-diagram__figure
+       (if sunburst?
+         (sunburst-diagram tree caption opts)
+         (radial-tree-diagram subentity opts))]
       [:fieldset.viz-mode-toggle
        [:legend.visually-hidden (i18n/da-en languages "Diagram" "Diagram")]
        (mode-radio :radial mode
@@ -282,29 +268,58 @@
                        "orto-underbegreber" "ortho-hyponyms")))
        (when (:children meronym-tree)
          (mode-radio :sunburst-meronym mode
-                     (i18n/da-en languages "dele" "parts")))]
-      (full-screen-toggle opts)]
-     [:div.synset-diagram__body
-      (when full-screen
-        (synset-metadata opts))
-      [:div.synset-diagram__main
-       (if sunburst?
-         (sunburst-diagram tree caption opts)
-         (radial-tree-diagram subentity opts))]
-      ;; Keep a right-hand column in both modes so the diagram footprint stays
-      ;; stable; in sunburst mode it's the zoom history for stepping back up.
-      (if sunburst?
-        (sunburst-legend opts)
-        (radial-tree-legend subentity opts))]]))
+                     (i18n/da-en languages "dele" "parts")))]]
+     ;; Keep a right-hand column in both modes so the diagram footprint stays
+     ;; stable; in sunburst mode it's the zoom history for stepping back up.
+     (if sunburst?
+       (sunburst-legend opts)
+       (radial-tree-legend subentity opts))]))
+
+(defn- on-escape
+  "A keydown handler that leaves full-screen mode on Escape."
+  [e]
+  (when (= "Escape" (.-key e))
+    (app/toggle-full-screen!)))
+
+(def full-screen-target
+  "The centres of the diagrams that toggle full-screen mode, radial or sunburst."
+  ".toggle-full-screen, .hyponym-sunburst__center-target")
+
+(rum/defc full-screen-close
+  "The button that leaves full-screen mode, which Escape presses too. It takes
+  the focus on entering full screen, so the way out is where the keyboard is,
+  and gives it back to the diagram's centre on leaving."
+  < {:did-mount    (fn [state]
+                     #?(:cljs (do (.focus (rum/dom-node state))
+                                  (js/document.addEventListener "keydown" on-escape)))
+                     state)
+     :will-unmount (fn [state]
+                     ;; The page's diagram is only drawn once this unmount is
+                     ;; done, and the page itself stays scrolled to the top.
+                     #?(:cljs (do (js/document.removeEventListener "keydown" on-escape)
+                                  (js/setTimeout
+                                    #(some-> (js/document.querySelector full-screen-target)
+                                             (.focus #js {:preventScroll true}))
+                                    0)))
+                     state)}
+  [{:keys [languages]}]
+  ;; The title is both the tooltip and, with no text in the button, its name.
+  [:button.full-screen-close
+   {:type     "button"
+    :title    (i18n/da-en languages "Luk fuld skærm" "Exit full screen")
+    :on-click (fn [_] (app/toggle-full-screen!))}])
 
 (rum/defc expanded-diagram
-  "The diagram of the relations in `subentity`, with the examples and
-  hypernyms of the synset in `opts` below it."
-  [subentity {:keys [entity ancestry] :as opts}]
-  [:div.synset-diagram-container.card {:key (str (hash subentity))}
-   (synset-diagram subentity opts)
+  "The diagram of the relations in `subentity`; in full-screen mode, with a
+  button to leave it and the examples and hypernyms of the synset in `opts`."
+  [subentity {:keys [entity ancestry full-screen] :as opts}]
+  [:div.synset-diagram-container
+   (when full-screen
+     (full-screen-close opts))
+   ;; A new subentity starts a fresh diagram, e.g. with no legend filter.
+   (rum/with-key (synset-diagram subentity opts) (str (hash subentity)))
    (let [{:keys [lexinfo/senseExample]} entity]
-     (when (or senseExample ancestry)
+     (when (and full-screen (or senseExample ancestry))
        [:footer.synset-diagram__footer
         [:dl
          (when senseExample

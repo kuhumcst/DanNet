@@ -5,8 +5,6 @@
 }
 
 #content.full-screen .synset-diagram-container {
-    border: none;
-    box-shadow: none;
     display: flex;
     flex-direction: column;
 }
@@ -15,17 +13,37 @@
     flex-grow: 1;
 }
 
+/* Leaves full-screen mode; kept in the corner of the screen, below the nav bar
+   once it runs across the top. */
+button.full-screen-close {
+    position: fixed;
+    top: var(--spacing-m);
+    right: var(--spacing-m);
+    width: 44px;
+    height: 44px;
+    z-index: var(--z-base);
+    background: white url("/images/minimize.svg") center / 20px no-repeat;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+}
+
+button.full-screen-close:hover,
+button.full-screen-close:focus-visible {
+    border-color: var(--color-dark);
+}
+
+@media only screen and (max-width: 700px) {
+    button.full-screen-close {
+        top: calc(var(--icon-size) + var(--spacing-xl));
+    }
+}
+
 .synset-diagram-container aside.synset-diagram__metadata {
     display: flex;
     align-items: center;
     border-right: var(--subtle-border);
     padding-right: var(--spacing-m);
     max-width: 20vw;
-}
-
-#content:not(.full-screen) aside.synset-diagram__metadata,
-#content:not(.full-screen) footer.synset-diagram__footer {
-    display: none;
 }
 
 .synset-diagram-container footer.synset-diagram__footer {
@@ -84,62 +102,54 @@
     }
 }
 
+/* The diagram column and the legend/history side by side. */
 .synset-diagram {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
     height: 100%;
-}
-
-/* Shared top bar above the diagram and legend. A 1fr/auto/1fr grid keeps the
-   mode radios truly centred while the full-screen toggle stays pinned right (a
-   flex row can't centre the middle item once a sibling is right-aligned). */
-.synset-diagram__toolbar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    margin-bottom: var(--spacing-s);
-    border-bottom: var(--subtle-border);
-}
-
-.synset-diagram__toolbar > .viz-mode-toggle {
-    grid-column: 2;
-}
-
-.synset-diagram__toolbar > button.icon {
-    grid-column: 3;
-    justify-self: end;
-}
-
-/* The diagram and legend/history side by side, filling the space below the bar. */
-.synset-diagram__body {
-    display: flex;
-    align-items: stretch;
-    flex-grow: 1;
     min-height: 0;
 }
 
-/* Diagram column; the legend/history sits beside it in the body row. */
+/* Diagram column, with the mode bar below the diagram; the legend/history sits
+   beside it. */
 .synset-diagram__main {
     flex-grow: 1;
     min-width: 0;
     display: flex;
+    flex-direction: column;
+}
+
+.synset-diagram__figure {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* On the page, every diagram mode gets the same square footprint, so the mode
+   bar below it doesn't move when switching modes. */
+#content:not(.full-screen) .synset-diagram__figure {
+    aspect-ratio: 1;
+    max-height: calc(80vh - var(--spacing-l));
+}
+
+#content.full-screen .synset-diagram__figure {
+    flex-grow: 1;
+    min-height: 0;
 }
 
 @media only screen and (max-width: 1200px) {
-    /* Stack the diagram and legend vertically; the toolbar stays as the top
-       bar above them. */
-    .synset-diagram__body {
+    /* Stack the diagram and legend vertically. */
+    .synset-diagram {
         flex-direction: column;
-        align-items: stretch;
     }
 }
 
-/* Mode radio group (Relations / Hyponyms / Ortho-hyponyms), centred in the toolbar grid. */
+/* The mode bar below the diagram: a radio group of the diagram modes. */
 fieldset.viz-mode-toggle {
-    margin: var(--spacing-xs);
-    padding: 0;
+    margin: var(--spacing-s) 0 0 0;
+    /* the same space around the radios as around the legend's groups */
+    padding: var(--spacing-m) 0;
     border: none;
+    border-top: var(--subtle-border);
     text-align: center;
     line-height: var(--line-height-prose);
 }
@@ -441,9 +451,8 @@ svg.hyponym-sunburst-diagram__svg {
 }
 
 /* Zoom-history column shown in sunburst mode. It reuses the radial legend shell
-   (.radial-tree-legend) for the border, layout and full-screen toggle, so the
-   toggle sits in the exact same spot. `margin: auto 0` centres the list,
-   pinning the toggle to the top just like the radial's filter list does. */
+   (.radial-tree-legend) for the border and layout, so the two columns line up.
+   `margin: auto 0` centres the list, as the radial's filter list is. */
 .hyponym-sunburst-history {
     margin: auto 0;
     min-width: 14ch;

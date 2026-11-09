@@ -21,19 +21,22 @@
                   :s          ""}
    :full-screen  false
    :detail-level :normal
-   :section      {:semantic {:display {:selected     "diagram"
-                                       :diagram-mode :radial}}}})
+   :section      {:semantic {:display {:diagram-mode :radial}}}})
 
 ;; The user's current browsing session.
 (defonce session
   (atom default-state))
 
+(defn display-path
+  "The path in `session` of the view that section `id` displays, e.g. :table;
+  reachable via `opts`, since the session is merged into them."
+  [id]
+  [:section id :display :selected])
+
 (def diagram-mode-path
-  ;; The synset section shows as a table or a diagram (`:display :selected`);
-  ;; when it's a diagram, `:diagram-mode` picks which one (:radial, :sunburst,
-  ;; :sunburst-orthogonal, or :sunburst-meronym). Co-located under :display so
-  ;; the relationship is clear in `session`, reachable via `opts` (the session
-  ;; is merged in) and reset to :radial on a full page load.
+  ;; When the semantic section shows its diagram, `:diagram-mode` picks which
+  ;; one (:radial, :sunburst, :sunburst-orthogonal or :sunburst-meronym); it is
+  ;; reset to :radial on a full page load.
   [:section :semantic :display :diagram-mode])
 
 (def windows?
@@ -186,10 +189,8 @@
          v))))
 
 (defn toggle-full-screen!
-  "Toggle the `:full-screen` cookie and scroll the content pane to the top.
-
-  Shared by both diagram modes' full-screen controls; scrolling to the top
-  makes entering/leaving full-screen read like a page change."
+  "Toggle the `:full-screen` cookie and scroll the content pane to the top, so
+  that entering or leaving full screen reads like a page change."
   []
   #?(:cljs (do
              (update-cookie! :full-screen not)

@@ -483,40 +483,103 @@
                                             coll))]
     (rum/with-key (list-item opts item) sort-key)))
 
-;; A Rum-controlled version of the <details> element which only renders content
-;; if the containing <details> element is open. This circumvents the default
-;; behaviour which is to prerender the content in the DOM, but keep it hidden.
-;; Some of the more well-connected synsets take AGES to load without this fix!
-(rum/defcs reactive-details < (rum/local false ::open)
-  [state summary content]
+(defn- fade-in-wave!
+  "Fade in the DOM `items` together, each a little slower than the one before,
+  from --transition-fast for the first to --transition-slower for the last, so
+  that a list fills in as a wave from the top.
+
+  The steps shrink along an exponential curve, so the first stay near 37ms
+  however long the list is, and the tail tapers off without a jump. Users who
+  prefer reduced motion get no fade, as with the sunburst."
+  [items]
+  #?(:cljs (when-not (.-matches (js/matchMedia "(prefers-reduced-motion: reduce)"))
+             (let [curve (fn [k] (- 1 (js/Math.exp (/ (- k) 15))))
+                   span  (curve (max 1 (dec (count items))))]
+               (doseq [[k item] (map-indexed vector items)]
+                 (.animate item
+                           #js [#js {:opacity 0} #js {:opacity 1}]
+                           #js {:duration (+ 100 (* 560 (/ (curve k) span)))
+                                :easing   "ease-out"}))))))
+
+(defn- show-more-click
+  "A click handler for the button of `show-more`, which flips `open` and sets
+  `after` to what to do once the list has rendered: focus the first item it
+  added and fade them all in, or keep the button where it was on the screen
+  when it shrank."
+  [open after]
+  #?(:cljs (fn [e]
+             (let [button (.-currentTarget e)
+                   list   (.-previousElementSibling button)]
+               (if @open
+                 (let [top (.-top (.getBoundingClientRect button))]
+                   (vreset! after #(some-> (js/document.getElementById "content")
+                                           (.scrollBy 0 (- (.-top (.getBoundingClientRect button))
+                                                           top)))))
+                 (let [i (.-childElementCount list)]
+                   (vreset! after #(let [added (array-seq (.-children list) i)]
+                                     (when-let [item (first added)]
+                                       (.setAttribute item "tabindex" "-1")
+                                       (.focus item))
+                                     (fade-in-wave! added)))))
+               (swap! open not)))))
+
+(defn- show-more-escape
+  "A keydown handler for `show-more` that closes the `open` list on Escape and
+  sets `after` to focus its button, which keyboard users otherwise reach only
+  past every item."
+  [open after]
+  #?(:cljs (fn [e]
+             (when (and @open (= "Escape" (.-key e)))
+               (let [button (.. e -currentTarget -lastElementChild)]
+                 (.preventDefault e)
+                 (vreset! after #(.focus button))
+                 (swap! open not))))))
+
+(rum/defcs show-more
+  "The list `list-el` with a button below it that adds the `n` items returned
+  by `render-rest` to its end, and takes them away again; no button when `n` is
+  0. The rest is only rendered when shown, as some synsets have thousands of
+  relations.
+
+  The button stays below the list, so opening it moves the focus to the first
+  added item; otherwise keyboard and screen reader users would be left after
+  the new content. Escape anywhere in the open list closes it again."
+  < (rum/local false ::open)
+    {:init       (fn [state _] (assoc state ::after (volatile! nil)))
+     :did-update (fn [state]
+                   (when-let [f @(::after state)]
+                     (vreset! (::after state) nil)
+                     (f))
+                   state)}
+  [state {:keys [languages]} list-el n render-rest]
   (let [open (::open state)]
-    [:details.reactive-list {:on-toggle #(swap! open not)
-                             :open      @open}
-     (when summary
-       (if (not @open)
-         summary
-         [:summary ""]))
-     (when @open content)]))
+    (if (pos? n)
+      [:div {:on-key-down (show-more-escape open (::after state))}
+       (cond-> list-el @open (conj (render-rest)))
+       [:button.show-more {:type          "button"
+                           :aria-expanded (str @open)
+                           :on-click      (show-more-click open (::after state))}
+        (if @open
+          (i18n/da-en languages "færre" "fewer")
+          (i18n/da-en languages
+            (str n (if (= 1 n) " mere" " flere"))
+            (str n " more")))]]
+      list-el)))
 
 (defn expandable-list
-  [{:keys [languages] :as opts} coll]
-  (let [[summary-coll rest-coll] (split-at 3 coll)
-        c            (condp > (count coll)
-                       100 "two-digits"
-                       1000 "three-digits"
-                       10000 "four-digits"
-                       100000 "five-digits")]
-    [:<>
-     [:ol {:class c}
-      (render-list-items opts summary-coll)]
-     (reactive-details
-       [:summary
-        (i18n/da-en languages
-          (str (count rest-coll) " flere")
-          (str (count rest-coll) " more"))]
-       [:ol {:class c
-             :start 4}
-        (render-list-items opts rest-coll)])]))
+  "An ordered list of the first 3 items of `coll`, informed by `opts`, with a
+  button below it for the rest."
+  [opts coll]
+  (let [[head tail] (split-at 3 coll)
+        c           (condp > (count coll)
+                      100 "two-digits"
+                      1000 "three-digits"
+                      10000 "four-digits"
+                      100000 "five-digits")]
+    (show-more opts
+               [:ol {:class c} (render-list-items opts head)]
+               (count tail)
+               #(render-list-items opts tail))))
 
 ;; TODO: words with the same label look unlabeled, e.g. the noun and adjective
 ;; "bordeaux" in dn:synset-14930 show as word-11005769 and word-11005769-2.

@@ -140,7 +140,7 @@
 
 (defmethod defined-sections :ontolex/LexicalConcept
   [entity]
-  [[:top [:rdf/type                                         ; needed, not shown
+  [[:top [:rdf/type
           :skos/definition
           :wn/definition                                    ; used by OEWN
           :wn/lexfile

@@ -166,14 +166,17 @@
         ;; comes from the vann:preferredNamespacePrefix the schema declares.
         prefix'       (or prefix (some-> entity
                                          :vann/preferredNamespacePrefix
-                                         symbol))]
+                                         symbol))
+        ;; The page gets the nav's colour class too, e.g. for the selected tab
+        ;; of a switchable view; it's nil for prefixes with no colour.
+        nav-class'    (or nav-class (prefix/prefix->class prefix'))]
     [:<>
      ;; TODO: make horizontal when screen size/aspect ratio is different?
      [:nav#main-nav
       {:class ["prefix"
                (if full-diagram?
                  "full-screen"
-                 (or nav-class (prefix/prefix->class prefix')))]}
+                 nav-class')]}
       (search/form opts)
       [:a.sparql-link.nav-icon
        {:title (i18n/da-en languages
@@ -195,5 +198,6 @@
      [:div#content (when full-diagram?
                      {:class "full-screen"})
       [:main
-       (error/try-render (render opts) (page/error opts))]
+       (error/try-render (render (assoc opts :nav-class nav-class'))
+                         (page/error opts))]
       (page-footer languages)]]))

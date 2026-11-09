@@ -8,11 +8,11 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
-            [dk.cst.dannet.web.app :as app]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
+            [dk.cst.dannet.web.ui.tabs :as tabs]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
 (defn rdf=
@@ -128,24 +128,6 @@
            :download true}
        "JSON-LD"]]]))
 
-(rum/defc display-mode-selector
-  [id {:keys [languages]
-       :as   opts}]
-  [:label (i18n/da-en languages
-            "Vis som "
-            "Display as ")
-   [:select {:value     (get-in opts [:section id :display :selected])
-             :on-change (fn [e]
-                          (swap! app/session assoc-in
-                                 [:section id :display :selected]
-                                 (.-value (.-target e))))}
-    [:option {:value "diagram"}
-     "\uD83D\uDCCA diagram"]
-    [:option {:value "table"}
-     (i18n/da-en languages
-       "\uD83D\uDDC4\uFE0F tabel"
-       "\uD83D\uDDC4\uFE0F table")]]])
-
 (defn da-en-pos
   [languages pos]
   (get (i18n/da-en languages
@@ -203,22 +185,28 @@
       ["wn:example" ex])))
 
 (rum/defc synset-examples
-  "Usage examples in `subentity`, rendered dictionary-style as list items with
-  the lemmas of the synset highlighted within the example text."
+  "The usage examples in `subentity`, rendered dictionary-style as list items
+  with the lemmas of the synset in `opts` highlighted within the example text;
+  any after the first are shown by a button below them."
   [subentity {:keys [entity] :as opts}]
-  (let [lemmas (synset-lemmas entity)]
-    (for [[property ex] (example-strs subentity)]
-      [:li.sense-example {:key      (str ex)
-                          :property property
-                          :title    property
-                          :lang     (i18n/lang ex)}
-       (error/try-render-with [e ex]
-         (highlight-lemmas lemmas (str ex))
-         (str ex))])))
+  (when-let [examples (not-empty (example-strs subentity))]
+    (let [[example & more] examples
+          lemmas (synset-lemmas entity)
+          item   (fn [[property ex]]
+                   [:li.sense-example {:key      (str ex)
+                                       :property property
+                                       :title    property
+                                       :lang     (i18n/lang ex)}
+                    (error/try-render-with [e ex]
+                      (highlight-lemmas lemmas (str ex))
+                      (str ex))])]
+      ;; keyed by the examples, so the next synset's examples start folded too
+      [:li.summary-examples {:key (hash examples)}
+       (rdf/show-more opts [:ul (item example)] (count more) #(map item more))])))
 
 (rum/defc synset-summary
-  "The definition, usage examples and ontological type of a synset; the main
-  line ends with the `badge`, if any."
+  "The definition, usage examples and ontological type of a synset; the
+  `badge`, if any, sits opposite the ontological type on the last line."
   ([subentity opts]
    (synset-summary subentity opts nil))
   ([{:keys [wn/lexfile dns/ontologicalType] :as subentity}
@@ -252,14 +240,16 @@
          (when-let [definition (:wn/definition subentity)]
            [:span {:property "wn:definition"
                    :title    "wn:definition"}
-            (rdf/blank-node opts definition)]))
-       badge]
+            (rdf/blank-node opts definition)]))]
       (synset-examples subentity opts)
-      (when ontologicalType
-        [:li {:property "dns:ontologicalType"
-              :title    "dns:ontologicalType"}
-         (rdf/value (assoc opts :attr-key :dns/ontologicalType)
-                    ontologicalType)])])))
+      (when (or ontologicalType badge)
+        [:li.summary-types
+         (when ontologicalType
+           [:span {:property "dns:ontologicalType"
+                   :title    "dns:ontologicalType"}
+            (rdf/value (assoc opts :attr-key :dns/ontologicalType)
+                       ontologicalType)])
+         badge])])))
 
 (rum/defc shape-badge
   "Discreet badge displaying the rdf:type `shape` behind a custom summary
@@ -269,25 +259,55 @@
                         :title    "rdf:type"}
    (rdf/entity-link shape (assoc opts :link-title "rdf:type"))])
 
+(def table-view
+  "The view of a section as its attribute-value table, which has a border of
+  its own, so the view needs no card."
+  {:id     :table
+   :icon   "table"
+   :label  {:da "tabel" :en "table"}
+   :card?  false
+   :render (fn [subentity opts]
+             (table/attr-val-table opts subentity))})
+
+(def summary-tablist
+  "The views of the summary card at the top of a synset page."
+  {:label {:da "Visning af resumé" :en "Summary view"}
+   :views [{:id     :summary
+            :icon   "summary"
+            :label  {:da "resumé" :en "summary"}
+            ;; The search page reuses the synset summary without the badge.
+            :render (fn [subentity opts]
+                      (synset-summary subentity opts
+                                      (shape-badge :ontolex/LexicalConcept opts)))}
+           table-view]})
+
+(def relation-tablist
+  "The views of the semantic relations of a synset."
+  {:label {:da "Visning af betydningsrelationer" :en "Semantic relations view"}
+   :views [{:id     :diagram
+            :icon   "diagram"
+            :label  {:da "diagram" :en "diagram"}
+            :render (fn [subentity opts]
+                      (error/try-render (viz/expanded-diagram subentity opts)))}
+           table-view]})
+
 (rum/defc semantic-relations-content
   [id subentity {:keys [languages] :as opts}]
   [:<>
    [:p.subheading
-    (display-mode-selector id opts)
     (i18n/da-en languages
-      [:<> " eller " [:a {:href prefix/relations-path} "lær mere"]
+      [:<> [:a {:href prefix/relations-path} "Lær mere"]
        " om de enkelte relationer."]
-      [:<> " or " [:a {:href prefix/relations-path} "learn more"]
+      [:<> [:a {:href prefix/relations-path} "Learn more"]
        " about the individual relations."])]
-   (case (get-in opts [:section id :display :selected])
-     "diagram" [:<>
-                (error/try-render (viz/expanded-diagram subentity opts))
-                [:p.note
-                 [:strong "! "]
-                 (i18n/da-en languages
-                   "Data kan være udeladt; se tabellen for samtlige detaljer."
-                   "Data may be omitted; view table for full details.")]]
-     (table/attr-val-table opts subentity))])
+   (tabs/switchable id relation-tablist subentity opts)
+   ;; A note on what the diagram leaves out, below its frame.
+   (when (= :diagram (:id (tabs/selected-view id relation-tablist opts)))
+     [:p.note
+      [:strong "! "]
+      (i18n/da-en languages
+        "Data kan være udeladt; se tabellen for samtlige detaljer."
+        "Data may be omitted; view table for full details.")])])
 
 (defn- synset-header?
   "True if section `id` holds the summary at the top of the synset page in
@@ -304,9 +324,8 @@
     (= id :semantic)
     (semantic-relations-content id subentity opts)
 
-    ;; The search page reuses the synset summary without the badge.
     (synset-header? id opts)
-    (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts))
+    (tabs/switchable id summary-tablist subentity opts)
 
     :else
     (table/attr-val-table opts subentity)))
@@ -315,10 +334,9 @@
   [id subentity {:keys [languages] :as opts}]
   (let [title    (section/titles id)
         title-id (when title (str "section-title-" (lstr-slug title)))]
-    [:section.subentity (cond-> (if title
-                                  {:aria-labelledby title-id}
-                                  {:aria-label "RDF resource summary"})
-                          (synset-header? id opts) (assoc :class "card"))
+    [:section.subentity (if title
+                          {:aria-labelledby title-id}
+                          {:aria-label "RDF resource summary"})
      (when title
        [:h2 {:id title-id} (str (i18n/select-label languages title))])
      (error/try-render (entity-section-content id subentity opts))]))

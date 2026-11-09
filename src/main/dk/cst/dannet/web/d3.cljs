@@ -445,7 +445,9 @@
 
 (defn render-full-screen-target
   "Draw a transparent circle of `radius` in `svg` that toggles full-screen
-  mode, using the state, languages and callback in `opts`."
+  mode, using the state, languages and callback in `opts`. It is a button that
+  the keyboard reaches too, like the centre of a sunburst, and its <title> is
+  both its tooltip and its name."
   [svg radius {:keys [languages full-screen on-toggle-full-screen]}]
   (-> svg
       (.append "circle")
@@ -454,8 +456,13 @@
       (.attr "cy" 0)
       (.attr "r" radius)
       (.attr "fill" "transparent")
+      (.attr "tabindex" 0)
+      (.attr "role" "button")
       (.style "cursor" (if full-screen "zoom-out" "zoom-in"))
       (.on "click" (fn [_] (on-toggle-full-screen)))
+      (.on "keydown" (fn [e] (when (#{"Enter" " "} (.-key e))
+                               (.preventDefault e)
+                               (on-toggle-full-screen))))
       (.append "title")
       (.text (if full-screen
                (i18n/da-en languages "Minimér" "Minimize")
@@ -942,9 +949,10 @@
                                    (.attr centre-label "text-decoration" "underline")))
               hide-link! (fn [_] (.attr centre-label "text-decoration" "none"))]
           (-> centre-target
+              ;; The <title>, which zooming updates, is its name as well as its
+              ;; tooltip.
               (.attr "tabindex" 0)
               (.attr "role" "button")
-              (.attr "aria-label" (centre-title true))
               (.on "click" (fn [_] (navigate-centre!)))
               (.on "keydown" (fn [e] (when (#{"Enter" " "} (.-key e))
                                        (.preventDefault e)

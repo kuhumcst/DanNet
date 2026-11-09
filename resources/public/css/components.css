@@ -6,6 +6,112 @@
     box-shadow: var(--shadow-card-subtle);
 }
 
+/* One of several views of some content (see ui.tabs), with tabs straddling its
+   top border in the right corner, so they take no space above it. The tabs
+   reach only as far below the border as a card's padding, so they keep clear
+   of its content. */
+.switchable {
+    --tab-height: 26px;
+    --tab-overlap: var(--spacing-m);
+    position: relative;
+    container-type: inline-size;
+}
+
+.switchable__tabs {
+    position: absolute;
+    top: calc(var(--tab-overlap) - var(--tab-height));
+    right: var(--spacing-m);
+    display: flex;
+    border-radius: var(--border-radius-s);
+    box-shadow: var(--shadow-card-subtle);
+}
+
+.switchable__tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    height: var(--tab-height);
+    min-width: var(--tab-height);
+    padding: 0 var(--spacing-s);
+    font: inherit;
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+    background: white var(--bg-texture);
+    border: var(--normal-border);
+    border-radius: 0;
+}
+
+/* The tabs form one control: neighbours share a single border, and only the
+   outer corners are rounded. */
+.switchable__tab + .switchable__tab {
+    margin-left: -1px;
+}
+
+.switchable__tab:first-child {
+    border-radius: var(--border-radius-s) 0 0 var(--border-radius-s);
+}
+
+.switchable__tab:last-child {
+    border-radius: 0 var(--border-radius-s) var(--border-radius-s) 0;
+}
+
+/* The coloured border of a hovered or selected tab is drawn over the shared
+   edge with its neighbour. */
+.switchable__tab:hover,
+.switchable__tab[aria-selected="true"] {
+    position: relative;
+    z-index: 1;
+}
+
+.switchable__tab:hover {
+    color: var(--color-dark);
+    border-color: var(--color-dark);
+}
+
+/* The tabs have the paper texture of the page; the selected one is filled with
+   the textured colour of the nav bar, from the nav's colour class on the tab
+   list, and falls back to the nav's dark grey as the nav does. This rule comes
+   after the hover rule, so hovering the selected tab changes nothing. */
+.switchable__tab[aria-selected="true"] {
+    color: white;
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    border-color: var(--ns-color, var(--color-dark));
+}
+
+/* The icons inherit the colour of the tab text. */
+.switchable__icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+}
+
+.switchable__icon--summary { mask-image: url('/images/view-summary.svg'); }
+.switchable__icon--table { mask-image: url('/images/view-table.svg'); }
+.switchable__icon--diagram { mask-image: url('/images/view-diagram.svg'); }
+
+/* A narrow frame shows the icons only; the labels stay for screen readers,
+   and each icon's tooltip names its view. */
+@container (max-width: 500px) {
+    .switchable__tab {
+        padding: 0;
+    }
+
+    .switchable__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+}
+
 search {
     display: flex;
     flex-direction: column;
@@ -472,8 +578,8 @@ ul.synset-summary {
     border-left: var(--spacing-l) solid var(--color-dannet);
 }
 
-/* The main line of a summary lays out its parts (e.g. PoS + definition) in a
-   flex row; any summary badges are pushed to the far right side. */
+/* The main line of a summary lays out its parts (PoS + definition) in a flex
+   row. */
 ul.synset-summary > li.summary-main {
     display: flex;
     align-items: first baseline;
@@ -485,15 +591,38 @@ ul.synset-summary > li.summary-main:not(:last-child) {
     padding-bottom: var(--spacing-s);
 }
 
-/* Dictionary-style usage examples inside the synset summary. */
+/* Dictionary-style usage examples inside the synset summary; any after the
+   first are shown by a button below them. */
+ul.synset-summary > li.summary-examples {
+    margin-top: var(--spacing-s);
+}
+
+/* The button reads as one more line of the examples: its arrow sits in the
+   column of their markers, and it has the space above it that `li + li`
+   (base.css) gives them. */
+ul.synset-summary li.summary-examples button.show-more {
+    position: relative;
+    margin: 1.5ch 0 0 var(--spacing-xl);
+    padding: 0 0 0 var(--spacing-s);
+    font-size: var(--font-size-s);
+}
+
+ul.synset-summary li.summary-examples button.show-more::before {
+    position: absolute;
+    right: 100%;
+}
+
+ul.synset-summary li.summary-examples ul {
+    margin: 0;
+    padding: 0;
+}
+
 ul.synset-summary li.sense-example {
     font-size: var(--font-size-s);
     list-style-type: "↪";
     margin-left: var(--spacing-xl);
     padding-left: var(--spacing-s);
 }
-
-ul.synset-summary li.sense-example:nth-child(2) { margin-top: var(--spacing-m); }
 
 ul.synset-summary li.sense-example::marker {
     color: var(--color-subtle);
@@ -505,23 +634,25 @@ ul.synset-summary li.sense-example strong {
     text-underline-offset: var(--spacing-xs);
 }
 
-ul.synset-summary li.sense-example + li[property="dns:ontologicalType"] {
-    margin-top: var(--spacing-m);
+/* The last line has the ontological type on the left and any summary badge on
+   the right, which drops onto a line of its own when there's no room. */
+ul.synset-summary > li.summary-types {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-s);
 }
 
-/* Generic dictionary entry-style badge for summary components,
-   e.g. displaying the (otherwise hidden) rdf:type of a summary. */
+ul.synset-summary li.summary-examples + li.summary-types {
+    margin-top: var(--spacing-s);
+}
+
+/* A discreet badge in small print for summary components, e.g. displaying the
+   (otherwise hidden) rdf:type of a summary. */
 span.summary-badge {
     margin-left: auto;
     font-size: var(--font-size-xs);
-    border: 1px solid var(--color-subtle);
-    border-radius: var(--border-radius-s);
-    padding: var(--spacing-xxs) var(--spacing-xs);
     text-align: center;
-}
-
-span.summary-badge:hover {
-    border: 1px solid var(--color-dark);
 }
 
 @media only screen and (max-width: 700px) {
@@ -797,6 +928,24 @@ article.document table {
     color: var(--color-muted);
 }
 
+/* A subheading right below a section heading belongs to it, so the two sit
+   close together. */
+h2:has(+ .subheading) {
+    margin-bottom: var(--spacing-s);
+}
+
+h2 + .subheading {
+    margin-top: var(--spacing-s);
+}
+
+/* The headings shrink on small screens (see base.css), so the subheadings do
+   too. */
+@media only screen and (max-width: 500px) {
+    .subheading {
+        font-size: var(--font-size-m);
+    }
+}
+
 p.note {
     text-align: center;
     font-style: italic;
@@ -820,85 +969,54 @@ p.note strong {
     }
 }
 
-details.reactive-list {
-    margin: var(--spacing-s) 0 0 0;
-    border-top: 1px solid transparent;
-}
-
-details.reactive-list summary {
-    cursor: pointer;
-    border-radius: var(--border-radius-s);
-    color: rgba(0,0,0,var(--opacity-interactive));
-    font-size: var(--font-size-xs);
+/* The button below a long list that shows the rest of it and hides it again
+   (see ui.rdf/show-more). */
+button.show-more {
+    display: block;
+    margin-top: var(--spacing-s);
     padding: var(--spacing-s) 0 var(--spacing-s) var(--spacing-xl);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    color: var(--color-muted);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
 }
 
-/* Line the summary up with the item numbers of the list above it. */
-ol.two-digits + details > summary {
-    padding-left: var(--spacing-l);
+/* Inline-block keeps the hover underline off the arrow. Its empty alternative
+   text keeps screen readers from reading it; the plain `content` before is for
+   browsers without that syntax. */
+button.show-more::before {
+    display: inline-block;
+    content: "▸\00a0";
+    content: "▸\00a0" / "";
 }
 
-ol.three-digits + details > summary {
-    padding-left: var(--spacing-xl);
+button.show-more[aria-expanded="true"]::before {
+    content: "▴\00a0";
+    content: "▴\00a0" / "";
 }
 
-ol.four-digits + details > summary {
-    padding-left: var(--spacing-xxl);
-}
-
-ol.five-digits + details > summary {
-    padding-left: 52px;
-}
-
-details.reactive-list summary:hover {
+button.show-more:hover {
     text-decoration: underline;
     text-underline-offset: var(--spacing-xs);
 }
 
-details.reactive-list[open] {
-    border-top: var(--subtle-border);
-    padding-bottom: var(--spacing-m);
+/* Line the button up with the item numbers of the list above it. */
+ol.two-digits + button.show-more {
+    padding-left: var(--spacing-l);
 }
 
-summary + ol {
-    margin-top: var(--spacing-m);
+ol.three-digits + button.show-more {
+    padding-left: var(--spacing-xl);
 }
 
-.icon {
-    height: var(--icon-size);
-    width: var(--icon-size);
-    padding: var(--spacing-m);
-    background-color: white;
-    border: var(--normal-border);
-    border-radius: var(--border-radius-s);
+ol.four-digits + button.show-more {
+    padding-left: var(--spacing-xxl);
 }
 
-.icon:hover,
-.icon:focus-visible {
-    border-color: var(--color-dark);
-}
-
-.icon.maximize,
-.icon.minimize {
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 20px 20px;
-    margin-bottom: var(--spacing-m);
-}
-
-.icon.maximize {
-    background-image: url("/images/maximize.svg");
-}
-
-.icon.minimize {
-    background-image: url("/images/minimize.svg");
-}
-
-@media only screen and (max-width: 700px) {
-    .icon.maximize,
-    .icon.minimize {
-        align-self: flex-start;
-    }
+ol.five-digits + button.show-more {
+    padding-left: 52px;
 }
 
 select.display-options {
