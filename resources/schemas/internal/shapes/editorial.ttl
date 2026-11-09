@@ -5,7 +5,8 @@
 # `validate-changes`) before a write is committed. Legacy data is deliberately
 # exempt: running these against the full graph would drown signal in noise.
 #
-# DRAFT editorial policy, grounded in a survey of the live data (2026-09-02):
+# DRAFT editorial policy, grounded in a survey of the live data (2026-11-09,
+# the 2026-10-02 release):
 # every convention below holds for 100% of the surveyed data unless a comment
 # says otherwise. Severities are policy knobs: sh:Violation blocks a write,
 # sh:Warning only surfaces in the editing UI. The rough rule applied here is
@@ -42,9 +43,9 @@ dns:EditorialConceptShape a sh:NodeShape ;
                 dns:EditorialConceptShape-ontologicalTypeValue ,
                 dns:EditorialConceptShape-hypernym .
 
-## DanNet definitions are asserted as skos:definition (60686 synsets, all
+## DanNet definitions are asserted as skos:definition (60687 synsets, all
 ## @da); wn:definition does not occur in the dataset. 23 synsets carry two
-## definitions and ~10k none, hence sh:Warning rather than a blocking rule.
+## definitions and ~9.8k none, hence sh:Warning rather than a blocking rule.
 dns:EditorialConceptShape-definition a sh:PropertyShape ;
     sh:path skos:definition ;
     sh:minCount 1 ;
@@ -53,7 +54,7 @@ dns:EditorialConceptShape-definition a sh:PropertyShape ;
     sh:severity sh:Warning ;
     sh:message "An edited synset should have exactly one Danish (@da) skos:definition." .
 
-## All 70715 synset labels are a single @da literal of the form {...}.
+## All 70475 synset labels are a single @da literal of the form {...}.
 dns:EditorialConceptShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
     sh:maxCount 1 ;
@@ -62,7 +63,7 @@ dns:EditorialConceptShape-label a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "A synset label must be a single @da literal of the form {...}." .
 
-## Only 6 legacy synsets lack a lexicalized sense; a new synset without one
+## Only 3 legacy synsets lack a lexicalized sense; a new synset without one
 ## would be unreachable from the lexicon.
 dns:EditorialConceptShape-lexicalizedSense a sh:PropertyShape ;
     sh:path ontolex:lexicalizedSense ;
@@ -71,8 +72,8 @@ dns:EditorialConceptShape-lexicalizedSense a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "An edited synset must be lexicalized by at least one sense." .
 
-## 69729 of 70715 synsets carry exactly one dns:ontologicalType (never more);
-## presence only warns since 986 legacy synsets lack one.
+## 69730 of 70475 synsets carry exactly one dns:ontologicalType (never more);
+## presence only warns since 745 legacy synsets lack one.
 dns:EditorialConceptShape-ontologicalType a sh:PropertyShape ;
     sh:path dns:ontologicalType ;
     sh:minCount 1 ;
@@ -90,7 +91,7 @@ dns:EditorialConceptShape-ontologicalTypeValue a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "dns:ontologicalType must reference a typed dns:OntologicalType resource." .
 
-## 11448 of 69851 synsets legitimately lack a hypernym (top-level synsets;
+## 12069 of 70475 synsets legitimately lack a hypernym (top-level synsets;
 ## adjectives, which link laterally instead), so this can only ever warn.
 dns:EditorialConceptShape-hypernym a sh:PropertyShape ;
     sh:path wn:hypernym ;
@@ -98,7 +99,7 @@ dns:EditorialConceptShape-hypernym a sh:PropertyShape ;
     sh:severity sh:Warning ;
     sh:message "An edited synset should have a wn:hypernym (roots and e.g. adjectives may legitimately lack one)." .
 
-## All 58739 asserted hypernym edges resolve within dn:; an edit must not
+## All 58741 asserted hypernym edges resolve within dn:; an edit must not
 ## introduce a dangling one. Same existence rule as dns:LinkedSynsetShape.
 dns:EditorialHypernymTargetShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalConcept ;
@@ -168,7 +169,7 @@ dns:EditorialSenseShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalSense ;
     sh:property dns:EditorialSenseShape-label .
 
-## All 77331 sense labels are a single unwrapped @da literal (no quotes or
+## All 77289 sense labels are a single unwrapped @da literal (no quotes or
 ## braces), typically lemma + DDO homograph/sense notation (e.g. cykel_§1).
 ## The notation itself is too varied for a stricter pattern.
 dns:EditorialSenseShape-label a sh:PropertyShape ;

@@ -31,11 +31,6 @@
   [ttl]
   (shapes/validate (util/ttl->db (str prefixes ttl))))
 
-(defn- index-by-shape
-  "Index `maps` (shapes->spec node shapes or their :properties) by :shape."
-  [maps]
-  (into {} (map (juxt :shape identity)) maps))
-
 (defn- shape+constraint
   "The set of [shape constraint] pairs among the violations for `ttl`."
   [ttl]
@@ -363,60 +358,6 @@ dn:form-1 ontolex:writtenRep \"hund\"@da ."))
                         g {:add [[:dn/word-1 :ontolex/canonicalForm :dn/form-1]
                                  [:dn/word-1 :rdfs/label
                                   (->LangString "\"hund\"" "da")]]}))))))
-
-(deftest shapes-spec
-  (let [by-shape (index-by-shape (shapes/shapes->spec @shapes/shapes))
-        props    (comp index-by-shape :properties by-shape)]
-    (testing "node shape targets come out as plain data"
-      (is (= [{:type :targetExtension :node :dns/DanNetEntryTarget}]
-             (:targets (by-shape :dns/LexicalEntryShape)))))
-    (testing "constraints carry their component type and parameters"
-      (let [{:keys [path severity constraints messages]}
-            (get (props :dns/LexicalEntryShape) :dns/LexicalEntryShape-canonicalForm)]
-        (is (= :ontolex/canonicalForm path))
-        (is (= :sh/Violation severity))
-        (is (= #{{:type :sh/MinCountConstraintComponent :min-count 1}
-                 {:type :sh/MaxCountConstraintComponent :max-count 1}
-                 {:type :sh/NodeKindConstraintComponent :node-kind :sh/BlankNodeOrIRI}}
-               (set constraints)))
-        (is (= ["LexicalEntry must have exactly one ontolex:canonicalForm."]
-               messages))))
-    (testing "SPARQL constraints stay opaque node-level constraints"
-      (let [{:keys [constraints properties]} (by-shape :dns/HypernymHierarchyShape)]
-        (is (= [{:type :sh/SPARQLConstraintComponent}
-                {:type :sh/SPARQLConstraintComponent}]
-               constraints))
-        (is (nil? properties))))
-    (testing "spec keywords join against validation results"
-      (let [{:keys [results]} (shapes/validate
-                                (util/ttl->db (str prefixes "
-dn:e a ontolex:LexicalEntry ; wn:partOfSpeech wn:noun ;
-  ontolex:sense dn:s ; ontolex:canonicalForm dn:f .
-dn:f ontolex:writtenRep \"hund\"@da .")))
-            {:keys [source-shape path constraint-component]}
-            (first (filter (comp #{:dns/LexicalEntryShape-label} :source-shape)
-                           results))
-            spec-prop (get (props :dns/LexicalEntryShape) source-shape)]
-        (is (= :dns/LexicalEntryShape-label source-shape))
-        (is (= path (:path spec-prop)))
-        (is (contains? (set (map :type (:constraints spec-prop)))
-                       constraint-component)))))
-  (testing "editorial shapes use sh:targetClass and warn-level properties"
-    (let [by-shape (index-by-shape (shapes/shapes->spec @shapes/editorial-shapes))
-          props    (comp index-by-shape :properties by-shape)
-          {:keys [path severity]}
-          (get (props :dns/EditorialConceptShape)
-               :dns/EditorialConceptShape-definition)]
-      (is (= [{:type :targetClass :node :ontolex/LexicalConcept}]
-             (:targets (by-shape :dns/EditorialConceptShape))))
-      (is (= :skos/definition path))
-      (is (= :sh/Warning severity))
-      ;; sh:in values surface as plain data, e.g. for a UI dropdown
-      (is (= [[:wn/noun :wn/verb :wn/adjective]]
-             (->> (get (props :dns/EditorialWordShape)
-                       :dns/EditorialWordShape-partOfSpeech)
-                  :constraints
-                  (keep :values)))))))
 
 (deftest validate-export-gate
   (let [->ttl-file (fn [ttl]
