@@ -50,15 +50,22 @@
        ;; presorted by weight, e.g. synset relations currently in use in DanNet.
        (shared/weight-sorted-rel? attr-key)))
 
+(defn reaches-limit?
+  "Do `n` values reach the limit, from which a relation shows the word cloud of
+  its top values by default? A truncated relation arrives with exactly that
+  many values, so it shows its cloud before the deferred values arrive."
+  [n]
+  (>= n shared/semantic-relation-limit))
+
 (rum/defc list-cell
-  "A list of ordered content; hidden by default when there are too many items."
+  "The values `coll` of the relation in `opts` as a word cloud or a list; a
+  long list shows only its first items until expanded."
   [{:keys [display-opt] :as opts} coll]
-  (let [coll-count   (count coll)
-        display-opt' (or display-opt
+  (let [display-opt' (or display-opt
                          ;; Display the limited, radial cloud by default for
                          ;; large colls and use tables for everything else.
                          (when (and (display-cloud? opts coll)
-                                    (>= coll-count shared/semantic-relation-limit))
+                                    (reaches-limit? (count coll)))
                            "cloud"))]
     (case display-opt'
       ;; viz/word-cloud renders an empty <div> that D3 draws into in the
@@ -69,19 +76,6 @@
       "max-cloud" #?(:cljs (error/try-render (viz/word-cloud coll opts))
                      :clj  [:div])
       (rdf/list-items opts coll))))
-
-(rum/defc multi-value-cell
-  "A table cell of an 'attr-val-table' containing multiple values in `coll`."
-  [opts coll]
-  (if-let [transformed-coll (rdf/transform-val-coll coll opts)]
-    transformed-coll
-    (list-cell opts coll)))
-
-(rum/defc string-list-cell
-  "A table cell of an 'attr-val-table' containing multiple strings in `coll`."
-  [opts coll]
-  [:td {:key coll}
-   (rdf/transform-text opts coll)])
 
 (defn entailed-relations
   "A collapsed list of the relations `folded-ks` that the relation in `opts`
@@ -114,14 +108,13 @@
   storing the choice in the `display-opts` atom."
   [{:keys [subject attr-key display-opt languages] :as opts}
    v-count display-opts]
-  ;; Default to word cloud only for collections exceeding the limit.
   ;; The empty string is the list option; nil would make React warn
   ;; about a null `value` prop on the <select>.
-  (let [exceeds-limit? (> v-count shared/semantic-relation-limit)
-        value          (or display-opt (when exceeds-limit? "cloud") "")
-        change         (fn [e]
-                         (swap! display-opts assoc-in [subject attr-key]
-                                (.-value (.-target e))))]
+  (let [exceeds? (reaches-limit? v-count)
+        value    (or display-opt (when exceeds? "cloud") "")
+        change   (fn [e]
+                   (swap! display-opts assoc-in [subject attr-key]
+                          (.-value (.-target e))))]
     [:select.display-options {:title     (i18n/da-en languages
                                              "Visningsmuligheder"
                                              "Display options")
@@ -130,7 +123,7 @@
      [:option {:value ""}
       (i18n/da-en languages "liste" "list")]
      (let [cloud (i18n/da-en languages "ordsky" "word cloud")]
-       (if exceeds-limit?
+       (if exceeds?
          [:<>
           [:option {:value "cloud"}
            (str cloud " (top)")]
@@ -156,8 +149,12 @@
 
 (rum/defc attr-val-row
   "A single row in the attribute-value table."
-  [{:keys [subject comments] :as opts} k v display-opts inherited? inferred? supplemented?]
-  (let [prefix        (if (keyword? k)
+  [{:keys [subject comments inherited inferred supplemented] :as opts}
+   k v display-opts]
+  (let [inherited?    (get inherited k)
+        inferred?     (get inferred k)
+        supplemented? (get supplemented k)
+        prefix        (if (keyword? k)
                         (some-> (namespace k) symbol)
                         k)
         display-opt   (get-in @display-opts [subject k])
@@ -181,25 +178,18 @@
       (rdf/entity-link k opts+attr-key)
       (attr-name-extras opts+attr-key v display-opts)]
      (cond
-       ;; NOTE: this used to only test using `set?`, but as we return both
-       ;;       sets and sorted colls now, we need to test this instead.
-       (shared/multi-valued? v)
-       (cond
-         (= 1 (count v))
-         (rum/with-key (value-cell opts+attr-key (first v)) v)
+       (not (shared/multi-valued? v))
+       (value-cell opts+attr-key v)
 
-         (every? i18n/rdf-string? v)
-         (string-list-cell opts+attr-key v)
+       (= 1 (count v))
+       (value-cell opts+attr-key (first v))
 
-         :else
-         [:td (multi-value-cell opts+attr-key v)])
-
-       (or (keyword? v) (symbol? v) (rdf/blank-node? v))
-       (rum/with-key (value-cell opts+attr-key v) v)
+       (every? i18n/rdf-string? v)
+       [:td (rdf/transform-text opts+attr-key v)]
 
        :else
-       [:td {:lang (i18n/lang v) :key v}
-        (rdf/transform-val v opts+attr-key)])]))
+       [:td (or (rdf/transform-val-coll v opts+attr-key)
+                (list-cell opts+attr-key v))])]))
 
 (defn- fold-member-rows
   "Fold the rdf:_N container membership rows of `subentity` into a single
@@ -223,7 +213,7 @@
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
   "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [subject languages inherited inferred supplemented] :as opts} subentity]
+  [state {:keys [subject languages] :as opts} subentity]
   (let [display-opts (::display-opts state)
         subentity    (fold-member-rows subentity)]
     ;; Only a table rendered inside a value has :table-component in its opts.
@@ -243,8 +233,5 @@
      [:tbody
       (for [[k v] subentity]
         (rum/with-key (attr-val-row (assoc opts :table-component attr-val-table)
-                                    k v display-opts
-                                    (get inherited k)
-                                    (get inferred k)
-                                    (get supplemented k))
+                                    k v display-opts)
                       k))]]))
