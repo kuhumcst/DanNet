@@ -39,7 +39,7 @@
 
 (defmulti defined-sections
   "The [id ks] sections of `entity`, where ks is a vector of properties or a
-  predicate of [k v] entries, and a nil id is the untitled top section."
+  predicate of [k v] entries, and the :top id is the untitled top section."
   shape-dispatch :hierarchy #'shape-hierarchy)
 
 (def titles
@@ -90,14 +90,14 @@
    :pmofn/requiresFrameElement])
 
 (def top-section
-  [nil [:rdf/type
-        :skos/definition
-        :wn/definition
-        :dns/ontologicalType
-        :rdfs/comment
-        :vann/preferredNamespacePrefix
-        :dc/description
-        :dcat/downloadURL]])
+  [:top [:rdf/type
+         :skos/definition
+         :wn/definition
+         :dns/ontologicalType
+         :rdfs/comment
+         :vann/preferredNamespacePrefix
+         :dc/description
+         :dcat/downloadURL]])
 
 (def semantic-section
   [:semantic shared/semantic-rels?])
@@ -140,25 +140,25 @@
 
 (defmethod defined-sections :ontolex/LexicalConcept
   [entity]
-  [[nil [:rdf/type                                          ; needed, not shown
-         :skos/definition
-         :wn/definition                                     ; used by OEWN
-         :wn/lexfile
-         :dns/ontologicalType
-         :pmofn/semType                                     ; used by frames
-         :lexinfo/senseExample                              ; supplemented (DanNet)
-         :wn/example                                        ; used by OEWN
-         :dns/frameOf]]                                     ; used by frames
+  [[:top [:rdf/type                                         ; needed, not shown
+          :skos/definition
+          :wn/definition                                    ; used by OEWN
+          :wn/lexfile
+          :dns/ontologicalType
+          :pmofn/semType                                    ; used by frames
+          :lexinfo/senseExample                             ; supplemented (DanNet)
+          :wn/example                                       ; used by OEWN
+          :dns/frameOf]]                                    ; used by frames
    semantic-section
    ;; dns:frame covers the frames supplemented onto synsets from the COR.SEM
    ;; senses linking them (see query/supplement-synset).
    [:patterns (into [:dns/frame
-                          :dns/alternatesTo
-                          :dns/alternatesFrom
-                          :dns/alternatesWith]
-                         frame-relations)]
+                     :dns/alternatesTo
+                     :dns/alternatesFrom
+                     :dns/alternatesWith]
+                    frame-relations)]
    [:frame-elements [:pmo/semRole
-                          :pmofn/feCoreSet]]
+                     :pmofn/feCoreSet]]
    synset-lexical-section
    ;; dns:source (the DDO deep links supplemented from the senses) and
    ;; dns:linkedSynsetOf are kept out of the shared cross-link-section, which
@@ -167,84 +167,84 @@
 
 (defmethod defined-sections :ontolex/LexicalSense
   [entity]
-  [[nil [:rdf/type
-         :skos/definition
-         :dns/simpleOntologicalType
-         :dns/frame
-         :lexinfo/senseExample
-         :skos/note]]
+  [[:top [:rdf/type
+          :skos/definition
+          :dns/simpleOntologicalType
+          :dns/frame
+          :lexinfo/senseExample
+          :skos/note]]
    semantic-section                                         ; OEWN sense-level rels
    [:patterns [:dns/polysemyPattern
-                    :dns/alternatesTo
-                    :dns/alternatesFrom
-                    :dns/alternatesWith]]
+               :dns/alternatesTo
+               :dns/alternatesFrom
+               :dns/alternatesWith]]
    [:lexical [:ontolex/isLexicalizedSenseOf
-                   :ontolex/isSenseOf
-                   :dns/sentiment
-                   :dns/centrality
-                   :lexinfo/frequency
-                   :lexinfo/usageNote]]
-   [:cross-link [:dns/source                           ; DDO deep link
-                      :owl/sameAs
-                      :dns/linkedSynset
-                      :dns/linkedSenseOf
-                      :dns/eqSense
-                      :dns/eqNearSense
-                      :dns/hypernymAnchor]]])
+              :ontolex/isSenseOf
+              :dns/sentiment
+              :dns/centrality
+              :lexinfo/frequency
+              :lexinfo/usageNote]]
+   [:cross-link [:dns/source                                ; DDO deep link
+                 :owl/sameAs
+                 :dns/linkedSynset
+                 :dns/linkedSenseOf
+                 :dns/eqSense
+                 :dns/eqNearSense
+                 :dns/hypernymAnchor]]])
 
 (defmethod defined-sections :ontolex/LexicalEntry
   [entity]
   ;; Also covers ontolex:Word and ontolex:MultiwordExpression (DanNet) through
   ;; `shape-hierarchy`; the OEWN types its entries as ontolex:LexicalEntry.
-  [[nil [:rdf/type
-         :lexinfo/partOfSpeech
-         :wn/partOfSpeech
-         :dns/gender]]
+  [[:top [:rdf/type
+          :lexinfo/partOfSpeech
+          :wn/partOfSpeech
+          :dns/gender]]
    semantic-section
    [:lexical [:ontolex/canonicalForm
-                   :ontolex/otherForm
-                   :ontolex/lexicalForm
-                   :ontolex/writtenRep
-                   :lexinfo/morphosyntacticProperty
-                   :ontolex/sense
-                   :ontolex/evokes]]
+              :ontolex/otherForm
+              :ontolex/lexicalForm
+              :ontolex/writtenRep
+              :lexinfo/morphosyntacticProperty
+              :ontolex/sense
+              :ontolex/evokes]]
    [:cross-link [:owl/sameAs
-                      :dns/linkedSense
-                      :dns/source]]])
+                 :dns/linkedSense
+                 :dns/source]]])
 
 (defmethod defined-sections :dns/OntologicalType
   [entity]
   ;; The rdf:_N membership rows join the top section, where the frontend
   ;; table folds them into a single rdfs:member row.
-  [[nil (into [:rdf/type] (filter shared/member-property? (keys entity)))]
+  [[:top (into [:rdf/type] (filter shared/member-property? (keys entity)))]
    [:usage [:dns/ontologicalTypeOf
-                 :dns/simpleOntologicalTypeOf]]])
+            :dns/simpleOntologicalTypeOf]]])
 
 (defmethod defined-sections :dns/PolysemyPattern
   [entity]
   ;; The rdf:_N membership rows join the top section, where the frontend
   ;; table folds them into a single rdfs:member row.
-  [[nil (into [:rdf/type]
-              (concat (filter shared/member-property? (keys entity))
-                      [:dns/patternGroup
-                       :rdfs/comment]))]
+  [[:top (into [:rdf/type]
+               (concat (filter shared/member-property? (keys entity))
+                       [:dns/patternGroup
+                        :rdfs/comment]))]
    [:usage [:dns/polysemyPatternOf]]])
 
 (defmethod defined-sections :pmofn/FrameElement
   [entity]
-  [[nil [:rdf/type
-         :skos/definition
-         :dns/roleOf
-         :pmofn/semType
-         :pmo/abbreviation]]
+  [[:top [:rdf/type
+          :skos/definition
+          :dns/roleOf
+          :pmofn/semType
+          :pmo/abbreviation]]
    [:patterns fe-relations]
    cross-link-section])
 
 (defmethod defined-sections :pmofn/SemType
   [entity]
-  [[nil [:rdf/type
-         :skos/definition
-         :pmofn/subTypeOf]]
+  [[:top [:rdf/type
+          :skos/definition
+          :pmofn/subTypeOf]]
    [:usage [:dns/semTypeOf]]
    cross-link-section])
 

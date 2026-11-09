@@ -284,11 +284,6 @@
                   :title    "rdf:type"}
                  (rdf/entity-link shape (assoc opts :link-title "rdf:type"))))
 
-(rum/defc synset-header-content
-  [subentity opts]
-  ;; The search page reuses the synset summary without the badge.
-  (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts)))
-
 (rum/defc semantic-relations-content
   [id subentity {:keys [languages] :as opts}]
   [:<>
@@ -310,13 +305,13 @@
      (table/attr-val-table opts subentity))])
 
 (defn- synset-header?
-  "True if section `id` of `subentity` holds the summary at the top of a
-  synset page: the untitled first section (see section/defined-sections) of
-  a synset that isn't a frame."
-  [id subentity opts]
-  (and (nil? id)
-       (rdf= (:rdf/type subentity) :ontolex/LexicalConcept)
-       (not (shared/frame? (:subject opts)))))
+  "True if section `id` holds the summary at the top of the synset page in
+  `opts`: the :top section (see section/defined-sections) of a synset that
+  isn't a frame."
+  [id {:keys [entity subject]}]
+  (and (= :top id)
+       (rdf= (:rdf/type entity) :ontolex/LexicalConcept)
+       (not (shared/frame? subject))))
 
 (rum/defc entity-section-content
   [id subentity opts]
@@ -324,23 +319,23 @@
     (= id :semantic)
     (semantic-relations-content id subentity opts)
 
-    (synset-header? id subentity opts)
-    (synset-header-content subentity opts)
+    ;; The search page reuses the synset summary without the badge.
+    (synset-header? id opts)
+    (synset-summary subentity opts (shape-badge :ontolex/LexicalConcept opts))
 
     :else
     (table/attr-val-table opts subentity)))
 
 (rum/defc entity-section
   [id subentity {:keys [languages] :as opts}]
-  (if-let [title (section/titles id)]
-    (let [title-id (str "section-title-" (lstr-slug title))]
-      [:section.subentity {:key             id
-                           :aria-labelledby title-id}
-       [:h2 {:id title-id} (str (i18n/select-label languages title))]
-       (error/try-render (entity-section-content id subentity opts))])
-    [:section.subentity (cond-> {:key        :no-title
-                                 :aria-label "RDF resource summary"}
-                          (synset-header? id subentity opts) (assoc :class "card"))
+  (let [title    (section/titles id)
+        title-id (when title (str "section-title-" (lstr-slug title)))]
+    [:section.subentity (cond-> (if title
+                                  {:aria-labelledby title-id}
+                                  {:aria-label "RDF resource summary"})
+                          (synset-header? id opts) (assoc :class "card"))
+     (when title
+       [:h2 {:id title-id} (str (i18n/select-label languages title))])
      (error/try-render (entity-section-content id subentity opts))]))
 
 (rum/defc full-screen-content
@@ -356,6 +351,4 @@
     :as   opts}]
   (for [[id ks] (section/page-sections entity)]
     (when-let [subentity (ordered-subentity opts ks entity)]
-      (rum/with-key
-        (entity-section id subentity opts)
-        (or id :no-title)))))
+      (rum/with-key (entity-section id subentity opts) id))))
