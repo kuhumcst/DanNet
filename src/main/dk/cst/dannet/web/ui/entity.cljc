@@ -266,11 +266,8 @@
       (when ontologicalType
         [:li {:property "dns:ontologicalType"
               :title    "dns:ontologicalType"}
-         (if (keyword? ontologicalType)
-           (rdf/resource-hyperlink ontologicalType
-                                   (assoc opts :attr-key :dns/ontologicalType))
-           (rdf/blank-node (assoc opts :attr-key :dns/ontologicalType)
-                           ontologicalType))])])))
+         (rdf/value (assoc opts :attr-key :dns/ontologicalType)
+                    ontologicalType)])])))
 
 (rum/defc summary-badge
   "Generic dictionary entry-style badge for use in summary components.

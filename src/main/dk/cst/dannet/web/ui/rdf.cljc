@@ -36,17 +36,6 @@
   [x]
   (and (map? x) (symbol? (:rdf/about x))))
 
-(defn bag->coll
-  "Extract member values from an RDF Bag map `m` into a flat sorted collection."
-  [{:keys [rdf/type] :as m}]
-  (when (or (= :rdf/Bag type)
-            (contains? type :rdf/Bag))
-    (->> (dissoc m :rdf/type)
-         (filter (comp shared/member-property? first))
-         (mapcat (comp shared/setify second))
-         sort
-         not-empty)))
-
 (defn label-sortkey-fn*
   "Keyfn for sorting keywords and other content based on a `k->label` mapping.
   Returns vectors so that identical labels are sorted by keywords secondly."
@@ -98,8 +87,7 @@
     :sense-label?  a string is a sense label, e.g. hund_1§2
     :concepts?     dnc: concepts are shown as one value joined by +"
   {:rdf/about                     {:hide-prefix? true}
-   :dns/ontologicalType           {:hide-prefix? true
-                                   :concepts?    true}
+   :dns/ontologicalType           {:hide-prefix? true}
    :dns/simpleOntologicalType     {:hide-prefix? true}
    :rdfs/member                   {:concepts? true}
    :foaf/homepage                 {:uri? true}
@@ -246,13 +234,10 @@
               label)))))
 
 (defn- set-notation
-  "Show `content` as a set, e.g. {hund • køter}, after the prefix `badge`, if
-  any.
-
-  The brackets are left out when `opts` has :bare-sets?."
-  [badge content {:keys [bare-sets?]}]
+  "Show `content` as a set, e.g. {hund • køter}, without the brackets when
+  `opts` has :bare-sets?."
+  [content {:keys [bare-sets?]}]
   [:span.set
-   badge
    (when-not bare-sets? [:span.set__left-bracket])
    [:span.set__content content]
    (when-not bare-sets? [:span.set__right-bracket])])
@@ -280,7 +265,7 @@
      :let [uri (when (prefix/rdf-resource? s)
                  (prefix/rdf-resource->uri s))]
      (synset-label? s)
-     (set-notation nil (synset-words s) opts)
+     (set-notation (synset-words s) opts)
 
      (and uri (re-find ddo-ordbog-query uri))
      (ddo-hyperlink uri)
@@ -357,7 +342,7 @@
         ;; words. The outer span keeps the language tag after the closing
         ;; bracket, in the colour of the namespace.
         [:span.set-link (select-keys attrs [:lang :class])
-         (set-notation nil [:a (dissoc attrs :lang) (synset-words s)] opts')]
+         (set-notation [:a (dissoc attrs :lang) (synset-words s)] opts')]
         [:a attrs
          (or (transform-val label opts')
              (name resource))]))
@@ -453,19 +438,6 @@
                    (->> (sort-by str froms)
                         (map #(entity-link % opts'))
                         (interpose ", "))))]))
-
-      :let [resources (bag->coll m)]
-      resources
-      (container (set-notation
-                   (when (and (every? keyword? resources)
-                              (apply = (map namespace resources)))
-                     (let [prefix (symbol (namespace (first resources)))]
-                       (prefix-badge prefix opts)))
-                   (into [:<>]
-                         (->> resources
-                              (map #(entity-link % opts))
-                              (interpose [:span.subtle " • "])))
-                   opts))
 
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
