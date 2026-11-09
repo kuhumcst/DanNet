@@ -14,32 +14,13 @@
   4)
 
 (rum/defc value-cell
-  "A table cell of an 'attr-val-table' containing a single `v`. The single value
-  can either be a literal or an inlined table (i.e. a blank RDF node)."
-  [{:keys [languages] :as opts} v]
-  (cond
-    (keyword? v)
-    (if (empty? (name v))
-      ;; A namespace IRI arrives as a keyword with no name, e.g. :rdfs/.
-      [:td
-       (rdf/rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)]
-      [:td.attr-combo                                       ; fixes alignment
-       (rdf/resource-hyperlink v opts)])
-
-    ;; A blank node as a map of its properties.
-    (map? v)
-    [:td (rdf/blank-node opts v)]
-
-    ;; Doubly inlined tables, i.e. blank nodes inside blank nodes, arrive as
-    ;; symbols and are omitted entirely.
-    (symbol? v)
-    (i18n/da-en languages
-      [:td.omitted "(detaljer udeladt)"]
-      [:td.omitted "(details omitted)"])
-
-    :else
-    (let [s (i18n/select-str languages v)]
-      [:td {:lang (i18n/lang s)} (rdf/transform-val s opts)])))
+  "A table cell of an 'attr-val-table' containing the single value `v`, e.g. a
+  literal or an inlined table (i.e. a blank RDF node)."
+  [opts v]
+  [:td (cond-> (rdf/value-attrs v)
+         ;; fixes the alignment of a resource's prefix badge and link
+         (and (keyword? v) (not-empty (name v))) (assoc :class "attr-combo"))
+   (rdf/value opts v)])
 
 (defn display-cloud?
   "Can the values `v` of the predicate in `opts` be shown as a word cloud?"

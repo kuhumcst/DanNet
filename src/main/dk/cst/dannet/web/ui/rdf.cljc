@@ -474,23 +474,42 @@
       table-component
       (table-component (assoc opts :folded (:folded (meta m))) m))))
 
+(defn value
+  "The content of the single value `v` informed by `opts`: a link to a
+  resource or a namespace, a blank node, a note in place of a blank node
+  nested too deeply to show, or a literal."
+  [{:keys [languages] :as opts} v]
+  (cond
+    (keyword? v)
+    (if (empty? (name v))
+      ;; A namespace IRI arrives as a keyword with no name, e.g. :rdfs/.
+      (rdf-uri-hyperlink (-> v namespace symbol prefix/prefix->uri) opts)
+      (resource-hyperlink v opts))
+
+    (map? v)
+    (blank-node opts v)
+
+    ;; Doubly inlined tables, i.e. blank nodes inside blank nodes, arrive as
+    ;; symbols and are omitted entirely.
+    (symbol? v)
+    (i18n/da-en languages "(detaljer udeladt)" "(details omitted)")
+
+    :else
+    (transform-val v opts)))
+
+(defn value-attrs
+  "The attributes of the element around the single value `v`: the language of
+  a literal, or the class of an omitted blank node."
+  [v]
+  (cond
+    (symbol? v) {:class "omitted"}
+    (or (keyword? v) (map? v)) {}
+    :else {:lang (i18n/lang v)}))
+
 (rum/defc list-item
   "A list item element of a 'list-cell'."
   [opts item]
-  (cond
-    (keyword? item)
-    [:li (resource-hyperlink item opts)]
-
-    (blank-node? item)
-    [:li (blank-node opts item)]
-
-    ;; a blank node inside a blank node
-    (symbol? item)
-    [:li.omitted (str item)]
-
-    :else
-    [:li {:lang (i18n/lang item)}
-     (transform-val item opts)]))
+  [:li (value-attrs item) (value opts item)])
 
 (rum/defc render-list-items
   [opts coll]
@@ -594,15 +613,9 @@
               (hypernym-chain ancestors opts)])))))
 
 (rum/defc resource
-  "Render `x` informed by `opts`: a blank node map, a coll of values or a
-  resource."
+  "Render `x` informed by `opts`: a coll of values as a list, or else a single
+  value."
   [opts x]
-  (cond
-    (map? x)
-    (blank-node opts x)
-
-    (coll? x)
+  (if (shared/multi-valued? x)
     (list-items opts x)
-
-    (some? x)
-    (resource-hyperlink x opts)))
+    (some->> x (value opts))))
