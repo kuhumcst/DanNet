@@ -12,10 +12,9 @@
   Current uses:
     * clojure.test assertions over small fixtures (see test ns),
     * a non-fatal bootstrap/CI check that logs anomalies via Telemere,
-      comparing violation counts to a known baseline (shapes-baseline.edn),
+      comparing violation counts to a known baseline (shapes-baseline.edn), and
     * a release gate aborting RDF exports on baseline regressions
-      (`validate-export!`, called from dk.cst.dannet.db.export.rdf), and
-    * introspection of the shapes themselves as plain data (`shapes->spec`)."
+      (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [dk.cst.theophrastus :as theo]
@@ -27,20 +26,9 @@
             [taoensso.telemere :as t])
   (:import [org.apache.jena.rdf.model Model]
            [org.apache.jena.shacl Shapes]
-           [org.apache.jena.shacl.engine Target]
-           [org.apache.jena.shacl.engine.constraint ClassConstraint
-                                                    HasValueConstraint
-                                                    InConstraint
-                                                    MaxCount
-                                                    MinCount
-                                                    NodeKindConstraint
-                                                    PatternConstraint
-                                                    SparqlConstraint]
-           [org.apache.jena.shacl.parser Constraint PropertyShape Shape]
            [org.apache.jena.graph Graph Node NodeFactory Triple]
            [org.apache.jena.graph.compose Delta]
-           [org.apache.jena.riot RDFDataMgr]
-           [org.apache.jena.sparql.path Path P_Link]))
+           [org.apache.jena.riot RDFDataMgr]))
 
 ;; TODO: shapes are kept internal for now, but since SHACL shapes are plain
 ;; RDF, consider eventually publishing them as Linked Open Data under the dns:
@@ -138,90 +126,6 @@
                         (into [] (mapcat #(:results (validate-node changed shapes %)))))]
        {:conforms? (empty? results)
         :results   results}))))
-
-;; Shape introspection: the parsed Shapes as plain data, with the keywords of
-;; the results of `validate`.
-(def spec-prefixes
-  "The prefixes of the keywords in `shapes->spec`."
-  (assoc prefix/prefixes :sh "<http://www.w3.org/ns/shacl#>"))
-
-(defn- node->value
-  [^Node node]
-  (convert/data node spec-prefixes))
-
-(defn- path->value
-  "The predicate of a single-predicate `path`, or else its SPARQL syntax."
-  [^Path path]
-  (if (instance? P_Link path)
-    (node->value (.getNode ^P_Link path))
-    (some-> path str)))
-
-(defn- message->str
-  "The lexical form of an sh:message `node`."
-  [^Node node]
-  (if (.isLiteral node)
-    (.getLiteralLexicalForm node)
-    (str node)))
-
-(defn- constraint->map
-  "Convert a Jena `Constraint` into a map whose :type is the SHACL constraint
-  component, i.e. the :constraint-component of a validation result.
-  SPARQL-based constraints stay opaque (a query string is not a form field)."
-  [^Constraint c]
-  (let [m {:type (node->value (.getComponent c))}]
-    (condp instance? c
-      MinCount (assoc m :min-count (.getMinCount ^MinCount c))
-      MaxCount (assoc m :max-count (.getMaxCount ^MaxCount c))
-      ClassConstraint (assoc m :class (node->value (.getExpectedClass ^ClassConstraint c)))
-      NodeKindConstraint (assoc m :node-kind (node->value (.getKind ^NodeKindConstraint c)))
-      HasValueConstraint (assoc m :value (node->value (.getValue ^HasValueConstraint c)))
-      PatternConstraint (assoc m :pattern (.getPattern ^PatternConstraint c))
-      InConstraint (assoc m :values (mapv node->value (.getValues ^InConstraint c)))
-      SparqlConstraint m
-      (assoc m :description (str c)))))
-
-(defn- target->map
-  "Convert a Jena `target` into a map of target :type (e.g. :targetClass,
-  :targetSubjectsOf, or :targetExtension for SPARQL-based targets) and the
-  targeted :node."
-  [^Target target]
-  {:type (keyword (str (.getTargetType target)))
-   :node (node->value (.getObject target))})
-
-(defn- property-shape->map
-  [^PropertyShape ps]
-  (cond-> {:shape       (node->value (.getShapeNode ps))
-           :path        (path->value (.getPath ps))
-           :severity    (some-> (.getSeverity ps) .level node->value)
-           :constraints (mapv constraint->map (.getConstraints ps))}
-    (seq (.getMessages ps))
-    (assoc :messages (mapv message->str (.getMessages ps)))))
-
-(defn- shape->map
-  [^Shape shape]
-  (cond-> {:shape    (node->value (.getShapeNode shape))
-           :severity (some-> (.getSeverity shape) .level node->value)
-           :targets  (mapv target->map (.getTargets shape))}
-    (seq (.getConstraints shape))
-    (assoc :constraints (mapv constraint->map (.getConstraints shape)))
-    (seq (.getMessages shape))
-    (assoc :messages (mapv message->str (.getMessages shape)))
-    (seq (.getPropertyShapes shape))
-    (assoc :properties (mapv property-shape->map (.getPropertyShapes shape)))))
-
-(defn shapes->spec
-  "Convert parsed SHACL `shapes` (a Jena `Shapes`, e.g. @shapes) into plain
-  Clojure data: one map per targeted node shape, sorted by :shape identity.
-
-  Shape ids, property paths, severities, and constraint components use the
-  same keywords as validation results, so a UI can join the two, e.g.
-  marking a form field required from a :sh/MinCountConstraintComponent and
-  localizing its violations by the :source-shape of a result."
-  [^Shapes shapes]
-  (->> (iterator-seq (.iterator shapes))
-       (map shape->map)
-       (sort-by :shape)
-       (vec)))
 
 (def baseline-resource
   "schemas/internal/shapes-baseline.edn")
@@ -369,10 +273,6 @@
 (comment
   ;; Inspect the currently accepted violation counts.
   @baseline
-
-  ;; The base/editorial shapes as plain data, e.g. for deriving UI fields.
-  (shapes->spec @shapes)
-  (shapes->spec @editorial-shapes)
 
   ;; The shapes and baseline are parsed once into delays, so after editing
   ;; the .ttl shape files or the baseline EDN, reload this ns to pick them up.
