@@ -247,10 +247,6 @@ td.attr-name {
     background: var(--bg-texture);
 }
 
-tr + tr td.attr-prefix,
-tr + tr td.attr-name {
-}
-
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
 .attr-combo > span {
     vertical-align: top;
@@ -631,11 +627,6 @@ ul.synset-summary .set-link::after {
 
 article.search {
     width: fit-content;
-}
-
-article.search table.attr-val + table.attr-val {
-    margin-top: var(--spacing-xxl);
-    margin-bottom: var(--spacing-l);
 }
 
 /* Document-style articles (e.g. about page) */

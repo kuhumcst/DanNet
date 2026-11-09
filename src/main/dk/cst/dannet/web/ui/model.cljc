@@ -12,7 +12,7 @@
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page
-    :synset?       whether the page is about a synset
+    :synset?       whether the entity has semantic relations, as synsets do
     :inherited     the relations that the entity inherits from its hypernym
     :comments      the notes that explain the markers in the tables
 

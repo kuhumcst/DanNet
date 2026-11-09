@@ -259,10 +259,8 @@
   "Expand `sections` to include 'Other' (containing the remainder an entity)."
   [sections]
   (let [ks-defs     (map second sections)
-        in-ks?      (fn [[k _]]
-                      (get (set (apply concat (filter coll? ks-defs)))
-                           k))
-        in-section? (apply some-fn in-ks? (filter fn? ks-defs))]
+        ks          (set (apply concat (filter coll? ks-defs)))
+        in-section? (apply some-fn (comp ks first) (filter fn? ks-defs))]
     (conj sections [:other (complement in-section?)])))
 
 ;; Memoization unbounded in CLJS since core.memoize is CLJ-only!

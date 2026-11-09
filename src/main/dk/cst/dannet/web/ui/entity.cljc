@@ -62,7 +62,11 @@
         label-lang    (i18n/lang label)
         a-titles      [(term/->LangString "Visit this location directly" "en")
                        (term/->LangString "Besøg denne lokation direkte" "da")]
-        uri-only?     (and (not label) (= local-name rdf-uri))]
+        uri-only?     (and (not label) (= local-name rdf-uri))
+        uri-link      [:a.rdf-uri {:href  rdf-uri
+                                   :title (str (select-label* a-titles))
+                                   :key   rdf-uri}
+                       (rdf/break-up-uri rdf-uri)]]
     [:header.page-header
      [:h1
       (rdf/prefix-badge prefix)
@@ -77,10 +81,7 @@
        (if label
          (rdf/transform-val label opts)
          (if uri-only?
-           [:a.rdf-uri {:href  rdf-uri
-                        :title (str (select-label* a-titles))
-                        :key   rdf-uri}
-            (rdf/break-up-uri rdf-uri)]
+           uri-link
            local-name))]
       ;; Rendered explicitly since the CSS-based superscripts skip the h1 span;
       ;; hidden when matching the UI language, mirroring the CSS rule.
@@ -95,41 +96,37 @@
            (rdf/break-up-uri uri-prefix)]
           [:span.rdf-uri__name {:key local-name}
            (rdf/break-up-uri local-name)]]
-         [:a.rdf-uri {:href  rdf-uri
-                      :title (str (select-label* a-titles))
-                      :key   rdf-uri}
-          (rdf/break-up-uri rdf-uri)]))]))
+         uri-link))]))
 
 (rum/defc entity-notes
   [{:keys [href languages comments inferred inherited supplemented]
     :as   opts}]
-  [:aside.notes
-   (when (not-empty inferred)
-     [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
-   (when (not-empty inherited)
-     [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
-   (when (not-empty supplemented)
-     [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
-   (when (not-empty (:folded opts))
-     [:p.note.desktop-only [:strong "⊑ "] (:entailment comments)])
-   [:p.note
-    [:strong "↓ "]
-    (i18n/da-en languages
-      "hent data som: "
-      "download data as: ")
-    [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
-                        "format=turtle")
-         :type     "text/turtle"
-         :title    "Turtle"
-         :download true}
-     "Turtle"]
-    ", "
-    [:a {:href     (str href (if (re-find #"\?" href) "&" "?")
-                        "format=json-ld")
-         :type     "application/ld+json"
-         :title    "JSON-LD"
-         :download true}
-     "JSON-LD"]]])
+  (let [format-href #(str href (if (re-find #"\?" href) "&" "?") "format=" %)]
+    [:aside.notes
+     (when (not-empty inferred)
+       [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
+     (when (not-empty inherited)
+       [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
+     (when (not-empty supplemented)
+       [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
+     (when (not-empty (:folded opts))
+       [:p.note.desktop-only [:strong "⊑ "] (:entailment comments)])
+     [:p.note
+      [:strong "↓ "]
+      (i18n/da-en languages
+        "hent data som: "
+        "download data as: ")
+      [:a {:href     (format-href "turtle")
+           :type     "text/turtle"
+           :title    "Turtle"
+           :download true}
+       "Turtle"]
+      ", "
+      [:a {:href     (format-href "json-ld")
+           :type     "application/ld+json"
+           :title    "JSON-LD"
+           :download true}
+       "JSON-LD"]]]))
 
 (rum/defc display-mode-selector
   [id {:keys [languages]
@@ -179,20 +176,15 @@
               spans)
          (filterv (comp seq second)))))
 
-(defn- highlight-matches
-  "Emphasise the parts of the string `s` matching `re`."
-  [re s]
-  (into [:<>] (for [[kind segment] (split-matches re s)]
-                (case kind
-                  :match [:strong segment]
-                  :text segment))))
-
 (defn- highlight-lemmas
   "Emphasise occurrences of `lemmas` (incl. inflected forms) in the string `s`."
   [lemmas s]
   (if (empty? lemmas)
     s
-    (highlight-matches (shared/lemma-pattern lemmas) s)))
+    (into [:<>] (for [[kind segment] (split-matches (shared/lemma-pattern lemmas) s)]
+                  (case kind
+                    :match [:strong segment]
+                    :text segment)))))
 
 (defn- example-strs
   "The usage examples in a synset `subentity` as [property example] pairs.
@@ -269,20 +261,13 @@
          (rdf/value (assoc opts :attr-key :dns/ontologicalType)
                     ontologicalType)])])))
 
-(rum/defc summary-badge
-  "Generic dictionary entry-style badge for use in summary components.
-  RDFa/mouseover `attrs` (:property + :title) should indicate the attribute
-  that the badge `content` was pulled from."
-  [attrs & content]
-  (into [:span.summary-badge attrs] content))
-
 (rum/defc shape-badge
   "Discreet badge displaying the rdf:type `shape` behind a custom summary
   component, since such components otherwise hide the type of the resource."
   [shape opts]
-  (summary-badge {:property "rdf:type"
-                  :title    "rdf:type"}
-                 (rdf/entity-link shape (assoc opts :link-title "rdf:type"))))
+  [:span.summary-badge {:property "rdf:type"
+                        :title    "rdf:type"}
+   (rdf/entity-link shape (assoc opts :link-title "rdf:type"))])
 
 (rum/defc semantic-relations-content
   [id subentity {:keys [languages] :as opts}]
