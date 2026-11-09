@@ -52,17 +52,6 @@
   #?(:clj  (memo/lru label-sortkey-fn* :lru/threshold 1000)
      :cljs (memoize label-sortkey-fn*)))
 
-(defn sort-by-label-with-keys
-  "Sort `coll` by labels and return items with pre-computed sort keys.
-  
-  Uses the Schwartzian transform pattern to compute each sort key once.
-  Returns a sequence of maps with `:item` and `:sort-key` keys."
-  [opts coll]
-  (let [keyfn (label-sortkey-fn opts)]
-    (->> coll
-         (map (fn [item] {:item item :sort-key (keyfn item)}))
-         (sort-by :sort-key))))
-
 (def uri-pattern
   #"https?://|[^\./\?&=#%]+|%[0-9A-Fa-f]{2}|[\./\?&=#]")
 
@@ -211,6 +200,12 @@
             (marker->sub sub)
             token))))
 
+(defn- sense-label
+  "The sense label of a `match` of shared/sense-label, with its entry markers
+  as subscripts."
+  [[_ word _ sub mwe :as match]]
+  [:<> word (some-> sub marker->sub) (some-> mwe subscript-markers)])
+
 (defn- synset-label?
   "True if the string `s` is a synset label, e.g. {hund_1§1; køter_§1}."
   [s]
@@ -277,8 +272,8 @@
      ;; names displayed on COR.SEM senses) render verbatim.
      (or (displays? opts :sense-label?)
          (= (:rdf/type entity) :ontolex/LexicalSense))
-     (if-let [[_ word _ sub mwe] (re-matches shared/sense-label s)]
-       [:<> word (when sub [:sub sub]) (some-> mwe subscript-markers)]
+     (if-let [match (re-matches shared/sense-label s)]
+       (sense-label match)
        s)
 
      (re-matches #"https?://[^\s]+" s)
@@ -291,8 +286,8 @@
      ;; no attr-key or entity is available.
      ;; TODO: could be tightened by threading the resource keyword through and
      ;;       checking for :dn/sense-* instead of relying on string matching alone.
-     :let [[_ word _ sub mwe] (when-not attr-key (re-matches shared/sense-label s))]
-     sub [:<> word [:sub sub] (some-> mwe subscript-markers)]
+     :let [match (when-not attr-key (re-matches shared/sense-label s))]
+     (get match 3) (sense-label match)
 
      :else s)))
 
@@ -300,13 +295,11 @@
   "Render the value `v` as hiccup, optionally informed by `opts`.
 
   Returns nil for nil/empty input to allow fallback via 'or'."
-  ([v opts]
-   (when (some? v)
-     (error/try-render-with [e v opts]
-       (transform-val* v opts)
-       [:span.render-error {:title (ex-message e)} (str v)])))
-  ([v]
-   (transform-val v nil)))
+  [v opts]
+  (when (some? v)
+    (error/try-render-with [e v opts]
+      (transform-val* v opts)
+      [:span.render-error {:title (ex-message e)} (str v)])))
 
 (defn link-label
   "The label of `k` in `opts` as `entity-link` shows it, falling back to the
@@ -318,7 +311,7 @@
 ;; TODO: figure out how to prevent line break for lang tag similar to h1
 (rum/defc entity-link
   "Entity hyperlink from a `resource` and (optionally) a string label `s`."
-  [resource {:keys [languages k->label class link-href link-title attr-key] :as opts}]
+  [resource {:keys [languages k->label link-href link-title attr-key] :as opts}]
   (if (keyword? resource)
     (let [labels (get k->label resource)
           label  (i18n/select-label languages labels)
@@ -332,7 +325,7 @@
           attrs  (cond-> {:href  (or link-href (prefix/resolve-href resource))
                           :title (or link-title (str prefix ":" (name resource)))
                           :lang  (i18n/lang label)
-                          :class (or class (get prefix/prefix->class prefix "unknown"))}
+                          :class (get prefix/prefix->class prefix "unknown")}
                    ;; Add RDFa :resource when rendering a value to complete the
                    ;; triple begun by the parent [:tr {:property ...}].
                    (not= resource attr-key) (assoc :resource (prefix/kw->uri resource)))
@@ -485,7 +478,9 @@
 
 (rum/defc render-list-items
   [opts coll]
-  (for [{:keys [item sort-key]} (sort-by-label-with-keys opts coll)]
+  ;; each sort key is computed once and doubles as the item's React key
+  (for [[sort-key item] (sort-by first (map (juxt (label-sortkey-fn opts) identity)
+                                            coll))]
     (rum/with-key (list-item opts item) sort-key)))
 
 ;; A Rum-controlled version of the <details> element which only renders content
@@ -506,9 +501,7 @@
 (defn expandable-list
   [{:keys [languages] :as opts} coll]
   (let [[summary-coll rest-coll] (split-at 3 coll)
-        total-amount (+ (count summary-coll)
-                        (count rest-coll))
-        c            (condp > total-amount
+        c            (condp > (count coll)
                        100 "two-digits"
                        1000 "three-digits"
                        10000 "four-digits"

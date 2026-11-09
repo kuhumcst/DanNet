@@ -4,11 +4,6 @@
             [dk.cst.dannet.web.section :as section]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
-(def cross-link-rels
-  "The relations used to link to other datasets; sourced from the entity page
-  sections to keep the two definitions in sync."
-  (set (second section/cross-link-section)))
-
 (def group-order
   "Display order for synset relation groups with titles, descriptions, and the
   member relations listed in display order; most important relations first,
@@ -57,12 +52,13 @@
     {:da "Eksterne forbindelser" :en "External links"}
     {:da "Relationer der forbinder DanNets begreber med begreber i andre datasæt; disse vises også separat på den enkelte synset-side."
      :en "Relations connecting DanNet concepts to concepts in other datasets; these are also displayed separately on the individual synset page."}
-    ;; Local display order; any other cross-link relations are appended.
+    ;; Local display order; any other relations of the entity page's
+    ;; cross-link section are appended, keeping the two in sync.
     (vec (distinct (concat [:wn/ili :dns/iliOf
                             :wn/eq_synonym :dns/eqHypernym
                             :dns/eqHyponym :dns/eqSimilar
                             :owl/sameAs]
-                           cross-link-rels)))]
+                           (second section/cross-link-section))))]
    [:other
     {:da "Andet" :en "Other"}
     {:da "Øvrige relationer."
