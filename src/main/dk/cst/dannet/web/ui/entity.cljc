@@ -99,15 +99,17 @@
          uri-link))]))
 
 (rum/defc entity-notes
-  [{:keys [href languages comments inferred inherited supplemented]
-    :as   opts}]
-  (let [format-href #(str href (if (re-find #"\?" href) "&" "?") "format=" %)]
+  [{:keys [href languages comments entity inherited] :as opts}]
+  (let [format-href #(str href (if (re-find #"\?" href) "&" "?") "format=" %)
+        origins     (into #{}
+                          (mapcat (fn [[k v]] (table/row-origins opts k v)))
+                          entity)]
     [:aside.notes
-     (when (not-empty inferred)
+     (when (contains? origins :inferred)
        [:p.note.desktop-only [:strong "∴ "] (:inference comments)])
      (when (not-empty inherited)
        [:p.note.desktop-only [:strong "† "] (:inheritance comments)])
-     (when (not-empty supplemented)
+     (when (contains? origins :supplemented)
        [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
      (when (not-empty (:folded opts))
        [:p.note.desktop-only [:strong "⊑ "] (:entailment comments)])

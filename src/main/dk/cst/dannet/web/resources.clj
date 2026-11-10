@@ -370,6 +370,7 @@
    {:keys [truncate? deferred?]}]
   (let [languages (resp/request->languages request)
         qs        (some-> (:query-string request) remove-internal-params)
+        folded-ks (mapcat #(cons (key %) (val %)) folded)
         synset?   (and truncate?
                        (not deferred?)
                        (shared/synset? subject raw-entity))]
@@ -381,18 +382,18 @@
                :entity entity)
         (cond->
           ;; Display-only payload trimming: the deferred response carries the
-          ;; overflow labels, and the UI checks :inferred keys, never values.
+          ;; overflow labels, and the origins cover the rows shown.
           truncate?
           (update :entities select-keys
                   (cond-> (ent/displayed-resources entity)
                     (not deferred?)
-                    (into (mapcat #(cons (key %) (val %)) folded))))
+                    (into folded-ks)))
 
           (and truncate? (not deferred?))
-          (update :inferred (comp set keys))
+          (update :origins select-keys (concat (keys entity) folded-ks))
 
           deferred?
-          (dissoc :inferred :supplemented :ancestry)
+          (dissoc :origins :default-origin :ancestry)
 
           (and (not deferred?) (not-empty folded))
           (assoc :folded folded)

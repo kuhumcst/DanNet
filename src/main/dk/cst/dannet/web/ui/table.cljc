@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.table
   "Table rendering functions for RDF data."
   (:require [rum.core :as rum]
+            [dk.cst.theophrastus.origin :as origin]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -30,6 +31,18 @@
        ;; A word cloud is only relevant in cases where the content has been
        ;; presorted by weight, e.g. synset relations currently in use in DanNet.
        (shared/weight-sorted-rel? attr-key)))
+
+(defn row-origins
+  "The origins of the values `v` of the property `k`, as the page data in
+  `opts` has them, e.g. #{:inferred} for a row of inferred values."
+  [{:keys [origins default-origin] :as opts} k v]
+  (let [as-set #(if (set? %) % #{%})
+        o      (get origins k)]
+    (if (map? o)
+      (into #{}
+            (mapcat #(as-set (origin/origin opts k %)))
+            (if (shared/multi-valued? v) v [v]))
+      (as-set (or o default-origin)))))
 
 (defn reaches-limit?
   "Do `n` values reach the limit, from which a relation shows the word cloud of
@@ -130,11 +143,11 @@
 
 (rum/defc attr-val-row
   "A single row in the attribute-value table."
-  [{:keys [subject comments inherited inferred supplemented] :as opts}
-   k v display-opts]
-  (let [inherited?    (get inherited k)
-        inferred?     (get inferred k)
-        supplemented? (get supplemented k)
+  [{:keys [subject comments inherited] :as opts} k v display-opts]
+  (let [origins       (row-origins opts k v)
+        inherited?    (get inherited k)
+        inferred?     (contains? origins :inferred)
+        supplemented? (contains? origins :supplemented)
         prefix        (if (keyword? k)
                         (some-> (namespace k) symbol)
                         k)

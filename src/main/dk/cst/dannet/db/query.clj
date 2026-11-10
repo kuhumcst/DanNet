@@ -7,7 +7,9 @@
             [clojure.core.memoize :as memo]
             [taoensso.telemere :as t]
             [dk.cst.theophrastus :as theo]
+            [dk.cst.theophrastus.origin :as origin]
             [dk.cst.dannet.entity :as ent]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.release :as release]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.db.query.operation :as op]))
@@ -308,8 +310,8 @@
   "Supplement `synset` for `subject` in `g` with examples and DDO source links
   gathered from its senses, the English definition of its ILI concept, and the
   FrameNet frames of its COR.SEM senses (see synset-frames).
-  Returns synset with metadata updated with `:supplemented`, `:ancestry`, and
-  additional `:entities` labels."
+  Returns synset with metadata updated with `:ancestry` and additional
+  `:entities` labels."
   [g synset subject]
   (let [examples     (gathered-sense-values g subject :lexinfo/senseExample)
         sources      (some-> (gathered-sense-values g subject :dns/source)
@@ -350,9 +352,8 @@
                                      supplemented)
                        frames (merge (resource-labels g frames)))]
     (vary-meta synset' merge
-               {:entities     entities
-                :supplemented (not-empty supplemented)
-                :ancestry     ancestry})))
+               {:entities entities
+                :ancestry ancestry})))
 
 ;; TODO: make the word entity page resemble a traditional dictionary entry via
 ;;       custom display elements, e.g. the abbreviated inflected forms found in
@@ -360,7 +361,7 @@
 (defn supplement-word
   "Supplement `word` in `g` with inflected forms from the COR words it is
   owl:sameAs. Returns word with `:ontolex/otherForm` added and metadata
-  updated with `:supplemented` and additional `:entities` labels."
+  updated with additional `:entities` labels."
   [g word]
   (let [cor-word? (fn [k] (and (keyword? k) (= "cor" (namespace k))))
         forms     (->> (shared/setify (:owl/sameAs word))
@@ -376,8 +377,7 @@
                                   (select-keys rel-entity [:rdfs/label])))]
         (-> word
             (update :ontolex/otherForm #(into forms (shared/setify %)))
-            (vary-meta merge {:entities     entities
-                              :supplemented #{:ontolex/otherForm}})))
+            (vary-meta assoc :entities entities)))
       word)))
 
 (defn subtract-asserted
@@ -395,32 +395,49 @@
         (dissoc entity super)))
     entity))
 
+(defn- supplemented-origins
+  "The :origins of the `entity` that DanNet made of `read`, which theo/entity
+  returned with origins. A value that `read` lacks is :supplemented, and the
+  others keep the origin they were read with."
+  [entity read]
+  (let [m           (meta read)
+        read-values (update-vals (dissoc read :rdf/about)
+                                 #(into #{} (map about) (shared/setify %)))]
+    (origin/origins entity
+                    (fn [p x]
+                      (if (contains? (get read-values p) x)
+                        (origin/origin m p x)
+                        :supplemented))
+                    (:default-origin m))))
+
 (defn- expanded-entity*
-  "Return the expanded entity description of `subject` in `g`."
+  "Return the expanded entity description of `subject` in `g`, with the
+  origins of its values in its metadata. A value from the dn: graph has the
+  default origin, and one that DanNet adds is :supplemented."
   [g subject]
-  (if-let [e (theo/entity g subject)]
+  (if-let [e (theo/entity g subject {:default-origin prefix/dn-graph})]
     (let [entity+  (-> (update-objects e blank-node)
                        (weighted-relations))
           entities (resource-labels g (ent/displayed-resources entity+))
-          ;; theo/entity puts the :inferred part of an inference graph in the
-          ;; metadata.
           entity*  (with-meta entity+
                               (assoc (meta e) :entities entities
-                                              :subject subject))]
-      (cond
-        (shared/dn-synset? subject entity*)
-        (supplement-synset g entity* subject)
+                                              :subject subject))
+          expanded (cond
+                     (shared/dn-synset? subject entity*)
+                     (supplement-synset g entity* subject)
 
-        (shared/dn-word? subject entity*)
-        (supplement-word g entity*)
+                     (shared/dn-word? subject entity*)
+                     (supplement-word g entity*)
 
-        (shared/cor-word? subject entity*)
-        (subtract-asserted entity* :ontolex/sense :dns/linkedSense)
+                     (shared/cor-word? subject entity*)
+                     (subtract-asserted entity* :ontolex/sense :dns/linkedSense)
 
-        (shared/dn-sense? subject entity*)
-        (subtract-asserted entity* :ontolex/isSenseOf :dns/linkedSenseOf)
+                     (shared/dn-sense? subject entity*)
+                     (subtract-asserted entity* :ontolex/isSenseOf
+                                        :dns/linkedSenseOf)
 
-        :else entity*))
+                     :else entity*)]
+      (vary-meta expanded assoc :origins (supplemented-origins expanded e)))
     (with-meta {} {:subject subject})))
 
 ;; Large synsets can have thousands of semantic relations (e.g. synset-2119 has
@@ -431,7 +448,7 @@
 ;; the deferred request completes in <1ms.
 (def expanded-entity
   "The `entity` of `subject` in `g` for display: relations sorted by weight,
-  blank nodes as maps, :entities labels (and :inferred) in its metadata.
+  blank nodes as maps, :entities labels and :origins in its metadata.
 
   DanNet synsets and words get supplemented, while COR words and DanNet senses
   leave out the values they also assert under a dns: subproperty."

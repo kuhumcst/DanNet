@@ -434,10 +434,16 @@
 
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
-      ;; Nested tables use the embedded entity's own folded relations (attached
-      ;; as metadata by the backend) rather than the outer entity's, cf. #195.
+      ;; Nested tables use the embedded entity's own folded relations and
+      ;; origins (attached as metadata by the backend) rather than the outer
+      ;; entity's, cf. #195. Without origins, their rows have no markers.
       table-component
-      (table-component (assoc opts :folded (:folded (meta m))) m))))
+      (let [{:keys [folded origins default-origin]} (meta m)]
+        (table-component (assoc opts
+                           :folded folded
+                           :origins origins
+                           :default-origin default-origin)
+                         m)))))
 
 (defn value
   "The content of the single value `v` informed by `opts`: a link to a

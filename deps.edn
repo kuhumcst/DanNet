@@ -7,9 +7,11 @@
            clj-file-zip/clj-file-zip      {:mvn/version "0.1.0"}
            clj-commons/clj-yaml           {:mvn/version "1.0.29"}
 
-           ;; Our successor to Aristotle, on Jena 6.
-           dk.cst/theophrastus            {:git/url "https://github.com/kuhumcst/theophrastus.git"
-                                           :sha     "ec94edad1f6d702d7cfce199b58ffe100f051941"}
+           ;; Our successor to Aristotle, on Jena 6. The local checkout while
+           ;; its feature/origins branch is reviewed.
+           dk.cst/theophrastus            {:local/root "../theophrastus"}
+           #_{:git/url "https://github.com/kuhumcst/theophrastus.git"
+              :sha     "ec94edad1f6d702d7cfce199b58ffe100f051941"}
            org.clojars.quoll/donatello    {:mvn/version "1.3.6"}
 
            org.flatland/ordered           {:mvn/version "1.15.12"}
