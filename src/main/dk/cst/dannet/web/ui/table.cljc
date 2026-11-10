@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.table
   "Table rendering functions for RDF data."
-  (:require [rum.core :as rum]
+  (:require [clojure.string :as str]
+            [rum.core :as rum]
             [dk.cst.theophrastus.origin :as origin]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
@@ -43,6 +44,60 @@
             (mapcat #(as-set (origin/origin opts k %)))
             (if (shared/multi-valued? v) v [v]))
       (as-set (or o default-origin)))))
+
+(defn value-origins
+  "The origins of the value `v` of the property `k` as a set, as the page
+  data in `opts` has them."
+  [opts k v]
+  (let [o (origin/origin opts k v)]
+    (if (set? o) o #{o})))
+
+(defn editable?
+  "Can the value `v` of the property `k` be edited? It can when the graph
+  that changes go to, the :default-origin of `opts`, is one of its origins."
+  [{:keys [default-origin] :as opts} k v]
+  (and (some? default-origin)
+       (contains? (value-origins opts k v) default-origin)))
+
+(defn lock
+  "Why the value `v` of the property `k` in `opts` can't be edited, as a key
+  of the :locked comments, or nil when it can be: the value is :inferred or
+  :supplemented, or it is :elsewhere, in a graph that changes don't go to."
+  [opts k v]
+  (when-not (editable? opts k v)
+    (let [origins (value-origins opts k v)]
+      (cond
+        (contains? origins :inferred)     :inferred
+        (contains? origins :supplemented) :supplemented
+        :else                             :elsewhere))))
+
+(defn padlock
+  "A padlock icon whose tooltip and accessible name is `why`, the reason that
+  the row or value it marks can't be edited."
+  [why]
+  [:span.padlock {:role "img" :aria-label why :title why}])
+
+(rum/defc edit-cell
+  "A table cell that lists every one of the values `vs` of the property `k`
+  in `opts`, for a row in edit mode. A value that can be edited is framed
+  like an input field. One that can't has a padlock that says why, and it
+  comes after the ones that can."
+  [{:keys [comments] :as opts} k vs]
+  [:td
+   [:ul.edit-values
+    ;; The values that can be edited come first, in their usual order.
+    (for [v    (->> (if (set? vs) (sort-by (rdf/label-sortkey-fn opts) vs) vs)
+                    (sort-by #(some? (lock opts k %))))
+          :let [reason  (lock opts k v)
+                shared? (and (not reason) (next (value-origins opts k v)))]]
+      [:li (cond-> (assoc (rdf/value-attrs v)
+                     :key (pr-str (if (map? v) (:rdf/about v) v))
+                     :class [(if reason "locked" "editable")])
+             (keyword? v) (update :class conj "attr-combo")
+             shared?      (assoc :title (:shared comments)))
+       (when reason
+         (padlock (get-in comments [:locked reason])))
+       (rdf/value opts v)])]])
 
 (defn reaches-limit?
   "Do `n` values reach the limit, from which a relation shows the word cloud of
@@ -142,8 +197,12 @@
          (display-options-select opts v-count display-opts))])))
 
 (rum/defc attr-val-row
-  "A single row in the attribute-value table."
-  [{:keys [subject comments inherited] :as opts} k v display-opts]
+  "A single row in the attribute-value table. In edit mode, a row with a
+  value that can be edited lists all its values, and any other row is faded,
+  with a padlock that says why. The values of a nested table have no
+  origins, so its rows are as they always are."
+  [{:keys [subject comments inherited edit-mode default-origin] :as opts}
+   k v display-opts]
   (let [origins       (row-origins opts k v)
         inherited?    (get inherited k)
         inferred?     (contains? origins :inferred)
@@ -154,12 +213,21 @@
         display-opt   (get-in @display-opts [subject k])
         opts+attr-key (assoc opts
                         :attr-key k
-                        :display-opt display-opt)]
+                        :display-opt display-opt)
+        vs            (if (shared/multi-valued? v) v [v])
+        locks         (when (and edit-mode (some? default-origin))
+                        (map #(lock opts k %) vs))
+        edit-row?     (some nil? locks)
+        locked        (when (and locks (not edit-row?))
+                        (->> (distinct locks)
+                             (map #(get-in comments [:locked %]))
+                             (str/join "; ")))]
     [:tr (cond-> {:key (str k)}
            (keyword? k) (assoc :property (prefix/kw->qname k))
            inferred? (update :class conj "inferred")
            inherited? (update :class conj "inherited")
-           supplemented? (update :class conj "supplemented"))
+           supplemented? (update :class conj "supplemented")
+           locked (update :class conj "locked"))
      [:td.attr-prefix
       (when inferred?
         [:span.marker {:title (:inference comments)} "∴"])
@@ -170,8 +238,14 @@
       (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
-      (attr-name-extras opts+attr-key v display-opts)]
+      (when locked
+        (padlock locked))
+      ;; an edit row lists its values, so it has no display options
+      (attr-name-extras opts+attr-key (when-not edit-row? v) display-opts)]
      (cond
+       edit-row?
+       (edit-cell opts+attr-key k vs)
+
        (not (shared/multi-valued? v))
        (value-cell opts+attr-key v)
 

@@ -14,12 +14,13 @@
 
 (def default-state
   "The user's state before any page is shown. The preferences (languages,
-  full-screen, detail level) come from the page: the client takes them from
-  the first page, the server from each request."
+  full-screen, edit mode, detail level) come from the page: the client takes
+  them from the first page, the server from each request."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
    :full-screen  false
+   :edit-mode    false
    :detail-level :normal
    :section      {:semantic {:display {:diagram-mode :radial}}}})
 
@@ -196,3 +197,8 @@
              (update-cookie! :full-screen not)
              (some-> (js/document.getElementById "content")
                      (.scroll #js {:top 0})))))
+
+(defn toggle-edit-mode!
+  "Toggle the `:edit-mode` cookie."
+  []
+  #?(:cljs (update-cookie! :edit-mode not)))

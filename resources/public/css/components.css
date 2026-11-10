@@ -112,6 +112,53 @@
     }
 }
 
+/* The switch that turns edit mode on and off (see ui.entity/edit-mode-switch)
+   is an icon in the upper right corner of the page content, a few pixels
+   from its edges, and it scrolls away with the content. While edit mode is
+   on, it is filled like a selected tab, from the nav's colour class on the
+   button. */
+#content {
+    position: relative;
+}
+
+.edit-mode-switch {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: var(--color-dark);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
+    opacity: var(--opacity-interactive);
+    transition: opacity var(--transition-base), transform var(--transition-base);
+}
+
+/* It grows a little on hover, as the icons of the nav do. */
+.edit-mode-switch:hover,
+.edit-mode-switch:focus-visible {
+    opacity: var(--opacity-interactive-hover);
+    transform: scale(110%);
+}
+
+.edit-mode-switch[aria-pressed="true"] {
+    color: white;
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    opacity: var(--opacity-interactive-hover);
+}
+
+.edit-mode-switch__icon {
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    mask: url('/images/edit.svg') center / contain no-repeat;
+}
+
 search {
     display: flex;
     flex-direction: column;
@@ -356,6 +403,86 @@ td.attr-name {
 /* Fix alignment of prefix+name table cells with tall names, e.g. synsets. */
 .attr-combo > span {
     vertical-align: top;
+}
+
+/* The values of a row in edit mode (see ui.table/edit-cell), one to a line. */
+ul.edit-values {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Edit mode shows the language tag of every value that is a text, also in
+   the language of the page, where base.css hides it. The label of a resource
+   isn't a value, so its tag stays hidden. */
+ul.edit-values > li[lang]::after,
+table.attr-val tr.locked > td:last-child[lang]::after,
+table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
+table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
+    content: attr(lang);
+}
+
+ul.edit-values > li + li {
+    margin-top: var(--spacing-xs);
+}
+
+/* A value that can be edited is framed like an input field. */
+ul.edit-values > li.editable {
+    position: relative;
+    padding: var(--spacing-s) calc(var(--spacing-l) + var(--spacing-m))
+             var(--spacing-s) var(--spacing-m);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    background: white;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
+}
+
+/* The pencil of the edit mode switch marks it as a field, at its end and in
+   the middle of its first line. It is the ::before, as the ::after of a text
+   is its language tag. */
+ul.edit-values > li.editable::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--spacing-s) + (1lh - var(--font-size-xs)) / 2);
+    right: var(--spacing-m);
+    width: var(--font-size-xs);
+    height: var(--font-size-xs);
+    background-color: var(--color-subtle);
+    mask: url('/images/edit.svg') center / contain no-repeat;
+}
+
+/* In edit mode, a row or a value that can't be edited has faded text with no
+   colour in its links, markers and prefix badges. The grey is below a
+   contrast of 4.5:1, as disabled controls are. */
+table.attr-val tr.locked > td,
+table.attr-val tr.locked > td :is(a, .marker),
+ul.edit-values > li.locked,
+ul.edit-values > li.locked :is(a, .marker) {
+    color: var(--color-subtle);
+}
+
+table.attr-val tr.locked > td span.prefix,
+ul.edit-values > li.locked span.prefix {
+    --ns-color: var(--color-subtle);
+}
+
+/* The padlock of a locked row or value; its tooltip says why it is locked
+   (see ui.table/padlock). */
+span.padlock {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    background-color: var(--color-muted);
+    mask: url('/images/lock.svg') center / contain no-repeat;
+    cursor: help;
+}
+
+td.attr-name > span.padlock {
+    margin-left: var(--spacing-xs);
+}
+
+ul.edit-values > li.locked > span.padlock {
+    margin-right: var(--spacing-xs);
 }
 
 @media only screen and (max-width: 700px) {

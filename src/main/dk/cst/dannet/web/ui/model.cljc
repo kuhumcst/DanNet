@@ -9,6 +9,7 @@
     :languages     the preferred languages, in order
     :detail-level  how much labels are enriched: :basic, :normal or :high
     :full-screen   whether a synset diagram fills the page
+    :edit-mode     whether the tables show what can be edited
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page
@@ -22,9 +23,24 @@
             [dk.cst.dannet.web.i18n :as i18n]))
 
 (defn- comments
-  "The notes that explain the markers in the tables, in `languages`."
+  "The notes that explain the markers in the tables, in `languages`, and
+  in edit mode why a value is :locked or what removing a :shared one does."
   [languages]
-  {:inference    (i18n/da-en languages
+  {:locked       {:inferred     (i18n/da-en languages
+                                  "Udledt af andre data"
+                                  "Inferred from other data")
+                  :elsewhere    (i18n/da-en languages
+                                  "Fra et andet datasæt"
+                                  "From another dataset")
+                  :supplemented (i18n/da-en languages
+                                  "Hentet fra relaterede opslag"
+                                  "Taken from related entries")}
+   :shared       (i18n/da-en languages
+                   (str "Findes også i et andet datasæt, så værdien bliver "
+                        "på siden, hvis den fjernes")
+                   (str "Also in another dataset, so the value stays on the "
+                        "page if it is removed"))
+   :inference    (i18n/da-en languages
                    "indeholder logisk afledt data"
                    "contains logically inferred data")
    :inheritance  (i18n/da-en languages
@@ -54,6 +70,8 @@
         label-of     (shared/->entity-label-fn detail-level)]
     (cond-> (assoc (merge data state)
               :detail-level detail-level
+              ;; edit mode shows the tables, so no diagram fills the page
+              :full-screen (and (:full-screen state) (not (:edit-mode state)))
               :synset? (some shared/semantic-rels? entity)
               :comments (comments languages)
               ;; Entity pages label the resources of their expanded entity;

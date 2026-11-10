@@ -256,6 +256,9 @@
   [request data]
   (assoc data
     :full-screen (shared/get-cookie request :full-screen)
+    ;; the editor is a preview, so its cookie only counts in development
+    :edit-mode (and shared/development?
+                    (shared/get-cookie request :edit-mode))
     :detail-level (or (shared/get-cookie request :detail-level)
                       :normal)))
 

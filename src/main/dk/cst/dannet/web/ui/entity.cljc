@@ -6,6 +6,7 @@
             [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
@@ -45,6 +46,20 @@
                  (remove nil?))
             (sort-by (rdf/label-sortkey-fn opts)
                      (filter ks entity))))))
+
+(rum/defc edit-mode-switch
+  "A button that turns edit mode on and off, drawn as an icon. It is pressed
+  while edit mode is on in `opts`."
+  [{:keys [languages edit-mode nav-class] :as opts}]
+  (let [label (i18n/da-en languages "Redigér" "Edit")]
+    [:button.edit-mode-switch {:type         "button"
+                               :class        nav-class
+                               :title        label
+                               :aria-pressed (str (boolean edit-mode))
+                               :on-click     #(app/toggle-edit-mode!)}
+     [:span.edit-mode-switch__icon {:aria-hidden "true"}]
+     ;; The label names the button; its title is only a tooltip.
+     [:span.visually-hidden label]]))
 
 (rum/defc entity-header
   [{:keys [subject languages entity k->label detail-level]
@@ -96,7 +111,10 @@
            (rdf/break-up-uri uri-prefix)]
           [:span.rdf-uri__name {:key local-name}
            (rdf/break-up-uri local-name)]]
-         uri-link))]))
+         uri-link))
+     ;; the editor is a preview in development only
+     (when shared/development?
+       (edit-mode-switch opts))]))
 
 (rum/defc entity-notes
   [{:keys [href languages comments entity inherited] :as opts}]
@@ -263,13 +281,15 @@
 
 (def table-view
   "The view of a section as its attribute-value table, which has a border of
-  its own, so the view needs no card."
-  {:id     :table
-   :icon   "table"
-   :label  {:da "tabel" :en "table"}
-   :card?  false
-   :render (fn [subentity opts]
-             (table/attr-val-table opts subentity))})
+  its own, so the view needs no card. It's the view that edit mode shows,
+  since values are edited in the table."
+  {:id        :table
+   :icon      "table"
+   :label     {:da "tabel" :en "table"}
+   :card?     false
+   :editable? true
+   :render    (fn [subentity opts]
+                (table/attr-val-table opts subentity))})
 
 (def summary-tablist
   "The views of the summary card at the top of a synset page."
