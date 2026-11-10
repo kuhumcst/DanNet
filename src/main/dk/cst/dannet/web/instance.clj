@@ -61,21 +61,9 @@
   db
   (delay (build-db! false)))
 
-;; Map of property -> set of strict superproperties, derived from the
-;; rdfs:subPropertyOf closure entailed by the inference model (see rdfs5 in
-;; 'dannet.rules'). Cyclic pairs (equivalent properties) are excluded.
 (defn- ->superproperty-closure
   []
-  (delay
-    (let [pairs (->> (theo/triples (:inference @db)
-                                   ['_ :rdfs/subPropertyOf '_])
-                     (map (juxt first last))
-                     (filter (fn [[p q]]
-                               (and (keyword? p) (keyword? q) (not= p q))))
-                     (set))]
-      (->> pairs
-           (remove (fn [[p q]] (contains? pairs [q p])))
-           (reduce (fn [m [p q]] (update m p (fnil conj #{}) q)) {})))))
+  (delay (theo/superproperties (:inference @db))))
 
 (defonce superproperty-closure (->superproperty-closure))
 

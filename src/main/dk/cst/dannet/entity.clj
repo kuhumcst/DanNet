@@ -1,59 +1,9 @@
 (ns dk.cst.dannet.entity
   "Display-only reduction of entity data: de-duplication of relations entailed
   by others and truncation of the large ones. Never affects negotiated RDF."
-  (:require [dk.cst.dannet.prefix :as prefix]
+  (:require [dk.cst.theophrastus :as theo]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]))
-
-(defn- ->set
-  "Coerce the entity value `v` into a set, wrapping single values."
-  [v]
-  (cond
-    (set? v) v
-    (shared/multi-valued? v) (set v)
-    :else #{v}))
-
-(defn- entailing-relations
-  "Map every superproperty present in `entity` to the relations of `entity`
-  that entail it, as determined by the `k->supers` closure.
-
-     (entailing-relations {:wn/hypernym #{:skos/broader}}
-                          {:wn/hypernym #{:a} :skos/broader #{:a}})
-     ;; => {:skos/broader #{:wn/hypernym}}"
-  [k->supers entity]
-  (reduce (fn [m rel]
-            (reduce (fn [m super]
-                      (cond-> m
-                        (contains? entity super)
-                        (update super (fnil conj #{}) rel)))
-                    m
-                    (k->supers rel)))
-          {}
-          (keys entity)))
-
-(defn- entailed?
-  "True when every value of `super` in `entity` also occurs among the values of
-  the entailing relations `subs`, i.e. when the `super` row displays nothing
-  the `subs` rows do not already display."
-  [entity super subs]
-  (let [covered (into #{} (mapcat (comp ->set entity)) subs)
-        super-v (entity super)]
-    (if (shared/multi-valued? super-v)
-      (every? covered super-v)
-      (contains? covered super-v))))
-
-(defn- folded-relations
-  "Invert the `subs-of` map into {surviving relation -> set of superproperties}
-  for the `pruned` superproperties, skipping relations that were pruned too."
-  [subs-of pruned]
-  (reduce (fn [m super]
-            (reduce (fn [m rel]
-                      (cond-> m
-                        (not (pruned rel))
-                        (update rel (fnil conj #{}) super)))
-                    m
-                    (subs-of super)))
-          {}
-          pruned))
 
 (defn prune-entailed-superproperties
   "Remove relations from `entity` whose values are fully covered by present
@@ -64,12 +14,9 @@
     :entity - entity without the fully covered superproperty relations
     :folded - {surviving relation -> set of removed superproperties}"
   [k->supers entity]
-  (let [subs-of (entailing-relations k->supers entity)
-        pruned  (into #{}
-                      (filter #(entailed? entity % (subs-of %)))
-                      (keys subs-of))]
-    {:entity (apply dissoc entity pruned)
-     :folded (folded-relations subs-of pruned)}))
+  (let [folded (theo/entailed-properties entity k->supers)]
+    {:entity (apply dissoc entity (mapcat val folded))
+     :folded folded}))
 
 (defn- prune-blank-node
   "Prune `x` using `k->supers` when it's a blank node, i.e. a map of its
