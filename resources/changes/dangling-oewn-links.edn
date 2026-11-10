@@ -1,0 +1,57 @@
+;; The English links of the dn: synsets whose wn:eq_synonym target is missing
+;; from OEWN 2025, as changes (see dk.cst.dannet.change).
+;;
+;; OEWN 2025 moved proper nouns and genera to Open English Namenet. Their links
+;; are removed, but the synsets keep their wn:ili, except {vest_1§1}: it is the
+;; compass point and links to it already, so its ILI of the Occident goes too.
+;; {chimpanse_§1} links to the species instead of the genus. The OEWN merged
+;; the four verb synsets into others as duplicates (see its deprecations.csv),
+;; so their links move to the merged synset and their wn:ili becomes its ILI.
+;; {blive_§4} links to that synset already.
+;;
+;; The links come from the DanNet 2.2 links to Princeton WordNet. The new
+;; targets are in the OEWN graph, which the build imports before the changes.
+[;; Moon
+ {:retract #{[:dn/synset-37515 :wn/eq_synonym :en/oewn-09381255-n]}}
+
+ ;; Sun
+ {:retract #{[:dn/synset-26945 :wn/eq_synonym :en/oewn-09473312-n]}}
+
+ ;; Orient
+ {:retract #{[:dn/synset-9045 :wn/eq_synonym :en/oewn-08580157-n]}}
+
+ ;; Earth
+ {:retract #{[:dn/synset-32201 :wn/eq_synonym :en/oewn-09293800-n]}}
+
+ ;; Occident
+ {:retract #{[:dn/synset-38252 :wn/eq_synonym :en/oewn-08700313-n]
+             [:dn/synset-38252 :wn/ili :ili/i82570]}}
+
+ ;; genus Pan, replaced by chimpanzee
+ {:retract #{[:dn/synset-3659 :wn/eq_synonym :en/oewn-02484260-n]
+             [:dn/synset-3659 :wn/ili :ili/i48707]}
+  :add     #{[:dn/synset-3659 :wn/eq_synonym :en/oewn-02484454-n]
+             [:dn/synset-3659 :wn/ili :ili/i48708]}}
+
+ ;; stay behind
+ {:retract #{[:dn/synset-42945 :wn/eq_synonym :en/oewn-02736899-v]
+             [:dn/synset-42945 :wn/ili :ili/i35320]}}
+
+ ;; feel pain, replaced by be in pain
+ {:retract #{[:dn/synset-44354 :wn/eq_synonym :en/oewn-02125976-v]
+             [:dn/synset-44354 :wn/ili :ili/i32364]
+             [:dn/synset-44354 :wn/ili :ili/i30704]}
+  :add     #{[:dn/synset-44354 :wn/eq_synonym :en/oewn-00064841-v]
+             [:dn/synset-44354 :wn/ili :ili/i22102]}}
+
+ ;; call to mind, replaced by the synset it was merged into
+ {:retract #{[:dn/synset-33105 :wn/eq_synonym :en/oewn-00932330-v]
+             [:dn/synset-33105 :wn/ili :ili/i26262]}
+  :add     #{[:dn/synset-33105 :wn/eq_synonym :en/oewn-00022092-v]
+             [:dn/synset-33105 :wn/ili :ili/i21876]}}
+
+ ;; design, replaced by devise
+ {:retract #{[:dn/synset-13901 :wn/eq_synonym :en/oewn-01643256-v]
+             [:dn/synset-13901 :wn/ili :ili/i29940]}
+  :add     #{[:dn/synset-13901 :wn/eq_synonym :en/oewn-01641910-v]
+             [:dn/synset-13901 :wn/ili :ili/i29933]}}]

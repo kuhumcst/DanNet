@@ -116,6 +116,23 @@ SELECT $this ?value WHERE {
   FILTER NOT EXISTS { ?value ontolex:lexicalizedSense ?sense }
 }""" .
 
+## All 7680 asserted wn:eq_synonym links target a typed synset (local build,
+## 2026-11-10, with the dangling OEWN links replaced); an edit must not
+## introduce a dangling one.
+dns:EditorialEqSynonymTargetShape a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalConcept ;
+    sh:severity sh:Violation ;
+    sh:sparql dns:EditorialEqSynonymTargetShape-resolvableTarget .
+
+dns:EditorialEqSynonymTargetShape-resolvableTarget a sh:SPARQLConstraint ;
+    sh:prefixes dns:DanNetPrefixes ;
+    sh:message "wn:eq_synonym must target a known synset (typed as a lexical concept)." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this wn:eq_synonym ?value .
+  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
+}""" .
+
 ## ---------------------------------------------------------------------------
 ## OntologicalType (dnt:): all 667 member atoms across the live dnt: bags are
 ## dnc: concepts; a newly minted ontotype must keep it that way.

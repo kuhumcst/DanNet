@@ -371,7 +371,8 @@ dn:word-1 a ontolex:Word ; rdfs:label \"\\\"hund\\\"\"@da ;
   wn:partOfSpeech wn:noun ; ontolex:sense dn:sense-1 ;
   ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
-dn:form-1 ontolex:writtenRep \"hund\"@da ."))
+dn:form-1 ontolex:writtenRep \"hund\"@da .
+<https://en-word.net/id/oewn-1-n> a ontolex:LexicalConcept ."))
         entry-set (fn [triples]
                     (->> (shapes/validate-changes g [{:add triples}]) :results
                          (map (juxt :focus-node :source-shape :severity)) set))]
@@ -389,6 +390,11 @@ dn:form-1 ontolex:writtenRep \"hund\"@da ."))
     (testing "a dangling hypernym target blocks"
       (is (contains? (entry-set #{[:dn/synset-1 :wn/hypernym :dn/synset-404]})
                      [:dn/synset-1 :dns/EditorialHypernymTargetShape :sh/Violation])))
+    (testing "a dangling English link blocks"
+      (is (contains? (entry-set #{[:dn/synset-1 :wn/eq_synonym :en/oewn-404-n]})
+                     [:dn/synset-1 :dns/EditorialEqSynonymTargetShape :sh/Violation]))
+      (is (empty? (entry-set #{[:dn/synset-1 :wn/eq_synonym :en/oewn-1-n]}))
+          "a link to a typed synset doesn't"))
     (testing "a non-dnc member in a new ontological type blocks"
       (is (contains? (entry-set #{[:dnt/Fish-Object :rdf/type :dns/OntologicalType]
                                   [:dnt/Fish-Object :rdf/_1 :dnc/Object]
