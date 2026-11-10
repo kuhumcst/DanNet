@@ -5,6 +5,14 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]))
 
+(defn- ->set
+  "Coerce the entity value `v` into a set, wrapping single values."
+  [v]
+  (cond
+    (set? v) v
+    (shared/multi-valued? v) (set v)
+    :else #{v}))
+
 (defn prune-entailed-superproperties
   "Remove relations from `entity` whose values are fully covered by present
   subproperty relations according to `k->supers`, e.g. skos:broader rows
