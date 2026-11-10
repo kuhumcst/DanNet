@@ -21,7 +21,9 @@
             [dk.cst.theophrastus.convert :as convert]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.theophrastus.txn :as txn]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db :as db]
+            [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.prefix :as prefix]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.rdf.model Model]
@@ -101,27 +103,38 @@
     delta))
 
 (defn validate-changes
-  "Validate `db` with `changes` applied against `shapes` (the editorial shapes
+  "Validate `db` with the `changes` made against `shapes` (the editorial shapes
   by default), without writing anything, in a read transaction.
 
-  The `changes` are a map of :add and/or :delete triples in any form that
-  theo/transact! takes, e.g. [s p o] vectors of prefixed keywords. They are
-  overlaid on the graph of `db` in memory, and the subject of every changed
-  triple is validated there with `validate-node`. Returns the same result map
-  as `validate`, so shacl/violations? and shacl/by-severity apply."
+  The `changes` are a collection of changes as in dk.cst.dannet.change. Each
+  is resolved in `db` first, which throws when its :where doesn't match
+  exactly once (see db.change/resolve-change). Taken together, they are
+  overlaid on the graph of `db` in memory, and validate-node checks the
+  subject of every changed triple there, along with the resources that a
+  :where reaches a blank node from, since their shapes cover it. Returns the
+  same result map as `validate`, so shacl/violations? and shacl/by-severity
+  apply."
   ([db changes]
    (validate-changes db @editorial-shapes changes))
-  ([{:keys [prefixes] :as db} ^Shapes shapes {:keys [add delete]}]
+  ([{:keys [prefixes] :as db} ^Shapes shapes changes]
    (txn/with-read-transaction db
      (let [graph   (theo/jena-graph db)
+           {:keys [add retract]} (->> changes
+                                      (map #(db.change/resolve-change db %))
+                                      (change/net))
            ;; a Delta finds a triple twice when it is both in the graph and
            ;; among the additions, breaking maxCount constraints
            added   (remove #(.contains graph ^Triple %)
-                           (some-> add (convert/triples prefixes)))
-           deleted (some-> delete (convert/triples prefixes))
+                           (convert/triples add prefixes))
+           deleted (convert/triples retract prefixes)
            changed (theo/db (overlay graph added deleted) {:prefixes prefixes})
+           anchors (->> (mapcat :where changes)
+                        (map first)
+                        (filter keyword?)
+                        (map #(convert/node % prefixes)))
            results (->> (concat added deleted)
                         (map #(.getSubject ^Triple %))
+                        (concat anchors)
                         (distinct)
                         (into [] (mapcat #(:results (validate-node changed shapes %)))))]
        {:conforms? (empty? results)

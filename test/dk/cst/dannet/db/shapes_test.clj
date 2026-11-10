@@ -281,18 +281,45 @@ dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
-dn:form-1 ontolex:writtenRep \"hund\"@da ."))
-        before (set (theo/triples g))]
-    (testing "deleting a required triple blocks the write"
+dn:form-1 ontolex:writtenRep \"hund\"@da .
+dn:entry-2 a ontolex:LexicalEntry ;
+  rdfs:label \"kat\" ; wn:partOfSpeech wn:noun ;
+  ontolex:sense dn:sense-3 ;
+  ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ;
+  skos:inScheme <https://wordnet.dk/dannet/data> ."))
+        before (set (theo/triples g))
+        kat    #rdf/langstring ["kat" "da"]
+        form   [[:dn/entry-2 :ontolex/canonicalForm '?f]
+                ['?f :ontolex/writtenRep kat]]]
+    (testing "retracting a required triple blocks the write"
       (let [result (shapes/validate-changes
-                     g {:delete [[:dn/entry-1 :rdfs/label "hund"]]})]
+                     g [{:retract #{[:dn/entry-1 :rdfs/label "hund"]}}])]
         (is (shacl/violations? result))
         (is (= [[:dn/entry-1 :dns/LexicalEntryShape-label]]
                (map (juxt :focus-node :source-shape) (:results result))))))
+    (testing "a blank node is checked through the resource its :where starts from"
+      (let [result (shapes/validate-changes
+                     g [{:where   form
+                         :retract #{['?f :ontolex/writtenRep kat]}}])]
+        (is (= [[:dn/entry-2 :dns/LexicalEntryShape-writtenRep]]
+               (map (juxt :focus-node :source-shape) (:results result)))))
+      (is (:conforms? (shapes/validate-changes
+                        g [{:where   form
+                            :retract #{['?f :ontolex/writtenRep kat]}
+                            :add     #{['?f :ontolex/writtenRep
+                                        #rdf/langstring ["katte" "da"]]}}]))))
+    (testing "a stale :where fails rather than validating something else"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (shapes/validate-changes
+                     g [{:where   [[:dn/entry-2 :ontolex/canonicalForm '?f]
+                                   ['?f :ontolex/writtenRep
+                                    #rdf/langstring ["hund" "da"]]]
+                         :retract #{['?f :ontolex/writtenRep
+                                     #rdf/langstring ["hund" "da"]]}}]))))
     (testing "a conforming edit passes and the base graph is never mutated"
       (is (:conforms? (shapes/validate-changes
-                        g {:add [[:dn/entry-1 :ontolex/sense :dn/sense-2]]})))
-      (is (:conforms? (shapes/validate-changes g {})))
+                        g [{:add #{[:dn/entry-1 :ontolex/sense :dn/sense-2]}}])))
+      (is (:conforms? (shapes/validate-changes g [])))
       (is (= before (set (theo/triples g)))))))
 
 (deftest editorial-rules
@@ -314,39 +341,39 @@ dn:word-1 a ontolex:Word ; rdfs:label \"\\\"hund\\\"\"@da ;
   ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
 dn:form-1 ontolex:writtenRep \"hund\"@da ."))
-        entry-set (fn [changes]
-                    (->> (shapes/validate-changes g changes) :results
+        entry-set (fn [triples]
+                    (->> (shapes/validate-changes g [{:add triples}]) :results
                          (map (juxt :focus-node :source-shape :severity)) set))]
     (testing "a well-formed synset edit produces no entries"
       (is (:conforms? (shapes/validate-changes
-                        g {:add [[:dn/synset-1 :wn/hypernym :dn/synset-2]]}))))
+                        g [{:add #{[:dn/synset-1 :wn/hypernym :dn/synset-2]}}]))))
     (testing "an unwrapped word label blocks"
-      (is (contains? (entry-set {:add [[:dn/word-2 :rdf/type :ontolex/Word]
-                                       [:dn/word-2 :rdfs/label (->LangString "kat" "da")]]})
+      (is (contains? (entry-set #{[:dn/word-2 :rdf/type :ontolex/Word]
+                                  [:dn/word-2 :rdfs/label (->LangString "kat" "da")]})
                      [:dn/word-2 :dns/EditorialWordShape-label :sh/Violation])))
     (testing "a part of speech outside the policy set blocks"
-      (is (contains? (entry-set {:add [[:dn/word-2 :rdf/type :ontolex/Word]
-                                       [:dn/word-2 :wn/partOfSpeech :wn/adverb]]})
+      (is (contains? (entry-set #{[:dn/word-2 :rdf/type :ontolex/Word]
+                                  [:dn/word-2 :wn/partOfSpeech :wn/adverb]})
                      [:dn/word-2 :dns/EditorialWordShape-partOfSpeech :sh/Violation])))
     (testing "a dangling hypernym target blocks"
-      (is (contains? (entry-set {:add [[:dn/synset-1 :wn/hypernym :dn/synset-404]]})
+      (is (contains? (entry-set #{[:dn/synset-1 :wn/hypernym :dn/synset-404]})
                      [:dn/synset-1 :dns/EditorialHypernymTargetShape :sh/Violation])))
     (testing "a non-dnc member in a new ontological type blocks"
-      (is (contains? (entry-set {:add [[:dnt/Fish-Object :rdf/type :dns/OntologicalType]
-                                       [:dnt/Fish-Object :rdf/_1 :dnc/Object]
-                                       [:dnt/Fish-Object :rdf/_2 :dn/synset-1]]})
+      (is (contains? (entry-set #{[:dnt/Fish-Object :rdf/type :dns/OntologicalType]
+                                  [:dnt/Fish-Object :rdf/_1 :dnc/Object]
+                                  [:dnt/Fish-Object :rdf/_2 :dn/synset-1]})
                      [:dnt/Fish-Object :dns/EditorialOntotypeShape :sh/Violation])))
     (testing "a brace-wrapped sense label blocks"
-      (is (contains? (entry-set {:add [[:dn/sense-2 :rdf/type :ontolex/LexicalSense]
-                                       [:dn/sense-2 :rdfs/label (->LangString "{fisk_§1}" "da")]]})
+      (is (contains? (entry-set #{[:dn/sense-2 :rdf/type :ontolex/LexicalSense]
+                                  [:dn/sense-2 :rdfs/label (->LangString "{fisk_§1}" "da")]})
                      [:dn/sense-2 :dns/EditorialSenseShape-label :sh/Violation])))
     (testing "a minimal new synset only warns (definition, ontotype, hypernym)"
       (let [result (shapes/validate-changes
-                     g {:add [[:dn/synset-3 :rdf/type :ontolex/LexicalConcept]
-                              [:dn/synset-3 :rdfs/label (->LangString "{kat}" "da")]
-                              [:dn/synset-3 :ontolex/lexicalizedSense :dn/sense-1]
-                              [:dn/synset-3 :skos/inScheme
-                               "<https://wordnet.dk/dannet/data>"]]})]
+                     g [{:add #{[:dn/synset-3 :rdf/type :ontolex/LexicalConcept]
+                                [:dn/synset-3 :rdfs/label (->LangString "{kat}" "da")]
+                                [:dn/synset-3 :ontolex/lexicalizedSense :dn/sense-1]
+                                [:dn/synset-3 :skos/inScheme
+                                 "<https://wordnet.dk/dannet/data>"]}}])]
         (is (not (shacl/violations? result)))
         (is (= #{:dns/EditorialConceptShape-definition
                  :dns/EditorialConceptShape-ontologicalType
@@ -355,9 +382,9 @@ dn:form-1 ontolex:writtenRep \"hund\"@da ."))
     (testing "re-adding existing triples never breaks maxCount constraints"
       ;; both for an IRI object and for a language-tagged literal
       (is (:conforms? (shapes/validate-changes
-                        g {:add [[:dn/word-1 :ontolex/canonicalForm :dn/form-1]
-                                 [:dn/word-1 :rdfs/label
-                                  (->LangString "\"hund\"" "da")]]}))))))
+                        g [{:add #{[:dn/word-1 :ontolex/canonicalForm :dn/form-1]
+                                   [:dn/word-1 :rdfs/label
+                                    (->LangString "\"hund\"" "da")]}}]))))))
 
 (deftest validate-export-gate
   (let [->ttl-file (fn [ttl]

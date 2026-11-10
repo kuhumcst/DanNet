@@ -424,7 +424,7 @@ lemma, capped at 200 items."}
   ;; live graph in memory (nothing is written) and only touched subjects are
   ;; validated, against the editorial shapes by default.
   (shapes/validate-changes (:base @db)
-                           {:add [[:dn/synset-1522 :skos/definition "..."]]})
+                           [{:add #{[:dn/synset-1522 :skos/definition "..."]}}])
 
   ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.
   (shapes/validate-inferred-db @db)
