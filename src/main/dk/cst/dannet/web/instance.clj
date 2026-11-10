@@ -408,10 +408,10 @@ lemma, capped at 200 items."}
                         @shapes/editorial-shapes
                         :dn/synset-1522)
 
-  ;; SHACL-validate a proposed edit (cheap): the changes are overlaid on the
-  ;; live graph in memory (nothing is written) and only touched subjects are
+  ;; SHACL-validate a proposed edit (cheap): the changes are made on a copy of
+  ;; the dn: graph in memory (nothing is written) and only touched subjects are
   ;; validated, against the editorial shapes by default.
-  (shapes/validate-changes (:base @db)
+  (shapes/validate-changes (:dataset @db)
                            [{:add #{[:dn/synset-1522 :skos/definition "..."]}}])
 
   ;; Full inferred-graph validation. EXPENSIVE: materializes inferences.

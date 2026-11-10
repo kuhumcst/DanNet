@@ -21,16 +21,17 @@
             [dk.cst.theophrastus.convert :as convert]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.theophrastus.txn :as txn]
-            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.prefix :as prefix]
             [taoensso.telemere :as t])
-  (:import [org.apache.jena.rdf.model Model]
+  (:import [org.apache.jena.query Dataset]
+           [org.apache.jena.rdf.model Model ModelFactory]
            [org.apache.jena.shacl Shapes]
            [org.apache.jena.graph Graph Node NodeFactory Triple]
            [org.apache.jena.graph.compose Delta]
-           [org.apache.jena.riot RDFDataMgr]))
+           [org.apache.jena.riot RDFDataMgr]
+           [org.apache.jena.sparql.core DatasetGraph DatasetGraphFactory]))
 
 ;; TODO: shapes are kept internal for now, but since SHACL shapes are plain
 ;; RDF, consider eventually publishing them as Linked Open Data under the dns:
@@ -93,50 +94,77 @@
   ([db ^Shapes shapes node]
    (shacl/validate db shapes node)))
 
-(defn- overlay
-  "A Delta over `graph` with the Jena triples `added` and `deleted`, which
-  leaves `graph` itself untouched."
-  ^Delta [^Graph graph added deleted]
-  (let [delta (Delta. graph)]
-    (doseq [^Triple t added] (.add delta t))
-    (doseq [^Triple t deleted] (.delete delta t))
-    delta))
+(defn- owners
+  "The named resources in the Graph `g` that reach the blank node `n`
+  through blank nodes, e.g. the word of a written form."
+  [^Graph g ^Node n]
+  (loop [todo  [n]
+         seen  #{n}
+         found #{}]
+    (if-let [x (peek todo)]
+      (let [new (into []
+                      (comp (map #(.getSubject ^Triple %))
+                            (distinct)
+                            (remove seen))
+                      (.toList (.find g Node/ANY Node/ANY ^Node x)))]
+        (recur (into (pop todo) (filter #(.isBlank ^Node %)) new)
+               (into seen new)
+               (into found (remove #(.isBlank ^Node %)) new)))
+      found)))
+
+(defn- with-graph
+  "A DatasetGraph of the named graphs of `dsg`, with the Graph `g` as the
+  one named `n`."
+  ^DatasetGraph [^DatasetGraph dsg ^Node n ^Graph g]
+  (let [general (DatasetGraphFactory/createGeneral)]
+    (doseq [^Node m (iterator-seq (.listGraphNodes dsg))]
+      (.addGraph general m (.getGraph dsg m)))
+    (doto general (.addGraph n g))))
+
+(defn- graph-db
+  "A db of the Jena Graph `g` with `prefixes`, without writing them to it."
+  [^Graph g prefixes]
+  (theo/->Db (ModelFactory/createModelForGraph g) nil prefixes nil))
 
 (defn validate-changes
-  "Validate `db` with the `changes` made against `shapes` (the editorial shapes
-  by default), without writing anything, in a read transaction.
+  "Validate the `changes` to the dn: graph of `db`, a db of a Dataset,
+  against `shapes` (the editorial shapes by default), without writing
+  anything, in a read transaction.
 
-  The `changes` are a collection of changes as in dk.cst.dannet.change. Each
-  is resolved in `db` first, which throws when its :where doesn't match
-  exactly once (see db.change/resolve-change). Taken together, they are
-  overlaid on the graph of `db` in memory, and validate-node checks the
-  subject of every changed triple there, along with the resources that a
-  :where reaches a blank node from, since their shapes cover it. Returns the
-  same result map as `validate`, so shacl/violations? and shacl/by-severity
+  The changes are made in order on a copy in memory of the dn: graph, as
+  db.change/apply-change! makes them, so each has to match exactly once in
+  the graph that the ones before it leave. Then validate-node checks the
+  union of the graphs: the subject of every changed triple, and for a blank
+  node the named resources it hangs off, since their shapes cover it. A
+  result that a resource already had before the changes is left out, so an
+  old problem in the data doesn't count against them. Returns the same
+  result map as `validate`, so shacl/violations? and shacl/by-severity
   apply."
   ([db changes]
    (validate-changes db @editorial-shapes changes))
-  ([{:keys [prefixes] :as db} ^Shapes shapes changes]
+  ([{:keys [^Dataset dataset prefixes] :as db} ^Shapes shapes changes]
    (txn/with-read-transaction db
-     (let [graph   (theo/jena-graph db)
-           {:keys [add retract]} (->> changes
-                                      (map #(db.change/resolve-change db %))
-                                      (change/net))
-           ;; a Delta finds a triple twice when it is both in the graph and
-           ;; among the additions, breaking maxCount constraints
-           added   (remove #(.contains graph ^Triple %)
-                           (convert/triples add prefixes))
-           deleted (convert/triples retract prefixes)
-           changed (theo/db (overlay graph added deleted) {:prefixes prefixes})
-           anchors (->> (mapcat :where changes)
-                        (map first)
-                        (filter keyword?)
-                        (map #(convert/node % prefixes)))
-           results (->> (concat added deleted)
+     (let [dsg     (.asDatasetGraph dataset)
+           dn      (NodeFactory/createURI prefix/dn-uri)
+           delta   (Delta. (.getGraph dsg dn))
+           dn-db   (graph-db delta prefixes)
+           made    (mapv #(db.change/apply-change! dn-db %) changes)
+           union   (.getUnionGraph (with-graph dsg dn delta))
+           before  (graph-db (.getUnionGraph dsg) prefixes)
+           after   (graph-db union prefixes)
+           found   (fn [db node] (:results (validate-node db shapes node)))
+           ;; a node is only validated as it was when it has results now
+           brought (fn [node]
+                     (when-some [now (not-empty (found after node))]
+                       (remove (set (found before node)) now)))
+           results (->> (convert/triples (mapcat #(concat (:retract %) (:add %))
+                                                 made)
+                                         prefixes)
                         (map #(.getSubject ^Triple %))
-                        (concat anchors)
+                        (mapcat (fn [^Node s]
+                                  (if (.isBlank s) (owners union s) [s])))
                         (distinct)
-                        (into [] (mapcat #(:results (validate-node changed shapes %)))))]
+                        (into [] (mapcat brought)))]
        {:conforms? (empty? results)
         :results   results}))))
 

@@ -54,7 +54,8 @@
                    {:add #{[:dn/synset-1 :wn/hyponym :dn/synset-6]}}
                    {:add #{[:dn/synset-9 :wn/hypernym :dn/synset-1]}}
                    {:where [[:dn/synset-1 :wn/hypernym '?h]]
-                    :add   #{['?h :rdfs/comment "?"]}}]
+                    :add   #{['?h :rdfs/comment "?"]}}
+                   {:retract #{[:dn/synset-1 :wn/hyponym '?x]}}]
         previewed (change/preview entity :dn/synset-1 changes)]
     (testing "the subject's own triples are changed"
       (is (= :dn/synset-3 (:wn/hypernym previewed)))
@@ -68,5 +69,29 @@
       (is (= {:wn/hypernym              #{:dn/synset-2}
               :ontolex/lexicalizedSense #{:dn/sense-2}}
              (::change/retracted (meta previewed)))))
-    (testing "other subjects and changes with a :where are left out"
+    (testing "other subjects and changes that aren't plain are left out"
       (is (not (contains? previewed :rdfs/comment))))))
+
+(deftest checking-changes
+  (let [problems #(set (map :problem (change/problems %)))]
+    (is (= [] (change/problems
+                {:where   [[:dn/word-1 :ontolex/canonicalForm '?f]]
+                 :retract #{['?f :ontolex/writtenRep hund]}
+                 :add     #{['?f :ontolex/writtenRep hunde]}})))
+    (is (= [] (change/problems {:add #{new-hypernym}})) "a plain change")
+    (is (= #{:unknown-key} (problems {:delete #{old-hypernym}
+                                      :add    #{new-hypernym}})))
+    (is (= #{:nothing-to-change}
+           (problems {:where [[:dn/synset-1 :wn/hypernym '?h]]})))
+    (is (= #{:not-a-triple} (problems {:add #{[:dn/synset-1 :wn/hypernym]}})))
+    (is (= #{:not-a-subject} (problems {:add #{["x" :wn/hypernym :dn/s]}})))
+    (is (= #{:not-a-predicate}
+           (problems {:retract #{[:dn/synset-1 '?p :dn/synset-2]}})))
+    (is (= #{:blank-node} (problems {:retract #{['_b1 :ontolex/writtenRep hund]}})))
+    (is (= #{:unrooted-variable}
+           (problems {:retract #{['?f :ontolex/writtenRep hund]}})))
+    (is (= [{:problem :unbound-variable :variable '?g}]
+           (change/problems
+             {:where [[:dn/word-1 :ontolex/canonicalForm '?f]]
+              :add   #{['?g :ontolex/writtenRep hunde]}}))
+        "a typo")))

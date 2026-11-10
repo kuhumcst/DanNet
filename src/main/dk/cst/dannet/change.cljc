@@ -2,19 +2,35 @@
   "Changes to the DanNet data, as data: what an editor proposes and what a
   release applies.
 
-  A change is a map of the triples to :add and to :retract, each a set of
-  [s p o] vectors, and an optional :where: a vector of [s p o] patterns whose
-  ?variables the triples can use. A :where reaches a blank node through the
-  resource it hangs off, and it has to match exactly once when the change is
-  applied (see dk.cst.dannet.db.change), e.g. for the written form of a word:
+  A change is a map of [s p o] patterns under up to three keys:
 
-      {:where   [[:dn/word-11021628 :ontolex/canonicalForm '?f]
-                 ['?f :ontolex/writtenRep #rdf/langstring [\"hund\" \"da\"]]]
+  - :where, a vector of patterns that lead to what the change touches;
+  - :retract, a set of the triples to retract;
+  - :add, a set of the triples to add.
+
+  It means what the SPARQL update WITH dn: DELETE {retract} INSERT {add}
+  WHERE {where . retract} means, on one condition: the patterns of :where
+  and :retract together have to match exactly once in the dn: graph, or the
+  change fails (see dk.cst.dannet.db.change). So the retracted triples must
+  exist, and a :where only has to lead to them, e.g. for the written form of
+  a word:
+
+      {:where   [[:dn/word-11021628 :ontolex/canonicalForm '?f]]
        :retract #{['?f :ontolex/writtenRep #rdf/langstring [\"hund\" \"da\"]]}
        :add     #{['?f :ontolex/writtenRep #rdf/langstring [\"hunde\" \"da\"]]}}
 
+  A subject is an IRI or a ?variable, a predicate is an IRI, and an object
+  is an IRI, a ?variable or a literal. A ?variable as a subject has to be
+  reached from an IRI through the objects of other patterns, so that a
+  change only touches what hangs off a named resource, and every ?variable
+  in :add has to occur in a pattern. Blank nodes are only reached through
+  ?variables, since their labels don't last from one release to the next.
+  The problems function checks all of this.
+
+  The match binds the ?variables and gives a plain change, of triples only.
   The pending changes of an editor are a vector of changes, one for each
-  edit, so that each can be undone on its own.")
+  edit, so that each can be undone on its own."
+  (:require [dk.cst.theophrastus.term :as term]))
 
 (defn add
   "The pending `changes` with the triple `t` added: as a change of its own, or
@@ -40,10 +56,80 @@
   (let [changes (vec changes)]
     (into (subvec changes 0 i) (subvec changes (inc i)))))
 
+(defn- variable?
+  "Is `x` a ?variable?"
+  [x]
+  (and (symbol? x) (= \? (first (name x)))))
+
+(defn- iri?
+  "Is `x` an IRI, as a keyword with a namespace or in angle brackets?"
+  [x]
+  (or (qualified-keyword? x) (term/iri-string? x)))
+
+(defn- triple-form?
+  "Is `x` an [s p o] vector of terms?"
+  [x]
+  (and (vector? x) (= 3 (count x)) (not-any? coll? x)))
+
+;; TODO: the dn: graph also has blank nodes that nothing points to, mostly
+;; owl:NegativePropertyAssertion nodes, and no change can reach them. To
+;; edit them, a pattern with an IRI as its object would have to root its
+;; subject too, with a cap on the matches, since such a pattern can match
+;; many nodes. validate-changes would have to check such a node itself.
+(defn- rooted
+  "The ?variables that a chain of the `patterns` reaches from an IRI subject,
+  through the objects of the patterns."
+  [patterns]
+  (loop [reached #{}]
+    (let [reached' (into reached
+                         (keep (fn [[s _ o]]
+                                 (when (and (variable? o)
+                                            (or (iri? s) (reached s)))
+                                   o)))
+                         patterns)]
+      (if (= reached reached')
+        reached
+        (recur reached')))))
+
+(defn problems
+  "The problems of the `change`, as maps of a :problem and what it concerns,
+  e.g. [{:problem :unbound-variable :variable ?g}], or an empty vector when
+  it has none. The namespace docstring says what a change can hold."
+  [{:keys [where retract add] :as change}]
+  (let [triples  (filter triple-form? (concat where retract add))
+        patterns (filter triple-form? (concat where retract))
+        reached  (rooted patterns)
+        bound    (into #{} (comp cat (filter variable?)) patterns)]
+    (into []
+          cat
+          [(for [k (keys change)
+                 :when (not (contains? #{:where :retract :add} k))]
+             {:problem :unknown-key :key k})
+           (when (and (empty? retract) (empty? add))
+             [{:problem :nothing-to-change}])
+           (for [t     (concat where retract add)
+                 :when (not (triple-form? t))]
+             {:problem :not-a-triple :triple t})
+           (for [[s p :as t] triples
+                 problem     [(when-not (or (iri? s)
+                                            (variable? s)
+                                            (term/blank-node? s))
+                                :not-a-subject)
+                              (when-not (iri? p) :not-a-predicate)
+                              (when (some term/blank-node? t) :blank-node)]
+                 :when       problem]
+             {:problem problem :triple t})
+           (for [[s :as t] patterns
+                 :when     (and (variable? s) (not (reached s)))]
+             {:problem :unrooted-variable :variable s :triple t})
+           (for [v     (distinct (filter variable? (apply concat add)))
+                 :when (not (bound v))]
+             {:problem :unbound-variable :variable v})])))
+
 (defn bind-variables
-  "The `change` with the ?variables of its :where replaced by their values in
-  `solution`, a map of variable to value as theo/q returns it, and with the
-  :where itself left out."
+  "The `change` with its ?variables replaced by their values in `solution`,
+  a map of variable to value as theo/q returns it, and with the :where left
+  out."
   [{:keys [add retract]} solution]
   (let [bind (fn [triples]
                (into #{} (map (fn [t] (mapv #(get solution % %) t))) triples))]
@@ -94,14 +180,20 @@
       (dissoc entity p)
       (assoc entity p remaining))))
 
+(defn- plain?
+  "Is the `change` plain, of triples only, without a :where or ?variables?"
+  [{:keys [where retract add]}]
+  (and (empty? where)
+       (not-any? variable? (concat (apply concat retract) (apply concat add)))))
+
 (defn preview
   "The `entity` of `subject` with the plain `changes` to its own triples made.
   Its metadata holds the values they add and retract, as maps of property to
   a set of values under ::added and ::retracted, so that the retracted values
-  can still be shown. Changes with a :where are left out, since they reach
-  nodes other than `subject`."
+  can still be shown. Changes that aren't plain are left out, since only the
+  db can resolve them."
   [entity subject changes]
-  (let [{:keys [add retract]} (net (remove :where changes))
+  (let [{:keys [add retract]} (net (filter plain? changes))
         own       (fn [triples]
                     (reduce (fn [m [s p o]]
                               (if (= s subject)

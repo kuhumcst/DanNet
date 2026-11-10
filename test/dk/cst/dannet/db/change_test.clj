@@ -1,5 +1,6 @@
 (ns dk.cst.dannet.db.change-test
   (:require [clojure.test :refer [deftest is testing]]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.test-util :as util]))
@@ -25,13 +26,14 @@ dn:word-2 ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ,
     (catch clojure.lang.ExceptionInfo e
       (:matches (ex-data e)))))
 
+(def ^:private hund->hunde
+  {:where   [[:dn/word-1 :ontolex/canonicalForm '?f]]
+   :retract #{['?f :ontolex/writtenRep hund]}
+   :add     #{['?f :ontolex/writtenRep hunde]}})
+
 (deftest resolving-changes
-  (testing "a :where that matches once binds its variables"
-    (let [{:keys [retract add]} (db.change/resolve-change
-                                  g {:where   [[:dn/word-1 :ontolex/canonicalForm '?f]
-                                               ['?f :ontolex/writtenRep hund]]
-                                     :retract #{['?f :ontolex/writtenRep hund]}
-                                     :add     #{['?f :ontolex/writtenRep hunde]}})
+  (testing "patterns that match once bind the variables"
+    (let [{:keys [retract add]} (db.change/resolve-change g hund->hunde)
           [[form _ _]] (seq retract)]
       (is (term/blank-node? form))
       (is (= #{[form :ontolex/writtenRep hund]} retract))
@@ -48,10 +50,30 @@ dn:word-2 ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ,
     (is (= 0 (matches {:where [[:dn/word-2 :rdf/type :ontolex/Word]]
                        :add   #{[:dn/word-2 :ontolex/sense :dn/sense-2]}}))))
   (testing "a stale change matches nothing"
-    (is (= 0 (matches {:where   [[:dn/word-1 :ontolex/canonicalForm '?f]
-                                 ['?f :ontolex/writtenRep hunde]]
-                       :retract #{['?f :ontolex/writtenRep hunde]}}))))
+    (is (= 0 (matches {:where   [[:dn/word-1 :ontolex/canonicalForm '?f]]
+                       :retract #{['?f :ontolex/writtenRep hunde]}})))
+    (is (= 0 (matches {:retract #{[:dn/word-1 :ontolex/sense :dn/sense-9]}}))
+        "a retracted triple must exist"))
   (testing "duplicate blank nodes match more than once"
     (is (= 2 (matches {:where   [[:dn/word-2 :ontolex/canonicalForm '?f]]
                        :retract #{['?f :ontolex/writtenRep
-                                   #rdf/langstring ["kat" "da"]]}})))))
+                                   #rdf/langstring ["kat" "da"]]}}))))
+  (testing "a change with problems fails before it's matched"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Not a valid change"
+                          (db.change/resolve-change
+                            g {:add #{['?g :ontolex/writtenRep hunde]}})))))
+
+(deftest applying-changes
+  (let [db (util/ttl->db "
+@prefix dn: <https://wordnet.dk/dannet/data/> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")]
+    (let [{:keys [where retract]} (db.change/apply-change! db hund->hunde)
+          [[form _ value]] (seq retract)]
+      (is (nil? where) "it returns the plain change")
+      (is (term/blank-node? form))
+      (is (= hund value)))
+    (is (= [hunde] (map last (theo/triples db '[_ :ontolex/writtenRep _]))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (db.change/apply-change! db hund->hunde))
+        "the second time, it's stale")))

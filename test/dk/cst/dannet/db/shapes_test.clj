@@ -11,6 +11,7 @@
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.theophrastus.term :refer [->LangString]]
             [dk.cst.dannet.db.shapes :as shapes]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.test-util :as util]))
 
 (def ^:private prefixes "
@@ -276,7 +277,7 @@ dn:sense-2 a ontolex:LexicalSense ;
                   (:results (shapes/validate-node g :dn/sense-2))))))))
 
 (deftest validate-changes-gate
-  (let [g      (util/ttl->db (str prefixes "
+  (let [g            (util/ttl->dataset (str prefixes "
 dn:entry-1 a ontolex:LexicalEntry ;
   rdfs:label \"hund\" ; wn:partOfSpeech wn:noun ;
   ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
@@ -287,45 +288,75 @@ dn:entry-2 a ontolex:LexicalEntry ;
   ontolex:sense dn:sense-3 ;
   ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ;
   skos:inScheme <https://wordnet.dk/dannet/data> ."))
-        before (set (theo/triples g))
-        kat    #rdf/langstring ["kat" "da"]
-        form   [[:dn/entry-2 :ontolex/canonicalForm '?f]
-                ['?f :ontolex/writtenRep kat]]]
+        dn           (theo/named-graph g prefix/dn-graph)
+        before       (set (theo/triples dn))
+        kat          #rdf/langstring ["kat" "da"]
+        replace-form (fn [old new]
+                       {:where   [[:dn/entry-2 :ontolex/canonicalForm '?f]]
+                        :retract #{['?f :ontolex/writtenRep old]}
+                        :add     #{['?f :ontolex/writtenRep new]}})]
     (testing "retracting a required triple blocks the write"
       (let [result (shapes/validate-changes
                      g [{:retract #{[:dn/entry-1 :rdfs/label "hund"]}}])]
         (is (shacl/violations? result))
         (is (= [[:dn/entry-1 :dns/LexicalEntryShape-label]]
                (map (juxt :focus-node :source-shape) (:results result))))))
-    (testing "a blank node is checked through the resource its :where starts from"
+    (testing "a blank node is checked through the resource it hangs off"
       (let [result (shapes/validate-changes
-                     g [{:where   form
+                     g [{:where   [[:dn/entry-2 :ontolex/canonicalForm '?f]]
                          :retract #{['?f :ontolex/writtenRep kat]}}])]
         (is (= [[:dn/entry-2 :dns/LexicalEntryShape-writtenRep]]
                (map (juxt :focus-node :source-shape) (:results result)))))
       (is (:conforms? (shapes/validate-changes
-                        g [{:where   form
-                            :retract #{['?f :ontolex/writtenRep kat]}
-                            :add     #{['?f :ontolex/writtenRep
-                                        #rdf/langstring ["katte" "da"]]}}]))))
-    (testing "a stale :where fails rather than validating something else"
+                        g [(replace-form kat #rdf/langstring ["katte" "da"])]))))
+    (testing "a stale change fails rather than validating something else"
       (is (thrown? clojure.lang.ExceptionInfo
                    (shapes/validate-changes
-                     g [{:where   [[:dn/entry-2 :ontolex/canonicalForm '?f]
-                                   ['?f :ontolex/writtenRep
-                                    #rdf/langstring ["hund" "da"]]]
-                         :retract #{['?f :ontolex/writtenRep
-                                     #rdf/langstring ["hund" "da"]]}}]))))
+                     g [(replace-form #rdf/langstring ["hund" "da"] kat)])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (shapes/validate-changes
+                     g [{:retract #{[:dn/entry-1 :rdfs/label "kat"]}}]))
+          "a retracted triple must exist"))
+    (testing "the changes are made in order"
+      (is (:conforms? (shapes/validate-changes
+                        g [(replace-form kat #rdf/langstring ["katte" "da"])
+                           (replace-form #rdf/langstring ["katte" "da"]
+                                         #rdf/langstring ["katten" "da"])])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (shapes/validate-changes
+                     g [(replace-form kat #rdf/langstring ["katte" "da"])
+                        (replace-form kat #rdf/langstring ["katten" "da"])]))
+          "the second one is stale"))
     (testing "a conforming edit passes and the base graph is never mutated"
       (is (:conforms? (shapes/validate-changes
                         g [{:add #{[:dn/entry-1 :ontolex/sense :dn/sense-2]}}])))
       (is (:conforms? (shapes/validate-changes g [])))
-      (is (= before (set (theo/triples g)))))))
+      (is (= before (set (theo/triples dn))))))
+  (testing "a change only reaches the dn: graph"
+    (let [g (util/ttl->dataset (str prefixes "dn:entry-1 rdfs:label \"hund\" ."))]
+      (theo/transact! (theo/named-graph g "<https://example.com/other>")
+                      [[:dn/entry-1 :rdfs/comment "x"]])
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (shapes/validate-changes
+                     g [{:retract #{[:dn/entry-1 :rdfs/comment "x"]}}])))))
+  (testing "an old problem doesn't count against a change"
+    (let [g         (util/ttl->dataset (str prefixes "
+dn:entry-1 a ontolex:LexicalEntry ;
+  wn:partOfSpeech wn:noun ;
+  ontolex:sense dn:sense-1 ; ontolex:canonicalForm dn:form-1 ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
+dn:form-1 ontolex:writtenRep \"hund\"@da ."))
+          shapes-of #(map :source-shape (:results (shapes/validate-changes g %)))]
+      (is (empty? (shapes-of [{:add #{[:dn/entry-1 :ontolex/sense :dn/sense-2]}}]))
+          "the entry had no label before the change either")
+      (is (= [:dns/LexicalEntryShape-partOfSpeech]
+             (shapes-of [{:retract #{[:dn/entry-1 :wn/partOfSpeech :wn/noun]}}]))
+          "only the problem that the change brings"))))
 
 (deftest editorial-rules
   ;; One well-formed entry + sense + synset, incl. an ontological type and a
   ;; hypernym; each testing block below then submits one offending edit.
-  (let [g (util/ttl->db (str prefixes "
+  (let [g (util/ttl->dataset (str prefixes "
 dn:synset-1 a ontolex:LexicalConcept ; rdfs:label \"{hund}\"@da ;
   skos:definition \"et dyr\"@da ;
   ontolex:lexicalizedSense dn:sense-1 ;

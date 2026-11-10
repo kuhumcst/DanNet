@@ -5,6 +5,7 @@
   (:import [java.io ByteArrayInputStream]
            [java.nio.charset StandardCharsets]
            [org.apache.jena.graph GraphMemFactory]
+           [org.apache.jena.query DatasetFactory]
            [org.apache.jena.riot RDFParser Lang]))
 
 (defn ttl->graph
@@ -20,3 +21,11 @@
   "Parse a Turtle `ttl` string into an in-memory db with DanNet's prefixes."
   [ttl]
   (theo/db (ttl->graph ttl) {:prefixes prefix/prefixes}))
+
+(defn ttl->dataset
+  "Parse a Turtle `ttl` string into the dn: graph of an in-memory Dataset,
+  and return a db of the Dataset with DanNet's prefixes."
+  [ttl]
+  (let [db (theo/db (DatasetFactory/createTxnMem) {:prefixes prefix/prefixes})]
+    (theo/transact! (theo/named-graph db prefix/dn-graph) (ttl->graph ttl))
+    db))
