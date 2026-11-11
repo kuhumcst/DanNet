@@ -24,6 +24,20 @@
     (is (= [{:add #{new-hypernym}}]
            (change/undo [{:retract #{old-hypernym}} {:add #{new-hypernym}}] 0)))))
 
+(deftest replacements
+  (let [newer-hypernym [:dn/synset-1 :wn/hypernym :dn/synset-4]
+        replaced       (change/replace [] old-hypernym new-hypernym)]
+    (is (= [{:retract #{old-hypernym} :add #{new-hypernym}}] replaced)
+        "one change retracts the old triple and adds the new one")
+    (is (= [{:retract #{old-hypernym} :add #{newer-hypernym}}]
+           (change/replace replaced new-hypernym newer-hypernym))
+        "replacing the new triple rewrites that change")
+    (is (= [] (change/replace replaced new-hypernym old-hypernym))
+        "replacing it with the old triple drops the change")
+    (is (= [{:add #{newer-hypernym}}]
+           (change/replace [{:add #{new-hypernym}}] new-hypernym newer-hypernym))
+        "an added triple is still only added")))
+
 (deftest net-changes
   (is (= {:add #{new-hypernym} :retract #{old-hypernym}}
          (change/net [{:retract #{old-hypernym}} {:add #{new-hypernym}}])))

@@ -15,12 +15,14 @@
 (def default-state
   "The user's state before any page is shown. The preferences (languages,
   full-screen, edit mode, detail level) come from the page: the client takes
-  them from the first page, the server from each request."
+  them from the first page, the server from each request. The :changes are
+  the pending changes of an editor (see dk.cst.dannet.change)."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
    :full-screen  false
    :edit-mode    false
+   :changes      []
    :detail-level :normal
    :section      {:semantic {:display {:diagram-mode :radial}}}})
 
@@ -202,3 +204,10 @@
   "Toggle the `:edit-mode` cookie."
   []
   #?(:cljs (update-cookie! :edit-mode not)))
+
+(defn update-changes!
+  "Apply `f` to the pending changes of the session and `args`, e.g. a
+  function of dk.cst.dannet.change and a triple. The changes are only kept
+  in memory, so loading the page again loses them."
+  [f & args]
+  (apply swap! session update :changes f args))

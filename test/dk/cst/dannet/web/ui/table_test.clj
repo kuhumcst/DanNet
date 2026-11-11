@@ -1,6 +1,8 @@
 (ns dk.cst.dannet.web.ui.table-test
-  "Tests for the origins of the rows in the attribute-value table."
+  "Tests for the origins of the rows in the attribute-value table and for
+  the pending changes of an edit row."
   (:require [clojure.test :refer [deftest is]]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.web.ui.table :as table]))
 
 (deftest row-origins
@@ -19,6 +21,32 @@
         "only the origins of the values shown")
     (is (= #{:dn :other} (table/row-origins opts :rdfs/label "hund"))
         "a value that several graphs hold")))
+
+(deftest pending-changes
+  (let [triple  (fn [v] [:dn/synset-1 :rdfs/label v])
+        opts    {:subject        :dn/synset-1
+                 :origins        {:rdfs/label {"c" :inferred}}
+                 :default-origin :dn
+                 :changes        (-> []
+                                     (change/replace (triple "a") (triple "a2"))
+                                     (change/retract (triple "b"))
+                                     (change/add (triple "d"))
+                                     (change/retract [:dn/synset-2 :rdfs/label "x"])
+                                     (change/retract [:dn/synset-1 :rdfs/comment "y"]))}
+        pending (table/pending opts :rdfs/label)]
+    (is (= {:added        #{"a2" "d"}
+            :retracted    #{"a" "b"}
+            :replacements {"a" ["a2"]}}
+           pending)
+        "only the changes to the property of the subject")
+    (is (= ["a2" "b" "d" "c"]
+           (table/edit-order opts :rdfs/label #{"a" "b" "c"} pending))
+        "a replacement in place of its value, additions before the locked")
+    (is (= ["b" "c"]
+           (table/edit-order
+             opts :rdfs/label #{"a" "b" "c"}
+             {:added #{"b"} :retracted #{"a"} :replacements {"a" ["b"]}}))
+        "a replacement that is already a value is listed once")))
 
 (deftest locks
   (let [opts {:origins        {:wn/hyponym      :inferred

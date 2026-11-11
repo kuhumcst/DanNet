@@ -30,6 +30,7 @@
   The match binds the ?variables and gives a plain change, of triples only.
   The pending changes of an editor are a vector of changes, one for each
   edit, so that each can be undone on its own."
+  (:refer-clojure :exclude [replace])
   (:require [dk.cst.theophrastus.term :as term]))
 
 (defn add
@@ -49,6 +50,25 @@
     (if (some #{addition} changes)
       (into [] (remove #{addition}) changes)
       (conj (vec changes) {:retract #{t}}))))
+
+(defn replace
+  "The pending `changes` with the triple `old` replaced by the triple `new`,
+  as one change that retracts `old` and adds `new`.
+
+  When an earlier change added `old`, that change adds `new` in its place,
+  so that replacing a value twice leaves one change. It is dropped when it
+  then retracts what it adds."
+  [changes old new]
+  (if (some #(contains? (:add %) old) changes)
+    (into []
+          (comp (map (fn [{:keys [add] :as change}]
+                       (if (contains? add old)
+                         (assoc change :add (-> add (disj old) (conj new)))
+                         change)))
+                (remove (fn [{:keys [add retract]}]
+                          (and (seq add) (= add retract)))))
+          changes)
+    (conj (vec changes) {:retract #{old} :add #{new}})))
 
 (defn undo
   "The pending `changes` without the change at index `i`."

@@ -416,6 +416,7 @@ ul.edit-values {
    the language of the page, where base.css hides it. The label of a resource
    isn't a value, so its tag stays hidden. */
 ul.edit-values > li[lang]::after,
+ul.edit-values .edit-value__content[lang]::after,
 table.attr-val tr.locked > td:last-child[lang]::after,
 table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
 table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
@@ -426,30 +427,100 @@ ul.edit-values > li + li {
     margin-top: var(--spacing-xs);
 }
 
-/* A value that can be edited is framed like an input field. */
+/* A value that can be edited is framed like an input field, with its
+   buttons at its end (see ui.table/edit-value). */
 ul.edit-values > li.editable {
-    position: relative;
-    padding: var(--spacing-s) calc(var(--spacing-l) + var(--spacing-m))
-             var(--spacing-s) var(--spacing-m);
+    display: flex;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s) var(--spacing-s) var(--spacing-s) var(--spacing-m);
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
     background: white;
     box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
 }
 
-/* The pencil of the edit mode switch marks it as a field, at its end and in
-   the middle of its first line. It is the ::before, as the ::after of a text
-   is its language tag. */
-ul.edit-values > li.editable::before {
-    content: "";
-    position: absolute;
-    top: calc(var(--spacing-s) + (1lh - var(--font-size-xs)) / 2);
-    right: var(--spacing-m);
+ul.edit-values > li.editable:focus-within {
+    border-color: var(--color-link);
+}
+
+.edit-value__content,
+.edit-value__input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A pending change tints the value: yellow for an edited text, red for a
+   removed value and green for an added one. */
+ul.edit-values > li.editable.edited { background: #fff9d9; }
+ul.edit-values > li.editable.retracted { background: #fdeceb; }
+ul.edit-values > li.editable.added { background: #ebf6e7; }
+
+/* A removed value is struck through as well. Its links are named too, since
+   the line of the <del> doesn't reach into the flex box of a resource. Its
+   language tag is an inline-block, so that the line stops at the text. */
+del.edit-value__content,
+del.edit-value__content a {
+    text-decoration: line-through;
+}
+
+del.edit-value__content::after,
+del.edit-value__content [lang]::after {
+    display: inline-block;
+}
+
+ins.edit-value__content {
+    text-decoration: none;
+}
+
+/* The input of a text grows with the text and looks like the text. */
+.edit-value__input {
+    field-sizing: content;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    outline: none;
+    resize: none;
+}
+
+/* The buttons are in the middle of the first line, however tall they are. */
+.edit-value__actions {
+    display: flex;
+    align-items: center;
+    height: 1lh;
+}
+
+.edit-value__button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--spacing-l);
+    height: var(--spacing-l);
+    padding: 0;
+    color: var(--color-subtle);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+.edit-value__button:hover,
+.edit-value__button:focus-visible {
+    color: var(--color-dark);
+}
+
+.edit-value__icon {
     width: var(--font-size-xs);
     height: var(--font-size-xs);
-    background-color: var(--color-subtle);
-    mask: url('/images/edit.svg') center / contain no-repeat;
+    background-color: currentColor;
 }
+
+.edit-value__icon--edit { mask: url('/images/edit.svg') center / contain no-repeat; }
+.edit-value__icon--remove { mask: url('/images/remove.svg') center / contain no-repeat; }
+.edit-value__icon--undo { mask: url('/images/undo.svg') center / contain no-repeat; }
 
 /* In edit mode, a row or a value that can't be edited has faded text with no
    colour in its links, markers and prefix badges. The grey is below a

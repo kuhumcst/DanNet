@@ -10,6 +10,7 @@
     :detail-level  how much labels are enriched: :basic, :normal or :high
     :full-screen   whether a synset diagram fills the page
     :edit-mode     whether the tables show what can be edited
+    :changes       the pending changes made in edit mode (in the browser)
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page
