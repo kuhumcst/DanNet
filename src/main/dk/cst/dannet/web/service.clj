@@ -73,6 +73,22 @@
                   (update-in [:request :uri] remove-trailing-slash)
                   (update-in [:request :path-info] remove-trailing-slash)))}))
 
+;; The stylesheets refer to the images by a fixed URL, so a browser that
+;; guesses how long to keep an image would go on showing an old icon.
+(def cache-images
+  "Says how long the browser can reuse an image: for a day, as with the
+  pages, or in development only after checking that it hasn't changed."
+  (let [cache-control (if shared/development? "no-cache" resp/one-day-cache)]
+    (io.pedestal.interceptor/interceptor
+      {:name  ::cache-images
+       :leave (fn [{:keys [request response] :as ctx}]
+                (if (and response
+                         (str/starts-with? (:uri request) "/images/")
+                         (not (get-in response [:headers "Cache-Control"])))
+                  (assoc-in ctx [:response :headers "Cache-Control"]
+                            cache-control)
+                  ctx))})))
+
 (defn req->composite-key
   "Generate composite key from `req` using IP, User-Agent, and Accept-Language,
   with the IP from resp/client-address."
@@ -131,10 +147,14 @@
         ;; TODO: consider route-differentiated rate limits instead
         (cond->
           (not shared/development?) (update ::http/interceptors #(cons %2 %1) dannet-rate-limit-ic))
+        (update ::http/interceptors #(cons %2 %1) cache-images)
+        ;; answers 304 when the browser's copy of a file is still current
+        (update ::http/interceptors #(cons %2 %1) (middleware/not-modified))
         (update ::http/interceptors #(cons %2 %1) trailing-slash)
         (update ::http/interceptors #(cons %2 %1) res/error-ic)
         ;; cons turned the vector into a seq, so conj prepends here too, giving
-        ;; CORS (dev), cookies, error-ic, trailing-slash and rate limit (prod).
+        ;; CORS (dev), cookies, error-ic, trailing-slash, not-modified,
+        ;; cache-images and rate limit (prod).
         (update ::http/interceptors conj middleware/cookies)
 
         ;; Make sure we can communicate with the Shadow CLJS app during dev.
