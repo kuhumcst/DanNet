@@ -597,6 +597,21 @@ td.attr-name > .padlock {
     margin-right: var(--spacing-xs);
 }
 
+/* The heading of a page whose resource can't be edited has no colour in
+   its prefix badge, and a padlock before its label (see
+   ui.entity/entity-header). The padlock is as tall as a capital and part
+   of the text, so that it stays by the first word of a label that takes
+   several lines. */
+.page-header h1.locked span.prefix {
+    --ns-color: var(--color-subtle);
+}
+
+.page-header h1 .padlock {
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: var(--spacing-m);
+}
+
 /* A row or a value that can't be edited has faded text with no colour in
    its links, markers and prefix badges. The grey is below a contrast of
    4.5:1, as disabled controls are.

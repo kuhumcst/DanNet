@@ -132,8 +132,9 @@
 (rum/defc attr-val-row
   "A single row in the attribute-value table. In edit mode, a row with a
   value that can be edited lists all its values in fields (see ui.edit), and
-  any other row is faded, with a padlock that says why. The values of a
-  nested table have no origins, so its rows are as they always are."
+  any other row is faded, with a padlock that says why, unless the whole
+  page is locked. No row is a word cloud then. The values of a nested table have no origins, so its rows have
+  neither fields nor padlocks."
   [{:keys [subject comments inherited edit-mode default-origin] :as opts}
    k v display-opts]
   (let [origins       (lock/row-origins opts k v)
@@ -143,7 +144,11 @@
         prefix        (if (keyword? k)
                         (some-> (namespace k) symbol)
                         k)
-        display-opt   (get-in @display-opts [subject k])
+        ;; edit mode lists the values of every row, so it has no word clouds;
+        ;; the empty string is the list option
+        display-opt   (if edit-mode
+                        ""
+                        (get-in @display-opts [subject k]))
         opts+attr-key (assoc opts
                         :attr-key k
                         :display-opt display-opt)
@@ -151,16 +156,21 @@
         locks         (when (and edit-mode (some? default-origin))
                         (map #(lock/lock opts k %) vs))
         edit-row?     (some nil? locks)
-        locked        (when (and locks (not edit-row?))
+        locked?       (and locks (not edit-row?))
+        ;; the padlock of the page says that its resource is locked (see
+        ;; ui.entity/entity-header), so a row only says what else locks it
+        why           (when locked?
                         (->> (distinct locks)
+                             (remove #{:resource})
                              (map #(get-in comments [:locked %]))
-                             (str/join "; ")))]
+                             (str/join "; ")
+                             (not-empty)))]
     [:tr (cond-> {:key (str k)}
            (keyword? k) (assoc :property (prefix/kw->qname k))
            inferred? (update :class conj "inferred")
            inherited? (update :class conj "inherited")
            supplemented? (update :class conj "supplemented")
-           locked (update :class conj "locked"))
+           locked? (update :class conj "locked"))
      [:td.attr-prefix
       (when inferred?
         [:span.marker {:title (:inference comments)} "∴"])
@@ -171,10 +181,10 @@
       (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
-      (when locked
-        (edit/padlock locked))
-      ;; an edit row lists its values, so it has no display options
-      (attr-name-extras opts+attr-key (when-not edit-row? v) display-opts)]
+      (when why
+        (edit/padlock why))
+      ;; edit mode has no word clouds, so no display options either
+      (attr-name-extras opts+attr-key (when-not edit-mode v) display-opts)]
      (cond
        edit-row?
        (edit/cell opts+attr-key k vs)
@@ -194,19 +204,19 @@
 
 (defn- fold-member-rows
   "Fold the rdf:_N container membership rows of `subentity` into a single
-  :rdfs/member row in place of the first of them, with the members in
-  ordinal order."
+  row of members (see shared/member-row) in place of the first of them, with
+  the members in ordinal order."
   [subentity]
   (let [rows     (seq subentity)
         ordinals (filter (comp shared/member-property? key) rows)]
     (if (seq ordinals)
-      (let [member-row [:rdfs/member (->> ordinals
-                                          (sort-by (comp parse-long #(subs % 1) name key))
-                                          (mapv (comp shared/unwrap val)))]
-            first-k    (key (first ordinals))]
+      (let [members (->> ordinals
+                         (sort-by (comp shared/member-ordinal key))
+                         (mapv (comp shared/unwrap val)))
+            first-k (key (first ordinals))]
         (keep (fn [[k _ :as row]]
                 (cond
-                  (= k first-k) member-row
+                  (= k first-k) [shared/member-row members]
                   (shared/member-property? k) nil
                   :else row))
               rows))

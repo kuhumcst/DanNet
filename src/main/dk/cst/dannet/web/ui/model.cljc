@@ -10,6 +10,7 @@
     :detail-level  how much labels are enriched: :basic, :normal or :high
     :full-screen   whether a synset diagram fills the page
     :edit-mode     whether the tables show what can be edited
+    :edit-rules    which resources and properties edit mode has fields for
     :changes       the pending changes made in edit mode (in the browser)
     :labels        the labels of the resources that those changes add
     :search        the search input and its completions (in the browser)
@@ -21,7 +22,8 @@
 
   Components add a few keys of their own on the way down, e.g. :attr-key, the
   predicate whose values are being rendered."
-  (:require [dk.cst.dannet.shared :as shared]
+  (:require [dk.cst.dannet.editable :as editable]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]))
 
 (defn- comments
@@ -40,6 +42,9 @@
                   :derived      (i18n/da-en languages
                                   "Dannes automatisk ved udgivelsen"
                                   "Made automatically at release")
+                  :resource     (i18n/da-en languages
+                                  "Kan ikke rettes på denne side"
+                                  "Can't be edited on this page")
                   :yet          (i18n/da-en languages
                                   "Kan ikke rettes endnu"
                                   "Can't be edited yet")}
@@ -82,6 +87,7 @@
               :full-screen (and (:full-screen state) (not (:edit-mode state)))
               :synset? (some shared/semantic-rels? entity)
               :comments (comments languages)
+              :edit-rules editable/rules
               ;; Entity pages label the resources of their expanded entity;
               ;; other pages (e.g. SPARQL) may supply their own k->label. The
               ;; :labels of the state are of resources added in edit mode.

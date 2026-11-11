@@ -351,7 +351,18 @@
   [x]
   (and (keyword? x)
        (= "rdf" (namespace x))
-       (str/starts-with? (name x) "_")))
+       (some? (re-matches #"_[1-9]\d*" (name x)))))
+
+(defn member-ordinal
+  "The N of the RDF container membership property `k`, e.g. 2 for :rdf/_2."
+  [k]
+  (parse-long (subs (name k) 1)))
+
+(def member-row
+  "The property of the row of members. The table folds the rdf:_N properties
+  of a container into this one row (see ui.table/fold-member-rows), and edit
+  mode makes its changes to those properties (see ui.edit/row-properties)."
+  :rdfs/member)
 
 (def label-keys-full
   "RDF properties checked for labels, preferring full/detailed labels first."

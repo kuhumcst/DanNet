@@ -197,6 +197,17 @@
             {:add #{} :retract #{}}
             changes)))
 
+(defn changed-properties
+  "The properties of the subject `s` whose values the pending `changes` add
+  or retract, as a set."
+  [changes s]
+  (into #{}
+        (comp (mapcat (juxt :add :retract))
+              cat
+              (filter #(= s (first %)))
+              (map second))
+        changes))
+
 (defn property-changes
   "What the pending `changes` do to the values of the property `p` of the
   subject `s`: the values that they have :added and :retracted in all, as

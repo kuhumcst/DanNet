@@ -3,68 +3,93 @@
 
   A value can be edited when the graph that changes go to holds it, which
   the origins in the page data say (see dk.cst.theophrastus.origin). Any
-  other value is locked, and so is one that the release build writes or
-  that edit mode has no input for yet."
+  other value is locked, and so is one that edit mode has no input for yet.
+
+  The :edit-rules of the page lock more. They are the rules of the dataset,
+  a map with any of these keys (see dk.cst.dannet.editable for DanNet's):
+
+  - :namespaces, the namespaces of the resources that can be edited, as a
+    set of prefixes such as \"dn\". Without it, any resource can be.
+  - :derived, the properties that a build writes for every resource, so
+    that their values aren't edited by hand.
+  - :derived-by-type, a map of a type to the properties that a build writes
+    for the resources of that type."
   (:require [dk.cst.theophrastus.origin :as origin]
             [dk.cst.dannet.shared :as shared]))
 
+(defn value-properties
+  "The properties of the entity in `opts` that hold the value `v`, which is
+  listed in the row of the property `k`.
+
+  That is `k` itself, except in the row of members (see shared/member-row),
+  where it is the rdf:_N properties that have `v`, in the order of their
+  ordinals. A member that none of them has is a value of rdfs:member itself."
+  [{:keys [entity] :as opts} k v]
+  (or (when (= k shared/member-row)
+        (->> (keys entity)
+             (filter #(and (shared/member-property? %)
+                           (= v (shared/unwrap (get entity %)))))
+             (sort-by shared/member-ordinal)
+             (seq)))
+      [k]))
+
 (defn value-origins
-  "The origins of the value `v` of the property `k` as a set, as the page
-  data in `opts` has them."
+  "The origins of the value `v` in the row of the property `k` as a set, as
+  the page data in `opts` has them for the properties that hold it."
   [opts k v]
-  (let [o (origin/origin opts k v)]
-    (if (set? o) o #{o})))
+  (into #{}
+        (mapcat (fn [p]
+                  (let [o (origin/origin opts p v)]
+                    (if (set? o) o #{o}))))
+        (value-properties opts k v)))
 
 (defn row-origins
-  "The origins of the values `v` of the property `k`, as the page data in
-  `opts` has them, e.g. #{:inferred} for a row of inferred values."
+  "The origins of the values `v` in the row of the property `k`, as the page
+  data in `opts` has them, e.g. #{:inferred} for a row of inferred values."
   [opts k v]
   (into #{}
         (mapcat #(value-origins opts k %))
         (if (shared/multi-valued? v) v [v])))
 
 (defn editable?
-  "Can the value `v` of the property `k` be edited? It can when the graph
-  that changes go to, the :default-origin of `opts`, is one of its origins."
+  "Is the value `v` in the row of the property `k` in the graph that changes
+  go to? That graph is the :default-origin of `opts`."
   [{:keys [default-origin] :as opts} k v]
   (and (some? default-origin)
        (contains? (value-origins opts k v) default-origin)))
 
-(def derived-properties
-  "The properties that the release build writes for every resource, so that
-  their values aren't edited by hand."
-  #{:dns/inherited :skos/inScheme})
-
-(def derived-synset-properties
-  "The properties that the release build writes for a synset: its labels,
-  which are made from its senses."
-  #{:rdfs/label :dns/shortLabel})
-
 (defn derived?
-  "Does the release build write the property `k` of the entity in `opts`?"
-  [{:keys [entity] :as opts} k]
-  (or (contains? derived-properties k)
-      (and (contains? derived-synset-properties k)
-           (contains? (shared/setify (:rdf/type entity))
-                      :ontolex/LexicalConcept))))
+  "Does a build write the property `k` of the entity in `opts`, according to
+  the :derived and :derived-by-type of the :edit-rules?"
+  [{:keys [entity edit-rules] :as opts} k]
+  (let [{:keys [derived derived-by-type]} edit-rules]
+    (boolean (or (contains? derived k)
+                 (some #(contains? (get derived-by-type %) k)
+                       (shared/setify (:rdf/type entity)))))))
 
-(def folded-properties
-  "The properties of the rows that the table makes from several properties,
-  whose edits can't be mapped back to those yet: the members of a container
-  (see ui.table/fold-member-rows)."
-  #{:rdfs/member})
+(defn editable-resource?
+  "Can the subject of the page in `opts` be edited, according to the
+  :namespaces of the :edit-rules? Any subject can be when they name none."
+  [{:keys [subject edit-rules] :as opts}]
+  (let [namespaces (:namespaces edit-rules)]
+    (or (nil? namespaces)
+        (and (keyword? subject)
+             (contains? namespaces (namespace subject))))))
 
-(defn- unsupported?
-  "Is the value `v` of the property `k` one that edit mode has no input for
-  yet: a blank node, or a value of a folded row?"
-  [k v]
-  (or (map? v) (symbol? v) (contains? folded-properties k)))
+(defn- blank-node?
+  "Is the value `v` a blank node, as a map of its properties or as a symbol?
+  Edit mode has no input for one yet."
+  [v]
+  (or (map? v) (symbol? v)))
 
 (defn lock
-  "Why the value `v` of the property `k` in `opts` can't be edited, as a key
-  of the :locked comments, or nil when it can be. The property is :derived;
-  the value is :inferred or :supplemented, or it is :elsewhere, in a graph
-  that changes don't go to; or it can't be edited :yet."
+  "Why the value `v` in the row of the property `k` in `opts` can't be
+  edited, as a key of the :locked comments, or nil when it can be.
+
+  The property is :derived; the value is :inferred or :supplemented, or it
+  is :elsewhere, in a graph that changes don't go to; the :resource is
+  outside the namespaces that can be edited; or the value can't be edited
+  :yet. The first reason that holds is the one given."
   [opts k v]
   (cond
     (derived? opts k)
@@ -77,5 +102,8 @@
         (contains? origins :supplemented) :supplemented
         :else                             :elsewhere))
 
-    (unsupported? k v)
+    (not (editable-resource? opts))
+    :resource
+
+    (blank-node? v)
     :yet))

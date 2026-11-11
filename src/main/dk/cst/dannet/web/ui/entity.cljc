@@ -11,6 +11,7 @@
             [dk.cst.dannet.web.section :as section]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
+            [dk.cst.dannet.web.ui.edit :as edit]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
@@ -63,7 +64,10 @@
      [:span.visually-hidden label]]))
 
 (rum/defc entity-header
-  [{:keys [subject languages entity k->label detail-level]
+  "The header of the page of the entity in `opts`: its label and its IRI. In
+  edit mode, a resource that can't be edited has a grey prefix badge and a
+  padlock before its label."
+  [{:keys [subject languages entity k->label detail-level edit-mode comments]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
@@ -82,9 +86,10 @@
         uri-link      [:a.rdf-uri {:href  rdf-uri
                                    :title (str (select-label* a-titles))
                                    :key   rdf-uri}
-                       (rdf/break-up-uri rdf-uri)]]
+                       (rdf/break-up-uri rdf-uri)]
+        locked?       (and edit-mode (not (lock/editable-resource? opts)))]
     [:header.page-header
-     [:h1
+     [:h1 {:class (when locked? "locked")}
       (rdf/prefix-badge prefix)
       [:span (cond-> {:title (if label
                                (prefix/kw->qname label-key)
@@ -94,6 +99,10 @@
                       :key   subject
                       :lang  label-lang}
                label (assoc :property (prefix/kw->qname label-key)))
+       ;; inside the label, so that it stays by the first word when the
+       ;; label takes several lines
+       (when locked?
+         (edit/padlock (get-in comments [:locked :resource])))
        (if label
          (rdf/transform-val label opts)
          (if uri-only?

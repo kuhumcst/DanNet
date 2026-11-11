@@ -55,7 +55,18 @@
            (change/property-changes changes :dn/synset-1 :rdfs/label))
         "only the changes to the property of the subject")
     (is (= {:added #{} :retracted #{} :replaced {}}
-           (change/property-changes changes :dn/synset-3 :rdfs/label)))))
+           (change/property-changes changes :dn/synset-3 :rdfs/label)))
+    (is (= #{:rdfs/label :rdfs/comment}
+           (change/changed-properties changes :dn/synset-1))
+        "the properties of the subject that have a change")
+    (is (= #{} (change/changed-properties changes :dn/synset-3)))
+    (is (= #{:wn/hypernym}
+           (change/changed-properties
+             [{:where   [[:dn/synset-1 :ontolex/canonicalForm '?f]]
+               :retract #{['?f :ontolex/writtenRep "a"] old-hypernym}
+               :add     #{['?f :ontolex/writtenRep "b"] new-hypernym}}]
+             :dn/synset-1))
+        "not those of a subject that a pattern leads to")))
 
 (deftest replacements
   (let [newer-hypernym [:dn/synset-1 :wn/hypernym :dn/synset-4]

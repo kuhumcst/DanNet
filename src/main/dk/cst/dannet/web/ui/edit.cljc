@@ -9,6 +9,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.input-type :as input-type]
@@ -266,9 +267,10 @@
 
 (rum/defcs value-field < (rum/local false ::editing?) refocus
   "A value `v` of the property `k` in `opts` that can be edited, framed like
-  an input field. Its `props` are the :input-type of its input and its
-  :status among the pending changes: :added, :retracted, :edited when it
-  replaces the value :original, or nil.
+  an input field. The property is the one that holds the value, which in the
+  row of members is an rdf:_N property. Its `props` are the :input-type of
+  its input and its :status among the pending changes: :added, :retracted,
+  :edited when it replaces the value :original, or nil.
 
   Its buttons remove it, or undo the change that removed, added or edited
   it. The pencil turns it into the input, and so does a click elsewhere in
@@ -278,7 +280,9 @@
   (let [editing? (::editing? state)
         t        [subject k v]
         pencil?  (not= status :retracted)
-        shared?  (next (lock/value-origins opts k v))
+        ;; a pending value isn't in the data yet, so it has no origins
+        shared?  (and (not (contains? #{:added :edited} status))
+                      (next (lock/value-origins opts k v)))
         label    #(str (i18n/da-en languages %1 %2) ": " (value-text opts v))
         change!  (fn [f & args]
                    (fn [_] (apply app/update-changes! f args)))
@@ -341,10 +345,12 @@
                        (change! change/retract t)))])]))
 
 (rum/defcs new-value-field < (rum/local false ::adding?) refocus
-  "An empty field below the values `vs` of the property `k` in `opts`, whose
-  button turns it into the input of the `input-type`. A value entered there
-  is added, unless the property has it already."
-  [state {:keys [subject languages] :as opts} k vs input-type]
+  "An empty field at the end of a row in `opts`, whose button turns it into
+  the input of the `input-type`. A value entered there is added to the
+  property `k`, unless it is one of the `taken` values.
+
+  A new value resembles the first of the taken ones, e.g. in its language."
+  [state {:keys [subject languages] :as opts} k taken input-type]
   (let [adding? (::adding? state)
         label   (i18n/da-en languages "Tilføj en værdi" "Add a value")
         close!  (fn []
@@ -353,12 +359,12 @@
     [:li.edit-value {:class (when-not @adding? "edit-value--new")}
      (if @adding?
        (input opts input-type
-              {:like      (first vs)
+              {:like      (first taken)
                :label     label
                :on-cancel close!
                :on-value  (fn [v]
                             (close!)
-                            (when-not (some #{v} vs)
+                            (when-not (some #{v} taken)
                               (app/update-changes!
                                 change/add [subject k v])))})
        ;; the plus says it to the eye, the label to a screen reader
@@ -379,45 +385,118 @@
     (distinct (concat (mapcat #(or (seq (replacing %)) [%]) vs)
                       (sort-by str added)))))
 
+;; A row lists the values of one property, except the row of members, which
+;; the table makes of the rdf:_N properties of a container (see
+;; shared/member-row). A change is made to the property that holds a value,
+;; so the functions below work with pairs of a property and a value.
+
+(defn row-properties
+  "The properties whose values the row of the property `k` in `opts` lists.
+
+  That is `k` itself. In the row of members, the rdf:_N properties that the
+  entity or a pending change has come before it, in the order of their
+  ordinals."
+  [{:keys [subject entity changes] :as opts} k]
+  (if (= k shared/member-row)
+    (-> (->> (concat (keys entity) (change/changed-properties changes subject))
+             (filter shared/member-property?)
+             (distinct)
+             (sort-by shared/member-ordinal))
+        (concat [k]))
+    [k]))
+
+(defn new-value-property
+  "The property that a new value in the row of the property `k` is added
+  to, when the row lists the values of the `properties` (see row-properties).
+
+  That is `k` itself, or in the row of members, the rdf:_N property after
+  the highest one. A new member never takes the ordinal of a member whose
+  removal is pending, so that undoing the removal can't give two members the
+  same ordinal. A removed member therefore leaves a gap in the ordinals."
+  [k properties]
+  (if (= k shared/member-row)
+    (->> (filter shared/member-property? properties)
+         (map shared/member-ordinal)
+         (reduce max 0)
+         (inc)
+         (str "_")
+         (keyword "rdf"))
+    k))
+
+(defn row-fields
+  "The fields of a row, with the pending `changes` to the `properties` of
+  the subject `s` made. The `entries` are the values of the row that can be
+  edited, each as a pair of the property that holds it and the value.
+
+  A field is a map of its :property and :value. A value with a pending
+  change also has its :status, which is :added, :retracted or :edited, and
+  an edited one has the :original value that it replaces. The fields are in
+  the order of `properties`, and those of one property in the order of its
+  values (see value-order)."
+  [changes s properties entries]
+  (let [p->vs (update-vals (group-by first entries) #(map second %))]
+    (for [p    properties
+          :let [{:keys [added retracted replaced]
+                 :as   pending} (change/property-changes changes s p)
+                original (into {}
+                               (for [[old replacing] replaced
+                                     v               replacing]
+                                 [v old]))]
+          v    (value-order (get p->vs p) pending)
+          :let [status (cond
+                         (retracted v) :retracted
+                         (contains? original v) :edited
+                         (added v) :added)]]
+      (cond-> {:property p :value v}
+        status (assoc :status status)
+        (= status :edited) (assoc :original (get original v))))))
+
 (rum/defc cell
-  "A table cell that lists every one of the values `vs` of the property `k`
-  in `opts`, for a row in edit mode, with the pending changes made: an
-  edited value shows its new text. The values that can be edited are
-  followed by a field for adding one. A value that can't be edited has a
+  "A table cell that lists every one of the values `vs` in the row of the
+  property `k` in `opts`, for a row in edit mode, with the pending changes
+  made: an edited value shows its new text. The values that can be edited
+  are followed by a field for adding one. A value that can't be edited has a
   padlock that says why, and it comes last."
   [{:keys [subject changes comments] :as opts} k vs]
-  (let [sorted     (if (set? vs) (sort-by (rdf/label-sortkey-fn opts) vs) vs)
-        v->lock    (into {} (map (juxt identity #(lock/lock opts k %))) sorted)
-        {:keys [added retracted replaced]
-         :as   pending} (change/property-changes changes subject k)
-        original   (into {}
-                         (for [[old replacing] replaced
-                               v               replacing]
-                           [v old]))
-        editable   (value-order (remove v->lock sorted) pending)
-        input-type (input-type/input-type k vs)
-        ;; a new value is one of the options that the property doesn't have
-        new-type   (cond-> input-type
-                     (:options input-type) (update :options
-                                                   #(remove (set editable) %)))
-        item-key   (fn [v] (pr-str (if (map? v) (:rdf/about v) v)))]
+  (let [sorted      (if (set? vs) (sort-by (rdf/label-sortkey-fn opts) vs) vs)
+        entries     (distinct (for [v sorted
+                                    p (lock/value-properties opts k v)]
+                                [p v]))
+        entry->lock (into {}
+                          (map (fn [[p v :as entry]]
+                                 [entry (lock/lock opts p v)]))
+                          entries)
+        properties  (row-properties opts k)
+        fields      (row-fields changes subject properties
+                                (remove entry->lock entries))
+        input-type  (input-type/input-type k vs)
+        values      (concat (map :value fields)
+                            (map second (filter entry->lock entries)))
+        ;; a new value is one of the options that the row doesn't have
+        new-type    (cond-> input-type
+                      (:options input-type) (update :options
+                                                    #(remove (set values) %)))
+        ;; A value in a field can't be added again, but a locked value can
+        ;; be, since the graph that changes go to doesn't hold it. A
+        ;; container can hold a member twice, so its row takes any value.
+        taken       (when-not (= k shared/member-row)
+                      (map :value fields))
+        item-key    (fn [p v] (pr-str [p (if (map? v) (:rdf/about v) v)]))]
     [:td
      [:ul.edit-values
-      (for [v editable]
-        ;; keyed by the value that it replaces, so that an edit keeps its field
-        (rum/with-key (value-field opts k v
-                                   {:input-type input-type
-                                    :original   (get original v)
-                                    :status     (cond
-                                                  (retracted v) :retracted
-                                                  (contains? original v) :edited
-                                                  (added v) :added)})
-                      (item-key (get original v v))))
-      ;; a property whose options are all taken has nothing to add
+      (for [{:keys [property value original] :as field} fields]
+        ;; keyed by its property and by the value that it replaces, so that
+        ;; an edit keeps its field
+        (rum/with-key (value-field opts property value
+                                   (assoc field :input-type input-type))
+                      (item-key property (if (some? original) original value))))
+      ;; a row whose options are all taken has nothing to add
       (when-not (some-> (:options new-type) empty?)
-        (rum/with-key (new-value-field opts k editable new-type) "new"))
-      (for [v (filter v->lock sorted)]
+        (rum/with-key (new-value-field opts (new-value-property k properties)
+                                       taken new-type)
+                      "new"))
+      (for [[p v :as entry] (filter entry->lock entries)]
         [:li.edit-value.edit-value--locked
-         (assoc (rdf/lone-value-attrs v) :key (item-key v))
-         (padlock (get-in comments [:locked (v->lock v)]))
+         (assoc (rdf/lone-value-attrs v) :key (item-key p v))
+         (padlock (get-in comments [:locked (entry->lock entry)]))
          (rdf/value opts v)])]]))
