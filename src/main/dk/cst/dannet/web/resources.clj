@@ -602,6 +602,74 @@
          response-body-ic]
    :route-name ::autocomplete])
 
+(def ontological-types-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/ontological-types"))
+
+(def ontological-types-ic
+  "Every ontological type with its label, sorted by label, for the editor to
+  search among in the browser."
+  {:name  ::ontological-types
+   :enter (fn [ctx]
+            (assoc ctx
+              :content
+              {:ontological-types
+               (->> (theo/q (:inference @instance/db)
+                            "SELECT ?t ?label
+                             WHERE { ?t rdf:type dns:OntologicalType ;
+                                        rdfs:label ?label }")
+                    (map (fn [{:syms [?t ?label]}]
+                           {:rdf/about ?t :rdfs/label ?label}))
+                    (sort-by (comp str :rdfs/label))
+                    (vec))}))})
+
+(def ontological-types-route
+  "A route of the editor, which only exists in development."
+  [ontological-types-path
+   :get [media-type-negotiation-ic
+         ontological-types-ic
+         response-body-ic]
+   :route-name ::ontological-types])
+
+(def synsets-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/synsets"))
+
+(defn- prefix-synsets
+  "The synsets in `g` of the words that start with the string `s`, as the
+  search finds them: those of the word `s` itself first, then those of the
+  first few words that the autocompletion has for `s`, 30 at most."
+  [g s]
+  (let [lemmas  (->> (some-> (not-empty (shared/search-string s))
+                             (instance/autocomplete))
+                     (map #(if (vector? %) (first %) %))
+                     (take 10)
+                     (cons s)
+                     (distinct))
+        synsets (->> (keep #(look-up-any-case g %) lemmas)
+                     (reduce (fn [acc m] (if acc (into acc m) m)) nil))]
+    (when synsets
+      (into (empty synsets) (take 30) synsets))))
+
+(def synsets-ic
+  "The synsets of the words that start with the lemma in the request, for
+  the editor to choose between. A lemma with a single synset gives that
+  synset, where the search page would go to its page."
+  {:name  ::synsets
+   :enter (fn [ctx]
+            (let [lemma (decode-query-part
+                          (get-in ctx [:request :query-params :lemma]))]
+              (assoc ctx
+                :content {:synsets (when (not-empty lemma)
+                                     (prefix-synsets (:inference @instance/db)
+                                                     lemma))})))})
+
+(def synsets-route
+  "A route of the editor, which only exists in development."
+  [synsets-path
+   :get [media-type-negotiation-ic
+         synsets-ic
+         response-body-ic]
+   :route-name ::synsets])
+
 (def sparql-config
   "The options of DanNet's SPARQL endpoint, over endpoint/defaults. Its
   queries resolve relative IRIs against the public endpoint, which the

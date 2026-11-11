@@ -439,6 +439,11 @@ ul.edit-values > li.editable {
     box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
 }
 
+/* A click in the field opens its input, so the pointer is that of a text. */
+ul.edit-values > li.editable.clickable {
+    cursor: text;
+}
+
 ul.edit-values > li.editable:focus-within {
     border-color: var(--color-link);
 }
@@ -521,6 +526,142 @@ ins.edit-value__content {
 .edit-value__icon--edit { mask: url('/images/edit.svg') center / contain no-repeat; }
 .edit-value__icon--remove { mask: url('/images/remove.svg') center / contain no-repeat; }
 .edit-value__icon--undo { mask: url('/images/undo.svg') center / contain no-repeat; }
+.edit-value__icon--search { mask: url('/images/search.svg') center / contain no-repeat; }
+.edit-value__icon--add { mask: url('/images/add.svg') center / contain no-repeat; }
+
+/* A text that isn't a value makes its input invalid (see ui.edit/field).
+   It stays as it was typed, with a wavy red line under it, as a misspelt
+   word has. */
+.edit-value__input:invalid {
+    text-decoration: underline wavy var(--color-dannet);
+    text-decoration-skip-ink: none;
+}
+
+/* The input has room below its text for that line, which its box would
+   otherwise cut off, taken back by its margin so that the field is as tall
+   as before. */
+textarea.edit-value__input {
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: calc(-1 * var(--spacing-xs));
+}
+
+/* The field for adding a value has no frame until its button is pressed,
+   only a dashed outline while the pointer or the focus is on it. */
+ul.edit-values > li.editable.adding:not(:has(.edit-value__input)) {
+    border-style: dashed;
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+}
+
+ul.edit-values > li.editable.adding:not(:has(.edit-value__input)):is(:hover, :focus-within) {
+    border-color: var(--color-subtle);
+}
+
+.edit-value__add {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    flex: 1;
+    /* as tall as a line of text, so that opening the input moves nothing */
+    min-height: 1lh;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: var(--color-subtle);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+/* It is faint until the pointer or the focus is on its field. */
+li.adding:hover > .edit-value__add,
+.edit-value__add:focus-visible {
+    color: var(--color-dark);
+}
+
+select.edit-value__input {
+    field-sizing: initial;
+}
+
+/* The dialog that finds a value (see ui.edit/search-dialog) is a column of
+   its heading, its input and its results, which scroll. */
+dialog.search-dialog {
+    width: min(60ch, calc(100vw - var(--spacing-l)));
+    max-height: min(80vh, 60rem);
+    padding: var(--spacing-m);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    box-shadow: var(--shadow-nav);
+}
+
+dialog.search-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-m);
+}
+
+dialog.search-dialog::backdrop {
+    background: rgba(0,0,0,0.5);
+}
+
+dialog.search-dialog > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+dialog.search-dialog h2 {
+    margin: 0;
+    font-size: var(--font-size-m-l);
+}
+
+dialog.search-dialog input {
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    letter-spacing: inherit;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+}
+
+dialog.search-dialog output {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.search-dialog__results {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A result is a button with its label, description and type on lines of
+   their own. */
+.search-dialog__results button {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xxs);
+    width: 100%;
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    color: inherit;
+    background: none;
+    border: none;
+    border-top: var(--subtle-border);
+    cursor: pointer;
+}
+
+.search-dialog__results button:hover,
+.search-dialog__results button:focus-visible {
+    background: var(--color-bg-alt);
+}
+
+.search-dialog__results small {
+    color: var(--color-muted);
+}
 
 /* In edit mode, a row or a value that can't be edited has faded text with no
    colour in its links, markers and prefix badges. The grey is below a

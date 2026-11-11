@@ -3,7 +3,6 @@
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.theophrastus.origin :as origin]
-            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
@@ -11,6 +10,7 @@
             [dk.cst.dannet.web.i18n :as i18n]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
+            [dk.cst.dannet.web.ui.edit :as edit]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
@@ -62,17 +62,44 @@
   (and (some? default-origin)
        (contains? (value-origins opts k v) default-origin)))
 
+(def derived-properties
+  "The properties that the release build writes for every resource, so that
+  their values aren't edited by hand."
+  #{:dns/inherited :skos/inScheme})
+
+(def derived-synset-properties
+  "The properties that the release build writes for a synset: its labels,
+  which are made from its senses."
+  #{:rdfs/label :dns/shortLabel})
+
+(defn derived?
+  "Does the release build write the property `k` of the entity in `opts`?"
+  [{:keys [entity] :as opts} k]
+  (or (contains? derived-properties k)
+      (and (contains? derived-synset-properties k)
+           (contains? (shared/setify (:rdf/type entity))
+                      :ontolex/LexicalConcept))))
+
 (defn lock
   "Why the value `v` of the property `k` in `opts` can't be edited, as a key
-  of the :locked comments, or nil when it can be: the value is :inferred or
-  :supplemented, or it is :elsewhere, in a graph that changes don't go to."
+  of the :locked comments, or nil when it can be. The property is :derived;
+  the value is :inferred or :supplemented, or it is :elsewhere, in a graph
+  that changes don't go to; or it is a blank node or a folded member of a
+  container, which can't be edited :yet."
   [opts k v]
-  (when-not (editable? opts k v)
+  (cond
+    (derived? opts k)
+    :derived
+
+    (not (editable? opts k v))
     (let [origins (value-origins opts k v)]
       (cond
         (contains? origins :inferred)     :inferred
         (contains? origins :supplemented) :supplemented
-        :else                             :elsewhere))))
+        :else                             :elsewhere))
+
+    (or (map? v) (symbol? v) (= k :rdfs/member))
+    :yet))
 
 (defn padlock
   "A padlock icon whose tooltip and accessible name is `why`, the reason that
@@ -126,29 +153,19 @@
         (remove #(or (contains? (:add %) t) (contains? (:retract %) t)))
         changes))
 
-(defn- value-button
-  "A button with `icon` in an editable value, named by `label`."
-  [icon label on-click]
-  [:button.edit-value__button {:type     "button"
-                               :title    label
-                               :on-click on-click}
-   [:span {:class       ["edit-value__icon" (str "edit-value__icon--" icon)]
-           :aria-hidden "true"}]
-   [:span.visually-hidden label]])
-
 (defn- focus-button!
-  "Move the focus to the button named `title` in the list around `node`, once
-  the list has been drawn again."
-  [node title]
+  "Move the focus to the first button of the list item that is where the
+  item `li` is now, once the list has been drawn again."
+  [li]
   ;; in the frame after the next one, since the list is drawn in the next
-  #?(:cljs (when-let [ul (.closest node "ul")]
-             (js/requestAnimationFrame
-               (fn []
-                 (js/requestAnimationFrame
-                   #(some-> (->> (array-seq (.querySelectorAll ul "button"))
-                                 (filter (fn [b] (= title (.-title b))))
-                                 (first))
-                            (.focus))))))))
+  #?(:cljs (when-let [ul (some-> li (.-parentNode))]
+             (let [i (.indexOf (js/Array.from (.-children ul)) li)]
+               (js/requestAnimationFrame
+                 (fn []
+                   (js/requestAnimationFrame
+                     #(some-> (aget (.-children ul) i)
+                              (.querySelector "button")
+                              (.focus)))))))))
 
 (rum/defcs edit-value < (rum/local false ::editing?)
   "A value `v` of the property `k` in `opts` that can be edited, framed like
@@ -156,109 +173,141 @@
   :retracted, :edited when it replaces the value `original`, or nil.
 
   Its buttons remove it, or undo the change that removed, added or edited
-  it. The pencil of a text turns it into an input: Enter or leaving the
-  input replaces the text, and Escape leaves it as it was. A blank node and
-  a folded member have no buttons yet."
-  [state {:keys [subject languages comments] :as opts} k v status original]
+  it. The pencil turns it into the input of its `value-kind`, and so does a
+  click elsewhere in the field. A value entered there replaces it."
+  [state {:keys [subject languages comments] :as opts}
+   k v status original value-kind]
   (let [editing? (::editing? state)
         t        [subject k v]
-        text?    (or (string? v) (some? (i18n/lang v)))
-        label    #(str (i18n/da-en languages %1 %2) ": "
-                       (if (keyword? v) (rdf/link-label opts v) (str v)))
-        edit     #(str (i18n/da-en languages "Ret" "Edit") ": " %)
-        ;; the focus goes back to the pencil, of the new text when there's one
-        replace! (fn [e]
+        pencil?  (not= status :retracted)
+        text     #(if (keyword? %) (rdf/link-label opts %) (str %))
+        label    #(str (i18n/da-en languages %1 %2) ": " (text v))
+        ;; the focus goes back to the pencil, of the new value when there's one
+        close!   (fn []
                    (when @editing?
                      (reset! editing? false)
-                     (let [s        (str/trim (.. e -target -value))
-                           changed? (not (or (empty? s) (= s (str v))))]
-                       (focus-button! (.-target e) (edit (if changed? s v)))
-                       (when changed?
-                         (app/update-changes!
-                           change/replace t
-                           [subject k (if-let [lang (i18n/lang v)]
-                                        (term/->LangString s lang)
-                                        s)])))))]
+                     #?(:cljs (focus-button! (rum/dom-node state)))))
+        ;; A click anywhere in the field opens its input, as the pencil does,
+        ;; unless it is on a link or a button or selects text.
+        open!    (fn [e]
+                   #?(:cljs (when-not (or @editing?
+                                          (.closest (.-target e)
+                                                    "a, button, [tabindex]")
+                                          (seq (str (js/getSelection))))
+                              (reset! editing? true))))]
     [:li (cond-> {:class ["editable"]}
+           pencil? (-> (assoc :on-click open!)
+                       (update :class conj "clickable"))
            status (update :class conj (name status))
            original (assoc :title (str (i18n/da-en languages "Før" "Before")
-                                       ": " original))
+                                       ": " (text original)))
            (next (value-origins opts k v)) (assoc :title (:shared comments)))
      (if @editing?
-       [:textarea.edit-value__input
-        {:default-value (str v)
-         :lang          (i18n/lang v)
-         :aria-label    (edit v)
-         :auto-focus    true
-         :rows          1
-         ;; the caret starts at the end of the text
-         :on-focus      (fn [e]
-                          (let [n (count (.. e -target -value))]
-                            (.setSelectionRange (.-target e) n n)))
-         :on-blur       replace!
-         :on-key-down   (fn [e]
-                          (case (.-key e)
-                            "Enter" (do (.preventDefault e) (replace! e))
-                            "Escape" (do (reset! editing? false)
-                                         (focus-button! (.-target e) (edit v)))
-                            nil))}]
+       (edit/field opts value-kind
+                   {:value     v
+                    :label     (label "Ret" "Edit")
+                    :on-cancel close!
+                    :on-value  (fn [v']
+                                 (close!)
+                                 (app/update-changes!
+                                   change/replace t [subject k v']))})
        ;; a removed value is a <del>, an added or edited one an <ins>
        [(case status :retracted :del (:added :edited) :ins :span)
         (cond-> (assoc (rdf/value-attrs v) :class ["edit-value__content"])
           (keyword? v) (update :class conj "attr-combo"))
         (rdf/value opts v)])
-     (when-not (or @editing? (map? v) (= k :rdfs/member))
+     (when-not @editing?
        [:span.edit-value__actions
-        (when (and text? (not= status :retracted))
-          (value-button "edit" (edit v) #(reset! editing? true)))
+        (when pencil?
+          (edit/icon-button "edit" (label "Ret" "Edit")
+                            #(reset! editing? true)))
         (case status
-          :retracted (value-button "undo" (label "Fortryd fjernelse af"
-                                                 "Undo removal of")
+          :retracted (edit/icon-button "undo" (label "Fortryd fjernelse af"
+                                                     "Undo removal of")
+                                       #(app/update-changes! without-change t))
+          :added (edit/icon-button "remove" (label "Fjern" "Remove")
                                    #(app/update-changes! without-change t))
-          :added (value-button "remove" (label "Fjern" "Remove")
-                               #(app/update-changes! without-change t))
           ;; removing an edited value removes the value it replaces
           :edited [:<>
-                   (value-button "undo" (label "Fortryd rettelse af"
-                                               "Undo edit of")
-                                 #(app/update-changes! without-change t))
-                   (value-button "remove" (label "Fjern" "Remove")
-                                 #(app/update-changes!
-                                    (fn [changes]
-                                      (-> (without-change changes t)
-                                          (change/retract
-                                            [subject k original])))))]
-          (value-button "remove" (label "Fjern" "Remove")
-                        #(app/update-changes! change/retract t)))])]))
+                   (edit/icon-button "undo" (label "Fortryd rettelse af"
+                                                   "Undo edit of")
+                                     #(app/update-changes! without-change t))
+                   (edit/icon-button "remove" (label "Fjern" "Remove")
+                                     #(app/update-changes!
+                                        (fn [changes]
+                                          (-> (without-change changes t)
+                                              (change/retract
+                                                [subject k original])))))]
+          (edit/icon-button "remove" (label "Fjern" "Remove")
+                            #(app/update-changes! change/retract t)))])]))
+
+(rum/defcs add-value < (rum/local false ::adding?)
+  "An empty field below the values `vs` of the property `k` in `opts`, whose
+  button turns it into the input of the `value-kind`. A value entered there
+  is added, unless the property has it already."
+  [state {:keys [subject languages] :as opts} k vs value-kind]
+  (let [adding? (::adding? state)
+        label   (i18n/da-en languages "Tilføj en værdi" "Add a value")
+        close!  (fn []
+                  (when @adding?
+                    (reset! adding? false)
+                    #?(:cljs (focus-button! (rum/dom-node state)))))]
+    [:li.editable.adding
+     (if @adding?
+       (edit/field opts (cond-> value-kind
+                          (:options value-kind) (update :options
+                                                        #(remove (set vs) %)))
+                   {:like      (first vs)
+                    :label     label
+                    :on-cancel close!
+                    :on-value  (fn [v]
+                                 (close!)
+                                 (when-not (some #{v} vs)
+                                   (app/update-changes!
+                                     change/add [subject k v])))})
+       ;; the plus says it to the eye, the label to a screen reader
+       [:button.edit-value__add {:type     "button"
+                                 :title    label
+                                 :on-click #(reset! adding? true)}
+        [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+        [:span.visually-hidden label]])]))
 
 (rum/defc edit-cell
   "A table cell that lists every one of the values `vs` of the property `k`
   in `opts`, for a row in edit mode, with the pending changes made: an
-  edited value shows its new text. A value that can't be edited has a
-  padlock that says why, and it comes after the ones that can."
+  edited value shows its new text. The values that can be edited are
+  followed by a field for adding one. A value that can't be edited has a
+  padlock that says why, and it comes last."
   [{:keys [comments] :as opts} k vs]
   (let [{:keys [added retracted replacements] :as pending} (pending opts k)
-        original (into {}
-                       (for [[old replacing] replacements
-                             v               replacing]
-                         [v old]))]
+        original   (into {}
+                         (for [[old replacing] replacements
+                               v               replacing]
+                           [v old]))
+        value-kind (edit/value-kind k vs)
+        reason     (fn [v] (when-not (added v) (lock opts k v)))
+        item-key   (fn [v] (pr-str (if (map? v) (:rdf/about v) v)))
+        ordered    (edit-order opts k vs pending)
+        editable   (remove reason ordered)]
     [:td
      [:ul.edit-values
-      (for [v    (edit-order opts k vs pending)
-            :let [reason (when-not (added v) (lock opts k v))
-                  key    (pr-str (if (map? v) (:rdf/about v) v))]]
-        (if reason
-          [:li (cond-> (assoc (rdf/value-attrs v) :key key :class ["locked"])
-                 (keyword? v) (update :class conj "attr-combo"))
-           (padlock (get-in comments [:locked reason]))
-           (rdf/value opts v)]
-          (rum/with-key (edit-value opts k v
-                                    (cond
-                                      (retracted v) :retracted
-                                      (contains? original v) :edited
-                                      (added v) :added)
-                                    (get original v))
-                        key)))]]))
+      (for [v editable]
+        (rum/with-key (edit-value opts k v
+                                  (cond
+                                    (retracted v) :retracted
+                                    (contains? original v) :edited
+                                    (added v) :added)
+                                  (get original v)
+                                  value-kind)
+                      (item-key v)))
+      (rum/with-key (add-value opts k editable value-kind) "add")
+      (for [v (filter reason ordered)]
+        [:li (cond-> (assoc (rdf/value-attrs v)
+                       :key (item-key v)
+                       :class ["locked"])
+               (keyword? v) (update :class conj "attr-combo"))
+         (padlock (get-in comments [:locked (reason v)]))
+         (rdf/value opts v)])]]))
 
 (defn reaches-limit?
   "Do `n` values reach the limit, from which a relation shows the word cloud of

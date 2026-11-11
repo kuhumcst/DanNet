@@ -11,6 +11,7 @@
     :full-screen   whether a synset diagram fills the page
     :edit-mode     whether the tables show what can be edited
     :changes       the pending changes made in edit mode (in the browser)
+    :labels        the labels of the resources that those changes add
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page
@@ -35,7 +36,13 @@
                                   "From another dataset")
                   :supplemented (i18n/da-en languages
                                   "Hentet fra relaterede opslag"
-                                  "Taken from related entries")}
+                                  "Taken from related entries")
+                  :derived      (i18n/da-en languages
+                                  "Dannes automatisk ved udgivelsen"
+                                  "Made automatically at release")
+                  :yet          (i18n/da-en languages
+                                  "Kan ikke rettes endnu"
+                                  "Can't be edited yet")}
    :shared       (i18n/da-en languages
                    (str "Findes også i et andet datasæt, så værdien bliver "
                         "på siden, hvis den fjernes")
@@ -76,9 +83,12 @@
               :synset? (some shared/semantic-rels? entity)
               :comments (comments languages)
               ;; Entity pages label the resources of their expanded entity;
-              ;; other pages (e.g. SPARQL) may supply their own k->label.
+              ;; other pages (e.g. SPARQL) may supply their own k->label. The
+              ;; :labels of the state are of resources added in edit mode.
               :k->label (if entities
-                          (update-vals (assoc entities subject entity) label-of)
+                          (merge (:labels state)
+                                 (update-vals (assoc entities subject entity)
+                                              label-of))
                           (:k->label data)))
       entity (assoc :inherited (inherited entity)))))
 

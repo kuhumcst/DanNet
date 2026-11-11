@@ -24,40 +24,46 @@
 (defn routes
   []
   (route/expand-routes
-    #{;; Frontend redirects
-      res/root-route
-      res/dannet-route
+    (cond->
+      #{;; Frontend redirects
+        res/root-route
+        res/dannet-route
 
-      ;; See also: middleware/cookies added below as a default interceptor!
-      res/cookies-route
+        ;; See also: middleware/cookies added below as a default interceptor!
+        res/cookies-route
 
-      ;; API and other single content-type routes
-      res/export-route
-      res/schema-download-route
-      res/sparql-route
-      res/metadata-route
-      res/relations-route
+        ;; API and other single content-type routes
+        res/export-route
+        res/schema-download-route
+        res/sparql-route
+        res/metadata-route
+        res/relations-route
 
-      ;; Non-entity routes which support content-negotiation
-      res/markdown-route
-      res/search-route
-      res/autocomplete-route
+        ;; Non-entity routes which support content-negotiation
+        res/markdown-route
+        res/search-route
+        res/autocomplete-route
 
-      ;; Various entity routes which support content-negotiation
-      (res/prefix->entity-route 'dn)
-      (res/prefix->entity-route 'dnc)
-      (res/prefix->entity-route 'dns)
-      (res/prefix->entity-route 'dnt)
-      (res/prefix->entity-route 'dnp)
-      (res/prefix->entity-route 'frame)
-      res/external-entity-route
-      res/unknown-external-entity-route
+        ;; Various entity routes which support content-negotiation
+        (res/prefix->entity-route 'dn)
+        (res/prefix->entity-route 'dnc)
+        (res/prefix->entity-route 'dns)
+        (res/prefix->entity-route 'dnt)
+        (res/prefix->entity-route 'dnp)
+        (res/prefix->entity-route 'frame)
+        res/external-entity-route
+        res/unknown-external-entity-route
 
-      ;; These special routes ensure that we also match the individual dataset
-      ;; or schema resources; can't use the 'prefix->entity-route' for this.
-      (res/prefix->dataset-entity-route 'dn)
-      (res/prefix->dataset-entity-route 'dns)
-      (res/prefix->dataset-entity-route 'dnc)}))
+        ;; These special routes ensure that we also match the individual
+        ;; dataset or schema resources; can't use the 'prefix->entity-route'
+        ;; for this.
+        (res/prefix->dataset-entity-route 'dn)
+        (res/prefix->dataset-entity-route 'dns)
+        (res/prefix->dataset-entity-route 'dnc)}
+
+      ;; The editor is a preview that only exists in development.
+      shared/development? (conj res/ontological-types-route
+                                res/synsets-route))))
 
 (defn remove-trailing-slash
   [s]
