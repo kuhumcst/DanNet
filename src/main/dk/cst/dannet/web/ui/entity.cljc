@@ -11,6 +11,7 @@
             [dk.cst.dannet.web.section :as section]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
+            [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.tabs :as tabs]
@@ -120,7 +121,7 @@
   [{:keys [href languages comments entity inherited] :as opts}]
   (let [format-href #(str href (if (re-find #"\?" href) "&" "?") "format=" %)
         origins     (into #{}
-                          (mapcat (fn [[k v]] (table/row-origins opts k v)))
+                          (mapcat (fn [[k v]] (lock/row-origins opts k v)))
                           entity)]
     [:aside.notes
      (when (contains? origins :inferred)

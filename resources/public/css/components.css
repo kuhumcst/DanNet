@@ -405,31 +405,25 @@ td.attr-name {
     vertical-align: top;
 }
 
-/* The values of a row in edit mode (see ui.table/edit-cell), one to a line. */
+/* Edit mode (see ui.edit). The values of a row are a list of fields, one to
+   a line. The tints of a pending change are those of a diff. */
 ul.edit-values {
+    --tint-edited: #fff9d9;
+    --tint-retracted: #fdeceb;
+    --tint-added: #ebf6e7;
+
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-/* Edit mode shows the language tag of every value that is a text, also in
-   the language of the page, where base.css hides it. The label of a resource
-   isn't a value, so its tag stays hidden. */
-ul.edit-values > li[lang]::after,
-ul.edit-values .edit-value__content[lang]::after,
-table.attr-val tr.locked > td:last-child[lang]::after,
-table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
-table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
-    content: attr(lang);
-}
-
-ul.edit-values > li + li {
+.edit-value + .edit-value {
     margin-top: var(--spacing-xs);
 }
 
 /* A value that can be edited is framed like an input field, with its
-   buttons at its end (see ui.table/edit-value). */
-ul.edit-values > li.editable {
+   buttons at its end (see ui.edit/value-field). */
+.edit-value {
     display: flex;
     gap: var(--spacing-s);
     padding: var(--spacing-s) var(--spacing-s) var(--spacing-s) var(--spacing-m);
@@ -439,26 +433,26 @@ ul.edit-values > li.editable {
     box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
 }
 
+.edit-value:focus-within {
+    border-color: var(--color-link);
+}
+
 /* A click in the field opens its input, so the pointer is that of a text. */
-ul.edit-values > li.editable.clickable {
+.edit-value--clickable {
     cursor: text;
 }
 
-ul.edit-values > li.editable:focus-within {
-    border-color: var(--color-link);
-}
+/* A pending change tints the value: yellow for an edited one, red for a
+   removed one and green for an added one. */
+.edit-value--edited { background: var(--tint-edited); }
+.edit-value--retracted { background: var(--tint-retracted); }
+.edit-value--added { background: var(--tint-added); }
 
 .edit-value__content,
 .edit-value__input {
     flex: 1;
     min-width: 0;
 }
-
-/* A pending change tints the value: yellow for an edited text, red for a
-   removed value and green for an added one. */
-ul.edit-values > li.editable.edited { background: #fff9d9; }
-ul.edit-values > li.editable.retracted { background: #fdeceb; }
-ul.edit-values > li.editable.added { background: #ebf6e7; }
 
 /* A removed value is struck through as well. Its links are named too, since
    the line of the <del> doesn't reach into the flex box of a resource. Its
@@ -477,9 +471,8 @@ ins.edit-value__content {
     text-decoration: none;
 }
 
-/* The input of a text grows with the text and looks like the text. */
+/* An input looks like the text that it replaces. */
 .edit-value__input {
-    field-sizing: content;
     padding: 0;
     font: inherit;
     letter-spacing: inherit;
@@ -487,7 +480,24 @@ ins.edit-value__content {
     background: none;
     border: none;
     outline: none;
+}
+
+/* The input of a text grows with the text. It has room below the text for
+   the line of an invalid one, which its box would otherwise cut off, taken
+   back by its margin so that the field is as tall as before. */
+textarea.edit-value__input {
+    field-sizing: content;
     resize: none;
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: calc(-1 * var(--spacing-xs));
+}
+
+/* A text that isn't a value makes its input invalid (see
+   ui.edit/text-input). It stays as it was typed, with a wavy red line under
+   it, as a misspelt word has. */
+.edit-value__input:invalid {
+    text-decoration: underline wavy var(--color-dannet);
+    text-decoration-skip-ink: none;
 }
 
 /* The buttons are in the middle of the first line, however tall they are. */
@@ -497,23 +507,33 @@ ins.edit-value__content {
     height: 1lh;
 }
 
-.edit-value__button {
+/* The buttons of a field are faint until the pointer or the focus is on
+   them. */
+.edit-value__button,
+.edit-value__add {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: var(--spacing-l);
-    height: var(--spacing-l);
     padding: 0;
+    /* a button has a font of its own, which would make its 1lh a shorter line */
+    font: inherit;
     color: var(--color-subtle);
     background: none;
     border: none;
-    border-radius: var(--border-radius-s);
     cursor: pointer;
     transition: color var(--transition-base);
 }
 
+.edit-value__button {
+    justify-content: center;
+    width: var(--spacing-l);
+    height: var(--spacing-l);
+    border-radius: var(--border-radius-s);
+}
+
 .edit-value__button:hover,
-.edit-value__button:focus-visible {
+.edit-value__button:focus-visible,
+.edit-value--new:hover > .edit-value__add,
+.edit-value__add:focus-visible {
     color: var(--color-dark);
 }
 
@@ -529,65 +549,86 @@ ins.edit-value__content {
 .edit-value__icon--search { mask: url('/images/search.svg') center / contain no-repeat; }
 .edit-value__icon--add { mask: url('/images/add.svg') center / contain no-repeat; }
 
-/* A text that isn't a value makes its input invalid (see ui.edit/field).
-   It stays as it was typed, with a wavy red line under it, as a misspelt
-   word has. */
-.edit-value__input:invalid {
-    text-decoration: underline wavy var(--color-dannet);
-    text-decoration-skip-ink: none;
-}
-
-/* The input has room below its text for that line, which its box would
-   otherwise cut off, taken back by its margin so that the field is as tall
-   as before. */
-textarea.edit-value__input {
-    padding-bottom: var(--spacing-xs);
-    margin-bottom: calc(-1 * var(--spacing-xs));
-}
-
-/* The field for adding a value has no frame until its button is pressed,
-   only a dashed outline while the pointer or the focus is on it. */
-ul.edit-values > li.editable.adding:not(:has(.edit-value__input)) {
+/* The field for adding a value (see ui.edit/new-value-field) has no frame
+   until its button is pressed, only a dashed outline while the pointer or
+   the focus is on it. */
+.edit-value--new {
     border-style: dashed;
     border-color: transparent;
     background: none;
     box-shadow: none;
 }
 
-ul.edit-values > li.editable.adding:not(:has(.edit-value__input)):is(:hover, :focus-within) {
+.edit-value--new:is(:hover, :focus-within) {
     border-color: var(--color-subtle);
 }
 
+/* Its button fills it and is as tall as a line of text, so that opening the
+   input moves nothing. */
 .edit-value__add {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-s);
     flex: 1;
-    /* as tall as a line of text, so that opening the input moves nothing */
     min-height: 1lh;
+}
+
+/* A value that can't be edited has no frame, and its padlock says why (see
+   ui.edit/padlock). */
+.edit-value--locked {
+    display: block;
     padding: 0;
-    font: inherit;
-    letter-spacing: inherit;
-    color: var(--color-subtle);
-    background: none;
     border: none;
-    cursor: pointer;
-    transition: color var(--transition-base);
+    background: none;
+    box-shadow: none;
 }
 
-/* It is faint until the pointer or the focus is on its field. */
-li.adding:hover > .edit-value__add,
-.edit-value__add:focus-visible {
-    color: var(--color-dark);
+.padlock {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    background-color: var(--color-muted);
+    mask: url('/images/lock.svg') center / contain no-repeat;
+    cursor: help;
 }
 
-select.edit-value__input {
-    field-sizing: initial;
+td.attr-name > .padlock {
+    margin-left: var(--spacing-xs);
+}
+
+.edit-value--locked > .padlock {
+    margin-right: var(--spacing-xs);
+}
+
+/* A row or a value that can't be edited has faded text with no colour in
+   its links, markers and prefix badges. The grey is below a contrast of
+   4.5:1, as disabled controls are.
+
+   TODO: find a way to mark these that keeps the text at 4.5:1, since they
+         are still read. */
+table.attr-val tr.locked > td,
+table.attr-val tr.locked > td :is(a, .marker),
+.edit-value--locked,
+.edit-value--locked :is(a, .marker) {
+    color: var(--color-subtle);
+}
+
+table.attr-val tr.locked > td span.prefix,
+.edit-value--locked span.prefix {
+    --ns-color: var(--color-subtle);
+}
+
+/* Edit mode shows the language tag of every value that is a text, also in
+   the language of the page, where base.css hides it. The label of a resource
+   isn't a value, so its tag stays hidden. */
+.edit-value--locked[lang]::after,
+.edit-value__content[lang]::after,
+table.attr-val tr.locked > td:last-child[lang]::after,
+table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
+table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
+    content: attr(lang);
 }
 
 /* The dialog that finds a value (see ui.edit/search-dialog) is a column of
    its heading, its input and its results, which scroll. */
-dialog.search-dialog {
+.search-dialog {
     width: min(60ch, calc(100vw - var(--spacing-l)));
     max-height: min(80vh, 60rem);
     padding: var(--spacing-m);
@@ -596,28 +637,28 @@ dialog.search-dialog {
     box-shadow: var(--shadow-nav);
 }
 
-dialog.search-dialog[open] {
+.search-dialog[open] {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-m);
 }
 
-dialog.search-dialog::backdrop {
+.search-dialog::backdrop {
     background: rgba(0,0,0,0.5);
 }
 
-dialog.search-dialog > header {
+.search-dialog > header {
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-dialog.search-dialog h2 {
+.search-dialog h2 {
     margin: 0;
     font-size: var(--font-size-m-l);
 }
 
-dialog.search-dialog input {
+.search-dialog input {
     padding: var(--spacing-s) var(--spacing-m);
     font: inherit;
     letter-spacing: inherit;
@@ -625,7 +666,7 @@ dialog.search-dialog input {
     border-radius: var(--border-radius-s);
 }
 
-dialog.search-dialog output {
+.search-dialog__body {
     min-height: 0;
     overflow-y: auto;
 }
@@ -661,40 +702,6 @@ dialog.search-dialog output {
 
 .search-dialog__results small {
     color: var(--color-muted);
-}
-
-/* In edit mode, a row or a value that can't be edited has faded text with no
-   colour in its links, markers and prefix badges. The grey is below a
-   contrast of 4.5:1, as disabled controls are. */
-table.attr-val tr.locked > td,
-table.attr-val tr.locked > td :is(a, .marker),
-ul.edit-values > li.locked,
-ul.edit-values > li.locked :is(a, .marker) {
-    color: var(--color-subtle);
-}
-
-table.attr-val tr.locked > td span.prefix,
-ul.edit-values > li.locked span.prefix {
-    --ns-color: var(--color-subtle);
-}
-
-/* The padlock of a locked row or value; its tooltip says why it is locked
-   (see ui.table/padlock). */
-span.padlock {
-    display: inline-block;
-    width: 0.8em;
-    height: 0.8em;
-    background-color: var(--color-muted);
-    mask: url('/images/lock.svg') center / contain no-repeat;
-    cursor: help;
-}
-
-td.attr-name > span.padlock {
-    margin-left: var(--spacing-xs);
-}
-
-ul.edit-values > li.locked > span.padlock {
-    margin-right: var(--spacing-xs);
 }
 
 @media only screen and (max-width: 700px) {

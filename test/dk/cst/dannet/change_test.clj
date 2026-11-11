@@ -20,9 +20,42 @@
                (change/retract old-hypernym)
                (change/add new-hypernym)
                (change/retract new-hypernym)))))
+  (testing "an edit made twice is made once"
+    (is (= [{:add #{new-hypernym}}]
+           (-> [] (change/add new-hypernym) (change/add new-hypernym))))
+    (is (= [{:retract #{old-hypernym}}]
+           (-> [] (change/retract old-hypernym) (change/retract old-hypernym))))
+    (is (= [{:retract #{old-hypernym} :add #{new-hypernym}}]
+           (-> []
+               (change/replace old-hypernym new-hypernym)
+               (change/replace old-hypernym new-hypernym)))))
   (testing "undo drops the change at an index"
     (is (= [{:add #{new-hypernym}}]
-           (change/undo [{:retract #{old-hypernym}} {:add #{new-hypernym}}] 0)))))
+           (change/undo [{:retract #{old-hypernym}} {:add #{new-hypernym}}]
+                        0))))
+  (testing "or the changes that a triple is part of"
+    (is (= [{:retract #{old-hypernym}}]
+           (-> []
+               (change/retract old-hypernym)
+               (change/replace [:dn/synset-1 :rdfs/label "a"]
+                               [:dn/synset-1 :rdfs/label "b"])
+               (change/without-triple [:dn/synset-1 :rdfs/label "b"]))))))
+
+(deftest changes-to-a-property
+  (let [label   (fn [v] [:dn/synset-1 :rdfs/label v])
+        changes (-> []
+                    (change/replace (label "a") (label "a2"))
+                    (change/retract (label "b"))
+                    (change/add (label "d"))
+                    (change/retract [:dn/synset-2 :rdfs/label "x"])
+                    (change/retract [:dn/synset-1 :rdfs/comment "y"]))]
+    (is (= {:added     #{"a2" "d"}
+            :retracted #{"a" "b"}
+            :replaced  {"a" ["a2"]}}
+           (change/property-changes changes :dn/synset-1 :rdfs/label))
+        "only the changes to the property of the subject")
+    (is (= {:added #{} :retracted #{} :replaced {}}
+           (change/property-changes changes :dn/synset-3 :rdfs/label)))))
 
 (deftest replacements
   (let [newer-hypernym [:dn/synset-1 :wn/hypernym :dn/synset-4]

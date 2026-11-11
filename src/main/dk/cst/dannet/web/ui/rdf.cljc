@@ -477,6 +477,15 @@
     (or (keyword? v) (map? v)) {}
     :else {:lang (i18n/lang v)}))
 
+(defn lone-value-attrs
+  "The attributes of an element that holds the single value `v` alone, e.g.
+  a table cell: those of `value-attrs`, and for a resource the class that
+  aligns its prefix badge and its link."
+  [v]
+  (if (and (keyword? v) (not-empty (name v)))
+    {:class "attr-combo"}
+    (value-attrs v)))
+
 (rum/defc list-item
   "A list item element of a 'list-cell'."
   [opts item]

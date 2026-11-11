@@ -33,23 +33,30 @@
   (:refer-clojure :exclude [replace])
   (:require [dk.cst.theophrastus.term :as term]))
 
+;; An edit made twice is made once, so that a field which enters its value
+;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
+
 (defn add
   "The pending `changes` with the triple `t` added: as a change of its own, or
   by dropping an earlier change that only retracted `t`."
   [changes t]
-  (let [retraction {:retract #{t}}]
-    (if (some #{retraction} changes)
-      (into [] (remove #{retraction}) changes)
-      (conj (vec changes) {:add #{t}}))))
+  (let [addition   {:add #{t}}
+        retraction {:retract #{t}}]
+    (cond
+      (some #{retraction} changes) (into [] (remove #{retraction}) changes)
+      (some #{addition} changes) (vec changes)
+      :else (conj (vec changes) addition))))
 
 (defn retract
   "The pending `changes` with the triple `t` retracted: as a change of its own,
   or by dropping an earlier change that only added `t`."
   [changes t]
-  (let [addition {:add #{t}}]
-    (if (some #{addition} changes)
-      (into [] (remove #{addition}) changes)
-      (conj (vec changes) {:retract #{t}}))))
+  (let [addition   {:add #{t}}
+        retraction {:retract #{t}}]
+    (cond
+      (some #{addition} changes) (into [] (remove #{addition}) changes)
+      (some #{retraction} changes) (vec changes)
+      :else (conj (vec changes) retraction))))
 
 (defn replace
   "The pending `changes` with the triple `old` replaced by the triple `new`,
@@ -59,7 +66,8 @@
   so that replacing a value twice leaves one change. It is dropped when it
   then retracts what it adds."
   [changes old new]
-  (if (some #(contains? (:add %) old) changes)
+  (cond
+    (some #(contains? (:add %) old) changes)
     (into []
           (comp (map (fn [{:keys [add] :as change}]
                        (if (contains? add old)
@@ -68,7 +76,20 @@
                 (remove (fn [{:keys [add retract]}]
                           (and (seq add) (= add retract)))))
           changes)
+
+    (some #{{:retract #{old} :add #{new}}} changes)
+    (vec changes)
+
+    :else
     (conj (vec changes) {:retract #{old} :add #{new}})))
+
+(defn without-triple
+  "The pending `changes` without the ones that add or retract the triple
+  `t`, which undoes the edit that `t` is part of."
+  [changes t]
+  (into []
+        (remove #(or (contains? (:add %) t) (contains? (:retract %) t)))
+        changes))
 
 (defn undo
   "The pending `changes` without the change at index `i`."
@@ -175,6 +196,30 @@
               (reduce add* (reduce retract* acc retract) add))
             {:add #{} :retract #{}}
             changes)))
+
+(defn property-changes
+  "What the pending `changes` do to the values of the property `p` of the
+  subject `s`: the values that they have :added and :retracted in all, as
+  sets, and the ones :replaced, as a map of a retracted value to the values
+  that its change adds."
+  [changes s p]
+  (let [values (fn [triples]
+                 (into #{}
+                       (keep (fn [[s' p' o]]
+                               (when (and (= s' s) (= p' p))
+                                 o)))
+                       triples))
+        {:keys [add retract]} (net changes)]
+    {:added     (values add)
+     :retracted (values retract)
+     :replaced  (reduce (fn [m {:keys [add retract]}]
+                          (if-let [added (not-empty (values add))]
+                            (reduce #(update %1 %2 (fnil into []) added)
+                                    m
+                                    (values retract))
+                            m))
+                        {}
+                        changes)}))
 
 (defn- with-value
   "The `entity` with `v` among the values of the property `p`."
