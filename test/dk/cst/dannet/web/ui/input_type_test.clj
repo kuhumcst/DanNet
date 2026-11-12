@@ -43,9 +43,10 @@
 
 (deftest texts
   (let [parse (:parse-fn input-type/text)]
-    (is (= #rdf/langstring ["hunde" "da"]
-           (parse " hunde " #rdf/langstring ["hund" "da"]))
-        "a text keeps the language of the one it replaces")
-    (is (= "noun.plant" (parse "noun.plant" "noun.animal")))
-    (is (= "ny" (parse "ny" nil)) "a text that resembles none has no language")
-    (is (nil? (parse "  " "noun.animal")) "an empty text isn't a value")))
+    (is (= #rdf/langstring ["hunde" "da"] (parse " hunde " "da"))
+        "a text is in the language of its field")
+    (is (= "noun.plant" (parse "noun.plant" nil))
+        "a field without a language gives a text without one")
+    (is (nil? (parse "  " "da")) "an empty text isn't a value"))
+  (is (:lang? input-type/text) "a text can be in a language")
+  (is (not (:lang? input-type/resource)) "a resource can't"))

@@ -3,11 +3,11 @@
 
   An input type is a map that says how a kind of value is entered:
 
-  - :parse-fn, a function of the typed text and the value that the new one
-    replaces or resembles, to a value, a promise of one, or nil when the
-    text isn't a value;
+  - :parse-fn, a function of the typed text and the language of its field,
+    to a value, a promise of one, or nil when the text isn't a value;
   - :format-fn, a function of a value to the text that the input shows;
   - :options, the values to choose between, when there are only a few;
+  - :lang?, true when a value is a text, which can be in a language;
   - :search, a search for a value in a dialog.
 
   A search is a map too:
@@ -22,7 +22,6 @@
   The input and the dialog of ui.edit only know these maps, so a new input
   type or a new search needs no change to either."
   (:require [clojure.string :as str]
-            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]))
@@ -84,13 +83,12 @@
                       (get-in response [:body :data k]))))))
 
 (def text
-  "A text, which keeps the language of the text that it replaces."
-  {:format-fn str
-   :parse-fn  (fn [s v]
-                (when-let [s (not-empty (str/trim s))]
-                  (if-let [lang (i18n/lang v)]
-                    (term/->LangString s lang)
-                    s)))})
+  "A text, in the language of its field when the field has one."
+  {:lang?     true
+   :format-fn str
+   :parse-fn  (fn [s lang]
+                (some-> (not-empty (str/trim s))
+                        (i18n/with-lang lang)))})
 
 (def resource
   "A resource, typed as its ID. It has to exist, and its page gives the label

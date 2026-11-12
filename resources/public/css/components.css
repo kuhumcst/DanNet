@@ -471,6 +471,12 @@ ins.edit-value__content {
     text-decoration: none;
 }
 
+/* The input and its controls are parts of the field, in the same line as
+   the content and the buttons of a closed field. */
+.edit-value__entry {
+    display: contents;
+}
+
 /* An input looks like the text that it replaces. */
 .edit-value__input {
     padding: 0;
@@ -492,10 +498,11 @@ textarea.edit-value__input {
     margin-bottom: calc(-1 * var(--spacing-xs));
 }
 
-/* A text that isn't a value makes its input invalid (see
-   ui.edit/text-input). It stays as it was typed, with a wavy red line under
-   it, as a misspelt word has. */
-.edit-value__input:invalid {
+/* An entered text that isn't a value stays as it was typed, with a wavy red
+   line under it, as a misspelt word has: in the input, and in the closed
+   field that keeps it (see ui.edit/text-input). */
+.edit-value__input[aria-invalid="true"],
+ins.edit-value__content--invalid {
     text-decoration: underline wavy var(--color-dannet);
     text-decoration-skip-ink: none;
 }
@@ -639,6 +646,49 @@ table.attr-val tr.locked > td:last-child[lang]::after,
 table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
 table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     content: attr(lang);
+}
+
+/* A text that can be edited has a dropdown of the languages in place of its
+   tag (see ui.edit/lang-select). The dropdown looks like the tag. */
+.edit-value__content:has(> .edit-value__lang)::after {
+    content: none;
+}
+
+.edit-value__lang {
+    appearance: none;
+    field-sizing: content;
+    align-self: flex-start;
+    margin: 0 0 0 0.4ch;
+    padding: 0;
+    vertical-align: top;
+    font: inherit;
+    font-size: 60%;
+    font-variant: small-caps;
+    letter-spacing: inherit;
+    color: inherit;
+    opacity: var(--opacity-muted);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+}
+
+.edit-value__lang:hover,
+.edit-value__lang:focus-visible {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* When a row is missing a text in one language, the field for adding a
+   value keeps its outline and its button shows that language as a tag. */
+.edit-value--gap {
+    border-color: var(--color-subtle);
+}
+
+.edit-value__gap {
+    margin-left: var(--spacing-xs);
+    font-size: 60%;
+    font-variant: small-caps;
 }
 
 /* The dialog that finds a value (see ui.edit/search-dialog) is a column of

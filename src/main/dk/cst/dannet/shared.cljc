@@ -361,7 +361,7 @@
 (def member-row
   "The property of the row of members. The table folds the rdf:_N properties
   of a container into this one row (see ui.table/fold-member-rows), and edit
-  mode makes its changes to those properties (see ui.edit/row-properties)."
+  mode makes its changes to those properties (see ui.edit.row/properties)."
   :rdfs/member)
 
 (def label-keys-full

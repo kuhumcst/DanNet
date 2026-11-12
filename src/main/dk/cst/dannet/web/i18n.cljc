@@ -36,6 +36,14 @@
   (when (instance? LangString s)
     (term/lang s)))
 
+(defn with-lang
+  "Return the text of `s` in the language `lang`, or without a language when
+  `lang` is nil."
+  [s lang]
+  (if lang
+    (term/->LangString (str s) lang)
+    (str s)))
+
 ;; TODO: compare with https://www.rfc-editor.org/info/bcp47
 (defn select-label
   "Select a single label from set of labels `x` based on preferred `languages`.
