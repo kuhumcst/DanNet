@@ -134,7 +134,7 @@
   value that can be edited lists all its values in fields (see ui.edit), and
   any other row is faded, with a padlock that says why, unless the whole
   page is locked. No row is a word cloud then. A row of blank nodes isn't
-  locked when their own values can be edited in their nested tables."
+  locked when their own values can be edited in nested tables."
   [{:keys [subject comments inherited edit-mode default-origin blank-node]
     :as   opts}
    k v display-opts]
@@ -157,7 +157,8 @@
         locks         (when (and edit-mode (some? default-origin))
                         (map #(lock/lock opts k %) vs))
         edit-row?     (some nil? locks)
-        nodes?        (and (every? #{:yet} locks) (every? lock/node? vs))
+        nodes?        (and (every? #{:yet} locks)
+                           (every? (every-pred lock/node? rdf/table-node?) vs))
         locked?       (and locks (not edit-row?) (not nodes?))
         ;; The padlock of the page says that its resource is locked (see
         ;; ui.entity/entity-header), and that of a row of blank nodes says

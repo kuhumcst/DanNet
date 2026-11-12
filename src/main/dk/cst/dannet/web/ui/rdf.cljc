@@ -399,6 +399,14 @@
            v]
           vs)))
 
+(defn table-node?
+  "Is the blank node `m` shown as a nested table? A value on its own, a
+  sentiment and an inherited relation have forms of their own in blank-node."
+  [m]
+  (not (or (= (keys (dissoc m :rdf/about)) [:rdf/value])
+           (keyword? (some-> (get m :marl/hasPolarity) shared/unwrap))
+           (keyword? (some-> (get m :dns/inheritedRelation) shared/unwrap)))))
+
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
