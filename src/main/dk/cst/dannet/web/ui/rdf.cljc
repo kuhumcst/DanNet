@@ -11,6 +11,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.lock :as lock]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:clj [better-cond.core :refer [cond]])
@@ -401,7 +402,8 @@
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
-  (let [m         (dissoc m :rdf/about)
+  (let [about     (:rdf/about m)
+        m         (dissoc m :rdf/about)
         container (partial blank-node-container languages attr-key)]
     (cond
       (= (keys m) [:rdf/value])
@@ -437,12 +439,21 @@
       ;; Nested tables use the embedded entity's own folded relations and
       ;; origins (attached as metadata by the backend) rather than the outer
       ;; entity's, cf. #195. Without origins, their rows have no markers.
+      ;; The table also gets its place in the entity: its node, the
+      ;; property that holds it, and in edit mode why the node is locked.
       table-component
-      (let [{:keys [folded origins default-origin]} (meta m)]
+      (let [{:keys [folded origins default-origin]} (meta m)
+            node (assoc m :rdf/about about)]
         (table-component (assoc opts
                            :folded folded
                            :origins origins
-                           :default-origin default-origin)
+                           :default-origin default-origin
+                           :blank-node {:rdf/about about
+                                        :property  attr-key
+                                        :entity    m
+                                        :lock      (when (:edit-mode opts)
+                                                     (lock/lock opts attr-key
+                                                                node))})
                          m)))))
 
 (defn value

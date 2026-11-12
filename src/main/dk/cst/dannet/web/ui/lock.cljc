@@ -88,11 +88,18 @@
 
   The property is :derived; the value is :inferred or :supplemented, or it
   is :elsewhere, in a graph that changes don't go to; the :resource is
-  outside the namespaces that can be edited; or the value can't be edited
-  :yet. The first reason that holds is the one given."
-  [opts k v]
+  outside the namespaces that can be edited; or the value is a blank node,
+  which can't be replaced :yet. The first reason that holds is the one
+  given. A value in the nested table of a blank node is locked when the
+  node is, for the :lock of the :blank-node in `opts`."
+  [{:keys [blank-node] :as opts} k v]
   (cond
-    (derived? opts k)
+    ;; a node that is only locked as :yet has values that can be edited
+    (some-> (:lock blank-node) (not= :yet))
+    (:lock blank-node)
+
+    ;; the rules name the properties of the resource, not of its blank nodes
+    (and (not blank-node) (derived? opts k))
     :derived
 
     (not (editable? opts k v))
@@ -107,3 +114,9 @@
 
     (blank-node? v)
     :yet))
+
+(defn node?
+  "Is the value `v` a blank node whose own values can be edited in its
+  nested table? The page data has the origins of those values then."
+  [v]
+  (and (map? v) (some? (:default-origin (meta v)))))

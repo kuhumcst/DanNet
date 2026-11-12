@@ -12,6 +12,7 @@
     :edit-mode     whether the tables show what can be edited
     :edit-rules    which resources and properties edit mode has fields for
     :changes       the pending changes made in edit mode (in the browser)
+    :nodes         the places of the blank nodes that those changes are to
     :labels        the labels of the resources that those changes add
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
@@ -21,7 +22,8 @@
     :comments      the notes that explain the markers in the tables
 
   Components add a few keys of their own on the way down, e.g. :attr-key, the
-  predicate whose values are being rendered."
+  predicate whose values are being rendered, and :blank-node, the place of a
+  nested table in the entity: its node and the property that holds it."
   (:require [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]))

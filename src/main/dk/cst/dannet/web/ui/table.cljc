@@ -133,9 +133,10 @@
   "A single row in the attribute-value table. In edit mode, a row with a
   value that can be edited lists all its values in fields (see ui.edit), and
   any other row is faded, with a padlock that says why, unless the whole
-  page is locked. No row is a word cloud then. The values of a nested table have no origins, so its rows have
-  neither fields nor padlocks."
-  [{:keys [subject comments inherited edit-mode default-origin] :as opts}
+  page is locked. No row is a word cloud then. A row of blank nodes isn't
+  locked when their own values can be edited in their nested tables."
+  [{:keys [subject comments inherited edit-mode default-origin blank-node]
+    :as   opts}
    k v display-opts]
   (let [origins       (lock/row-origins opts k v)
         inherited?    (get inherited k)
@@ -156,12 +157,14 @@
         locks         (when (and edit-mode (some? default-origin))
                         (map #(lock/lock opts k %) vs))
         edit-row?     (some nil? locks)
-        locked?       (and locks (not edit-row?))
-        ;; the padlock of the page says that its resource is locked (see
-        ;; ui.entity/entity-header), so a row only says what else locks it
+        nodes?        (and (every? #{:yet} locks) (every? lock/node? vs))
+        locked?       (and locks (not edit-row?) (not nodes?))
+        ;; The padlock of the page says that its resource is locked (see
+        ;; ui.entity/entity-header), and that of a row of blank nodes says
+        ;; why the nodes are, so a row only says what else locks it.
         why           (when locked?
                         (->> (distinct locks)
-                             (remove #{:resource})
+                             (remove #{:resource (:lock blank-node)})
                              (map #(get-in comments [:locked %]))
                              (str/join "; ")
                              (not-empty)))]

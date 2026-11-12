@@ -42,7 +42,20 @@
     (is (nil? (lock/lock synset :skos/inScheme :dn/x))
         "without rules, the origins alone decide")
     (is (= :yet (lock/lock opts :dns/sentiment {:marl/polarityValue 1}))
-        "a blank node")))
+        "a blank node")
+    (let [nested (assoc opts :blank-node {:rdf/about '_form
+                                          :property  :ontolex/canonicalForm
+                                          :lock      :yet})
+          locked (assoc-in nested [:blank-node :lock] :supplemented)]
+      (is (nil? (lock/lock nested :ontolex/writtenRep "hund"))
+          "a value in the nested table of a blank node can be edited")
+      (is (= :inferred (lock/lock nested :wn/hyponym :dn/synset-3))
+          "unless it is locked itself")
+      (is (= :supplemented (lock/lock locked :ontolex/writtenRep "hund"))
+          "or its blank node is"))
+    (is (lock/node? (with-meta {:rdf/about '_form} {:default-origin :dn}))
+        "a blank node with the origins of its values has a nested table")
+    (is (not (lock/node? {:rdf/about '_form})))))
 
 (deftest edit-rules
   (let [rules  {:namespaces      #{"dn"}

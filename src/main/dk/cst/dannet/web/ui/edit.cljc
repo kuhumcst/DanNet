@@ -364,6 +364,41 @@
   [s]
   [:ins.edit-value__content.edit-value__content--invalid s])
 
+(defn- subject-of
+  "The subject of the values in a table with `opts`: the blank node of a
+  nested table, or else the resource of the page."
+  [{:keys [subject blank-node] :as opts}]
+  (if blank-node
+    (:rdf/about blank-node)
+    subject))
+
+(defn- node-place
+  "The place of the blank node of a nested table with `opts`, as
+  change/locate-nodes takes it: the :subject and :property that hold the
+  node, and those of its :values that can be edited."
+  [{:keys [subject blank-node] :as opts}]
+  (let [{:keys [property entity]} blank-node
+        editable (fn [k vs]
+                   (into #{}
+                         (filter #(nil? (lock/lock opts k %)))
+                         (shared/setify vs)))]
+    {:subject  subject
+     :property property
+     :values   (into {}
+                     (keep (fn [[k vs]]
+                             (when-let [vs (not-empty (editable k vs))]
+                               [k vs])))
+                     entity)}))
+
+(defn- update-changes!
+  "Apply `f` and `args` to the pending changes, for an edit in a table with
+  `opts`. An edit in the nested table of a blank node also keeps the place
+  of the node, which its changes are located by when they are submitted."
+  [{:keys [blank-node] :as opts} f & args]
+  (when blank-node
+    (app/remember-node! (:rdf/about blank-node) (node-place opts)))
+  (apply app/update-changes! f args))
+
 (defn- value-text
   "The value `v` as the text that names it in a label or a tooltip."
   [opts v]
@@ -382,10 +417,11 @@
   one replaces. An entered text that isn't a value is kept as a draft and
   shown as an edit. The tag of a text is a dropdown that changes its
   language."
-  [state {:keys [subject languages comments] :as opts}
+  [state {:keys [languages comments] :as opts}
    k v {:keys [input-type status original langs]}]
   (let [editing? (::editing? state)
         draft    (::draft state)
+        subject  (subject-of opts)
         t        [subject k v]
         ;; a draft is an edit, unless the value that it would replace is new
         tint     (if (and @draft (not= status :added)) :edited status)
@@ -405,8 +441,9 @@
         ;; a new status replaces the content, and with it the control in focus
         retag!   (fn [lang']
                    (vreset! (::refocus state) (if lang' "select" "button"))
-                   (app/update-changes!
-                     change/replace t [subject k (i18n/with-lang v lang')]))
+                   (update-changes!
+                     opts change/replace
+                     t [subject k (i18n/with-lang v lang')]))
         undo     [(case tint
                     :retracted (label "Fortryd fjernelse af" "Undo removal of")
                     :added (label "Fortryd tilføjelse af" "Undo addition of")
@@ -415,11 +452,12 @@
                     (reset! draft nil)
                     (close!)
                     (when status
-                      (app/update-changes! change/without-triple t)))]
+                      (update-changes! opts change/without-triple t)))]
         ;; removing an edited value removes the value that it replaces
         remove!  (fn [_]
                    (reset! draft nil)
-                   (app/update-changes!
+                   (update-changes!
+                     opts
                      (if (= status :edited)
                        #(-> (change/without-triple % t)
                             (change/retract [subject k original]))
@@ -465,8 +503,8 @@
                              (reset! draft nil)
                              (close!)
                              (when (not= v v')
-                               (app/update-changes!
-                                 change/replace t [subject k v'])))})
+                               (update-changes!
+                                 opts change/replace t [subject k v'])))})
 
        @draft
        (invalid-content @draft)
@@ -495,10 +533,11 @@
   :langs that it can be in and :gap? when the row has no text in that
   language, which the button then names. An entered text that isn't a value
   is kept as a draft and shown as an addition."
-  [state {:keys [subject languages] :as opts}
+  [state {:keys [languages] :as opts}
    k taken {:keys [input-type lang langs gap?]}]
   (let [adding? (::adding? state)
         draft   (::draft state)
+        subject (subject-of opts)
         tint    (when @draft :added)
         label   (cond-> (i18n/da-en languages "Tilføj en værdi" "Add a value")
                   gap? (str " " (i18n/da-en languages "på" "in")
@@ -541,8 +580,8 @@
                              (reset! draft nil)
                              (close!)
                              (when-not (some #{v} taken)
-                               (app/update-changes!
-                                 change/add [subject k v])))})
+                               (update-changes!
+                                 opts change/add [subject k v])))})
 
        @draft
        [:<>
@@ -570,8 +609,9 @@
   A set of values is sorted by language, the reader's preferred one first,
   and then by text. A new text gets the language that a row of translations
   is missing (see ui.edit.row/missing-lang), or else that of the first field."
-  [{:keys [subject changes comments languages edit-rules] :as opts} k vs]
-  (let [rank        (row/lang-rank languages)
+  [{:keys [changes comments languages edit-rules] :as opts} k vs]
+  (let [subject     (subject-of opts)
+        rank        (row/lang-rank languages)
         sorted      (if (set? vs)
                       (sort-by (juxt (comp rank i18n/lang)
                                      (rdf/label-sortkey-fn opts))

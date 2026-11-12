@@ -153,3 +153,29 @@
              {:where [[:dn/word-1 :ontolex/canonicalForm '?f]]
               :add   #{['?g :ontolex/writtenRep hunde]}}))
         "a typo")))
+
+(deftest locating-nodes
+  (let [form    ['?node :ontolex/writtenRep hund]
+        place   [:dn/word-1 :ontolex/canonicalForm '?node]
+        nodes   {'_form {:subject  :dn/word-1
+                         :property :ontolex/canonicalForm
+                         :values   {:ontolex/writtenRep #{hund}}}}
+        edit    {:retract #{['_form :ontolex/writtenRep hund]}
+                 :add     #{['_form :ontolex/writtenRep hunde]}}
+        label   {:add #{['_form :rdfs/label "x"]}}
+        located (change/locate-nodes [edit label] nodes)]
+    (is (= {:where   [place]
+            :retract #{form}
+            :add     #{['?node :ontolex/writtenRep hunde]}}
+           (first located))
+        "a node is found by its place, and by the value that is retracted")
+    (is (= {:where [place ['?node :ontolex/writtenRep hunde]]
+            :add   #{['?node :rdfs/label "x"]}}
+           (second located))
+        "and by its values as the changes before it leave them")
+    (is (= [{:where [place form] :add #{['?node :rdfs/label "x"]}}]
+           (change/locate-nodes [label] nodes)))
+    (is (every? empty? (map change/problems located)))
+    (is (= [{:retract #{old-hypernym}}]
+           (change/locate-nodes [{:retract #{old-hypernym}}] nodes))
+        "a change to a named resource stays as it is")))

@@ -31,13 +31,14 @@
   properties with its symbol as :rdf/about, returning `x` unchanged when
   nothing was pruned.
 
-  The pruned blank node has its own :folded map as metadata, which is read by
-  the frontend when rendering nested attr-val tables (see issue #195)."
+  The pruned blank node has its own :folded map in its metadata, next to its
+  origins, which is read by the frontend when rendering nested attr-val
+  tables (see issue #195)."
   [k->supers x]
   (if (map? x)
     (let [{:keys [entity folded]} (prune-entailed-superproperties k->supers x)]
       (if (not-empty folded)
-        (with-meta entity {:folded folded})
+        (vary-meta entity assoc :folded folded)
         x))
     x))
 

@@ -16,14 +16,16 @@
   "The user's state before any page is shown. The preferences (languages,
   full-screen, edit mode, detail level) come from the page: the client takes
   them from the first page, the server from each request. The :changes are
-  the pending changes of an editor (see dk.cst.dannet.change), and the
-  :labels are those of the resources that the changes add to a page."
+  the pending changes of an editor (see dk.cst.dannet.change), the :nodes
+  are the places of the blank nodes that they change, and the :labels are
+  those of the resources that the changes add to a page."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
    :full-screen  false
    :edit-mode    false
    :changes      []
+   :nodes        {}
    :labels       {}
    :detail-level :normal
    :section      {:semantic {:display {:diagram-mode :radial}}}})
@@ -206,6 +208,12 @@
   "Toggle the `:edit-mode` cookie."
   []
   #?(:cljs (update-cookie! :edit-mode not)))
+
+(defn remember-node!
+  "Keep the `place` of the blank node with the `label` in the session, for
+  change/locate-nodes to find the node by when the changes are submitted."
+  [label place]
+  (swap! session assoc-in [:nodes label] place))
 
 (defn update-changes!
   "Apply `f` to the pending changes of the session and `args`, e.g. a

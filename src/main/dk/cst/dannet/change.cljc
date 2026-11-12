@@ -29,7 +29,9 @@
 
   The match binds the ?variables and gives a plain change, of triples only.
   The pending changes of an editor are a vector of changes, one for each
-  edit, so that each can be undone on its own."
+  edit, so that each can be undone on its own. A pending change names a
+  blank node by the label that the page has it under, and locate-nodes
+  writes the ?variable and the :where for it when the changes are submitted."
   (:refer-clojure :exclude [replace])
   (:require [dk.cst.theophrastus.term :as term]))
 
@@ -177,6 +179,73 @@
     (cond-> {}
       add (assoc :add (bind add))
       retract (assoc :retract (bind retract)))))
+
+(defn- node-patterns
+  "The patterns that find a blank node as `?node`: its place, i.e. the
+  :subject and :property that hold it, and each of its `values` that the
+  change doesn't name in `retracted`, as pairs of a property and a value."
+  [{:keys [subject property]} ?node values retracted]
+  (into [[subject property ?node]]
+        ;; sorted, so that the same change always has the same :where
+        (sort-by pr-str (for [[p vs] values
+                              v      vs
+                              :when  (not (contains? retracted [p v]))]
+                          [?node p v]))))
+
+(defn- locate
+  "The `change` with its blank nodes located by patterns, when `nodes` has
+  the place of each and `values` has the values of each at that point."
+  [nodes values {:keys [where retract add] :as change}]
+  (let [labels (->> (concat retract add)
+                    (map first)
+                    (filter #(contains? nodes %))
+                    (distinct))
+        ?node  (zipmap labels
+                       (cons '?node
+                             (map #(symbol (str "?node" %)) (iterate inc 2))))
+        rename (fn [triples]
+                 (into #{} (map (fn [[s p o]] [(get ?node s s) p o])) triples))
+        find   (fn [label]
+                 (node-patterns (get nodes label)
+                                (?node label)
+                                (get values label)
+                                (into #{}
+                                      (keep (fn [[s p o]]
+                                              (when (= s label) [p o])))
+                                      retract)))]
+    (if (empty? labels)
+      change
+      (cond-> {:where (into (vec where) (mapcat find) labels)}
+        (seq retract) (assoc :retract (rename retract))
+        (seq add) (assoc :add (rename add))))))
+
+(defn- changed-values
+  "The `values` of blank nodes, as a map of a label to a map of a property
+  to a set of values, with the triples of `retract` and `add` made."
+  [values retract add]
+  (as-> values m
+        (reduce (fn [m [s p o]] (update-in m [s p] disj o)) m retract)
+        (reduce (fn [m [s p o]] (update-in m [s p] (fnil conj #{}) o)) m add)))
+
+(defn locate-nodes
+  "The pending `changes` with their blank nodes located by patterns, so that
+  they can be applied. The `nodes` are a map of the label of a blank node to
+  its place: the :subject and :property that hold it, and its :values in the
+  graph that changes go to, as a map of a property to a set of values.
+
+  A change to a blank node gets a ?variable in place of the label, and a
+  :where with the place of the node and with its values as the changes
+  before it leave them."
+  [changes nodes]
+  (let [of-node? #(contains? nodes (first %))]
+    (first
+      (reduce (fn [[located values] {:keys [retract add] :as change}]
+                [(conj located (locate nodes values change))
+                 (changed-values values
+                                 (filter of-node? retract)
+                                 (filter of-node? add))])
+              [[] (update-vals nodes :values)]
+              changes))))
 
 (defn net
   "The plain `changes` taken together, as one change of the triples to :add and

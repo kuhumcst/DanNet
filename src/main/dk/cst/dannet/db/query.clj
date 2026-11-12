@@ -413,9 +413,11 @@
 (defn- expanded-entity*
   "Return the expanded entity description of `subject` in `g`, with the
   origins of its values in its metadata. A value from the dn: graph has the
-  default origin, and one that DanNet adds is :supplemented."
+  default origin, and one that DanNet adds is :supplemented. A blank node
+  has the origins of its own values in its metadata."
   [g subject]
-  (if-let [e (theo/entity g subject {:default-origin prefix/dn-graph})]
+  (if-let [e (theo/entity g subject {:default-origin      prefix/dn-graph
+                                     :blank-node-origins? true})]
     (let [entity+  (-> (update-objects e blank-node)
                        (weighted-relations))
           entities (resource-labels g (ent/displayed-resources entity+))

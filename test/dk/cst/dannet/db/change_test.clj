@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.test-util :as util]))
 
@@ -62,6 +63,19 @@ dn:word-2 ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ,
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Not a valid change"
                           (db.change/resolve-change
                             g {:add #{['?g :ontolex/writtenRep hunde]}})))))
+
+(deftest located-nodes
+  (let [form    (-> (theo/entity g :dn/word-1) :ontolex/canonicalForm)
+        label   (:rdf/about form)
+        pending [{:retract #{[label :ontolex/writtenRep hund]}
+                  :add     #{[label :ontolex/writtenRep hunde]}}]
+        nodes   {label {:subject  :dn/word-1
+                        :property :ontolex/canonicalForm
+                        :values   {:ontolex/writtenRep #{hund}}}}
+        located (change/locate-nodes pending nodes)]
+    (is (= (first pending)
+           (db.change/resolve-change g (first located)))
+        "a pending change to a blank node resolves to the same triples")))
 
 (deftest applying-changes
   (let [db (util/ttl->db "
