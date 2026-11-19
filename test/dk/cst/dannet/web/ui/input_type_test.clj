@@ -33,6 +33,11 @@
          (input-type/input-type [:dnt/Animal-Object]
                                 {:class :dns/OntologicalType}))
       "the input type of the class that a shape gives the values")
+  (is (= "Must be digits"
+         (:description (input-type/input-type ["12"]
+                                              {:pattern     "^[0-9]+$"
+                                               :description "Must be digits"})))
+      "a text that matches the pattern of a shape, with its description")
   (testing "or else the one that fits its values"
     (is (= input-type/synset (input-type/input-type [:dn/synset-1] nil)))
     (is (= input-type/resource
@@ -50,5 +55,11 @@
     (is (= "noun.plant" (parse "noun.plant" nil))
         "a field without a language gives a text without one")
     (is (nil? (parse "  " "da")) "an empty text isn't a value"))
+  (let [parse (:parse-fn (input-type/matching "^\"[^\"]+\"$" nil))]
+    (is (= #rdf/langstring ["\"hund\"" "da"] (parse " \"hund\" " "da"))
+        "a text that the pattern of its shape matches is a value")
+    (is (nil? (parse "hund" "da")) "and any other text isn't"))
+  (is (some? ((:parse-fn (input-type/matching "und" nil)) "hund" nil))
+      "a pattern can match anywhere in the text, as in SHACL")
   (is (:lang? input-type/text) "a text can be in a language")
   (is (not (:lang? input-type/resource)) "a resource can't"))

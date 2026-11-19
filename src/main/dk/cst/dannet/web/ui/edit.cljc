@@ -190,10 +190,13 @@
                  :value (prefix/kw->qname option)}
         (rdf/link-label opts option)])]))
 
-(defn- invalid-message
-  "The message of a text that isn't a value, for a reader with `languages`."
-  [languages]
-  (i18n/da-en languages "Ikke en gyldig værdi" "Not a valid value"))
+(defn invalid-message
+  "The message of a text that isn't a value of the `input-type`, for a
+  reader with `languages`: what a value has to be, when the input type has
+  a :description of it."
+  [languages {:keys [description] :as input-type}]
+  (or (some->> description (i18n/select-label languages) (str))
+      (i18n/da-en languages "Ikke en gyldig værdi" "Not a valid value")))
 
 (rum/defcs text-input < (rum/local nil ::invalid?)
                         (rum/local false ::entering?)
@@ -219,7 +222,7 @@
         chosen     (::chosen state)
         lang'      (if-let [[choice] @chosen] choice lang)
         old-text   (if (some? value) (format-fn value) "")
-        message    (invalid-message languages)
+        message    (invalid-message languages input-type)
         ;; A text is entered once, though the focus may leave right after
         ;; Enter. The browser's report takes the focus, so it is for Enter.
         enter!     (fn [input leaving?]
@@ -389,9 +392,11 @@
                     (seq (str (js/getSelection)))))))
 
 (defn- invalid-content
-  "The content of a closed field whose entered text `s` isn't a value."
-  [s]
-  [:ins.edit-value__content.edit-value__content--invalid s])
+  "The content of a closed field whose entered text `s` isn't a value. The
+  `message` says why to a reader who can't see the wavy line under it."
+  [s message]
+  [:ins.edit-value__content.edit-value__content--invalid
+   s [:span.visually-hidden ": " message]])
 
 (defn- subject-of
   "The subject of the values in a table with `opts`: the blank node of a
@@ -495,9 +500,10 @@
         before   (cond
                    (some? original) original
                    @draft v)
+        message  (invalid-message languages input-type)
         ;; the tooltip names the old language when the language has changed
         titles   [(when @draft
-                    (invalid-message languages))
+                    message)
                   (when (some? before)
                     (str (i18n/da-en languages "Før" "Before") ": "
                          (value-text opts before)
@@ -537,7 +543,7 @@
                                  opts change/replace t [subject k v'])))})
 
        @draft
-       (invalid-content @draft)
+       (invalid-content @draft message)
 
        ;; a removed value is a <del>, an added or edited one an <ins>
        :else
@@ -586,12 +592,13 @@
                       ": " @draft)
                  (fn [_]
                    (reset! draft nil)
-                   (close!))]]
+                   (close!))]
+        message (invalid-message languages input-type)]
     [:li.edit-value
      (cond
        @adding? {:class (when tint "edit-value--added")}
        @draft {:class    ["edit-value--added" "edit-value--clickable"]
-               :title    (invalid-message languages)
+               :title    message
                :on-click open!}
        :else {:class (cond-> ["edit-value--new"]
                        gap? (conj "edit-value--gap"))})
@@ -618,7 +625,7 @@
 
        @draft
        [:<>
-        (invalid-content @draft)
+        (invalid-content @draft message)
         (buttons tint {:edit [(str (i18n/da-en languages "Ret" "Edit")
                                    ": " @draft)
                               #(reset! adding? true)]
@@ -641,8 +648,8 @@
 
   A set of values is sorted by language, the reader's preferred one first,
   and then by text. The :constraints of the table shape the fields: the
-  languages of a text, the values to choose between, and whether the row
-  can take another value or lose one (see
+  languages and the form of a text, the values to choose between, and
+  whether the row can take another value or lose one (see
   dk.cst.dannet.db.shapes/property-constraints)."
   [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
   (let [subject     (subject-of opts)

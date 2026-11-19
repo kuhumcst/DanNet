@@ -15,6 +15,11 @@
 #
 # NOTE: property shapes get explicit IRIs; see the note in base.ttl.
 #
+# NOTE: a shape with sh:pattern for a value that can be edited has a
+# sh:description in Danish and English, which says to an editor what a value
+# has to be. The editor checks a typed text against the pattern in the
+# browser, so a pattern has to mean the same in JavaScript as in SHACL.
+#
 # NOTE: each node shape of an entry names the base shape of its kind with
 # sh:node, since an edited entry follows the base rules too. The editor reads
 # the base rules through that link (see property-constraints in
@@ -111,12 +116,16 @@ dns:EditorialConceptShape-hypernym a sh:PropertyShape ;
     sh:message "An edited synset should have a wn:hypernym (roots and e.g. adjectives may legitimately lack one)." .
 
 ## A lexicographer file is a code such as "noun.animal": all 71054 are plain
-## literals without a language (2026-11-12).
+## literals without a language (2026-11-12). Its 52 names all have a part of
+## speech before the full stop (2026-11-19).
 dns:EditorialConceptShape-lexfile a sh:PropertyShape ;
     sh:path wn:lexfile ;
     sh:datatype xsd:string ;
+    sh:pattern "^(noun|verb|adj|adv)\\.[A-Za-z]+$" ;
+    sh:description "Skal være noun, verb, adj eller adv, et punktum og et navn, f.eks. noun.animal"@da ,
+                   "Must be noun, verb, adj or adv, a full stop and a name, e.g. noun.animal"@en ;
     sh:severity sh:Violation ;
-    sh:message "wn:lexfile must be a plain literal without a language." .
+    sh:message "wn:lexfile must be a plain literal such as noun.animal, without a language." .
 
 ## Subjects come in Danish and English: 37188 literals of each (2026-11-12).
 dns:EditorialConceptShape-subject a sh:PropertyShape ;
@@ -193,6 +202,8 @@ dns:EditorialWordShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
     sh:maxCount 1 ;
     sh:pattern "^\"[^\"]+\"$" ;
+    sh:description "Skal være et ord i anførselstegn, f.eks. \"hund\""@da ,
+                   "Must be a word in double quotes, e.g. \"hund\""@en ;
     sh:languageIn ( "da" ) ;
     sh:severity sh:Violation ;
     sh:message "A word label must be a single @da literal of the form \"...\"." .
@@ -246,17 +257,22 @@ dns:EditorialSenseShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
     sh:maxCount 1 ;
     sh:pattern "^[^\"{][^\"{}]*$" ;
+    sh:description "Skal være uden anførselstegn og klammer, f.eks. hund_1§1"@da ,
+                   "Must be without quotes and braces, e.g. hund_1§1"@en ;
     sh:languageIn ( "da" ) ;
     sh:severity sh:Violation ;
     sh:message "A sense label must be a single unwrapped @da literal (no quotes or braces)." .
 
-## A DSL sense is an ID such as "1.a": all 2347 are plain literals
-## (2026-11-12).
+## A DSL sense is an ID of digits such as "21054863": all 2347 are plain
+## literals of that form (2026-11-19).
 dns:EditorialSenseShape-dslSense a sh:PropertyShape ;
     sh:path dns:dslSense ;
     sh:datatype xsd:string ;
+    sh:pattern "^[0-9]+$" ;
+    sh:description "Skal være et ID af cifre, f.eks. 21054863"@da ,
+                   "Must be an ID of digits, e.g. 21054863"@en ;
     sh:severity sh:Violation ;
-    sh:message "dns:dslSense must be a plain literal without a language." .
+    sh:message "dns:dslSense must be a plain literal of digits, without a language." .
 
 ## All 63277 examples are @da literals (2026-11-12).
 dns:EditorialSenseShape-senseExample a sh:PropertyShape ;

@@ -9,7 +9,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.shacl :as shacl]
-            [dk.cst.theophrastus.term :refer [->LangString]]
+            [dk.cst.theophrastus.term :refer [->LangString lang]]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.test-util :as util]))
@@ -423,6 +423,16 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                  :dns/EditorialConceptShape-ontologicalType
                  :dns/EditorialConceptShape-hypernym}
                (set (map :source-shape (:results result)))))))
+    (testing "a lexicographer file starts with a part of speech"
+      (is (contains? (entry-set #{[:dn/synset-1 :wn/lexfile "animal"]})
+                     [:dn/synset-1 :dns/EditorialConceptShape-lexfile
+                      :sh/Violation]))
+      (is (empty? (entry-set #{[:dn/synset-1 :wn/lexfile "noun.animal"]}))))
+    (testing "a DSL sense ID is digits"
+      (is (contains? (entry-set #{[:dn/sense-1 :dns/dslSense "1.a"]})
+                     [:dn/sense-1 :dns/EditorialSenseShape-dslSense
+                      :sh/Violation]))
+      (is (empty? (entry-set #{[:dn/sense-1 :dns/dslSense "21054863"]}))))
     (testing "an edited entry follows the base shape of its kind"
       (is (= #{[:dns/LexicalEntryShape-partOfSpeech :sh/Violation]}
              (shapes-of {:retract #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}))
@@ -475,8 +485,12 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
             :should {:min 1 :max 1}}
            (:dns/ontologicalType synset))
         "the shapes of one property are taken together")
-    (is (= {:datatype :xsd/string} (get-in synset [:wn/lexfile :must]))
-        "a code has a datatype and no language")
+    (is (= :xsd/string (get-in synset [:wn/lexfile :must :datatype]))
+        "a code has a datatype")
+    (let [{:keys [pattern description]} (get-in word [:rdfs/label :must])]
+      (is (= "^\"[^\"]+\"$" pattern))
+      (is (= #{"da" "en"} (set (map lang description)))
+          "a pattern comes with a description for an editor in each language"))
     (is (= word (:ontolex/MultiwordExpression constraints))
         "a shape with two target classes holds for both")
     (is (= #{:wn/partOfSpeech :skos/definition}

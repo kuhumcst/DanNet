@@ -1,5 +1,5 @@
 (ns dk.cst.dannet.web.ui.edit-test
-  "Tests for the buttons of a field in edit mode."
+  "Tests for the buttons, the mark and the messages of a field in edit mode."
   (:require [clojure.test :refer [deftest is]]
             [dk.cst.dannet.web.ui.edit :as edit]))
 
@@ -26,3 +26,14 @@
         "the tooltip of the mark says why the value stays"))
   (is (= "The row needs at least one value, so the last one can't be removed"
          (edit/required-message ["en"] {:min 1}))))
+
+(deftest invalid-messages
+  (let [description [#rdf/langstring ["Skal være cifre" "da"]
+                     #rdf/langstring ["Must be digits" "en"]]]
+    (is (= "Skal være cifre"
+           (edit/invalid-message ["da" "en"] {:description description}))
+        "what a value has to be, in the language of the reader")
+    (is (= "Must be digits"
+           (edit/invalid-message ["en"] {:description description})))
+    (is (= "Not a valid value" (edit/invalid-message ["en"] {}))
+        "an input type without a description has a general message")))

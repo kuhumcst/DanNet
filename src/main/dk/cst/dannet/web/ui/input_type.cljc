@@ -8,6 +8,7 @@
   - :format-fn, a function of a value to the text that the input shows;
   - :options, the values to choose between, when there are only a few;
   - :lang?, true when a value is a text, which can be in a language;
+  - :description, what a value has to be, as a text in each language;
   - :search, a search for a value in a dialog.
 
   A search is a map too:
@@ -89,6 +90,19 @@
    :parse-fn  (fn [s lang]
                 (some-> (not-empty (str/trim s))
                         (i18n/with-lang lang)))})
+
+(defn matching
+  "A text that the `pattern` of a shape matches, with the `description` of
+  such a text in each language.
+
+  The pattern can match anywhere in the text unless it says where, as in
+  SHACL."
+  [pattern description]
+  (assoc text
+    :description description
+    :parse-fn    (fn [s lang]
+                   (when (re-find (re-pattern pattern) (str/trim s))
+                     ((:parse-fn text) s lang)))))
 
 (def resource
   "A resource, typed as its ID. It has to exist, and its page gives the label
@@ -175,10 +189,12 @@
 (defn input-type
   "The input type of a property with the values `vs` and the constraints
   that it `must` meet, as the shapes state them: the values to choose :in,
-  the input type of its :class, or else the one that fits its values."
-  [vs {:keys [in class] :as must}]
+  the input type of its :class, a text that matches its :pattern, or else
+  the one that fits its values."
+  [vs {:keys [in class pattern description] :as must}]
   (or (when in {:options in})
       (get class-input-types class)
+      (when pattern (matching pattern description))
       (cond
         (empty? vs)          text
         (every? synset? vs)  synset

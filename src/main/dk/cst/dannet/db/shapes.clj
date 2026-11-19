@@ -88,22 +88,31 @@
 (defn- shape-constraints
   "The constraints of the property `shape` that a field can use, as a map:
   the :min and :max count, the :languages of a text, the values to choose
-  :in, and the :class and :datatype of a value."
+  :in, the :class and :datatype of a value, and the :pattern of a text with
+  its :description in each language."
   [^Resource shape]
   (let [model   (.getModel shape)
+        values  (fn [local-name]
+                  (map #(.getObject ^Statement %)
+                       (iterator-seq
+                         (.listProperties shape (sh model local-name)))))
         members (fn [^RDFNode x]
                   (mapv data (.asJavaList ^RDFList (.as x RDFList))))]
     (into {}
           (keep (fn [[k local-name]]
-                  (when-some [stmt (.getProperty shape (sh model local-name))]
-                    [k ((if (#{:languages :in} k) members data)
-                        (.getObject stmt))])))
-          {:min       "minCount"
-           :max       "maxCount"
-           :languages "languageIn"
-           :in        "in"
-           :class     "class"
-           :datatype  "datatype"})))
+                  (when-some [[x :as xs] (seq (values local-name))]
+                    [k (case k
+                         (:languages :in) (members x)
+                         :description (set (map data xs))
+                         (data x))])))
+          {:min         "minCount"
+           :max         "maxCount"
+           :languages   "languageIn"
+           :in          "in"
+           :class       "class"
+           :datatype    "datatype"
+           :pattern     "pattern"
+           :description "description"})))
 
 (defn- warns?
   "Does the `shape` only warn, and not block a write?"
