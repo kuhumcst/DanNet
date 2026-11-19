@@ -158,9 +158,9 @@
            [:li {:key (pr-str v)}
             [:button {:type     "button"
                       :on-click (fn [_]
-                                  (when label-fn
-                                    (input-type/remember-label!
-                                      v (label-fn result)))
+                                  (when-let [label (and label-fn
+                                                        (label-fn result))]
+                                    (app/remember-labels! {v label}))
                                   (on-value v))}
              (hiccup-fn result opts)]])])]]))
 
@@ -427,11 +427,31 @@
 (defn- update-changes!
   "Apply `f` and `args` to the pending changes, for an edit in a table with
   `opts`. An edit in the nested table of a blank node also keeps the place
-  of the node, which its changes are located by when they are submitted."
-  [{:keys [blank-node] :as opts} f & args]
+  of the node, which its changes are located by when they are submitted.
+
+  The labels of the resources in the changes are kept too, since the list of
+  the changes shows them on a page of its own (see ui.changes)."
+  [{:keys [blank-node subject k->label] :as opts} f & args]
   (when blank-node
     (app/remember-node! (:rdf/about blank-node) (node-place opts)))
-  (apply app/update-changes! f args))
+  (let [{:keys [changes]} (apply app/update-changes! f args)]
+    (app/remember-labels!
+      (select-keys k->label (conj (change/resources changes)
+                                  subject
+                                  (:property blank-node))))))
+
+(defn undo-label
+  "The name of the button that undoes a change with the `tint` to the value
+  that `text` names, for a reader with `languages`."
+  [languages tint text]
+  (str (case tint
+         :retracted (i18n/da-en languages
+                      "Fortryd fjernelse af" "Undo removal of")
+         :added (i18n/da-en languages
+                  "Fortryd tilføjelse af" "Undo addition of")
+         (i18n/da-en languages
+           "Fortryd rettelse af" "Undo edit of"))
+       ": " text))
 
 (defn- value-text
   "The value `v` as the text that names it in a label or a tooltip."
@@ -479,10 +499,8 @@
                    (update-changes!
                      opts change/replace
                      t [subject k (i18n/with-lang v lang')]))
-        undo     [(case tint
-                    :retracted (label "Fortryd fjernelse af" "Undo removal of")
-                    :added (label "Fortryd tilføjelse af" "Undo addition of")
-                    (label "Fortryd rettelse af" "Undo edit of"))
+        undo     [(undo-label languages tint
+                              (or @draft (value-text opts v)))
                   (fn [_]
                     (reset! draft nil)
                     (close!)

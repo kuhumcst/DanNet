@@ -3,7 +3,6 @@
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
-            [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
@@ -63,6 +62,21 @@
      ;; The label names the button; its title is only a tooltip.
      [:span.visually-hidden label]]))
 
+(rum/defc pending-changes-link
+  "A link to the list of the pending changes in `opts`, drawn as their
+  number. There is none while nothing is pending."
+  [{:keys [languages changes nav-class] :as opts}]
+  (when (seq changes)
+    (let [n     (count changes)
+          label (i18n/da-en languages
+                  (str n (if (= n 1) " ændring" " ændringer"))
+                  (str n (if (= n 1) " change" " changes")))]
+      [:a.pending-changes {:href  prefix/changes-path
+                           :class nav-class
+                           :title label}
+       [:span {:aria-hidden "true"} n]
+       [:span.visually-hidden label]])))
+
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
   edit mode, a resource that can't be edited has a grey prefix badge and a
@@ -80,13 +94,8 @@
         select-label* (partial i18n/select-label languages)
         label         (select-label* (k->label subject))
         label-lang    (i18n/lang label)
-        a-titles      [(term/->LangString "Visit this location directly" "en")
-                       (term/->LangString "Besøg denne lokation direkte" "da")]
         uri-only?     (and (not label) (= local-name rdf-uri))
-        uri-link      [:a.rdf-uri {:href  rdf-uri
-                                   :title (str (select-label* a-titles))
-                                   :key   rdf-uri}
-                       (rdf/break-up-uri rdf-uri)]
+        uri-link      (rdf/uri-link subject opts)
         locked?       (and edit-mode (not (lock/editable-resource? opts)))]
     [:header.page-header
      [:h1 {:class (when locked? "locked")}
@@ -114,17 +123,12 @@
                                 (not= label-lang (first languages))))
         [:sup label-lang])]
      (when-not uri-only?
-       (if-let [uri-prefix (and prefix (prefix/prefix->uri prefix))]
-         [:a.rdf-uri {:href  rdf-uri
-                      :title (str (select-label* a-titles))}
-          [:span.rdf-uri__prefix {:key uri-prefix}
-           (rdf/break-up-uri uri-prefix)]
-          [:span.rdf-uri__name {:key local-name}
-           (rdf/break-up-uri local-name)]]
-         uri-link))
+       uri-link)
      ;; the editor is a preview in development only
      (when shared/development?
-       (edit-mode-switch opts))]))
+       [:<>
+        (pending-changes-link opts)
+        (edit-mode-switch opts)])]))
 
 (rum/defc entity-notes
   [{:keys [href languages comments entity inherited] :as opts}]

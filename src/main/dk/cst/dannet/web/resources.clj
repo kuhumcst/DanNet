@@ -678,6 +678,25 @@
          response-body-ic]
    :route-name ::synsets])
 
+(def changes-ic
+  "The page that lists the pending changes of an editor. The changes are in
+  the browser, so the page has no data of its own."
+  {:name  ::changes
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [languages (resp/request->languages request)]
+              (assoc ctx
+                :content {:languages languages}
+                :page-meta {:title (i18n/da-en languages "Ændringer" "Changes")
+                            :page  :changes})))})
+
+(def changes-route
+  "A route of the editor, which only exists in development."
+  [prefix/changes-path
+   :get [negotiation-ic
+         changes-ic
+         response-body-ic]
+   :route-name ::changes])
+
 (def sparql-config
   "The options of DanNet's SPARQL endpoint, over endpoint/defaults. Its
   queries resolve relative IRIs against the public endpoint, which the

@@ -266,6 +266,14 @@
             {:add #{} :retract #{}}
             changes)))
 
+(defn resources
+  "The IRIs in the triples of the pending `changes`, as a set: every subject,
+  property and object that is a keyword."
+  [changes]
+  (into #{}
+        (comp (mapcat (juxt :add :retract)) cat cat (filter keyword?))
+        changes))
+
 (defn changed-properties
   "The properties of the subject `s` whose values the pending `changes` add
   or retract, as a set."

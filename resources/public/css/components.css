@@ -159,6 +159,55 @@
     mask: url('/images/edit.svg') center / contain no-repeat;
 }
 
+/* The number of pending changes (see ui.entity/pending-changes-link) is a
+   link to their list. It sits to the left of the edit mode switch and is
+   filled as the switch is while edit mode is on. The digits are in the
+   monospace font, since those of Georgia vary in height. */
+.pending-changes {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: calc(26px + 2 * var(--spacing-xs));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 var(--spacing-xs);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: white;
+    text-decoration: none;
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+/* In the list of the pending changes (see ui.changes), an entry has a small
+   heading with its full IRI below it, both centred, above the table of its
+   changes. Space alone separates an entry from the one before it, so there
+   is much more of it than between a heading and its table. */
+article.changes section + section {
+    margin-top: calc(2 * var(--spacing-xl));
+}
+
+article.changes section > header {
+    margin-bottom: var(--spacing-m);
+    text-align: center;
+}
+
+article.changes section h2 {
+    font-size: var(--font-size-m-l);
+    margin: 0 0 var(--spacing-xs) 0;
+}
+
+/* A value that replaces another is shown below the one that it replaces,
+   as far from it as one field is from the next. */
+.edit-value__old {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-muted);
+}
+
 search {
     display: flex;
     flex-direction: column;

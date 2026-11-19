@@ -148,6 +148,7 @@
    :sparql    {:render page/sparql :nav-class "w3c"}
    :metadata  {:render page/metadata :nav-class "meta"}
    :relations {:render page/relations :nav-class "wordnet"}
+   :changes   {:render page/changes :nav-class "dannet"}
    :error     {:render page/error}})
 
 (rum/defc page-shell < rum/reactive

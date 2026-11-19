@@ -82,6 +82,13 @@
            (change/replace [{:add #{new-hypernym}}] new-hypernym newer-hypernym))
         "an added triple is still only added")))
 
+(deftest resources-of-changes
+  (is (= #{:dn/synset-1 :wn/hypernym :dn/synset-2 :dn/synset-3
+           :dn/word-1 :rdfs/label}
+         (change/resources [{:retract #{old-hypernym} :add #{new-hypernym}}
+                            {:add #{[:dn/word-1 :rdfs/label hund]}}]))
+      "every subject, property and object that is a resource, not the texts"))
+
 (deftest net-changes
   (is (= {:add #{new-hypernym} :retract #{old-hypernym}}
          (change/net [{:retract #{old-hypernym}} {:add #{new-hypernym}}])))

@@ -66,13 +66,6 @@
         (when (contains? prefix/schemas (symbol prefix))
           (keyword prefix local-name))))))
 
-(defn remember-label!
-  "Keep `label` as the label of the resource `k` in the session, so that a
-  page can show a resource that it didn't come with."
-  [k label]
-  (when label
-    (swap! app/session assoc-in [:labels k] label)))
-
 (defn- fetch-data
   "A promise of what the server has under the key `k` of its :data at `url`
   with `query-params`, or of nil when it has none."
@@ -114,7 +107,8 @@
                      :cljs (.then (fetch-data (prefix/resolve-href k) :entity)
                                   (fn [entity]
                                     (when entity
-                                      (remember-label! k (:rdfs/label entity))
+                                      (when-let [label (:rdfs/label entity)]
+                                        (app/remember-labels! {k label}))
                                       k))))))})
 
 (def synset

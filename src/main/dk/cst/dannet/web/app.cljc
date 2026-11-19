@@ -18,7 +18,7 @@
   them from the first page, the server from each request. The :changes are
   the pending changes of an editor (see dk.cst.dannet.change), the :nodes
   are the places of the blank nodes that they change, and the :labels are
-  those of the resources that the changes add to a page."
+  those of the resources in the changes, for a page that doesn't have them."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
@@ -214,6 +214,12 @@
   change/locate-nodes to find the node by when the changes are submitted."
   [label place]
   (swap! session assoc-in [:nodes label] place))
+
+(defn remember-labels!
+  "Keep the labels in `k->label`, a map of a resource to its label, in the
+  session, so that another page can show the resources."
+  [k->label]
+  (swap! session update :labels merge k->label))
 
 (defn update-changes!
   "Apply `f` to the pending changes of the session and `args`, e.g. a

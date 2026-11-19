@@ -68,6 +68,23 @@
                   ("/" "?" "&" "=" "#") [:<> [:wbr] part]
                   part))))
 
+(rum/defc uri-link
+  "The full IRI of the RDF `term` as a link to it, for a reader with the
+  `languages` in `opts`. When the IRI is in a known namespace, the namespace
+  is faint and the local name stands out."
+  [term {:keys [languages] :as opts}]
+  (let [[prefix local-name uri] (parse-rdf-term term)
+        uri-prefix (and prefix (prefix/prefix->uri prefix))]
+    [:a.rdf-uri {:href  uri
+                 :title (i18n/da-en languages
+                          "Besøg denne lokation direkte"
+                          "Visit this location directly")}
+     (if uri-prefix
+       [:<>
+        [:span.rdf-uri__prefix (break-up-uri uri-prefix)]
+        [:span.rdf-uri__name (break-up-uri local-name)]]
+       (break-up-uri uri))]))
+
 (def predicate-display
   "How the values of particular predicates are displayed, by predicate:
 

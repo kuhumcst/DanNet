@@ -63,7 +63,8 @@
 
       ;; The editor is a preview that only exists in development.
       shared/development? (conj res/ontological-types-route
-                                res/synsets-route))))
+                                res/synsets-route
+                                res/changes-route))))
 
 (defn remove-trailing-slash
   [s]
