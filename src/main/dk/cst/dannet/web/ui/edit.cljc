@@ -15,8 +15,8 @@
   5. The buttons come in the order edit, undo, remove.
 
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
-  :languages that a text can be in, where nil is none, and the :translated
-  properties, whose rows show which language has no text yet."
+  :languages that the dropdown of a text offers, where nil is none, and the
+  :translated properties, whose rows show which language has no text yet."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
@@ -282,7 +282,7 @@
                                       (enter! (.-target e) false))
                           "Escape" (cancel!)
                           nil))}]
-     (when langs
+     (when (and langs (not= langs [lang]))
        (lang-select opts langs lang' #(reset! chosen [%])
                     {:on-key-down (fn [e]
                                     (when (= "Escape" (.-key e))
@@ -328,6 +328,32 @@
                                 (.focus)))))
                  state)})
 
+(defn required-message
+  "The reason why the one value that a row `must` have can't be removed, for
+  a reader with `languages`: the row takes exactly one value, or at least
+  one."
+  [languages {:keys [min max] :as must}]
+  (if (= min max)
+    (i18n/da-en languages
+      "Rækken skal have præcis én værdi, så den kan rettes, men ikke fjernes"
+      "The row needs exactly one value, so it can be edited but not removed")
+    (i18n/da-en languages
+      "Rækken skal have mindst én værdi, så den sidste kan ikke fjernes"
+      "The row needs at least one value, so the last one can't be removed")))
+
+(defn required-mark
+  "The mark of the one value that a row `must` have: a 1 in a ring, with the
+  reason why it can't be removed as its tooltip (see required-message), for
+  a reader with `languages`."
+  [languages must]
+  (let [reason (required-message languages must)]
+    [:span.edit-value__required {:key        "required"
+                                 :role       "img"
+                                 :aria-label reason
+                                 :title      reason}
+     ;; a drawing, since the digit of a font isn't in the middle of its box
+     [:span.edit-value__icon.edit-value__icon--one]]))
+
 (defn field-buttons
   "The buttons of a field in their order, by whether it is `open?` as an
   input and by its `tint`: nil, :edited, :added or :retracted.
@@ -344,12 +370,15 @@
 
 (defn- buttons
   "The buttons of a closed field with the `tint` (see field-buttons), from
-  `actions`, a map of a button to its label and function."
-  [tint actions]
+  `actions`, a map of a button to its label and function. A button in
+  `marks` has its mark there in its place, e.g. the count of a row that
+  must keep the value in place of the button that removes it."
+  [tint actions & [marks]]
   [:span.edit-value__actions
    (for [button (field-buttons false tint)
          :let   [[label f] (get actions button)]]
-     (icon-button (name button) label f))])
+     (or (get marks button)
+         (icon-button (name button) label f)))])
 
 (defn- opens-input?
   "Does the click `e` open the input of a closed field? Not on a link or a
@@ -414,11 +443,12 @@
 
   The `props` are the :input-type of its input, the :langs of a text, its
   :status among the pending changes and the :original value that an edited
-  one replaces. An entered text that isn't a value is kept as a draft and
-  shown as an edit. The tag of a text is a dropdown that changes its
-  language."
+  one replaces. With :required, the constraints of a row that must keep
+  the value (see required-message), it can't be removed. An entered text
+  that isn't a value is kept as a draft and shown as an edit. The tag of a
+  text is a dropdown that changes its language."
   [state {:keys [languages comments] :as opts}
-   k v {:keys [input-type status original langs]}]
+   k v {:keys [input-type status original langs required]}]
   (let [editing? (::editing? state)
         draft    (::draft state)
         subject  (subject-of opts)
@@ -515,13 +545,16 @@
         (update (rdf/lone-value-attrs v) :class
                 #(remove nil? ["edit-value__content" %]))
         (rdf/value opts v)
-        ;; a text without a tag gets its dropdown in the input
-        (when (and langs lang (not= status :retracted))
+        ;; A text without a tag gets its dropdown in the input, and a text
+        ;; that can only be in its own language keeps the plain tag.
+        (when (and langs lang (not= langs [lang]) (not= status :retracted))
           (lang-select opts langs lang retag!))])
      (when-not @editing?
        (buttons tint {:edit   [(label "Ret" "Edit") #(reset! editing? true)]
                       :undo   undo
-                      :remove [(label "Fjern" "Remove") remove!]}))]))
+                      :remove [(label "Fjern" "Remove") remove!]}
+                (when required
+                  {:remove (required-mark languages required)})))]))
 
 (rum/defcs new-value-field < (rum/local false ::adding?)
                              (rum/local nil ::draft)
@@ -607,10 +640,13 @@
   one, and last the locked values with a padlock that says why.
 
   A set of values is sorted by language, the reader's preferred one first,
-  and then by text. A new text gets the language that a row of translations
-  is missing (see ui.edit.row/missing-lang), or else that of the first field."
-  [{:keys [changes comments languages edit-rules] :as opts} k vs]
+  and then by text. The :constraints of the table shape the fields: the
+  languages of a text, the values to choose between, and whether the row
+  can take another value or lose one (see
+  dk.cst.dannet.db.shapes/property-constraints)."
+  [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
   (let [subject     (subject-of opts)
+        {:keys [must should]} (get constraints k)
         rank        (row/lang-rank languages)
         sorted      (if (set? vs)
                       (sort-by (juxt (comp rank i18n/lang)
@@ -627,16 +663,24 @@
         properties  (row/properties opts k)
         fields      (row/fields changes subject properties
                                 (remove entry->lock entries))
-        input-type  (input-type/input-type k vs)
+        input-type  (input-type/input-type vs must)
         locked      (map second (filter entry->lock entries))
         values      (concat (map :value fields) locked)
-        langs       (when (:lang? input-type)
-                      (not-empty (sort-by rank (:languages edit-rules))))
+        ;; the values of the row as the pending changes leave them
+        current     (->> (remove (comp #{:retracted} :status) fields)
+                         (map :value)
+                         (concat locked))
+        ;; a text with a datatype of its own is a code, without a language
+        langs       (when (and (:lang? input-type) (not (:datatype must)))
+                      (not-empty (sort-by rank (or (:languages must)
+                                                   (:languages edit-rules)))))
         gap         (when (and langs (contains? (:translated edit-rules) k))
-                      (->> (remove (comp #{:retracted} :status) fields)
-                           (map :value)
-                           (concat locked)
-                           (row/missing-lang langs)))
+                      (row/missing-lang langs current))
+        expected    (sort-by rank (or (:languages must) (:languages should)))
+        full?       (some-> (:max must) (<= (count current)))
+        ;; a row keeps the one value that it must have
+        required    (when (and (= 1 (:min must)) (>= 1 (count current)))
+                      must)
         ;; a new value is one of the options that the row doesn't have
         new-type    (cond-> input-type
                       (:options input-type) (update :options
@@ -654,15 +698,17 @@
         (rum/with-key (value-field opts property value
                                    (assoc field
                                      :input-type input-type
-                                     :langs langs))
+                                     :langs langs
+                                     :required required))
                       (item-key property (if (some? original) original value))))
-      ;; a row whose options are all taken has nothing to add
-      (when-not (some-> (:options new-type) empty?)
+      ;; a row that is full, or whose options are all taken, takes no more
+      (when-not (or full? (some-> (:options new-type) empty?))
         (rum/with-key (new-value-field
                         opts (row/new-value-property k properties) taken
                         {:input-type new-type
                          :langs      langs
-                         :lang       (or gap (i18n/lang (first taken)))
+                         :lang       (or gap (row/new-text-lang (first taken)
+                                                                expected))
                          :gap?       (some? gap)})
                       "new"))
       (for [[p v :as entry] (filter entry->lock entries)]

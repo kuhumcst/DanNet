@@ -372,10 +372,17 @@ dn:word-1 a ontolex:Word ; rdfs:label \"\\\"hund\\\"\"@da ;
   ontolex:canonicalForm dn:form-1 ;
   skos:inScheme <https://wordnet.dk/dannet/data> .
 dn:form-1 ontolex:writtenRep \"hund\"@da .
+dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
+  wn:partOfSpeech wn:noun ; ontolex:sense dn:sense-1 ;
+  ontolex:canonicalForm [ ontolex:writtenRep \"kat\"@da ] ;
+  skos:inScheme <https://wordnet.dk/dannet/data> .
 <https://en-word.net/id/oewn-1-n> a ontolex:LexicalConcept ."))
         entry-set (fn [triples]
                     (->> (shapes/validate-changes g [{:add triples}]) :results
-                         (map (juxt :focus-node :source-shape :severity)) set))]
+                         (map (juxt :focus-node :source-shape :severity)) set))
+        shapes-of (fn [change]
+                    (->> (shapes/validate-changes g [change]) :results
+                         (map (juxt :source-shape :severity)) set))]
     (testing "a well-formed synset edit produces no entries"
       (is (:conforms? (shapes/validate-changes
                         g [{:add #{[:dn/synset-1 :wn/hypernym :dn/synset-2]}}]))))
@@ -416,12 +423,69 @@ dn:form-1 ontolex:writtenRep \"hund\"@da .
                  :dns/EditorialConceptShape-ontologicalType
                  :dns/EditorialConceptShape-hypernym}
                (set (map :source-shape (:results result)))))))
+    (testing "an edited entry follows the base shape of its kind"
+      (is (= #{[:dns/LexicalEntryShape-partOfSpeech :sh/Violation]}
+             (shapes-of {:retract #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}))
+          "and only the base shape reports a broken base rule")
+      (is (= #{[:dns/LexicalConceptShape-inScheme :sh/Warning]}
+             (shapes-of {:retract #{[:dn/synset-1 :skos/inScheme
+                                     "<https://wordnet.dk/dannet/data>"]}}))
+          "a base rule that only warns doesn't block an edit"))
+    (testing "the form of a word is checked through the word"
+      (let [written (fn [s lang]
+                      ['?f :ontolex/writtenRep (->LangString s lang)])
+            change  (fn [m]
+                      (assoc m :where [[:dn/word-3 :ontolex/canonicalForm '?f]]))]
+        (is (= #{[:dns/EditorialWordShape-canonicalForm :sh/Violation]}
+               (shapes-of (change {:retract #{(written "kat" "da")}
+                                   :add     #{(written "cat" "en")}})))
+            "a written form is in Danish")
+        (is (contains? (shapes-of (change {:add #{(written "katte" "da")}}))
+                       [:dns/EditorialWordShape-canonicalForm :sh/Violation])
+            "and a form has one of them")
+        (is (empty? (shapes-of (change {:retract #{(written "kat" "da")}
+                                        :add     #{(written "katte" "da")}}))))))
     (testing "re-adding existing triples never breaks maxCount constraints"
       ;; both for an IRI object and for a language-tagged literal
       (is (:conforms? (shapes/validate-changes
                         g [{:add #{[:dn/word-1 :ontolex/canonicalForm :dn/form-1]
                                    [:dn/word-1 :rdfs/label
                                     (->LangString "\"hund\"" "da")]}}]))))))
+
+(deftest editorial-constraints
+  (let [constraints @shapes/editorial-constraints
+        synset      (:ontolex/LexicalConcept constraints)
+        word        (:ontolex/Word constraints)]
+    (is (= {:min 1 :max 1 :in [:wn/noun :wn/verb :wn/adjective]}
+           (get-in word [:wn/partOfSpeech :must]))
+        "a rule that blocks a write is one that a property must meet")
+    (is (= {:max 1} (get-in synset [:wn/ili :must]))
+        "an entry has the rules of the base shape that its shape names")
+    (is (= {:must {:min 1 :max 1}
+            :node {:ontolex/writtenRep {:must {:min 1 :max 1
+                                               :languages ["da"]}}}}
+           (:ontolex/canonicalForm word))
+        "the values of a property can have a shape of their own")
+    (is (not (contains? synset :skos/inScheme))
+        "a rule that no field can use is left out")
+    (is (= {:min 1 :max 1 :languages ["da"]}
+           (get-in synset [:skos/definition :should]))
+        "and one that only warns is one that it should meet")
+    (is (= {:must   {:class :dns/OntologicalType}
+            :should {:min 1 :max 1}}
+           (:dns/ontologicalType synset))
+        "the shapes of one property are taken together")
+    (is (= {:datatype :xsd/string} (get-in synset [:wn/lexfile :must]))
+        "a code has a datatype and no language")
+    (is (= word (:ontolex/MultiwordExpression constraints))
+        "a shape with two target classes holds for both")
+    (is (= #{:wn/partOfSpeech :skos/definition}
+           (-> (shapes/constraints-of constraints
+                                      [:ontolex/LexicalConcept :ontolex/Word])
+               (select-keys [:wn/partOfSpeech :skos/definition])
+               (keys)
+               (set)))
+        "a resource of two classes has the constraints of both")))
 
 (deftest validate-export-gate
   (let [->ttl-file (fn [ttl]

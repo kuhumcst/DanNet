@@ -14,11 +14,19 @@
 # definitions, hypernyms, ontological types) only warn.
 #
 # NOTE: property shapes get explicit IRIs; see the note in base.ttl.
+#
+# NOTE: each node shape of an entry names the base shape of its kind with
+# sh:node, since an edited entry follows the base rules too. The editor reads
+# the base rules through that link (see property-constraints in
+# db/shapes.clj). validate-changes leaves out the result of the link itself
+# (see link-result? there).
 
 @prefix sh:      <http://www.w3.org/ns/shacl#> .
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:      <http://purl.org/dc/terms/> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/3.0/lexinfo#> .
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
@@ -36,12 +44,15 @@ dns:EditorialPrefixes
 ## ---------------------------------------------------------------------------
 dns:EditorialConceptShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalConcept ;
+    sh:node dns:LexicalConceptShape ;
     sh:property dns:EditorialConceptShape-definition ,
                 dns:EditorialConceptShape-label ,
                 dns:EditorialConceptShape-lexicalizedSense ,
                 dns:EditorialConceptShape-ontologicalType ,
                 dns:EditorialConceptShape-ontologicalTypeValue ,
-                dns:EditorialConceptShape-hypernym .
+                dns:EditorialConceptShape-hypernym ,
+                dns:EditorialConceptShape-lexfile ,
+                dns:EditorialConceptShape-subject .
 
 ## DanNet definitions are asserted as skos:definition (60687 synsets, all
 ## @da); wn:definition does not occur in the dataset. 23 synsets carry two
@@ -98,6 +109,21 @@ dns:EditorialConceptShape-hypernym a sh:PropertyShape ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
     sh:message "An edited synset should have a wn:hypernym (roots and e.g. adjectives may legitimately lack one)." .
+
+## A lexicographer file is a code such as "noun.animal": all 71054 are plain
+## literals without a language (2026-11-12).
+dns:EditorialConceptShape-lexfile a sh:PropertyShape ;
+    sh:path wn:lexfile ;
+    sh:datatype xsd:string ;
+    sh:severity sh:Violation ;
+    sh:message "wn:lexfile must be a plain literal without a language." .
+
+## Subjects come in Danish and English: 37188 literals of each (2026-11-12).
+dns:EditorialConceptShape-subject a sh:PropertyShape ;
+    sh:path dc:subject ;
+    sh:languageIn ( "da" "en" ) ;
+    sh:severity sh:Violation ;
+    sh:message "dc:subject must be a @da or @en literal." .
 
 ## All 58741 asserted hypernym edges resolve within dn:; an edit must not
 ## introduce a dangling one. Same existence rule as dns:LinkedSynsetShape.
@@ -157,8 +183,10 @@ SELECT $this ?value WHERE {
 ## ---------------------------------------------------------------------------
 dns:EditorialWordShape a sh:NodeShape ;
     sh:targetClass ontolex:Word , ontolex:MultiwordExpression ;
+    sh:node dns:LexicalEntryShape ;
     sh:property dns:EditorialWordShape-label ,
-                dns:EditorialWordShape-partOfSpeech .
+                dns:EditorialWordShape-partOfSpeech ,
+                dns:EditorialWordShape-canonicalForm .
 
 ## All 61994 word labels are a single @da literal in ASCII double quotes.
 dns:EditorialWordShape-label a sh:PropertyShape ;
@@ -179,12 +207,37 @@ dns:EditorialWordShape-partOfSpeech a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "wn:partOfSpeech must be one of wn:noun, wn:verb, or wn:adjective." .
 
+## A form is a blank node without a type, so its shape has no target of its
+## own and the word names it with sh:node. All 62039 canonical forms have one
+## written form, which is a @da literal (2026-11-19).
+dns:EditorialWordShape-canonicalForm a sh:PropertyShape ;
+    sh:path ontolex:canonicalForm ;
+    sh:node dns:EditorialFormShape ;
+    sh:severity sh:Violation ;
+    sh:message "A canonical form must have a single @da ontolex:writtenRep." .
+
+dns:EditorialFormShape a sh:NodeShape ;
+    sh:property dns:EditorialFormShape-writtenRep .
+
+dns:EditorialFormShape-writtenRep a sh:PropertyShape ;
+    sh:path ontolex:writtenRep ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "ontolex:writtenRep must be a single @da literal." .
+
 ## ---------------------------------------------------------------------------
 ## LexicalSense
 ## ---------------------------------------------------------------------------
 dns:EditorialSenseShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalSense ;
-    sh:property dns:EditorialSenseShape-label .
+    sh:node dns:LexicalSenseShape ;
+    sh:property dns:EditorialSenseShape-label ,
+                dns:EditorialSenseShape-dslSense ,
+                dns:EditorialSenseShape-senseExample ,
+                dns:EditorialSenseShape-usageNote ,
+                dns:EditorialSenseShape-comment .
 
 ## All 77289 sense labels are a single unwrapped @da literal (no quotes or
 ## braces), typically lemma + DDO homograph/sense notation (e.g. cykel_§1).
@@ -196,3 +249,32 @@ dns:EditorialSenseShape-label a sh:PropertyShape ;
     sh:languageIn ( "da" ) ;
     sh:severity sh:Violation ;
     sh:message "A sense label must be a single unwrapped @da literal (no quotes or braces)." .
+
+## A DSL sense is an ID such as "1.a": all 2347 are plain literals
+## (2026-11-12).
+dns:EditorialSenseShape-dslSense a sh:PropertyShape ;
+    sh:path dns:dslSense ;
+    sh:datatype xsd:string ;
+    sh:severity sh:Violation ;
+    sh:message "dns:dslSense must be a plain literal without a language." .
+
+## All 63277 examples are @da literals (2026-11-12).
+dns:EditorialSenseShape-senseExample a sh:PropertyShape ;
+    sh:path lexinfo:senseExample ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "lexinfo:senseExample must be a @da literal." .
+
+## All 2609 usage notes are @da literals (2026-11-12).
+dns:EditorialSenseShape-usageNote a sh:PropertyShape ;
+    sh:path lexinfo:usageNote ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "lexinfo:usageNote must be a @da literal." .
+
+## Comments come in Danish and English: 49 literals of each (2026-11-12).
+dns:EditorialSenseShape-comment a sh:PropertyShape ;
+    sh:path rdfs:comment ;
+    sh:languageIn ( "da" "en" ) ;
+    sh:severity sh:Violation ;
+    sh:message "rdfs:comment must be a @da or @en literal." .

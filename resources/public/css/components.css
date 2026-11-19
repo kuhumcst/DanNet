@@ -517,7 +517,8 @@ ins.edit-value__content--invalid {
 /* The buttons of a field are faint until the pointer or the focus is on
    them. */
 .edit-value__button,
-.edit-value__add {
+.edit-value__add,
+.edit-value__required {
     display: flex;
     align-items: center;
     padding: 0;
@@ -530,7 +531,8 @@ ins.edit-value__content--invalid {
     transition: color var(--transition-base);
 }
 
-.edit-value__button {
+.edit-value__button,
+.edit-value__required {
     justify-content: center;
     width: var(--spacing-l);
     height: var(--spacing-l);
@@ -540,7 +542,8 @@ ins.edit-value__content--invalid {
 .edit-value__button:hover,
 .edit-value__button:focus-visible,
 .edit-value--new:hover > .edit-value__add,
-.edit-value__add:focus-visible {
+.edit-value__add:focus-visible,
+.edit-value__required:hover {
     color: var(--color-dark);
 }
 
@@ -555,6 +558,20 @@ ins.edit-value__content--invalid {
 .edit-value__icon--undo { mask: url('/images/undo.svg') center / contain no-repeat; }
 .edit-value__icon--search { mask: url('/images/search.svg') center / contain no-repeat; }
 .edit-value__icon--add { mask: url('/images/add.svg') center / contain no-repeat; }
+
+/* A value that its row must keep has a 1 in a ring where the cross would be,
+   and its tooltip says why (see ui.edit/required-mark). */
+.edit-value__required {
+    cursor: help;
+}
+
+/* The ring is a little larger than the other icons, so that the digit has
+   room. */
+.edit-value__icon--one {
+    width: var(--font-size-s);
+    height: var(--font-size-s);
+    mask: url('/images/one.svg') center / contain no-repeat;
+}
 
 /* The field for adding a value (see ui.edit/new-value-field) has no frame
    until its button is pressed, only a dashed outline while the pointer or

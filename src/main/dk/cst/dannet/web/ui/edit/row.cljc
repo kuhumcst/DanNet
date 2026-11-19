@@ -83,6 +83,16 @@
   (let [rank (zipmap languages (range))]
     #(get rank % (count rank))))
 
+(defn new-text-lang
+  "The language of a new text in a row: that of the `neighbour`, the text
+  before it, when the property can be in it, or else the first of the
+  languages that the property is `expected` in."
+  [neighbour expected]
+  (let [lang (i18n/lang neighbour)]
+    (if (or (empty? expected) (some #{lang} expected))
+      lang
+      (first expected))))
+
 (defn missing-lang
   "The first of the languages `langs` that none of the texts `vs` is in, if
   any. A nil among `langs` stands for no language and is never missing."

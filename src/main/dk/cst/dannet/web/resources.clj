@@ -31,6 +31,7 @@
             [dk.cst.dannet.db.catalog :as catalog]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
+            [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.web.hyponymy :as hyponymy])
   (:import [java.io File]
            [org.apache.jena.sparql.resultset ResultSetMem]))
@@ -397,6 +398,13 @@
 
           (and (not deferred?) (not-empty folded))
           (assoc :folded folded)
+
+          ;; the editor is a preview, so its constraints only go out in
+          ;; development
+          (and shared/development? (not deferred?))
+          (assoc :constraints (shapes/constraints-of
+                                @shapes/editorial-constraints
+                                (shared/setify (:rdf/type raw-entity))))
 
           synset?
           (merge (sunburst-trees (:inference @instance/db) languages subject))))))

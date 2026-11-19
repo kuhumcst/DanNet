@@ -1,14 +1,19 @@
 (ns dk.cst.dannet.editable
-  "The parts of the DanNet data that can be edited by hand, as data.
+  "What edit mode lets an editor change and what it offers, as data.
 
   Edit mode knows nothing about DanNet: its locks and fields read these
   rules from the :edit-rules of the page (see dk.cst.dannet.web.ui.lock and
   dk.cst.dannet.web.ui.edit, which say what each key means). To let more of
-  the data be edited, change the rules.")
+  the data be edited, change the rules.
+
+  The rules are about the editor only. What a property is belongs in the
+  RDF schemas, and what a valid entry looks like belongs in the editorial
+  shapes, which edit mode reads as the constraints of a page (see
+  dk.cst.dannet.db.shapes/property-constraints).")
 
 (def rules
   "DanNet's rules for edit mode: which resources have fields, which of their
-  properties never do, and which languages their texts are in."
+  properties never do, and which languages the dropdown of a text offers."
   {;; The namespaces of the resources that can be edited. Only the dataset
    ;; itself is: the ontological types (dnt:), the concepts (dnc:) and the
    ;; schema (dns:) define what the entries mean, so a change to one of them
@@ -24,10 +29,11 @@
    ;; label of a word is written by hand.
    :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label :dns/shortLabel}}
 
-   ;; The languages that a text can be in. nil stands for a text without a
-   ;; language, e.g. a code. DanNet has no texts in other languages.
+   ;; The languages that the dropdown of a text offers when no shape names
+   ;; those of its property, where nil is none.
    :languages       ["da" "en" nil]
 
-   ;; The properties that have the same text in each language. When one
-   ;; language has no text, a translation is missing.
+   ;; The properties whose rows suggest the language that has no text yet.
+   ;; This is a hint and not a rule of the data: a synset may have no subject
+   ;; at all, which SHACL Core can't tell apart from a missing translation.
    :translated      #{:dc/description :dc/subject :rdfs/comment}})

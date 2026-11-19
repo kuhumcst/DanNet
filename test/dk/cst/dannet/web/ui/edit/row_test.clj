@@ -143,3 +143,12 @@
     (is (nil? (row/missing-lang ["da" "en" nil] [da en]))
         "no text has to be without a language")
     (is (nil? (row/missing-lang [] [da])))))
+
+(deftest new-text-lang
+  (let [da #rdf/langstring ["zoologi" "da"]]
+    (is (= "da" (row/new-text-lang da ["da" "en"]))
+        "the language of the text before it")
+    (is (= "da" (row/new-text-lang nil ["da"]))
+        "or else the one that the property is expected in")
+    (is (nil? (row/new-text-lang "noun.animal" []))
+        "a code has no language")))

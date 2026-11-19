@@ -161,14 +161,9 @@
              :hiccup-fn   (fn [{:keys [rdfs/label]} _]
                             [:strong (str label)])}))
 
-(def part-of-speech
-  "A part of speech, which is one of three."
-  {:options [:wn/noun :wn/verb :wn/adjective]})
-
-(def input-types
-  "The input type of each property that has one of its own."
-  {:wn/partOfSpeech     part-of-speech
-   :dns/ontologicalType ontological-type})
+(def class-input-types
+  "The input type of a value of each class that has one of its own."
+  {:dns/OntologicalType ontological-type})
 
 (defn- synset?
   "Is `v` the ID of a DanNet synset?"
@@ -178,10 +173,12 @@
        (str/starts-with? (name v) "synset-")))
 
 (defn input-type
-  "The input type of the property `k`: its own, or else the one that fits
-  its values `vs`."
-  [k vs]
-  (or (get input-types k)
+  "The input type of a property with the values `vs` and the constraints
+  that it `must` meet, as the shapes state them: the values to choose :in,
+  the input type of its :class, or else the one that fits its values."
+  [vs {:keys [in class] :as must}]
+  (or (when in {:options in})
+      (get class-input-types class)
       (cond
         (empty? vs)          text
         (every? synset? vs)  synset

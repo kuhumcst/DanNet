@@ -26,20 +26,22 @@
       (is (nil? (input-type/->resource s)) s))))
 
 (deftest input-types
+  (is (= {:options [:wn/noun :wn/verb]}
+         (input-type/input-type [:wn/noun] {:in [:wn/noun :wn/verb]}))
+      "the values that a shape lets a property choose between")
   (is (= input-type/ontological-type
-         (input-type/input-type :dns/ontologicalType [:dnt/Animal-Object]))
-      "a property with an input type of its own")
+         (input-type/input-type [:dnt/Animal-Object]
+                                {:class :dns/OntologicalType}))
+      "the input type of the class that a shape gives the values")
   (testing "or else the one that fits its values"
-    (is (= input-type/synset
-           (input-type/input-type :wn/hypernym [:dn/synset-1])))
+    (is (= input-type/synset (input-type/input-type [:dn/synset-1] nil)))
     (is (= input-type/resource
-           (input-type/input-type :rdf/type [:ontolex/LexicalConcept])))
+           (input-type/input-type [:ontolex/LexicalConcept] nil)))
     (is (= input-type/resource
-           (input-type/input-type :wn/ili [:dn/synset-1 :ili/i46360]))
+           (input-type/input-type [:dn/synset-1 :ili/i46360] nil))
         "resources that aren't all synsets")
-    (is (= input-type/text
-           (input-type/input-type :skos/definition ["et dyr"])))
-    (is (= input-type/text (input-type/input-type :rdfs/comment [])))))
+    (is (= input-type/text (input-type/input-type ["et dyr"] nil)))
+    (is (= input-type/text (input-type/input-type [] nil)))))
 
 (deftest texts
   (let [parse (:parse-fn input-type/text)]

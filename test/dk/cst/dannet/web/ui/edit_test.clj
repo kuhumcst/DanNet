@@ -17,3 +17,12 @@
   (is (= [[:undo] [:undo]]
          (map #(edit/field-buttons true %) [:edited :added]))
       "unless the field differs from the data"))
+
+(deftest required-marks
+  (let [[_ attrs] (edit/required-mark ["en"] {:min 1 :max 1})]
+    (is (= "The row needs exactly one value, so it can be edited but not removed"
+           (:title attrs)
+           (:aria-label attrs))
+        "the tooltip of the mark says why the value stays"))
+  (is (= "The row needs at least one value, so the last one can't be removed"
+         (edit/required-message ["en"] {:min 1}))))

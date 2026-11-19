@@ -26,7 +26,8 @@
             [dk.cst.dannet.prefix :as prefix]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.query Dataset]
-           [org.apache.jena.rdf.model Model ModelFactory]
+           [org.apache.jena.rdf.model Model ModelFactory Property RDFList
+                                      RDFNode Resource Statement]
            [org.apache.jena.shacl Shapes]
            [org.apache.jena.graph Graph Node NodeFactory Triple]
            [org.apache.jena.graph.compose Delta]
@@ -66,6 +67,118 @@
   targeted `validate-node` calls, never for validating the full graph."
   (delay (load-shapes (:base shapes-resources)
                       (:editorial shapes-resources))))
+
+(defn- sh
+  "The property of the SHACL vocabulary with the `local-name` in `model`."
+  ^Property [^Model model local-name]
+  (.createProperty model (str "http://www.w3.org/ns/shacl#" local-name)))
+
+(defn- data
+  "The Clojure value of the RDF node `x`, with DanNet's keywords for IRIs."
+  [^RDFNode x]
+  (convert/data (.asNode x) prefix/prefixes))
+
+(defn- objects
+  "The resources that the resource `r` has as the objects of the SHACL
+  property with the `local-name`."
+  [^Resource r local-name]
+  (map #(.getResource ^Statement %)
+       (iterator-seq (.listProperties r (sh (.getModel r) local-name)))))
+
+(defn- shape-constraints
+  "The constraints of the property `shape` that a field can use, as a map:
+  the :min and :max count, the :languages of a text, the values to choose
+  :in, and the :class and :datatype of a value."
+  [^Resource shape]
+  (let [model   (.getModel shape)
+        members (fn [^RDFNode x]
+                  (mapv data (.asJavaList ^RDFList (.as x RDFList))))]
+    (into {}
+          (keep (fn [[k local-name]]
+                  (when-some [stmt (.getProperty shape (sh model local-name))]
+                    [k ((if (#{:languages :in} k) members data)
+                        (.getObject stmt))])))
+          {:min       "minCount"
+           :max       "maxCount"
+           :languages "languageIn"
+           :in        "in"
+           :class     "class"
+           :datatype  "datatype"})))
+
+(defn- warns?
+  "Does the `shape` only warn, and not block a write?"
+  [^Resource shape]
+  (= "Warning" (some-> (first (objects shape "severity"))
+                       (.getLocalName))))
+
+(defn- property-shapes
+  "The property shapes of the node `shape`, and of the node shapes that it
+  names with sh:node."
+  [^Resource shape]
+  (concat (objects shape "property")
+          (mapcat property-shapes (objects shape "node"))))
+
+(defn merge-constraints
+  "The maps `ms` of a property to its constraints as one map, where a
+  property has the constraints of them all."
+  [& ms]
+  (apply merge-with (partial merge-with merge) ms))
+
+(defn- node-constraints
+  "The constraints that the node `shape` puts on the properties of a node,
+  as a map of a property to its constraints (see shape-constraints): those
+  that block a write under :must, and those that only warn under :should.
+
+  A property shape can name the shape of its values with sh:node, as a word
+  does for its form. The constraints of that shape are under :node."
+  [^Resource shape]
+  (reduce (fn [acc [k property-shape]]
+            (let [constraints (shape-constraints property-shape)
+                  node        (->> (objects property-shape "node")
+                                   (map node-constraints)
+                                   (apply merge-constraints))]
+              (cond-> acc
+                (seq constraints)
+                (update-in [k (if (warns? property-shape) :should :must)]
+                           merge constraints)
+
+                (seq node)
+                (update-in [k :node] merge-constraints node))))
+          {}
+          (for [property-shape (property-shapes shape)
+                path           (objects property-shape "path")
+                :when          (.isURIResource ^Resource path)]
+            [(data path) property-shape])))
+
+(defn property-constraints
+  "The constraints that `shapes` put on the properties of each class that
+  they target, as a map of a class to the constraints of its node shapes
+  (see node-constraints).
+
+  Only a node shape with a class as its target is read, along with the node
+  shapes that it names with sh:node, and only a property shape with a
+  property as its path. A sequence path or a SPARQL constraint is about more
+  than one value, which a field can't use."
+  [^Shapes shapes]
+  (let [model (ModelFactory/createModelForGraph (.getGraph shapes))]
+    (reduce (fn [acc [class shape]]
+              (update acc (data class) merge-constraints
+                      (node-constraints shape)))
+            {}
+            (for [shape (iterator-seq (.listSubjectsWithProperty
+                                        model (sh model "targetClass")))
+                  class (objects shape "targetClass")]
+              [class shape]))))
+
+(def editorial-constraints
+  "The constraints of the editorial shapes, as property-constraints has them."
+  (delay (property-constraints @editorial-shapes)))
+
+(defn constraints-of
+  "The constraints on the properties of a resource with the `types`, merged
+  from those of each of its classes in `constraints`."
+  [constraints types]
+  (apply merge-constraints (keep constraints types)))
 
 ;; The report results have DanNet keywords for IRIs, so they can be diffed
 ;; against the EDN baseline. :source-shape is the stable identity used for
@@ -126,6 +239,17 @@
   [^Graph g prefixes]
   (theo/->Db (ModelFactory/createModelForGraph g) nil prefixes nil))
 
+(defn- link-result?
+  "Does the `result` only say that a resource doesn't conform to the node
+  shape that its own node shape names with sh:node?
+
+  The named shape reports each of its problems for the resource itself, with
+  the severity of each. This result would repeat them as one violation, also
+  when they only warn."
+  [{:keys [constraint-component path] :as result}]
+  (and (= constraint-component :sh/NodeConstraintComponent)
+       (nil? path)))
+
 (defn validate-changes
   "Validate the `changes` to the dn: graph of `db`, a db of a Dataset,
   against `shapes` (the editorial shapes by default), without writing
@@ -152,7 +276,9 @@
            union   (.getUnionGraph (with-graph dsg dn delta))
            before  (graph-db (.getUnionGraph dsg) prefixes)
            after   (graph-db union prefixes)
-           found   (fn [db node] (:results (validate-node db shapes node)))
+           found   (fn [db node]
+                     (remove link-result?
+                             (:results (validate-node db shapes node))))
            ;; a node is only validated as it was when it has results now
            brought (fn [node]
                      (when-some [now (not-empty (found after node))]

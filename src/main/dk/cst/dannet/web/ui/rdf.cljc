@@ -456,6 +456,8 @@
                            :folded folded
                            :origins origins
                            :default-origin default-origin
+                           :constraints (get-in opts [:constraints attr-key
+                                                      :node])
                            :blank-node {:rdf/about about
                                         :property  attr-key
                                         :entity    m
