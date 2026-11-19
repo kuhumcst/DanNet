@@ -18,7 +18,8 @@
   them from the first page, the server from each request. The :changes are
   the pending changes of an editor (see dk.cst.dannet.change), the :nodes
   are the places of the blank nodes that they change, and the :labels are
-  those of the resources in the changes, for a page that doesn't have them."
+  those of the resources in the changes, for a page that doesn't have them.
+  The :check is what the server last said about the changes."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
@@ -226,4 +227,6 @@
   function of dk.cst.dannet.change and a triple. The changes are only kept
   in memory, so loading the page again loses them."
   [f & args]
-  (apply swap! session update :changes f args))
+  ;; a check of other changes says nothing about these
+  (swap! session #(-> (apply update % :changes f args)
+                      (dissoc :check))))

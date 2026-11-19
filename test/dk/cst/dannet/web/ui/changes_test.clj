@@ -55,3 +55,20 @@
                       (change/retract [:dn/word-1 :wn/partOfSpeech :wn/noun]))
                   nodes))
         "changes that cancel each other out leave no entry")))
+
+(deftest problems
+  (let [form    {:focus-node :dn/word-1 :path :ontolex/canonicalForm}
+        pos     {:focus-node :dn/word-1 :path :wn/partOfSpeech}
+        cycle   {:focus-node :dn/word-1 :path nil}
+        other   {:focus-node :dn/synset-1 :path :wn/partOfSpeech}
+        results [form pos cycle other]
+        rows    [{:subject  '_b1
+                  :holder   :ontolex/canonicalForm
+                  :property :ontolex/writtenRep}
+                 {:subject :dn/word-1 :property :wn/partOfSpeech}]]
+    (is (= [form] (changes/row-problems results :dn/word-1 (first rows)))
+        "a result about a blank node has the property that holds the node")
+    (is (= [pos] (changes/row-problems results :dn/word-1 (second rows)))
+        "a result about a row has its property, and its entry")
+    (is (= [cycle] (changes/entry-problems results :dn/word-1 rows))
+        "a result about no row is about the entry")))

@@ -303,6 +303,16 @@
        {:conforms? (empty? results)
         :results   results}))))
 
+(defn check-changes
+  "What validate-changes says about the `changes` to the dn: graph of `db`,
+  or a map of the :error and the :change when one of them can't be made."
+  [db changes]
+  (try
+    (validate-changes db changes)
+    (catch clojure.lang.ExceptionInfo e
+      {:error  (ex-message e)
+       :change (:change (ex-data e))})))
+
 (def baseline-resource
   "schemas/internal/shapes-baseline.edn")
 

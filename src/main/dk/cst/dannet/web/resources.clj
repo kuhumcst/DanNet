@@ -29,6 +29,7 @@
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.catalog :as catalog]
+            [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db.shapes :as shapes]
@@ -696,6 +697,25 @@
          changes-ic
          response-body-ic]
    :route-name ::changes])
+
+(def check-ic
+  "What the editorial shapes say about the changes in the body of the
+  request, an EDN text as a change file has it (see shapes/check-changes).
+  Nothing is written."
+  {:name  ::check
+   :enter (fn [{:keys [request] :as ctx}]
+            (assoc ctx
+              :content {:check (shapes/check-changes
+                                 (:dataset @instance/db)
+                                 (db.change/read-changes (:body request)))}))})
+
+(def check-route
+  "A route of the editor, which only exists in development."
+  [prefix/check-path
+   :post [media-type-negotiation-ic
+          check-ic
+          response-body-ic]
+   :route-name ::check])
 
 (def sparql-config
   "The options of DanNet's SPARQL endpoint, over endpoint/defaults. Its

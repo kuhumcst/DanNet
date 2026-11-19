@@ -3,9 +3,12 @@
   by the entry that each change is made to.
 
   A value is shown as its field shows it, in the tint of its change, and
-  with a button that undoes the change."
+  with a button that undoes the change. A check asks the server what the
+  shapes say about the changes, and each result is shown with the entry or
+  the row that it is about."
   (:require [rum.core :as rum]
             [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
@@ -49,6 +52,60 @@
                               (filter #(= entry (entry-of %)) ss))]
           :when (seq rows)]
       {:entry entry :rows rows})))
+
+(defn row-problems
+  "The `results` of a check that are about the `row` of the `entry` (see
+  entries): those whose path is the property of the row or, for the row of
+  a blank node, the property that holds the node."
+  [results entry {:keys [holder property] :as row}]
+  (filter (fn [{:keys [focus-node path]}]
+            (and (= focus-node entry)
+                 (= path (or holder property))))
+          results))
+
+(defn entry-problems
+  "The `results` of a check that are about the `entry` and none of its
+  `rows`, e.g. the result of a rule about several of its values."
+  [results entry rows]
+  (remove (fn [{:keys [focus-node] :as result}]
+            (or (not= focus-node entry)
+                (some #(seq (row-problems [result] entry %)) rows)))
+          results))
+
+(defn- check!
+  "Ask the server what the shapes say about the pending `changes`, with
+  their blank nodes located by `nodes` (see change/locate-nodes), and keep
+  the answer as the :check of the session.
+
+  The changes are sent as the EDN text that a change file has. An answer is
+  dropped when the changes have changed in the meantime."
+  [changes nodes]
+  #?(:cljs
+     (let [answer! (fn [check]
+                     (app/clear-current-fetch prefix/check-path)
+                     (when (= changes (:changes @app/session))
+                       (swap! app/session assoc :check check)))]
+       (swap! app/session assoc :check {:running? true})
+       (-> (app/fetch! prefix/check-path
+                       {:method       :post
+                        :content-type :edn
+                        :body         (pr-str (change/locate-nodes changes
+                                                                   nodes))})
+           (.then #(answer! (get-in % [:body :data :check])))
+           (.catch #(answer! {:failed? true}))))))
+
+(defn- problem
+  "The message of the `result` of a check, marked as an error or as a
+  warning for a reader with `languages`."
+  [languages {:keys [severity message source-shape] :as result}]
+  (let [warning? (= severity :sh/Warning)]
+    [:p.check-problem (cond-> {:key (str source-shape message)}
+                        warning? (assoc :class "check-problem--warning"))
+     [:strong (if warning?
+                (i18n/da-en languages "Advarsel: " "Warning: ")
+                (i18n/da-en languages "Fejl: " "Error: "))]
+     ;; the shapes have their messages in English
+     [:span {:lang "en"} message]]))
 
 (def keep-focus
   "A mixin for a value in the list of the pending changes. When the value
@@ -99,11 +156,13 @@
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
   entries), under a heading that links to the entry and its full IRI."
-  [{:keys [languages] :as opts} entry rows]
+  [{:keys [languages check] :as opts} entry rows]
   [:section
    [:header
     [:h2 (rdf/resource-hyperlink entry opts)]
-    (rdf/uri-link entry opts)]
+    (rdf/uri-link entry opts)
+    (map #(problem languages %)
+         (entry-problems (:results check) entry rows))]
    [:table.attr-val
     [:colgroup
      [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
@@ -122,7 +181,60 @@
          [:ul.edit-values
           (for [{:keys [value] :as field} fields]
             (rum/with-key (pending-value opts subject property field)
-                          (pr-str value)))]]])]]])
+                          (pr-str value)))]
+         (map #(problem languages %)
+              (row-problems (:results check) entry row))]])]]])
+
+(defn- check-summary
+  "What the `check` of the pending changes is doing or said, in a few words
+  for a reader with `languages`, or nil before the first check."
+  [languages {:keys [running? results error failed?] :as check}]
+  (let [n-of     (fn [severity]
+                   (count (filter #(= severity (:severity %)) results)))
+        errors   (n-of :sh/Violation)
+        warnings (n-of :sh/Warning)]
+    (cond
+      running? (i18n/da-en languages
+                 "Tjekker ændringerne …"
+                 "Checking the changes …")
+      failed? (i18n/da-en languages
+                "Ændringerne kunne ikke tjekkes."
+                "The changes couldn't be checked.")
+      error (i18n/da-en languages
+              "En ændring kan ikke udføres på de nuværende data."
+              "A change can't be made to the data as it is.")
+      (nil? results) nil
+      (empty? results) (i18n/da-en languages
+                         "Ingen problemer fundet."
+                         "No problems found.")
+      :else (i18n/da-en languages
+              (str errors " fejl og " warnings
+                   (if (= warnings 1) " advarsel." " advarsler."))
+              (str errors (if (= errors 1) " error and " " errors and ")
+                   warnings (if (= warnings 1) " warning." " warnings."))))))
+
+(rum/defc check-control
+  "The button that checks the pending changes in `opts`, and what the check
+  is doing or last said. A change that can't be made is shown as the server
+  read it."
+  [{:keys [languages changes nodes check] :as opts}]
+  (let [{:keys [running? error change]} check]
+    [:div.changes-check
+     ;; a disabled button would lose the focus
+     [:button {:type          "button"
+               :aria-disabled (when running? "true")
+               :on-click      #(when-not running?
+                                 (check! changes nodes))}
+      (i18n/da-en languages
+        "Tjek ændringerne for fejl"
+        "Check the changes for errors")]
+     ;; a status is only read out when its text changes, so it has to be in
+     ;; the page while it is empty
+     [:p {:role "status"}
+      (check-summary languages check)]
+     (when error
+       [:p.check-problem
+        [:span {:lang "en"} error] ": " [:code (pr-str change)]])]))
 
 (rum/defc changes-list
   "The pending changes in `opts`, by the entry that each is made to, or a
@@ -143,5 +255,8 @@
           (str n (if (= n 1) " change to " " changes to ")
                (count entries)
                (if (= 1 (count entries)) " entry" " entries"))))]
-     (for [{:keys [entry rows]} entries]
-       (rum/with-key (entry-changes opts entry rows) (str entry)))]))
+     (when (seq entries)
+       [:<>
+        (check-control opts)
+        (for [{:keys [entry rows]} entries]
+          (rum/with-key (entry-changes opts entry rows) (str entry)))])]))

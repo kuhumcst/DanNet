@@ -200,6 +200,45 @@ article.changes section h2 {
     margin: 0 0 var(--spacing-xs) 0;
 }
 
+/* The button that checks the changes is centred above the list, with its
+   answer below it (see ui.changes). A rule like that of the page footer
+   separates the top of the page from the list. */
+.changes-check {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-s);
+    margin-bottom: var(--spacing-xxl);
+    padding-bottom: var(--spacing-l);
+    border-bottom: var(--normal-border);
+}
+
+.changes-check button {
+    padding: var(--spacing-xs) var(--spacing-m);
+}
+
+/* While a check runs, its button keeps the focus but looks disabled. */
+.changes-check button[aria-disabled="true"] {
+    opacity: var(--opacity-muted);
+    cursor: progress;
+}
+
+.changes-check p {
+    margin: 0;
+}
+
+/* After a check, a change that breaks a rule has the message of the rule
+   below it. An error blocks the change, and a warning doesn't. */
+.check-problem {
+    margin: var(--spacing-xs) 0 0 0;
+    font-size: var(--font-size-s);
+    color: var(--color-dannet);
+}
+
+.check-problem--warning {
+    color: var(--color-muted);
+}
+
 /* A value that replaces another is shown below the one that it replaces,
    as far from it as one field is from the next. */
 .edit-value__old {

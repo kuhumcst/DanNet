@@ -490,6 +490,9 @@
 (def changes-path
   (str (uri->path dannet-root) "edit/changes"))
 
+(def check-path
+  (str (uri->path dannet-root) "edit/check"))
+
 (defn resource-path
   [rdf-resource]
   (str external-path "?subject=" (url-encode rdf-resource)))

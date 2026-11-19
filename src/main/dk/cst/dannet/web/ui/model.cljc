@@ -14,6 +14,7 @@
     :changes       the pending changes made in edit mode (in the browser)
     :nodes         the places of the blank nodes that those changes are to
     :labels        the labels of the resources in those changes
+    :check         what the server last said about those changes
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page

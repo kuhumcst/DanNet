@@ -332,6 +332,13 @@ dn:entry-2 a ontolex:LexicalEntry ;
                         g [{:add #{[:dn/entry-1 :ontolex/sense :dn/sense-2]}}])))
       (is (:conforms? (shapes/validate-changes g [])))
       (is (= before (set (theo/triples dn))))))
+  (testing "a check says why a change can't be made, and doesn't throw"
+    (let [g (util/ttl->dataset (str prefixes "dn:entry-1 rdfs:label \"hund\" ."))
+          stale {:retract #{[:dn/entry-1 :rdfs/label "kat"]}}]
+      (is (= {:error  "The patterns of a change match 0 times, not exactly once"
+              :change stale}
+             (shapes/check-changes g [stale])))
+      (is (:conforms? (shapes/check-changes g [])))))
   (testing "a change only reaches the dn: graph"
     (let [g (util/ttl->dataset (str prefixes "dn:entry-1 rdfs:label \"hund\" ."))]
       (theo/transact! (theo/named-graph g "<https://example.com/other>")
