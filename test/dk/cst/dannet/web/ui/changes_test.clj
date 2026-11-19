@@ -1,9 +1,15 @@
 (ns dk.cst.dannet.web.ui.changes-test
-  "Tests for the list of the pending changes as data: which entries it has
-  and which rows each of them has."
+  "Tests for the list of the pending changes as data: which entries it has,
+  which rows each of them has, and the text that is submitted."
   (:require [clojure.test :refer [deftest is]]
+            [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.change :as change]
-            [dk.cst.dannet.web.ui.changes :as changes]))
+            [dk.cst.dannet.db.change :as db.change]
+            [dk.cst.dannet.db.shapes :as shapes]
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.test-util :as util]
+            [dk.cst.dannet.web.ui.changes :as changes])
+  (:import [java.io StringReader]))
 
 (def ^:private hund #rdf/langstring ["hund" "da"])
 (def ^:private hunde #rdf/langstring ["hunde" "da"])
@@ -72,3 +78,32 @@
         "a result about a row has its property, and its entry")
     (is (= [cycle] (changes/entry-problems results :dn/word-1 rows))
         "a result about no row is about the entry")))
+
+(deftest submission
+  (let [db      (util/ttl->dataset "
+@prefix dn: <https://wordnet.dk/dannet/data/> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
+        dn      (theo/named-graph db prefix/dn-graph)
+        [[_ _ form]] (theo/triples dn '[:dn/word-1 :ontolex/canonicalForm _])
+        nodes   {form {:subject  :dn/word-1
+                       :property :ontolex/canonicalForm
+                       :values   {:ontolex/writtenRep #{hund}}}}
+        pending (-> []
+                    (change/replace [form :ontolex/writtenRep hund]
+                                    [form :ontolex/writtenRep hunde])
+                    (change/add [:dn/word-1 :wn/partOfSpeech :wn/noun]))
+        text    (changes/submission pending nodes)
+        read    (db.change/read-changes (StringReader. text))]
+    (is (= (change/locate-nodes pending nodes) read)
+        "the text reads back as the changes with their blank nodes located")
+    (is (= (str "[{:where   [[:dn/word-1 :ontolex/canonicalForm ?node]]\n"
+                "  :retract #{[?node :ontolex/writtenRep"
+                " #rdf/langstring [\"hund\" \"da\"]]}\n"
+                "  :add     #{[?node :ontolex/writtenRep"
+                " #rdf/langstring [\"hunde\" \"da\"]]}}\n"
+                " {:add #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}]")
+           text)
+        "each key of a change is on a line of its own")
+    (is (:conforms? (shapes/validate-changes db read))
+        "and the changes can be made to the data that they were made on")))

@@ -5,8 +5,10 @@
   A value is shown as its field shows it, in the tint of its change, and
   with a button that undoes the change. A check asks the server what the
   shapes say about the changes, and each result is shown with the entry or
-  the row that it is about."
-  (:require [rum.core :as rum]
+  the row that it is about. Nothing takes a submitted change yet, so
+  submitting shows the text that would be sent."
+  (:require [clojure.string :as str]
+            [rum.core :as rum]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
@@ -72,13 +74,31 @@
                 (some #(seq (row-problems [result] entry %)) rows)))
           results))
 
-(defn- check!
-  "Ask the server what the shapes say about the pending `changes`, with
-  their blank nodes located by `nodes` (see change/locate-nodes), and keep
-  the answer as the :check of the session.
+(defn- change-text
+  "The `change` as EDN text, with each of its keys on a line of its own and
+  their values in a column."
+  [change]
+  (let [ks    (filter #(contains? change %) [:where :retract :add])
+        width (apply max 0 (map #(count (str %)) ks))
+        pad   #(apply str % (repeat (- width (count (str %))) " "))]
+    (str "{"
+         (str/join "\n  " (map #(str (pad %) " " (pr-str (get change %))) ks))
+         "}")))
 
-  The changes are sent as the EDN text that a change file has. An answer is
-  dropped when the changes have changed in the meantime."
+(defn submission
+  "The pending `changes` as they are submitted: the EDN text of a change
+  file, with their blank nodes located by `nodes` (see change/locate-nodes)."
+  [changes nodes]
+  (str "["
+       (str/join "\n " (map change-text (change/locate-nodes changes nodes)))
+       "]"))
+
+(defn- check!
+  "Ask the server what the shapes say about the pending `changes`, sent as
+  they are submitted with `nodes` (see submission), and keep the answer as
+  the :check of the session.
+
+  An answer is dropped when the changes have changed in the meantime."
   [changes nodes]
   #?(:cljs
      (let [answer! (fn [check]
@@ -89,8 +109,7 @@
        (-> (app/fetch! prefix/check-path
                        {:method       :post
                         :content-type :edn
-                        :body         (pr-str (change/locate-nodes changes
-                                                                   nodes))})
+                        :body         (submission changes nodes)})
            (.then #(answer! (get-in % [:body :data :check])))
            (.catch #(answer! {:failed? true}))))))
 
@@ -236,6 +255,25 @@
        [:p.check-problem
         [:span {:lang "en"} error] ": " [:code (pr-str change)]])]))
 
+(rum/defcs submit-control < (rum/local false ::submitted?)
+  "The button that submits the pending changes in `opts`. For now it shows
+  the text that would be submitted (see submission)."
+  [state {:keys [languages changes nodes] :as opts}]
+  (let [submitted? (::submitted? state)]
+    [:div.changes-submit
+     [:button {:type     "button"
+               :on-click #(reset! submitted? true)}
+      (i18n/da-en languages
+        "Indsend ændringerne til godkendelse"
+        "Submit the changes for approval")]
+     [:p {:role "status"}
+      (when @submitted?
+        (i18n/da-en languages
+          "Ændringer kan ikke indsendes endnu. Dette ville blive indsendt:"
+          "Changes can't be submitted yet. This would be submitted:"))]
+     (when @submitted?
+       [:pre [:code (submission changes nodes)]])]))
+
 (rum/defc changes-list
   "The pending changes in `opts`, by the entry that each is made to, or a
   note that there are none. Their number is a status, so that an undo is
@@ -259,4 +297,5 @@
        [:<>
         (check-control opts)
         (for [{:keys [entry rows]} entries]
-          (rum/with-key (entry-changes opts entry rows) (str entry)))])]))
+          (rum/with-key (entry-changes opts entry rows) (str entry)))
+        (submit-control opts)])]))

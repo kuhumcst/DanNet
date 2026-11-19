@@ -200,20 +200,29 @@ article.changes section h2 {
     margin: 0 0 var(--spacing-xs) 0;
 }
 
-/* The button that checks the changes is centred above the list, with its
-   answer below it (see ui.changes). A rule like that of the page footer
-   separates the top of the page from the list. */
-.changes-check {
+/* The button that checks the changes is centred above the list, and the one
+   that submits them is centred below it (see ui.changes). Each has its
+   answer below it. A rule like that of the page footer separates the top of
+   the page from the list. */
+.changes-check,
+.changes-submit {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-s);
+}
+
+.changes-check {
     margin-bottom: var(--spacing-xxl);
     padding-bottom: var(--spacing-l);
     border-bottom: var(--normal-border);
 }
 
-.changes-check button {
+.changes-submit {
+    margin-top: var(--spacing-xxl);
+}
+
+:is(.changes-check, .changes-submit) button {
     padding: var(--spacing-xs) var(--spacing-m);
 }
 
@@ -223,8 +232,18 @@ article.changes section h2 {
     cursor: progress;
 }
 
-.changes-check p {
+:is(.changes-check, .changes-submit) p {
     margin: 0;
+}
+
+/* The text that would be submitted is as wide as the list, and a long line
+   wraps, so that the text never has to be scrolled sideways. */
+.changes-submit pre {
+    align-self: stretch;
+    margin: 0;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 /* After a check, a change that breaks a rule has the message of the rule
