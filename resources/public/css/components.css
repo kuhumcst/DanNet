@@ -523,7 +523,7 @@ ins.edit-value__content--invalid {
     padding: 0;
     /* a button has a font of its own, which would make its 1lh a shorter line */
     font: inherit;
-    color: var(--color-subtle);
+    color: var(--color-icon);
     background: none;
     border: none;
     cursor: pointer;

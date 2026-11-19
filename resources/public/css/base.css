@@ -11,6 +11,9 @@
     --color-dark: #333;
     --color-muted: #666;
     --color-subtle: #999;
+    /* A grey with a contrast of at least 3:1 to white and to the tints of a
+       pending change, for an icon that carries meaning. */
+    --color-icon: #888;
     --color-bg-alt: #F2F2F2;
 
     --color-link: #0066BB;
