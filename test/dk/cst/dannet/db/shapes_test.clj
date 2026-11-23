@@ -493,6 +493,40 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
             "and a form has one of them")
         (is (empty? (shapes-of (change {:retract #{(written "kat" "da")}
                                         :add     #{(written "katte" "da")}}))))))
+    (testing "a form can be added, with a stressed form that matches it"
+      (let [form     (fn [written stressed]
+                       {:add (cond-> #{[:dn/word-3 :ontolex/otherForm '_form]
+                                       ['_form :ontolex/writtenRep
+                                        (->LangString written "da")]}
+                               stressed (conj ['_form :dns/stressedRep
+                                               (->LangString stressed "da")]))})
+            other    [:dns/EditorialWordShape-otherForm :sh/Violation]
+            ;; a rule in SPARQL is reported for the shape that has it
+            stressed [:dns/EditorialWordShape :sh/Violation]]
+        (is (empty? (shapes-of (form "katten" nil))))
+        (is (empty? (shapes-of (form "se til" "se ˈtil"))))
+        (is (= #{other}
+               (shapes-of {:add #{[:dn/word-3 :ontolex/otherForm '_form]}}))
+            "a form without a written form blocks")
+        (is (= #{other} (shapes-of (form "se til" "se til")))
+            "and so does a stressed form without the stress sign")
+        (is (= #{stressed} (shapes-of (form "se til" "se ˈtille")))
+            "or one that isn't the written form with the sign added")))
+    (testing "a form can be removed, but not the canonical one"
+      (let [removal (fn [word k]
+                      {:where   [[word k '?f]]
+                       :retract #{[word k '?f]
+                                  ['?f :ontolex/writtenRep
+                                   (->LangString "kat" "da")]}})]
+        (is (contains? (shapes-of (removal :dn/word-3 :ontolex/canonicalForm))
+                       [:dns/LexicalEntryShape-canonicalForm :sh/Violation]))
+        (is (:conforms?
+              (shapes/validate-changes
+                g [{:add #{[:dn/word-1 :ontolex/otherForm '_form]
+                           ['_form :ontolex/writtenRep
+                            (->LangString "kat" "da")]}}
+                   (removal :dn/word-1 :ontolex/otherForm)]))
+            "a form that a change made is found by the next one")))
     (testing "re-adding existing triples never breaks maxCount constraints"
       ;; both for an IRI object and for a language-tagged literal
       (is (:conforms? (shapes/validate-changes
@@ -521,11 +555,19 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
           "and the relations with that shape have the same constraints"))
     (is (not (contains? (:wn/mero_part synset) :node))
         "a value without properties of its own is no nested table")
-    (is (= {:must {:min 1 :max 1}
-            :node {:ontolex/writtenRep {:must {:min 1 :max 1
-                                               :languages ["da"]}}}}
-           (:ontolex/canonicalForm word))
+    (is (= {:min 1 :max 1} (get-in word [:ontolex/canonicalForm :must])))
+    (is (= {:min 1 :max 1 :languages ["da"]}
+           (get-in word [:ontolex/canonicalForm :node :ontolex/writtenRep
+                         :must]))
         "the values of a property can have a shape of their own")
+    (is (= (get-in word [:ontolex/canonicalForm :node])
+           (get-in word [:ontolex/otherForm :node]))
+        "which two properties can share")
+    (let [{:keys [pattern max]} (get-in word [:ontolex/otherForm :node
+                                              :dns/stressedRep :must])]
+      (is (= 1 max))
+      (is (re-find (re-pattern pattern) "se ˈtil"))
+      (is (not (re-find (re-pattern pattern) "se til"))))
     (is (not (contains? synset :skos/inScheme))
         "a rule that no field can use is left out")
     (is (= {:min 1 :max 1 :languages ["da"]}

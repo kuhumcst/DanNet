@@ -42,7 +42,11 @@ dns:EditorialPrefixes
     sh:declare [ sh:prefix "rdf" ;
                  sh:namespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"^^xsd:anyURI ] ;
     sh:declare [ sh:prefix "dnc" ;
-                 sh:namespace "https://wordnet.dk/dannet/concepts/"^^xsd:anyURI ] .
+                 sh:namespace "https://wordnet.dk/dannet/concepts/"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "dns" ;
+                 sh:namespace "https://wordnet.dk/dannet/schema/"^^xsd:anyURI ] ;
+    sh:declare [ sh:prefix "ontolex" ;
+                 sh:namespace "http://www.w3.org/ns/lemon/ontolex#"^^xsd:anyURI ] .
 
 ## ---------------------------------------------------------------------------
 ## LexicalConcept (synset)
@@ -405,7 +409,9 @@ dns:EditorialWordShape a sh:NodeShape ;
     sh:node dns:LexicalEntryShape ;
     sh:property dns:EditorialWordShape-label ,
                 dns:EditorialWordShape-partOfSpeech ,
-                dns:EditorialWordShape-canonicalForm .
+                dns:EditorialWordShape-canonicalForm ,
+                dns:EditorialWordShape-otherForm ;
+    sh:sparql dns:EditorialWordShape-stressedMatchesWritten .
 
 ## All 61994 word labels are a single @da literal in ASCII double quotes.
 dns:EditorialWordShape-label a sh:PropertyShape ;
@@ -429,16 +435,23 @@ dns:EditorialWordShape-partOfSpeech a sh:PropertyShape ;
     sh:message "wn:partOfSpeech must be one of wn:noun, wn:verb, or wn:adjective." .
 
 ## A form is a blank node without a type, so its shape has no target of its
-## own and the word names it with sh:node. All 62039 canonical forms have one
-## written form, which is a @da literal (2026-11-19).
+## own and the word names it with sh:node. All 62039 canonical forms and all
+## 140 other forms have one written form, which is a @da literal (2026-11-23).
 dns:EditorialWordShape-canonicalForm a sh:PropertyShape ;
     sh:path ontolex:canonicalForm ;
     sh:node dns:EditorialFormShape ;
     sh:severity sh:Violation ;
-    sh:message "A canonical form must have a single @da ontolex:writtenRep." .
+    sh:message "A canonical form must have a single @da ontolex:writtenRep, and at most one dns:stressedRep." .
+
+dns:EditorialWordShape-otherForm a sh:PropertyShape ;
+    sh:path ontolex:otherForm ;
+    sh:node dns:EditorialFormShape ;
+    sh:severity sh:Violation ;
+    sh:message "An other form must have a single @da ontolex:writtenRep, and at most one dns:stressedRep." .
 
 dns:EditorialFormShape a sh:NodeShape ;
-    sh:property dns:EditorialFormShape-writtenRep .
+    sh:property dns:EditorialFormShape-writtenRep ,
+                dns:EditorialFormShape-stressedRep .
 
 dns:EditorialFormShape-writtenRep a sh:PropertyShape ;
     sh:path ontolex:writtenRep ;
@@ -447,6 +460,31 @@ dns:EditorialFormShape-writtenRep a sh:PropertyShape ;
     sh:languageIn ( "da" ) ;
     sh:severity sh:Violation ;
     sh:message "ontolex:writtenRep must be a single @da literal." .
+
+## All 76 stressed forms are a @da literal with one stress sign, and no form
+## has more than one (2026-11-23).
+dns:EditorialFormShape-stressedRep a sh:PropertyShape ;
+    sh:path dns:stressedRep ;
+    sh:maxCount 1 ;
+    sh:pattern "^[^ˈ]*ˈ[^ˈ]+$" ;
+    sh:description "Skal have ét tryktegn ˈ foran det betonede ord, f.eks. se ˈtil"@da ,
+                   "Must have one stress sign ˈ before the stressed word, e.g. se ˈtil"@en ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "dns:stressedRep must be a single @da literal with one stress sign." .
+
+## All 76 stressed forms are the written form of their node with the stress
+## sign added. The rule is about two values of a form, so it is on the word.
+dns:EditorialWordShape-stressedMatchesWritten a sh:SPARQLConstraint ;
+    sh:prefixes dns:EditorialPrefixes ;
+    sh:message "dns:stressedRep must be the ontolex:writtenRep of its form with a stress sign added." ;
+    sh:select """
+SELECT $this ?value WHERE {
+  $this ontolex:canonicalForm|ontolex:otherForm ?form .
+  ?form dns:stressedRep ?value ;
+        ontolex:writtenRep ?written .
+  FILTER(replace(str(?value), "ˈ", "") != str(?written))
+}""" .
 
 ## ---------------------------------------------------------------------------
 ## LexicalSense
