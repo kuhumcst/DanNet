@@ -86,10 +86,10 @@
        (iterator-seq (.listProperties r (sh (.getModel r) local-name)))))
 
 (defn- shape-constraints
-  "The constraints of the property `shape` that a field can use, as a map:
-  the :min and :max count, the :languages of a text, the values to choose
-  :in, the :class and :datatype of a value, and the :pattern of a text with
-  its :description in each language."
+  "The constraints of the `shape` that a field can use, as a map: the :min
+  and :max count, the :languages of a text, the values to choose :in, the
+  :class and :datatype of a value, :iri? when a value has to be an IRI, and
+  the :pattern of a value with its :description in each language."
   [^Resource shape]
   (let [model   (.getModel shape)
         values  (fn [local-name]
@@ -100,17 +100,22 @@
                   (mapv data (.asJavaList ^RDFList (.as x RDFList))))]
     (into {}
           (keep (fn [[k local-name]]
-                  (when-some [[x :as xs] (seq (values local-name))]
-                    [k (case k
-                         (:languages :in) (members x)
-                         :description (set (map data xs))
-                         (data x))])))
+                  (when-some [[^RDFNode x :as xs] (seq (values local-name))]
+                    (when-some [v (case k
+                                    (:languages :in) (members x)
+                                    :description (set (map data xs))
+                                    :iri? (when (= "IRI" (.getLocalName
+                                                           (.asResource x)))
+                                            true)
+                                    (data x))]
+                      [k v]))))
           {:min         "minCount"
            :max         "maxCount"
            :languages   "languageIn"
            :in          "in"
            :class       "class"
            :datatype    "datatype"
+           :iri?        "nodeKind"
            :pattern     "pattern"
            :description "description"})))
 
@@ -138,14 +143,18 @@
   as a map of a property to its constraints (see shape-constraints): those
   that block a write under :must, and those that only warn under :should.
 
-  A property shape can name the shape of its values with sh:node, as a word
-  does for its form. The constraints of that shape are under :node."
+  A property shape can name the shape of its values with sh:node. What that
+  shape says of a value itself counts for the property, as a relation has it
+  for a synset. What it says of the properties of a value is under :node, as
+  a word has it for its form."
   [^Resource shape]
   (reduce (fn [acc [k property-shape]]
-            (let [constraints (shape-constraints property-shape)
-                  node        (->> (objects property-shape "node")
-                                   (map node-constraints)
-                                   (apply merge-constraints))]
+            (let [value-shapes (objects property-shape "node")
+                  constraints  (apply merge
+                                      (shape-constraints property-shape)
+                                      (map shape-constraints value-shapes))
+                  node         (->> (map node-constraints value-shapes)
+                                    (apply merge-constraints))]
               (cond-> acc
                 (seq constraints)
                 (update-in [k (if (warns? property-shape) :should :must)]

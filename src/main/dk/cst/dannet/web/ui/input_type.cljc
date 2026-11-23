@@ -171,7 +171,24 @@
 
 (def class-input-types
   "The input type of a value of each class that has one of its own."
-  {:dns/OntologicalType ontological-type})
+  {:dns/OntologicalType    ontological-type
+   :ontolex/LexicalConcept synset})
+
+(defn fitting
+  "The resource `input-type` for the resources whose IRI the `pattern` of a
+  shape matches, with the `description` of such a resource in each language.
+
+  A search finds resources of DanNet, so the input type has none when the
+  pattern leaves those out, as it does for an English synset."
+  [{:keys [parse-fn] :as input-type} pattern description]
+  (let [re    (re-pattern pattern)
+        fits? #(some? (re-find re (prefix/kw->uri %)))]
+    (cond-> (assoc input-type
+              :description description
+              :parse-fn (fn [s lang]
+                          (when (some-> (->resource s) fits?)
+                            (parse-fn s lang))))
+      (not (re-find re prefix/dn-uri)) (dissoc :search))))
 
 (defn- synset?
   "Is `v` the ID of a DanNet synset?"
@@ -183,14 +200,17 @@
 (defn input-type
   "The input type of a property with the values `vs` and the constraints
   that it `must` meet, as the shapes state them: the values to choose :in,
-  the input type of its :class, a text that matches its :pattern, or else
-  the one that fits its values."
-  [vs {:keys [in class pattern description] :as must}]
-  (or (when in {:options in})
-      (get class-input-types class)
-      (when pattern (matching pattern description))
-      (cond
-        (empty? vs)          text
-        (every? synset? vs)  synset
-        (every? keyword? vs) resource
-        :else                text)))
+  a resource of its :class or one that is an IRI, a value that matches its
+  :pattern, or else the one that fits its values."
+  [vs {:keys [in class iri? pattern description] :as must}]
+  (let [resource' (or (get class-input-types class)
+                      (when (or class iri?) resource))]
+    (cond
+      in                      {:options in}
+      (and resource' pattern) (fitting resource' pattern description)
+      resource'               resource'
+      pattern                 (matching pattern description)
+      (empty? vs)             text
+      (every? synset? vs)     synset
+      (every? keyword? vs)    resource
+      :else                   text)))

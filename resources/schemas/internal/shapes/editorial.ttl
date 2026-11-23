@@ -57,7 +57,38 @@ dns:EditorialConceptShape a sh:NodeShape ;
                 dns:EditorialConceptShape-ontologicalTypeValue ,
                 dns:EditorialConceptShape-hypernym ,
                 dns:EditorialConceptShape-lexfile ,
-                dns:EditorialConceptShape-subject .
+                dns:EditorialConceptShape-subject ,
+                dns:EditorialConceptShape-hypernymValue,
+                dns:EditorialConceptShape-agent,
+                dns:EditorialConceptShape-also,
+                dns:EditorialConceptShape-attribute,
+                dns:EditorialConceptShape-co_agent_instrument,
+                dns:EditorialConceptShape-co_instrument_agent,
+                dns:EditorialConceptShape-domain_topic,
+                dns:EditorialConceptShape-holo_location,
+                dns:EditorialConceptShape-holo_member,
+                dns:EditorialConceptShape-holo_part,
+                dns:EditorialConceptShape-holo_substance,
+                dns:EditorialConceptShape-instance_hypernym,
+                dns:EditorialConceptShape-involved_patient,
+                dns:EditorialConceptShape-mero_location,
+                dns:EditorialConceptShape-mero_member,
+                dns:EditorialConceptShape-mero_part,
+                dns:EditorialConceptShape-mero_substance,
+                dns:EditorialConceptShape-patient,
+                dns:EditorialConceptShape-result,
+                dns:EditorialConceptShape-similar,
+                dns:EditorialConceptShape-crossPoSHypernym,
+                dns:EditorialConceptShape-nearAntonym,
+                dns:EditorialConceptShape-orthogonalHypernym,
+                dns:EditorialConceptShape-usedFor,
+                dns:EditorialConceptShape-usedForObject,
+                dns:EditorialConceptShape-eq_synonym,
+                dns:EditorialConceptShape-eqHypernym,
+                dns:EditorialConceptShape-eqHyponym,
+                dns:EditorialConceptShape-eqSimilar,
+                dns:EditorialConceptShape-iliValue,
+                dns:EditorialConceptShape-gender .
 
 ## DanNet definitions are asserted as skos:definition (60687 synsets, all
 ## @da); wn:definition does not occur in the dataset. 23 synsets carry two
@@ -88,14 +119,14 @@ dns:EditorialConceptShape-lexicalizedSense a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "An edited synset must be lexicalized by at least one sense." .
 
-## 69730 of 70475 synsets carry exactly one dns:ontologicalType (never more);
-## presence only warns since 745 legacy synsets lack one.
+## 69730 of 70475 synsets carry a dns:ontologicalType; presence only warns
+## since 745 legacy synsets lack one. The base shape of a synset says that
+## it has at most one.
 dns:EditorialConceptShape-ontologicalType a sh:PropertyShape ;
     sh:path dns:ontologicalType ;
     sh:minCount 1 ;
-    sh:maxCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "An edited synset should have exactly one dns:ontologicalType." .
+    sh:message "An edited synset should have a dns:ontologicalType." .
 
 ## When present, the value must be a named, typed dnt: ontological type
 ## (cf. ->ontotype in bootstrap/corsem.clj); member atoms are checked by
@@ -134,39 +165,218 @@ dns:EditorialConceptShape-subject a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "dc:subject must be a @da or @en literal." .
 
-## All 58741 asserted hypernym edges resolve within dn:; an edit must not
-## introduce a dangling one. Same existence rule as dns:LinkedSynsetShape.
-dns:EditorialHypernymTargetShape a sh:NodeShape ;
-    sh:targetClass ontolex:LexicalConcept ;
+## Each relation of a synset that an editor can add has a shape that names
+## the shape of its values. 25 relations link a DanNet synset to another: all
+## 288274 of their values are typed synsets in dn:. Four link it to an English
+## synset: all 10301 of their values are typed synsets of the Open English
+## WordNet (2026-11-23).
+##
+## wn:hyponym (29 triples) and wn:holonym (10) are asserted too, but they
+## are the inverses of relations above and have no shape.
+dns:EditorialSynsetValueShape a sh:NodeShape ;
+    sh:class ontolex:LexicalConcept ;
+    sh:pattern "^https://wordnet\\.dk/dannet/data/" ;
+    sh:description "Skal være et synset i DanNet, f.eks. dn:synset-3047"@da ,
+                   "Must be a synset in DanNet, e.g. dn:synset-3047"@en .
+
+dns:EditorialEnglishSynsetValueShape a sh:NodeShape ;
+    sh:class ontolex:LexicalConcept ;
+    sh:pattern "^https://en-word\\.net/id/" ;
+    sh:description "Skal være et synset i Open English WordNet, f.eks. en:oewn-02086723-n"@da ,
+                   "Must be a synset in the Open English WordNet, e.g. en:oewn-02086723-n"@en .
+
+dns:EditorialConceptShape-hypernymValue a sh:PropertyShape ;
+    sh:path wn:hypernym ;
+    sh:node dns:EditorialSynsetValueShape ;
     sh:severity sh:Violation ;
-    sh:sparql dns:EditorialHypernymTargetShape-resolvableTarget .
+    sh:message "wn:hypernym must link to a synset in DanNet." .
 
-dns:EditorialHypernymTargetShape-resolvableTarget a sh:SPARQLConstraint ;
-    sh:prefixes dns:DanNetPrefixes ;
-    sh:message "wn:hypernym must target a known synset (typed as a lexical concept or carrying a lexicalized sense)." ;
-    sh:select """
-SELECT $this ?value WHERE {
-  $this wn:hypernym ?value .
-  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
-  FILTER NOT EXISTS { ?value ontolex:lexicalizedSense ?sense }
-}""" .
-
-## All 7680 asserted wn:eq_synonym links target a typed synset (local build,
-## 2026-11-10, with the dangling OEWN links replaced); an edit must not
-## introduce a dangling one.
-dns:EditorialEqSynonymTargetShape a sh:NodeShape ;
-    sh:targetClass ontolex:LexicalConcept ;
+dns:EditorialConceptShape-agent a sh:PropertyShape ;
+    sh:path wn:agent ;
+    sh:node dns:EditorialSynsetValueShape ;
     sh:severity sh:Violation ;
-    sh:sparql dns:EditorialEqSynonymTargetShape-resolvableTarget .
+    sh:message "wn:agent must link to a synset in DanNet." .
 
-dns:EditorialEqSynonymTargetShape-resolvableTarget a sh:SPARQLConstraint ;
-    sh:prefixes dns:DanNetPrefixes ;
-    sh:message "wn:eq_synonym must target a known synset (typed as a lexical concept)." ;
-    sh:select """
-SELECT $this ?value WHERE {
-  $this wn:eq_synonym ?value .
-  FILTER NOT EXISTS { ?value a ontolex:LexicalConcept }
-}""" .
+dns:EditorialConceptShape-also a sh:PropertyShape ;
+    sh:path wn:also ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:also must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-attribute a sh:PropertyShape ;
+    sh:path wn:attribute ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:attribute must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-co_agent_instrument a sh:PropertyShape ;
+    sh:path wn:co_agent_instrument ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:co_agent_instrument must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-co_instrument_agent a sh:PropertyShape ;
+    sh:path wn:co_instrument_agent ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:co_instrument_agent must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-domain_topic a sh:PropertyShape ;
+    sh:path wn:domain_topic ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:domain_topic must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-holo_location a sh:PropertyShape ;
+    sh:path wn:holo_location ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:holo_location must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-holo_member a sh:PropertyShape ;
+    sh:path wn:holo_member ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:holo_member must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-holo_part a sh:PropertyShape ;
+    sh:path wn:holo_part ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:holo_part must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-holo_substance a sh:PropertyShape ;
+    sh:path wn:holo_substance ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:holo_substance must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-instance_hypernym a sh:PropertyShape ;
+    sh:path wn:instance_hypernym ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:instance_hypernym must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-involved_patient a sh:PropertyShape ;
+    sh:path wn:involved_patient ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:involved_patient must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-mero_location a sh:PropertyShape ;
+    sh:path wn:mero_location ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:mero_location must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-mero_member a sh:PropertyShape ;
+    sh:path wn:mero_member ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:mero_member must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-mero_part a sh:PropertyShape ;
+    sh:path wn:mero_part ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:mero_part must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-mero_substance a sh:PropertyShape ;
+    sh:path wn:mero_substance ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:mero_substance must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-patient a sh:PropertyShape ;
+    sh:path wn:patient ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:patient must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-result a sh:PropertyShape ;
+    sh:path wn:result ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:result must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-similar a sh:PropertyShape ;
+    sh:path wn:similar ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:similar must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-crossPoSHypernym a sh:PropertyShape ;
+    sh:path dns:crossPoSHypernym ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:crossPoSHypernym must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-nearAntonym a sh:PropertyShape ;
+    sh:path dns:nearAntonym ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:nearAntonym must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-orthogonalHypernym a sh:PropertyShape ;
+    sh:path dns:orthogonalHypernym ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:orthogonalHypernym must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-usedFor a sh:PropertyShape ;
+    sh:path dns:usedFor ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:usedFor must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-usedForObject a sh:PropertyShape ;
+    sh:path dns:usedForObject ;
+    sh:node dns:EditorialSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:usedForObject must link to a synset in DanNet." .
+
+dns:EditorialConceptShape-eq_synonym a sh:PropertyShape ;
+    sh:path wn:eq_synonym ;
+    sh:node dns:EditorialEnglishSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "wn:eq_synonym must link to a synset in the Open English WordNet." .
+
+dns:EditorialConceptShape-eqHypernym a sh:PropertyShape ;
+    sh:path dns:eqHypernym ;
+    sh:node dns:EditorialEnglishSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:eqHypernym must link to a synset in the Open English WordNet." .
+
+dns:EditorialConceptShape-eqHyponym a sh:PropertyShape ;
+    sh:path dns:eqHyponym ;
+    sh:node dns:EditorialEnglishSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:eqHyponym must link to a synset in the Open English WordNet." .
+
+dns:EditorialConceptShape-eqSimilar a sh:PropertyShape ;
+    sh:path dns:eqSimilar ;
+    sh:node dns:EditorialEnglishSynsetValueShape ;
+    sh:severity sh:Violation ;
+    sh:message "dns:eqSimilar must link to a synset in the Open English WordNet." .
+
+## All 8015 wn:ili values are IRIs of the Interlingual Index (2026-11-23).
+dns:EditorialConceptShape-iliValue a sh:PropertyShape ;
+    sh:path wn:ili ;
+    sh:nodeKind sh:IRI ;
+    sh:pattern "^http://globalwordnet\\.org/ili/" ;
+    sh:description "Skal være et ILI-begreb, f.eks. ili:i46360"@da ,
+                   "Must be an ILI concept, e.g. ili:i46360"@en ;
+    sh:severity sh:Violation ;
+    sh:message "wn:ili must link to a concept of the Interlingual Index." .
+
+## 623 synsets have a gender, never more than one: dns:Female (377) or
+## dns:Male (246) (2026-11-23).
+dns:EditorialConceptShape-gender a sh:PropertyShape ;
+    sh:path dns:gender ;
+    sh:maxCount 1 ;
+    sh:in ( dns:Female dns:Male ) ;
+    sh:severity sh:Violation ;
+    sh:message "dns:gender must be dns:Female or dns:Male." .
 
 ## ---------------------------------------------------------------------------
 ## OntologicalType (dnt:): all 667 member atoms across the live dnt: bags are
@@ -248,7 +458,11 @@ dns:EditorialSenseShape a sh:NodeShape ;
                 dns:EditorialSenseShape-dslSense ,
                 dns:EditorialSenseShape-senseExample ,
                 dns:EditorialSenseShape-usageNote ,
-                dns:EditorialSenseShape-comment .
+                dns:EditorialSenseShape-comment ,
+                dns:EditorialSenseShape-altLabel ,
+                dns:EditorialSenseShape-frequency ,
+                dns:EditorialSenseShape-dating ,
+                dns:EditorialSenseShape-register .
 
 ## All 77289 sense labels are a single unwrapped @da literal (no quotes or
 ## braces), typically lemma + DDO homograph/sense notation (e.g. cykel_§1).
@@ -294,3 +508,41 @@ dns:EditorialSenseShape-comment a sh:PropertyShape ;
     sh:languageIn ( "da" "en" ) ;
     sh:severity sh:Violation ;
     sh:message "rdfs:comment must be a @da or @en literal." .
+
+## All 59 alternative labels are @da literals without quotes or braces, as
+## the label of a sense is (2026-11-23).
+dns:EditorialSenseShape-altLabel a sh:PropertyShape ;
+    sh:path skos:altLabel ;
+    sh:pattern "^[^\"{][^\"{}]*$" ;
+    sh:description "Skal være uden anførselstegn og klammer, f.eks. hund_1§1"@da ,
+                   "Must be without quotes and braces, e.g. hund_1§1"@en ;
+    sh:languageIn ( "da" ) ;
+    sh:severity sh:Violation ;
+    sh:message "skos:altLabel must be an unwrapped @da literal (no quotes or braces)." .
+
+## The three marks below each have few values in use, and a sense never has
+## more than one of each (2026-11-23). Extend a list as the policy does.
+## All 1481 frequencies are lexinfo:rarelyUsed.
+dns:EditorialSenseShape-frequency a sh:PropertyShape ;
+    sh:path lexinfo:frequency ;
+    sh:maxCount 1 ;
+    sh:in ( lexinfo:rarelyUsed ) ;
+    sh:severity sh:Violation ;
+    sh:message "lexinfo:frequency must be lexinfo:rarelyUsed." .
+
+## All 433 datings are lexinfo:old.
+dns:EditorialSenseShape-dating a sh:PropertyShape ;
+    sh:path lexinfo:dating ;
+    sh:maxCount 1 ;
+    sh:in ( lexinfo:old ) ;
+    sh:severity sh:Violation ;
+    sh:message "lexinfo:dating must be lexinfo:old." .
+
+## The 261 registers are lexinfo:slangRegister (182) or
+## lexinfo:inHouseRegister (79).
+dns:EditorialSenseShape-register a sh:PropertyShape ;
+    sh:path lexinfo:register ;
+    sh:maxCount 1 ;
+    sh:in ( lexinfo:slangRegister lexinfo:inHouseRegister ) ;
+    sh:severity sh:Violation ;
+    sh:message "lexinfo:register must be lexinfo:slangRegister or lexinfo:inHouseRegister." .

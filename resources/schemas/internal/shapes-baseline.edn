@@ -43,15 +43,19 @@
 ;; The eq* conflict shape was added 2026-10-01. The 29 synsets in the live
 ;; data that link to the same OEWN synset with two eq* relations are
 ;; accepted until they are reviewed.
-{:dns/LexicalSenseShape-label      0
- :dns/LexicalEntryShape-writtenRep 0
- :dns/LexicalConceptShape-ili      385
- :dns/IliRelationShape             0
- :dns/EqRelationShape              29
- :dns/SynsetTypeShape              0
- :dns/MeronymyHierarchyShape       0
- :dns/MeronymyContradictionShape   0
- :dns/LinkedSenseShape-object      0
- :dns/LinkedSynsetShape            0
- :dns/HypernymAnchorShape          0
- :dns/NegationContradictionShape   0}
+;;
+;; The single ontological type shape was added 2026-11-23. No synset in the
+;; live data has several, so its accepted count is 0.
+{:dns/LexicalSenseShape-label             0
+ :dns/LexicalEntryShape-writtenRep        0
+ :dns/LexicalConceptShape-ili             385
+ :dns/LexicalConceptShape-ontologicalType 0
+ :dns/IliRelationShape                    0
+ :dns/EqRelationShape                     29
+ :dns/SynsetTypeShape                     0
+ :dns/MeronymyHierarchyShape              0
+ :dns/MeronymyContradictionShape          0
+ :dns/LinkedSenseShape-object             0
+ :dns/LinkedSynsetShape                   0
+ :dns/HypernymAnchorShape                 0
+ :dns/NegationContradictionShape          0}

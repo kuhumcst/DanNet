@@ -175,7 +175,8 @@ dns:LexicalConceptShape a sh:NodeShape ;
     sh:target dns:DanNetConceptTarget ;
     sh:property dns:LexicalConceptShape-label ,
                 dns:LexicalConceptShape-inScheme ,
-                dns:LexicalConceptShape-ili .
+                dns:LexicalConceptShape-ili ,
+                dns:LexicalConceptShape-ontologicalType .
 
 dns:LexicalConceptShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
@@ -198,6 +199,16 @@ dns:LexicalConceptShape-ili a sh:PropertyShape ;
     sh:maxCount 1 ;
     sh:severity sh:Violation ;
     sh:message "LexicalConcept (synset) must have at most one wn:ili." .
+
+## An ontological type already combines the concepts of a synset, e.g.
+## dnt:Animal-Object, so a synset has one. No synset has several, in the
+## asserted graphs or in the inferred one (2026-11-23), so the accepted
+## count is 0.
+dns:LexicalConceptShape-ontologicalType a sh:PropertyShape ;
+    sh:path dns:ontologicalType ;
+    sh:maxCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "LexicalConcept (synset) must have at most one dns:ontologicalType." .
 
 ## Every other synset shape and every type-anchored query (the CSV export,
 ## the lime:concepts statistic, the indegree cache) recognises a synset by its

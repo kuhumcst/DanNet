@@ -116,7 +116,13 @@ dn:sense-2 a ontolex:LexicalSense .")]
     (is (contains? (shape+constraint "
 dn:synset-2 a ontolex:LexicalConcept .")
                    [:dns/LexicalConceptShape-label
-                    :sh/MinCountConstraintComponent]))))
+                    :sh/MinCountConstraintComponent])))
+  (testing "two ontological types"
+    (is (contains? (shape+constraint "
+dn:synset-2 a ontolex:LexicalConcept ; rdfs:label \"{a}\" ;
+  dns:ontologicalType dnt:Animal , dnt:Object .")
+                   [:dns/LexicalConceptShape-ontologicalType
+                    :sh/MaxCountConstraintComponent]))))
 
 (deftest hypernym-shapes
   ;; SPARQL constraints all report :sh/SPARQLConstraintComponent and Jena's
@@ -403,12 +409,37 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                      [:dn/word-2 :dns/EditorialWordShape-partOfSpeech :sh/Violation])))
     (testing "a dangling hypernym target blocks"
       (is (contains? (entry-set #{[:dn/synset-1 :wn/hypernym :dn/synset-404]})
-                     [:dn/synset-1 :dns/EditorialHypernymTargetShape :sh/Violation])))
+                     [:dn/synset-1 :dns/EditorialConceptShape-hypernymValue
+                      :sh/Violation])))
     (testing "a dangling English link blocks"
       (is (contains? (entry-set #{[:dn/synset-1 :wn/eq_synonym :en/oewn-404-n]})
-                     [:dn/synset-1 :dns/EditorialEqSynonymTargetShape :sh/Violation]))
+                     [:dn/synset-1 :dns/EditorialConceptShape-eq_synonym
+                      :sh/Violation]))
       (is (empty? (entry-set #{[:dn/synset-1 :wn/eq_synonym :en/oewn-1-n]}))
           "a link to a typed synset doesn't"))
+    (testing "a relation links synsets of the right dataset"
+      (is (empty? (entry-set #{[:dn/synset-1 :wn/mero_part :dn/synset-2]})))
+      (is (contains? (entry-set #{[:dn/synset-1 :wn/mero_part :en/oewn-1-n]})
+                     [:dn/synset-1 :dns/EditorialConceptShape-mero_part
+                      :sh/Violation])
+          "an English synset isn't a part of a Danish one")
+      (is (contains? (entry-set #{[:dn/synset-1 :dns/eqHypernym :dn/synset-2]})
+                     [:dn/synset-1 :dns/EditorialConceptShape-eqHypernym
+                      :sh/Violation])
+          "and an English link doesn't go to a Danish synset")
+      (is (contains? (entry-set #{[:dn/synset-1 :wn/agent :dn/sense-1]})
+                     [:dn/synset-1 :dns/EditorialConceptShape-agent
+                      :sh/Violation])
+          "a sense isn't a synset"))
+    (testing "a mark is one of the values in use"
+      (is (empty? (entry-set #{[:dn/synset-1 :dns/gender :dns/Female]})))
+      (is (contains? (entry-set #{[:dn/synset-1 :dns/gender :dn/synset-2]})
+                     [:dn/synset-1 :dns/EditorialConceptShape-gender
+                      :sh/Violation]))
+      (is (contains? (entry-set #{[:dn/sense-1 :lexinfo/register :lexinfo/old]})
+                     [:dn/sense-1 :dns/EditorialSenseShape-register
+                      :sh/Violation]))
+      (is (empty? (entry-set #{[:dn/sense-1 :lexinfo/dating :lexinfo/old]}))))
     (testing "a non-dnc member in a new ontological type blocks"
       (is (contains? (entry-set #{[:dnt/Fish-Object :rdf/type :dns/OntologicalType]
                                   [:dnt/Fish-Object :rdf/_1 :dnc/Object]
@@ -476,8 +507,20 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
     (is (= {:min 1 :max 1 :in [:wn/noun :wn/verb :wn/adjective]}
            (get-in word [:wn/partOfSpeech :must]))
         "a rule that blocks a write is one that a property must meet")
-    (is (= {:max 1} (get-in synset [:wn/ili :must]))
+    (is (= 1 (get-in synset [:wn/ili :must :max]))
         "an entry has the rules of the base shape that its shape names")
+    (is (true? (get-in synset [:wn/ili :must :iri?]))
+        "a value that has to be an IRI is a resource")
+    (let [{:keys [pattern description] :as must}
+          (get-in synset [:wn/mero_part :must])]
+      (is (= :ontolex/LexicalConcept (:class must))
+          "what the shape of a value says of the value counts for the property")
+      (is (= "^https://wordnet\\.dk/dannet/data/" pattern))
+      (is (= #{"da" "en"} (set (map lang description))))
+      (is (= must (get-in synset [:wn/hypernym :must]))
+          "and the relations with that shape have the same constraints"))
+    (is (not (contains? (:wn/mero_part synset) :node))
+        "a value without properties of its own is no nested table")
     (is (= {:must {:min 1 :max 1}
             :node {:ontolex/writtenRep {:must {:min 1 :max 1
                                                :languages ["da"]}}}}
@@ -488,8 +531,8 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
     (is (= {:min 1 :max 1 :languages ["da"]}
            (get-in synset [:skos/definition :should]))
         "and one that only warns is one that it should meet")
-    (is (= {:must   {:class :dns/OntologicalType}
-            :should {:min 1 :max 1}}
+    (is (= {:must   {:iri? true :class :dns/OntologicalType :max 1}
+            :should {:min 1}}
            (:dns/ontologicalType synset))
         "the shapes of one property are taken together")
     (is (= :xsd/string (get-in synset [:wn/lexfile :must :datatype]))
