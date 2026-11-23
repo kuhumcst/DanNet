@@ -365,6 +365,15 @@
                                             orthogonal-only)
            :meronym-tree            (->tree @instance/meronym-graph any?)})))
 
+(defn- constraint-resources
+  "The resources that the `constraints` on the properties of an entry name:
+  each property, the values that it can choose between, and the same for
+  the properties of its blank nodes."
+  [constraints]
+  (mapcat (fn [[k {:keys [must should node]}]]
+            (concat [k] (:in must) (:in should) (constraint-resources node)))
+          constraints))
+
 (def editor-constraints
   "The :constraints on the properties of a resource with the set of `types`
   (see shapes/constraints-of), and the labels of the resources that they
@@ -373,14 +382,11 @@
   (memoize
     (fn [types]
       (let [constraints (shapes/constraints-of @shapes/editorial-constraints
-                                               types)
-            resources   (into #{}
-                              (mapcat (fn [[k {:keys [must should]}]]
-                                        (concat [k] (:in must) (:in should))))
-                              constraints)]
+                                               types)]
         {:constraints constraints
          :entities    (q/resource-labels (:inference @instance/db)
-                                         resources)}))))
+                                         (set (constraint-resources
+                                                constraints)))}))))
 
 (defn- with-constraints
   "The page `content` of a resource with the `types`, with what the editor

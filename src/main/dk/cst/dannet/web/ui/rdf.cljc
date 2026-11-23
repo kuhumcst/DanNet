@@ -460,6 +460,12 @@
                     (and (:edit-mode opts) (not new?))
                     (assoc :lock (lock/lock opts attr-key m))))))
 
+(defn node-table
+  "The nested table of the blank node `m`, a value of the :attr-key of
+  `opts`, drawn by the :table-component of `opts`."
+  [{:keys [table-component] :as opts} m]
+  (table-component (node-opts opts m) (dissoc m :rdf/about)))
+
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
@@ -498,7 +504,7 @@
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
       table-component
-      (table-component (node-opts opts (assoc m :rdf/about about)) m))))
+      (node-table opts (assoc m :rdf/about about)))))
 
 (defn value
   "The content of the single value `v` informed by `opts`: a link to a

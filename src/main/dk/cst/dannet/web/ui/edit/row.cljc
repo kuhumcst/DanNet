@@ -179,6 +179,29 @@
   (not-empty (select-keys must [:class :iri? :pattern :datatype :languages
                                 :in])))
 
+(defn sole-property
+  "The property of a blank node that only holds one value, by the
+  `constraints` on its properties: the one property that its shape
+  describes, when a node must have exactly one value of it, e.g. the
+  polarity of a sentiment. Such a node is edited as that value."
+  [constraints]
+  (when (= 1 (count constraints))
+    (let [[k {:keys [must]}] (first constraints)]
+      (when (= 1 (:min must) (:max must))
+        k))))
+
+(defn room?
+  "Can the `entity` take `n` more values of the property `k`, next to the
+  ones that it has? Only the :max that the `constraints` give the property
+  can say no."
+  [constraints entity k n]
+  (let [v    (get entity k)
+        held (cond
+               (nil? v) 0
+               (shared/multi-valued? v) (count v)
+               :else 1)]
+    (not (some-> (get-in constraints [k :must :max]) (< (+ n held))))))
+
 (defn alternatives
   "Those of the properties `ks` that the values of the property `k` can move
   to, according to the `constraints` on the properties of the `entity`: the
@@ -189,18 +212,10 @@
   not when its row must keep a value."
   [constraints ks entity k n]
   (let [must  #(get-in constraints [% :must])
-        shape (value-shape (must k))
-        held  (fn [k']
-                (let [v (get entity k')]
-                  (cond
-                    (nil? v) 0
-                    (shared/multi-valued? v) (count v)
-                    :else 1)))
-        full? (fn [k']
-                (some-> (:max (must k')) (< (+ n (held k')))))]
+        shape (value-shape (must k))]
     (when (and (or (:class shape) (:iri? shape))
                (not= :must (expected constraints k)))
       (filter #(and (not= % k)
                     (= shape (value-shape (must %)))
-                    (not (full? %)))
+                    (room? constraints entity % n))
               ks))))

@@ -261,6 +261,27 @@
     (is (empty? (row/open-rows addable [] :dn/synset-1 [:skos/definition]))
         "only a row that can be added is open")))
 
+(deftest sole-property
+  (is (= :marl/hasPolarity
+         (row/sole-property {:marl/hasPolarity {:must {:min 1 :max 1}}}))
+      "a node that must have exactly one value of its only property")
+  (is (nil? (row/sole-property {:marl/hasPolarity {:must {:max 1}}}))
+      "not when it can do without the value")
+  (is (nil? (row/sole-property {:ontolex/writtenRep {:must {:min 1 :max 1}}
+                                :dns/stressedRep    {:must {:max 1}}}))
+      "or when its shape describes more than one property")
+  (is (nil? (row/sole-property nil))))
+
+(deftest room
+  (let [constraints {:dns/sentiment {:must {:max 1}}
+                     :wn/hypernym   {:must {}}}]
+    (is (row/room? constraints {} :dns/sentiment 1))
+    (is (not (row/room? constraints {:dns/sentiment '_s} :dns/sentiment 1))
+        "a row that has as many values as it can take is full")
+    (is (not (row/room? constraints {} :dns/sentiment 2)))
+    (is (row/room? constraints {:wn/hypernym #{:dn/a :dn/b}} :wn/hypernym 5)
+        "a row without a maximum always has room")))
+
 (deftest alternatives
   (let [synset      {:class :ontolex/LexicalConcept :pattern "^dn"}
         english     {:class :ontolex/LexicalConcept :pattern "^en"}

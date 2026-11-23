@@ -292,7 +292,11 @@
                                        :open-row? (boolean (some #{k} open)))
                                      k v display-opts)
                        k))]]
-     (when-let [ks (seq (remove (set (concat fielded open)) addable))]
+     ;; a row that is full of values that can't be edited takes no more
+     (when-let [ks (seq (->> addable
+                             (remove (set (concat fielded open)))
+                             (filter #(row/room? constraints
+                                                 (into {} subentity) % 1))))]
        (edit/row-adder opts ks
                        (fn [k]
                          (swap! added update s (fnil conj []) k)

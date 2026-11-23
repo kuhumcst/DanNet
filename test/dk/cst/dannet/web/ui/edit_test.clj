@@ -30,6 +30,19 @@
   (is (= "The row needs at least one value, so the last one can't be removed"
          (edit/required-message ["en"] {:min 1}))))
 
+(deftest node-texts
+  (let [opts {:languages ["da"]
+              :k->label  {:marl/Negative  #rdf/langstring ["negativ" "da"]
+                          :dns/sentiment  #rdf/langstring ["sentiment" "da"]}}]
+    (is (= "snakke sammen, snakke ˈsammen"
+           (edit/node-text opts :ontolex/otherForm
+                           ["snakke sammen" "snakke ˈsammen" "snakke sammen"]))
+        "a node is named by its texts, each of them once")
+    (is (= "negativ" (edit/node-text opts :dns/sentiment [:marl/Negative]))
+        "a resource among its values by its label")
+    (is (= "sentiment" (edit/node-text opts :dns/sentiment []))
+        "and a node without values by the name of its row")))
+
 (deftest invalid-messages
   (let [description [#rdf/langstring ["Skal være cifre" "da"]
                      #rdf/langstring ["Must be digits" "en"]]]

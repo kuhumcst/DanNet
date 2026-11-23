@@ -639,11 +639,12 @@
 
   The `props` are the field as row/fields has it, with the :input-type of
   its input, the :langs of a text and :required, the constraints of a row
-  that must keep the value. An entered text that isn't a value is kept as a
-  draft and shown as an edit. The tag of a text is a dropdown that changes
-  its language."
+  that must keep the value. With :on-remove, the cross calls that function,
+  e.g. to remove the blank node that holds the value. An entered text that
+  isn't a value is kept as a draft and shown as an edit. The tag of a text
+  is a dropdown that changes its language."
   [state {:keys [languages comments] :as opts}
-   k v {:keys [input-type status original langs required moved-to]
+   k v {:keys [input-type status original langs required moved-to on-remove]
         :as   props}]
   (let [editing? (::editing? state)
         draft    (::draft state)
@@ -683,11 +684,12 @@
         ;; removed: the value that it replaces, or the one in its old row.
         remove!  (fn [& _]
                    (reset! draft nil)
-                   (update-changes!
-                     opts
-                     (if status
-                       #(change/without-addition % t)
-                       #(change/retract % t))))
+                   ;; a removed value keeps its field, with other buttons
+                   (vreset! (::refocus state) "button")
+                   (cond
+                     on-remove (on-remove)
+                     status (update-changes! opts change/without-addition t)
+                     :else (update-changes! opts change/retract t)))
         removal  [(label "Fjern" "Remove") remove!]
         note     (move-note opts props)
         before   (cond
@@ -779,10 +781,11 @@
 
   The `props` are the :input-type of the input, the :lang of a new text, the
   :langs that it can be in and :gap? when the row has no text in that
-  language, which the button then names. An entered text that isn't a value
-  is kept as a draft and shown as an addition."
+  language, which the button then names. With :on-add, an entered value goes
+  to that function, e.g. to add it inside a new blank node. An entered text
+  that isn't a value is kept as a draft and shown as an addition."
   [state {:keys [languages attr-key] :as opts}
-   k taken {:keys [input-type lang langs gap?]}]
+   k taken {:keys [input-type lang langs gap? on-add]}]
   (let [adding? (::adding? state)
         draft   (::draft state)
         subject (subject-of opts)
@@ -832,9 +835,11 @@
                :on-value   (fn [v]
                              (reset! draft nil)
                              (close!)
-                             (when-not (some #{v} taken)
-                               (update-changes!
-                                 opts change/add [subject k v])))})
+                             (cond
+                               (some #{v} taken) nil
+                               on-add (on-add v)
+                               :else (update-changes!
+                                       opts change/add [subject k v])))})
 
        @draft
        [:<>
@@ -856,27 +861,34 @@
 
 (defn node-text
   "The text that names a blank node in the row of the property `k` in
-  `opts`: the texts among its `values` (see row/node-values), or the name
-  of the row when it has none."
+  `opts`: its `values` (see row/node-values) as texts, a resource by its
+  label, or the name of the row when it has none."
   [opts k values]
-  (if-let [texts (seq (distinct (map str (filter i18n/rdf-string? values))))]
+  (if-let [texts (seq (distinct (map #(value-text opts %) values)))]
     (str/join ", " texts)
     (rdf/link-label opts k)))
 
 (defn- add-node!
   "Add a new blank node as a value of the property `k` in a table with
-  `opts`, under a label that no other node of the session has, and open its
-  first field once the page is drawn again."
-  [{:keys [nodes] :as opts} k]
+  `opts`, under a label that no other node of the session has.
+
+  With `value`, a pair of a property and a value, the node is added with
+  that value as one change. Without it, the first field of the node is
+  opened once the page is drawn with it."
+  [{:keys [nodes] :as opts} k & [[p v :as value]]]
   (let [subject (subject-of opts)
         n       (count (filter :new? (vals nodes)))
-        label   (symbol (str "_new" (inc n)))]
+        label   (symbol (str "_new" (inc n)))
+        link    [subject k label]]
     (app/remember-node! label {:subject subject :property k :new? true})
-    (update-changes! opts change/add [subject k label])
-    #?(:cljs (when-drawn! #(.querySelector js/document
-                                           (str (node-selector label)
-                                                " .edit-value__add"))
-                          #(.click %)))))
+    (if value
+      (update-changes! opts conj {:add #{link [label p v]}})
+      (do
+        (update-changes! opts change/add link)
+        #?(:cljs (when-drawn! #(.querySelector js/document
+                                               (str (node-selector label)
+                                                    " .edit-value__add"))
+                              #(.click %)))))))
 
 (rum/defcs node-field < refocus
                         keep-focus
@@ -917,11 +929,12 @@
         :div)
       {:class "edit-value__content"}
       (cond
+        ;; as the read page shows the node, which can be without a table
         (= status :retracted) (rdf/value (assoc opts :edit-mode false) node)
-        node (rdf/value opts node)
-        :else (rdf/value opts (with-meta {:rdf/about label}
-                                         {:default-origin default-origin
-                                          :new?           true})))]
+        node (rdf/node-table opts node)
+        :else (rdf/node-table opts (with-meta {:rdf/about label}
+                                              {:default-origin default-origin
+                                               :new?           true})))]
      (buttons status
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
@@ -932,6 +945,41 @@
               (when required
                 {:remove (required-mark languages required)}))]))
 
+(defn- sole-field
+  "The field of a blank node that only holds the value of the property
+  `sole` (see row/sole-property), in the row of the property `k` in `opts`:
+  the field of that value, whose cross removes the node with it.
+
+  The node has the `label`, and `node` is the node as the page has it, which
+  a new node lacks. With `required`, the row must keep the node. Nil when
+  the node has no such value."
+  [{:keys [changes default-origin] :as opts} k sole label node required]
+  (let [nested (-> (rdf/node-opts opts (or node
+                                           (with-meta
+                                             {:rdf/about label}
+                                             {:default-origin default-origin
+                                              :new?           true})))
+                   (assoc :attr-key sole))
+        place  (node-place nested)
+        must   (get-in nested [:constraints sole :must])
+        [{:keys [value] :as field}]
+        (row/fields changes label [sole]
+                    (map #(vector sole %) (get-in place [:values sole])))]
+    (when field
+      (value-field
+        nested sole value
+        (assoc field
+          :input-type (input-type/input-type [value] must)
+          :required required
+          :on-remove (fn []
+                       (if node
+                         (do
+                           (app/remember-node! label place)
+                           (update-changes! opts change/retract-node
+                                            label place))
+                         (update-changes! opts change/without-node
+                                          label))))))))
+
 (rum/defc node-cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
   in edit mode, when the shapes describe its values as blank nodes: a field
@@ -939,10 +987,12 @@
   locked values with a padlock that says why.
 
   The :constraints of the table say whether the row can take another node
-  or lose one."
+  or lose one. A node that only holds one value is the field of that value
+  (see sole-field), and a new one is added with its value."
   [{:keys [changes comments languages constraints] :as opts} k vs]
   (let [subject  (subject-of opts)
-        {:keys [must]} (get constraints k)
+        {:keys [must] shape :node} (get constraints k)
+        sole     (row/sole-property shape)
         about    #(if (map? %) (:rdf/about %) %)
         sorted   (sort-by (rdf/label-sortkey-fn opts) vs)
         locked   (filter #(lock/lock opts k %) sorted)
@@ -962,13 +1012,27 @@
                       " \"" (rdf/link-label opts k) "\"")]
     [:td
      [:ul.edit-values
-      (for [{:keys [value] :as field} fields]
-        (rum/with-key (node-field opts k value
-                                  (assoc field
-                                    :node (get by-label value)
-                                    :required required))
-                      (str value)))
-      (when-not full?
+      (for [{:keys [value] :as field} fields
+            :let [node (get by-label value)]]
+        (rum/with-key
+          (or (when sole
+                (sole-field opts k sole value node required))
+              (node-field opts k value
+                          (assoc field :node node :required required)))
+          (str value)))
+      (cond
+        full?
+        nil
+
+        sole
+        (rum/with-key
+          (new-value-field
+            opts k nil
+            {:input-type (input-type/input-type [] (get-in shape [sole :must]))
+             :on-add     #(add-node! opts k [sole %])})
+          "new")
+
+        :else
         [:li.edit-value.edit-value--new {:key "new"}
          [:button.edit-value__add {:type     "button"
                                    :title    label
