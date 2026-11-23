@@ -90,4 +90,30 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")]
     (is (= [hunde] (map last (theo/triples db '[_ :ontolex/writtenRep _]))))
     (is (thrown? clojure.lang.ExceptionInfo
                  (db.change/apply-change! db hund->hunde))
-        "the second time, it's stale")))
+        "the second time, it's stale")
+    (testing "a blank node label in :add makes a node"
+      (let [new-form {:add #{[:dn/word-1 :ontolex/otherForm '_form]
+                             ['_form :ontolex/writtenRep hund]}}
+            node     (fn [{:keys [add]}]
+                       (first (keep (fn [[s _ o]]
+                                      (when (= s :dn/word-1) o))
+                                    add)))
+            first-node  (node (db.change/apply-change! db new-form))
+            second-node (node (db.change/apply-change! db new-form))]
+        (is (term/blank-node? first-node))
+        (is (not= '_form first-node) "under a label of its own")
+        (is (not= first-node second-node) "and each change makes its own")
+        (is (= #{[first-node :ontolex/writtenRep hund]
+                 [second-node :ontolex/writtenRep hund]}
+               (set (theo/triples db ['_ :ontolex/writtenRep hund]))))))
+    (testing "and a node is removed with its values"
+      (let [[[_ _ node]] (theo/triples db '[:dn/word-1 :ontolex/canonicalForm _])
+            nodes   {node {:subject  :dn/word-1
+                           :property :ontolex/canonicalForm
+                           :values   {:ontolex/writtenRep #{hunde}}}}
+            removal (change/locate-nodes (change/retract-node [] node
+                                                              (get nodes node))
+                                         nodes)]
+        (run! #(db.change/apply-change! db %) removal)
+        (is (empty? (theo/triples db '[:dn/word-1 :ontolex/canonicalForm _])))
+        (is (empty? (theo/triples db ['_ :ontolex/writtenRep hunde])))))))

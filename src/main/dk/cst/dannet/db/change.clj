@@ -36,11 +36,20 @@
       (.setQueryResultStar true)
       (.setQueryPattern block))))
 
+(defn- fresh-nodes
+  "A map of each blank node label that the `change` makes to a label that
+  no other node has."
+  [change]
+  (into {}
+        (map (fn [label] [label (symbol (str "_" (random-uuid)))]))
+        (change/new-nodes change)))
+
 (defn resolve-change
   "The `change` as a plain change in `db`: the patterns of its :where and
   :retract together have to match exactly once, and its ?variables take the
-  values of that match. Throws when the change has problems (see
-  change/problems) or doesn't match exactly once."
+  values of that match. A blank node that it makes gets a label of its own.
+  Throws when the change has problems (see change/problems) or doesn't match
+  exactly once."
   [{:keys [prefixes] :as db} {:keys [where retract] :as change}]
   (when-some [problems (not-empty (change/problems change))]
     (throw (ex-info "Not a valid change"
@@ -48,7 +57,8 @@
   (let [solutions (theo/q db (where-query (into (vec where) retract) prefixes))
         n         (count solutions)]
     (if (= 1 n)
-      (change/bind-variables change (first solutions))
+      (change/bind-variables change (merge (first solutions)
+                                           (fresh-nodes change)))
       (throw (ex-info (str "The patterns of a change match " n " times, "
                            "not exactly once")
                       {:change change :matches n})))))

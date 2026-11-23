@@ -25,13 +25,24 @@
   change only touches what hangs off a named resource, and every ?variable
   in :add has to occur in a pattern. Blank nodes are only reached through
   ?variables, since their labels don't last from one release to the next.
+
+  A blank node label in :add, e.g. _form, makes a new blank node. The label
+  only means something within its change, and each change that is made gets
+  a node of its own for it. A new node has to be the object of an added
+  triple, so that it hangs off a resource:
+
+      {:add #{[:dn/word-11021628 :ontolex/otherForm '_form]
+              ['_form :ontolex/writtenRep #rdf/langstring [\"hunden\" \"da\"]]}}
+
   The problems function checks all of this.
 
   The match binds the ?variables and gives a plain change, of triples only.
   The pending changes of an editor are a vector of changes, one for each
   edit, so that each can be undone on its own. A pending change names a
-  blank node by the label that the page has it under, and locate-nodes
-  writes the ?variable and the :where for it when the changes are submitted."
+  blank node by the label that the page has it under, or by a label that
+  the editor made for a new one. When the changes are submitted,
+  locate-nodes writes the ?variable and the :where for a node in the data,
+  and gathers the additions of a new node into one change."
   (:refer-clojure :exclude [replace])
   (:require [dk.cst.theophrastus.term :as term]))
 
@@ -108,6 +119,29 @@
                   change)))
         changes))
 
+(defn without-node
+  "The pending `changes` without the ones that name the blank node `label`
+  as a subject or an object. That takes a new node away, and it puts a
+  removed one back."
+  [changes label]
+  (into []
+        (remove (fn [{:keys [add retract]}]
+                  (some (fn [[s _ o]] (or (= s label) (= o label)))
+                        (concat add retract))))
+        changes))
+
+(defn retract-node
+  "The pending `changes` with the blank node `label` removed from its
+  `place`: the :subject and :property that hold it, and its :values as a
+  map of a property to a set of values. One change retracts the node and
+  all its values, and the changes made to the node before are dropped."
+  [changes label {:keys [subject property values] :as place}]
+  (conj (without-node changes label)
+        {:retract (into #{[subject property label]}
+                        (for [[p vs] values
+                              v      vs]
+                          [label p v]))}))
+
 (defn undo
   "The pending `changes` without the change at index `i`."
   [changes i]
@@ -134,20 +168,27 @@
 ;; edit them, a pattern with an IRI as its object would have to root its
 ;; subject too, with a cap on the matches, since such a pattern can match
 ;; many nodes. validate-changes would have to check such a node itself.
-(defn- rooted
-  "The ?variables that a chain of the `patterns` reaches from an IRI subject,
-  through the objects of the patterns."
-  [patterns]
-  (loop [reached #{}]
-    (let [reached' (into reached
-                         (keep (fn [[s _ o]]
-                                 (when (and (variable? o)
-                                            (or (iri? s) (reached s)))
-                                   o)))
-                         patterns)]
-      (if (= reached reached')
-        reached
-        (recur reached')))))
+(defn- reached
+  "The objects of the `triples` that are a `node?` and that a chain of the
+  triples reaches from a subject that is a `root?`, through such objects."
+  [triples root? node?]
+  (loop [found #{}]
+    (let [found' (into found
+                       (keep (fn [[s _ o]]
+                               (when (and (node? o) (or (root? s) (found s)))
+                                 o)))
+                       triples)]
+      (if (= found found')
+        found
+        (recur found')))))
+
+(defn new-nodes
+  "The labels of the blank nodes that the `change` makes, as a set: the
+  blank node labels in its :add."
+  [{:keys [add]}]
+  (into #{}
+        (comp (filter triple-form?) cat (filter term/blank-node?))
+        add))
 
 (defn problems
   "The problems of the `change`, as maps of a :problem and what it concerns,
@@ -156,7 +197,10 @@
   [{:keys [where retract add] :as change}]
   (let [triples  (filter triple-form? (concat where retract add))
         patterns (filter triple-form? (concat where retract))
-        reached  (rooted patterns)
+        rooted   (reached patterns iri? variable?)
+        linked   (reached (filter triple-form? add)
+                          (some-fn iri? variable?)
+                          term/blank-node?)
         bound    (into #{} (comp cat (filter variable?)) patterns)]
     (into []
           cat
@@ -173,21 +217,27 @@
                                             (variable? s)
                                             (term/blank-node? s))
                                 :not-a-subject)
-                              (when-not (iri? p) :not-a-predicate)
-                              (when (some term/blank-node? t) :blank-node)]
+                              (when-not (iri? p) :not-a-predicate)]
                  :when       problem]
              {:problem problem :triple t})
+           (for [t     patterns
+                 :when (some term/blank-node? t)]
+             {:problem :blank-node :triple t})
            (for [[s :as t] patterns
-                 :when     (and (variable? s) (not (reached s)))]
+                 :when     (and (variable? s) (not (rooted s)))]
              {:problem :unrooted-variable :variable s :triple t})
            (for [v     (distinct (filter variable? (apply concat add)))
                  :when (not (bound v))]
-             {:problem :unbound-variable :variable v})])))
+             {:problem :unbound-variable :variable v})
+           (for [node  (sort (new-nodes change))
+                 :when (not (linked node))]
+             {:problem :unlinked-node :node node})])))
 
 (defn bind-variables
   "The `change` with its ?variables replaced by their values in `solution`,
   a map of variable to value as theo/q returns it, and with the :where left
-  out."
+  out. A `solution` can map the label of a new node to a node in the same
+  way."
   [{:keys [add retract]} solution]
   (let [bind (fn [triples]
                (into #{} (map (fn [t] (mapv #(get solution % %) t))) triples))]
@@ -212,14 +262,16 @@
   the place of each and `values` has the values of each at that point."
   [nodes values {:keys [where retract add] :as change}]
   (let [labels (->> (concat retract add)
-                    (map first)
+                    (mapcat (juxt first peek))
                     (filter #(contains? nodes %))
                     (distinct))
         ?node  (zipmap labels
                        (cons '?node
                              (map #(symbol (str "?node" %)) (iterate inc 2))))
         rename (fn [triples]
-                 (into #{} (map (fn [[s p o]] [(get ?node s s) p o])) triples))
+                 (into #{}
+                       (map (fn [[s p o]] [(get ?node s s) p (get ?node o o)]))
+                       triples))
         find   (fn [label]
                  (node-patterns (get nodes label)
                                 (?node label)
@@ -242,17 +294,34 @@
         (reduce (fn [m [s p o]] (update-in m [s p] disj o)) m retract)
         (reduce (fn [m [s p o]] (update-in m [s p] (fnil conj #{}) o)) m add)))
 
-(defn locate-nodes
-  "The pending `changes` with their blank nodes located by patterns, so that
-  they can be applied. The `nodes` are a map of the label of a blank node to
-  its place: the :subject and :property that hold it, and its :values in the
-  graph that changes go to, as a map of a property to a set of values.
+(defn- gather
+  "The pending `changes` with the ones that name a blank node that is `new?`
+  merged into one change for each node, in the place of the first of them."
+  [changes new?]
+  (let [label  (fn [{:keys [add]}]
+                 (first (filter new? (mapcat (juxt first peek) add))))
+        merged (reduce (fn [m change]
+                         (if-let [node (label change)]
+                           (update m node #(merge-with into % change))
+                           m))
+                       {}
+                       changes)]
+    ;; each change of a node becomes the merged one, which is then kept once
+    (distinct (map #(get merged (label %) %) changes))))
 
-  A change to a blank node gets a ?variable in place of the label, and a
-  :where with the place of the node and with its values as the changes
-  before it leave them."
+(defn locate-nodes
+  "The pending `changes` as they can be applied, when `nodes` is a map of the
+  label of each blank node in them to its place.
+
+  A place is the :subject and :property that hold the node, and its :values
+  in the data as a map of a property to a set of values. A change to such
+  a node gets a ?variable for the label, and a :where with the place and
+  with the values as the changes before it leave them. A node that an
+  editor has made is :new?, and its additions become one change."
   [changes nodes]
-  (let [of-node? #(contains? nodes (first %))]
+  (let [new?     #(:new? (get nodes %))
+        nodes    (into {} (remove (comp :new? val)) nodes)
+        of-node? #(contains? nodes (first %))]
     (first
       (reduce (fn [[located values] {:keys [retract add] :as change}]
                 [(conj located (locate nodes values change))
@@ -260,7 +329,7 @@
                                  (filter of-node? retract)
                                  (filter of-node? add))])
               [[] (update-vals nodes :values)]
-              changes))))
+              (gather changes new?)))))
 
 (defn net
   "The plain `changes` taken together, as one change of the triples to :add and

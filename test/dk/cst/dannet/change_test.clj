@@ -184,7 +184,48 @@
            (change/problems
              {:where [[:dn/word-1 :ontolex/canonicalForm '?f]]
               :add   #{['?g :ontolex/writtenRep hunde]}}))
-        "a typo")))
+        "a typo")
+    (testing "a blank node label in :add makes a new node"
+      (is (= [] (change/problems
+                  {:add #{[:dn/word-1 :ontolex/otherForm '_form]
+                          ['_form :ontolex/writtenRep hunde]}})))
+      (is (= #{'_form}
+             (change/new-nodes
+               {:add #{[:dn/word-1 :ontolex/otherForm '_form]
+                       ['_form :ontolex/writtenRep hunde]}})))
+      (is (= [{:problem :unlinked-node :node '_form}]
+             (change/problems {:add #{['_form :ontolex/writtenRep hunde]}}))
+          "which has to hang off a resource")
+      (is (= [] (change/problems
+                  {:where [[:dn/word-1 :ontolex/canonicalForm '?f]]
+                   :add   #{['?f :rdfs/seeAlso '_note]
+                            ['_note :rdf/value "x"]}}))
+          "or off a node that a pattern finds")
+      (is (= #{:blank-node :unlinked-node}
+             (problems {:where [[:dn/word-1 :ontolex/otherForm '_form]]
+                        :add   #{['_form :ontolex/writtenRep hunde]}}))
+          "and that no pattern can name"))))
+
+(deftest nodes-in-pending-changes
+  (let [link    [:dn/word-1 :ontolex/otherForm '_form]
+        place   {:subject  :dn/word-1
+                 :property :ontolex/otherForm
+                 :values   {:ontolex/writtenRep #{hund}}}
+        edited  (change/replace [{:add #{new-hypernym}}]
+                                ['_form :ontolex/writtenRep hund]
+                                ['_form :ontolex/writtenRep hunde])
+        removed (change/retract-node edited '_form place)]
+    (is (= [{:add #{new-hypernym}}
+            {:retract #{link ['_form :ontolex/writtenRep hund]}}]
+           removed)
+        "one change retracts a node and its values, in place of its edits")
+    (is (= [{:add #{new-hypernym}}] (change/without-node removed '_form))
+        "and dropping the changes that name the node puts it back")
+    (is (= [] (change/without-node
+                [{:add #{[:dn/word-1 :ontolex/otherForm '_new1]}}
+                 {:add #{['_new1 :ontolex/writtenRep hunde]}}]
+                '_new1))
+        "or takes a new node away")))
 
 (deftest locating-nodes
   (let [form    ['?node :ontolex/writtenRep hund]
@@ -210,4 +251,23 @@
     (is (every? empty? (map change/problems located)))
     (is (= [{:retract #{old-hypernym}}]
            (change/locate-nodes [{:retract #{old-hypernym}}] nodes))
-        "a change to a named resource stays as it is")))
+        "a change to a named resource stays as it is")
+    (is (= [{:where   [place]
+             :retract #{place form}}]
+           (change/locate-nodes
+             (change/retract-node [] '_form (get nodes '_form))
+             nodes))
+        "a removed node is found by its place and its values")
+    (testing "the additions of a new node are one change"
+      (let [nodes   (assoc nodes '_new1 {:subject  :dn/word-1
+                                         :property :ontolex/otherForm
+                                         :new?     true})
+            link    [:dn/word-1 :ontolex/otherForm '_new1]
+            written ['_new1 :ontolex/writtenRep hunde]
+            located (change/locate-nodes [{:add #{link}}
+                                          {:retract #{old-hypernym}}
+                                          {:add #{written}}]
+                                         nodes)]
+        (is (= [{:add #{link written}} {:retract #{old-hypernym}}] located)
+            "in the place of the first of them")
+        (is (every? empty? (map change/problems located)))))))
