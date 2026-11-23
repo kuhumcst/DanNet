@@ -35,6 +35,7 @@
 @prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
 @prefix wn:      <https://globalwordnet.github.io/schemas/wn#> .
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
+@prefix marl:    <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
 ## dns:DanNetPrefixes (base.ttl, always loaded alongside this file) declares
 ## dn/dns/ili/ontolex/wn; the constraints here additionally need rdf and dnc.
@@ -92,7 +93,8 @@ dns:EditorialConceptShape a sh:NodeShape ;
                 dns:EditorialConceptShape-eqHyponym,
                 dns:EditorialConceptShape-eqSimilar,
                 dns:EditorialConceptShape-iliValue,
-                dns:EditorialConceptShape-gender .
+                dns:EditorialConceptShape-gender,
+                dns:EditorialConceptShape-sentiment .
 
 ## DanNet definitions are asserted as skos:definition (60687 synsets, all
 ## @da); wn:definition does not occur in the dataset. 23 synsets carry two
@@ -381,6 +383,30 @@ dns:EditorialConceptShape-gender a sh:PropertyShape ;
     sh:in ( dns:Female dns:Male ) ;
     sh:severity sh:Violation ;
     sh:message "dns:gender must be dns:Female or dns:Male." .
+
+## A sentiment is a blank node without a type, so its shape has no target of
+## its own and the synset names it with sh:node. The 181 sentiments in dn:
+## each have one polarity, marl:Negative (114) or marl:Positive (67). No
+## synset has more than one sentiment, counting the 10792 synsets whose
+## sentiment is in the DDS dataset, which also has neutral ones and a
+## polarity value (2026-11-23).
+dns:EditorialConceptShape-sentiment a sh:PropertyShape ;
+    sh:path dns:sentiment ;
+    sh:maxCount 1 ;
+    sh:node dns:EditorialSentimentShape ;
+    sh:severity sh:Violation ;
+    sh:message "A synset has at most one dns:sentiment, with a single marl:hasPolarity." .
+
+dns:EditorialSentimentShape a sh:NodeShape ;
+    sh:property dns:EditorialSentimentShape-hasPolarity .
+
+dns:EditorialSentimentShape-hasPolarity a sh:PropertyShape ;
+    sh:path marl:hasPolarity ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( marl:Positive marl:Negative ) ;
+    sh:severity sh:Violation ;
+    sh:message "marl:hasPolarity must be marl:Positive or marl:Negative." .
 
 ## ---------------------------------------------------------------------------
 ## OntologicalType (dnt:): all 667 member atoms across the live dnt: bags are

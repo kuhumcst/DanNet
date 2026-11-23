@@ -440,6 +440,20 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                      [:dn/sense-1 :dns/EditorialSenseShape-register
                       :sh/Violation]))
       (is (empty? (entry-set #{[:dn/sense-1 :lexinfo/dating :lexinfo/old]}))))
+    (testing "a synset has at most one sentiment, positive or negative"
+      (let [sentiment (fn [label polarity]
+                        #{[:dn/synset-1 :dns/sentiment label]
+                          [label :marl/hasPolarity polarity]})
+            shape     [:dn/synset-1 :dns/EditorialConceptShape-sentiment
+                       :sh/Violation]]
+        (is (empty? (entry-set (sentiment '_s :marl/Negative))))
+        (is (= #{shape} (entry-set (sentiment '_s :marl/Neutral)))
+            "a polarity that dn: doesn't use blocks")
+        (is (= #{shape} (entry-set #{[:dn/synset-1 :dns/sentiment '_s]}))
+            "and so does a sentiment without a polarity")
+        (is (= #{shape} (entry-set (into (sentiment '_s :marl/Negative)
+                                         (sentiment '_t :marl/Positive))))
+            "or a second sentiment")))
     (testing "a non-dnc member in a new ontological type blocks"
       (is (contains? (entry-set #{[:dnt/Fish-Object :rdf/type :dns/OntologicalType]
                                   [:dnt/Fish-Object :rdf/_1 :dnc/Object]
@@ -568,6 +582,12 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
       (is (= 1 max))
       (is (re-find (re-pattern pattern) "se ˈtil"))
       (is (not (re-find (re-pattern pattern) "se til"))))
+    (is (= {:must {:max 1}
+            :node {:marl/hasPolarity
+                   {:must {:min 1 :max 1
+                           :in  [:marl/Positive :marl/Negative]}}}}
+           (:dns/sentiment synset))
+        "and the values of a node can be a few to choose between")
     (is (not (contains? synset :skos/inScheme))
         "a rule that no field can use is left out")
     (is (= {:min 1 :max 1 :languages ["da"]}
