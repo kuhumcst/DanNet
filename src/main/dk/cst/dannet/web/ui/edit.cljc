@@ -16,6 +16,10 @@
      it (see field-buttons).
   5. The buttons come in the order edit, undo, remove.
 
+  A blank node that the shapes describe is a field too, around the nested
+  table of its values. It has no input of its own, so its buttons only
+  remove it or put it back.
+
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
   :languages that the dropdown of a text offers, where nil is none, and the
   :translated properties, whose rows show which language has no text yet."
@@ -99,13 +103,40 @@
   [f]
   #?(:cljs (js/requestAnimationFrame #(js/requestAnimationFrame f))))
 
+(defn- when-drawn!
+  "Call `f` with the element that the function `find` returns, once the
+  page is drawn with it. A change of state can take several frames to draw,
+  so `find` is called in each frame, for about a second."
+  [find f]
+  #?(:cljs (letfn [(look! [frames]
+                     (if-let [element (find)]
+                       (f element)
+                       (when (pos? frames)
+                         (js/requestAnimationFrame #(look! (dec frames))))))]
+             (js/requestAnimationFrame #(look! 60)))))
+
+(def row-plus
+  "A CSS selector for the button that adds a value to a row, after the
+  selector of the row. A row of blank nodes has such buttons in its nested
+  tables too."
+  "> td > .edit-values > .edit-value > .edit-value__add")
+
+(defn- node-selector
+  "A CSS selector for the field of the blank node with the `label`."
+  [label]
+  (str "[data-node=\"" label "\"]"))
+
 (defn- in-row
-  "The first element in the row of the property `k` on the page that the CSS
-  `selector` matches, if any."
-  [k selector]
-  #?(:cljs (.querySelector js/document
-                           (str "tr[property=\"" (prefix/kw->qname k) "\"] "
-                                selector))))
+  "The first element that the CSS `selector` matches in the row of the
+  property `k` in the table of `subject`, if any. The subject is the
+  resource of the page, or the label of a blank node with a nested table."
+  [subject k selector]
+  #?(:cljs (let [table (if (symbol? subject)
+                         (str (node-selector subject) " table")
+                         "table.attr-val:not(.attr-val--nested)")]
+             (.querySelector js/document
+                             (str table " > tbody > tr[property=\""
+                                  (prefix/kw->qname k) "\"] " selector)))))
 
 (defn- focus-beside!
   "Move the focus to the control next to the dialog that the event `e`
@@ -414,28 +445,38 @@
 
 (def keep-focus
   "A mixin for a field. When the field goes away while the focus is in it,
-  e.g. when an added value is taken away, the focus moves to the nearest
-  control that is still on the page once it is drawn again: a button of
-  the field after it, the plus of its row, or the button that adds a row to
-  its table."
+  e.g. when an added value is taken away or when its row is full, the focus
+  moves to the nearest control that is on the page once it is drawn again:
+  a button of the field after it, the plus of its row, a button of the last
+  field in its row, or the button that adds a row to its table."
   {:will-unmount
    (fn [state]
      #?(:cljs
         (let [node (rum/dom-node state)]
           (when (.contains node js/document.activeElement)
-            (let [controls [(some-> (.-nextElementSibling node)
-                                    (.querySelector "button"))
-                            (some-> (.closest node "tr")
-                                    (.querySelector ".edit-value__add"))
-                            (some-> (.closest node "table")
-                                    (.-nextElementSibling)
-                                    (.querySelector "button"))]]
+            (let [after    (.-nextElementSibling node)
+                  fields   (.-parentNode node)
+                  row      (.closest node "tr")
+                  table    (.closest node "table")
+                  ;; not a button in the nested table of a blank node
+                  own      ":scope > .edit-value__actions button"
+                  controls [#(some-> after (.querySelector own))
+                            #(some-> row
+                                     (.querySelector (str ":scope " row-plus)))
+                            #(some-> (.querySelectorAll
+                                       fields
+                                       ":scope > .edit-value:not(.edit-value--locked)")
+                                     (array-seq)
+                                     (last)
+                                     (.querySelector own))
+                            #(some-> (.-nextElementSibling table)
+                                     (.querySelector "button"))]]
               (after-redraw!
                 ;; unless the focus has gone elsewhere by itself
                 #(when (= js/document.body js/document.activeElement)
                    (some-> (first (filter (fn [control]
                                             (some-> control .-isConnected))
-                                          controls))
+                                          (map (fn [f] (f)) controls)))
                            (.focus))))))))
      state)})
 
@@ -484,15 +525,17 @@
 
 (defn- buttons
   "The buttons of a closed field with the `tint` (see field-buttons), from
-  `actions`, a map of a button to its label and function. A button in
-  `marks` has its mark there in its place, e.g. the count of a row that
-  must keep the value in place of the button that removes it."
+  `actions`, a map of a button to its label and function. A button that
+  isn't among them is left out. A button in `marks` has its mark there in
+  its place, e.g. the count of a row that must keep the value in place of
+  the button that removes it."
   [tint actions & [marks]]
   [:span.edit-value__actions
    (for [button (field-buttons false tint)
-         :let   [[label f] (get actions button)]]
-     (or (get marks button)
-         (icon-button (name button) label f)))])
+         :let   [[label f :as action] (get actions button)
+                 mark (get marks button)]
+         :when  (or action mark)]
+     (or mark (icon-button (name button) label f)))])
 
 (defn- opens-input?
   "Does the click `e` open the input of a closed field? Not on a link or a
@@ -509,7 +552,7 @@
   [:ins.edit-value__content.edit-value__content--invalid
    s [:span.visually-hidden ": " message]])
 
-(defn- subject-of
+(defn subject-of
   "The subject of the values in a table with `opts`: the blank node of a
   nested table, or else the resource of the page."
   [{:keys [subject blank-node] :as opts}]
@@ -520,20 +563,23 @@
 (defn- node-place
   "The place of the blank node of a nested table with `opts`, as
   change/locate-nodes takes it: the :subject and :property that hold the
-  node, and those of its :values that can be edited."
+  node, and those of its :values that can be edited. A node that an editor
+  has made is :new? and has no values in the data."
   [{:keys [subject blank-node] :as opts}]
-  (let [{:keys [property entity]} blank-node
+  (let [{:keys [property entity new?]} blank-node
         editable (fn [k vs]
                    (into #{}
                          (filter #(nil? (lock/lock opts k %)))
                          (shared/setify vs)))]
-    {:subject  subject
-     :property property
-     :values   (into {}
-                     (keep (fn [[k vs]]
-                             (when-let [vs (not-empty (editable k vs))]
-                               [k vs])))
-                     entity)}))
+    (if new?
+      {:subject subject :property property :new? true}
+      {:subject  subject
+       :property property
+       :values   (into {}
+                       (keep (fn [[k vs]]
+                               (when-let [vs (not-empty (editable k vs))]
+                                 [k vs])))
+                       entity)})))
 
 (defn- update-changes!
   "Apply `f` and `args` to the pending changes, for an edit in a table with
@@ -727,6 +773,7 @@
 (rum/defcs new-value-field < (rum/local false ::adding?)
                              (rum/local nil ::draft)
                              refocus
+                             keep-focus
   "The field for a new value of the property `k` in `opts`: a button that
   opens an input. An entered value is added unless it is `taken`.
 
@@ -806,6 +853,133 @@
         (when gap?
           [:span.edit-value__gap {:aria-hidden "true"} lang])
         [:span.visually-hidden label]])]))
+
+(defn node-text
+  "The text that names a blank node in the row of the property `k` in
+  `opts`: the texts among its `values` (see row/node-values), or the name
+  of the row when it has none."
+  [opts k values]
+  (if-let [texts (seq (distinct (map str (filter i18n/rdf-string? values))))]
+    (str/join ", " texts)
+    (rdf/link-label opts k)))
+
+(defn- add-node!
+  "Add a new blank node as a value of the property `k` in a table with
+  `opts`, under a label that no other node of the session has, and open its
+  first field once the page is drawn again."
+  [{:keys [nodes] :as opts} k]
+  (let [subject (subject-of opts)
+        n       (count (filter :new? (vals nodes)))
+        label   (symbol (str "_new" (inc n)))]
+    (app/remember-node! label {:subject subject :property k :new? true})
+    (update-changes! opts change/add [subject k label])
+    #?(:cljs (when-drawn! #(.querySelector js/document
+                                           (str (node-selector label)
+                                                " .edit-value__add"))
+                          #(.click %)))))
+
+(rum/defcs node-field < refocus
+                        keep-focus
+  "A field for the blank node with the `label` in the row of the property
+  `k` in `opts`: its nested table, and a button that removes the node.
+
+  The `props` are the field as row/fields has it, with the :node as the
+  page has it, which a new node lacks, and :required, the constraints of a
+  row that must keep the node. A removed node shows its values as the data
+  has them, with a button that puts it back."
+  [state {:keys [languages default-origin changes] :as opts}
+   k label {:keys [status node required]}]
+  (let [place    (when node
+                   (node-place (rdf/node-opts opts node)))
+        ;; a removed node is named by its values in the data
+        text     (node-text opts k
+                            (row/node-values (when-not (= status :retracted)
+                                               changes)
+                                             label
+                                             (:values place)))
+        required (when-not (= status :added) required)
+        ;; a new status replaces the button in focus with another
+        refocus! #(vreset! (::refocus state)
+                           ":scope > .edit-value__actions button")
+        remove!  (fn [_]
+                   (if node
+                     (do
+                       (refocus!)
+                       (app/remember-node! label place)
+                       (update-changes! opts change/retract-node label place))
+                     (update-changes! opts change/without-node label)))]
+    [:li.edit-value.edit-node
+     (cond-> {:data-node (str label)}
+       status (assoc :class (str "edit-value--" (name status))))
+     [(case status
+        :retracted :del
+        :added :ins
+        :div)
+      {:class "edit-value__content"}
+      (cond
+        (= status :retracted) (rdf/value (assoc opts :edit-mode false) node)
+        node (rdf/value opts node)
+        :else (rdf/value opts (with-meta {:rdf/about label}
+                                         {:default-origin default-origin
+                                          :new?           true})))]
+     (buttons status
+              {:undo   [(undo-label languages :retracted text)
+                        (fn [_]
+                          (refocus!)
+                          (update-changes! opts change/without-node label))]
+               :remove [(str (i18n/da-en languages "Fjern" "Remove") ": " text)
+                        remove!]}
+              (when required
+                {:remove (required-mark languages required)}))]))
+
+(rum/defc node-cell
+  "A table cell for the values `vs` in the row of the property `k` in `opts`
+  in edit mode, when the shapes describe its values as blank nodes: a field
+  for each node that can be edited, a button that adds a node, and last the
+  locked values with a padlock that says why.
+
+  The :constraints of the table say whether the row can take another node
+  or lose one."
+  [{:keys [changes comments languages constraints] :as opts} k vs]
+  (let [subject  (subject-of opts)
+        {:keys [must]} (get constraints k)
+        about    #(if (map? %) (:rdf/about %) %)
+        sorted   (sort-by (rdf/label-sortkey-fn opts) vs)
+        locked   (filter #(lock/lock opts k %) sorted)
+        ;; the changes name a node by its label
+        by-label (into {}
+                       (map (juxt about identity))
+                       (remove (set locked) sorted))
+        fields   (row/fields changes subject [k]
+                             (map #(vector k %) (keys by-label)))
+        current  (+ (count locked)
+                    (count (remove (comp #{:retracted} :status) fields)))
+        full?    (some-> (:max must) (<= current))
+        required (when (and (= 1 (:min must)) (>= 1 current))
+                   must)
+        label    (str (i18n/da-en languages
+                        "Tilføj en værdi til" "Add a value to")
+                      " \"" (rdf/link-label opts k) "\"")]
+    [:td
+     [:ul.edit-values
+      (for [{:keys [value] :as field} fields]
+        (rum/with-key (node-field opts k value
+                                  (assoc field
+                                    :node (get by-label value)
+                                    :required required))
+                      (str value)))
+      (when-not full?
+        [:li.edit-value.edit-value--new {:key "new"}
+         [:button.edit-value__add {:type     "button"
+                                   :title    label
+                                   :on-click #(add-node! opts k)}
+          [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+          [:span.visually-hidden label]]])
+      (for [v locked]
+        [:li.edit-value.edit-value--locked
+         (assoc (rdf/lone-value-attrs v) :key (pr-str (about v)))
+         (padlock (get-in comments [:locked (lock/lock opts k v)]))
+         (rdf/value opts v)])]]))
 
 (rum/defc cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
@@ -946,10 +1120,10 @@
                                    (focus-beside! e "button"))}))]))
 
 (defn open-new-value!
-  "Open the field for a new value in the row of the property `k`, once the
-  page is drawn again."
-  [k]
-  (after-redraw! #(some-> (in-row k ".edit-value__add") (.click))))
+  "Open the field for a new value in the row of the property `k` in the
+  table of `subject` (see subject-of), once the page is drawn with it."
+  [subject k]
+  (when-drawn! #(in-row subject k row-plus) #(.click %)))
 
 (defn- movable
   "The values in the row of the property `k` in `opts` that can move to
@@ -963,10 +1137,10 @@
 
 (defn- focus-row!
   "Move the focus to the first button of a value in the row of the property
-  `k`, once the page is drawn again."
-  [k]
-  (after-redraw! #(some-> (in-row k ".edit-value .edit-value__button")
-                          (.focus))))
+  `k` of `subject`, once the page is drawn with it."
+  [subject k]
+  (when-drawn! #(in-row subject k ".edit-value .edit-value__button")
+               #(.focus %)))
 
 (rum/defcs value-mover < (rum/local false ::choosing?)
   "A button by the name of the row of the property `k` in `opts` that moves
@@ -1011,7 +1185,7 @@
                                                      [subject k' %2])
                                     changes
                                     values)))
-                        (focus-row! k'))
+                        (focus-row! subject k'))
             :on-close (fn [e]
                         (reset! choosing? false)
                         (focus-beside! e ".edit-value__button"))}))])))

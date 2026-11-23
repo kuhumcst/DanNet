@@ -540,7 +540,19 @@ ul.edit-values {
     box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
 }
 
-.edit-value:focus-within {
+/* The field of a blank node (see ui.edit/node-field) is only framed while
+   the node has a pending change, since the tint needs an area. An untouched
+   node is its table, with its button next to it. */
+.edit-node:not(.edit-value--added, .edit-value--retracted) {
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+
+/* The field of a blank node holds the fields of its values, so only the
+   innermost field with the focus is marked. */
+.edit-value:focus-within:not(:has(.edit-value:focus-within)) {
     border-color: var(--color-link);
 }
 
@@ -573,6 +585,16 @@ del.edit-value__content a {
 del.edit-value__content::after,
 del.edit-value__content [lang]::after {
     display: inline-block;
+}
+
+/* A removed blank node strikes out its values, not the names of its rows. */
+.edit-node > del.edit-value__content,
+.edit-node > del.edit-value__content :is(.attr-prefix, .attr-name) a {
+    text-decoration: none;
+}
+
+.edit-node > del.edit-value__content td:not(.attr-prefix, .attr-name) {
+    text-decoration: line-through;
 }
 
 ins.edit-value__content {

@@ -134,12 +134,12 @@
   "A single row in the attribute-value table. In edit mode, a row with a
   value that can be edited lists all its values in fields (see ui.edit), and
   any other row is faded, with a padlock that says why, unless the whole
-  page is locked. No row is a word cloud then. A row of blank nodes isn't
-  locked when their own values can be edited in nested tables. A row that
-  is :open-row? in `opts` takes a new value though it has none that can be
-  edited, as a row that an editor has added does."
+  page is locked. No row is a word cloud then. A row of blank nodes that no
+  shape describes isn't locked when their own values can be edited in
+  nested tables. A row that is :open-row? in `opts` takes a new value though
+  it has none that can be edited, as a row that an editor has added does."
   [{:keys [subject comments inherited edit-mode default-origin blank-node
-           open-row?]
+           open-row? constraints]
     :as   opts}
    k v display-opts]
   (let [origins       (lock/row-origins opts k v)
@@ -196,6 +196,10 @@
       ;; edit mode has no word clouds, so no display options either
       (attr-name-extras opts+attr-key (when-not edit-mode v) display-opts)]
      (cond
+       ;; a row whose values the shapes describe as blank nodes
+       (and edit-row? (get-in constraints [k :node]))
+       (edit/node-cell opts+attr-key k vs)
+
        edit-row?
        (edit/cell opts+attr-key k vs)
 
@@ -236,19 +240,29 @@
                             (rum/local {} ::added)
   "A table which lists attributes and corresponding values of an RDF resource.
 
-  In edit mode, a button below the table of an entity adds a row for one of
-  the :addable properties in `opts` (see row/addable). A row that has no
-  values in the data is listed last, while it has pending changes or since
-  the editor added it."
-  [state {:keys [subject languages addable changes] :as opts} subentity]
+  In edit mode, a button below the table adds a row: for one of the :addable
+  properties in `opts` in the table of an entity, and for one that the
+  shapes describe in the nested table of a blank node (see row/addable). A
+  row that has no values in the data is listed last, while it has pending
+  changes or since the editor added it. A new blank node starts out with
+  the rows that it must have."
+  [state
+   {:keys [subject languages addable changes blank-node constraints] :as opts}
+   subentity]
   (let [display-opts (::display-opts state)
-        ;; by subject, since a table outlives a change of page
+        ;; by the subject of the table, since a table outlives a change of page
         added        (::added state)
+        s            (edit/subject-of opts)
         subentity    (fold-member-rows subentity)
-        ;; a nested table takes no rows
+        ;; a nested table works out its own rows, so it is passed none
+        addable      (if blank-node (row/addable opts) addable)
         opts         (dissoc opts :addable)
-        open         (row/open-rows addable changes subject
-                                    (get @added subject))
+        ;; a new blank node starts out with the rows that it must have
+        starting     (when (:new? blank-node)
+                       (filter #(= :must (row/expected constraints %))
+                               addable))
+        open         (row/open-rows addable changes s
+                                    (concat starting (get @added s)))
         fielded      (when addable
                        (for [[k v] subentity
                              :when (some #(nil? (lock/lock opts k %))
@@ -281,5 +295,5 @@
      (when-let [ks (seq (remove (set (concat fielded open)) addable))]
        (edit/row-adder opts ks
                        (fn [k]
-                         (swap! added update subject (fnil conj []) k)
-                         (edit/open-new-value! k))))]))
+                         (swap! added update s (fnil conj []) k)
+                         (edit/open-new-value! s k))))]))

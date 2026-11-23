@@ -43,6 +43,12 @@
         "without rules, the origins alone decide")
     (is (= :yet (lock/lock opts :dns/sentiment {:marl/polarityValue 1}))
         "a blank node")
+    (let [described (assoc opts :constraints
+                                {:ontolex/otherForm {:node {}}})]
+      (is (nil? (lock/lock described :ontolex/otherForm {:rdf/about '_form}))
+          "unless a shape describes the blank nodes of its row")
+      (is (nil? (lock/lock described :ontolex/otherForm '_new1))
+          "also one that an editor has made"))
     (let [nested (assoc opts :blank-node {:rdf/about '_form
                                           :property  :ontolex/canonicalForm
                                           :lock      :yet})

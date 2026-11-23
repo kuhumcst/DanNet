@@ -437,6 +437,29 @@
            (keyword? (some-> (get m :marl/hasPolarity) shared/unwrap))
            (keyword? (some-> (get m :dns/inheritedRelation) shared/unwrap)))))
 
+(defn node-opts
+  "The `opts` of the nested table of the blank node `m`, a value of the
+  :attr-key of `opts`.
+
+  The table uses the folded relations and the origins in the metadata of
+  its node, not those of the outer entity, cf. #195. It gets the constraints
+  on the values of its node, and its place as :blank-node: the node, the
+  property that holds it, and in edit mode why the node is locked. A node
+  that an editor has made is :new? and never locked."
+  [{:keys [attr-key] :as opts} m]
+  (let [{:keys [folded origins default-origin new?]} (meta m)]
+    (assoc opts
+      :folded folded
+      :origins origins
+      :default-origin default-origin
+      :constraints (get-in opts [:constraints attr-key :node])
+      :blank-node (cond-> {:rdf/about (:rdf/about m)
+                           :property  attr-key
+                           :entity    (dissoc m :rdf/about)}
+                    new? (assoc :new? true)
+                    (and (:edit-mode opts) (not new?))
+                    (assoc :lock (lock/lock opts attr-key m))))))
+
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."
   [{:keys [table-component languages attr-key] :as opts} m]
@@ -474,27 +497,8 @@
 
       ;; An optional fallback table component with the same function signature.
       ;; It's passed via dependency injection to avoid cyclic ns dependencies.
-      ;; Nested tables use the embedded entity's own folded relations and
-      ;; origins (attached as metadata by the backend) rather than the outer
-      ;; entity's, cf. #195. Without origins, their rows have no markers.
-      ;; The table also gets its place in the entity: its node, the
-      ;; property that holds it, and in edit mode why the node is locked.
       table-component
-      (let [{:keys [folded origins default-origin]} (meta m)
-            node (assoc m :rdf/about about)]
-        (table-component (assoc opts
-                           :folded folded
-                           :origins origins
-                           :default-origin default-origin
-                           :constraints (get-in opts [:constraints attr-key
-                                                      :node])
-                           :blank-node {:rdf/about about
-                                        :property  attr-key
-                                        :entity    m
-                                        :lock      (when (:edit-mode opts)
-                                                     (lock/lock opts attr-key
-                                                                node))})
-                         m)))))
+      (table-component (node-opts opts (assoc m :rdf/about about)) m))))
 
 (defn value
   "The content of the single value `v` informed by `opts`: a link to a

@@ -79,8 +79,7 @@
              (contains? namespaces (namespace subject))))))
 
 (defn- blank-node?
-  "Is the value `v` a blank node, as a map of its properties or as a symbol?
-  Edit mode has no input for one yet."
+  "Is the value `v` a blank node, as a map of its properties or as a symbol?"
   [v]
   (or (map? v) (symbol? v)))
 
@@ -91,10 +90,11 @@
   The property is :derived or :fixed; the value is :inferred or
   :supplemented, or it is :elsewhere, in a graph that changes don't go to;
   the :resource is outside the namespaces that can be edited; or the value
-  is a blank node, which can't be replaced :yet. The first reason that holds
-  is the one given. A value in the nested table of a blank node is locked
-  when the node is, for the :lock of the :blank-node in `opts`."
-  [{:keys [blank-node edit-rules] :as opts} k v]
+  is a blank node that no shape describes, which can't be added or removed
+  :yet. The first reason that holds is the one given. A value in the nested
+  table of a blank node is locked when the node is, for the :lock of the
+  :blank-node in `opts`."
+  [{:keys [blank-node edit-rules constraints] :as opts} k v]
   (cond
     ;; a node that is only locked as :yet has values that can be edited
     (some-> (:lock blank-node) (not= :yet))
@@ -117,7 +117,7 @@
     (not (editable-resource? opts))
     :resource
 
-    (blank-node? v)
+    (and (blank-node? v) (not (get-in constraints [k :node])))
     :yet))
 
 (defn node?

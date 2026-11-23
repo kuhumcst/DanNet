@@ -142,6 +142,34 @@
                         [:wn/hypernym :dn/synset-3]]))
         "the values of one property keep their order")))
 
+(deftest node-values
+  (let [written  [:ontolex/writtenRep "snakke sammen"]
+        stressed [:dns/stressedRep "snakke ˈsammen"]
+        values   (array-map (first written) #{(second written)}
+                            (first stressed) #{(second stressed)})
+        triple   (fn [[p v]] ['_form p v])
+        edited   (change/replace [] (triple written)
+                                 ['_form :ontolex/writtenRep "snakke samme"])]
+    (is (= ["snakke sammen" "snakke ˈsammen"]
+           (row/node-values [] '_form values))
+        "the values of the data, in the order of its rows")
+    (is (= ["snakke samme" "snakke ˈsammen"]
+           (row/node-values edited '_form values))
+        "a replacement takes the place of its value")
+    (is (= ["snakke sammen"]
+           (row/node-values (change/retract [] (triple stressed)) '_form values))
+        "a removed value is left out")
+    (is (= ["sludre sammen" "sludre ˈsammen"]
+           (row/node-values
+             (-> []
+                 (change/add ['_new1 :ontolex/writtenRep "sludre sammen"])
+                 (change/add ['_new1 :dns/stressedRep "sludre ˈsammen"]))
+             '_new1 nil))
+        "a new node has the values of its changes, in their order")
+    (is (= ["snakke sammen" "snakke ˈsammen"]
+           (row/node-values edited '_other values))
+        "and the changes to another node don't count")))
+
 (deftest lang-rank
   (is (= ["en" nil "da"] (sort-by (row/lang-rank ["en" nil "da"])
                                   ["da" "en" nil]))
@@ -184,13 +212,25 @@
                                :rdfs/label            {:must {:max 1}}
                                :skos/inScheme         {:should {:min 1}}
                                :ontolex/canonicalForm {:node {}}}}]
-    (is (= #{:wn/mero_part :skos/definition} (set (row/addable opts)))
-        "what the shapes describe, but not what a build writes or what holds
-        a blank node")
+    (is (= #{:wn/mero_part :skos/definition :ontolex/canonicalForm}
+           (set (row/addable opts)))
+        "what the shapes describe, but not what a build writes")
     (is (empty? (row/addable (dissoc opts :edit-mode)))
         "no row is added outside edit mode")
     (is (empty? (row/addable (assoc opts :subject :dnt/Animal)))
-        "or to a resource that can't be edited")))
+        "or to a resource that can't be edited")
+    (let [nested (assoc opts
+                   :constraints {:ontolex/writtenRep {:must {:min 1}}
+                                 :dns/stressedRep    {:must {:max 1}}
+                                 :rdfs/label         {:must {:max 1}}}
+                   :blank-node {:rdf/about '_form
+                                :property  :ontolex/canonicalForm})]
+      (is (= #{:ontolex/writtenRep :dns/stressedRep :rdfs/label}
+             (set (row/addable nested)))
+          "a blank node takes the rows that the shape of its values has,
+          whatever a build writes for the entity")
+      (is (empty? (row/addable (assoc-in nested [:blank-node :lock] :yet)))
+          "unless it is locked"))))
 
 (deftest expected
   (let [constraints {:ontolex/lexicalizedSense {:must {:min 1}}

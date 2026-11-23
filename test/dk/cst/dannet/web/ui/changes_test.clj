@@ -54,6 +54,36 @@
            (:rows (second (changes/entries pending nodes))))
         "the row of a blank node names the property that holds the node, and
         a value that replaces another has the one that it replaces")
+    (let [nodes   (assoc nodes
+                    '_b2 {:subject  :dn/word-1
+                          :property :ontolex/otherForm
+                          :values   {:ontolex/writtenRep #{hund}}}
+                    '_new1 {:subject  :dn/word-1
+                            :property :ontolex/otherForm
+                            :new?     true})
+          pending (-> []
+                      (change/retract-node '_b2 (get nodes '_b2))
+                      (change/add [:dn/word-1 :ontolex/otherForm '_new1])
+                      (change/add ['_new1 :ontolex/writtenRep hunde]))
+          row     (fn [status v]
+                    [{:subject  (if (= status :added) '_new1 '_b2)
+                      :property :ontolex/writtenRep
+                      :fields   [{:property :ontolex/writtenRep
+                                  :value    v
+                                  :status   status}]}])]
+      (is (= [{:entry :dn/word-1
+               :rows  [{:subject  :dn/word-1
+                        :property :ontolex/otherForm
+                        :fields   [{:property :ontolex/otherForm
+                                    :value    '_b2
+                                    :status   :retracted
+                                    :rows     (row :retracted hund)}
+                                   {:property :ontolex/otherForm
+                                    :value    '_new1
+                                    :status   :added
+                                    :rows     (row :added hunde)}]}]}]
+             (changes/entries pending nodes))
+          "a blank node that is added or removed has its rows in its field"))
     (is (empty? (changes/entries [] nodes)))
     (is (empty? (changes/entries
                   (-> []
@@ -106,4 +136,23 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
            text)
         "each key of a change is on a line of its own")
     (is (:conforms? (shapes/validate-changes db read))
-        "and the changes can be made to the data that they were made on")))
+        "and the changes can be made to the data that they were made on")
+    (let [nodes   (assoc nodes '_new1 {:subject  :dn/word-1
+                                       :property :ontolex/otherForm
+                                       :new?     true})
+          pending (-> []
+                      (change/add [:dn/word-1 :ontolex/otherForm '_new1])
+                      (change/add ['_new1 :ontolex/writtenRep hunde])
+                      (change/retract-node form (get nodes form)))
+          text    (changes/submission pending nodes)]
+      (is (= (str "[{:add #{[:dn/word-1 :ontolex/otherForm _new1]"
+                  " [_new1 :ontolex/writtenRep"
+                  " #rdf/langstring [\"hunde\" \"da\"]]}}\n"
+                  " {:where   [[:dn/word-1 :ontolex/canonicalForm ?node]]\n"
+                  "  :retract #{[:dn/word-1 :ontolex/canonicalForm ?node]"
+                  " [?node :ontolex/writtenRep"
+                  " #rdf/langstring [\"hund\" \"da\"]]}}]")
+             text)
+          "a new blank node is one change, and a removed one another")
+      (is (= (change/locate-nodes pending nodes)
+             (db.change/read-changes (StringReader. text)))))))

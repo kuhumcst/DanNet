@@ -93,6 +93,22 @@
         (and (= status :retracted) (contains? moved-to v))
         (assoc :moved-to (get moved-to v))))))
 
+(defn node-values
+  "The values of the blank node with the `label` as its nested table shows
+  them: its `values` in the data, a map of a property to its values, with
+  the pending `changes` made. A removed value is left out, a replacement
+  takes the place of its value, and the values of a new row come last."
+  [changes label values]
+  (let [changed    (for [{:keys [retract add]} changes
+                         [s p]                 (concat retract add)
+                         :when                 (= s label)]
+                     p)
+        properties (distinct (concat (keys values) changed))]
+    (for [p     properties
+          field (fields changes label [p] (map #(vector p %) (get values p)))
+          :when (not= :retracted (:status field))]
+      (:value field))))
+
 (defn lang-rank
   "A function that ranks a language by its place in `languages`, the
   reader's order of preference. A language that isn't among them comes last."
@@ -118,17 +134,20 @@
     (first (remove #(or (nil? %) (contains? present %)) langs))))
 
 (defn addable
-  "The properties that a row can be added for on the page in `opts`: those
-  that the shapes describe for its entity, as the :constraints have them.
+  "The properties that a row can be added for in a table with `opts`: those
+  that the shapes describe for its entity or its blank node, as the
+  :constraints have them.
 
-  A property that a build writes is left out, and so is one whose values
-  are blank nodes, which can't be added yet. No row can be added outside
-  edit mode or to a resource that can't be edited."
-  [{:keys [constraints edit-mode default-origin] :as opts}]
-  (when (and edit-mode (some? default-origin) (lock/editable-resource? opts))
-    (for [[k {:keys [node]}] constraints
-          :when (not (or node (lock/derived? opts k)))]
-      k)))
+  A property that a build writes for the entity is left out. No row can be
+  added outside edit mode, to a resource that can't be edited or to a blank
+  node that is locked."
+  [{:keys [constraints edit-mode default-origin blank-node] :as opts}]
+  (when (and edit-mode
+             (some? default-origin)
+             (lock/editable-resource? opts)
+             (nil? (:lock blank-node)))
+    (cond->> (keys constraints)
+      (nil? blank-node) (remove #(lock/derived? opts %)))))
 
 (defn expected
   "Whether an entry :must or :should have a value of the property `k`,
