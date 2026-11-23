@@ -93,6 +93,21 @@
         (remove #(or (contains? (:add %) t) (contains? (:retract %) t)))
         changes))
 
+(defn without-addition
+  "The pending `changes` without the addition of the triple `t`. A change
+  that only adds `t` is dropped, and one that does more keeps the rest, so
+  that taking a value away puts nothing back."
+  [changes t]
+  (into []
+        (keep (fn [{:keys [add retract] :as change}]
+                (if (contains? add t)
+                  (let [add (disj add t)]
+                    (cond
+                      (seq add) (assoc change :add add)
+                      (seq retract) (dissoc change :add)))
+                  change)))
+        changes))
+
 (defn undo
   "The pending `changes` without the change at index `i`."
   [changes i]
@@ -284,6 +299,18 @@
               (filter #(= s (first %)))
               (map second))
         changes))
+
+(defn moves
+  "The values that the pending `changes` move from one property of the
+  subject `s` to another, as maps of the :value, the property that it moves
+  :from and the one that it moves :to. A move is a change that retracts a
+  value under one property and adds the same value under another."
+  [changes s]
+  (for [{:keys [add retract]} changes
+        [s' from v] retract
+        [s'' to v'] add
+        :when       (and (= s s' s'') (= v v') (not= from to))]
+    {:value v :from from :to to}))
 
 (defn property-changes
   "What the pending `changes` do to the values of the property `p` of the

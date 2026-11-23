@@ -8,15 +8,18 @@
       "a value as the data has it can be edited and removed")
   (is (= [:edit :undo :remove] (edit/field-buttons false :edited))
       "an edited value can also be put back")
-  (is (= [:edit :undo] (edit/field-buttons false :added))
-      "an added value isn't in the data, so it has nothing to remove")
+  (is (= [:edit :remove] (edit/field-buttons false :added))
+      "an added value has no earlier state, so it is taken away again")
+  (is (= [:edit :undo :remove] (edit/field-buttons false :moved))
+      "a moved value can be put back in its row, as an edited one can")
   (is (= [:undo] (edit/field-buttons false :retracted))
       "a removed value can only be put back")
   (is (= [] (edit/field-buttons true nil))
       "an input has no buttons of the field")
-  (is (= [[:undo] [:undo]]
-         (map #(edit/field-buttons true %) [:edited :added]))
-      "unless the field differs from the data"))
+  (is (= [:undo] (edit/field-buttons true :edited))
+      "unless the field differs from the data")
+  (is (= [:remove] (edit/field-buttons true :added))
+      "and an added value can be taken away from its input too"))
 
 (deftest required-marks
   (let [[_ attrs] (edit/required-mark ["en"] {:min 1 :max 1})]

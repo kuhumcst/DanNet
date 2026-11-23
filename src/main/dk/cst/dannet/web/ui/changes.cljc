@@ -3,7 +3,8 @@
   by the entry that each change is made to.
 
   A value is shown as its field shows it, in the tint of its change, and
-  with a button that undoes the change. A check asks the server what the
+  with the button that its field has: one that undoes the change, or one
+  that takes an added value away. A check asks the server what the
   shapes say about the changes, and each result is shown with the entry or
   the row that it is about. Nothing takes a submitted change yet, so
   submitting shows the text that would be sent."
@@ -150,27 +151,40 @@
 
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
-  changes, with a button that undoes its change. The `field` is the value
-  as row/fields has it, and a value that replaces another is shown below
-  the one that it replaces."
-  [{:keys [languages] :as opts} s p {:keys [value status original] :as field}]
+  changes, with a button that undoes its change, or that takes it away when
+  it is added. The `field` is the value as row/fields has it. A value that
+  replaces another is shown below the one that it replaces, and a moved one
+  says which row it has moved from or to."
+  [{:keys [languages] :as opts} s p
+   {:keys [value status original moved-to] :as field}]
   (let [content (fn [tag v class]
                   [tag (update (rdf/lone-value-attrs v) :class
                                #(remove nil? ["edit-value__content" class %]))
                    (rdf/value opts v)])
-        text    (if (keyword? value) (rdf/link-label opts value) (str value))]
+        text    (if (keyword? value) (rdf/link-label opts value) (str value))
+        note    (edit/move-note opts field)
+        main    (case status
+                  :retracted (content :del value nil)
+                  (:added :moved) (content :ins value nil)
+                  :edited [:span.edit-value__content
+                           (content :del original "edit-value__old")
+                           (content :ins value nil)])
+        t       [s p value]]
     [:li.edit-value {:class (str "edit-value--" (name status))}
-     (case status
-       :retracted (content :del value nil)
-       :added (content :ins value nil)
-       :edited [:span.edit-value__content
-                (content :del original "edit-value__old")
-                (content :ins value nil)])
+     (if note
+       [:span.edit-value__content main note]
+       main)
      [:span.edit-value__actions
-      (edit/icon-button "undo"
-                        (edit/undo-label languages status text)
-                        #(app/update-changes! change/without-triple
-                                              [s p value]))]]))
+      (if (= status :added)
+        (edit/icon-button "remove"
+                          (str (i18n/da-en languages "Fjern" "Remove")
+                               ": " text)
+                          #(app/update-changes! change/without-addition t))
+        (edit/icon-button "undo"
+                          (edit/undo-label languages
+                                           (if moved-to :moved status)
+                                           text)
+                          #(app/update-changes! change/without-triple t)))]]))
 
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
@@ -280,7 +294,7 @@
   read out, and it can take the focus when the last change is undone."
   [{:keys [languages changes nodes] :as opts}]
   (let [entries (entries changes nodes)
-        n       (count (mapcat :fields (mapcat :rows entries)))]
+        n       (count changes)]
     [:<>
      [:p.subheading {:role "status" :tab-index -1}
       (if (empty? entries)

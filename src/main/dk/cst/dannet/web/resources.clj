@@ -365,6 +365,32 @@
                                             orthogonal-only)
            :meronym-tree            (->tree @instance/meronym-graph any?)})))
 
+(def editor-constraints
+  "The :constraints on the properties of a resource with the set of `types`
+  (see shapes/constraints-of), and the labels of the resources that they
+  name as :entities: each property, since a row can be added for it, and
+  the values that it can choose between."
+  (memoize
+    (fn [types]
+      (let [constraints (shapes/constraints-of @shapes/editorial-constraints
+                                               types)
+            resources   (into #{}
+                              (mapcat (fn [[k {:keys [must should]}]]
+                                        (concat [k] (:in must) (:in should))))
+                              constraints)]
+        {:constraints constraints
+         :entities    (q/resource-labels (:inference @instance/db)
+                                         resources)}))))
+
+(defn- with-constraints
+  "The page `content` of a resource with the `types`, with what the editor
+  reads from the shapes (see editor-constraints). The labels that the page
+  already has are kept."
+  [content types]
+  (let [{:keys [constraints entities]} (editor-constraints (set types))]
+    (-> (assoc content :constraints constraints)
+        (update :entities #(merge entities %)))))
+
 (defn- entity-content
   "The page data for `subject` in the `request`, made from its `raw-entity`
   and the part of it that is `shown` (see displayed-entity)."
@@ -403,9 +429,7 @@
           ;; the editor is a preview, so its constraints only go out in
           ;; development
           (and shared/development? (not deferred?))
-          (assoc :constraints (shapes/constraints-of
-                                @shapes/editorial-constraints
-                                (shared/setify (:rdf/type raw-entity))))
+          (with-constraints (shared/setify (:rdf/type raw-entity)))
 
           synset?
           (merge (sunburst-trees (:inference @instance/db) languages subject))))))

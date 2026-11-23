@@ -549,9 +549,10 @@ ul.edit-values {
     cursor: text;
 }
 
-/* A pending change tints the value: yellow for an edited one, red for a
-   removed one and green for an added one. */
-.edit-value--edited { background: var(--tint-edited); }
+/* A pending change tints the value: yellow for an edited or a moved one,
+   red for a removed one and green for an added one. */
+.edit-value--edited,
+.edit-value--moved { background: var(--tint-edited); }
 .edit-value--retracted { background: var(--tint-retracted); }
 .edit-value--added { background: var(--tint-added); }
 
@@ -1643,4 +1644,52 @@ span.render-error {
     cursor: help;
 }
 
+}
+
+/* The button below a table that adds a row (see ui.edit/row-adder). It looks
+   like the field for a new value, without a frame until the pointer or the
+   focus is on it. */
+.edit-add-row {
+    margin-top: var(--spacing-s);
+}
+
+.edit-add-row > button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    color: var(--color-muted);
+    background: none;
+    border: 1px dashed transparent;
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+.edit-add-row > button:is(:hover, :focus-visible) {
+    color: var(--color-dark);
+    border-color: var(--color-subtle);
+}
+
+/* The button by the name of a row that moves its values to another relation
+   (see ui.edit/value-mover) stays with the last word of the name: the
+   name leaves room for it, which the button moves back into. */
+td.attr-name:has(> .edit-value__button) > a {
+    padding-right: var(--spacing-l);
+}
+
+td.attr-name > .edit-value__button {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: calc(-1 * var(--spacing-l));
+}
+
+/* A value that has moved from one row to another says so below it (see
+   ui.edit/move-note). */
+.edit-value__note {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
 }

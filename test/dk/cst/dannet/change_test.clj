@@ -82,6 +82,31 @@
            (change/replace [{:add #{new-hypernym}}] new-hypernym newer-hypernym))
         "an added triple is still only added")))
 
+(deftest moves-and-taking-away
+  (let [old   [:dn/synset-1 :wn/hypernym :dn/synset-2]
+        new   [:dn/synset-1 :dns/orthogonalHypernym :dn/synset-2]
+        other [:dn/synset-1 :wn/hypernym :dn/synset-3]
+        moved (change/replace [] old new)]
+    (is (= [{:value :dn/synset-2
+             :from  :wn/hypernym
+             :to    :dns/orthogonalHypernym}]
+           (change/moves moved :dn/synset-1))
+        "a change that retracts a value under one property and adds it under
+        another moves the value")
+    (is (empty? (change/moves (change/replace [] old other) :dn/synset-1))
+        "a replaced value isn't moved")
+    (is (empty? (change/moves moved :dn/synset-9))
+        "and a move is of the subject that it is asked for")
+    (is (= [{:retract #{old}}] (change/without-addition moved new))
+        "taking a moved value away leaves it removed from its old row")
+    (is (= [] (change/without-addition (change/add [] new) new))
+        "taking an added value away drops its change")
+    (is (= [{:retract #{old}}]
+           (change/without-addition (change/replace [] old other) other))
+        "taking an edited value away removes the value that it replaces")
+    (is (= moved (change/without-addition moved other))
+        "a triple that no change adds changes nothing")))
+
 (deftest resources-of-changes
   (is (= #{:dn/synset-1 :wn/hypernym :dn/synset-2 :dn/synset-3
            :dn/word-1 :rdfs/label}

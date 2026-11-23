@@ -18,7 +18,10 @@
   - :value-fn, a function of a result to its value;
   - :label-fn, a function of a result to the label of its value;
   - :hiccup-fn, a function of a result and the opts to its content;
-  - :title and :placeholder, the texts of the dialog as maps of :da and :en.
+  - :title and :placeholder, the texts of the dialog as maps of :da and :en;
+  - :heading, the title as content, when it holds more than text;
+  - :list-all?, true when the dialog lists every result before a text is
+    typed.
 
   The input and the dialog of ui.edit only know these maps, so a new input
   type or a new search needs no change to either."

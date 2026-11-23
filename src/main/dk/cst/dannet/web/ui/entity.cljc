@@ -11,6 +11,7 @@
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
@@ -63,19 +64,22 @@
      [:span.visually-hidden label]]))
 
 (rum/defc pending-changes-link
-  "A link to the list of the pending changes in `opts`, drawn as their
-  number. There is none while nothing is pending."
+  "The number of the pending changes in `opts`: a status that is read out
+  when the number changes, since an edit says nothing else, and a link to
+  the list of the changes, drawn as the number, while something is pending."
   [{:keys [languages changes nav-class] :as opts}]
-  (when (seq changes)
-    (let [n     (count changes)
-          label (i18n/da-en languages
-                  (str n (if (= n 1) " ændring" " ændringer"))
-                  (str n (if (= n 1) " change" " changes")))]
-      [:a.pending-changes {:href  prefix/changes-path
-                           :class nav-class
-                           :title label}
-       [:span {:aria-hidden "true"} n]
-       [:span.visually-hidden label]])))
+  (let [n     (count changes)
+        label (i18n/da-en languages
+                (str n (if (= n 1) " ændring" " ændringer"))
+                (str n (if (= n 1) " change" " changes")))]
+    [:<>
+     [:span.visually-hidden {:role "status"} label]
+     (when (seq changes)
+       [:a.pending-changes {:href  prefix/changes-path
+                            :class nav-class
+                            :title label}
+        [:span {:aria-hidden "true"} n]
+        [:span.visually-hidden label]])]))
 
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
@@ -385,9 +389,23 @@
       (ordered-subentity opts shared/semantic-rels? entity)
       opts)))
 
+(defn- section-properties
+  "Those of the `properties` that belong in a section with `ks`: a vector of
+  its properties, or a predicate of a [k v] entry."
+  [ks properties]
+  (filter (if (coll? ks) (set ks) #(ks [% nil])) properties))
+
 (rum/defc entity-content
+  "The sections of the page of the entity in `opts`. In edit mode, a section
+  gets the properties that a row can be added for in its table as :addable
+  (see row/addable), and a section without rows is shown when it has any."
   [{:keys [entity]
     :as   opts}]
-  (for [[id ks] (section/page-sections entity)]
-    (when-let [subentity (ordered-subentity opts ks entity)]
-      (rum/with-key (entity-section id subentity opts) id))))
+  (let [addable (row/addable opts)]
+    (for [[id ks] (section/page-sections entity)
+          :let  [subentity (ordered-subentity opts ks entity)
+                 addable'  (seq (section-properties ks addable))]
+          :when (or subentity addable')]
+      (rum/with-key (entity-section id (or subentity {})
+                                    (assoc opts :addable addable'))
+                    id))))

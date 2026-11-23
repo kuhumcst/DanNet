@@ -374,6 +374,19 @@
    (prefix-badge (symbol (namespace resource)) opts)
    (entity-link resource opts)])
 
+(rum/defc resource-name
+  "The RDF `resource` as resource-hyperlink shows it with `opts`, without
+  the link: the prefix badge and the label, for a place where a link
+  doesn't fit, e.g. inside a button."
+  [resource {:keys [languages k->label] :as opts}]
+  (let [prefix (symbol (namespace resource))
+        label  (i18n/select-label languages (get k->label resource))]
+    [:span.qname
+     (prefix-badge prefix)
+     [:span {:lang  (i18n/lang label)
+             :class (get prefix/prefix->class prefix "unknown")}
+      (or (not-empty (str label)) (name resource))]]))
+
 (defn transform-val-coll
   "Render `coll` as dnc: concepts joined by +, when `opts` asks for that and
   every value is a dnc: concept; otherwise return nil."

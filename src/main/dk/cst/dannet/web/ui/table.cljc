@@ -8,6 +8,7 @@
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
@@ -134,8 +135,11 @@
   value that can be edited lists all its values in fields (see ui.edit), and
   any other row is faded, with a padlock that says why, unless the whole
   page is locked. No row is a word cloud then. A row of blank nodes isn't
-  locked when their own values can be edited in nested tables."
-  [{:keys [subject comments inherited edit-mode default-origin blank-node]
+  locked when their own values can be edited in nested tables. A row that
+  is :open-row? in `opts` takes a new value though it has none that can be
+  edited, as a row that an editor has added does."
+  [{:keys [subject comments inherited edit-mode default-origin blank-node
+           open-row?]
     :as   opts}
    k v display-opts]
   (let [origins       (lock/row-origins opts k v)
@@ -156,7 +160,7 @@
         vs            (if (shared/multi-valued? v) v [v])
         locks         (when (and edit-mode (some? default-origin))
                         (map #(lock/lock opts k %) vs))
-        edit-row?     (some nil? locks)
+        edit-row?     (and locks (or open-row? (some nil? locks)))
         nodes?        (and (every? #{:yet} locks)
                            (every? (every-pred lock/node? rdf/table-node?) vs))
         locked?       (and locks (not edit-row?) (not nodes?))
@@ -185,6 +189,8 @@
       (rdf/prefix-badge prefix)]
      [:td.attr-name
       (rdf/entity-link k opts+attr-key)
+      (when edit-row?
+        (edit/value-mover opts k vs))
       (when why
         (edit/padlock why))
       ;; edit mode has no word clouds, so no display options either
@@ -227,26 +233,53 @@
       subentity)))
 
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
-  "A table which lists attributes and corresponding values of an RDF resource."
-  [state {:keys [subject languages] :as opts} subentity]
-  (let [display-opts (::display-opts state)
-        subentity    (fold-member-rows subentity)]
-    ;; Only a table rendered inside a value has :table-component in its opts.
-    [:table.attr-val (cond-> {}
-                       (:table-component opts)
-                       (assoc :class "attr-val--nested")
+                            (rum/local {} ::added)
+  "A table which lists attributes and corresponding values of an RDF resource.
 
-                       ;; Add RDFa subject when available.
-                       (and subject (not (:table-component opts)))
-                       (assoc :about (if (keyword? subject)
-                                       (prefix/kw->uri subject)
-                                       subject)))
-     [:colgroup
-      [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
-      [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
-      [:col {:aria-label (i18n/da-en languages "Værdi" "Value")}]]
-     [:tbody
-      (for [[k v] subentity]
-        (rum/with-key (attr-val-row (assoc opts :table-component attr-val-table)
-                                    k v display-opts)
-                      k))]]))
+  In edit mode, a button below the table of an entity adds a row for one of
+  the :addable properties in `opts` (see row/addable). A row that has no
+  values in the data is listed last, while it has pending changes or since
+  the editor added it."
+  [state {:keys [subject languages addable changes] :as opts} subentity]
+  (let [display-opts (::display-opts state)
+        ;; by subject, since a table outlives a change of page
+        added        (::added state)
+        subentity    (fold-member-rows subentity)
+        ;; a nested table takes no rows
+        opts         (dissoc opts :addable)
+        open         (row/open-rows addable changes subject
+                                    (get @added subject))
+        fielded      (when addable
+                       (for [[k v] subentity
+                             :when (some #(nil? (lock/lock opts k %))
+                                         (if (shared/multi-valued? v) v [v]))]
+                         k))
+        new-rows     (for [k     (remove (set (map first subentity)) open)]
+                       [k []])]
+    [:<>
+     ;; Only a table rendered inside a value has :table-component in its opts.
+     [:table.attr-val (cond-> {}
+                        (:table-component opts)
+                        (assoc :class "attr-val--nested")
+
+                        ;; Add RDFa subject when available.
+                        (and subject (not (:table-component opts)))
+                        (assoc :about (if (keyword? subject)
+                                        (prefix/kw->uri subject)
+                                        subject)))
+      [:colgroup
+       [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
+       [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
+       [:col {:aria-label (i18n/da-en languages "Værdi" "Value")}]]
+      [:tbody
+       (for [[k v] (concat subentity new-rows)]
+         (rum/with-key (attr-val-row (assoc opts
+                                       :table-component attr-val-table
+                                       :open-row? (boolean (some #{k} open)))
+                                     k v display-opts)
+                       k))]]
+     (when-let [ks (seq (remove (set (concat fielded open)) addable))]
+       (edit/row-adder opts ks
+                       (fn [k]
+                         (swap! added update subject (fnil conj []) k)
+                         (edit/open-new-value! k))))]))

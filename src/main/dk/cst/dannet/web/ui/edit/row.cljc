@@ -1,10 +1,12 @@
 (ns dk.cst.dannet.web.ui.edit.row
   "A row in edit mode as data: which fields it has and in which order, which
-  property a change is made to, and which language a new text gets. The
-  components that draw the fields are in ui.edit."
+  property a change is made to, which language a new text gets, and which
+  rows can be added to a table. The components that draw the fields are in
+  ui.edit."
   (:require [dk.cst.dannet.change :as change]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.i18n :as i18n]))
+            [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.lock :as lock]))
 
 (defn value-order
   "The values `vs` of a property in the order of its fields, with the
@@ -55,26 +57,41 @@
   `changes` to the `properties` of the subject `s` made. The `entries` are
   the pairs of a property and a value that can be edited.
 
-  A changed value has its :status (:added, :retracted or :edited), and an
-  edited one the :original value that it replaces. The fields are in the
+  A changed value has its :status: :added, :retracted, :edited with the
+  :original value that it replaces, or :moved with the property that it is
+  :moved-from (see change/moves). In the row that a moved value left, it is
+  :retracted with the property that it is :moved-to. The fields are in the
   order of `properties` and then of value-order."
   [changes s properties entries]
-  (let [p->vs (update-vals (group-by first entries) #(map second %))]
+  (let [p->vs (update-vals (group-by first entries) #(map second %))
+        moves (change/moves changes s)]
     (for [p    properties
           :let [{:keys [added retracted replaced]
                  :as   pending} (change/property-changes changes s p)
                 original (into {}
                                (for [[old replacing] replaced
                                      v               replacing]
-                                 [v old]))]
+                                 [v old]))
+                moved-from (into {}
+                                 (for [{:keys [value from to]} moves
+                                       :when (= to p)]
+                                   [value from]))
+                moved-to   (into {}
+                                 (for [{:keys [value from to]} moves
+                                       :when (= from p)]
+                                   [value to]))]
           v    (value-order (get p->vs p) pending)
           :let [status (cond
                          (retracted v) :retracted
                          (contains? original v) :edited
+                         (contains? moved-from v) :moved
                          (added v) :added)]]
       (cond-> {:property p :value v}
         status (assoc :status status)
-        (= status :edited) (assoc :original (get original v))))))
+        (= status :edited) (assoc :original (get original v))
+        (= status :moved) (assoc :moved-from (get moved-from v))
+        (and (= status :retracted) (contains? moved-to v))
+        (assoc :moved-to (get moved-to v))))))
 
 (defn lang-rank
   "A function that ranks a language by its place in `languages`, the
@@ -99,3 +116,72 @@
   [langs vs]
   (let [present (into #{} (map i18n/lang) vs)]
     (first (remove #(or (nil? %) (contains? present %)) langs))))
+
+(defn addable
+  "The properties that a row can be added for on the page in `opts`: those
+  that the shapes describe for its entity, as the :constraints have them.
+
+  A property that a build writes is left out, and so is one whose values
+  are blank nodes, which can't be added yet. No row can be added outside
+  edit mode or to a resource that can't be edited."
+  [{:keys [constraints edit-mode default-origin] :as opts}]
+  (when (and edit-mode (some? default-origin) (lock/editable-resource? opts))
+    (for [[k {:keys [node]}] constraints
+          :when (not (or node (lock/derived? opts k)))]
+      k)))
+
+(defn expected
+  "Whether an entry :must or :should have a value of the property `k`,
+  according to the `constraints` on its properties, or nil when it can do
+  without one."
+  [constraints k]
+  (let [{:keys [must should]} (get constraints k)]
+    (cond
+      (some-> (:min must) pos?) :must
+      (some-> (:min should) pos?) :should)))
+
+(defn open-rows
+  "Those of the `addable` properties whose rows are open for a new value:
+  first the ones that the pending `changes` to the subject `s` are made to,
+  then the ones that the editor has `added`, in the order that they were
+  added in."
+  [addable changes s added]
+  (let [addable? (set addable)
+        pending  (->> (change/changed-properties changes s)
+                      (filter addable?)
+                      (sort-by str))]
+    (distinct (concat (remove (set added) pending)
+                      (filter addable? added)))))
+
+(defn- value-shape
+  "What the constraints that a property `must` meet say of a value on its
+  own, or nil when they say nothing of it."
+  [must]
+  (not-empty (select-keys must [:class :iri? :pattern :datatype :languages
+                                :in])))
+
+(defn alternatives
+  "Those of the properties `ks` that the values of the property `k` can move
+  to, according to the `constraints` on the properties of the `entity`: the
+  ones whose values have the same shape as the values of `k`, and that take
+  `n` more values next to the ones that the entity has.
+
+  Only a relation moves, i.e. a property whose values are resources, and
+  not when its row must keep a value."
+  [constraints ks entity k n]
+  (let [must  #(get-in constraints [% :must])
+        shape (value-shape (must k))
+        held  (fn [k']
+                (let [v (get entity k')]
+                  (cond
+                    (nil? v) 0
+                    (shared/multi-valued? v) (count v)
+                    :else 1)))
+        full? (fn [k']
+                (some-> (:max (must k')) (< (+ n (held k')))))]
+    (when (and (or (:class shape) (:iri? shape))
+               (not= :must (expected constraints k)))
+      (filter #(and (not= % k)
+                    (= shape (value-shape (must %)))
+                    (not (full? %)))
+              ks))))

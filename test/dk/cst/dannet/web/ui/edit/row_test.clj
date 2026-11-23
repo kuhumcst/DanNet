@@ -1,7 +1,9 @@
 (ns dk.cst.dannet.web.ui.edit.row-test
   "Tests for the order of the fields of an edit row, for the properties that
-  its changes are made to and for the languages of its texts."
+  its changes are made to, for the languages of its texts and for the rows
+  that can be added to a table."
   (:require [clojure.test :refer [deftest is]]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.web.ui.edit.row :as row]))
 
 (deftest value-order
@@ -76,6 +78,21 @@
                        [:wn/hypernym]
                        [[:wn/hypernym :dn/synset-2]]))
         "the values of one property, with its additions last")
+    (let [move {:retract #{old}
+                :add     #{[:dn/synset-1 :dns/orthogonalHypernym :dn/synset-2]}}]
+      (is (= [{:property :wn/hypernym
+               :value    :dn/synset-2
+               :status   :retracted
+               :moved-to :dns/orthogonalHypernym}]
+             (row/fields [move] :dn/synset-1 [:wn/hypernym]
+                         [[:wn/hypernym :dn/synset-2]]))
+          "a value that has moved to another row says where it went")
+      (is (= [{:property   :dns/orthogonalHypernym
+               :value      :dn/synset-2
+               :status     :moved
+               :moved-from :wn/hypernym}]
+             (row/fields [move] :dn/synset-1 [:dns/orthogonalHypernym] []))
+          "and in its new row it says where it came from"))
     (is (= [{:property :rdf/_1 :value :dnc/Animal :status :retracted}
             {:property :rdf/_2
              :value    :dnc/Plant
@@ -152,3 +169,84 @@
         "or else the one that the property is expected in")
     (is (nil? (row/new-text-lang "noun.animal" []))
         "a code has no language")))
+
+(deftest addable
+  (let [opts {:subject        :dn/synset-1
+              :edit-mode      true
+              :default-origin :dn
+              :entity         {:rdf/type :ontolex/LexicalConcept}
+              :edit-rules     {:namespaces      #{"dn"}
+                               :derived         #{:skos/inScheme}
+                               :derived-by-type {:ontolex/LexicalConcept
+                                                 #{:rdfs/label}}}
+              :constraints    {:wn/mero_part          {:must {}}
+                               :skos/definition       {:should {:min 1}}
+                               :rdfs/label            {:must {:max 1}}
+                               :skos/inScheme         {:should {:min 1}}
+                               :ontolex/canonicalForm {:node {}}}}]
+    (is (= #{:wn/mero_part :skos/definition} (set (row/addable opts)))
+        "what the shapes describe, but not what a build writes or what holds
+        a blank node")
+    (is (empty? (row/addable (dissoc opts :edit-mode)))
+        "no row is added outside edit mode")
+    (is (empty? (row/addable (assoc opts :subject :dnt/Animal)))
+        "or to a resource that can't be edited")))
+
+(deftest expected
+  (let [constraints {:ontolex/lexicalizedSense {:must {:min 1}}
+                     :skos/definition          {:should {:min 1 :max 1}}
+                     :wn/ili                   {:must {:max 1}}}]
+    (is (= :must (row/expected constraints :ontolex/lexicalizedSense)))
+    (is (= :should (row/expected constraints :skos/definition))
+        "a rule that only warns says what an entry should have")
+    (is (nil? (row/expected constraints :wn/ili))
+        "a property without a minimum isn't expected")
+    (is (nil? (row/expected constraints :wn/mero_part)))))
+
+(deftest open-rows
+  (let [addable [:wn/agent :wn/mero_part :wn/also]
+        pending (-> []
+                    (change/add [:dn/synset-1 :wn/mero_part :dn/synset-2])
+                    (change/add [:dn/synset-1 :rdfs/label "x"])
+                    (change/add [:dn/synset-9 :wn/also :dn/synset-2]))]
+    (is (= [:wn/mero_part] (row/open-rows addable pending :dn/synset-1 nil))
+        "a row that the changes to the subject add a value to")
+    (is (= [:wn/mero_part :wn/also :wn/agent]
+           (row/open-rows addable pending :dn/synset-1 [:wn/also :wn/agent]))
+        "then the rows that the editor has added, in that order")
+    (is (= [:wn/also :wn/mero_part]
+           (row/open-rows addable pending :dn/synset-1
+                          [:wn/also :wn/mero_part]))
+        "an added row keeps its place when it gets a value")
+    (is (empty? (row/open-rows addable [] :dn/synset-1 [:skos/definition]))
+        "only a row that can be added is open")))
+
+(deftest alternatives
+  (let [synset      {:class :ontolex/LexicalConcept :pattern "^dn"}
+        english     {:class :ontolex/LexicalConcept :pattern "^en"}
+        constraints {:wn/hypernym           {:must synset :should {:min 1}}
+                     :dns/orthogonalHypernym {:must synset}
+                     :wn/instance_hypernym  {:must (assoc synset :max 1)}
+                     :wn/eq_synonym         {:must english}
+                     :ontolex/lexicalizedSense {:must {:min 1 :iri? true}}
+                     :ontolex/isSenseOf     {:must {:iri? true}}
+                     :lexinfo/senseExample  {:must {:languages ["da"]}}
+                     :lexinfo/usageNote     {:must {:languages ["da"]}}
+                     :wn/hyponym            {}}
+        ks          (keys constraints)
+        entity      {:wn/hypernym          #{:dn/synset-1 :dn/synset-2}
+                     :wn/instance_hypernym :dn/synset-3}
+        to          #(set (row/alternatives constraints ks entity %1 %2))]
+    (is (= #{:dns/orthogonalHypernym} (to :wn/hypernym 2))
+        "the properties whose values have the same shape, and room for them")
+    (is (= #{:wn/hypernym} (to :dns/orthogonalHypernym 1))
+        "a row that only should have a value can be moved from")
+    (is (= #{:wn/hypernym :dns/orthogonalHypernym} (to :wn/instance_hypernym 1)))
+    (is (empty? (to :wn/eq_synonym 1))
+        "an English link has no other property to move to here")
+    (is (empty? (to :ontolex/lexicalizedSense 1))
+        "a row that must keep a value can't be moved")
+    (is (empty? (to :wn/hyponym 1))
+        "nor one whose values have no shape")
+    (is (empty? (to :lexinfo/senseExample 1))
+        "a text isn't moved, though another property takes the same texts")))
