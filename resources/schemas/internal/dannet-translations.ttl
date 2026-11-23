@@ -61,6 +61,9 @@ semowl:Meaning rdfs:label "betydning"@da .
 
 marl:polarityValue rdfs:label "polaritetsværdi"@da.
 marl:hasPolarity rdfs:label "har polaritet"@da.
+marl:Positive rdfs:label "positiv"@da .
+marl:Negative rdfs:label "negativ"@da .
+marl:Neutral rdfs:label "neutral"@da .
 
 lexinfo:senseExample rdfs:label "betydningseksempel"@da .
 lexinfo:morphosyntacticProperty rdfs:label "morfosyntaktisk egenskab"@da .
