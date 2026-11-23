@@ -29,6 +29,11 @@
    ;; label of a word is written by hand.
    :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label :dns/shortLabel}}
 
+   ;; The properties that say what a resource is. A synset stays a synset:
+   ;; its page, its shapes and its place in the dataset all follow from its
+   ;; type.
+   :fixed           #{:rdf/type}
+
    ;; The languages that the dropdown of a text offers when no shape names
    ;; those of its property, where nil is none.
    :languages       ["da" "en" nil]

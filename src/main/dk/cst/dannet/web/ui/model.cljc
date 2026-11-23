@@ -45,6 +45,9 @@
                   :derived      (i18n/da-en languages
                                   "Dannes automatisk ved udgivelsen"
                                   "Made automatically at release")
+                  :fixed        (i18n/da-en languages
+                                  "Siger hvad opslaget er og kan ikke ændres"
+                                  "Says what the entry is and can't be changed")
                   :resource     (i18n/da-en languages
                                   "Kan ikke rettes på denne side"
                                   "Can't be edited on this page")

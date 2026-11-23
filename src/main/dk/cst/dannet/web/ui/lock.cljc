@@ -13,7 +13,9 @@
   - :derived, the properties that a build writes for every resource, so
     that their values aren't edited by hand.
   - :derived-by-type, a map of a type to the properties that a build writes
-    for the resources of that type."
+    for the resources of that type.
+  - :fixed, the properties that say what a resource is, e.g. its type, which
+    an edit never changes."
   (:require [dk.cst.theophrastus.origin :as origin]
             [dk.cst.dannet.shared :as shared]))
 
@@ -86,13 +88,13 @@
   "Why the value `v` in the row of the property `k` in `opts` can't be
   edited, as a key of the :locked comments, or nil when it can be.
 
-  The property is :derived; the value is :inferred or :supplemented, or it
-  is :elsewhere, in a graph that changes don't go to; the :resource is
-  outside the namespaces that can be edited; or the value is a blank node,
-  which can't be replaced :yet. The first reason that holds is the one
-  given. A value in the nested table of a blank node is locked when the
-  node is, for the :lock of the :blank-node in `opts`."
-  [{:keys [blank-node] :as opts} k v]
+  The property is :derived or :fixed; the value is :inferred or
+  :supplemented, or it is :elsewhere, in a graph that changes don't go to;
+  the :resource is outside the namespaces that can be edited; or the value
+  is a blank node, which can't be replaced :yet. The first reason that holds
+  is the one given. A value in the nested table of a blank node is locked
+  when the node is, for the :lock of the :blank-node in `opts`."
+  [{:keys [blank-node edit-rules] :as opts} k v]
   (cond
     ;; a node that is only locked as :yet has values that can be edited
     (some-> (:lock blank-node) (not= :yet))
@@ -101,6 +103,9 @@
     ;; the rules name the properties of the resource, not of its blank nodes
     (and (not blank-node) (derived? opts k))
     :derived
+
+    (and (not blank-node) (contains? (:fixed edit-rules) k))
+    :fixed
 
     (not (editable? opts k v))
     (let [origins (value-origins opts k v)]

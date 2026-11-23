@@ -60,7 +60,8 @@
 (deftest edit-rules
   (let [rules  {:namespaces      #{"dn"}
                 :derived         #{:skos/inScheme}
-                :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label}}}
+                :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label}}
+                :fixed           #{:rdf/type}}
         opts   (fn [subject & [entity]]
                  {:subject        subject
                   :entity         entity
@@ -77,6 +78,8 @@
         "the label of a word can be edited")
     (is (= :derived (lock/lock synset :rdfs/label "{hund_1§1}"))
         "but a build writes that of a synset")
+    (is (= :fixed (lock/lock synset :rdf/type :ontolex/LexicalConcept))
+        "a property that says what the resource is")
     (is (lock/editable-resource? word)
         "a resource of a namespace that can be edited")
     (is (not (lock/editable-resource? dnt))
