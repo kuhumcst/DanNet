@@ -51,10 +51,17 @@
            :aria-hidden "true"}]
    [:span.visually-hidden label]])
 
+(defn plus-label
+  "The name of the plus of the row of the property `k` in `opts`. The plus
+  of every row looks the same, so its name says which row."
+  [{:keys [languages] :as opts} k]
+  (str (i18n/da-en languages "Tilføj en værdi til" "Add a value to")
+       " \"" (rdf/link-label opts k) "\""))
+
 (defn add-button
   "The plus button of a row, which calls `on-click`. The `label` is its name
-  and its tooltip, since the plus of every row looks the same. With `gap`,
-  the button also shows that text, e.g. a language that the row lacks."
+  and its tooltip (see plus-label). With `gap`, the button also shows that
+  text, e.g. a language that the row lacks."
   [label on-click & [gap]]
   [:button.edit-value__add {:type     "button"
                             :title    label
@@ -821,10 +828,7 @@
         draft   (::draft state)
         subject (subject-of opts)
         tint    (when @draft :added)
-        ;; the plus of every row looks the same, so its name says which row
-        label   (cond-> (str (i18n/da-en languages
-                               "Tilføj en værdi til" "Add a value to")
-                             " \"" (rdf/link-label opts attr-key) "\"")
+        label   (cond-> (plus-label opts attr-key)
                   gap? (str " " (i18n/da-en languages "på" "in")
                             " " (language-name languages lang)))
         close!  (fn []
@@ -941,12 +945,9 @@
   the type makes of it."
   [state {:keys [languages changes] :as opts}
    k {:keys [search entry-fn] :as entry-type}]
-  (let [choosing? (::choosing? state)
-        label     (str (i18n/da-en languages
-                         "Tilføj en værdi til" "Add a value to")
-                       " \"" (rdf/link-label opts k) "\"")]
+  (let [choosing? (::choosing? state)]
     [:li.edit-value.edit-value--new
-     (add-button label #(reset! choosing? true))
+     (add-button (plus-label opts k) #(reset! choosing? true))
      (when @choosing?
        (search-dialog
          opts search
@@ -1115,9 +1116,7 @@
         full?    (some-> (:max must) (<= current))
         required (when (and (= 1 (:min must)) (>= 1 current))
                    must)
-        label    (str (i18n/da-en languages
-                        "Tilføj en værdi til" "Add a value to")
-                      " \"" (rdf/link-label opts k) "\"")]
+        label    (plus-label opts k)]
     [:td
      [:ul.edit-values
       (for [{:keys [value] :as field} fields
