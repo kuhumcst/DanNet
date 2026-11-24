@@ -489,10 +489,24 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
       (is (= #{[:dns/LexicalEntryShape-partOfSpeech :sh/Violation]}
              (shapes-of {:retract #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}))
           "and only the base shape reports a broken base rule")
-      (is (= #{[:dns/LexicalConceptShape-inScheme :sh/Warning]}
-             (shapes-of {:retract #{[:dn/synset-1 :skos/inScheme
-                                     "<https://wordnet.dk/dannet/data>"]}}))
-          "a base rule that only warns doesn't block an edit"))
+      (is (empty? (shapes-of {:retract #{[:dn/synset-1 :skos/inScheme
+                                          "<https://wordnet.dk/dannet/data>"]}}))
+          "a value that the build writes is back before the rules are checked"))
+    (testing "a new entry isn't blamed for lacking what the build writes"
+      (let [entry (fn [label]
+                    #{[:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]
+                      [:dn/new-synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]
+                      [:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+                      [:dn/new-sense-1 :rdfs/label (->LangString label "da")]
+                      [:dn/word-1 :ontolex/sense :dn/new-sense-1]})]
+        (is (= #{[:dn/new-synset-1 :dns/EditorialConceptShape-definition :sh/Warning]
+                 [:dn/new-synset-1 :dns/EditorialConceptShape-ontologicalType :sh/Warning]
+                 [:dn/new-synset-1 :dns/EditorialConceptShape-hypernym :sh/Warning]}
+               (entry-set (entry "vovse_§1")))
+            "the synset has a label and each resource has its scheme")
+        (is (contains? (entry-set (entry "{vovse}"))
+                       [:dn/new-sense-1 :dns/EditorialSenseShape-label :sh/Violation])
+            "what the entry has itself is still checked")))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

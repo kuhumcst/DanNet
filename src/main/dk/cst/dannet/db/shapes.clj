@@ -23,6 +23,7 @@
             [dk.cst.theophrastus.txn :as txn]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.change :as db.change]
+            [dk.cst.dannet.db.derived :as derived]
             [dk.cst.dannet.prefix :as prefix]
             [taoensso.telemere :as t])
   (:import [org.apache.jena.query Dataset]
@@ -275,13 +276,15 @@
 
   The changes are made in order on a copy in memory of the dn: graph, as
   db.change/apply-change! makes them, so each has to match exactly once in
-  the graph that the ones before it leave. Then validate-node checks the
-  union of the graphs: the subject of every changed triple, and for a blank
-  node the named resources it hangs off, since their shapes cover it. A
-  result that a resource already had before the changes is left out, so an
-  old problem in the data doesn't count against them. Returns the same
-  result map as `validate`, so shacl/violations? and shacl/by-severity
-  apply."
+  the graph that the ones before it leave. The copy then gets the values
+  that the release build derives for the resources in the changes (see
+  derived/derive!), e.g. the label of a new synset. Then validate-node
+  checks the union of the graphs: the subject of every changed triple, and
+  for a blank node the named resources it hangs off, since their shapes
+  cover it. A result that a resource already had before the changes is left
+  out, so an old problem in the data doesn't count against them. Returns
+  the same result map as `validate`, so shacl/violations? and
+  shacl/by-severity apply."
   ([db changes]
    (validate-changes db @editorial-shapes changes))
   ([{:keys [^Dataset dataset prefixes] :as db} ^Shapes shapes changes]
@@ -291,6 +294,7 @@
            delta   (Delta. (.getGraph dsg dn))
            dn-db   (graph-db delta prefixes)
            made    (mapv #(db.change/apply-change! dn-db %) changes)
+           _       (derived/derive! dn-db made)
            union   (.getUnionGraph (with-graph dsg dn delta))
            before  (graph-db (.getUnionGraph dsg) prefixes)
            after   (graph-db union prefixes)
