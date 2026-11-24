@@ -551,7 +551,11 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                        :new-synset
                        (entry/fill-around
                          sense [] '?synset (made :ontolex/LexicalConcept nil)
-                         {'?word :dn/word-1} {'?word word})}
+                         {'?word :dn/word-1} {'?word word})
+                       :new-word
+                       (entry/fill-around
+                         sense [] '?word (made :ontolex/Word "vovse")
+                         {'?synset :dn/synset-2} {})}
             blocking  (fn [change]
                         (->> (entry-set (:add change))
                              (filter (comp #{:sh/Violation} peek))
@@ -561,7 +565,10 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
           (is (empty? (change/problems change)) (str flow)))
         (is (empty? (blocking (:found flows))))
         (is (empty? (blocking (:new-synset flows)))
-            "a new synset only lacks what a synset should have")))
+            "a new synset only lacks what a synset should have")
+        (is (= #{:dns/LexicalEntryShape-partOfSpeech}
+               (blocking (:new-word flows)))
+            "a new word only lacks its part of speech, which its page asks for")))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

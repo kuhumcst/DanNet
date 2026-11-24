@@ -114,7 +114,7 @@
                               {:ontolex/evokes :dn/synset-1}
                               '?word '?synset))))
     (is (= #{:rdf/type :rdfs/label :ontolex/sense :ontolex/lexicalizedSense
-             :ontolex/evokes}
+             :ontolex/evokes :ontolex/canonicalForm :ontolex/writtenRep}
            (entry/properties templates)))))
 
 (deftest new-synsets
@@ -151,6 +151,33 @@
         (is (= [(peek changes)] (entry/without changes :dn/new-synset-1)))
         (is (= (pop changes) (entry/without changes :dn/synset-1))
             "an entry in the data only loses its own changes")))))
+
+(deftest new-words
+  (let [word   (:ontolex/Word templates)
+        quoted #rdf/langstring ["\"vovse\"" "da"]
+        made   (entry/new-entry word [] " vovse " '[_new1 _new2])
+        change (entry/fill-around sense [] '?word made
+                                  {'?synset :dn/synset-1} {})]
+    (is (= {'?label quoted} (entry/starting word {'?lemma vovse}))
+        "the label of a word is its lemma in quotes")
+    (is (= {:id     :dn/new-word-1
+            :change {:add #{[:dn/new-word-1 :rdf/type :ontolex/Word]
+                            [:dn/new-word-1 :rdfs/label quoted]
+                            [:dn/new-word-1 :ontolex/canonicalForm '_new1]
+                            ['_new1 :ontolex/writtenRep vovse]}}}
+           made)
+        "a word is made from its lemma, with a blank node under a new label")
+    (is (nil? (entry/new-entry word [] "to ord" '[_new1]))
+        "a lemma with a space isn't a word")
+    (is (nil? (entry/new-entry word [] " " '[_new1])))
+    (is (= (into (:add (:change made))
+                 #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+                   [:dn/new-sense-1 :rdfs/label vovse]
+                   [:dn/new-word-1 :ontolex/sense :dn/new-sense-1]
+                   [:dn/synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]})
+           (:add change))
+        "a new word and its sense in a synset are one change")
+    (is (empty? (change/problems change)))))
 
 (deftest pages-of-new-entries
   (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]

@@ -79,7 +79,20 @@
      :ontolex/LexicalConcept
      {:name {:da "Nyt synset" :en "New synset"}
       :new  {?synset "synset"}
-      :add  #{[?synset :rdf/type :ontolex/LexicalConcept]}}}
+      :add  #{[?synset :rdf/type :ontolex/LexicalConcept]}}
+
+     ;; A word is made from its lemma, which is the written form of its
+     ;; canonical form, and its label in quotes. A lemma with a space is a
+     ;; multiword expression, which is a class of its own without a template.
+     :ontolex/Word
+     {:name {:da "Nyt ord" :en "New word"}
+      :new  {?word "word"}
+      :add  #{[?word :rdf/type :ontolex/Word]
+              [?word :rdfs/label ?label]
+              [?word :ontolex/canonicalForm _form]
+              [_form :ontolex/writtenRep ?lemma]}
+      :ask  {?lemma {:lang "da" :pattern #"^\S+$"}}
+      :from {?label [?lemma "\"%s\""]}}}
 
    ;; The labels that the build writes, which a new entry is shown with
    ;; until then: for each class, the property that leads to the entries
