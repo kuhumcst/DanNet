@@ -916,6 +916,42 @@ table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     color: var(--color-muted);
 }
 
+/* A result on one line: its name, a short note after it, and at the right
+   the reason why it can't be chosen. */
+.search-dialog__results--one-line button {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--spacing-m);
+}
+
+.search-dialog__results--one-line span,
+.search-dialog__results--one-line small {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
+.search-dialog__results--one-line small {
+    margin-left: auto;
+}
+
+.search-dialog__results sup {
+    font-size: 0.7em;
+}
+
+/* A result that can't be chosen is faded, apart from the reason, which is
+   its last part. It can still take the focus, so that the reason is read. */
+.search-dialog__results button[aria-disabled="true"] {
+    cursor: default;
+}
+
+.search-dialog__results button[aria-disabled="true"]:hover:not(:focus-visible) {
+    background: none;
+}
+
+.search-dialog__results button[aria-disabled="true"] > :not(:last-child) {
+    opacity: 0.5;
+}
+
 @media only screen and (max-width: 700px) {
     table.attr-val.attr-val--nested td {
         font-size: var(--font-size-xs);

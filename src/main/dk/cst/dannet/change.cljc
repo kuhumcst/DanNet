@@ -130,7 +130,8 @@
 (defn without-node
   "The pending `changes` without the ones that name the blank node `label`
   as a subject or an object. That takes a new node away, and it puts a
-  removed one back."
+  removed one back. The temporary ID of a new entry in place of the label
+  takes that entry away."
   [changes label]
   (into []
         (remove (fn [{:keys [add retract]}]

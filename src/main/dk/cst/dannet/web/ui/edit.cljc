@@ -20,6 +20,9 @@
   table of its values. It has no input of its own, so its buttons only
   remove it or put it back.
 
+  A new entry is a field as well, e.g. a new sense of a word in a synset.
+  The word is found in a dialog, and the field shows the label of the sense.
+
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
   :languages that the dropdown of a text offers, where nil is none, and the
   :translated properties, whose rows show which language has no text yet."
@@ -30,6 +33,7 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.lock :as lock]
@@ -182,14 +186,18 @@
                            (rum/local 0 ::searches)
                            list-all
   "A dialog that finds a value with the `search` (see ui.input-type). It
-  calls `on-value` with the chosen one, or `on-close` when there is none."
+  calls `on-value` with the chosen one, or `on-close` when there is none.
+  With `on-result`, that function gets the chosen result as it is. A result
+  that the search refuses can't be chosen, and it says why."
   [state {:keys [languages] :as opts}
-   {:keys [results-fn value-fn label-fn hiccup-fn title heading placeholder]
+   {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
+           heading placeholder]
     :as   search}
-   {:keys [on-value on-close]}]
+   {:keys [on-value on-result on-close]}]
   (let [results  (::results state)
         searches (::searches state)
         localize #(i18n/da-en languages (:da %) (:en %))
+        refusal  #(when refuse-fn (refuse-fn opts %))
         ;; Only the results of the latest search are shown, and a search
         ;; waits until the typing pauses. Each list of results is tagged
         ;; with its search.
@@ -209,7 +217,9 @@
                    (let [v (value-fn result)]
                      (when-let [label (and label-fn (label-fn result))]
                        (app/remember-labels! {v label}))
-                     (on-value v)))]
+                     (if on-result
+                       (on-result result)
+                       (on-value v))))]
     [:dialog.search-dialog
      {:aria-label (localize title)
       :on-close   on-close
@@ -226,15 +236,16 @@
               :aria-label    (localize title)
               :placeholder   (localize placeholder)
               :on-change     #(search! (.. % -target -value))
-              ;; Enter chooses the first result, once the results are those
-              ;; of the text in the input
+              ;; Enter chooses the first result that can be chosen, once
+              ;; the results are those of the text in the input
               :on-key-down   (fn [e]
                                (when (and (= "Enter" (.-key e))
-                                          (seq @results)
                                           (= @searches
                                              (::search (meta @results) 0)))
-                                 (.preventDefault e)
-                                 (choose! (first @results))))}]
+                                 (when-let [result (first (remove refusal
+                                                                  @results))]
+                                   (.preventDefault e)
+                                   (choose! result))))}]
      ;; the number of results is announced, not every result
      [:p.visually-hidden {:role "status"}
       (when-let [n (some-> @results count)]
@@ -249,11 +260,18 @@
 
         :else
         [:ul.search-dialog__results
-         (for [result @results]
+         {:class (when one-line? "search-dialog__results--one-line")}
+         (for [result @results
+               :let   [reason (refusal result)]]
            [:li {:key (pr-str (value-fn result))}
-            [:button {:type     "button"
-                      :on-click #(choose! result)}
-             (hiccup-fn result opts)]])])]]))
+            ;; not disabled, so that the reason can be reached and read
+            [:button {:type          "button"
+                      :aria-disabled (when reason "true")
+                      :on-click      #(when-not reason
+                                        (choose! result))}
+             (hiccup-fn result opts)
+             (when reason
+               [:small reason])]])])]]))
 
 (rum/defc options-input
   "A dropdown of the `options` named by `label`, starting with the `value`.
@@ -865,6 +883,97 @@
        :else
        (add-button label #(reset! adding? true) (when gap? lang)))]))
 
+(rum/defcs entry-field < (rum/local false ::editing?)
+                         refocus
+                         keep-focus
+  "A field for the new entry with the temporary ID `id` in a row of a table
+  with `opts`: the label that the pending changes give the entry, which
+  can be edited. Its cross takes the entry away, with every change that
+  names it."
+  [state {:keys [languages changes] :as opts} id]
+  (let [editing? (::editing? state)
+        label    (entry/label changes id)
+        text     (if label (str label) (prefix/kw->qname id))
+        named    #(str (i18n/da-en languages %1 %2) ": " text)
+        close!   (fn []
+                   (vreset! (::refocus state) "button")
+                   (reset! editing? false))
+        removal  [(named "Fjern" "Remove")
+                  (fn [& _]
+                    (update-changes! opts change/without-node id))]]
+    [:li.edit-value.edit-value--added
+     (cond-> {:data-entry (prefix/kw->qname id)}
+       (not @editing?) (assoc :class "edit-value--clickable"
+                              :on-click (fn [e]
+                                          (when (opens-input? e)
+                                            (reset! editing? true)))))
+     (if @editing?
+       (text-input opts input-type/text
+                   {:value       label
+                    :lang        (i18n/lang label)
+                    :label       (named "Ret" "Edit")
+                    :remove      removal
+                    :keep-reason (i18n/da-en languages
+                                   "Et nyt opslag skal have en etiket"
+                                   "A new entry needs a label")
+                    :on-cancel   close!
+                    :on-value    (fn [label']
+                                   (close!)
+                                   (app/remember-labels! {id label'})
+                                   (if label
+                                     (update-changes!
+                                       opts change/replace
+                                       [id :rdfs/label label]
+                                       [id :rdfs/label label'])
+                                     (update-changes!
+                                       opts change/add
+                                       [id :rdfs/label label'])))})
+       [:<>
+        [:ins.edit-value__content text]
+        (buttons :added {:edit   [(named "Ret" "Edit")
+                                  #(reset! editing? true)]
+                         :remove removal})])]))
+
+(rum/defcs new-entry-field < (rum/local false ::choosing?)
+  "The field for a new entry in the row of the property `k` in `opts`: a
+  button that opens the search of the `entry-type` (see ui.input-type). The
+  chosen result becomes a new entry, as the change that the :entry-fn of
+  the type makes of it."
+  [state {:keys [languages changes] :as opts}
+   k {:keys [search entry-fn] :as entry-type}]
+  (let [choosing? (::choosing? state)
+        label     (str (i18n/da-en languages
+                         "Tilføj en værdi til" "Add a value to")
+                       " \"" (rdf/link-label opts k) "\"")]
+    [:li.edit-value.edit-value--new
+     (add-button label #(reset! choosing? true))
+     (when @choosing?
+       (search-dialog
+         opts search
+         {:on-result (fn [result]
+                       (let [{:keys [add] :as change}
+                             (entry-fn changes (subject-of opts) result)
+                             labels (into {}
+                                          (for [[s p o] add
+                                                :when   (= p :rdfs/label)
+                                                :when   (change/temporary? s)]
+                                            [s o]))]
+                         (reset! choosing? false)
+                         ;; the other pages name a new entry by its label
+                         (app/remember-labels! labels)
+                         (update-changes! opts conj change)
+                         #?(:cljs
+                            (when-let [id (first (keys labels))]
+                              (when-drawn!
+                                #(.querySelector
+                                   js/document
+                                   (str "[data-entry=\"" (prefix/kw->qname id)
+                                        "\"] button"))
+                                #(.focus %))))))
+          :on-close  (fn [e]
+                       (reset! choosing? false)
+                       (focus-beside! e "button"))}))]))
+
 (defn node-text
   "The text that names a blank node in the row of the property `k` in
   `opts`: its `values` (see row/node-values) as texts, a resource by its
@@ -1056,7 +1165,9 @@
   and then by text. The :constraints of the table shape the fields: the
   languages and the form of a text, the values to choose between, and
   whether the row can take another value or lose one (see
-  dk.cst.dannet.db.shapes/property-constraints)."
+  dk.cst.dannet.db.shapes/property-constraints). A new entry among the
+  values has a field of its own, and so does a row that takes new entries
+  (see entry-field and new-entry-field)."
   [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
   (let [subject     (subject-of opts)
         {:keys [must should]} (get constraints k)
@@ -1098,6 +1209,8 @@
         new-type    (cond-> input-type
                       (:options input-type) (update :options
                                                     #(remove (set values) %)))
+        ;; or a new entry, in a row that takes those
+        entry-type  (get input-type/entry-types k)
         ;; A locked value can be added, since the graph that changes go to
         ;; doesn't hold it, and a container can hold a member twice.
         taken       (when-not (= k shared/member-row)
@@ -1108,14 +1221,23 @@
       (for [{:keys [property value original] :as field} fields]
         ;; keyed by its property and by the value that it replaces, so that
         ;; an edit keeps its field
-        (rum/with-key (value-field opts property value
-                                   (assoc field
-                                     :input-type input-type
-                                     :langs langs
-                                     :required required))
+        (rum/with-key (if (change/temporary? value)
+                        (entry-field opts value)
+                        (value-field opts property value
+                                     (assoc field
+                                       :input-type input-type
+                                       :langs langs
+                                       :required required)))
                       (item-key property (if (some? original) original value))))
-      ;; a row that is full, or whose options are all taken, takes no more
-      (when-not (or full? (some-> (:options new-type) empty?))
+      (cond
+        ;; a row that is full, or whose options are all taken, takes no more
+        (or full? (some-> (:options new-type) empty?))
+        nil
+
+        entry-type
+        (rum/with-key (new-entry-field opts k entry-type) "new")
+
+        :else
         (rum/with-key (new-value-field
                         opts (row/new-value-property k properties) taken
                         {:input-type new-type
