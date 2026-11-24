@@ -269,6 +269,16 @@
   (and (= constraint-component :sh/NodeConstraintComponent)
        (nil? path)))
 
+(defn- linked-properties
+  "The properties that `shapes` have a rule about the links to a resource
+  for, as a set of Jena Nodes: the values of sh:inversePath."
+  [^Shapes shapes]
+  (let [inverse-path (NodeFactory/createURI
+                       "http://www.w3.org/ns/shacl#inversePath")]
+    (into #{}
+          (map #(.getObject ^Triple %))
+          (.toList (.find (.getGraph shapes) Node/ANY inverse-path Node/ANY)))))
+
 (defn validate-changes
   "Validate the `changes` to the dn: graph of `db`, a db of a Dataset,
   against `shapes` (the editorial shapes by default), without writing
@@ -281,10 +291,12 @@
   derived/derive!), e.g. the label of a new synset. Then validate-node
   checks the union of the graphs: the subject of every changed triple, and
   for a blank node the named resources it hangs off, since their shapes
-  cover it. A result that a resource already had before the changes is left
-  out, so an old problem in the data doesn't count against them. Returns
-  the same result map as `validate`, so shacl/violations? and
-  shacl/by-severity apply."
+  cover it. The resource that a changed triple points to is checked too
+  when the shapes have a rule about the links to a resource for its
+  property, e.g. a sense that a synset no longer points to. A result that a
+  resource already had before the changes is left out, so an old problem in
+  the data doesn't count against them. Returns the same result map as
+  `validate`, so shacl/violations? and shacl/by-severity apply."
   ([db changes]
    (validate-changes db @editorial-shapes changes))
   ([{:keys [^Dataset dataset prefixes] :as db} ^Shapes shapes changes]
@@ -296,6 +308,7 @@
            made    (mapv #(db.change/apply-change! dn-db %) changes)
            _       (derived/derive! dn-db made)
            union   (.getUnionGraph (with-graph dsg dn delta))
+           linked  (linked-properties shapes)
            before  (graph-db (.getUnionGraph dsg) prefixes)
            after   (graph-db union prefixes)
            found   (fn [db node]
@@ -308,9 +321,15 @@
            results (->> (convert/triples (mapcat #(concat (:retract %) (:add %))
                                                  made)
                                          prefixes)
-                        (map #(.getSubject ^Triple %))
-                        (mapcat (fn [^Node s]
-                                  (if (.isBlank s) (owners union s) [s])))
+                        (mapcat (fn [^Triple t]
+                                  (let [s (.getSubject t)
+                                        o (.getObject t)]
+                                    (cond-> (if (.isBlank s)
+                                              (vec (owners union s))
+                                              [s])
+                                      (and (.isURI o)
+                                           (contains? linked (.getPredicate t)))
+                                      (conj o)))))
                         (distinct)
                         (into [] (mapcat brought)))]
        {:conforms? (empty? results)

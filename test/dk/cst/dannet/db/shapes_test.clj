@@ -467,7 +467,10 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
       (let [result (shapes/validate-changes
                      g [{:add #{[:dn/synset-3 :rdf/type :ontolex/LexicalConcept]
                                 [:dn/synset-3 :rdfs/label (->LangString "{kat}" "da")]
-                                [:dn/synset-3 :ontolex/lexicalizedSense :dn/sense-1]
+                                [:dn/synset-3 :ontolex/lexicalizedSense :dn/sense-3]
+                                [:dn/sense-3 :rdf/type :ontolex/LexicalSense]
+                                [:dn/sense-3 :rdfs/label (->LangString "kat_§1" "da")]
+                                [:dn/word-3 :ontolex/sense :dn/sense-3]
                                 [:dn/synset-3 :skos/inScheme
                                  "<https://wordnet.dk/dannet/data>"]}}])]
         (is (not (shacl/violations? result)))
@@ -524,6 +527,12 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                                 [:dn/synset-2 :ontolex/lexicalizedSense
                                  :dn/new-sense-1])))
             "not of two synsets")))
+    (testing "a sense that a synset no longer points to is checked too"
+      (is (contains? (shapes-of {:retract #{[:dn/synset-1
+                                             :ontolex/lexicalizedSense
+                                             :dn/sense-1]}})
+                     [:dns/EditorialSenseShape-synset :sh/Violation])
+          "the rule is on the sense, which the change only points to"))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

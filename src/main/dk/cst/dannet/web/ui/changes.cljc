@@ -92,6 +92,15 @@
                 (some #(seq (row-problems [result] entry %)) rows)))
           results))
 
+(defn other-problems
+  "The `results` of a check that are about none of the `entries` that the
+  pending changes are made to, by the entry that each is about. A change
+  can break a rule of an entry that it only points to, e.g. a sense that a
+  synset no longer has."
+  [results entries]
+  (->> (remove (comp (set (map :entry entries)) :focus-node) results)
+       (group-by :focus-node)))
+
 (defn- triples-text
   "The `triples` under a key of a change as EDN text: the patterns of a
   :where in their order, and a set of triples sorted, so that a change
@@ -282,7 +291,9 @@
 
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
-  entries), under a heading that links to the entry and its full IRI."
+  entries), under a heading that links to the entry and its full IRI. An
+  entry without rows only has what the check said about it (see
+  other-problems)."
   [{:keys [languages check] :as opts} entry rows]
   [:section
    [:header
@@ -290,7 +301,8 @@
     (rdf/uri-link entry opts)
     (map #(problem languages %)
          (entry-problems (:results check) entry rows))]
-   (changed-rows opts entry rows nil)])
+   (when (seq rows)
+     (changed-rows opts entry rows nil))])
 
 (defn- check-summary
   "What the `check` of the pending changes is doing or said, in a few words
@@ -366,7 +378,7 @@
   "The pending changes in `opts`, by the entry that each is made to, or a
   note that there are none. Their number is a status, so that an undo is
   read out, and it can take the focus when the last change is undone."
-  [{:keys [languages changes nodes] :as opts}]
+  [{:keys [languages changes nodes check] :as opts}]
   (let [entries (entries changes nodes)
         n       (count changes)]
     [:<>
@@ -386,4 +398,6 @@
         (check-control opts)
         (for [{:keys [entry rows]} entries]
           (rum/with-key (entry-changes opts entry rows) (str entry)))
+        (for [entry (keys (other-problems (:results check) entries))]
+          (rum/with-key (entry-changes opts entry nil) (str entry)))
         (submit-control opts)])]))

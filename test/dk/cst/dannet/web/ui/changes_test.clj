@@ -107,7 +107,12 @@
     (is (= [pos] (changes/row-problems results :dn/word-1 (second rows)))
         "a result about a row has its property, and its entry")
     (is (= [cycle] (changes/entry-problems results :dn/word-1 rows))
-        "a result about no row is about the entry")))
+        "a result about no row is about the entry")
+    (is (= {:dn/synset-1 [other]}
+           (changes/other-problems results [{:entry :dn/word-1 :rows rows}]))
+        "a result about an entry without changes is listed by that entry")
+    (is (empty? (changes/other-problems results [{:entry :dn/word-1}
+                                                 {:entry :dn/synset-1}])))))
 
 (deftest submission
   (let [db      (util/ttl->dataset "
