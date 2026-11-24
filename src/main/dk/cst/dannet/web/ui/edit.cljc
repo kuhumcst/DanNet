@@ -47,6 +47,19 @@
            :aria-hidden "true"}]
    [:span.visually-hidden label]])
 
+(defn add-button
+  "The plus button of a row, which calls `on-click`. The `label` is its name
+  and its tooltip, since the plus of every row looks the same. With `gap`,
+  the button also shows that text, e.g. a language that the row lacks."
+  [label on-click & [gap]]
+  [:button.edit-value__add {:type     "button"
+                            :title    label
+                            :on-click on-click}
+   [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+   (when gap
+     [:span.edit-value__gap {:aria-hidden "true"} gap])
+   [:span.visually-hidden label]])
+
 (defn padlock
   "A padlock icon that says `why` a row or a value can't be edited."
   [why]
@@ -849,15 +862,8 @@
                                 #(reset! adding? true)]
                        :remove removal})]
 
-       ;; the plus says it to the eye, the label to a screen reader
        :else
-       [:button.edit-value__add {:type     "button"
-                                 :title    label
-                                 :on-click #(reset! adding? true)}
-        [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
-        (when gap?
-          [:span.edit-value__gap {:aria-hidden "true"} lang])
-        [:span.visually-hidden label]])]))
+       (add-button label #(reset! adding? true) (when gap? lang)))]))
 
 (defn node-text
   "The text that names a blank node in the row of the property `k` in
@@ -1034,11 +1040,7 @@
 
         :else
         [:li.edit-value.edit-value--new {:key "new"}
-         [:button.edit-value__add {:type     "button"
-                                   :title    label
-                                   :on-click #(add-node! opts k)}
-          [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
-          [:span.visually-hidden label]]])
+         (add-button label #(add-node! opts k))])
       (for [v locked]
         [:li.edit-value.edit-value--locked
          (assoc (rdf/lone-value-attrs v) :key (pr-str (about v)))
