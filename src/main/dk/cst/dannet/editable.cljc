@@ -26,8 +26,12 @@
 
    ;; The properties that the release build only writes for the resources
    ;; of a type. The labels of a synset are made from its senses, while the
-   ;; label of a word is written by hand.
-   :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label :dns/shortLabel}}
+   ;; label of a word is written by hand. The synsets of a word follow from
+   ;; its senses.
+   :derived-by-type {:ontolex/LexicalConcept      #{:rdfs/label :dns/shortLabel}
+                     :ontolex/Word                #{:ontolex/evokes}
+                     :ontolex/MultiwordExpression #{:ontolex/evokes}
+                     :ontolex/Affix               #{:ontolex/evokes}}
 
    ;; The properties that say what a resource is. A synset stays a synset:
    ;; its page, its shapes and its place in the dataset all follow from its

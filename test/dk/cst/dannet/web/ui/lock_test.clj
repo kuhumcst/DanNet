@@ -122,6 +122,10 @@
         "what the release build writes for a synset")
     (is (nil? (lock/lock word :rdfs/label "hund"))
         "the label of a word is written by hand")
+    (is (= [:derived :derived :derived]
+           (map #(lock/lock (opts :dn/word-1 %) :ontolex/evokes :dn/synset-1)
+                [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]))
+        "the synsets of a word follow from its senses")
     (is (= :resource
            (lock/lock (opts :dnt/Animal-Object :dns/OntologicalType)
                       :rdfs/member
