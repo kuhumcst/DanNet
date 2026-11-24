@@ -102,7 +102,7 @@
         uri-link      (rdf/uri-link subject opts)
         locked?       (and edit-mode (not (lock/editable-resource? opts)))]
     [:header.page-header
-     [:h1 {:class (when locked? "locked")}
+     [:h1 (when locked? {:class "locked"})
       (rdf/prefix-badge prefix)
       [:span (cond-> {:title (if label
                                (prefix/kw->qname label-key)
