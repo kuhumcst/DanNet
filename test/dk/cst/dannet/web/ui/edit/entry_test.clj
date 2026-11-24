@@ -49,7 +49,7 @@
               (vals templates))
       "every row of a template leaves one gap to ask for")
   (is (every? #(:search (get input-type/class-input-types %))
-              (mapcat (comp vals :ask) (vals templates)))
+              (filter keyword? (mapcat (comp vals :ask) (vals templates))))
       "every class that a template asks for has a search")
   (testing "a value that starts as a value of another gap"
     (let [quoted #rdf/langstring ["\"vovse\"" "da"]]
@@ -116,6 +116,41 @@
     (is (= #{:rdf/type :rdfs/label :ontolex/sense :ontolex/lexicalizedSense
              :ontolex/evokes}
            (entry/properties templates)))))
+
+(deftest new-synsets
+  (let [synset (:ontolex/LexicalConcept templates)
+        quoted #rdf/langstring ["\"vovse\"" "da"]
+        made   (entry/new-entry synset [] nil nil)
+        change (entry/fill-around sense [] '?synset made
+                                  {'?word :dn/word-1}
+                                  {'?word {:rdfs/label quoted}})]
+    (is (= {:id     :dn/new-synset-1
+            :change {:add #{[:dn/new-synset-1 :rdf/type
+                             :ontolex/LexicalConcept]}}}
+           made)
+        "a synset needs no text")
+    (is (= #{[:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]
+             [:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+             [:dn/new-sense-1 :rdfs/label vovse]
+             [:dn/word-1 :ontolex/sense :dn/new-sense-1]
+             [:dn/new-synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]}
+           (:add change))
+        "a new synset and the new sense of a word are one change")
+    (is (empty? (change/problems change)))
+    (testing "a new synset is named by its senses until the build names it"
+      (is (= {:dn/new-sense-1 vovse :dn/new-synset-1 "{vovse}"}
+             (entry/labels [change] (:derived-labels editable/rules))))
+      (is (= {:dn/new-sense-1 vovse} (entry/labels [change]))
+          "its own labels are the ones in the changes"))
+    (testing "taking a new entry away takes what was made with it"
+      (let [changes [change
+                     {:add #{[:dn/new-synset-1 :skos/definition "x"]}}
+                     {:add #{[:dn/synset-1 :skos/definition "y"]}}]]
+        (is (= [(peek changes)] (entry/without changes :dn/new-sense-1))
+            "the definition of the new synset goes with its sense")
+        (is (= [(peek changes)] (entry/without changes :dn/new-synset-1)))
+        (is (= (pop changes) (entry/without changes :dn/synset-1))
+            "an entry in the data only loses its own changes")))))
 
 (deftest pages-of-new-entries
   (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]

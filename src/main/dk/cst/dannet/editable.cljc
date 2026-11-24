@@ -9,7 +9,8 @@
   The rules are about the editor only. What a property is belongs in the
   RDF schemas, and what a valid entry looks like belongs in the editorial
   shapes, which edit mode reads as the constraints of a page (see
-  dk.cst.dannet.db.shapes/property-constraints).")
+  dk.cst.dannet.db.shapes/property-constraints)."
+  (:require [dk.cst.dannet.shared :as shared]))
 
 (def rules
   "DanNet's rules for edit mode: which resources have fields, which of their
@@ -71,4 +72,17 @@
              :en "A new sense links the word to the synset."}
       :once {:link   [?word :ontolex/evokes ?synset]
              :reason {:da "Ordet er allerede i synsettet"
-                      :en "The word is already in the synset"}}}}})
+                      :en "The word is already in the synset"}}}
+
+     ;; A synset has nothing of its own from the start: the build writes its
+     ;; label from its senses (see :derived-labels).
+     :ontolex/LexicalConcept
+     {:name {:da "Nyt synset" :en "New synset"}
+      :new  {?synset "synset"}
+      :add  #{[?synset :rdf/type :ontolex/LexicalConcept]}}}
+
+   ;; The labels that the build writes, which a new entry is shown with
+   ;; until then: for each class, the property that leads to the entries
+   ;; whose labels it is made of, and the function that makes it of them.
+   :derived-labels  {:ontolex/LexicalConcept [:ontolex/lexicalizedSense
+                                              shared/synset-label]}})

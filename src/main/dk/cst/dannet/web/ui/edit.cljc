@@ -38,7 +38,8 @@
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.lock :as lock]
-            [dk.cst.dannet.web.ui.rdf :as rdf]))
+            [dk.cst.dannet.web.ui.rdf :as rdf]
+            [dk.cst.theophrastus.term :as term]))
 
 (defn icon-button
   "A button with the `icon` that calls `on-click`. The `label` is its name
@@ -192,18 +193,25 @@
 (rum/defcs search-dialog < show-modal
                            (rum/local nil ::results)
                            (rum/local 0 ::searches)
+                           (rum/local "" ::text)
                            list-all
   "A dialog that finds a value with the `search` (see ui.input-type). It
   calls `on-value` with the chosen one, or `on-close` when there is none.
   With `on-result`, that function gets the chosen result as it is. A result
-  that the search refuses can't be chosen, and it says why."
+  that the search refuses can't be chosen, and it says why.
+
+  With `new`, the dialog also offers to make a value, on a line before the
+  results: a map of its :name in each language, and of :fits?, a function
+  of the typed text that says whether a value can be made of it. `on-new`
+  gets the text."
   [state {:keys [languages] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
            heading placeholder note]
     :as   search}
-   {:keys [on-value on-result on-close]}]
+   {:keys [on-value on-result on-close new on-new]}]
   (let [results  (::results state)
         searches (::searches state)
+        text     (::text state)
         localize #(i18n/da-en languages (:da %) (:en %))
         refusal  #(when refuse-fn (refuse-fn opts %))
         ;; Only the results of the latest search are shown, and a search
@@ -246,7 +254,9 @@
               :aria-label       (localize title)
               :aria-describedby (when note "search-dialog-note")
               :placeholder      (localize placeholder)
-              :on-change        #(search! (.. % -target -value))
+              :on-change        #(let [s (.. % -target -value)]
+                                   (reset! text s)
+                                   (search! s))
               ;; Enter chooses the first result that can be chosen, once
               ;; the results are those of the text in the input
               :on-key-down      (fn [e]
@@ -257,10 +267,20 @@
                                                                      @results))]
                                       (.preventDefault e)
                                       (choose! result))))}]
-     ;; the number of results is announced, not every result
+     (when (and new ((:fits? new) @text))
+       [:button.search-dialog__new {:type     "button"
+                                    :on-click #(on-new @text)}
+        [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+        (localize (:name new))
+        (when-let [s (not-empty (str/trim @text))]
+          [:<> ": " [:strong s]])])
+     ;; the number of results is announced, not every result, and so is the
+     ;; line that offers to make a value of the text
      [:p.visually-hidden {:role "status"}
       (when-let [n (some-> @results count)]
-        (i18n/da-en languages (str n " resultater") (str n " results")))]
+        (str (i18n/da-en languages (str n " resultater") (str n " results"))
+             (when (and new ((:fits? new) @text))
+               (str ". " (localize (:name new)) ": " (str/trim @text)))))]
      [:div.search-dialog__body
       (cond
         (nil? @results)
@@ -891,14 +911,22 @@
        :else
        (add-button label #(reset! adding? true) (when gap? lang)))]))
 
+(defn new-labels
+  "Labels for new blank nodes that none of the `nodes` of the session has
+  yet, e.g. _new3 as the first one after two new nodes."
+  [nodes]
+  (let [n (count (filter :new? (vals nodes)))]
+    (map #(symbol (str "_new" (+ n % 1))) (range))))
+
 (rum/defcs entry-field < (rum/local false ::editing?)
                          refocus
                          keep-focus
   "A field for the new entry with the temporary ID `id` in a row of a table
   with `opts`: the label that the pending changes give the entry, as a link
   to the page of the entry. The label can be edited here too. The cross
-  takes the entry away, with every change that names it."
-  [state {:keys [languages changes] :as opts} id]
+  takes the entry away, with every change that names it and the new entries
+  that were made with it."
+  [state {:keys [languages changes draft? subject] :as opts} id]
   (let [editing? (::editing? state)
         label    (get (entry/labels changes) id)
         text     (if label (str label) (prefix/kw->qname id))
@@ -908,7 +936,13 @@
                    (reset! editing? false))
         removal  [(named "Fjern" "Remove")
                   (fn [& _]
-                    (update-changes! opts change/without-node id))]]
+                    (update-changes! opts entry/without id)
+                    ;; the page of a new entry that went with it is empty
+                    (when (and draft?
+                               (nil? (entry/entity nil
+                                                   (entry/without changes id)
+                                                   subject)))
+                      (app/navigate-to prefix/changes-path)))]]
     [:li.edit-value.edit-value--added
      (cond-> {:data-entry (prefix/kw->qname id)}
        (not @editing?) (assoc :class "edit-value--clickable"
@@ -945,14 +979,14 @@
 (rum/defcs new-entry-field < (rum/local false ::choosing?)
   "The field for a new entry in the row of the property `k` in `opts`: a
   button that asks for the gap of the template of the `row-entry` that the
-  subject of the row doesn't fill, with the search of its class (see
-  ui.input-type). The answer fills the template, and the change that it
-  makes is added (see ui.edit.entry, where for-row gives the `row-entry`).
+  subject of the row doesn't fill, with the search of its class. The answer
+  fills the template (see ui.edit.entry, where for-row gives `row-entry`).
 
-  The dialog says what the template adds besides the value of the row. A
-  result is refused when the template allows one new entry for it and the
-  subject, and the data or the pending changes have that entry already."
-  [state {:keys [languages changes entity inverses] :as opts}
+  The dialog says what the template adds besides. It refuses an answer that
+  shares an entry of the template with the subject already, and it offers
+  to make the answer when its class has a template too, e.g. a new synset.
+  A made answer is shown on its own page, since it has rows to fill."
+  [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
    k {:keys [template subject] :as row-entry}]
   (let [choosing? (::choosing? state)
         s         (subject-of opts)
@@ -963,6 +997,15 @@
                     (into (entry/known template inverses entity subject gap)
                           (entry/linked template changes subject s gap)))
         reason    (get-in template [:once :reason])
+        focus!    (fn [change]
+                    #?(:cljs
+                       (when-let [id (first (change/temporary-ids [change]))]
+                         (when-drawn!
+                           #(.querySelector
+                              js/document
+                              (str "[data-entry=\"" (prefix/kw->qname id)
+                                   "\"] button"))
+                           #(.focus %)))))
         add!      (fn [result]
                     (let [starting (entry/starting template {subject entity
                                                              gap     result})
@@ -971,14 +1014,23 @@
                                      gap (value-fn result))
                           change   (entry/fill template changes values)]
                       (update-changes! opts conj change)
-                      #?(:cljs
-                         (when-let [id (first (change/temporary-ids [change]))]
-                           (when-drawn!
-                             #(.querySelector
-                                js/document
-                                (str "[data-entry=\"" (prefix/kw->qname id)
-                                     "\"] button"))
-                             #(.focus %))))))]
+                      (focus! change)))
+        ;; a new answer, made from the template of its class
+        answer    (get (:entries edit-rules) class)
+        make      #(entry/new-entry answer changes % (new-labels nodes))
+        make!     (fn [text]
+                    (let [{:keys [id] :as made} (make text)
+                          change (entry/fill-around template changes gap made
+                                                    {subject s}
+                                                    {subject entity})]
+                      ;; a new blank node has its place in the session
+                      (doseq [[s' p o] (:add change)
+                              :when (term/blank-node? o)]
+                        (app/remember-node! o {:subject  s'
+                                               :property p
+                                               :new?     true}))
+                      (update-changes! opts conj change)
+                      (app/navigate-to (prefix/resolve-href id))))]
     [:li.edit-value.edit-value--new
      (add-button (plus-label opts k) #(reset! choosing? true))
      (when @choosing?
@@ -993,6 +1045,12 @@
          {:on-result (fn [result]
                        (reset! choosing? false)
                        (add! result))
+          :new       (when answer
+                       {:name  (:name answer)
+                        :fits? #(some? (make %))})
+          :on-new    (fn [text]
+                       (reset! choosing? false)
+                       (make! text))
           :on-close  (fn [e]
                        (reset! choosing? false)
                        (focus-beside! e "button"))}))]))
@@ -1015,8 +1073,7 @@
   opened once the page is drawn with it."
   [{:keys [nodes] :as opts} k & [[p v :as value]]]
   (let [subject (subject-of opts)
-        n       (count (filter :new? (vals nodes)))
-        label   (symbol (str "_new" (inc n)))
+        label   (first (new-labels nodes))
         link    [subject k label]]
     (app/remember-node! label {:subject subject :property k :new? true})
     (if value
@@ -1149,7 +1206,10 @@
     [:td
      [:ul.edit-values
       (for [{:keys [value] :as field} fields
-            :let [node (get by-label value)]]
+            :let [node (get by-label value)
+                  ;; the page of a new entry has a new node as its bare label
+                  node (when (map? node)
+                         node)]]
         (rum/with-key
           (or (when sole
                 (sole-field opts k sole value node required))

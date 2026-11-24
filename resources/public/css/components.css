@@ -885,6 +885,16 @@ table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     color: var(--color-muted);
 }
 
+/* The line that offers to make a value, with the plus of a row before its
+   name (see ui.edit/search-dialog). It looks like a result. */
+.search-dialog__new {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    border: var(--subtle-border);
+    border-radius: var(--border-radius-s);
+}
+
 .search-dialog__body {
     min-height: 0;
     overflow-y: auto;
@@ -896,27 +906,34 @@ table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     list-style: none;
 }
 
-/* A result is a button with its label, description and type on lines of
-   their own. */
-.search-dialog__results button {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xxs);
-    width: 100%;
+/* A result and the line that makes a value are buttons that look like
+   lines of text. */
+.search-dialog__results button,
+.search-dialog__new {
     padding: var(--spacing-s) var(--spacing-m);
     font: inherit;
     letter-spacing: inherit;
     text-align: left;
     color: inherit;
     background: none;
-    border: none;
-    border-top: var(--subtle-border);
     cursor: pointer;
 }
 
 .search-dialog__results button:hover,
-.search-dialog__results button:focus-visible {
+.search-dialog__results button:focus-visible,
+.search-dialog__new:hover,
+.search-dialog__new:focus-visible {
     background: var(--color-bg-alt);
+}
+
+/* A result has its label, description and type on lines of their own. */
+.search-dialog__results button {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xxs);
+    width: 100%;
+    border: none;
+    border-top: var(--subtle-border);
 }
 
 .search-dialog__results small {

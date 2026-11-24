@@ -536,19 +536,32 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                                              :dn/sense-1]}})
                      [:dns/EditorialSenseShape-synset :sh/Violation])
           "the rule is on the sense, which the change only points to"))
-    (testing "a template of the editor makes an entry that the rules allow"
-      (let [found  {:ontolex/Word           :dn/word-1
-                    :ontolex/LexicalConcept :dn/synset-2}
-            result {:rdfs/label (->LangString "\"vovse\"" "da")}]
-        (doseq [[class {:keys [ask] :as template}] (:entries editable/rules)]
-          (let [results (update-vals ask (constantly result))
-                values  (merge (entry/starting template results)
-                               (update-vals ask found))
-                change (entry/fill template [] values)]
-            (is (empty? (change/problems change)) (str class))
-            (is (not-any? (comp #{:sh/Violation} peek)
-                          (entry-set (:add change)))
-                (str class))))))
+    (testing "the templates of the editor make entries that the rules allow"
+      (let [templates (:entries editable/rules)
+            sense     (:ontolex/LexicalSense templates)
+            word      {:rdfs/label (->LangString "\"vovse\"" "da")}
+            made      (fn [class text]
+                        (entry/new-entry (get templates class) [] text
+                                         '[_new1]))
+            flows     {:found
+                       (entry/fill sense []
+                                   (merge (entry/starting sense {'?word word})
+                                          '{?word :dn/word-1
+                                            ?synset :dn/synset-2}))
+                       :new-synset
+                       (entry/fill-around
+                         sense [] '?synset (made :ontolex/LexicalConcept nil)
+                         {'?word :dn/word-1} {'?word word})}
+            blocking  (fn [change]
+                        (->> (entry-set (:add change))
+                             (filter (comp #{:sh/Violation} peek))
+                             (map second)
+                             (set)))]
+        (doseq [[flow change] flows]
+          (is (empty? (change/problems change)) (str flow)))
+        (is (empty? (blocking (:found flows))))
+        (is (empty? (blocking (:new-synset flows)))
+            "a new synset only lacks what a synset should have")))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

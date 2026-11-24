@@ -106,13 +106,15 @@
               :edit-rules editable/rules
               ;; Entity pages label the resources of their expanded entity;
               ;; other pages (e.g. SPARQL) may supply their own k->label. The
-              ;; :labels of the state are of resources added in edit mode,
-              ;; and a new entry has its label in the pending changes.
+              ;; :labels of the state are of resources added in edit mode.
+              ;; A new entry has its label in the pending changes, or it is
+              ;; named as the build will name it.
               :k->label (if entities
                           (merge (:labels state)
-                                 (entry/labels changes)
                                  (update-vals (assoc entities subject entity)
-                                              label-of))
+                                              label-of)
+                                 (entry/labels changes
+                                               (:derived-labels editable/rules)))
                           (:k->label data)))
       entity (assoc :inherited (inherited entity)))))
 

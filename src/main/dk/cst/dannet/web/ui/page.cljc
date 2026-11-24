@@ -156,12 +156,14 @@
   "The pending changes of an editor. They are in the browser, with the
   :labels of their resources, so the page has no data of its own. A new
   entry has its label in the changes themselves."
-  [{:keys [languages labels changes] :as opts}]
+  [{:keys [languages labels changes edit-rules] :as opts}]
   [:article.changes
    [:header.page-header
     [:h1 (i18n/da-en languages "Ændringer" "Changes")]]
    (changes/changes-list
-     (assoc opts :k->label (merge labels (entry/labels changes))))])
+     (->> (entry/labels changes (:derived-labels edit-rules))
+          (merge labels)
+          (assoc opts :k->label)))])
 
 (rum/defc error
   "User-friendly error page shown when a page component fails to render.
