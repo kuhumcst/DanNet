@@ -519,6 +519,8 @@ dns:EditorialSenseShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalSense ;
     sh:node dns:LexicalSenseShape ;
     sh:property dns:EditorialSenseShape-label ,
+                dns:EditorialSenseShape-word ,
+                dns:EditorialSenseShape-synset ,
                 dns:EditorialSenseShape-dslSense ,
                 dns:EditorialSenseShape-senseExample ,
                 dns:EditorialSenseShape-usageNote ,
@@ -540,6 +542,24 @@ dns:EditorialSenseShape-label a sh:PropertyShape ;
     sh:languageIn ( "da" ) ;
     sh:severity sh:Violation ;
     sh:message "A sense label must be a single unwrapped @da literal (no quotes or braces)." .
+
+## A sense is the link between one word and one synset: each of the 77288
+## senses is the ontolex:sense of exactly one word and the
+## ontolex:lexicalizedSense of exactly one synset, and no other graph points
+## to a dn: sense with either (2026-11-24).
+dns:EditorialSenseShape-word a sh:PropertyShape ;
+    sh:path [ sh:inversePath ontolex:sense ] ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "A sense must be the ontolex:sense of exactly one word." .
+
+dns:EditorialSenseShape-synset a sh:PropertyShape ;
+    sh:path [ sh:inversePath ontolex:lexicalizedSense ] ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:severity sh:Violation ;
+    sh:message "A sense must be the ontolex:lexicalizedSense of exactly one synset." .
 
 ## A DSL sense is an ID of digits such as "21054863": all 2347 are plain
 ## literals of that form (2026-11-19).

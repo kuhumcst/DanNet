@@ -507,6 +507,23 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
         (is (contains? (entry-set (entry "{vovse}"))
                        [:dn/new-sense-1 :dns/EditorialSenseShape-label :sh/Violation])
             "what the entry has itself is still checked")))
+    (testing "a sense is the link between one word and one synset"
+      (let [sense  #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+                     [:dn/new-sense-1 :rdfs/label (->LangString "vovse" "da")]}
+            word   [:dn/word-1 :ontolex/sense :dn/new-sense-1]
+            synset [:dn/synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]
+            shape  (fn [end]
+                     [:dn/new-sense-1
+                      (keyword "dns" (str "EditorialSenseShape-" end))
+                      :sh/Violation])]
+        (is (empty? (entry-set (conj sense word synset))))
+        (is (= #{(shape "word")} (entry-set (conj sense synset))))
+        (is (= #{(shape "synset")} (entry-set (conj sense word))))
+        (is (= #{(shape "synset")}
+               (entry-set (conj sense word synset
+                                [:dn/synset-2 :ontolex/lexicalizedSense
+                                 :dn/new-sense-1])))
+            "not of two synsets")))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])
