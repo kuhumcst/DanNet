@@ -279,6 +279,28 @@
        ?synset ontolex:lexicalizedSense ?sense .
      }"))
 
+(def lemma-words
+  "The words of DanNet with the bound ?lemma as the written form of their
+  canonical form, each with its label, its part of speech and the labels of
+  its senses."
+  (sparql
+    "SELECT ?word ?lemma ?label ?pos ?senseLabel
+     WHERE {
+       ?word ontolex:canonicalForm/ontolex:writtenRep ?lemma ;
+             rdfs:label ?label .
+       FILTER(STRSTARTS(str(?word), str(dn:))) .
+       OPTIONAL { ?word wn:partOfSpeech ?pos }
+       OPTIONAL { ?word ontolex:sense/rdfs:label ?senseLabel }
+     }"))
+
+(def same-as-labels
+  "The labels of the bound ?resource values, and of the resources that
+  each is the same as. A part of speech such as wn:noun only has an English
+  label of its own, and its Danish one is that of lexinfo:noun."
+  (sparql
+    "SELECT ?resource ?label
+     WHERE { ?resource owl:sameAs?/rdfs:label ?label }"))
+
 (def sense-label-polysemy
   "The polysemy (number of senses) of the word behind every dn: sense label;
   used as a proxy for word commonness when ranking canonical sense labels."

@@ -672,18 +672,23 @@
 (def synsets-path
   (str (prefix/uri->path prefix/dannet-root) "edit/synsets"))
 
+(defn- prefix-lemmas
+  "The string `s` and the first few words that the autocompletion has for
+  it, i.e. words that start with `s`."
+  [s]
+  (->> (some-> (not-empty (shared/search-string s))
+               (instance/autocomplete))
+       (map #(if (vector? %) (first %) %))
+       (take 10)
+       (cons s)
+       (distinct)))
+
 (defn- prefix-synsets
   "The synsets in `g` of the words that start with the string `s`, as the
   search finds them: those of the word `s` itself first, then those of the
   first few words that the autocompletion has for `s`, 30 at most."
   [g s]
-  (let [lemmas  (->> (some-> (not-empty (shared/search-string s))
-                             (instance/autocomplete))
-                     (map #(if (vector? %) (first %) %))
-                     (take 10)
-                     (cons s)
-                     (distinct))
-        synsets (->> (keep #(look-up-any-case g %) lemmas)
+  (let [synsets (->> (keep #(look-up-any-case g %) (prefix-lemmas s))
                      (reduce (fn [acc m] (if acc (into acc m) m)) nil))]
     (when synsets
       (into (empty synsets) (take 30) synsets))))
@@ -708,6 +713,35 @@
          synsets-ic
          response-body-ic]
    :route-name ::synsets])
+
+(def words-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/words"))
+
+(def words-ic
+  "The words of DanNet that start with the lemma in the request, for the
+  editor to choose between: the word that is the lemma itself first, then
+  the first few words that the autocompletion has for it, 30 at most."
+  {:name  ::words
+   :enter (fn [ctx]
+            (let [lemma (decode-query-part
+                          (get-in ctx [:request :query-params :lemma]))]
+              (assoc ctx
+                :content
+                {:words (when (not-empty lemma)
+                          (let [{:keys [dataset inference]} @instance/db]
+                            (->> (prefix-lemmas lemma)
+                                 (search/words
+                                   (theo/named-graph dataset prefix/dn-graph)
+                                   inference)
+                                 (take 30))))})))})
+
+(def words-route
+  "A route of the editor, which only exists in development."
+  [words-path
+   :get [media-type-negotiation-ic
+         words-ic
+         response-body-ic]
+   :route-name ::words])
 
 (def changes-ic
   "The page that lists the pending changes of an editor. The changes are in

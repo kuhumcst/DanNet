@@ -63,6 +63,49 @@
          (sort-by (comp - #(get @q/synset-indegrees % 0) first))
          (into (fop/ordered-map)))))
 
+(defn- homograph
+  "The number that DDO tells words with the same lemma apart by, as the
+  sense `label` has it, e.g. \"1\" in hund_1§1, or nil when it has none."
+  [label]
+  (second (re-find #"_(\d+)§" (str label))))
+
+(defn words
+  "The words of DanNet in `g` whose lemma is one of `lemmas`, in the order
+  of the lemmas. A word is a map of its :rdf/about, :rdfs/label and :lemma,
+  and of its :wn/partOfSpeech with the :labels of that, which are looked up
+  in the graph `schema`, since the datasets don't hold them.
+
+  Words that share a lemma also have their :homograph, the number that DDO
+  tells them apart by, when their senses have one."
+  [g schema lemmas]
+  (let [rank    (zipmap lemmas (range))
+        rows    (theo/q g op/lemma-words
+                        {'?lemma (map #(->LangString % "da") lemmas)})
+        labels  (when-let [parts (seq (distinct (keep '?pos rows)))]
+                  (->> (theo/q schema op/same-as-labels {'?resource parts})
+                       (reduce (fn [m {:syms [?resource ?label]}]
+                                 (update m ?resource conj ?label))
+                               (zipmap parts (repeat #{})))))
+        words   (for [[word [{:syms [?lemma ?label ?pos]} :as rows]]
+                      (group-by '?word rows)]
+                  (cond-> {:rdf/about  word
+                           :rdfs/label ?label
+                           :lemma      ?lemma
+                           :homograph  (some (comp homograph '?senseLabel)
+                                             rows)}
+                    ?pos (assoc :wn/partOfSpeech ?pos
+                                :labels (select-keys labels [?pos]))))
+        shared? (->> (frequencies (map :lemma words))
+                     (keep (fn [[lemma n]] (when (< 1 n) lemma)))
+                     (set))]
+    (->> words
+         (map #(if (and (shared? (:lemma %)) (:homograph %))
+                 %
+                 (dissoc % :homograph)))
+         (sort-by (juxt (comp rank str :lemma)
+                        (comp str :homograph)
+                        (comp str :rdf/about))))))
+
 (comment
   ;; Look up synsets based on the lemma "have"
   (look-up (:inference @dk.cst.dannet.web.instance/db) "have")
