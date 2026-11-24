@@ -887,9 +887,9 @@
                          refocus
                          keep-focus
   "A field for the new entry with the temporary ID `id` in a row of a table
-  with `opts`: the label that the pending changes give the entry, which
-  can be edited. Its cross takes the entry away, with every change that
-  names it."
+  with `opts`: the label that the pending changes give the entry, as a link
+  to the page of the entry. The label can be edited here too. The cross
+  takes the entry away, with every change that names it."
   [state {:keys [languages changes] :as opts} id]
   (let [editing? (::editing? state)
         label    (entry/label changes id)
@@ -919,7 +919,6 @@
                     :on-cancel   close!
                     :on-value    (fn [label']
                                    (close!)
-                                   (app/remember-labels! {id label'})
                                    (if label
                                      (update-changes!
                                        opts change/replace
@@ -929,7 +928,8 @@
                                        opts change/add
                                        [id :rdfs/label label'])))})
        [:<>
-        [:ins.edit-value__content text]
+        ;; as any other resource in the row, so with a link to its page
+        [:ins.edit-value__content (rdf/value opts id)]
         (buttons :added {:edit   [(named "Ret" "Edit")
                                   #(reset! editing? true)]
                          :remove removal})])]))
@@ -951,19 +951,12 @@
        (search-dialog
          opts search
          {:on-result (fn [result]
-                       (let [{:keys [add] :as change}
-                             (entry-fn changes (subject-of opts) result)
-                             labels (into {}
-                                          (for [[s p o] add
-                                                :when   (= p :rdfs/label)
-                                                :when   (change/temporary? s)]
-                                            [s o]))]
+                       (let [change (entry-fn changes (subject-of opts) result)]
                          (reset! choosing? false)
-                         ;; the other pages name a new entry by its label
-                         (app/remember-labels! labels)
                          (update-changes! opts conj change)
                          #?(:cljs
-                            (when-let [id (first (keys labels))]
+                            (when-let [id (first (change/temporary-ids
+                                                   [change]))]
                               (when-drawn!
                                 #(.querySelector
                                    js/document

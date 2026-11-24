@@ -65,6 +65,7 @@
       shared/development? (conj res/ontological-types-route
                                 res/synsets-route
                                 res/words-route
+                                res/entry-route
                                 res/changes-route
                                 res/check-route))))
 

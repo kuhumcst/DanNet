@@ -245,9 +245,11 @@
   shapes describe in the nested table of a blank node (see row/addable). A
   row that has no values in the data is listed last, while it has pending
   changes or since the editor added it. A new blank node starts out with
-  the rows that it must have."
+  the rows that it must have, and the page of a new entry with the rows that
+  it must and should have."
   [state
-   {:keys [subject languages addable changes blank-node constraints] :as opts}
+   {:keys [subject languages addable changes blank-node constraints draft?]
+    :as   opts}
    subentity]
   (let [display-opts (::display-opts state)
         ;; by the subject of the table, since a table outlives a change of page
@@ -257,10 +259,14 @@
         ;; a nested table works out its own rows, so it is passed none
         addable      (if blank-node (row/addable opts) addable)
         opts         (dissoc opts :addable)
-        ;; a new blank node starts out with the rows that it must have
-        starting     (when (:new? blank-node)
-                       (filter #(= :must (row/expected constraints %))
-                               addable))
+        ;; A new blank node starts out with the rows that it must have. A
+        ;; new entry is a page of its own, with room for what it should have.
+        starting     (cond
+                       (:new? blank-node)
+                       (filter #(= :must (row/expected constraints %)) addable)
+
+                       (and draft? (not blank-node))
+                       (filter #(row/expected constraints %) addable))
         open         (row/open-rows addable changes s
                                     (concat starting (get @added s)))
         fielded      (when addable

@@ -10,8 +10,13 @@
             [reitit.frontend.easy :as rfe]
             [reitit.frontend.history :as rfh]
             [taoensso.telemere :as t]
+            [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.ui :as ui]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
+            [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.app :as app]))
 
@@ -198,10 +203,41 @@
                                :data {:languages (or (:languages @app/session)
                                                      ["en" nil "da"])}})))
 
+(defn- fetch-page!
+  "Fetch `url` with `params` and show the page at `path` that `->page` makes
+  of the body of the answer."
+  [path query-params url params ->page]
+  (-> (app/fetch! url {:query-params params})
+      ;; An aborted fetch resolves to nil; the navigation that aborted it
+      ;; shows its own page.
+      (.then (fn [response]
+               (when-let [{:keys [body]} response]
+                 (app/clear-current-fetch url)
+                 (when (current? path)
+                   (show-page! path query-params (->page body))))))
+      (.catch (fn [err]
+                (app/clear-current-fetch url)
+                (t/log! {:level :error
+                         :error err
+                         :data  {:path path}}
+                        "Page fetch failed")
+                (when (current? path)
+                  (show-error!))))))
+
+(defn- new-entry
+  "The new entry that `path` is the page of, as a map of its temporary :id
+  and its :type in the pending changes, or nil when it is the page of
+  something else."
+  [path]
+  (let [id (input-type/->resource (str input-type/site-root path))]
+    (when (change/temporary? id)
+      (when-let [types (:rdf/type (entry/entity (:changes @app/session) id))]
+        {:id id :type (first (shared/setify types))}))))
+
 (defn on-navigate
   "The core frontend function; gets called on every path change and shows the
   page at the new path. The first page is embedded in the HTML; every later
-  page is fetched."
+  page is fetched, except the page of a new entry, which the browser makes."
   [{:keys [path query-params] :as m}]
   ;; Abort in-flight fetches from previous pages to prevent race conditions
   ;; that cause queued pages to load unexpectedly in quick succession.
@@ -211,22 +247,21 @@
     (do
       (reset! embedded nil)
       (show-page! path query-params page))
-    (-> (app/fetch! path {:query-params query-params})
-        ;; An aborted fetch resolves to nil; the navigation that aborted it
-        ;; shows its own page.
-        (.then (fn [response]
-                 (when-let [{:keys [body]} response]
-                   (app/clear-current-fetch path)
-                   (when (current? path)
-                     (show-page! path query-params body)))))
-        (.catch (fn [err]
-                  (app/clear-current-fetch path)
-                  (t/log! {:level :error
-                           :error err
-                           :data  {:path path}}
-                          "Page fetch failed")
-                  (when (current? path)
-                    (show-error!)))))))
+    (if-let [{:keys [id type]} (new-entry path)]
+      ;; The server has no such entry, so it is only asked for what the
+      ;; editor reads from the shapes of the type, and the page is made
+      ;; from the pending changes.
+      (fetch-page! path query-params
+                   "/dannet/edit/entry"
+                   {:type      (prefix/kw->qname type)
+                    :resources (->> (vals entry/inverses)
+                                    (map prefix/kw->qname)
+                                    (str/join ","))}
+                   (fn [body]
+                     {:page  :entity
+                      :title (prefix/kw->qname id)
+                      :data  (entry/page-data id (:data body))}))
+      (fetch-page! path query-params path query-params identity))))
 
 (defn init!
   "Set up the Reitit router. This also starts the rendering loop by calling

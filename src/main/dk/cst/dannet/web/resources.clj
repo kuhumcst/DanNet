@@ -743,6 +743,39 @@
          response-body-ic]
    :route-name ::words])
 
+(def entry-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/entry"))
+
+(def entry-ic
+  "What the editor needs to show a new entry of the type in the request,
+  given as a prefixed name: the :constraints on the properties of the type,
+  and as :entities the labels of the resources that they name, of the type
+  and of the resources in the request, which are prefixed names with
+  commas between them."
+  {:name  ::entry
+   :enter (fn [ctx]
+            (let [{:keys [type resources]} (get-in ctx [:request :query-params])
+                  type'  (some-> type decode-query-part prefix/qname->kw)
+                  others (some->> resources
+                                  (decode-query-part)
+                                  (re-seq #"[^,]+")
+                                  (map prefix/qname->kw))]
+              (assoc ctx
+                :content
+                (when type'
+                  (update (editor-constraints #{type'})
+                          :entities merge
+                          (q/resource-labels (:inference @instance/db)
+                                             (set (cons type' others))))))))})
+
+(def entry-route
+  "A route of the editor, which only exists in development."
+  [entry-path
+   :get [media-type-negotiation-ic
+         entry-ic
+         response-body-ic]
+   :route-name ::entry])
+
 (def changes-ic
   "The page that lists the pending changes of an editor. The changes are in
   the browser, so the page has no data of its own."

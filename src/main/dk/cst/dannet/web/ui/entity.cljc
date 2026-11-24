@@ -149,22 +149,24 @@
        [:p.note.desktop-only [:strong "↪ "] (:supplemented comments)])
      (when (not-empty (:folded opts))
        [:p.note.desktop-only [:strong "⊑ "] (:entailment comments)])
-     [:p.note
-      [:strong "↓ "]
-      (i18n/da-en languages
-        "hent data som: "
-        "download data as: ")
-      [:a {:href     (format-href "turtle")
-           :type     "text/turtle"
-           :title    "Turtle"
-           :download true}
-       "Turtle"]
-      ", "
-      [:a {:href     (format-href "json-ld")
-           :type     "application/ld+json"
-           :title    "JSON-LD"
-           :download true}
-       "JSON-LD"]]]))
+     ;; a new entry is only in the browser, so the server has no data of it
+     (when href
+       [:p.note
+        [:strong "↓ "]
+        (i18n/da-en languages
+          "hent data som: "
+          "download data as: ")
+        [:a {:href     (format-href "turtle")
+             :type     "text/turtle"
+             :title    "Turtle"
+             :download true}
+         "Turtle"]
+        ", "
+        [:a {:href     (format-href "json-ld")
+             :type     "application/ld+json"
+             :title    "JSON-LD"
+             :download true}
+         "JSON-LD"]])]))
 
 (defn da-en-pos
   [languages pos]

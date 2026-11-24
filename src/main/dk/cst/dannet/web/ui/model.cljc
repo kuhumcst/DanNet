@@ -27,7 +27,8 @@
   nested table in the entity: its node and the property that holds it."
   (:require [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.i18n :as i18n]))
+            [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]))
 
 (defn- comments
   "The notes that explain the markers in the tables, in `languages`, and
@@ -83,11 +84,20 @@
 
 (defn render-opts
   "The opts that the components of a page render from: the page `data` merged
-  with the user's `state`, plus the values derived from them."
-  [{:keys [entity subject entities] :as data} {:keys [languages] :as state}]
+  with the user's `state`, plus the values derived from them.
+
+  The page of a new entry is a :draft?. Its entity is what the pending
+  changes of the state say about it (see entry/entity), so the page follows
+  every edit."
+  [{:keys [subject entities draft?] :as data}
+   {:keys [languages changes] :as state}]
   (let [detail-level (or (:detail-level state) :normal)
-        label-of     (shared/->entity-label-fn detail-level)]
+        label-of     (shared/->entity-label-fn detail-level)
+        entity       (if draft?
+                       (entry/entity changes subject)
+                       (:entity data))]
     (cond-> (assoc (merge data state)
+              :entity entity
               :detail-level detail-level
               ;; edit mode shows the tables, so no diagram fills the page
               :full-screen (and (:full-screen state) (not (:edit-mode state)))
@@ -96,9 +106,11 @@
               :edit-rules editable/rules
               ;; Entity pages label the resources of their expanded entity;
               ;; other pages (e.g. SPARQL) may supply their own k->label. The
-              ;; :labels of the state are of resources added in edit mode.
+              ;; :labels of the state are of resources added in edit mode,
+              ;; and a new entry has its label in the pending changes.
               :k->label (if entities
                           (merge (:labels state)
+                                 (entry/labels changes)
                                  (update-vals (assoc entities subject entity)
                                               label-of))
                           (:k->label data)))
