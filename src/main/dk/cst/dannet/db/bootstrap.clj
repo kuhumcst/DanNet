@@ -19,6 +19,7 @@
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db :as db]
             [dk.cst.dannet.db.change :as db.change]
+            [dk.cst.dannet.db.derived :as derived]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.db.bootstrap.downloads :as downloads]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
@@ -29,15 +30,7 @@
             [dk.cst.dannet.prefix :as prefix])
   (:import [java.io File]
            [java.time LocalDateTime]
-           [java.time.format DateTimeFormatter]
-           [org.apache.jena.rdf.model Model]))
-
-(h/defn synset-label
-  "The label of a synset given the `labels` of its senses, i.e. the distinct
-  labels sorted and joined, e.g. {hund_1§1; køter_§1}, in the language of
-  `->lang` (md/da or md/en)."
-  [->lang labels]
-  (->lang "{" (str/join "; " (sort (distinct (map str labels)))) "}"))
+           [java.time.format DateTimeFormatter]))
 
 (h/defn add-open-english-wordnet-labels!
   "Generate appropriate labels for the (otherwise unlabeled) OEWN in `dataset`."
@@ -54,7 +47,7 @@
               "Adding OEWN synset labels")
       (->> (reduce collect-rep {} ms)
            (map (fn [[synset labels]]
-                  [synset :rdfs/label (synset-label md/en labels)]))
+                  [synset :rdfs/label (md/en (shared/synset-label labels))]))
            (theo/transact! label-graph))
       (t/log! {:level :debug
                :id    :dannet.bootstrap/oewn-word-labels
@@ -124,21 +117,41 @@
                                  [prefix/cor-graph prefix/cor-uri md/<cor>]
                                  [prefix/cor-sem-graph (str prefix/cor-uri "COR.SEM.") md/<cor-sem>]
                                  [prefix/framenet-graph prefix/framenet-uri md/<framenet>]]]
-    (let [g            (theo/named-graph dataset graph)
-          ^Model model (:model g)
-          subjects     (txn/with-read-transaction model
-                         (->> (iterator-seq (.listSubjects model))
-                              (filter #(.isURIResource %))
-                              (map #(.getURI %))
-                              (filter #(str/starts-with? % ns-uri))
-                              (doall)))]
+    (let [g      (theo/named-graph dataset graph)
+          change (derived/in-scheme g ns-uri scheme)]
       (t/log! {:level :info
                :id    :dannet.bootstrap/add-in-scheme
                :data  {:scheme scheme
-                       :count  (count subjects)}}
+                       :count  (count (:add change))}}
               "Adding skos:inScheme to resources")
-      (db/safe-add! g (for [uri subjects]
-                        [(prefix/uri->rdf-resource uri) :skos/inScheme scheme])))))
+      (derived/write! g change))))
+
+(h/defn regenerate-synset-labels!
+  "Regenerate the rdfs:label of every dn: synset from the labels of its
+  senses (see derived/synset-labels).
+
+  Must run before regenerate-short-labels!, which reads the labels."
+  [dataset]
+  (let [g      (theo/named-graph dataset prefix/dn-graph)
+        change (derived/synset-labels g)]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/regenerate-synset-labels
+             :data  {:count (count (:add change))}}
+            "Regenerating synset labels")
+    (derived/write! g change)))
+
+(h/defn regenerate-evoked-synsets!
+  "Regenerate the ontolex:evokes links of every dn: word from its senses
+  (see derived/evoked-synsets)."
+  [dataset]
+  (let [g      (theo/named-graph dataset prefix/dn-graph)
+        change (derived/evoked-synsets g)]
+    (t/log! {:level :info
+             :id    :dannet.bootstrap/regenerate-evoked-synsets
+             :data  {:added     (count (:add change))
+                     :retracted (count (:retract change))}}
+            "Regenerating the synsets that words evoke")
+    (derived/write! g change)))
 
 (h/defn regenerate-short-labels!
   "Regenerate every dns:shortLabel from its synset's rdfs:label, ranking the
@@ -261,7 +274,9 @@
 
     ;; ==== Derived data, regenerated for every release. NOT cleared out. ====
     (add-in-scheme! dataset)
-    (regenerate-short-labels! dataset)))
+    (regenerate-synset-labels! dataset)
+    (regenerate-short-labels! dataset)
+    (regenerate-evoked-synsets! dataset)))
 
 (defn ->dataset
   "The db of a dataset of the given `db-type`, :tdb2 or :in-mem, with the
@@ -446,9 +461,14 @@
                             (hash (release-changes))
                             (:hash (meta #'apply-changes!))
                             (:hash (meta #'retype-long-literals!))
-                            (:hash (meta #'synset-label))
+                            (:hash (meta #'derived/in-scheme))
+                            (:hash (meta #'derived/synset-labels))
+                            (:hash (meta #'derived/evoked-synsets))
+                            (:hash (meta #'derived/write!))
                             (:hash (meta #'add-in-scheme!))
+                            (:hash (meta #'regenerate-synset-labels!))
                             (:hash (meta #'regenerate-short-labels!))
+                            (:hash (meta #'regenerate-evoked-synsets!))
                             (:hash (meta #'md/add-dataset-statistics!))
                             (:hash (meta #'md/metadata))
                             (:hash (meta #'md/update-metadata!))

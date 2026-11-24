@@ -253,6 +253,32 @@
        ?sense rdfs:label ?label .
      }"))
 
+(def synset-and-sense-labels
+  "The rdfs:label of every member sense of a synset, with the label of the
+  synset itself when it has one."
+  (sparql
+    "SELECT ?synset ?label ?senseLabel
+     WHERE {
+       ?synset ontolex:lexicalizedSense ?sense .
+       ?sense rdfs:label ?senseLabel .
+       OPTIONAL { ?synset rdfs:label ?label }
+     }"))
+
+(def evoked-synsets
+  "The synsets that every word points to with ontolex:evokes."
+  (sparql
+    "SELECT ?word ?synset
+     WHERE { ?word ontolex:evokes ?synset }"))
+
+(def sense-synsets
+  "The synsets that every word has a sense in."
+  (sparql
+    "SELECT DISTINCT ?word ?synset
+     WHERE {
+       ?word ontolex:sense ?sense .
+       ?synset ontolex:lexicalizedSense ?sense .
+     }"))
+
 (def sense-label-polysemy
   "The polysemy (number of senses) of the word behind every dn: sense label;
   used as a proxy for word commonness when ranking canonical sense labels."

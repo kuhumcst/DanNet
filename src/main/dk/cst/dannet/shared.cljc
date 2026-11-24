@@ -112,6 +112,12 @@
   #?(:clj  (memo/lru sense-labels* :lru/threshold 2000)
      :cljs (memoize sense-labels*)))
 
+(defn synset-label
+  "The label of a synset with the sense `labels`: the distinct labels sorted
+  and joined in braces, e.g. {hund_1§1; køter_§1}."
+  [labels]
+  (str "{" (str/join "; " (sort (distinct (map str labels)))) "}"))
+
 (def sense-label
   "On matches returns the vector: [s word rest-of-s sub mwe]."
   #"([^_<>]+)(_((?:§|\d|\()[^_ ]+)( .+)?)?")
