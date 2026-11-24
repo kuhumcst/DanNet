@@ -60,7 +60,9 @@ dn:word-2 ontolex:sense dn:sense-2 .")
 
 (deftest release-changes
   (is (empty? (mapcat change/problems (bootstrap/release-changes)))
-      "every change of this release is well-formed"))
+      "every change of this release is well-formed")
+  (is (empty? (change/temporary-ids (bootstrap/release-changes)))
+      "and none has a temporary ID"))
 
 (deftest applying-changes
   (let [add-sense     {:add #{[:dn/entry-1 :ontolex/sense :dn/sense-2]}}
@@ -84,6 +86,14 @@ dn:word-2 ontolex:sense dn:sense-2 .")
                               (bootstrap/apply-changes!
                                 dataset [add-sense stale])))
         (is (= #{:dn/sense-1} (senses dataset)))))))
+
+(deftest temporary-ids
+  (doseq [dataset (entry-datasets)]
+    (is (thrown-with-msg? ExceptionInfo #"temporary IDs"
+                          (bootstrap/apply-changes!
+                            dataset
+                            [{:add #{[:dn/entry-1 :ontolex/sense :dn/new-sense-1]}}])))
+    (is (= #{:dn/sense-1} (senses dataset)))))
 
 (deftest derived-values
   (doseq [dataset (datasets synset)]

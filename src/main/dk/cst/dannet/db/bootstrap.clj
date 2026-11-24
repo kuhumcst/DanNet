@@ -15,6 +15,7 @@
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.theophrastus.tdb2 :as tdb2]
             [dk.cst.theophrastus.txn :as txn]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.query :as q]
             [dk.cst.dannet.db.query.operation :as op]
             [dk.cst.dannet.db :as db]
@@ -202,10 +203,14 @@
   write transaction.
 
   The changes are validated first (see shapes/validate-changes), so a stale
-  change or one that breaks an editorial rule stops the build. Must run
-  after add-open-english-wordnet!, since the rules look up the targets of
-  English links."
+  change or one that breaks an editorial rule stops the build, and so does
+  a temporary ID, which must never be released. Must run after
+  add-open-english-wordnet!, since the rules look up the targets of English
+  links."
   [dataset changes]
+  (when-some [ids (not-empty (change/temporary-ids changes))]
+    (throw (ex-info "The changes of the release have temporary IDs"
+                    {:ids ids})))
   (t/log! {:level :info
            :id    :dannet.bootstrap/apply-changes
            :data  {:count (count changes)}}

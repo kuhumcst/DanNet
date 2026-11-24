@@ -206,6 +206,29 @@
                         :add   #{['_form :ontolex/writtenRep hunde]}}))
           "and that no pattern can name"))))
 
+(deftest temporary-ids
+  (let [synset  [:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]
+        link    [:dn/new-synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]
+        changes [{:add #{synset link}}
+                 {:where   [[:dn/new-synset-1 :wn/hypernym '?h]]
+                  :retract #{['?h :wn/hyponym "<https://wordnet.dk/dannet/data/new-synset-2>"]}}]]
+    (is (every? change/temporary? [:dn/new-synset-1
+                                   "<https://wordnet.dk/dannet/data/new-word-12>"]))
+    (is (not-any? change/temporary? [:dn/synset-1 :dn/newt-1 :dns/new-1 '_new1
+                                     "new-1" "<https://example.com/new-1>"]))
+    (is (= #{:dn/new-synset-1 :dn/new-sense-1
+             "<https://wordnet.dk/dannet/data/new-synset-2>"}
+           (change/temporary-ids changes))
+        "in the patterns too")
+    (is (= #{} (change/temporary-ids [{:add #{old-hypernym}}])))
+    (testing "a new entry gets the first ID of its kind that isn't taken"
+      (is (= :dn/new-synset-1 (change/temporary-id [] "synset")))
+      (is (= :dn/new-sense-2 (change/temporary-id changes "sense")))
+      (is (= :dn/new-synset-2 (change/temporary-id (take 1 changes) "synset")))
+      (is (= :dn/new-word-1 (change/temporary-id changes "word"))))
+    (is (empty? (mapcat change/problems changes))
+        "a temporary ID is an IRI like any other")))
+
 (deftest nodes-in-pending-changes
   (let [link    [:dn/word-1 :ontolex/otherForm '_form]
         place   {:subject  :dn/word-1

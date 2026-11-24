@@ -36,6 +36,12 @@
 
   The problems function checks all of this.
 
+  A new entry, e.g. a synset, has no ID until a curator accepts the change
+  that makes it. Until then it goes by a temporary ID in the dn: namespace,
+  e.g. :dn/new-synset-1. A temporary ID is an IRI like any other: the
+  shapes cover the entry, and later changes can name it. A release applies
+  no change that still has one.
+
   The match binds the ?variables and gives a plain change, of triples only.
   The pending changes of an editor are a vector of changes, one for each
   edit, so that each can be undone on its own. A pending change names a
@@ -44,7 +50,9 @@
   locate-nodes writes the ?variable and the :where for a node in the data,
   and gathers the additions of a new node into one change."
   (:refer-clojure :exclude [replace])
-  (:require [dk.cst.theophrastus.term :as term]))
+  (:require [clojure.string :as str]
+            [dk.cst.theophrastus.term :as term]
+            [dk.cst.dannet.prefix :as prefix]))
 
 ;; An edit made twice is made once, so that a field which enters its value
 ;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
@@ -189,6 +197,35 @@
   (into #{}
         (comp (filter triple-form?) cat (filter term/blank-node?))
         add))
+
+(defn temporary?
+  "Is `x` the temporary ID of a new entry, e.g. :dn/new-synset-1?"
+  [x]
+  (cond
+    (keyword? x) (and (= "dn" (namespace x))
+                      (str/starts-with? (name x) "new-"))
+    (string? x) (str/starts-with? x (str "<" prefix/dn-uri "new-"))
+    :else false))
+
+(defn temporary-ids
+  "The temporary IDs in the `changes`, as a set."
+  [changes]
+  (into #{}
+        (comp (mapcat (juxt :where :retract :add))
+              cat
+              (filter triple-form?)
+              cat
+              (filter temporary?))
+        changes))
+
+(defn temporary-id
+  "A temporary ID for a new entry of the `kind`, e.g. \"synset\", that the
+  pending `changes` don't have yet: :dn/new-synset-1, then :dn/new-synset-2."
+  [changes kind]
+  (->> (iterate inc 1)
+       (map #(keyword "dn" (str "new-" kind "-" %)))
+       (remove (temporary-ids changes))
+       (first)))
 
 (defn problems
   "The problems of the `change`, as maps of a :problem and what it concerns,
