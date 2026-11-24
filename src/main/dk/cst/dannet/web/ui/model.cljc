@@ -89,12 +89,12 @@
   The page of a new entry is a :draft?. Its entity is what the pending
   changes of the state say about it (see entry/entity), so the page follows
   every edit."
-  [{:keys [subject entities draft?] :as data}
+  [{:keys [subject entities draft? inverses] :as data}
    {:keys [languages changes] :as state}]
   (let [detail-level (or (:detail-level state) :normal)
         label-of     (shared/->entity-label-fn detail-level)
         entity       (if draft?
-                       (entry/entity changes subject)
+                       (entry/entity inverses changes subject)
                        (:entity data))]
     (cond-> (assoc (merge data state)
               :entity entity

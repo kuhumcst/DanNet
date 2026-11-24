@@ -24,8 +24,9 @@
   The word is found in a dialog, and the field shows the label of the sense.
 
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
-  :languages that the dropdown of a text offers, where nil is none, and the
-  :translated properties, whose rows show which language has no text yet."
+  :languages that the dropdown of a text offers, where nil is none, the
+  :translated properties, whose rows show which language has no text yet,
+  and the :entries, which are the templates of the new entries."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
@@ -198,7 +199,7 @@
   that the search refuses can't be chosen, and it says why."
   [state {:keys [languages] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
-           heading placeholder]
+           heading placeholder note]
     :as   search}
    {:keys [on-value on-result on-close]}]
   (let [results  (::results state)
@@ -238,21 +239,24 @@
       [:h2 (or heading (localize title))]
       (icon-button "remove" (i18n/da-en languages "Luk" "Close")
                    (fn [e] (.close (.closest (.-target e) "dialog"))))]
-     [:input {:type          "search"
-              :auto-complete "off"
-              :aria-label    (localize title)
-              :placeholder   (localize placeholder)
-              :on-change     #(search! (.. % -target -value))
+     (when note
+       [:p#search-dialog-note.search-dialog__note (localize note)])
+     [:input {:type             "search"
+              :auto-complete    "off"
+              :aria-label       (localize title)
+              :aria-describedby (when note "search-dialog-note")
+              :placeholder      (localize placeholder)
+              :on-change        #(search! (.. % -target -value))
               ;; Enter chooses the first result that can be chosen, once
               ;; the results are those of the text in the input
-              :on-key-down   (fn [e]
-                               (when (and (= "Enter" (.-key e))
-                                          (= @searches
-                                             (::search (meta @results) 0)))
-                                 (when-let [result (first (remove refusal
-                                                                  @results))]
-                                   (.preventDefault e)
-                                   (choose! result))))}]
+              :on-key-down      (fn [e]
+                                  (when (and (= "Enter" (.-key e))
+                                             (= @searches
+                                                (::search (meta @results) 0)))
+                                    (when-let [result (first (remove refusal
+                                                                     @results))]
+                                      (.preventDefault e)
+                                      (choose! result))))}]
      ;; the number of results is announced, not every result
      [:p.visually-hidden {:role "status"}
       (when-let [n (some-> @results count)]
@@ -896,7 +900,7 @@
   takes the entry away, with every change that names it."
   [state {:keys [languages changes] :as opts} id]
   (let [editing? (::editing? state)
-        label    (entry/label changes id)
+        label    (get (entry/labels changes) id)
         text     (if label (str label) (prefix/kw->qname id))
         named    #(str (i18n/da-en languages %1 %2) ": " text)
         close!   (fn []
@@ -940,30 +944,55 @@
 
 (rum/defcs new-entry-field < (rum/local false ::choosing?)
   "The field for a new entry in the row of the property `k` in `opts`: a
-  button that opens the search of the `entry-type` (see ui.input-type). The
-  chosen result becomes a new entry, as the change that the :entry-fn of
-  the type makes of it."
-  [state {:keys [languages changes] :as opts}
-   k {:keys [search entry-fn] :as entry-type}]
-  (let [choosing? (::choosing? state)]
+  button that asks for the gap of the template of the `row-entry` that the
+  subject of the row doesn't fill, with the search of its class (see
+  ui.input-type). The answer fills the template, and the change that it
+  makes is added (see ui.edit.entry, where for-row gives the `row-entry`).
+
+  The dialog says what the template adds besides the value of the row. A
+  result is refused when the template allows one new entry for it and the
+  subject, and the data or the pending changes have that entry already."
+  [state {:keys [languages changes entity inverses] :as opts}
+   k {:keys [template subject] :as row-entry}]
+  (let [choosing? (::choosing? state)
+        s         (subject-of opts)
+        [gap class] (first (entry/asked template [subject]))
+        search    (:search (get input-type/class-input-types class))
+        value-fn  (:value-fn search)
+        taken     (when (:once template)
+                    (into (entry/known template inverses entity subject gap)
+                          (entry/linked template changes subject s gap)))
+        reason    (get-in template [:once :reason])
+        add!      (fn [result]
+                    (let [starting (entry/starting template {subject entity
+                                                             gap     result})
+                          values   (assoc starting
+                                     subject s
+                                     gap (value-fn result))
+                          change   (entry/fill template changes values)]
+                      (update-changes! opts conj change)
+                      #?(:cljs
+                         (when-let [id (first (change/temporary-ids [change]))]
+                           (when-drawn!
+                             #(.querySelector
+                                js/document
+                                (str "[data-entry=\"" (prefix/kw->qname id)
+                                     "\"] button"))
+                             #(.focus %))))))]
     [:li.edit-value.edit-value--new
      (add-button (plus-label opts k) #(reset! choosing? true))
      (when @choosing?
        (search-dialog
-         opts search
+         opts
+         (cond-> (assoc search :note (:note template))
+           taken (assoc :refuse-fn
+                        (fn [_ result]
+                          (when (contains? taken (value-fn result))
+                            (i18n/da-en languages
+                              (:da reason) (:en reason))))))
          {:on-result (fn [result]
-                       (let [change (entry-fn changes (subject-of opts) result)]
-                         (reset! choosing? false)
-                         (update-changes! opts conj change)
-                         #?(:cljs
-                            (when-let [id (first (change/temporary-ids
-                                                   [change]))]
-                              (when-drawn!
-                                #(.querySelector
-                                   js/document
-                                   (str "[data-entry=\"" (prefix/kw->qname id)
-                                        "\"] button"))
-                                #(.focus %))))))
+                       (reset! choosing? false)
+                       (add! result))
           :on-close  (fn [e]
                        (reset! choosing? false)
                        (focus-beside! e "button"))}))]))
@@ -1202,7 +1231,7 @@
                       (:options input-type) (update :options
                                                     #(remove (set values) %)))
         ;; or a new entry, in a row that takes those
-        entry-type  (get input-type/entry-types k)
+        row-entry   (entry/for-row (:entries edit-rules) k)
         ;; A locked value can be added, since the graph that changes go to
         ;; doesn't hold it, and a container can hold a member twice.
         taken       (when-not (= k shared/member-row)
@@ -1226,8 +1255,8 @@
         (or full? (some-> (:options new-type) empty?))
         nil
 
-        entry-type
-        (rum/with-key (new-entry-field opts k entry-type) "new")
+        row-entry
+        (rum/with-key (new-entry-field opts k row-entry) "new")
 
         :else
         (rum/with-key (new-value-field

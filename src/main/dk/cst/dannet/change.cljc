@@ -157,7 +157,7 @@
   (let [changes (vec changes)]
     (into (subvec changes 0 i) (subvec changes (inc i)))))
 
-(defn- variable?
+(defn variable?
   "Is `x` a ?variable?"
   [x]
   (and (symbol? x) (= \? (first (name x)))))

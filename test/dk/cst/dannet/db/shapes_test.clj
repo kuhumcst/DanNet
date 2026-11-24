@@ -10,9 +10,12 @@
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.shacl :as shacl]
             [dk.cst.theophrastus.term :refer [->LangString lang]]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.shapes :as shapes]
+            [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.test-util :as util]))
+            [dk.cst.dannet.test-util :as util]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]))
 
 (def ^:private prefixes "
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -533,6 +536,19 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                                              :dn/sense-1]}})
                      [:dns/EditorialSenseShape-synset :sh/Violation])
           "the rule is on the sense, which the change only points to"))
+    (testing "a template of the editor makes an entry that the rules allow"
+      (let [found  {:ontolex/Word           :dn/word-1
+                    :ontolex/LexicalConcept :dn/synset-2}
+            result {:rdfs/label (->LangString "\"vovse\"" "da")}]
+        (doseq [[class {:keys [ask] :as template}] (:entries editable/rules)]
+          (let [results (update-vals ask (constantly result))
+                values  (merge (entry/starting template results)
+                               (update-vals ask found))
+                change (entry/fill template [] values)]
+            (is (empty? (change/problems change)) (str class))
+            (is (not-any? (comp #{:sh/Violation} peek)
+                          (entry-set (:add change)))
+                (str class))))))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

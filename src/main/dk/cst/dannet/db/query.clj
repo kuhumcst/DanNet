@@ -157,6 +157,15 @@
   []
   (alter-var-root #'synset-indegrees (constantly (delay (read-synset-indegrees)))))
 
+(defn inverse-properties
+  "The inverse of each of the `properties` that has one in graph `g`, which
+  holds the schemas, as a map of a property to its inverse."
+  [g properties]
+  (when (seq properties)
+    (into {}
+          (map (juxt '?property '?inverse))
+          (theo/q g op/inverse-properties {'?property properties}))))
+
 (defn resource-labels
   "Fetch labels for a set of `resources` (keywords or bracketed RDF resource
   strings) from graph `g`. Returns `{resource {label-type #{label-values}}}`."

@@ -878,6 +878,13 @@ table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     border-radius: var(--border-radius-s);
 }
 
+/* What choosing a result does besides, said before the search. */
+.search-dialog__note {
+    margin: 0;
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
 .search-dialog__body {
     min-height: 0;
     overflow-y: auto;

@@ -231,7 +231,8 @@
   [path]
   (let [id (input-type/->resource (str input-type/site-root path))]
     (when (change/temporary? id)
-      (when-let [types (:rdf/type (entry/entity (:changes @app/session) id))]
+      (when-let [types (:rdf/type (entry/entity nil (:changes @app/session)
+                                                id))]
         {:id id :type (first (shared/setify types))}))))
 
 (defn on-navigate
@@ -252,11 +253,7 @@
       ;; editor reads from the shapes of the type, and the page is made
       ;; from the pending changes.
       (fetch-page! path query-params
-                   "/dannet/edit/entry"
-                   {:type      (prefix/kw->qname type)
-                    :resources (->> (vals entry/inverses)
-                                    (map prefix/kw->qname)
-                                    (str/join ","))}
+                   "/dannet/edit/entry" {:type (prefix/kw->qname type)}
                    (fn [body]
                      {:page  :entity
                       :title (prefix/kw->qname id)

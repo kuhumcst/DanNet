@@ -11,6 +11,17 @@
   [& strs]
   (theo/parse-query (apply str strs) prefix/prefixes))
 
+(def inverse-properties
+  "The ?inverse of each bound ?property, as the schemas declare it with
+  owl:inverseOf in either direction."
+  (sparql
+    "SELECT ?property ?inverse
+     WHERE {
+       { ?property owl:inverseOf ?inverse }
+       UNION
+       { ?inverse owl:inverseOf ?property }
+     }"))
+
 (def resource-labels
   "The labels of the bound ?resource values, given as keywords or bracketed
   RDF resource strings."

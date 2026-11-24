@@ -13,7 +13,8 @@
 
 (def rules
   "DanNet's rules for edit mode: which resources have fields, which of their
-  properties never do, and which languages the dropdown of a text offers."
+  properties never do, which languages the dropdown of a text offers, and
+  what a new entry is made of."
   {;; The namespaces of the resources that can be edited. Only the dataset
    ;; itself is: the ontological types (dnt:), the concepts (dnc:) and the
    ;; schema (dns:) define what the entries mean, so a change to one of them
@@ -45,4 +46,29 @@
    ;; The properties whose rows suggest the language that has no text yet.
    ;; This is a hint and not a rule of the data: a synset may have no subject
    ;; at all, which SHACL Core can't tell apart from a missing translation.
-   :translated      #{:dc/description :dc/subject :rdfs/comment}})
+   :translated      #{:dc/description :dc/subject :rdfs/comment}
+
+   ;; What the plus of a row adds when its values are new entries: a
+   ;; template for each class of entry, which is a change with gaps (see
+   ;; dk.cst.dannet.web.ui.edit.entry for what each key means). A template
+   ;; only says how the entries are linked and what a value starts as. What
+   ;; an entry must have besides is in the editorial shapes.
+   ;;
+   ;; The label of a sense starts as the lemma, which is the label of its
+   ;; word without the quotes. A word that evokes a synset has a sense in it
+   ;; already, since the build writes that link from the senses.
+   :entries
+   '{:ontolex/LexicalSense
+     {:new  {?sense "sense"}
+      :add  #{[?sense :rdf/type :ontolex/LexicalSense]
+              [?sense :rdfs/label ?label]
+              [?word :ontolex/sense ?sense]
+              [?synset :ontolex/lexicalizedSense ?sense]}
+      :ask  {?word   :ontolex/Word
+             ?synset :ontolex/LexicalConcept}
+      :from {?label [?word :rdfs/label #"^\"(.*)\"$"]}
+      :note {:da "En ny betydning knytter ordet til synsettet."
+             :en "A new sense links the word to the synset."}
+      :once {:link   [?word :ontolex/evokes ?synset]
+             :reason {:da "Ordet er allerede i synsettet"
+                      :en "The word is already in the synset"}}}}})

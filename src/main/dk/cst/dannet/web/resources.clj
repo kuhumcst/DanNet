@@ -24,8 +24,10 @@
             [dk.cst.dannet.web.anomaly :as anomaly]
             [dk.cst.dannet.web.response :as resp]
             [dk.cst.dannet.web.ui.markdown :as mdc]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.entity :as ent]
+            [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.search :as search]
             [dk.cst.dannet.db.catalog :as catalog]
@@ -374,27 +376,40 @@
             (concat [k] (:in must) (:in should) (constraint-resources node)))
           constraints))
 
+(def entry-inverses
+  "The inverse of each property that the templates of new entries name (see
+  editable/rules), as the schemas declare it. The page of an entry lists
+  what points to it under the inverse of the property, e.g. the words of a
+  synset."
+  (delay (q/inverse-properties (:inference @instance/db)
+                               (entry/properties (:entries editable/rules)))))
+
 (def editor-constraints
-  "The :constraints on the properties of a resource with the set of `types`
-  (see shapes/constraints-of), and the labels of the resources that they
-  name as :entities: each property, since a row can be added for it, and
-  the values that it can choose between."
+  "What the editor reads from the shapes and the schemas for a resource
+  with the set of `types`: the :constraints on its properties (see
+  shapes/constraints-of), the :inverses of the properties that link new
+  entries (see entry-inverses), and the labels of the resources that these
+  name as :entities. A property has a label since a row can be added for
+  it, and so do the values that it can choose between."
   (memoize
     (fn [types]
       (let [constraints (shapes/constraints-of @shapes/editorial-constraints
                                                types)]
         {:constraints constraints
+         :inverses    @entry-inverses
          :entities    (q/resource-labels (:inference @instance/db)
-                                         (set (constraint-resources
-                                                constraints)))}))))
+                                         (-> (constraint-resources constraints)
+                                             (concat (vals @entry-inverses))
+                                             (set)))}))))
 
 (defn- with-constraints
   "The page `content` of a resource with the `types`, with what the editor
-  reads from the shapes (see editor-constraints). The labels that the page
-  already has are kept."
+  reads from the shapes and the schemas (see editor-constraints). The
+  labels that the page already has are kept."
   [content types]
-  (let [{:keys [constraints entities]} (editor-constraints (set types))]
-    (-> (assoc content :constraints constraints)
+  (let [{:keys [constraints inverses entities]} (editor-constraints
+                                                  (set types))]
+    (-> (assoc content :constraints constraints :inverses inverses)
         (update :entities #(merge entities %)))))
 
 (defn- entity-content
@@ -748,25 +763,21 @@
 
 (def entry-ic
   "What the editor needs to show a new entry of the type in the request,
-  given as a prefixed name: the :constraints on the properties of the type,
-  and as :entities the labels of the resources that they name, of the type
-  and of the resources in the request, which are prefixed names with
-  commas between them."
+  given as a prefixed name: what it reads from the shapes and the schemas
+  for the type (see editor-constraints), with the label of the type among
+  the :entities."
   {:name  ::entry
    :enter (fn [ctx]
-            (let [{:keys [type resources]} (get-in ctx [:request :query-params])
-                  type'  (some-> type decode-query-part prefix/qname->kw)
-                  others (some->> resources
-                                  (decode-query-part)
-                                  (re-seq #"[^,]+")
-                                  (map prefix/qname->kw))]
+            (let [type (some-> (get-in ctx [:request :query-params :type])
+                               (decode-query-part)
+                               (prefix/qname->kw))]
               (assoc ctx
                 :content
-                (when type'
-                  (update (editor-constraints #{type'})
+                (when type
+                  (update (editor-constraints #{type})
                           :entities merge
                           (q/resource-labels (:inference @instance/db)
-                                             (set (cons type' others))))))))})
+                                             #{type}))))))})
 
 (def entry-route
   "A route of the editor, which only exists in development."

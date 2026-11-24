@@ -1,13 +1,18 @@
 (ns dk.cst.dannet.web.ui.model-test
   "Tests for the opts that a page renders from."
   (:require [clojure.test :refer [deftest is]]
+            [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.model :as model]))
 
-(def ^:private vovse #rdf/langstring ["vovse" "da"])
+(def vovse #rdf/langstring ["vovse" "da"])
 
 (deftest pages-of-new-entries
-  (let [changes [(entry/new-sense [] :dn/synset-1 :dn/word-1 vovse)]
+  (let [changes [(entry/fill (:ontolex/LexicalSense (:entries editable/rules))
+                             []
+                             {'?synset :dn/synset-1
+                              '?word   :dn/word-1
+                              '?label  vovse})]
         state   {:languages ["da" "en" nil] :changes changes}
         draft   (entry/page-data :dn/new-sense-1 {:entities {}})
         opts    (model/render-opts draft state)]

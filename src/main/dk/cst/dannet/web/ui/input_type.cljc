@@ -11,11 +11,6 @@
   - :description, what a value has to be, as a text in each language;
   - :search, a search for a value in a dialog.
 
-  A row whose new values are new entries has an entry type in place of an
-  input type (see entry-types). It only has a :search, and an :entry-fn: a
-  function of the pending changes, the subject of the row and a chosen
-  result to the change that makes the new entry.
-
   A search is a map too:
 
   - :results-fn, a function of the typed text to results or a promise of
@@ -30,16 +25,15 @@
   - :refuse-fn, a function of the opts and a result to the reason why the
     result can't be chosen, or nil when it can be;
   - :one-line?, true when a result is a name and a short note, which are
-    shown on one line.
+    shown on one line;
+  - :note, what choosing a result does besides, as a map of :da and :en.
 
   The input and the dialog of ui.edit only know these maps, so a new input
   type or a new search needs no change to either."
   (:require [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
-            [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]))
+            [dk.cst.dannet.web.i18n :as i18n]))
 
 (def site-root
   "The scheme and domain of the DanNet site, e.g. \"https://wordnet.dk\"."
@@ -183,55 +177,40 @@
              :hiccup-fn   (fn [{:keys [rdfs/label]} _]
                             [:strong (str label)])}))
 
-(def class-input-types
-  "The input type of a value of each class that has one of its own."
-  {:dns/OntologicalType    ontological-type
-   :ontolex/LexicalConcept synset})
-
-(def new-sense
-  "A new sense in the synset of its row, for a word of DanNet that is found
-  by the start of its lemma, which the server looks up. The sense is
-  labelled with the lemma. A word that the synset has already can't be
-  chosen, since a word has one sense in a synset.
+(def word
+  "A word of DanNet, typed as its ID or found by the start of its lemma,
+  which the server looks up.
 
   A result is the lemma of a word and its part of speech. Words with the
   same lemma have the number that DDO tells them apart by."
-  {:search
-   {:title       {:da "Find et ord" :en "Find a word"}
-    :placeholder {:da "skriv et ord..." :en "write a word..."}
-    :one-line?   true
-    :results-fn  (fn [s]
-                   (when-let [lemma (not-empty (str/trim s))]
-                     (fetch-data "/dannet/edit/words" :words {:lemma lemma})))
-    :value-fn    :rdf/about
-    :label-fn    :rdfs/label
-    :hiccup-fn   (fn [{:keys [lemma homograph labels] pos :wn/partOfSpeech}
-                      {:keys [languages]}]
-                   [:<>
-                    [:strong (str lemma) (when homograph
-                                           [:sup homograph])]
-                    (when pos
-                      [:span (str (or (i18n/select-label languages
-                                                         (get labels pos))
-                                      (name pos)))])])
-    :refuse-fn   (fn [{:keys [languages entity changes subject]}
-                      {word :rdf/about}]
-                   (when (contains? (into (entry/sense-words changes subject)
-                                          (shared/setify
-                                            (:ontolex/isEvokedBy entity)))
-                                    word)
-                     (i18n/da-en languages
-                       "Ordet er allerede i synsettet"
-                       "The word is already in the synset")))}
+  (assoc resource
+    :search {:title       {:da "Find et ord" :en "Find a word"}
+             :placeholder {:da "skriv et ord..." :en "write a word..."}
+             :one-line?   true
+             :results-fn  (fn [s]
+                            (when-let [lemma (not-empty (str/trim s))]
+                              (fetch-data "/dannet/edit/words" :words
+                                          {:lemma lemma})))
+             :value-fn    :rdf/about
+             :label-fn    :rdfs/label
+             :hiccup-fn   (fn [{:keys [lemma homograph labels]
+                                pos   :wn/partOfSpeech}
+                               {:keys [languages]}]
+                            [:<>
+                             [:strong (str lemma) (when homograph
+                                                    [:sup homograph])]
+                             (when pos
+                               [:span (str (or (i18n/select-label
+                                                 languages (get labels pos))
+                                               (name pos)))])])}))
 
-   :entry-fn
-   (fn [changes synset {word :rdf/about :keys [lemma]}]
-     (entry/new-sense changes synset word lemma))})
-
-(def entry-types
-  "The entry type of each property whose rows take new entries as their new
-  values. The senses of a synset take a new sense of a word."
-  {:ontolex/lexicalizedSense new-sense})
+(def class-input-types
+  "The input type of a value of each class that has one of its own. Its
+  search is also how the editor asks for an entry of the class when it
+  fills a template (see ui.edit.entry)."
+  {:dns/OntologicalType    ontological-type
+   :ontolex/LexicalConcept synset
+   :ontolex/Word           word})
 
 (defn fitting
   "The resource `input-type` for the resources whose IRI the `pattern` of a
