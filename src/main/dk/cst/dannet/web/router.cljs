@@ -227,13 +227,15 @@
 (defn- new-entry
   "The new entry that `path` is the page of, as a map of its temporary :id
   and its :type in the pending changes, or nil when it is the page of
-  something else."
+  something else. The type is nil when no change makes the entry any more."
   [path]
   (let [id (input-type/->resource (str input-type/site-root path))]
     (when (change/temporary? id)
-      (when-let [types (:rdf/type (entry/entity nil (:changes @app/session)
-                                                id))]
-        {:id id :type (first (shared/setify types))}))))
+      {:id   id
+       :type (-> (entry/entity nil (:changes @app/session) id)
+                 (:rdf/type)
+                 (shared/setify)
+                 (first))})))
 
 (defn on-navigate
   "The core frontend function; gets called on every path change and shows the
@@ -248,17 +250,26 @@
     (do
       (reset! embedded nil)
       (show-page! path query-params page))
-    (if-let [{:keys [id type]} (new-entry path)]
-      ;; The server has no such entry, so it is only asked for what the
-      ;; editor reads from the shapes of the type, and the page is made
-      ;; from the pending changes.
-      (fetch-page! path query-params
-                   "/dannet/edit/entry" {:type (prefix/kw->qname type)}
-                   (fn [body]
-                     {:page  :entity
-                      :title (prefix/kw->qname id)
-                      :data  (entry/page-data id (:data body))}))
-      (fetch-page! path query-params path query-params identity))))
+    (let [{:keys [id type] :as entry} (new-entry path)]
+      (cond
+        (nil? entry)
+        (fetch-page! path query-params path query-params identity)
+
+        ;; a new entry that was taken away has no page, e.g. after going
+        ;; back to it, so the changes page is shown in its place
+        (nil? type)
+        (app/navigate-to prefix/changes-path {:replace? true})
+
+        ;; The server has no such entry, so it is only asked for what the
+        ;; editor reads from the shapes of the type, and the page is made
+        ;; from the pending changes.
+        :else
+        (fetch-page! path query-params
+                     "/dannet/edit/entry" {:type (prefix/kw->qname type)}
+                     (fn [body]
+                       {:page  :entity
+                        :title (prefix/kw->qname id)
+                        :data  (entry/page-data id (:data body))}))))))
 
 (defn init!
   "Set up the Reitit router. This also starts the rendering loop by calling
