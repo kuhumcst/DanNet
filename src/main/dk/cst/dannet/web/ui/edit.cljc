@@ -957,7 +957,8 @@
                                (nil? (entry/entity nil
                                                    (without changes)
                                                    subject)))
-                      (app/navigate-to prefix/changes-path)))]]
+                      (app/navigate-to prefix/changes-path
+                                       {:replace? true})))]]
     [:li.edit-value.edit-value--added
      (cond-> {:data-entry (prefix/kw->qname id)}
        (not @editing?) (assoc :class "edit-value--clickable"
@@ -995,6 +996,25 @@
         (buttons :added {:edit   [(named "Ret" "Edit")
                                   #(reset! editing? true)]
                          :remove removal})])]))
+
+(defn remove-entry!
+  "Take the new entry with the `id` out of the pending changes of a page
+  with `opts`, with what can't stay without it (see entry/without)."
+  [{:keys [edit-rules] :as opts} id]
+  (app/update-changes! #(entry/without (:entries edit-rules) % id)))
+
+(defn remove-entry-button
+  "The button that takes the new entry with the `id` away as a whole, on a
+  page with `opts`. Its `on-click` does that (see remove-entry!), and what
+  the page needs besides, e.g. to move the focus."
+  [{:keys [languages] :as opts} id on-click]
+  (let [text (i18n/da-en languages
+               "Fjern det nye opslag"
+               "Remove the new entry")]
+    [:button.remove-entry {:type       "button"
+                           :aria-label (str text ": " (rdf/link-label opts id))
+                           :on-click   on-click}
+     text]))
 
 (defn with-pending
   "The `search` for an entry with the new entries in `pending` among its

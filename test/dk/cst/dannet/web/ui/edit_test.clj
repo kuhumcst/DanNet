@@ -80,3 +80,14 @@
            (hiccup-fn vuffer {:languages ["da" "en"]}))
         "a new entry says what it is after its label")
     (is (= [:strong "hund"] (hiccup-fn {:lemma "hund"} {})))))
+
+(deftest removing-a-new-entry
+  (let [[_ {:keys [aria-label]} text]
+        (edit/remove-entry-button
+          {:languages ["da" "en"]
+           :k->label  {:dn/new-word-1 "\"vuffer\""}}
+          :dn/new-word-1
+          identity)]
+    (is (= "Fjern det nye opslag" text))
+    (is (= "Fjern det nye opslag: \"vuffer\"" aria-label)
+        "the name of the button has its text, and says which entry")))

@@ -84,8 +84,10 @@
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
   edit mode, a resource that can't be edited has a grey prefix badge and a
-  padlock before its label."
-  [{:keys [subject languages entity k->label detail-level edit-mode comments]
+  padlock before its label, and a new entry has the button that takes it
+  away, which leaves its page for the list of the pending changes."
+  [{:keys [subject languages entity k->label detail-level edit-mode comments
+           draft?]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
@@ -128,6 +130,12 @@
         [:sup label-lang])]
      (when-not uri-only?
        uri-link)
+     (when (and edit-mode draft?)
+       (edit/remove-entry-button
+         opts subject
+         (fn [_]
+           (edit/remove-entry! opts subject)
+           (app/navigate-to prefix/changes-path {:replace? true}))))
      ;; the editor is a preview in development only
      (when shared/development?
        [:<>

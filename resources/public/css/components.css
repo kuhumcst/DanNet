@@ -223,12 +223,13 @@ article.changes section h2 {
 }
 
 :is(.changes-check, .changes-submit) button,
-article.changes section > header button {
+.remove-entry {
     padding: var(--spacing-xs) var(--spacing-m);
 }
 
-/* A new entry has the button that takes it away below its IRI. */
-article.changes section > header button {
+/* A new entry has the button that takes it away below its IRI, on its own
+   page and in the list of the pending changes. */
+.remove-entry {
     display: block;
     margin: var(--spacing-s) auto 0 auto;
 }

@@ -17,7 +17,6 @@
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
@@ -190,13 +189,13 @@
 
 (defn- remove-entry!
   "Take the new entry with the `id` out of the pending changes in `opts`
-  (see entry/without). The focus moves to the status of the list first,
-  since the button in focus goes away with the entry."
-  [{:keys [edit-rules] :as opts} id]
+  (see edit/remove-entry!). The focus moves to the status of the list
+  first, since the button in focus goes away with the entry."
+  [opts id]
   #?(:cljs (some-> (.querySelector js/document
                                    "article.changes [role=status]")
                    (.focus)))
-  (app/update-changes! #(entry/without (:entries edit-rules) % id)))
+  (edit/remove-entry! opts id))
 
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
@@ -238,11 +237,10 @@
                             #(app/update-changes! change/without-addition t))
 
           :else
-          (edit/icon-button "undo"
-                            (edit/undo-label languages
-                                             (if moved-to :moved status)
-                                             text)
-                            #(app/update-changes! change/without-triple t)))])]))
+          (edit/icon-button
+            "undo"
+            (edit/undo-label languages (if moved-to :moved status) text)
+            #(app/update-changes! change/without-triple t)))])]))
 
 (declare changed-rows)
 
@@ -319,23 +317,16 @@
   entry has a button that takes it away as a whole. An entry without rows
   only has what the check said about it (see other-problems)."
   [{:keys [languages check] :as opts} entry rows]
-  (let [removal (i18n/da-en languages
-                  "Fjern det nye opslag"
-                  "Remove the new entry")]
-    [:section
-     [:header
-      [:h2 (rdf/resource-hyperlink entry opts)]
-      (rdf/uri-link entry opts)
-      (when (change/temporary? entry)
-        [:button
-         {:type       "button"
-          :aria-label (str removal ": " (rdf/link-label opts entry))
-          :on-click   #(remove-entry! opts entry)}
-         removal])
-      (map #(problem languages %)
-           (entry-problems (:results check) entry rows))]
-     (when (seq rows)
-       (changed-rows opts entry rows nil))]))
+  [:section
+   [:header
+    [:h2 (rdf/resource-hyperlink entry opts)]
+    (rdf/uri-link entry opts)
+    (when (change/temporary? entry)
+      (edit/remove-entry-button opts entry #(remove-entry! opts entry)))
+    (map #(problem languages %)
+         (entry-problems (:results check) entry rows))]
+   (when (seq rows)
+     (changed-rows opts entry rows nil))])
 
 (defn- check-summary
   "What the `check` of the pending changes is doing or said, in a few words
