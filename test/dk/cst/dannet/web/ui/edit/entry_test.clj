@@ -146,9 +146,11 @@
       (let [changes [change
                      {:add #{[:dn/new-synset-1 :skos/definition "x"]}}
                      {:add #{[:dn/synset-1 :skos/definition "y"]}}]]
-        (is (= [(peek changes)] (entry/without templates changes :dn/new-sense-1))
+        (is (= [(peek changes)]
+               (entry/without templates changes :dn/new-sense-1))
             "the definition of the new synset goes with its sense")
-        (is (= [(peek changes)] (entry/without templates changes :dn/new-synset-1)))
+        (is (= [(peek changes)]
+               (entry/without templates changes :dn/new-synset-1)))
         (is (= (pop changes) (entry/without templates changes :dn/synset-1))
             "an entry in the data only loses its own changes")))))
 
@@ -185,9 +187,11 @@
                              ['_new2 :ontolex/writtenRep vovse]}}
                      {:add #{['_new2 :ontolex/phoneticRep "vovse"]}}
                      {:add #{['_b1 :ontolex/phoneticRep "vovse"]}}]]
-        (is (= [(peek changes)] (entry/without templates changes :dn/new-word-1))
+        (is (= [(peek changes)]
+               (entry/without templates changes :dn/new-word-1))
             "also the changes that only name a node of the word")
-        (is (= [(peek changes)] (entry/without templates changes :dn/new-sense-1))
+        (is (= [(peek changes)]
+               (entry/without templates changes :dn/new-sense-1))
             "and so does taking away the sense that it was made with")
         (is (= [{:add (disj (:add change)
                             [:dn/new-word-1 :ontolex/canonicalForm '_new1]
@@ -197,7 +201,8 @@
 
 (deftest taking-entries-away
   (let [quoted   #rdf/langstring ["\"vovse\"" "da"]
-        synset   (entry/new-entry (:ontolex/LexicalConcept templates) [] nil nil)
+        synset   (entry/new-entry (:ontolex/LexicalConcept templates)
+                                  [] nil nil)
         ;; a new synset for a word of the data, with the sense 1
         first    (entry/fill-around sense [] '?synset synset
                                     {'?word :dn/word-1}
