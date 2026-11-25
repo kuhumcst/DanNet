@@ -4,10 +4,12 @@
 
   A value is shown as its field shows it, in the tint of its change, and
   with the button that its field has: one that undoes the change, or one
-  that takes an added value away. A check asks the server what the
-  shapes say about the changes, and each result is shown with the entry or
-  the row that it is about. Nothing takes a submitted change yet, so
-  submitting shows the text that would be sent."
+  that takes an added value away. A new entry is one change: its values
+  have no buttons of their own, and one button takes the entry away.
+
+  A check asks the server what the shapes say about the changes, and each
+  result is shown with the entry or the row that it is about. Nothing takes
+  a submitted change yet, so submitting shows the text that would be sent."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
@@ -15,6 +17,7 @@
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
@@ -185,13 +188,26 @@
                       (.focus))))))
      state)})
 
+(defn- remove-entry!
+  "Take the new entry with the `id` out of the pending changes in `opts`
+  (see entry/without). The focus moves to the status of the list first,
+  since the button in focus goes away with the entry."
+  [{:keys [edit-rules] :as opts} id]
+  #?(:cljs (some-> (.querySelector js/document
+                                   "article.changes [role=status]")
+                   (.focus)))
+  (app/update-changes! #(entry/without (:entries edit-rules) % id)))
+
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
-  changes, with a button that undoes its change, or that takes it away when
-  it is added. The `field` is the value as row/fields has it. A value that
-  replaces another is shown below the one that it replaces, and a moved one
-  says which row it has moved from or to."
-  [{:keys [languages] :as opts} s p
+  changes to the `entry`, with a button that undoes its change, or that
+  takes it away when it is added. The `field` is the value as row/fields has
+  it. A value that replaces another is shown below the one that it replaces,
+  and a moved one says which row it has moved from or to.
+
+  A value of a new entry has no button. A new entry as a value has the
+  button that takes that entry away, as its row on a page has."
+  [{:keys [languages] :as opts} entry s p
    {:keys [value status original moved-to] :as field}]
   (let [content (fn [tag v class]
                   [tag (update (rdf/lone-value-attrs v) :class
@@ -205,22 +221,28 @@
                   :edited [:span.edit-value__content
                            (content :del original "edit-value__old")
                            (content :ins value nil)])
-        t       [s p value]]
+        t       [s p value]
+        removal (str (i18n/da-en languages "Fjern" "Remove") ": " text)]
     [:li.edit-value {:class (str "edit-value--" (name status))}
      (if note
        [:span.edit-value__content main note]
        main)
-     [:span.edit-value__actions
-      (if (= status :added)
-        (edit/icon-button "remove"
-                          (str (i18n/da-en languages "Fjern" "Remove")
-                               ": " text)
-                          #(app/update-changes! change/without-addition t))
-        (edit/icon-button "undo"
-                          (edit/undo-label languages
-                                           (if moved-to :moved status)
-                                           text)
-                          #(app/update-changes! change/without-triple t)))]]))
+     (when-not (change/temporary? entry)
+       [:span.edit-value__actions
+        (cond
+          (and (= status :added) (change/temporary? value))
+          (edit/icon-button "remove" removal #(remove-entry! opts value))
+
+          (= status :added)
+          (edit/icon-button "remove" removal
+                            #(app/update-changes! change/without-addition t))
+
+          :else
+          (edit/icon-button "undo"
+                            (edit/undo-label languages
+                                             (if moved-to :moved status)
+                                             text)
+                            #(app/update-changes! change/without-triple t)))])]))
 
 (declare changed-rows)
 
@@ -228,7 +250,7 @@
   "A blank node of the property `p` in the list of the pending changes to
   the `entry`: the values of the node as a nested table, with a button that
   takes a new node away or puts a removed one back. The `field` is the node
-  as rows has it."
+  as rows has it. A node of a new entry has no button."
   [{:keys [languages] :as opts} entry p {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
         text     (edit/node-text opts p (map :value (mapcat :fields rows)))
@@ -238,15 +260,16 @@
       (if (seq rows)
         (changed-rows opts entry rows status)
         (i18n/da-en languages "Ingen værdier endnu" "No values yet"))]
-     [:span.edit-value__actions
-      (if removed?
-        (edit/icon-button "undo"
-                          (edit/undo-label languages :retracted text)
-                          undo!)
-        (edit/icon-button "remove"
-                          (str (i18n/da-en languages "Fjern" "Remove")
-                               ": " text)
-                          undo!))]]))
+     (when-not (change/temporary? entry)
+       [:span.edit-value__actions
+        (if removed?
+          (edit/icon-button "undo"
+                            (edit/undo-label languages :retracted text)
+                            undo!)
+          (edit/icon-button "remove"
+                            (str (i18n/da-en languages "Fjern" "Remove")
+                                 ": " text)
+                            undo!))])]))
 
 (rum/defc changed-rows
   "A table of the `rows` of the pending changes to the `entry` (see
@@ -284,25 +307,35 @@
               (rdf/value opts value)]
 
              :else
-             (rum/with-key (pending-value opts subject property field) k)))]
+             (rum/with-key (pending-value opts entry subject property field)
+                           k)))]
         (when-not node-status
           (map #(problem languages %)
                (row-problems (:results check) entry row)))]])]])
 
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
-  entries), under a heading that links to the entry and its full IRI. An
-  entry without rows only has what the check said about it (see
-  other-problems)."
+  entries), under a heading that links to the entry and its full IRI. A new
+  entry has a button that takes it away as a whole. An entry without rows
+  only has what the check said about it (see other-problems)."
   [{:keys [languages check] :as opts} entry rows]
-  [:section
-   [:header
-    [:h2 (rdf/resource-hyperlink entry opts)]
-    (rdf/uri-link entry opts)
-    (map #(problem languages %)
-         (entry-problems (:results check) entry rows))]
-   (when (seq rows)
-     (changed-rows opts entry rows nil))])
+  (let [removal (i18n/da-en languages
+                  "Fjern det nye opslag"
+                  "Remove the new entry")]
+    [:section
+     [:header
+      [:h2 (rdf/resource-hyperlink entry opts)]
+      (rdf/uri-link entry opts)
+      (when (change/temporary? entry)
+        [:button
+         {:type       "button"
+          :aria-label (str removal ": " (rdf/link-label opts entry))
+          :on-click   #(remove-entry! opts entry)}
+         removal])
+      (map #(problem languages %)
+           (entry-problems (:results check) entry rows))]
+     (when (seq rows)
+       (changed-rows opts entry rows nil))]))
 
 (defn- check-summary
   "What the `check` of the pending changes is doing or said, in a few words

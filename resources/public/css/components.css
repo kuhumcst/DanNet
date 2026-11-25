@@ -222,8 +222,15 @@ article.changes section h2 {
     margin-top: var(--spacing-xxl);
 }
 
-:is(.changes-check, .changes-submit) button {
+:is(.changes-check, .changes-submit) button,
+article.changes section > header button {
     padding: var(--spacing-xs) var(--spacing-m);
+}
+
+/* A new entry has the button that takes it away below its IRI. */
+article.changes section > header button {
+    display: block;
+    margin: var(--spacing-s) auto 0 auto;
 }
 
 /* While a check runs, its button keeps the focus but looks disabled. */
