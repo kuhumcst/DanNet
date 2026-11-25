@@ -160,4 +160,16 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
              text)
           "a new blank node is one change, and a removed one another")
       (is (= (change/locate-nodes pending nodes)
-             (db.change/read-changes (StringReader. text)))))))
+             (db.change/read-changes (StringReader. text)))))
+    (is (= (str "[{:add #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]"
+                " [:dn/new-sense-1 :rdfs/label"
+                " #rdf/langstring [\"hund\" \"da\"]]"
+                " [:dn/word-1 :ontolex/sense :dn/new-sense-1]}}\n"
+                " {:add #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}]")
+           (changes/submission
+             [{:add #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+                      [:dn/word-1 :ontolex/sense :dn/new-sense-1]}}
+              {:add #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}
+              {:add #{[:dn/new-sense-1 :rdfs/label hund]}}]
+             {}))
+        "a new entry is one change, with what is added to it later")))

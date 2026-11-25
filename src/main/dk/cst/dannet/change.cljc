@@ -48,7 +48,7 @@
   blank node by the label that the page has it under, or by a label that
   the editor made for a new one. When the changes are submitted,
   locate-nodes writes the ?variable and the :where for a node in the data,
-  and gathers the additions of a new node into one change."
+  and gathers the changes of a new node or a new entry into one change."
   (:refer-clojure :exclude [replace])
   (:require [clojure.string :as str]
             [dk.cst.theophrastus.term :as term]
@@ -336,43 +336,6 @@
         (reduce (fn [m [s p o]] (update-in m [s p] disj o)) m retract)
         (reduce (fn [m [s p o]] (update-in m [s p] (fnil conj #{}) o)) m add)))
 
-(defn- gather
-  "The pending `changes` with the ones that name a blank node that is `new?`
-  merged into one change for each node, in the place of the first of them."
-  [changes new?]
-  (let [label  (fn [{:keys [add]}]
-                 (first (filter new? (mapcat (juxt first peek) add))))
-        merged (reduce (fn [m change]
-                         (if-let [node (label change)]
-                           (update m node #(merge-with into % change))
-                           m))
-                       {}
-                       changes)]
-    ;; each change of a node becomes the merged one, which is then kept once
-    (distinct (map #(get merged (label %) %) changes))))
-
-(defn locate-nodes
-  "The pending `changes` as they can be applied, when `nodes` is a map of the
-  label of each blank node in them to its place.
-
-  A place is the :subject and :property that hold the node, and its :values
-  in the data as a map of a property to a set of values. A change to such
-  a node gets a ?variable for the label, and a :where with the place and
-  with the values as the changes before it leave them. A node that an
-  editor has made is :new?, and its additions become one change."
-  [changes nodes]
-  (let [new?     #(:new? (get nodes %))
-        nodes    (into {} (remove (comp :new? val)) nodes)
-        of-node? #(contains? nodes (first %))]
-    (first
-      (reduce (fn [[located values] {:keys [retract add] :as change}]
-                [(conj located (locate nodes values change))
-                 (changed-values values
-                                 (filter of-node? retract)
-                                 (filter of-node? add))])
-              [[] (update-vals nodes :values)]
-              (gather changes new?)))))
-
 (defn net
   "The plain `changes` taken together, as one change of the triples to :add and
   to :retract. A triple that a change adds and a later one retracts cancels
@@ -391,6 +354,56 @@
               (reduce add* (reduce retract* acc retract) add))
             {:add #{} :retract #{}}
             changes)))
+
+(defn- gather
+  "The pending `changes` with the ones that name the same thing that is
+  `new?` taken together as one change (see net), in the place of the first
+  of them. Two changes are also taken together when a third one names a new
+  thing of each, e.g. a new word and its new sense."
+  [changes new?]
+  (let [names  (fn [{:keys [retract add]}]
+                 (into #{}
+                       (comp (mapcat (juxt first peek)) (filter new?))
+                       (concat retract add)))
+        ;; each new thing with all the ones that it shares a change with
+        groups (reduce (fn [groups named]
+                         (let [group (into named (mapcat groups) named)]
+                           (into groups (map #(vector % group)) group)))
+                       {}
+                       (map names changes))
+        group  #(some-> (first (names %)) groups)
+        parts  (group-by group changes)
+        whole  (fn [change]
+                 (let [together (some->> (group change) (get parts))]
+                   (if (next together)
+                     (into {} (filter (comp seq val)) (net together))
+                     change)))]
+    ;; each part becomes the whole, which is then kept once
+    (remove empty? (distinct (map whole changes)))))
+
+(defn locate-nodes
+  "The pending `changes` as they can be applied, when `nodes` is a map of the
+  label of each blank node in them to its place.
+
+  A place is the :subject and :property that hold the node, and its :values
+  in the data as a map of a property to a set of values. A change to such
+  a node gets a ?variable for the label, and a :where with the place and
+  with the values as the changes before it leave them.
+
+  A node that an editor has made is :new?. The changes that name it become
+  one change, and so do the changes that name a new entry."
+  [changes nodes]
+  (let [new?     #(:new? (get nodes %))
+        nodes    (into {} (remove (comp :new? val)) nodes)
+        of-node? #(contains? nodes (first %))]
+    (first
+      (reduce (fn [[located values] {:keys [retract add] :as change}]
+                [(conj located (locate nodes values change))
+                 (changed-values values
+                                 (filter of-node? retract)
+                                 (filter of-node? add))])
+              [[] (update-vals nodes :values)]
+              (gather changes (some-fn new? temporary?))))))
 
 (defn resources
   "The IRIs in the triples of the pending `changes`, as a set: every subject,

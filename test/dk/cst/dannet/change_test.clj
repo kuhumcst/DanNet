@@ -300,4 +300,33 @@
                                          nodes)]
         (is (= [{:add #{link written}} {:retract #{old-hypernym}}] located)
             "in the place of the first of them")
-        (is (every? empty? (map change/problems located)))))))
+        (is (every? empty? (map change/problems located)))))
+    (testing "the changes that name a new entry are one change"
+      (let [word    [:dn/new-word-1 :rdf/type :ontolex/Word]
+            form    [:dn/new-word-1 :ontolex/canonicalForm '_new1]
+            written ['_new1 :ontolex/writtenRep hund]
+            sense   [:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
+            label   [:dn/new-sense-1 :rdfs/label hund]
+            link    [:dn/new-word-1 :ontolex/sense :dn/new-sense-1]
+            example [:dn/new-sense-1 :lexinfo/senseExample "en hund"]
+            nodes   {'_new1 {:subject  :dn/new-word-1
+                             :property :ontolex/canonicalForm
+                             :new?     true}}
+            located (change/locate-nodes
+                      [{:add #{word form written}}
+                       {:retract #{old-hypernym}}
+                       {:add #{sense label}}
+                       {:add #{example}}
+                       {:add #{link}}
+                       {:retract #{written} :add #{['_new1 :rdfs/label "x"]}}
+                       {:retract #{label}}]
+                      nodes)]
+        (is (= [{:add #{word form sense link example ['_new1 :rdfs/label "x"]}}
+                {:retract #{old-hypernym}}]
+               located)
+            "with the entries that they link it to, and with its new nodes,
+            but without what a later change takes away again")
+        (is (every? empty? (map change/problems located)))
+        (is (= [{:add #{word}} {:add #{sense}}]
+               (change/locate-nodes [{:add #{word}} {:add #{sense}}] nodes))
+            "two new entries that no change links stay apart")))))
