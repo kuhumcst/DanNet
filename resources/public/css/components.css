@@ -1774,8 +1774,9 @@ td.attr-name > .edit-value__button {
     margin-left: calc(-1 * var(--spacing-l));
 }
 
-/* A value that has moved from one row to another says so below it (see
-   ui.edit/move-note). */
+/* A value has a note below it when there is more to say about it: the row
+   that it has moved from or to (see ui.edit/move-note), or the other
+   entries that hold a new entry (see ui.edit/entry-field). */
 .edit-value__note {
     display: block;
     margin-top: var(--spacing-xs);

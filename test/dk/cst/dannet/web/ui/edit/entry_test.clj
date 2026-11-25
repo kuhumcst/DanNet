@@ -254,7 +254,15 @@
     (is (= [:dn/new-sense-1 :dn/new-sense-2]
            (entry/of-class changes :ontolex/LexicalSense)))
     (is (empty? (entry/of-class changes :ontolex/Word))
-        "an entry in the data isn't a new one")))
+        "an entry in the data isn't a new one")
+    (is (= [:dn/synset-1]
+           (entry/held-by templates changes :dn/new-sense-1 :dn/word-1))
+        "in the row of a word, its synset tells a new sense apart")
+    (is (= [:dn/synset-2]
+           (entry/held-by templates changes :dn/new-sense-2 :dn/word-1)))
+    (is (empty? (entry/held-by templates changes :dn/new-sense-1 :dn/synset-1))
+        "in the row of a synset, the label of the sense names its word")
+    (is (empty? (entry/held-by templates changes :dn/new-sense-9 :dn/word-1)))))
 
 (deftest pages-of-new-entries
   (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]

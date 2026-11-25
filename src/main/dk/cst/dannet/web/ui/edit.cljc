@@ -931,13 +931,20 @@
   "A field for the new entry with the temporary ID `id` in a row of a table
   with `opts`: the label that the pending changes give the entry, as a link
   to the page of the entry. The label can be edited here too. The cross
-  takes the entry away, with every change that names it and the new entries
-  that were made with it."
+  takes the entry away, with what can't stay without it (see entry/without).
+
+  The field also names the other entries that hold the entry, e.g. the
+  synset of a new sense in the row of a word, which tells two senses with
+  the same label apart."
   [state {:keys [languages changes draft? subject edit-rules] :as opts} id]
   (let [editing? (::editing? state)
         without  #(entry/without (:entries edit-rules) % id)
         label    (get (entry/labels changes) id)
-        text     (if label (str label) (prefix/kw->qname id))
+        others   (map #(rdf/link-label opts %)
+                      (entry/held-by (:entries edit-rules) changes id
+                                     (subject-of opts)))
+        text     (cond-> (if label (str label) (prefix/kw->qname id))
+                   (seq others) (str " (" (str/join ", " others) ")"))
         named    #(str (i18n/da-en languages %1 %2) ": " text)
         close!   (fn []
                    (vreset! (::refocus state) "button")
@@ -979,7 +986,12 @@
                                        [id :rdfs/label label'])))})
        [:<>
         ;; as any other resource in the row, so with a link to its page
-        [:ins.edit-value__content (rdf/value opts id)]
+        (let [content [:ins.edit-value__content (rdf/value opts id)]]
+          (if (seq others)
+            [:span.edit-value__content
+             content
+             [:small.edit-value__note (str/join ", " others)]]
+            content))
         (buttons :added {:edit   [(named "Ret" "Edit")
                                   #(reset! editing? true)]
                          :remove removal})])]))

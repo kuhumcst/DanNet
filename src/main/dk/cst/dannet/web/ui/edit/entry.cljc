@@ -177,6 +177,28 @@
                   s))
               (:add (change/net changes)))))
 
+(defn held-by
+  "The entries that hold the new entry with the `id` in the pending
+  `changes`, by the template of its class in `templates`, besides the
+  entry `s` whose row it is shown in. A new sense in the row of a word is
+  held by its synset too.
+
+  An entry that the label of the new entry starts as is left out, since the
+  label names it already, e.g. the word of a new sense."
+  [templates changes id s]
+  (let [added (:add (change/net changes))
+        type  (some (fn [[s' p o]]
+                      (when (and (= s' id) (= p :rdf/type))
+                        o))
+                    added)
+        {:keys [new add from]} (get templates type)
+        named (into #{} (map first) (vals from))]
+    (sort (for [[gap p o]  add
+                :when      (and (contains? new o) (not (named gap)))
+                [x p' o']  added
+                :when      (and (= p p') (= o' id) (not= x s))]
+            x))))
+
 (defn entity
   "The new entry with the `id` as the pending `changes` leave it: its own
   values, and the resources that point to it, under the inverse of the
