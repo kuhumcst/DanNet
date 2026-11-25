@@ -202,7 +202,8 @@
 
   With `new`, the dialog also offers to make a value, on a line before the
   results: a map of its :name in each language, and of :fits?, a function
-  of the typed text that says whether a value can be made of it. `on-new`
+  of the typed text that says whether a value can be made of it. The line
+  shows the text when the value is made of it, which :text? says. `on-new`
   gets the text."
   [state {:keys [languages] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
@@ -214,6 +215,9 @@
         text     (::text state)
         localize #(i18n/da-en languages (:da %) (:en %))
         refusal  #(when refuse-fn (refuse-fn opts %))
+        ;; the text that a new value is made of, when it is made of one
+        made-of  #(when (:text? new)
+                    (not-empty (str/trim @text)))
         ;; Only the results of the latest search are shown, and a search
         ;; waits until the typing pauses. Each list of results is tagged
         ;; with its search.
@@ -272,7 +276,7 @@
                                     :on-click #(on-new @text)}
         [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
         (localize (:name new))
-        (when-let [s (not-empty (str/trim @text))]
+        (when-let [s (made-of)]
           [:<> ": " [:strong s]])])
      ;; the number of results is announced, not every result, and so is the
      ;; line that offers to make a value of the text
@@ -280,7 +284,8 @@
       (when-let [n (some-> @results count)]
         (str (i18n/da-en languages (str n " resultater") (str n " results"))
              (when (and new ((:fits? new) @text))
-               (str ". " (localize (:name new)) ": " (str/trim @text)))))]
+               (str ". " (localize (:name new))
+                    (some->> (made-of) (str ": "))))))]
      [:div.search-dialog__body
       (cond
         (nil? @results)
@@ -1048,6 +1053,7 @@
                        (add! result))
           :new       (when answer
                        {:name  (:name answer)
+                        :text? (some map? (vals (:ask answer)))
                         :fits? #(some? (make %))})
           :on-new    (fn [text]
                        (reset! choosing? false)
