@@ -66,6 +66,7 @@
                                 res/synsets-route
                                 res/words-route
                                 res/entry-route
+                                res/removal-route
                                 res/changes-route
                                 res/check-route))))
 

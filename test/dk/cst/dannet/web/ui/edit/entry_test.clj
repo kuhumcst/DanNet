@@ -1,6 +1,6 @@
 (ns dk.cst.dannet.web.ui.edit.entry-test
-  "Tests for the templates that make new entries, and for what the pending
-  changes say about a new entry."
+  "Tests for the templates that make new entries, for what the pending
+  changes say about a new entry, and for removing an entry of the data."
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.editable :as editable]
@@ -252,6 +252,44 @@
              (left (without changes :dn/new-sense-2) :dn/new-sense-3)))
       (is (= [] (reduce without changes [:dn/new-sense-1 :dn/new-sense-2
                                          :dn/new-sense-3]))))))
+
+(deftest entries-of-the-data
+  (let [vuf      #rdf/langstring ["vuf" "da"]
+        removal  {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                             [:dn/sense-1 :rdfs/label vovse]
+                             [:dn/word-1 :ontolex/sense :dn/sense-1]
+                             [:dn/synset-1 :ontolex/lexicalizedSense
+                              :dn/sense-1]}}
+        relabel  {:retract #{[:dn/sense-1 :rdfs/label vovse]}
+                  :add     #{[:dn/sense-1 :rdfs/label vuf]}}
+        example  {:add #{[:dn/sense-1 :lexinfo/senseExample "en vovse"]}}
+        other    {:add #{[:dn/synset-1 :skos/definition "et dyr"]}}
+        retract  #(entry/retract templates %1 %2 %3)
+        changes  (retract [relabel example other] :dn/sense-1 removal)]
+    (testing "an entry is removed as one change"
+      (is (= [other removal] changes)
+          "and the changes made to it before are dropped")
+      (is (= changes (retract changes :dn/sense-1 removal))
+          "removing it twice changes nothing")
+      (is (entry/retracted? changes :dn/sense-1))
+      (is (not (entry/retracted? changes :dn/synset-1))
+          "an entry that only loses a link isn't removed itself")
+      (is (not (entry/retracted? [relabel] :dn/sense-1)))
+      (is (= [other] (entry/restored changes :dn/sense-1))
+          "putting it back leaves the other changes")
+      (is (= [relabel] (entry/restored [relabel] :dn/sense-1))))
+    (testing "what can't stay without the entry goes with it"
+      (let [word    {:retract #{[:dn/word-1 :rdf/type :ontolex/Word]
+                                [:dn/word-1 :ontolex/canonicalForm '_b1]
+                                ['_b1 :ontolex/writtenRep vovse]}}
+            rewrite {:retract #{['_b1 :ontolex/writtenRep vovse]}
+                     :add     #{['_b1 :ontolex/writtenRep vuf]}}
+            form    {:add #{[:dn/word-1 :ontolex/otherForm '_new1]
+                            ['_new1 :ontolex/writtenRep vuf]}}
+            joined  (new-sense [] :dn/synset-2 :dn/word-1 vovse)]
+        (is (= [other word]
+               (retract [rewrite form joined other] :dn/word-1 word))
+            "an edit to its blank node, a new node and a new sense of it")))))
 
 (deftest new-entries-in-rows
   (let [first   (new-sense [] :dn/synset-1 :dn/word-1 vovse)

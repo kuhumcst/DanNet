@@ -85,9 +85,10 @@
   "The header of the page of the entity in `opts`: its label and its IRI. In
   edit mode, a resource that can't be edited has a grey prefix badge and a
   padlock before its label, and a new entry has the button that takes it
-  away, which leaves its page for the list of the pending changes."
+  away, which leaves its page for the list of the pending changes. An entry
+  that is :removed? as a whole says so, with the button that puts it back."
   [{:keys [subject languages entity k->label detail-level edit-mode comments
-           draft?]
+           draft? removed?]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
@@ -136,6 +137,20 @@
          (fn [_]
            (edit/remove-entry! opts subject)
            (app/navigate-to prefix/changes-path {:replace? true}))))
+     (when removed?
+       [:<>
+        [:p.entry-removed
+         (i18n/da-en languages
+           "Dette opslag fjernes."
+           "This entry is being removed.")]
+        (edit/restore-entry-button
+          opts subject
+          (fn [e]
+            ;; the button goes away, so a link of the header gets the focus
+            #?(:cljs (some-> (.closest (.-currentTarget e) "header")
+                             (.querySelector "a")
+                             (.focus)))
+            (edit/restore-entry! subject)))])
      ;; the editor is a preview in development only
      (when shared/development?
        [:<>

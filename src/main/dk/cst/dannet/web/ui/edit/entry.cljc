@@ -1,7 +1,8 @@
 (ns dk.cst.dannet.web.ui.edit.entry
   "The new entries of edit mode as data: the templates that make them, and
   what the pending changes say about one. A new entry goes by a temporary ID
-  until a curator accepts it (see dk.cst.dannet.change).
+  until a curator accepts it (see dk.cst.dannet.change). An entry of the
+  data that a template describes is removed as a whole (see retract).
 
   A template is a change with gaps. The rules of the editor have one for
   each class of new entry (see dk.cst.dannet.editable). It is a map:
@@ -293,6 +294,37 @@
                         s)]
           (recur kept (distinct (concat xs needing
                                         (remove holds? holders)))))))))
+
+(defn retract
+  "The pending `changes` with the entry `id` of the data removed as a whole
+  by `removal`, the change that retracts every triple of the data that
+  names it (see db.change/removal).
+
+  The changes made to the entry before are dropped, with what can't stay
+  without it (see without), and so are those made to its blank nodes."
+  [templates changes id removal]
+  (let [nodes (filter term/blank-node? (map peek (:retract removal)))]
+    (conj (reduce change/without-node (without templates changes id) nodes)
+          removal)))
+
+(defn- removes?
+  "Does the `change` remove the entry `id` of the data as a whole? It does
+  when it retracts the type of the entry, which no other edit does."
+  [change id]
+  (some (fn [[s p _]] (and (= s id) (= p :rdf/type)))
+        (:retract change)))
+
+(defn retracted?
+  "Do the pending `changes` remove the entry `id` of the data as a whole
+  (see retract)?"
+  [changes id]
+  (boolean (some #(removes? % id) changes)))
+
+(defn restored
+  "The pending `changes` without the one that removes the entry `id` of the
+  data as a whole (see retract), which puts the entry back as it was."
+  [changes id]
+  (into [] (remove #(removes? % id)) changes))
 
 (defn page-data
   "The data of the page of the new entry with the `id`, as the page of an

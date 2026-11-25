@@ -117,3 +117,45 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")]
         (run! #(db.change/apply-change! db %) removal)
         (is (empty? (theo/triples db '[:dn/word-1 :ontolex/canonicalForm _])))
         (is (empty? (theo/triples db ['_ :ontolex/writtenRep hunde])))))))
+
+(deftest removals
+  (let [db    (util/ttl->db "
+@prefix dn: <https://wordnet.dk/dannet/data/> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+dn:word-1 a ontolex:Word ;
+  ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] ;
+  ontolex:sense dn:sense-1 , dn:sense-2 .
+dn:synset-1 ontolex:lexicalizedSense dn:sense-1 .
+dn:sense-1 a ontolex:LexicalSense ;
+  rdfs:label \"hund\"@da .")
+        sense (db.change/removal db :dn/sense-1)
+        {:keys [change nodes] :as word} (db.change/removal db :dn/word-1)
+        [form place] (first nodes)]
+    (is (= {:change {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                                [:dn/sense-1 :rdfs/label hund]
+                                [:dn/word-1 :ontolex/sense :dn/sense-1]
+                                [:dn/synset-1 :ontolex/lexicalizedSense
+                                 :dn/sense-1]}}
+            :nodes  {}}
+           sense)
+        "every triple that names the entry, as a subject or as an object")
+    (is (nil? (db.change/removal db :dn/sense-9))
+        "nothing removes an entry that the graph doesn't name")
+    (testing "a blank node of the entry goes with it, found by its place"
+      (is (= {:subject  :dn/word-1
+              :property :ontolex/canonicalForm
+              :values   {:ontolex/writtenRep #{hund}}}
+             place))
+      (is (= #{[:dn/word-1 :rdf/type :ontolex/Word]
+               [:dn/word-1 :ontolex/canonicalForm form]
+               [form :ontolex/writtenRep hund]
+               [:dn/word-1 :ontolex/sense :dn/sense-1]
+               [:dn/word-1 :ontolex/sense :dn/sense-2]}
+             (:retract change)))
+      (run! #(db.change/apply-change! db %)
+            (change/locate-nodes [change] nodes))
+      (is (empty? (theo/triples db '[:dn/word-1 _ _])))
+      (is (empty? (theo/triples db ['_ :ontolex/writtenRep hund])))
+      (is (= 2 (count (theo/triples db '[:dn/sense-1 _ _])))
+          "and a sense that it pointed to stays"))))

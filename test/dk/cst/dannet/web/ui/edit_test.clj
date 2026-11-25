@@ -1,6 +1,8 @@
 (ns dk.cst.dannet.web.ui.edit-test
   "Tests for the buttons, the mark and the messages of a field in edit mode."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
+            [rum.core :as rum]
             [dk.cst.dannet.web.ui.edit :as edit]))
 
 (deftest field-buttons
@@ -91,3 +93,30 @@
     (is (= "Fjern det nye opslag" text))
     (is (= "Fjern det nye opslag: \"vuffer\"" aria-label)
         "the name of the button has its text, and says which entry")))
+
+(deftest entries-of-the-data
+  (let [opts {:languages ["da" "en"]
+              :subject   :dn/synset-1
+              :k->label  {:dn/sense-1 "hund_1§1"}}
+        html (fn [props]
+               (rum/render-static-markup
+                 (edit/data-entry-field opts :ontolex/lexicalizedSense
+                                        :dn/sense-1 props)))]
+    (is (str/includes? (html {}) "Fjern hele opslaget: hund_1§1")
+        "the cross of an entry in a row says that the whole entry goes")
+    (is (not (str/includes? (html {}) "edit-value__icon--edit"))
+        "and the entry is edited on its own page, so the field has no pencil")
+    (let [removed (html {:status :retracted})]
+      (is (str/includes? removed "Hele opslaget fjernes")
+          "a removed entry says that all of it is removed")
+      (is (str/includes? removed "Fortryd fjernelse af: hund_1§1"))
+      (is (not (str/includes? removed "Fjern hele opslaget"))))
+    (let [last-one (html {:required {:min 1}})]
+      (is (str/includes? last-one "Rækken skal have mindst én værdi"))
+      (is (not (str/includes? last-one "Fjern hele opslaget"))
+          "the last entry of a row that needs one has the mark for its cross"))
+    (let [[_ {:keys [aria-label]} text]
+          (edit/restore-entry-button opts :dn/sense-1 identity)]
+      (is (= "Fortryd fjernelsen af opslaget" text))
+      (is (= "Fortryd fjernelsen af opslaget: hund_1§1" aria-label)
+          "the button that puts a removed entry back says which entry"))))

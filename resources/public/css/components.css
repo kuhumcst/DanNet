@@ -223,15 +223,23 @@ article.changes section h2 {
 }
 
 :is(.changes-check, .changes-submit) button,
-.remove-entry {
+.entry-button {
     padding: var(--spacing-xs) var(--spacing-m);
 }
 
-/* A new entry has the button that takes it away below its IRI, on its own
-   page and in the list of the pending changes. */
-.remove-entry {
+/* An entry has a button below its IRI, on its own page and in the list of
+   the pending changes: one that takes a new entry away, or one that puts a
+   removed entry back. The page of a removed entry says above the button
+   that the entry is being removed. */
+.entry-button {
     display: block;
     margin: var(--spacing-s) auto 0 auto;
+}
+
+.entry-removed {
+    margin: var(--spacing-s) 0 0 0;
+    text-align: center;
+    color: var(--color-muted);
 }
 
 /* While a check runs, its button keeps the focus but looks disabled. */
@@ -1776,8 +1784,9 @@ td.attr-name > .edit-value__button {
 }
 
 /* A value has a note below it when there is more to say about it: the row
-   that it has moved from or to (see ui.edit/move-note), or the other
-   entries that hold a new entry (see ui.edit/entry-field). */
+   that it has moved from or to (see ui.edit/move-note), the other entries
+   that hold a new entry (see ui.edit/entry-field), or that its entry is
+   removed as a whole (see ui.edit/data-entry-field). */
 .edit-value__note {
     display: block;
     margin-top: var(--spacing-xs);

@@ -19,18 +19,24 @@
 ;; TODO: equivalent class empty http://localhost:3456/dannet/external/semowl/InformationEntity
 ;; TODO: empty definition http://0.0.0.0:3456/dannet/data/synset-42955
 (rum/defc entity
-  [{:keys [entity synset? full-screen subject]
+  "The page of the entity in `opts`. In edit mode, an entry that the pending
+  changes remove as a whole is shown as the data has it, without fields, and
+  its header says that it is :removed?."
+  [{:keys [entity synset? full-screen subject edit-mode changes]
     :as   opts}]
   (let [[_ _ rdf-uri] (rdf/parse-rdf-term subject)
-        typeof (prefix/rdfa-val (:rdf/type entity))]
+        typeof   (prefix/rdfa-val (:rdf/type entity))
+        removed? (and edit-mode (entry/retracted? changes subject))
+        shown    (cond-> opts
+                   removed? (assoc :edit-mode false))]
     (if (and synset? full-screen)
       [:article.rdf-resource
        (entity/full-screen-content opts)]
       [:article.rdf-resource (cond-> {:about rdf-uri}
                                typeof (assoc :typeof typeof))
-       (entity/entity-header opts)
-       (entity/entity-content opts)
-       (entity/entity-notes opts)])))
+       (entity/entity-header (assoc opts :removed? removed?))
+       (entity/entity-content shown)
+       (entity/entity-notes shown)])))
 
 (rum/defc search
   [{:keys [languages lemma search-results] :as opts}]

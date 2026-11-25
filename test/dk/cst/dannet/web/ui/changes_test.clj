@@ -173,3 +173,32 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
               {:add #{[:dn/new-sense-1 :rdfs/label hund]}}]
              {}))
         "a new entry is one change, with what is added to it later")))
+
+(deftest removed-entries
+  (let [removal {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                            [:dn/sense-1 :rdfs/label hund]
+                            [:dn/word-1 :ontolex/sense :dn/sense-1]
+                            [:dn/synset-1 :ontolex/lexicalizedSense
+                             :dn/sense-1]}}
+        pending [{:add #{[:dn/synset-1 :skos/definition "et dyr"]}} removal]
+        rows    (into {}
+                      (map (juxt :entry :rows))
+                      (changes/entries pending {}))
+        removed (fn [entry]
+                  (for [{:keys [property fields]} (get rows entry)
+                        {:keys [value status]}    fields
+                        :when                     (= status :retracted)]
+                    [property value]))]
+    (is (= [[:rdf/type :ontolex/LexicalSense] [:rdfs/label hund]]
+           (removed :dn/sense-1))
+        "an entry that is removed as a whole lists every value that it had")
+    (is (= [[:ontolex/sense :dn/sense-1]] (removed :dn/word-1))
+        "and each entry that pointed to it lists the link that it loses")
+    (is (= [[:ontolex/lexicalizedSense :dn/sense-1]] (removed :dn/synset-1)))
+    (is (= (str "[{:add #{[:dn/synset-1 :skos/definition \"et dyr\"]}}\n"
+                " {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]"
+                " [:dn/sense-1 :rdfs/label #rdf/langstring [\"hund\" \"da\"]]"
+                " [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]"
+                " [:dn/word-1 :ontolex/sense :dn/sense-1]}}]")
+           (changes/submission pending {}))
+        "the removal is submitted as one change")))

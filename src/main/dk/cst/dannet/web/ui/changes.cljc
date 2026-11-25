@@ -5,7 +5,9 @@
   A value is shown as its field shows it, in the tint of its change, and
   with the button that its field has: one that undoes the change, or one
   that takes an added value away. A new entry is one change: its values
-  have no buttons of their own, and one button takes the entry away.
+  have no buttons of their own, and one button takes the entry away. An
+  entry that is removed as a whole is one change too, with one button that
+  puts it back.
 
   A check asks the server what the shapes say about the changes, and each
   result is shown with the entry or the row that it is about. Nothing takes
@@ -17,6 +19,7 @@
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
@@ -187,15 +190,28 @@
                       (.focus))))))
      state)})
 
-(defn- remove-entry!
-  "Take the new entry with the `id` out of the pending changes in `opts`
-  (see edit/remove-entry!). The focus moves to the status of the list
-  first, since the button in focus goes away with the entry."
-  [opts id]
+(defn- focus-status!
+  "Move the focus to the status of the list, before an edit that takes the
+  button in focus away with its entry."
+  []
   #?(:cljs (some-> (.querySelector js/document
                                    "article.changes [role=status]")
-                   (.focus)))
+                   (.focus))))
+
+(defn- remove-entry!
+  "Take the new entry with the `id` out of the pending changes in `opts`
+  (see edit/remove-entry!)."
+  [opts id]
+  (focus-status!)
   (edit/remove-entry! opts id))
+
+(defn- whole?
+  "Is the `entry` one change in the pending changes of `opts`, so that its
+  values have no buttons of their own? A new entry is, and so is an entry
+  of the data that is removed as a whole."
+  [{:keys [changes] :as opts} entry]
+  (or (change/temporary? entry)
+      (entry/retracted? changes entry)))
 
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
@@ -204,8 +220,9 @@
   it. A value that replaces another is shown below the one that it replaces,
   and a moved one says which row it has moved from or to.
 
-  A value of a new entry has no button. A new entry as a value has the
-  button that takes that entry away, as its row on a page has."
+  A value of an entry that is one change has no button (see whole?). A new
+  entry as a value has the button that takes that entry away, as its row on
+  a page has."
   [{:keys [languages] :as opts} entry s p
    {:keys [value status original moved-to] :as field}]
   (let [content (fn [tag v class]
@@ -226,7 +243,7 @@
      (if note
        [:span.edit-value__content main note]
        main)
-     (when-not (change/temporary? entry)
+     (when-not (whole? opts entry)
        [:span.edit-value__actions
         (cond
           (and (= status :added) (change/temporary? value))
@@ -248,7 +265,8 @@
   "A blank node of the property `p` in the list of the pending changes to
   the `entry`: the values of the node as a nested table, with a button that
   takes a new node away or puts a removed one back. The `field` is the node
-  as rows has it. A node of a new entry has no button."
+  as rows has it. A node of an entry that is one change has no button (see
+  whole?)."
   [{:keys [languages] :as opts} entry p {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
         text     (edit/node-text opts p (map :value (mapcat :fields rows)))
@@ -258,7 +276,7 @@
       (if (seq rows)
         (changed-rows opts entry rows status)
         (i18n/da-en languages "Ingen værdier endnu" "No values yet"))]
-     (when-not (change/temporary? entry)
+     (when-not (whole? opts entry)
        [:span.edit-value__actions
         (if removed?
           (edit/icon-button "undo"
@@ -314,15 +332,23 @@
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
   entries), under a heading that links to the entry and its full IRI. A new
-  entry has a button that takes it away as a whole. An entry without rows
-  only has what the check said about it (see other-problems)."
-  [{:keys [languages check] :as opts} entry rows]
+  entry has a button that takes it away as a whole, and an entry that is
+  removed as a whole has one that puts it back. An entry without rows only
+  has what the check said about it (see other-problems)."
+  [{:keys [languages check changes] :as opts} entry rows]
   [:section
    [:header
     [:h2 (rdf/resource-hyperlink entry opts)]
     (rdf/uri-link entry opts)
-    (when (change/temporary? entry)
-      (edit/remove-entry-button opts entry #(remove-entry! opts entry)))
+    (cond
+      (change/temporary? entry)
+      (edit/remove-entry-button opts entry #(remove-entry! opts entry))
+
+      (entry/retracted? changes entry)
+      (edit/restore-entry-button opts entry
+                                 (fn [_]
+                                   (focus-status!)
+                                   (edit/restore-entry! entry))))
     (map #(problem languages %)
          (entry-problems (:results check) entry rows))]
    (when (seq rows)

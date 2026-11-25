@@ -27,6 +27,7 @@
             [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.entity :as ent]
+            [dk.cst.dannet.change :as change]
             [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.db.search :as search]
@@ -786,6 +787,41 @@
          entry-ic
          response-body-ic]
    :route-name ::entry])
+
+(def removal-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/removal"))
+
+(def removal-ic
+  "What the editor needs to remove the entry in the request, given as a
+  prefixed name: the change that takes it out of the dn: graph and the
+  places of its blank nodes (see db.change/removal), with the labels of the
+  resources in the change as :entities."
+  {:name  ::removal
+   :enter (fn [ctx]
+            (let [id (some-> (get-in ctx [:request :query-params :id])
+                             (decode-query-part)
+                             (prefix/qname->kw))
+                  {:keys [dataset inference]} @instance/db
+                  {:keys [change] :as removal}
+                  (when id
+                    (db.change/removal
+                      (theo/named-graph dataset prefix/dn-graph)
+                      id))]
+              (assoc ctx
+                :content
+                (when removal
+                  (assoc removal
+                    :entities (q/resource-labels
+                                inference
+                                (change/resources [change])))))))})
+
+(def removal-route
+  "A route of the editor, which only exists in development."
+  [removal-path
+   :get [media-type-negotiation-ic
+         removal-ic
+         response-body-ic]
+   :route-name ::removal])
 
 (def changes-ic
   "The page that lists the pending changes of an editor. The changes are in

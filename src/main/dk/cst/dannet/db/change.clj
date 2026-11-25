@@ -23,6 +23,33 @@
                               'rdf/literal    term/read-literal}}
                    (slurp source)))
 
+(defn removal
+  "What removes the entry `id` from the dn: graph `g`: a map of the :change
+  and of the places of its blank :nodes (see change/locate-nodes). Nil when
+  no triple of the graph names the entry.
+
+  The change retracts every triple that names the entry, as its subject or
+  as its object, and the values of the blank nodes that it holds."
+  [g id]
+  (let [values  (fn [node]
+                  (reduce (fn [m [_ p v]] (update m p (fnil conj #{}) v))
+                          {}
+                          (theo/triples g [node '_ '_])))
+        own     (theo/triples g [id '_ '_])
+        nodes   (into {}
+                      (for [[_ p o] own
+                            :when   (term/blank-node? o)]
+                        [o {:subject id :property p :values (values o)}]))
+        triples (concat own
+                        (theo/triples g ['_ '_ id])
+                        (for [[node {:keys [values]}] nodes
+                              [p vs] values
+                              v      vs]
+                          [node p v]))]
+    (when (seq triples)
+      {:change {:retract (into #{} (map vec) triples)}
+       :nodes  nodes})))
+
 (defn- where-query
   "A SELECT query of the [s p o] `patterns`, built from Jena nodes with
   `prefixes` for keywords, so that no value has to be escaped as SPARQL."

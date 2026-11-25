@@ -1,12 +1,12 @@
 (ns dk.cst.dannet.web.ui.edit.random-test
-  "Random mixes of the edits that make new entries and take them away, with
-  what has to hold after each edit.
+  "Random mixes of the edits that make new entries, take them away and
+  remove senses of the data, with what has to hold after each edit.
 
   A walk makes its edits with the functions that the editor calls: new
   senses, synsets and words that are linked to each other and to entries in
-  the data, new blank nodes, values, and the removal of any of these. A seed
-  gives the same walk each time, so a failure names its seed and the edits
-  that led to it."
+  the data, new blank nodes, values, and the removal of any of these or of
+  a sense in the data. A seed gives the same walk each time, so a failure
+  names its seed and the edits that led to it."
   (:require [clojure.set :as set]
             [clojure.test :refer [deftest is]]
             [dk.cst.theophrastus.term :as term]
@@ -32,10 +32,35 @@
 (def synsets
   [:dn/synset-1 :dn/synset-2 :dn/synset-3])
 
+(def senses
+  "The senses of the data, each with its word and its synset."
+  {:dn/sense-1 [:dn/word-1 :dn/synset-1]
+   :dn/sense-2 [:dn/word-1 :dn/synset-2]
+   :dn/sense-3 [:dn/word-2 :dn/synset-2]
+   :dn/sense-4 [:dn/word-3 :dn/synset-3]})
+
 (defn- da
   "The text `s` in Danish."
   [s]
   (i18n/with-lang s "da"))
+
+(defn- removal
+  "The change that removes the sense `id` of the data, as the server has it
+  (see db.change/removal)."
+  [id]
+  (let [[w x] (get senses id)]
+    {:retract #{[id :rdf/type :ontolex/LexicalSense]
+                [id :rdfs/label (da (name id))]
+                [w :ontolex/sense id]
+                [x :ontolex/lexicalizedSense id]}}))
+
+(defn- removed
+  "The senses of the data that the `changes` remove, as a set."
+  [changes]
+  (let [retract (:retract (change/net changes))]
+    (into (sorted-set)
+          (filter #(contains? retract [% :rdf/type :ontolex/LexicalSense]))
+          (keys senses))))
 
 (defn- pick
   "One of `coll` by the next number of `rng`, or nil when it is empty."
@@ -146,11 +171,14 @@
 ;; of what it did with the new state, or nil when it has nothing to act on.
 
 (defn- new-sense
-  "A new sense for a word in a synset that has none of its senses."
+  "A new sense for a word in a synset that has none of its senses, new or
+  in the data. A removed sense of the data counts, since it can be put back."
   [{:keys [changes] :as state} rng]
   (let [w (pick rng (entries changes :ontolex/Word words))
         x (pick rng (entries changes :ontolex/LexicalConcept synsets))]
-    (when-not (some (fn [[ws xs]] (and (ws w) (xs x))) (vals (links changes)))
+    (when-not (or (some (fn [[ws xs]] (and (ws w) (xs x)))
+                        (vals (links changes)))
+                  (some #{[w x]} (vals senses)))
       [[:new-sense w x]
        (with-change state (entry/fill sense changes
                                       {'?word   w
@@ -181,9 +209,10 @@
                                            {'?synset x} {}))]))
 
 (defn- new-value
-  "A value of any entry, new or in the data."
+  "A value of any entry, new or in the data, that isn't removed."
   [{:keys [changes] :as state} rng]
-  (let [t [(pick rng (concat (keys (made changes)) words synsets))
+  (let [t [(pick rng (concat (keys (made changes)) words synsets
+                             (remove (removed changes) (sort (keys senses)))))
            (pick rng [:skos/definition :rdfs/comment :lexinfo/senseExample])
            (str "v" (.nextInt rng 1000))]]
     [[:new-value t] (update state :changes change/add t)]))
@@ -259,11 +288,35 @@
        :changes (entry/without templates changes id)
        :left (left changes (gone changes id)))]))
 
+(defn- remove-sense
+  "A sense of the data removed as a whole, with the changes made to it
+  before. The state gets the changes that should be :left."
+  [{:keys [changes] :as state} rng]
+  (when-let [id (pick rng (remove (removed changes) (sort (keys senses))))]
+    (let [{:keys [add retract]} (change/net changes)
+          named? (fn [[s _ o]] (or (= s id) (= o id)))
+          change (removal id)]
+      [[:remove-sense id]
+       (assoc state
+         :changes (entry/retract templates changes id change)
+         :left {:add     (into #{} (remove named?) add)
+                :retract (into (:retract change) (remove named?) retract)})])))
+
+(defn- restore-sense
+  "A removed sense of the data put back with the button of its page."
+  [{:keys [changes] :as state} rng]
+  (when-let [id (pick rng (removed changes))]
+    [[:restore-sense id]
+     (assoc state
+       :changes (entry/restored changes id)
+       :left (update (change/net changes) :retract
+                     #(apply disj % (:retract (removal id)))))]))
+
 (def edits
   "The edits of a walk. An edit that is here twice is made twice as often."
   [new-sense new-sense new-synset new-word new-word new-value new-value
    new-label remove-value retraction undo new-node node-value remove-node
-   remove-entry remove-entry])
+   remove-entry remove-entry remove-sense remove-sense restore-sense])
 
 (defn- shown
   "The triples that the changes page shows for the `changes`, with the
@@ -289,6 +342,7 @@
         links   (links changes)
         ids     (change/temporary-ids changes)
         labels  (new-nodes changes nodes)
+        removed (removed changes)
         held    (into #{} (map peek) add)
         fields  (shown changes nodes)
         pending (into add retract)
@@ -315,7 +369,28 @@
       ;; a removal takes what it should, and nothing else
       (when (and left (not= left net))
         [[:removal {:too-much   (set/difference (:add left) add)
-                    :too-little (set/difference add (:add left))}]])
+                    :too-little (set/difference add (:add left))
+                    :retract    [(set/difference (:retract left) retract)
+                                 (set/difference retract (:retract left))]}]])
+      ;; a sense of the data is removed as a whole or not at all, in one
+      ;; change, and nothing is added to a removed one
+      (for [id    (keys senses)
+            :let  [triples (:retract (removal id))
+                   n       (count (filter retract triples))]
+            :when (not (contains? #{0 (count triples)} n))]
+        [:half-removed id])
+      (for [id    removed
+            :let  [n (count (filter #(contains? (names %) id) located))]
+            :when (not= 1 n)]
+        [:not-one-change id n])
+      (for [id removed
+            t  add
+            :when (some #{id} [(first t) (peek t)])]
+        [:added-to-removed t])
+      ;; a word has one sense in a synset, also when a removed one is put back
+      (for [[id [ws xs]] links
+            :when (some (fn [[w x]] (and (ws w) (xs x))) (vals senses))]
+        [:second-sense id])
       ;; the dialog refuses a word that the synset has a new sense of
       (for [[id [ws xs]] links
             w ws
@@ -398,4 +473,12 @@
     (is (= #{:removal}
            (set (map first (problems (assoc state :left {:add     #{}
                                                          :retract #{}})))))
-        "a removal that leaves more than it should")))
+        "a removal that leaves more than it should")
+    (is (contains? (found {:retract #{[:dn/sense-1 :rdf/type
+                                       :ontolex/LexicalSense]}})
+                   :half-removed)
+        "a sense of the data that only loses its type")
+    (is (contains? (found {:retract (:retract (removal :dn/sense-1))
+                           :add     #{[:dn/sense-1 :rdfs/comment "x"]}})
+                   :added-to-removed)
+        "a value of a sense that is removed")))

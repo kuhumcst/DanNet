@@ -1003,18 +1003,116 @@
   [{:keys [edit-rules] :as opts} id]
   (app/update-changes! #(entry/without (:entries edit-rules) % id)))
 
+(defn- entry-button
+  "A button with the `text` that acts on the whole entry with the `id`, on a
+  page with `opts`. Its name also says which entry."
+  [opts id text on-click]
+  [:button.entry-button {:type       "button"
+                         :aria-label (str text ": " (rdf/link-label opts id))
+                         :on-click   on-click}
+   text])
+
 (defn remove-entry-button
   "The button that takes the new entry with the `id` away as a whole, on a
   page with `opts`. Its `on-click` does that (see remove-entry!), and what
   the page needs besides, e.g. to move the focus."
   [{:keys [languages] :as opts} id on-click]
-  (let [text (i18n/da-en languages
-               "Fjern det nye opslag"
-               "Remove the new entry")]
-    [:button.remove-entry {:type       "button"
-                           :aria-label (str text ": " (rdf/link-label opts id))
-                           :on-click   on-click}
-     text]))
+  (entry-button opts id
+                (i18n/da-en languages
+                  "Fjern det nye opslag"
+                  "Remove the new entry")
+                on-click))
+
+(defn restore-entry!
+  "Put the removed entry `id` of the data back: drop the pending change that
+  removes it as a whole (see entry/restored)."
+  [id]
+  (app/update-changes! entry/restored id))
+
+(defn restore-entry-button
+  "The button that puts the removed entry with the `id` back, on a page
+  with `opts`. Its `on-click` does that (see restore-entry!), and what the
+  page needs besides, e.g. to move the focus."
+  [{:keys [languages] :as opts} id on-click]
+  (entry-button opts id
+                (i18n/da-en languages
+                  "Fortryd fjernelsen af opslaget"
+                  "Undo the removal of the entry")
+                on-click))
+
+(defn- fetch-removal
+  "A promise of what the server has for removing the entry `id` of the data
+  (see db.change/removal), or of nil when the data has no such entry."
+  [id]
+  #?(:cljs
+     ;; each entry has a URL of its own, so one request doesn't end another
+     (let [url (str "/dannet/edit/removal?id="
+                    (js/encodeURIComponent (prefix/kw->qname id)))]
+       (.then (app/fetch! url)
+              (fn [response]
+                (app/clear-current-fetch url)
+                (when (= 200 (:status response))
+                  (get-in response [:body :data])))))))
+
+(defn- retract-entry!
+  "Make the removal of the entry `id` of the data a pending change, in a
+  table with `opts` (see entry/retract). The `removal` is what the server
+  has for it: the :change, the places of its blank :nodes and the labels of
+  its resources as :entities, which the list of the changes shows."
+  [{:keys [edit-rules detail-level] :as opts} id
+   {:keys [change nodes entities] :as removal}]
+  (doseq [[label place] nodes]
+    (app/remember-node! label place))
+  (app/remember-labels!
+    (update-vals entities (shared/->entity-label-fn detail-level)))
+  (update-changes! opts #(entry/retract (:entries edit-rules) % id change)))
+
+(rum/defcs data-entry-field < refocus
+                              keep-focus
+  "A field for the entry `v` of the data in the row of the property `k` in
+  `opts`, when the row takes new entries, e.g. a sense of a synset. Its
+  cross removes the whole entry, since a link to the entry is part of what
+  the entry is made of. A removed entry says so, and its button puts it
+  back.
+
+  The `props` are the field as row/fields has it, with :required, the
+  constraints of a row that must keep the value."
+  [state {:keys [languages] :as opts} k v {:keys [status required]}]
+  (let [removed? (= status :retracted)
+        text     (value-text opts v)
+        link     [(subject-of opts) k v]
+        refocus! #(vreset! (::refocus state) "button")
+        content  [(if removed? :del :span)
+                  (update (rdf/lone-value-attrs v) :class
+                          #(remove nil? ["edit-value__content" %]))
+                  (rdf/value opts v)]]
+    [:li.edit-value (when removed? {:class "edit-value--retracted"})
+     (if removed?
+       [:span.edit-value__content
+        content
+        [:small.edit-value__note
+         (i18n/da-en languages
+           "Hele opslaget fjernes"
+           "The whole entry is removed")]]
+       content)
+     (buttons status
+              {:undo   [(undo-label languages :retracted text)
+                        (fn [_]
+                          (refocus!)
+                          (update-changes! opts change/without-triple link))]
+               :remove [(str (i18n/da-en languages
+                               "Fjern hele opslaget"
+                               "Remove the whole entry")
+                             ": " text)
+                        (fn [_]
+                          #?(:cljs (.then (fetch-removal v)
+                                          (fn [removal]
+                                            (when removal
+                                              (refocus!)
+                                              (retract-entry! opts v
+                                                              removal))))))]}
+              (when required
+                {:remove (required-mark languages required)}))]))
 
 (defn with-pending
   "The `search` for an entry with the new entries in `pending` among its
@@ -1331,7 +1429,8 @@
   whether the row can take another value or lose one (see
   dk.cst.dannet.db.shapes/property-constraints). A new entry among the
   values has a field of its own, and so does a row that takes new entries
-  (see entry-field and new-entry-field)."
+  (see entry-field and new-entry-field). An entry of the data in such a row
+  is removed as a whole (see data-entry-field)."
   [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
   (let [subject     (subject-of opts)
         {:keys [must should]} (get constraints k)
@@ -1382,11 +1481,21 @@
         item-key    (fn [p v] (pr-str [p (if (map? v) (:rdf/about v) v)]))]
     [:td
      [:ul.edit-values
-      (for [{:keys [property value original] :as field} fields]
+      (for [{:keys [property value original status] :as field} fields]
         ;; keyed by its property and by the value that it replaces, so that
         ;; an edit keeps its field
-        (rum/with-key (if (change/temporary? value)
+        (rum/with-key (cond
+                        (change/temporary? value)
                         (entry-field opts value)
+
+                        ;; an entry of the data in a row that takes new ones
+                        (and row-entry
+                             (keyword? value)
+                             (contains? #{nil :retracted} status))
+                        (data-entry-field opts property value
+                                          (assoc field :required required))
+
+                        :else
                         (value-field opts property value
                                      (assoc field
                                        :input-type input-type
