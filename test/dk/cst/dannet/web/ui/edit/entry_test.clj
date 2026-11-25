@@ -97,7 +97,7 @@
         (is (= #{:dn/synset-1} (synsets changes :dn/word-1))
             "from the page of the word too")
         (is (= #{}
-               (words (change/without-node changes :dn/new-sense-1)
+               (words (entry/without templates changes :dn/new-sense-1)
                       :dn/synset-1))
             "not one whose new sense is taken away")))
     (testing "the other ends that the data has already"
@@ -146,10 +146,10 @@
       (let [changes [change
                      {:add #{[:dn/new-synset-1 :skos/definition "x"]}}
                      {:add #{[:dn/synset-1 :skos/definition "y"]}}]]
-        (is (= [(peek changes)] (entry/without changes :dn/new-sense-1))
+        (is (= [(peek changes)] (entry/without templates changes :dn/new-sense-1))
             "the definition of the new synset goes with its sense")
-        (is (= [(peek changes)] (entry/without changes :dn/new-synset-1)))
-        (is (= (pop changes) (entry/without changes :dn/synset-1))
+        (is (= [(peek changes)] (entry/without templates changes :dn/new-synset-1)))
+        (is (= (pop changes) (entry/without templates changes :dn/synset-1))
             "an entry in the data only loses its own changes")))))
 
 (deftest new-words
@@ -177,7 +177,76 @@
                    [:dn/synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]})
            (:add change))
         "a new word and its sense in a synset are one change")
-    (is (empty? (change/problems change)))))
+    (is (empty? (change/problems change)))
+    (testing "taking a new word away takes its blank nodes"
+      (let [changes [change
+                     {:add #{['_new1 :ontolex/phoneticRep "vovse"]}}
+                     {:add #{[:dn/new-word-1 :ontolex/otherForm '_new2]
+                             ['_new2 :ontolex/writtenRep vovse]}}
+                     {:add #{['_new2 :ontolex/phoneticRep "vovse"]}}
+                     {:add #{['_b1 :ontolex/phoneticRep "vovse"]}}]]
+        (is (= [(peek changes)] (entry/without templates changes :dn/new-word-1))
+            "also the changes that only name a node of the word")
+        (is (= [(peek changes)] (entry/without templates changes :dn/new-sense-1))
+            "and so does taking away the sense that it was made with")
+        (is (= [{:add (disj (:add change)
+                            [:dn/new-word-1 :ontolex/canonicalForm '_new1]
+                            ['_new1 :ontolex/writtenRep vovse])}]
+               (take 1 (change/without-node changes '_new1)))
+            "a node of a new word goes without the word")))))
+
+(deftest taking-entries-away
+  (let [quoted   #rdf/langstring ["\"vovse\"" "da"]
+        synset   (entry/new-entry (:ontolex/LexicalConcept templates) [] nil nil)
+        ;; a new synset for a word of the data, with the sense 1
+        first    (entry/fill-around sense [] '?synset synset
+                                    {'?word :dn/word-1}
+                                    {'?word {:rdfs/label quoted}})
+        word     (entry/new-entry (:ontolex/Word templates) [first] "vuffer"
+                                  '[_new1])
+        ;; a new word in the new synset, with the sense 2
+        second   (entry/fill-around sense [first] '?word word
+                                    {'?synset :dn/new-synset-1} {})
+        ;; the new word in a synset of the data, with the sense 3
+        third    (new-sense [first second] :dn/synset-2 :dn/new-word-1 vovse)
+        defined  [:dn/new-synset-1 :skos/definition "x"]
+        written  ['_new1 :ontolex/phoneticRep "vuffer"]
+        changes  [first second third {:add #{defined}} {:add #{written}}]
+        without  #(entry/without templates %1 %2)
+        left     (comp change/temporary-ids without)
+        added    (comp :add change/net)]
+    (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-2
+             :dn/new-sense-3}
+           (change/temporary-ids changes)))
+    (testing "a sense goes alone while its word and its synset hold another"
+      (is (= #{:dn/new-synset-1 :dn/new-word-1 :dn/new-sense-2 :dn/new-sense-3}
+             (left changes :dn/new-sense-1)))
+      (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-3}
+             (left changes :dn/new-sense-2)))
+      (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-2}
+             (left changes :dn/new-sense-3)))
+      (is (every? (added (without changes :dn/new-sense-1))
+                  [defined written [:dn/new-word-1 :rdf/type :ontolex/Word]
+                   [:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]])
+          "and what stays keeps every value, also those made with the sense"))
+    (testing "a word or a synset takes its senses with it"
+      (is (= #{:dn/new-synset-1 :dn/new-sense-1}
+             (left changes :dn/new-word-1))
+          "the synset stays, since it holds the sense of another word")
+      (is (not-any? #(some #{'_new1} %)
+                    (added (without changes :dn/new-word-1)))
+          "the blank nodes of the word go with it")
+      (is (= #{:dn/new-word-1 :dn/new-sense-3}
+             (left changes :dn/new-synset-1))
+          "the word stays, since it has a sense in another synset")
+      (is (not (contains? (added (without changes :dn/new-synset-1)) defined))))
+    (testing "a word or a synset goes with its last sense"
+      (is (= #{:dn/new-word-1 :dn/new-sense-3}
+             (left (without changes :dn/new-sense-1) :dn/new-sense-2)))
+      (is (= #{:dn/new-synset-1 :dn/new-sense-1}
+             (left (without changes :dn/new-sense-2) :dn/new-sense-3)))
+      (is (= [] (reduce without changes [:dn/new-sense-1 :dn/new-sense-2
+                                         :dn/new-sense-3]))))))
 
 (deftest pages-of-new-entries
   (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]
@@ -207,7 +276,7 @@
           "a single value stands alone")
       (is (nil? (entry/entity inverses changes :dn/new-sense-2)))
       (is (nil? (entry/entity inverses
-                              (change/without-node changes :dn/new-sense-1)
+                              (entry/without templates changes :dn/new-sense-1)
                               :dn/new-sense-1))
           "an entry that is taken away is gone"))
     (testing "the page has what the server knows of the type"

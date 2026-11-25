@@ -926,8 +926,9 @@
   to the page of the entry. The label can be edited here too. The cross
   takes the entry away, with every change that names it and the new entries
   that were made with it."
-  [state {:keys [languages changes draft? subject] :as opts} id]
+  [state {:keys [languages changes draft? subject edit-rules] :as opts} id]
   (let [editing? (::editing? state)
+        without  #(entry/without (:entries edit-rules) % id)
         label    (get (entry/labels changes) id)
         text     (if label (str label) (prefix/kw->qname id))
         named    #(str (i18n/da-en languages %1 %2) ": " text)
@@ -936,11 +937,11 @@
                    (reset! editing? false))
         removal  [(named "Fjern" "Remove")
                   (fn [& _]
-                    (update-changes! opts entry/without id)
+                    (update-changes! opts without)
                     ;; the page of a new entry that went with it is empty
                     (when (and draft?
                                (nil? (entry/entity nil
-                                                   (entry/without changes id)
+                                                   (without changes)
                                                    subject)))
                       (app/navigate-to prefix/changes-path)))]]
     [:li.edit-value.edit-value--added

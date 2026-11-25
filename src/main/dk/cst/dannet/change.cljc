@@ -128,16 +128,20 @@
         changes))
 
 (defn without-node
-  "The pending `changes` without the ones that name the blank node `label`
-  as a subject or an object. That takes a new node away, and it puts a
-  removed one back. The temporary ID of a new entry in place of the label
-  takes that entry away."
+  "The pending `changes` without the triples that name the blank node
+  `label` as a subject or an object. That takes a new node away, and it
+  puts a removed one back. A change keeps its other triples, e.g. the ones
+  of a new word that was made with the node. The temporary ID of a new
+  entry in place of the label takes the triples of that entry away."
   [changes label]
-  (into []
-        (remove (fn [{:keys [add retract]}]
-                  (some (fn [[s _ o]] (or (= s label) (= o label)))
-                        (concat add retract))))
-        changes))
+  (let [named? (fn [[s _ o]] (or (= s label) (= o label)))
+        others (fn [change]
+                 (into {}
+                       (keep (fn [[k triples]]
+                               (when-let [kept (seq (remove named? triples))]
+                                 [k (set kept)])))
+                       change))]
+    (into [] (comp (map others) (filter seq)) changes)))
 
 (defn retract-node
   "The pending `changes` with the blank node `label` removed from its

@@ -248,7 +248,14 @@
                 [{:add #{[:dn/word-1 :ontolex/otherForm '_new1]}}
                  {:add #{['_new1 :ontolex/writtenRep hunde]}}]
                 '_new1))
-        "or takes a new node away")))
+        "or takes a new node away")
+    (is (= [{:add #{[:dn/new-word-1 :rdf/type :ontolex/Word]}}]
+           (change/without-node
+             [{:add #{[:dn/new-word-1 :rdf/type :ontolex/Word]
+                      [:dn/new-word-1 :ontolex/canonicalForm '_new1]
+                      ['_new1 :ontolex/writtenRep hunde]}}]
+             '_new1))
+        "and a change keeps the triples that don't name the node")))
 
 (deftest locating-nodes
   (let [form    ['?node :ontolex/writtenRep hund]

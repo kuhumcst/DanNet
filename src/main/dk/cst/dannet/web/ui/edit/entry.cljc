@@ -227,20 +227,41 @@
     {:add (into (:add change) (:add around))}))
 
 (defn without
-  "The pending `changes` without the new entry with the `id`: the changes
-  that name it, and then those that name a new entry which no change makes
-  any more, e.g. a definition of a new synset whose sense is taken away."
-  [changes id]
-  (loop [changes (change/without-node changes id)]
-    (let [made   (into #{}
-                       (keep (fn [[s p _]]
-                               (when (= p :rdf/type)
-                                 s)))
-                       (:add (change/net changes)))
-          orphan (first (remove made (change/temporary-ids changes)))]
-      (if orphan
-        (recur (change/without-node changes orphan))
-        changes))))
+  "The pending `changes` without the new entry with the `id`: the triples
+  that name it, and then what can't stay without it, by the `templates`.
+
+  That is its blank nodes and the new entries that a template links it to,
+  e.g. the new senses of a new word. A new entry that only held the entry
+  goes too, e.g. a new synset when its last sense is taken away. A new
+  entry that still holds another one stays, with every value that it has."
+  [templates changes id]
+  (let [link? (into #{}
+                    (for [{:keys [new add]} (vals templates)
+                          [_ p o]           add
+                          :when             (contains? new o)]
+                      p))]
+    (loop [changes  (vec changes)
+           [x & xs] [id]]
+      (if (nil? x)
+        changes
+        (let [added   (:add (change/net changes))
+              kept    (change/without-node changes x)
+              holds?  (fn [id]
+                        (some (fn [[s p _]] (and (= s id) (link? p)))
+                              (:add (change/net kept))))
+              needing (for [[s p o] added
+                            :when   (and (= s x)
+                                         (or (term/blank-node? o)
+                                             (and (link? p)
+                                                  (change/temporary? o))))]
+                        o)
+              holders (for [[s p o] added
+                            :when   (and (= o x)
+                                         (link? p)
+                                         (change/temporary? s))]
+                        s)]
+          (recur kept (distinct (concat xs needing
+                                        (remove holds? holders)))))))))
 
 (defn page-data
   "The data of the page of the new entry with the `id`, as the page of an
