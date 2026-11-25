@@ -168,6 +168,15 @@
                                         added))])))
            added))))
 
+(defn of-class
+  "The new entries of the `class` that the pending `changes` make, as
+  their temporary IDs in order."
+  [changes class]
+  (sort (keep (fn [[s p o]]
+                (when (and (= p :rdf/type) (= o class) (change/temporary? s))
+                  s))
+              (:add (change/net changes)))))
+
 (defn entity
   "The new entry with the `id` as the pending `changes` leave it: its own
   values, and the resources that point to it, under the inverse of the

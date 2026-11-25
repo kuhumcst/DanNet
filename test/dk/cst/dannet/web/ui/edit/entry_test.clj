@@ -248,6 +248,14 @@
       (is (= [] (reduce without changes [:dn/new-sense-1 :dn/new-sense-2
                                          :dn/new-sense-3]))))))
 
+(deftest new-entries-in-rows
+  (let [first   (new-sense [] :dn/synset-1 :dn/word-1 vovse)
+        changes [first (new-sense [first] :dn/synset-2 :dn/word-1 vovse)]]
+    (is (= [:dn/new-sense-1 :dn/new-sense-2]
+           (entry/of-class changes :ontolex/LexicalSense)))
+    (is (empty? (entry/of-class changes :ontolex/Word))
+        "an entry in the data isn't a new one")))
+
 (deftest pages-of-new-entries
   (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]
         changes [(new-sense [] :dn/synset-1 :dn/word-1 vovse)

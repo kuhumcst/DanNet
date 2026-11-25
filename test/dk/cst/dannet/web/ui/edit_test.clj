@@ -53,3 +53,30 @@
            (edit/invalid-message ["en"] {:description description})))
     (is (= "Not a valid value" (edit/invalid-message ["en"] {}))
         "an input type without a description has a general message")))
+
+(deftest pending-entries
+  (let [search  {:results-fn (constantly [])
+                 :value-fn   :rdf/about
+                 :label-fn   :rdfs/label
+                 :hiccup-fn  (fn [{:keys [lemma]} _] [:strong lemma])}
+        vuffer  {:pending :dn/new-word-1 :label "\"vuffer\""}
+        vaffer  {:pending :dn/new-word-2 :label "\"vaffer\""}
+        kind    {:da "Nyt ord" :en "New word"}
+        {:keys [results-fn value-fn label-fn hiccup-fn] :as with}
+        (edit/with-pending search [vuffer vaffer] kind)]
+    (is (= search (edit/with-pending search [] kind))
+        "a search stays as it is when there are no new entries")
+    (is (= [vuffer vaffer] (results-fn ""))
+        "every new entry is listed before a text is typed")
+    (is (:list-all? with))
+    (is (= [vuffer] (results-fn " VUF "))
+        "and then the ones whose label has the text in it")
+    (is (= :dn/new-word-1 (value-fn vuffer)))
+    (is (= :dn/word-1 (value-fn {:rdf/about :dn/word-1}))
+        "a result of the search itself is read as before")
+    (is (nil? (label-fn vuffer))
+        "the label of a new entry is in the changes")
+    (is (= [:<> [:strong "\"vuffer\""] [:span "Nyt ord"]]
+           (hiccup-fn vuffer {:languages ["da" "en"]}))
+        "a new entry says what it is after its label")
+    (is (= [:strong "hund"] (hiccup-fn {:lemma "hund"} {})))))

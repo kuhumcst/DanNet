@@ -282,7 +282,9 @@
      ;; line that offers to make a value of the text
      [:p.visually-hidden {:role "status"}
       (when-let [n (some-> @results count)]
-        (str (i18n/da-en languages (str n " resultater") (str n " results"))
+        (str (i18n/da-en languages
+               (str n (if (= n 1) " resultat" " resultater"))
+               (str n (if (= n 1) " result" " results")))
              (when (and new ((:fits? new) @text))
                (str ". " (localize (:name new))
                     (some->> (made-of) (str ": "))))))]
@@ -982,22 +984,63 @@
                                   #(reset! editing? true)]
                          :remove removal})])]))
 
+(defn with-pending
+  "The `search` for an entry with the new entries in `pending` among its
+  results, before the ones that it finds itself: those whose label has the
+  typed text in it, and all of them before a text is typed.
+
+  A pending result is a map of the :pending ID of a new entry and its
+  :label. The `kind` is what such an entry is called in each language,
+  which a result says after its label."
+  [{:keys [results-fn value-fn label-fn hiccup-fn] :as search} pending kind]
+  (let [matching (fn [s]
+                   (let [s (str/lower-case (str/trim s))]
+                     (filter #(str/includes? (str/lower-case (str (:label %)))
+                                             s)
+                             pending)))]
+    (if (empty? pending)
+      search
+      (assoc search
+        :list-all?  true
+        ;; the search itself asks the server, which only a browser does
+        :results-fn (fn [s]
+                      #?(:clj  (matching s)
+                         :cljs (.then (js/Promise.resolve (results-fn s))
+                                      #(concat (matching s) %))))
+        :value-fn   #(or (:pending %) (value-fn %))
+        :label-fn   #(when (and label-fn (not (:pending %)))
+                       (label-fn %))
+        :hiccup-fn  (fn [result {:keys [languages] :as opts}]
+                      (if (:pending result)
+                        [:<>
+                         [:strong (str (:label result))]
+                         [:span (i18n/da-en languages (:da kind) (:en kind))]]
+                        (hiccup-fn result opts)))))))
+
 (rum/defcs new-entry-field < (rum/local false ::choosing?)
   "The field for a new entry in the row of the property `k` in `opts`: a
   button that asks for the gap of the template of the `row-entry` that the
   subject of the row doesn't fill, with the search of its class. The answer
   fills the template (see ui.edit.entry, where for-row gives `row-entry`).
 
-  The dialog says what the template adds besides. It refuses an answer that
-  shares an entry of the template with the subject already, and it offers
-  to make the answer when its class has a template too, e.g. a new synset.
-  A made answer is shown on its own page, since it has rows to fill."
+  The dialog says what the template adds besides, and it lists the new
+  entries of the class. It refuses an answer that shares an entry of the
+  template with the subject already. It offers to make the answer when its
+  class has a template too, and a made answer is shown on its own page."
   [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
    k {:keys [template subject] :as row-entry}]
   (let [choosing? (::choosing? state)
         s         (subject-of opts)
         [gap class] (first (entry/asked template [subject]))
-        search    (:search (get input-type/class-input-types class))
+        ;; a new answer is made from the template of its class
+        answer    (get (:entries edit-rules) class)
+        labels    (entry/labels changes (:derived-labels edit-rules))
+        pending   (for [id (entry/of-class changes class)]
+                    {:pending id :label (get labels id)})
+        search    (with-pending (:search (get input-type/class-input-types
+                                              class))
+                                pending
+                                (:name answer))
         value-fn  (:value-fn search)
         taken     (when (:once template)
                     (into (entry/known template inverses entity subject gap)
@@ -1013,16 +1056,17 @@
                                    "\"] button"))
                            #(.focus %)))))
         add!      (fn [result]
-                    (let [starting (entry/starting template {subject entity
-                                                             gap     result})
+                    (let [found    (or (some->> (:pending result)
+                                                (entry/entity nil changes))
+                                       result)
+                          starting (entry/starting template {subject entity
+                                                             gap     found})
                           values   (assoc starting
                                      subject s
                                      gap (value-fn result))
                           change   (entry/fill template changes values)]
                       (update-changes! opts conj change)
                       (focus! change)))
-        ;; a new answer, made from the template of its class
-        answer    (get (:entries edit-rules) class)
         make      #(entry/new-entry answer changes % (new-labels nodes))
         make!     (fn [text]
                     (let [{:keys [id] :as made} (make text)
