@@ -264,12 +264,12 @@
                   :add     #{[:dn/sense-1 :rdfs/label vuf]}}
         example  {:add #{[:dn/sense-1 :lexinfo/senseExample "en vovse"]}}
         other    {:add #{[:dn/synset-1 :skos/definition "et dyr"]}}
-        retract  #(entry/retract templates %1 %2 %3)
-        changes  (retract [relabel example other] :dn/sense-1 removal)]
+        retract  #(entry/retract templates %1 %2)
+        changes  (retract [relabel example other] removal)]
     (testing "an entry is removed as one change"
       (is (= [other removal] changes)
           "and the changes made to it before are dropped")
-      (is (= changes (retract changes :dn/sense-1 removal))
+      (is (= changes (retract changes removal))
           "removing it twice changes nothing")
       (is (entry/retracted? changes :dn/sense-1))
       (is (not (entry/retracted? changes :dn/synset-1))
@@ -288,8 +288,39 @@
                             ['_new1 :ontolex/writtenRep vuf]}}
             joined  (new-sense [] :dn/synset-2 :dn/word-1 vovse)]
         (is (= [other word]
-               (retract [rewrite form joined other] :dn/word-1 word))
-            "an edit to its blank node, a new node and a new sense of it")))))
+               (retract [rewrite form joined other] word))
+            "an edit to its blank node, a new node and a new sense of it")))
+    (testing "an entry goes with the entries that it holds"
+      (let [word    (update removal :retract conj
+                            [:dn/word-1 :rdf/type :ontolex/Word])
+            synset  (update removal :retract conj
+                            [:dn/synset-1 :rdf/type :ontolex/LexicalConcept]
+                            [:dn/synset-2 :wn/hypernym :dn/synset-1])
+            pointer {:add #{[:dn/synset-3 :wn/hypernym :dn/synset-1]}}
+            both    (retract (retract [] word) synset)]
+        (is (= [word] (retract [removal] word))
+            "the removal of a word covers that of its sense")
+        (is (= [word synset] both)
+            "two removals that share a sense both stay whole")
+        (is (= [synset] (retract [pointer] synset))
+            "a new link to a removed entry is dropped")
+        (let [unlinked {:retract #{[:dn/synset-3 :wn/also :dn/synset-1]}}
+              replaced {:retract #{[:dn/synset-3 :wn/also :dn/synset-1]}
+                        :add     #{[:dn/synset-3 :wn/also :dn/synset-2]}}]
+          (is (= [unlinked synset] (retract [unlinked] synset))
+              "but a link to it that was removed before stays removed")
+          (is (= [replaced synset] (retract [replaced] synset))
+              "also when another link took its place"))
+        (is (= [word] (entry/restored both :dn/synset-1))
+            "putting the synset back leaves the word and the sense removed")
+        (is (= [] (entry/restored both :dn/sense-1)))))
+    (testing "the classes with a template can be removed"
+      (is (= #{:ontolex/sense :ontolex/lexicalizedSense}
+             (entry/links templates)))
+      (is (entry/described? templates
+                            {:rdf/type #{:ontolex/Word :ontolex/LexicalEntry}}))
+      (is (not (entry/described? templates
+                                 {:rdf/type :ontolex/MultiwordExpression}))))))
 
 (deftest new-entries-in-rows
   (let [first   (new-sense [] :dn/synset-1 :dn/word-1 vovse)

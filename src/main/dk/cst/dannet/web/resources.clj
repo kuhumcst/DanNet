@@ -791,37 +791,96 @@
 (def removal-path
   (str (prefix/uri->path prefix/dannet-root) "edit/removal"))
 
+(defn- removal-rules
+  "What the rules of the editor say goes with an entry that is removed (see
+  db.change/removal): what a template links it to, e.g. the senses of a
+  word, and the values that the build writes."
+  []
+  (let [{:keys [entries derived derived-by-type]} editable/rules]
+    {:links   (entry/links entries)
+     :derived (into derived (mapcat val) derived-by-type)}))
+
 (def removal-ic
   "What the editor needs to remove the entry in the request, given as a
-  prefixed name: the change that takes it out of the dn: graph and the
-  places of its blank nodes (see db.change/removal), with the labels of the
-  resources in the change as :entities."
+  prefixed name: the parts that take it out of the dn: graph (see
+  db.change/removal), with the labels of the resources in them as :entities."
   {:name  ::removal
    :enter (fn [ctx]
             (let [id (some-> (get-in ctx [:request :query-params :id])
                              (decode-query-part)
                              (prefix/qname->kw))
                   {:keys [dataset inference]} @instance/db
-                  {:keys [change] :as removal}
+                  {:keys [orphans] :as removal}
                   (when id
                     (db.change/removal
                       (theo/named-graph dataset prefix/dn-graph)
-                      id))]
+                      id
+                      (removal-rules)))
+                  parts   (cons removal (vals orphans))
+                  triples (mapcat :entry parts)]
               (assoc ctx
                 :content
                 (when removal
                   (assoc removal
                     :entities (q/resource-labels
                                 inference
-                                (change/resources [change])))))))})
+                                (into (change/resources [{:retract triples}])
+                                      (mapcat (comp keys :references))
+                                      parts)))))))})
+
+(def references-path
+  (str (prefix/uri->path prefix/dannet-root) "edit/references"))
+
+(def references-ic
+  "How many triples of other entries point to each of the entries in the
+  request, given as prefixed names with commas between them (see
+  db.change/references), with the labels of the resources as :entities.
+  The list of the pending changes shows them for a removal that
+  unreferences what it removes."
+  {:name  ::references
+   :enter (fn [ctx]
+            (let [ids (some->> (get-in ctx [:request :query-params :ids])
+                               (decode-query-part)
+                               (re-seq #"[^,]+")
+                               (map prefix/qname->kw))
+                  {:keys [dataset inference]} @instance/db
+                  counts (db.change/references
+                           (theo/named-graph dataset prefix/dn-graph)
+                           ids
+                           (removal-rules))]
+              (assoc ctx
+                :content
+                {:references counts
+                 :entities   (q/resource-labels
+                               inference
+                               (into (set (keys counts))
+                                     (mapcat keys)
+                                     (vals counts)))})))})
+
+(def no-store-ic
+  "Tell the browser not to keep the answer. An edit that is made from an
+  answer has to be made from the data as it is now."
+  {:name  ::no-store
+   :leave (fn [ctx]
+            (assoc-in ctx [:response :headers "Cache-Control"] "no-store"))})
 
 (def removal-route
   "A route of the editor, which only exists in development."
   [removal-path
-   :get [media-type-negotiation-ic
+   :get [no-store-ic
+         media-type-negotiation-ic
          removal-ic
          response-body-ic]
    :route-name ::removal])
+
+(def references-route
+  "A route of the editor, which only exists in development."
+  [references-path
+   :get [no-store-ic
+         media-type-negotiation-ic
+         references-ic
+         response-body-ic]
+   :route-name ::references])
 
 (def changes-ic
   "The page that lists the pending changes of an editor. The changes are in
@@ -845,13 +904,26 @@
 (def check-ic
   "What the editorial shapes say about the changes in the body of the
   request, an EDN text as a change file has it (see shapes/check-changes).
-  Nothing is written."
+  Nothing is written.
+
+  A change can break a rule of a resource that it doesn't name, e.g. one
+  that refers to a removed resource. So the labels of the first hundred
+  resources that the results are about come with them, as :entities."
   {:name  ::check
    :enter (fn [{:keys [request] :as ctx}]
-            (assoc ctx
-              :content {:check (shapes/check-changes
-                                 (:dataset @instance/db)
-                                 (db.change/read-changes (:body request)))}))})
+            (let [{:keys [dataset inference]} @instance/db
+                  check (shapes/check-changes
+                          dataset
+                          (db.change/read-changes (:body request)))
+                  about (into #{}
+                              (comp (keep :focus-node)
+                                    (filter keyword?)
+                                    (distinct)
+                                    (take 100))
+                              (:results check))]
+              (assoc ctx
+                :content {:check    check
+                          :entities (q/resource-labels inference about)})))})
 
 (def check-route
   "A route of the editor, which only exists in development."

@@ -34,7 +34,9 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.dialog :as dialog]
             [dk.cst.dannet.web.ui.edit.entry :as entry]
+            [dk.cst.dannet.web.ui.edit.removal :as removal]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.lock :as lock]
@@ -170,14 +172,14 @@
   [e selector]
   (some-> (.. e -target -parentNode) (.querySelector selector) (.focus)))
 
-(def show-modal
-  "A mixin that opens a <dialog> as a modal when it is drawn, with the
-  focus in its input."
-  {:did-mount (fn [state]
-                #?(:cljs (let [dialog (rum/dom-node state)]
-                           (.showModal dialog)
-                           (some-> (.querySelector dialog "input") (.focus))))
-                state)})
+(defn- removal-reason
+  "Why the entry `v` can't be chosen as a value when the pending `changes`
+  remove it as a whole, for a reader with `languages`. Nil when they don't."
+  [languages changes v]
+  (when (entry/retracted? changes v)
+    (i18n/da-en languages
+      "Ressourcen fjernes"
+      "The resource is being removed")))
 
 (def list-all
   "A mixin for the search dialog. A search with :list-all? has few enough
@@ -190,22 +192,22 @@
                               #(reset! (::results state) (vec %))))))
                 state)})
 
-(rum/defcs search-dialog < show-modal
-                           (rum/local nil ::results)
+(rum/defcs search-dialog < (rum/local nil ::results)
                            (rum/local 0 ::searches)
                            (rum/local "" ::text)
                            list-all
   "A dialog that finds a value with the `search` (see ui.input-type). It
   calls `on-value` with the chosen one, or `on-close` when there is none.
   With `on-result`, that function gets the chosen result as it is. A result
-  that the search refuses can't be chosen, and it says why.
+  that the search refuses can't be chosen, and it says why. Neither can an
+  entry that the pending changes remove as a whole.
 
   With `new`, the dialog also offers to make a value, on a line before the
   results: a map of its :name in each language, and of :fits?, a function
   of the typed text that says whether a value can be made of it. The line
   shows the text when the value is made of it, which :text? says. `on-new`
   gets the text."
-  [state {:keys [languages] :as opts}
+  [state {:keys [languages changes] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
            heading placeholder note]
     :as   search}
@@ -214,7 +216,8 @@
         searches (::searches state)
         text     (::text state)
         localize #(i18n/da-en languages (:da %) (:en %))
-        refusal  #(when refuse-fn (refuse-fn opts %))
+        refusal  #(or (when refuse-fn (refuse-fn opts %))
+                      (removal-reason languages changes (value-fn %)))
         ;; the text that a new value is made of, when it is made of one
         made-of  #(when (:text? new)
                     (not-empty (str/trim @text)))
@@ -240,76 +243,74 @@
                      (if on-result
                        (on-result result)
                        (on-value v))))]
-    [:dialog.search-dialog
-     {:aria-label (localize title)
-      :on-close   on-close
-      ;; a click on the backdrop is a click on the dialog itself
-      :on-click   (fn [e]
-                    (when (= (.-target e) (.-currentTarget e))
-                      (.close (.-currentTarget e))))}
-     [:header
-      [:h2 (or heading (localize title))]
-      (icon-button "remove" (i18n/da-en languages "Luk" "Close")
-                   (fn [e] (.close (.closest (.-target e) "dialog"))))]
-     (when note
-       [:p#search-dialog-note.search-dialog__note (localize note)])
-     [:input {:type             "search"
-              :auto-complete    "off"
-              :aria-label       (localize title)
-              :aria-describedby (when note "search-dialog-note")
-              :placeholder      (localize placeholder)
-              :on-change        #(let [s (.. % -target -value)]
-                                   (reset! text s)
-                                   (search! s))
-              ;; Enter chooses the first result that can be chosen, once
-              ;; the results are those of the text in the input
-              :on-key-down      (fn [e]
-                                  (when (and (= "Enter" (.-key e))
-                                             (= @searches
-                                                (::search (meta @results) 0)))
-                                    (when-let [result (first (remove refusal
-                                                                     @results))]
-                                      (.preventDefault e)
-                                      (choose! result))))}]
-     (when (and new ((:fits? new) @text))
-       [:button.search-dialog__new {:type     "button"
-                                    :on-click #(on-new @text)}
-        [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
-        (localize (:name new))
-        (when-let [s (made-of)]
-          [:<> ": " [:strong s]])])
-     ;; the number of results is announced, not every result, and so is the
-     ;; line that offers to make a value of the text
-     [:p.visually-hidden {:role "status"}
-      (when-let [n (some-> @results count)]
-        (str (i18n/da-en languages
-               (str n (if (= n 1) " resultat" " resultater"))
-               (str n (if (= n 1) " result" " results")))
-             (when (and new ((:fits? new) @text))
-               (str ". " (localize (:name new))
-                    (some->> (made-of) (str ": "))))))]
-     [:div.search-dialog__body
-      (cond
-        (nil? @results)
-        nil
+    (dialog/dialog
+      languages
+      {:title    (localize title)
+       :heading  heading
+       :class    "search-dialog"
+       :on-close on-close}
+      [:<>
+       (when note
+         [:p#search-dialog-note.search-dialog__note (localize note)])
+       [:input {:type             "search"
+                :data-focus       true
+                :auto-complete    "off"
+                :aria-label       (localize title)
+                :aria-describedby (when note "search-dialog-note")
+                :placeholder      (localize placeholder)
+                :on-change        #(let [s (.. % -target -value)]
+                                     (reset! text s)
+                                     (search! s))
+                ;; Enter chooses the first result that can be chosen, once
+                ;; the results are those of the text in the input
+                :on-key-down      (fn [e]
+                                    (when (and (= "Enter" (.-key e))
+                                               (= @searches
+                                                  (::search (meta @results) 0)))
+                                      (when-let [result (->> @results
+                                                             (remove refusal)
+                                                             (first))]
+                                        (.preventDefault e)
+                                        (choose! result))))}]
+       (when (and new ((:fits? new) @text))
+         [:button.search-dialog__new {:type     "button"
+                                      :on-click #(on-new @text)}
+          [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+          (localize (:name new))
+          (when-let [s (made-of)]
+            [:<> ": " [:strong s]])])
+       ;; the number of results is announced, not every result, and so is the
+       ;; line that offers to make a value of the text
+       [:p.visually-hidden {:role "status"}
+        (when-let [n (some-> @results count)]
+          (str (i18n/da-en languages
+                 (str n (if (= n 1) " resultat" " resultater"))
+                 (str n (if (= n 1) " result" " results")))
+               (when (and new ((:fits? new) @text))
+                 (str ". " (localize (:name new))
+                      (some->> (made-of) (str ": "))))))]
+       [:div.search-dialog__body
+        (cond
+          (nil? @results)
+          nil
 
-        (empty? @results)
-        [:p (i18n/da-en languages "Ingen resultater" "No results")]
+          (empty? @results)
+          [:p (i18n/da-en languages "Ingen resultater" "No results")]
 
-        :else
-        [:ul.search-dialog__results
-         {:class (when one-line? "search-dialog__results--one-line")}
-         (for [result @results
-               :let   [reason (refusal result)]]
-           [:li {:key (pr-str (value-fn result))}
-            ;; not disabled, so that the reason can be reached and read
-            [:button {:type          "button"
-                      :aria-disabled (when reason "true")
-                      :on-click      #(when-not reason
-                                        (choose! result))}
-             (hiccup-fn result opts)
-             (when reason
-               [:small reason])]])])]]))
+          :else
+          [:ul.search-dialog__results
+           {:class (when one-line? "search-dialog__results--one-line")}
+           (for [result @results
+                 :let   [reason (refusal result)]]
+             [:li {:key (pr-str (value-fn result))}
+              ;; not disabled, so that the reason can be reached and read
+              [:button {:type          "button"
+                        :aria-disabled (when reason "true")
+                        :on-click      #(when-not reason
+                                          (choose! result))}
+               (hiccup-fn result opts)
+               (when reason
+                 [:small reason])]])])]])))
 
 (rum/defc options-input
   "A dropdown of the `options` named by `label`, starting with the `value`.
@@ -356,12 +357,13 @@
   Enter or the focus leaving it enters the text. The input then calls
   `on-value` with a value, `on-invalid` with a text that isn't one and
   whether the focus is leaving, `on-empty` for an empty text, or `on-cancel`
-  when nothing is new, as Escape does. On Enter, a value among `taken`, or
-  an empty text with a `keep-reason`, is refused with the reason.
+  when nothing is new, as Escape does. On Enter, a value among `taken`, an
+  entry that the pending changes remove as a whole, or an empty text with a
+  `keep-reason`, is refused with the reason.
 
   A text is in the language `lang`, or the one chosen among `langs`. The
   `undo` and the :remove are each the label and the function of a button."
-  [state {:keys [languages] :as opts}
+  [state {:keys [languages changes] :as opts}
    {:keys [parse-fn format-fn search] :as input-type}
    {:keys [value draft lang langs label undo taken keep-reason on-value
            on-cancel on-invalid on-empty]
@@ -376,6 +378,9 @@
         lang'      (if-let [[choice] @chosen] choice lang)
         old-text   (if (some? value) (format-fn value) "")
         message    (invalid-message languages input-type)
+        taken-reason (i18n/da-en languages
+                       "Rækken har allerede denne værdi"
+                       "The row already has this value")
         ;; why the entered text is refused, when it isn't for its form
         refusal    (::refusal state)
         refuse!    (fn [input why]
@@ -421,7 +426,9 @@
                                            (when-not leaving?
                                              (.reportValidity input)))
 
-                                         (not-any? #{v} taken)
+                                         (and (not-any? #{v} taken)
+                                              (not (entry/retracted? changes
+                                                                     v)))
                                          (on-value v)
 
                                          leaving?
@@ -430,9 +437,9 @@
                                          :else
                                          (refuse!
                                            input
-                                           (i18n/da-en languages
-                                             "Rækken har allerede denne værdi"
-                                             "The row already has this value"))))))))))
+                                           (or (removal-reason languages
+                                                               changes v)
+                                               taken-reason))))))))))
         cancel!    (fn []
                      (reset! entering? true)
                      (on-cancel))
@@ -692,6 +699,17 @@
               (i18n/da-en languages "Flyttet til" "Moved to") ": "
               (rdf/resource-name moved-to opts)]))
 
+(defn removed-note
+  "The note of a removed value `v` in `opts` that is an entry which the
+  pending changes remove as a whole, or nil. Undoing the removal of such a
+  value puts the whole entry back."
+  [{:keys [languages changes] :as opts} v]
+  (when (entry/retracted? changes v)
+    [:small.edit-value__note
+     (i18n/da-en languages
+       "Hele ressourcen fjernes"
+       "The whole resource is removed")]))
+
 (defn- value-text
   "The value `v` as the text that names it in a label or a tooltip."
   [opts v]
@@ -760,7 +778,9 @@
                      status (update-changes! opts change/without-addition t)
                      :else (update-changes! opts change/retract t)))
         removal  [(label "Fjern" "Remove") remove!]
-        note     (move-note opts props)
+        note     (or (move-note opts props)
+                     (when (= status :retracted)
+                       (removed-note opts v)))
         before   (cond
                    (some? original) original
                    @draft v)
@@ -972,8 +992,8 @@
                     :label       (named "Ret" "Edit")
                     :remove      removal
                     :keep-reason (i18n/da-en languages
-                                   "Et nyt opslag skal have en etiket"
-                                   "A new entry needs a label")
+                                   "En ny ressource skal have en etiket"
+                                   "A new resource needs a label")
                     :on-cancel   close!
                     :on-value    (fn [label']
                                    (close!)
@@ -1019,8 +1039,8 @@
   [{:keys [languages] :as opts} id on-click]
   (entry-button opts id
                 (i18n/da-en languages
-                  "Fjern det nye opslag"
-                  "Remove the new entry")
+                  "Fjern den nye ressource"
+                  "Remove the new resource")
                 on-click))
 
 (defn restore-entry!
@@ -1036,64 +1056,138 @@
   [{:keys [languages] :as opts} id on-click]
   (entry-button opts id
                 (i18n/da-en languages
-                  "Fortryd fjernelsen af opslaget"
-                  "Undo the removal of the entry")
+                  "Fortryd fjernelsen af ressourcen"
+                  "Undo the removal of the resource")
                 on-click))
 
 (defn- fetch-removal
   "A promise of what the server has for removing the entry `id` of the data
-  (see db.change/removal), or of nil when the data has no such entry."
+  (see db.change/removal), or of nil when the data has no such entry or the
+  request fails."
   [id]
   #?(:cljs
      ;; each entry has a URL of its own, so one request doesn't end another
      (let [url (str "/dannet/edit/removal?id="
                     (js/encodeURIComponent (prefix/kw->qname id)))]
-       (.then (app/fetch! url)
-              (fn [response]
-                (app/clear-current-fetch url)
-                (when (= 200 (:status response))
-                  (get-in response [:body :data])))))))
+       (-> (app/fetch! url)
+           (.then (fn [response]
+                    (app/clear-current-fetch url)
+                    (let [parts (get-in response [:body :data])]
+                      (when (and (= 200 (:status response))
+                                 (seq (:entry parts)))
+                        parts))))
+           (.catch (fn [_]
+                     (app/clear-current-fetch url)
+                     nil))))))
+
+(defn- removal-labels
+  "The labels of the resources in the `parts` of a removal, as a page with
+  `opts` shows them."
+  [{:keys [detail-level] :as opts} {:keys [entities] :as parts}]
+  (update-vals entities (shared/->entity-label-fn detail-level)))
 
 (defn- retract-entry!
-  "Make the removal of the entry `id` of the data a pending change, in a
-  table with `opts` (see entry/retract). The `removal` is what the server
-  has for it: the :change, the places of its blank :nodes and the labels of
-  its resources as :entities, which the list of the changes shows."
-  [{:keys [edit-rules detail-level] :as opts} id
-   {:keys [change nodes entities] :as removal}]
-  (doseq [[label place] nodes]
+  "Make the removal of an entry of the data a pending change, on a page
+  with `opts`: the one that the `answers` of the editor make of the `parts`
+  that the server has for it (see ui.edit.removal and entry/retract). The
+  places of its blank nodes and the labels of its resources are kept, which
+  the list of the changes needs."
+  [{:keys [edit-rules] :as opts} parts answers]
+  (doseq [[label place] (removal/nodes parts)]
     (app/remember-node! label place))
-  (app/remember-labels!
-    (update-vals entities (shared/->entity-label-fn detail-level)))
-  (update-changes! opts #(entry/retract (:entries edit-rules) % id change)))
+  (app/remember-labels! (removal-labels opts parts))
+  (update-changes! opts #(entry/retract (:entries edit-rules) %
+                                        (removal/removal parts answers))))
 
-(rum/defcs data-entry-field < refocus
+(def fetch-parts
+  "A mixin for the wizard of a removal. When the wizard is drawn, it asks
+  the server for the parts of the removal and keeps them as ::parts. The
+  wizard closes when the data has no such entry."
+  {:did-mount (fn [state]
+                #?(:cljs
+                   (let [[_ id {:keys [on-close]}] (:rum/args state)]
+                     (.then (fetch-removal id)
+                            #(if %
+                               (reset! (::parts state) %)
+                               (on-close)))))
+                state)})
+
+(rum/defcs removal-wizard < (rum/local nil ::parts)
+                            fetch-parts
+  "The wizard that removes the entry `id` of the data, on a page with
+  `opts`. It is drawn once the server has given the parts of the removal.
+  Then it says what goes with the entry and asks about the rest (see
+  ui.edit.removal).
+
+  It calls `on-done` right before the removal is made, e.g. to say where
+  the focus goes, and `on-close` when it closes without one."
+  [state {:keys [languages] :as opts} id {:keys [on-done on-close]}]
+  (when-let [parts @(::parts state)]
+    (let [labelled (update opts :k->label
+                           #(merge (removal-labels opts parts) %))]
+      (dialog/wizard
+        languages
+        (assoc (removal/flow languages id parts)
+          ;; a link would leave the page, and the wizard with it
+          :resource-fn #(rdf/resource-name % labelled))
+        {:on-done  (fn [answers]
+                     (on-done)
+                     (retract-entry! opts parts answers))
+         :on-close on-close}))))
+
+(rum/defcs retract-entry-button < (rum/local nil ::opener)
+  "The button that removes the entry `id` of the data as a whole, on its own
+  page with `opts`. It opens the wizard of the removal, which has to be
+  confirmed (see removal-wizard).
+
+  The button that puts the entry back then takes its place and the focus."
+  [state {:keys [languages] :as opts} id]
+  (let [opener (::opener state)]
+    [:<>
+     (entry-button
+       opts id
+       (i18n/da-en languages "Fjern ressourcen" "Remove the resource")
+       #(reset! opener (.-currentTarget %)))
+     (when-let [button @opener]
+       (removal-wizard
+         opts id
+         {:on-done  (fn []
+                      (reset! opener nil)
+                      #?(:cljs
+                         (let [header (.closest button "header")]
+                           ;; the header still has this button at first
+                           (when-drawn! #(let [other (.querySelector
+                                                       header ".entry-button")]
+                                           (when (not= other button)
+                                             other))
+                                        #(.focus %)))))
+          :on-close #(reset! opener nil)}))]))
+
+(rum/defcs data-entry-field < (rum/local false ::removing?)
+                              refocus
                               keep-focus
   "A field for the entry `v` of the data in the row of the property `k` in
   `opts`, when the row takes new entries, e.g. a sense of a synset. Its
   cross removes the whole entry, since a link to the entry is part of what
-  the entry is made of. A removed entry says so, and its button puts it
-  back.
+  the entry is made of. It opens the wizard of the removal, which has to be
+  confirmed (see removal-wizard). A removed entry says so, and its button
+  puts it back.
 
   The `props` are the field as row/fields has it, with :required, the
   constraints of a row that must keep the value."
   [state {:keys [languages] :as opts} k v {:keys [status required]}]
-  (let [removed? (= status :retracted)
-        text     (value-text opts v)
-        link     [(subject-of opts) k v]
-        refocus! #(vreset! (::refocus state) "button")
-        content  [(if removed? :del :span)
-                  (update (rdf/lone-value-attrs v) :class
-                          #(remove nil? ["edit-value__content" %]))
-                  (rdf/value opts v)]]
+  (let [removing? (::removing? state)
+        removed?  (= status :retracted)
+        text      (value-text opts v)
+        link      [(subject-of opts) k v]
+        refocus!  #(vreset! (::refocus state) "button")
+        content   [(if removed? :del :span)
+                   (update (rdf/lone-value-attrs v) :class
+                           #(remove nil? ["edit-value__content" %]))
+                   (rdf/value opts v)]]
     [:li.edit-value (when removed? {:class "edit-value--retracted"})
      (if removed?
-       [:span.edit-value__content
-        content
-        [:small.edit-value__note
-         (i18n/da-en languages
-           "Hele opslaget fjernes"
-           "The whole entry is removed")]]
+       [:span.edit-value__content content (removed-note opts v)]
        content)
      (buttons status
               {:undo   [(undo-label languages :retracted text)
@@ -1101,18 +1195,18 @@
                           (refocus!)
                           (update-changes! opts change/without-triple link))]
                :remove [(str (i18n/da-en languages
-                               "Fjern hele opslaget"
-                               "Remove the whole entry")
+                               "Fjern hele ressourcen"
+                               "Remove the whole resource")
                              ": " text)
-                        (fn [_]
-                          #?(:cljs (.then (fetch-removal v)
-                                          (fn [removal]
-                                            (when removal
-                                              (refocus!)
-                                              (retract-entry! opts v
-                                                              removal))))))]}
+                        #(reset! removing? true)]}
               (when required
-                {:remove (required-mark languages required)}))]))
+                {:remove (required-mark languages required)}))
+     (when @removing?
+       (removal-wizard opts v
+                       {:on-done  (fn []
+                                    (reset! removing? false)
+                                    (refocus!))
+                        :on-close #(reset! removing? false)}))]))
 
 (defn with-pending
   "The `search` for an entry with the new entries in `pending` among its

@@ -255,7 +255,19 @@
                       [:dn/new-word-1 :ontolex/canonicalForm '_new1]
                       ['_new1 :ontolex/writtenRep hunde]}}]
              '_new1))
-        "and a change keeps the triples that don't name the node")))
+        "and a change keeps the triples that don't name the node")
+    (testing "the edits to an entry"
+      (let [link [:dn/synset-2 :wn/hypernym :dn/synset-1]]
+        (is (= []
+               (change/without-entry
+                 [{:add #{[:dn/synset-1 :wn/lexfile "noun.animal"]}}
+                  {:retract #{[:dn/synset-1 :wn/lexfile "noun.Tops"]}}
+                  {:add #{link}}]
+                 :dn/synset-1))
+            "are its own triples and the additions that point to it")
+        (is (= [{:retract #{link}}]
+               (change/without-entry [{:retract #{link}}] :dn/synset-1))
+            "and not a retraction that points to it")))))
 
 (deftest locating-nodes
   (let [form    ['?node :ontolex/writtenRep hund]
@@ -329,4 +341,60 @@
         (is (every? empty? (map change/problems located)))
         (is (= [{:add #{word}} {:add #{sense}}]
                (change/locate-nodes [{:add #{word}} {:add #{sense}}] nodes))
-            "two new entries that no change links stay apart")))))
+            "two new entries that no change links stay apart")))
+    (testing "the removals that share an entry are one change"
+      (let [sense   #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                      [:dn/word-1 :ontolex/sense :dn/sense-1]
+                      [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]}
+            word    {:retract (conj sense [:dn/word-1 :rdf/type :ontolex/Word])}
+            synset  {:retract (conj sense [:dn/synset-1 :rdf/type
+                                           :ontolex/LexicalConcept])}
+            other   {:retract #{[:dn/sense-2 :rdf/type :ontolex/LexicalSense]
+                                [:dn/word-2 :ontolex/sense :dn/sense-2]
+                                [:dn/synset-1 :ontolex/lexicalizedSense
+                                 :dn/sense-2]}}
+            apart   {:retract #{[:dn/sense-3 :rdf/type :ontolex/LexicalSense]
+                                [:dn/word-3 :ontolex/sense :dn/sense-3]}}
+            located (change/locate-nodes [word apart synset] {})]
+        (is (= #{:dn/word-1 :dn/sense-1} (change/removed word)))
+        (is (empty? (change/removed {:retract #{old-hypernym}
+                                     :add     #{[:dn/word-1 :rdf/type
+                                                 :ontolex/Word]}})))
+        (is (= [{:retract (into (:retract word) (:retract synset))} apart]
+               located)
+            "and no triple is retracted twice")
+        (is (= [word other] (change/locate-nodes [word other] {}))
+            "a removal that only shares an entry that stays is left apart")))
+    (testing "what a change unreferences stays with it"
+      (let [word  {:retract     #{[:dn/word-1 :rdf/type :ontolex/Word]
+                                  [:dn/word-1 :ontolex/canonicalForm '_form]
+                                  ['_form :ontolex/writtenRep hund]}
+                   :unreference #{:dn/word-1}}
+            sense {:retract     #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                                  [:dn/word-1 :ontolex/sense :dn/sense-1]}
+                   :unreference #{:dn/sense-1}}
+            [located :as all] (change/locate-nodes [word sense] nodes)]
+        (is (= 1 (count all)) "two removals that share a resource are one")
+        (is (= #{:dn/word-1 :dn/sense-1} (:unreference located)))
+        (is (= [place] (:where located)))
+        (is (empty? (change/problems located)))))))
+
+(deftest unreferencing
+  (let [removal {:retract     #{[:dn/synset-2 :rdf/type
+                                 :ontolex/LexicalConcept]}
+                 :unreference #{:dn/synset-2}}
+        edit    {:add #{new-hypernym}}]
+    (is (empty? (change/problems removal)))
+    (is (empty? (change/problems {:unreference #{:dn/synset-2}}))
+        "a change can unreference a resource and do nothing else")
+    (is (= [{:problem :not-a-resource :resource "synset"}]
+           (change/problems {:unreference #{"synset"}})))
+    (is (= #{:dn/synset-2} (change/unreferenced [edit removal])))
+    (is (= #{:dn/synset-2} (:unreference (change/net [edit removal]))))
+    (is (not (contains? (change/net [edit]) :unreference))
+        "the net of changes that unreference nothing is as before")
+    (is (contains? (change/resources [{:unreference #{:dn/synset-9}}])
+                   :dn/synset-9))
+    (is (= [edit] (change/without-triple [edit removal] old-hypernym))
+        "undoing a triple that points to an unreferenced resource undoes the
+        change that unreferences it")))

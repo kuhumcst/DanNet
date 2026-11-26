@@ -377,15 +377,20 @@
 (rum/defc resource-name
   "The RDF `resource` as resource-hyperlink shows it with `opts`, without
   the link: the prefix badge and the label, for a place where a link
-  doesn't fit, e.g. inside a button."
+  doesn't fit, e.g. inside a button or a dialog."
   [resource {:keys [languages k->label] :as opts}]
   (let [prefix (symbol (namespace resource))
-        label  (i18n/select-label languages (get k->label resource))]
+        label  (i18n/select-label languages (get k->label resource))
+        s      (str/trim (str label))
+        attrs  {:lang  (i18n/lang label)
+                :class (get prefix/prefix->class prefix "unknown")}
+        opts'  (dissoc opts :attr-key)]
     [:span.qname
      (prefix-badge prefix)
-     [:span {:lang  (i18n/lang label)
-             :class (get prefix/prefix->class prefix "unknown")}
-      (or (not-empty (str label)) (name resource))]]))
+     (if (synset-label? s)
+       [:span attrs (set-notation (synset-words s) opts')]
+       [:span attrs (or (transform-val label opts')
+                        (name resource))])]))
 
 (defn transform-val-coll
   "Render `coll` as dnc: concepts joined by +, when `opts` asks for that and

@@ -236,7 +236,8 @@ article.changes section h2 {
     margin: var(--spacing-s) auto 0 auto;
 }
 
-.entry-removed {
+.entry-removed,
+.entry-references {
     margin: var(--spacing-s) 0 0 0;
     text-align: center;
     color: var(--color-muted);
@@ -854,38 +855,226 @@ table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
     font-variant: small-caps;
 }
 
-/* The dialog that finds a value (see ui.edit/search-dialog) is a column of
-   its heading, its input and its results, which scroll. */
-.search-dialog {
-    width: min(60ch, calc(100vw - var(--spacing-l)));
+/* A modal dialog (see ui.dialog/dialog) is a column of its header and its
+   content. It is drawn where its button is, e.g. in a centred header, so it
+   sets the look of its own text. */
+.dialog {
+    box-sizing: border-box;
+    width: min(calc(60ch + 2 * var(--spacing-l)), calc(100vw - var(--spacing-l)));
     max-height: min(80vh, 60rem);
-    padding: var(--spacing-m);
+    padding: var(--spacing-l);
     border: var(--normal-border);
     border-radius: var(--border-radius-s);
     box-shadow: var(--shadow-nav);
+    color: var(--color-dark);
+    line-height: 1.5;
+    text-align: start;
+    text-shadow: none;
 }
 
-.search-dialog[open] {
+.dialog[open] {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-m);
 }
 
-.search-dialog::backdrop {
+.dialog::backdrop {
     background: rgba(0,0,0,0.5);
 }
 
-.search-dialog > header {
+.dialog > header {
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-.search-dialog h2 {
+.dialog h2 {
     margin: 0;
     font-size: var(--font-size-m-l);
+    text-align: start;
 }
 
+/* A wizard (see ui.dialog/wizard) has the same frame at every step, so
+   that nothing jumps from one step to the next: its title and what it is
+   about at the top, its buttons at the bottom, and the step between them. */
+.wizard {
+    height: min(calc(30rem + 2 * var(--spacing-l)), 84vh);
+    margin-top: 10vh;
+}
+
+/* The title is at one end of the header and how far the wizard is at the
+   other, before the button that closes it. */
+.wizard > header h2 {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-right: var(--spacing-m);
+}
+
+.wizard__progress {
+    font-size: var(--font-size-s);
+    font-variant: normal;
+    color: var(--color-muted);
+}
+
+.wizard p,
+.wizard ul,
+.wizard dl,
+.wizard dd,
+.wizard fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: none;
+}
+
+.wizard__about {
+    padding-bottom: var(--spacing-m);
+    border-bottom: var(--subtle-border);
+}
+
+/* A step is in the middle of the space between the top and the buttons,
+   across and down, so that its parts don't crowd one corner. It stays in
+   the middle when its details unfold, as long as there is room. A step
+   that is too long for that starts at the top and scrolls. */
+.wizard__step {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-l);
+    align-items: safe center;
+    justify-content: safe center;
+    min-height: 0;
+    overflow-y: auto;
+    text-align: center;
+}
+
+/* The outline of a step is inside it, where the step doesn't cut it off. */
+.wizard__step:focus-visible {
+    outline-offset: -2px;
+}
+
+/* The figures of a step are tiles side by side: a large number above what
+   it counts. The list has the name first, so each tile is turned around.
+   The tiles go on more lines when the dialog is too narrow for one. */
+.wizard__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-m);
+    justify-content: center;
+    max-width: 100%;
+}
+
+.wizard__figures > div {
+    display: flex;
+    flex: 1;
+    flex-direction: column-reverse;
+    min-width: 7rem;
+    padding: var(--spacing-m) var(--spacing-l);
+    background: var(--color-bg-alt);
+    border-radius: var(--border-radius-s);
+}
+
+.wizard__figures dt {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
+.wizard__figures dd {
+    font-size: var(--font-size-xl);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+/* The items and the choices of a step are rows of the same two columns: a
+   narrow one for a number or a checkbox, which end at the same edge, and
+   one for what the row is about. The rows are centred as a block. */
+.wizard__rows {
+    display: grid;
+    grid-template-columns: max-content minmax(0, max-content);
+    gap: var(--spacing-s) var(--spacing-m);
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    text-align: start;
+}
+
+/* A row takes the columns of its list, and so does the label in it. */
+.wizard__rows > li,
+.wizard__rows > li > label {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+}
+
+.wizard__rows .wizard__lead,
+.wizard__rows input {
+    justify-self: end;
+    margin: 0;
+}
+
+.wizard__lead {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The details are folded away until they are asked for. Their summaries
+   start at the same edge, as a block in the middle of the step. */
+.wizard__folds {
+    display: grid;
+    gap: var(--spacing-s);
+    justify-content: center;
+    max-width: 100%;
+    text-align: start;
+}
+
+.wizard__details > summary {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.wizard__details > .wizard__rows {
+    margin-top: var(--spacing-m);
+}
+
+/* A warning has the colour of an error of the check (see .check-problem). */
+.wizard__warning {
+    color: var(--color-dannet);
+}
+
+/* The buttons of a wizard are in a row below a line. The one that confirms
+   is last and stands out. */
+.wizard > footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-s);
+    padding-top: var(--spacing-m);
+    border-top: var(--subtle-border);
+}
+
+.wizard > footer button {
+    padding: var(--spacing-xs) var(--spacing-m);
+    font: inherit;
+    font-size: var(--font-size-s);
+    color: inherit;
+    background: var(--color-bg-alt);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+}
+
+.wizard > footer button.wizard__done {
+    color: white;
+    background: var(--color-dannet);
+    border-color: var(--color-dannet);
+}
+
+/* The dialog that finds a value (see ui.edit/search-dialog): its input, and
+   its results, which scroll. */
 .search-dialog input {
     padding: var(--spacing-s) var(--spacing-m);
     font: inherit;

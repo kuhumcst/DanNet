@@ -60,11 +60,14 @@
   A changed value has its :status: :added, :retracted, :edited with the
   :original value that it replaces, or :moved with the property that it is
   :moved-from (see change/moves). In the row that a moved value left, it is
-  :retracted with the property that it is :moved-to. The fields are in the
-  order of `properties` and then of value-order."
+  :retracted with the property that it is :moved-to. A value is :retracted
+  too when it is a resource that the changes unreference, since that takes
+  every triple that points to it. The fields are in the order of
+  `properties` and then of value-order."
   [changes s properties entries]
   (let [p->vs (update-vals (group-by first entries) #(map second %))
-        moves (change/moves changes s)]
+        moves (change/moves changes s)
+        gone  (change/unreferenced changes)]
     (for [p    properties
           :let [{:keys [added retracted replaced]
                  :as   pending} (change/property-changes changes s p)
@@ -82,7 +85,7 @@
                                    [value to]))]
           v    (value-order (get p->vs p) pending)
           :let [status (cond
-                         (retracted v) :retracted
+                         (or (retracted v) (contains? gone v)) :retracted
                          (contains? original v) :edited
                          (contains? moved-from v) :moved
                          (added v) :added)]]

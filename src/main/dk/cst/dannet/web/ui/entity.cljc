@@ -11,6 +11,7 @@
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
@@ -86,9 +87,11 @@
   edit mode, a resource that can't be edited has a grey prefix badge and a
   padlock before its label, and a new entry has the button that takes it
   away, which leaves its page for the list of the pending changes. An entry
-  that is :removed? as a whole says so, with the button that puts it back."
+  of the data that a template describes has the button that removes it as a
+  whole. An entry that is :removed? says so, with the button that puts it
+  back."
   [{:keys [subject languages entity k->label detail-level edit-mode comments
-           draft? removed?]
+           draft? removed? edit-rules]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
@@ -137,12 +140,16 @@
          (fn [_]
            (edit/remove-entry! opts subject)
            (app/navigate-to prefix/changes-path {:replace? true}))))
+     (when (and edit-mode
+                (not (or draft? removed? locked?))
+                (entry/described? (:entries edit-rules) entity))
+       (edit/retract-entry-button opts subject))
      (when removed?
        [:<>
         [:p.entry-removed
          (i18n/da-en languages
-           "Dette opslag fjernes."
-           "This entry is being removed.")]
+           "Denne ressource fjernes."
+           "This resource is being removed.")]
         (edit/restore-entry-button
           opts subject
           (fn [e]

@@ -24,12 +24,19 @@
     second entry is refused;
   - :note, what the template adds besides a value of the row, in each
     language, which the editor says before anything is chosen."
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.theophrastus.term :as term]))
+
+(defn described?
+  "Is the `entity` of a class that has a template in `templates`?"
+  [templates entity]
+  (boolean (some #(contains? templates %)
+                 (shared/setify (:rdf/type entity)))))
 
 (defn for-row
   "The template in `templates` that makes the new values of the property
@@ -258,26 +265,34 @@
                                {gap id}))]
     {:add (into (:add change) (:add around))}))
 
+(defn links
+  "The properties that the `templates` link a new entry with, as a set:
+  those of their triples that point to one, e.g. the property that gives a
+  word its sense. An entry can't stay without what holds it by such a link."
+  [templates]
+  (into #{}
+        (for [{:keys [new add]} (vals templates)
+              [_ p o]           add
+              :when             (contains? new o)]
+          p)))
+
 (defn without
-  "The pending `changes` without the new entry with the `id`: the triples
-  that name it, and then what can't stay without it, by the `templates`.
+  "The pending `changes` without the new entry with the `id`: the edits to
+  it (see change/without-entry), and then what can't stay without it, by
+  the `templates`.
 
   That is its blank nodes and the new entries that a template links it to,
   e.g. the new senses of a new word. A new entry that only held the entry
   goes too, e.g. a new synset when its last sense is taken away. A new
   entry that still holds another one stays, with every value that it has."
   [templates changes id]
-  (let [link? (into #{}
-                    (for [{:keys [new add]} (vals templates)
-                          [_ p o]           add
-                          :when             (contains? new o)]
-                      p))]
+  (let [link? (links templates)]
     (loop [changes  (vec changes)
            [x & xs] [id]]
       (if (nil? x)
         changes
         (let [added   (:add (change/net changes))
-              kept    (change/without-node changes x)
+              kept    (change/without-entry changes x)
               holds?  (fn [id]
                         (some (fn [[s p _]] (and (= s id) (link? p)))
                               (:add (change/net kept))))
@@ -296,23 +311,31 @@
                                         (remove holds? holders)))))))))
 
 (defn retract
-  "The pending `changes` with the entry `id` of the data removed as a whole
-  by `removal`, the change that retracts every triple of the data that
-  names it (see db.change/removal).
+  "The pending `changes` with the change `removal` made, which takes
+  entries of the data out as a whole, e.g. a word and its senses (see
+  db.change/removal).
 
-  The changes made to the entry before are dropped, with what can't stay
-  without it (see without), and so are those made to its blank nodes."
-  [templates changes id removal]
-  (let [nodes (filter term/blank-node? (map peek (:retract removal)))]
-    (conj (reduce change/without-node (without templates changes id) nodes)
-          removal)))
+  The edits made before to what it removes are dropped, with what can't
+  stay without it (see without). A link to it that was removed before
+  stays removed. An earlier removal stays whole, so that each can be
+  undone on its own. Two that retract the same triple are submitted as one
+  change (see change/locate-nodes), and one that the new removal covers is
+  dropped."
+  [templates changes removal]
+  (let [whole?   (comp seq change/removed)
+        covered? #(set/subset? (:retract %) (:retract removal))
+        nodes    (filter term/blank-node? (map peek (:retract removal)))
+        edits    (reduce #(without templates %1 %2)
+                         (remove whole? changes)
+                         (change/removed removal))]
+    (-> (reduce change/without-node edits nodes)
+        (into (remove covered?) (filter whole? changes))
+        (conj removal))))
 
 (defn- removes?
-  "Does the `change` remove the entry `id` of the data as a whole? It does
-  when it retracts the type of the entry, which no other edit does."
+  "Does the `change` remove the entry `id` of the data as a whole?"
   [change id]
-  (some (fn [[s p _]] (and (= s id) (= p :rdf/type)))
-        (:retract change)))
+  (contains? (change/removed change) id))
 
 (defn retracted?
   "Do the pending `changes` remove the entry `id` of the data as a whole
@@ -321,8 +344,8 @@
   (boolean (some #(removes? % id) changes)))
 
 (defn restored
-  "The pending `changes` without the one that removes the entry `id` of the
-  data as a whole (see retract), which puts the entry back as it was."
+  "The pending `changes` without the ones that remove the entry `id` of the
+  data as a whole (see retract), which puts back what they removed."
   [changes id]
   (into [] (remove #(removes? % id)) changes))
 

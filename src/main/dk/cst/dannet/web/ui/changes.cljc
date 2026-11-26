@@ -7,7 +7,9 @@
   that takes an added value away. A new entry is one change: its values
   have no buttons of their own, and one button takes the entry away. An
   entry that is removed as a whole is one change too, with one button that
-  puts it back.
+  puts it back. The references to it aren't listed: the change has a rule
+  for them (see :unreference in dk.cst.dannet.change), and the list asks
+  the server how many they are.
 
   A check asks the server what the shapes say about the changes, and each
   result is shown with the entry or the row that it is about. Nothing takes
@@ -16,6 +18,7 @@
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
@@ -119,7 +122,8 @@
   "The `change` as EDN text, with each of its keys on a line of its own and
   their values in a column."
   [change]
-  (let [ks    (filter #(contains? change %) [:where :retract :add])
+  (let [ks    (filter #(contains? change %)
+                      [:where :retract :add :unreference])
         width (apply max 0 (map #(count (str %)) ks))
         pad   #(apply str % (repeat (- width (count (str %))) " "))]
     (str "{"
@@ -136,12 +140,14 @@
        "]"))
 
 (defn- check!
-  "Ask the server what the shapes say about the pending `changes`, sent as
-  they are submitted with `nodes` (see submission), and keep the answer as
-  the :check of the session.
+  "Ask the server what the shapes say about the pending changes in `opts`,
+  sent as they are submitted (see submission), and keep the answer as the
+  :check of the session. The labels of the resources that it is about are
+  kept too, since a change can break a rule of a resource that it doesn't
+  name.
 
   An answer is dropped when the changes have changed in the meantime."
-  [changes nodes]
+  [{:keys [changes nodes detail-level] :as opts}]
   #?(:cljs
      (let [answer! (fn [check]
                      (app/clear-current-fetch prefix/check-path)
@@ -152,13 +158,20 @@
                        {:method       :post
                         :content-type :edn
                         :body         (submission changes nodes)})
-           (.then #(answer! (get-in % [:body :data :check])))
+           (.then (fn [response]
+                    (let [{:keys [check entities]}
+                          (get-in response [:body :data])]
+                      (app/remember-labels!
+                        (update-vals entities
+                                     (shared/->entity-label-fn detail-level)))
+                      (answer! check))))
            (.catch #(answer! {:failed? true}))))))
 
 (defn- problem
   "The message of the `result` of a check, marked as an error or as a
-  warning for a reader with `languages`."
-  [languages {:keys [severity message source-shape] :as result}]
+  warning for a reader with `languages`. With `n`, it also says that it is
+  about that many resources."
+  [languages {:keys [severity message source-shape] :as result} & [n]]
   (let [warning? (= severity :sh/Warning)]
     [:p.check-problem (cond-> {:key (str source-shape message)}
                         warning? (assoc :class "check-problem--warning"))
@@ -166,7 +179,57 @@
                 (i18n/da-en languages "Advarsel: " "Warning: ")
                 (i18n/da-en languages "Fejl: " "Error: "))]
      ;; the shapes have their messages in English
-     [:span {:lang "en"} message]]))
+     [:span {:lang "en"} message]
+     (when n
+       (str " " (i18n/da-en languages "Ressourcer" "Resources") ": " n))]))
+
+(defn- fetch-references!
+  "Ask the server how many triples point to each of the resources `ids`,
+  which the pending changes in `opts` unreference, and keep the answer as
+  the :references of the session: the :ids that it is about, and the
+  :counts, a map of a resource to a map of a property to a number. The
+  labels of the properties are kept too.
+
+  A request that is ended, e.g. by leaving the page, is made again the next
+  time. One that fails isn't, so the list goes without the counts."
+  [{:keys [detail-level] :as opts} ids]
+  #?(:cljs
+     (let [qnames (map prefix/kw->qname (sort ids))
+           url    (str "/dannet/edit/references?ids="
+                       (js/encodeURIComponent (str/join "," qnames)))
+           ;; an answer is dropped when the changes have changed
+           same?  #(= ids (get-in @app/session [:references :ids]))]
+       (swap! app/session assoc :references {:ids ids})
+       (-> (app/fetch! url)
+           (.then (fn [response]
+                    (let [{:keys [references entities]}
+                          (get-in response [:body :data])]
+                      ;; an ended request is cleared by what ended it
+                      (when response
+                        (app/clear-current-fetch url))
+                      (app/remember-labels!
+                        (update-vals entities
+                                     (shared/->entity-label-fn detail-level)))
+                      (cond
+                        (not (same?)) nil
+                        (nil? response) (swap! app/session dissoc :references)
+                        :else (swap! app/session assoc-in
+                                     [:references :counts] references)))))
+           (.catch #(app/clear-current-fetch url))))))
+
+(def look-up-references
+  "A mixin for the list of the pending changes. The references to what the
+  changes unreference aren't in the changes, so the list asks the server
+  how many they are, and again when the changes unreference something
+  else."
+  (let [look! (fn [state]
+                (let [[{:keys [changes references] :as opts}] (:rum/args state)
+                      ids (change/unreferenced changes)]
+                  (when (and (seq ids) (not= ids (:ids references)))
+                    (fetch-references! opts ids)))
+                state)]
+    {:did-mount  look!
+     :did-update look!}))
 
 (def keep-focus
   "A mixin for a value in the list of the pending changes. When the value
@@ -218,7 +281,8 @@
   changes to the `entry`, with a button that undoes its change, or that
   takes it away when it is added. The `field` is the value as row/fields has
   it. A value that replaces another is shown below the one that it replaces,
-  and a moved one says which row it has moved from or to.
+  and a moved one says which row it has moved from or to. A removed value
+  that is an entry says when the whole entry is removed.
 
   A value of an entry that is one change has no button (see whole?). A new
   entry as a value has the button that takes that entry away, as its row on
@@ -230,7 +294,10 @@
                                #(remove nil? ["edit-value__content" class %]))
                    (rdf/value opts v)])
         text    (if (keyword? value) (rdf/link-label opts value) (str value))
-        note    (edit/move-note opts field)
+        note    (or (edit/move-note opts field)
+                    (when (and (= status :retracted)
+                               (not (whole? opts entry)))
+                      (edit/removed-note opts value)))
         main    (case status
                   :retracted (content :del value nil)
                   (:added :moved) (content :ins value nil)
@@ -329,12 +396,23 @@
           (map #(problem languages %)
                (row-problems (:results check) entry row)))]])]])
 
+(defn- reference-counts
+  "The number of triples that point to the `entry`, which the pending
+  changes in `opts` unreference, as a map of a property to a number. It is
+  what the server last counted (see look-up-references), or nil when that
+  count was made for other changes."
+  [{:keys [changes references] :as opts} entry]
+  (when (= (:ids references) (change/unreferenced changes))
+    (get-in references [:counts entry])))
+
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
   entries), under a heading that links to the entry and its full IRI. A new
   entry has a button that takes it away as a whole, and an entry that is
-  removed as a whole has one that puts it back. An entry without rows only
-  has what the check said about it (see other-problems)."
+  removed as a whole has one that puts it back, and says how many
+  references go with it, once the server has counted them (see
+  look-up-references). An entry without rows only has what the check said
+  about it (see other-problems)."
   [{:keys [languages check changes] :as opts} entry rows]
   [:section
    [:header
@@ -349,6 +427,14 @@
                                  (fn [_]
                                    (focus-status!)
                                    (edit/restore-entry! entry))))
+    (when-let [counts (reference-counts opts entry)]
+      [:p.entry-references
+       (i18n/da-en languages
+         "Henvisninger hertil fjernes også"
+         "The references to it are removed too")
+       ": "
+       (str/join ", " (for [[p n] (sort-by (juxt (comp - val) key) counts)]
+                        (str n " × " (rdf/link-label opts p))))])
     (map #(problem languages %)
          (entry-problems (:results check) entry rows))]
    (when (seq rows)
@@ -393,7 +479,7 @@
      [:button {:type          "button"
                :aria-disabled (when running? "true")
                :on-click      #(when-not running?
-                                 (check! changes nodes))}
+                                 (check! opts))}
       (i18n/da-en languages
         "Tjek ændringerne for fejl"
         "Check the changes for errors")]
@@ -424,13 +510,34 @@
      (when @submitted?
        [:pre [:code (submission changes nodes)]])]))
 
-(rum/defc changes-list
+(def listed
+  "How many resources without changes have the problems that the check
+  found listed one by one. More than that are summed up by message, since
+  a removal can leave thousands of resources with the same problem."
+  20)
+
+(rum/defc problem-summary
+  "What the check said about resources that no change is made to, when they
+  are too many to list (see listed): each message of the `results` once,
+  with the number of resources that it is about."
+  [{:keys [languages] :as opts} results]
+  [:section
+   [:header
+    [:h2 (i18n/da-en languages "Andre ressourcer" "Other resources")]
+    (for [[_ about] (sort-by (comp - count val)
+                             (group-by (juxt :severity :message) results))]
+      (problem languages (first about)
+               (count (distinct (map :focus-node about)))))]])
+
+(rum/defc changes-list < look-up-references
   "The pending changes in `opts`, by the entry that each is made to, or a
   note that there are none. Their number is a status, so that an undo is
   read out, and it can take the focus when the last change is undone."
   [{:keys [languages changes nodes check] :as opts}]
   (let [entries (entries changes nodes)
-        n       (count changes)]
+        others  (other-problems (:results check) entries)
+        n       (count changes)
+        one?    (= 1 (count entries))]
     [:<>
      [:p.subheading {:role "status" :tab-index -1}
       (if (empty? entries)
@@ -439,15 +546,16 @@
           "There are no changes yet.")
         (i18n/da-en languages
           (str n (if (= n 1) " ændring i " " ændringer i ")
-               (count entries) " opslag")
+               (count entries) (if one? " ressource" " ressourcer"))
           (str n (if (= n 1) " change to " " changes to ")
-               (count entries)
-               (if (= 1 (count entries)) " entry" " entries"))))]
+               (count entries) (if one? " resource" " resources"))))]
      (when (seq entries)
        [:<>
         (check-control opts)
         (for [{:keys [entry rows]} entries]
           (rum/with-key (entry-changes opts entry rows) (str entry)))
-        (for [entry (keys (other-problems (:results check) entries))]
-          (rum/with-key (entry-changes opts entry nil) (str entry)))
+        (if (<= (count others) listed)
+          (for [entry (keys others)]
+            (rum/with-key (entry-changes opts entry nil) (str entry)))
+          (problem-summary opts (mapcat val others)))
         (submit-control opts)])]))

@@ -41,14 +41,15 @@
                                   "Fra et andet datasæt"
                                   "From another dataset")
                   :supplemented (i18n/da-en languages
-                                  "Hentet fra relaterede opslag"
-                                  "Taken from related entries")
+                                  "Hentet fra relaterede ressourcer"
+                                  "Taken from related resources")
                   :derived      (i18n/da-en languages
                                   "Dannes automatisk ved udgivelsen"
                                   "Made automatically at release")
                   :fixed        (i18n/da-en languages
-                                  "Siger hvad opslaget er og kan ikke ændres"
-                                  "Says what the entry is and can't be changed")
+                                  "Siger hvad ressourcen er og kan ikke ændres"
+                                  (str "Says what the resource is and can't "
+                                       "be changed"))
                   :resource     (i18n/da-en languages
                                   "Kan ikke rettes på denne side"
                                   "Can't be edited on this page")

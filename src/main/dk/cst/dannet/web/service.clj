@@ -67,6 +67,7 @@
                                 res/words-route
                                 res/entry-route
                                 res/removal-route
+                                res/references-route
                                 res/changes-route
                                 res/check-route))))
 

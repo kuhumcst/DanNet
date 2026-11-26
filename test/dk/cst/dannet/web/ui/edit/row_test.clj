@@ -78,6 +78,15 @@
                        [:wn/hypernym]
                        [[:wn/hypernym :dn/synset-2]]))
         "the values of one property, with its additions last")
+    (is (= [{:property :wn/hypernym :value :dn/synset-2 :status :retracted}]
+           (row/fields [{:retract     #{[:dn/synset-2 :rdf/type
+                                         :ontolex/LexicalConcept]}
+                         :unreference #{:dn/synset-2}}]
+                       :dn/synset-1
+                       [:wn/hypernym]
+                       [[:wn/hypernym :dn/synset-2]]))
+        "a link to a resource that a change unreferences is removed too,
+        though the change doesn't name its triple")
     (let [move {:retract #{old}
                 :add     #{[:dn/synset-1 :dns/orthogonalHypernym :dn/synset-2]}}]
       (is (= [{:property :wn/hypernym

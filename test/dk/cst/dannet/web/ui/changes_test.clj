@@ -1,7 +1,9 @@
 (ns dk.cst.dannet.web.ui.changes-test
   "Tests for the list of the pending changes as data: which entries it has,
   which rows each of them has, and the text that is submitted."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
+            [rum.core :as rum]
             [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.change :as db.change]
@@ -201,4 +203,62 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                 " [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]"
                 " [:dn/word-1 :ontolex/sense :dn/sense-1]}}]")
            (changes/submission pending {}))
-        "the removal is submitted as one change")))
+        "the removal is submitted as one change")
+    (testing "two removals that share an entry"
+      (let [word    (update removal :retract conj
+                            [:dn/word-1 :rdf/type :ontolex/Word])
+            synset  (update removal :retract conj
+                            [:dn/synset-1 :rdf/type :ontolex/LexicalConcept])
+            pending [word synset]
+            shown   (for [{:keys [rows]} (changes/entries pending {})
+                          {:keys [subject property fields]} rows
+                          {:keys [value]} fields]
+                      [subject property value])]
+        (is (= (into (:retract word) (:retract synset)) (set shown)))
+        (is (apply distinct? shown)
+            "are listed with each of their triples once")
+        (is (= 1 (count (re-seq #":retract" (changes/submission pending {}))))
+            "and are submitted as one change")))))
+
+(deftest unreferenced-resources
+  (let [removal {:retract     #{[:dn/synset-1 :rdf/type
+                                 :ontolex/LexicalConcept]}
+                 :unreference #{:dn/synset-1}}
+        opts    {:languages ["da" "en"]
+                 :changes   [removal]
+                 :nodes     {}
+                 :k->label  {:wn/hypernym "har overbegreb"}}
+        html    #(rum/render-static-markup (changes/changes-list %))
+        result  (fn [n]
+                  {:focus-node (keyword "dn" (str "synset-9" n))
+                   :severity   :sh/Warning
+                   :message    "should have a hypernym"})]
+    (is (= [:dn/synset-1] (map :entry (changes/entries [removal] {})))
+        "a resource that only refers to a removed one has no section")
+    (is (str/includes? (changes/submission [removal] {})
+                       ":unreference #{:dn/synset-1}")
+        "the submitted change has the rule, and not the references")
+    (is (not (str/includes? (html opts) "Henvisninger hertil"))
+        "the references aren't counted before the server has said")
+    (is (str/includes?
+          (html (assoc opts :references
+                            {:ids    #{:dn/synset-1}
+                             :counts {:dn/synset-1 {:wn/hypernym 39
+                                                    :wn/also     2}}}))
+          "Henvisninger hertil fjernes også: 39 × har overbegreb, 2 × also")
+        "then the removed resource says how many go, by property")
+    (is (not (str/includes?
+               (html (assoc opts
+                       :changes [(dissoc removal :unreference)]
+                       :references {:ids    #{:dn/synset-1}
+                                    :counts {:dn/synset-1 {:wn/hypernym 39}}}))
+               "Henvisninger hertil"))
+        "a count that was made for other changes isn't shown")
+    (testing "what the check says about other resources"
+      (let [few  (html (assoc opts :check {:results (map result (range 3))}))
+            many (html (assoc opts :check {:results (map result (range 50))}))]
+        (is (= 3 (count (re-seq #"should have a hypernym" few)))
+            "is listed for each of a few")
+        (is (= 1 (count (re-seq #"should have a hypernym" many)))
+            "and summed up by message for many")
+        (is (str/includes? many "Ressourcer: 50"))))))

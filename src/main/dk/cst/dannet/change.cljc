@@ -2,11 +2,13 @@
   "Changes to the DanNet data, as data: what an editor proposes and what a
   release applies.
 
-  A change is a map of [s p o] patterns under up to three keys:
+  A change is a map of [s p o] patterns under up to three keys, and of
+  resources under a fourth:
 
   - :where, a vector of patterns that lead to what the change touches;
   - :retract, a set of the triples to retract;
-  - :add, a set of the triples to add.
+  - :add, a set of the triples to add;
+  - :unreference, a set of resources that nothing shall refer to.
 
   It means what the SPARQL update WITH dn: DELETE {retract} INSERT {add}
   WHERE {where . retract} means, on one condition: the patterns of :where
@@ -34,6 +36,16 @@
       {:add #{[:dn/word-11021628 :ontolex/otherForm '_form]
               ['_form :ontolex/writtenRep #rdf/langstring [\"hunden\" \"da\"]]}}
 
+  The :unreference of a change is a rule and not a list. It retracts every
+  triple that points to one of its resources, as the graph has them when
+  the change is made, however many they are. A blank node that only pointed
+  to them by that property goes whole. So the removal of a resource names
+  its own triples, which have to match, and leaves what refers to it to the
+  rule:
+
+      {:retract     #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense] ...}
+       :unreference #{:dn/sense-1}}
+
   The problems function checks all of this.
 
   A new entry, e.g. a synset, has no ID until a curator accepts the change
@@ -48,7 +60,8 @@
   blank node by the label that the page has it under, or by a label that
   the editor made for a new one. When the changes are submitted,
   locate-nodes writes the ?variable and the :where for a node in the data,
-  and gathers the changes of a new node or a new entry into one change."
+  and gathers the changes of a new node, of a new entry or of a removed
+  entry into one change."
   (:refer-clojure :exclude [replace])
   (:require [clojure.string :as str]
             [dk.cst.theophrastus.term :as term]
@@ -106,10 +119,13 @@
 
 (defn without-triple
   "The pending `changes` without the ones that add or retract the triple
-  `t`, which undoes the edit that `t` is part of."
+  `t`, which undoes the edit that `t` is part of. A change that unreferences
+  what `t` points to retracts it too."
   [changes t]
   (into []
-        (remove #(or (contains? (:add %) t) (contains? (:retract %) t)))
+        (remove #(or (contains? (:add %) t)
+                     (contains? (:retract %) t)
+                     (contains? (:unreference %) (peek t))))
         changes))
 
 (defn without-addition
@@ -127,21 +143,39 @@
                   change)))
         changes))
 
+(defn- without-triples
+  "The pending `changes` without the triples that are `named?`, a function
+  of the key that a triple is under and the triple. A change keeps its
+  other triples, and what it unreferences stays as it is."
+  [changes named?]
+  (let [others (fn [change]
+                 (into (select-keys change [:unreference])
+                       (keep (fn [[k triples]]
+                               (when-let [kept (seq (remove #(named? k %)
+                                                            triples))]
+                                 [k (set kept)])))
+                       (dissoc change :unreference)))]
+    (into [] (comp (map others) (filter seq)) changes)))
+
 (defn without-node
   "The pending `changes` without the triples that name the blank node
   `label` as a subject or an object. That takes a new node away, and it
   puts a removed one back. A change keeps its other triples, e.g. the ones
-  of a new word that was made with the node. The temporary ID of a new
-  entry in place of the label takes the triples of that entry away."
+  of a new word that was made with the node."
   [changes label]
-  (let [named? (fn [[s _ o]] (or (= s label) (= o label)))
-        others (fn [change]
-                 (into {}
-                       (keep (fn [[k triples]]
-                               (when-let [kept (seq (remove named? triples))]
-                                 [k (set kept)])))
-                       change))]
-    (into [] (comp (map others) (filter seq)) changes)))
+  (without-triples changes (fn [_ [s _ o]] (or (= s label) (= o label)))))
+
+(defn without-entry
+  "The pending `changes` without the edits to the entry `id`: the triples
+  that it is the subject of, and the additions that point to it. That takes
+  a new entry away.
+
+  A retraction that points to the entry stays. It is an edit to the entry
+  that had the link, whatever happens to the one that it pointed to."
+  [changes id]
+  (without-triples changes (fn [k [s _ o]]
+                             (or (= s id)
+                                 (and (= o id) (not= k :retract))))))
 
 (defn retract-node
   "The pending `changes` with the blank node `label` removed from its
@@ -237,7 +271,8 @@
   e.g. [{:problem :unbound-variable :variable ?g}], or an empty vector when
   it has none. The namespace docstring says what a change can hold."
   [{:keys [where retract add] :as change}]
-  (let [triples  (filter triple-form? (concat where retract add))
+  (let [unreference (:unreference change)
+        triples  (filter triple-form? (concat where retract add))
         patterns (filter triple-form? (concat where retract))
         rooted   (reached patterns iri? variable?)
         linked   (reached (filter triple-form? add)
@@ -247,10 +282,14 @@
     (into []
           cat
           [(for [k (keys change)
-                 :when (not (contains? #{:where :retract :add} k))]
+                 :when (not (contains? #{:where :retract :add :unreference}
+                                       k))]
              {:problem :unknown-key :key k})
-           (when (and (empty? retract) (empty? add))
+           (when (and (empty? retract) (empty? add) (empty? unreference))
              [{:problem :nothing-to-change}])
+           (for [x     unreference
+                 :when (not (iri? x))]
+             {:problem :not-a-resource :resource x})
            (for [t     (concat where retract add)
                  :when (not (triple-form? t))]
              {:problem :not-a-triple :triple t})
@@ -324,7 +363,8 @@
                                       retract)))]
     (if (empty? labels)
       change
-      (cond-> {:where (into (vec where) (mapcat find) labels)}
+      (cond-> (assoc (select-keys change [:unreference])
+                :where (into (vec where) (mapcat find) labels))
         (seq retract) (assoc :retract (rename retract))
         (seq add) (assoc :add (rename add))))))
 
@@ -336,11 +376,17 @@
         (reduce (fn [m [s p o]] (update-in m [s p] disj o)) m retract)
         (reduce (fn [m [s p o]] (update-in m [s p] (fnil conj #{}) o)) m add)))
 
+(defn unreferenced
+  "The resources that the `changes` unreference, as a set."
+  [changes]
+  (into #{} (mapcat :unreference) changes))
+
 (defn net
   "The plain `changes` taken together, as one change of the triples to :add and
   to :retract. A triple that a change adds and a later one retracts cancels
   out, and so does the other way round; within a change, the retractions come
-  first, as in a SPARQL update."
+  first, as in a SPARQL update. The resources that they unreference are kept
+  under :unreference when there are some."
   [changes]
   (letfn [(retract* [{:keys [add] :as acc} t]
             (if (contains? add t)
@@ -350,10 +396,25 @@
             (if (contains? retract t)
               (update acc :retract disj t)
               (update acc :add conj t)))]
-    (reduce (fn [acc {:keys [add retract]}]
-              (reduce add* (reduce retract* acc retract) add))
-            {:add #{} :retract #{}}
-            changes)))
+    (cond-> (reduce (fn [acc {:keys [add retract]}]
+                      (reduce add* (reduce retract* acc retract) add))
+                    {:add #{} :retract #{}}
+                    changes)
+      (some :unreference changes)
+      (assoc :unreference (unreferenced changes)))))
+
+(defn removed
+  "The entries that the `change` removes as a whole, as a set: the named
+  subjects whose type it retracts.
+
+  No other edit retracts a type. A change that does retracts every triple of
+  the data that names the entry (see dk.cst.dannet.db.change/removal)."
+  [{:keys [retract] :as change}]
+  (into #{}
+        (keep (fn [[s p _]]
+                (when (and (keyword? s) (= p :rdf/type))
+                  s)))
+        retract))
 
 (defn- gather
   "The pending `changes` with the ones that name the same thing that is
@@ -391,9 +452,13 @@
   with the values as the changes before it leave them.
 
   A node that an editor has made is :new?. The changes that name it become
-  one change, and so do the changes that name a new entry."
+  one change, and so do the changes that name a new entry. The changes that
+  name an entry which one of them removes as a whole become one too, e.g.
+  the removals of a word and of the synset of its sense, which retract the
+  same triples."
   [changes nodes]
   (let [new?     #(:new? (get nodes %))
+        removed? (into #{} (mapcat removed) changes)
         nodes    (into {} (remove (comp :new? val)) nodes)
         of-node? #(contains? nodes (first %))]
     (first
@@ -403,13 +468,14 @@
                                  (filter of-node? retract)
                                  (filter of-node? add))])
               [[] (update-vals nodes :values)]
-              (gather changes (some-fn new? temporary?))))))
+              (gather changes (some-fn new? temporary? removed?))))))
 
 (defn resources
-  "The IRIs in the triples of the pending `changes`, as a set: every subject,
-  property and object that is a keyword."
+  "The IRIs in the pending `changes`, as a set: every subject, property and
+  object of their triples that is a keyword, and every resource that they
+  unreference."
   [changes]
-  (into #{}
+  (into (unreferenced changes)
         (comp (mapcat (juxt :add :retract)) cat cat (filter keyword?))
         changes))
 
