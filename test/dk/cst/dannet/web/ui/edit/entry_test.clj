@@ -37,9 +37,11 @@
       "a gap that isn't a new entry doesn't make its row take entries"))
 
 (deftest questions
-  (is (= '{?word :ontolex/Word} (entry/asked sense '[?synset]))
+  (is (= '{?synset [:ontolex/LexicalConcept]} (entry/asked sense '[?word]))
       "the page fills its own gap, and the editor asks for the other")
-  (is (= '{?synset :ontolex/LexicalConcept} (entry/asked sense '[?word])))
+  (is (= '{?word [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]}
+         (entry/asked sense '[?synset]))
+      "a gap can take an entry of several classes")
   (is (empty? (entry/asked sense '[?word ?synset])))
   (is (every? (fn [{:keys [new add] :as template}]
                 (every? (fn [[s _ o]]
@@ -48,9 +50,9 @@
                         add))
               (vals templates))
       "every row of a template leaves one gap to ask for")
-  (is (every? #(:search (get input-type/class-input-types %))
-              (filter keyword? (mapcat (comp vals :ask) (vals templates))))
-      "every class that a template asks for has a search")
+  (is (every? #(:search (some input-type/class-input-types %))
+              (filter vector? (mapcat (comp vals :ask) (vals templates))))
+      "every entry that a template asks for has a search")
   (testing "a value that starts as a value of another gap"
     (let [quoted #rdf/langstring ["\"vovse\"" "da"]]
       (is (= {'?label vovse}
@@ -166,12 +168,38 @@
             :change {:add #{[:dn/new-word-1 :rdf/type :ontolex/Word]
                             [:dn/new-word-1 :rdfs/label quoted]
                             [:dn/new-word-1 :ontolex/canonicalForm '_new1]
-                            ['_new1 :ontolex/writtenRep vovse]}}}
+                            ['_new1 :ontolex/writtenRep vovse]}}
+            :text   "vovse"}
            made)
         "a word is made from its lemma, with a blank node under a new label")
     (is (nil? (entry/new-entry word [] "to ord" '[_new1]))
         "a lemma with a space isn't a word")
     (is (nil? (entry/new-entry word [] " " '[_new1])))
+    (testing "the class of a word follows from its lemma"
+      (let [classes (get (entry/asked sense '[?synset]) '?word)
+            fitting (fn [text]
+                      (filter #(entry/new-entry (get templates %) [] text
+                                                '[_new1])
+                              classes))]
+        (is (= [[:ontolex/Word] [:ontolex/Word] [:ontolex/Word]]
+               (map fitting ["vovse" "e-mail" "å"])))
+        (is (= [[:ontolex/MultiwordExpression] [:ontolex/MultiwordExpression]]
+               (map fitting ["slå til" "gentage sig (selv)"]))
+            "a lemma with a space is a multiword expression")
+        (is (= [[:ontolex/Affix] [:ontolex/Affix]]
+               (map fitting ["-agtig" "hånd-"]))
+            "and one with a hyphen at either end is an affix")
+        (is (= [[] [] []] (map fitting ["-" "slå  til" ""]))
+            "a text that is none of them makes nothing")
+        (is (= #{[:dn/new-word-1 :rdf/type :ontolex/MultiwordExpression]
+                 [:dn/new-word-1 :rdfs/label
+                  #rdf/langstring ["\"slå til\"" "da"]]
+                 [:dn/new-word-1 :ontolex/canonicalForm '_new1]
+                 ['_new1 :ontolex/writtenRep #rdf/langstring ["slå til" "da"]]}
+               (-> (:ontolex/MultiwordExpression templates)
+                   (entry/new-entry [] "slå til" '[_new1])
+                   (get-in [:change :add])))
+            "the entries are alike besides their class")))
     (is (= (into (:add (:change made))
                  #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
                    [:dn/new-sense-1 :rdfs/label vovse]
@@ -319,8 +347,11 @@
              (entry/links templates)))
       (is (entry/described? templates
                             {:rdf/type #{:ontolex/Word :ontolex/LexicalEntry}}))
+      (is (every? #(entry/described? templates {:rdf/type %})
+                  [:ontolex/MultiwordExpression :ontolex/Affix])
+          "a multiword expression and an affix too")
       (is (not (entry/described? templates
-                                 {:rdf/type :ontolex/MultiwordExpression}))))))
+                                 {:rdf/type :dns/OntologicalType}))))))
 
 (deftest new-entries-in-rows
   (let [first   (new-sense [] :dn/synset-1 :dn/word-1 vovse)

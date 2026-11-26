@@ -61,12 +61,16 @@
                  :value-fn   :rdf/about
                  :label-fn   :rdfs/label
                  :hiccup-fn  (fn [{:keys [lemma]} _] [:strong lemma])}
-        vuffer  {:pending :dn/new-word-1 :label "\"vuffer\""}
-        vaffer  {:pending :dn/new-word-2 :label "\"vaffer\""}
-        kind    {:da "Nyt ord" :en "New word"}
+        vuffer  {:pending :dn/new-word-1
+                 :label   "\"vuffer\""
+                 :kind    {:da "Nyt ord" :en "New word"}}
+        vaffer  {:pending :dn/new-word-2
+                 :label   "\"vaf vaf\""
+                 :kind    {:da "Nyt flerordsudtryk"
+                           :en "New multiword expression"}}
         {:keys [results-fn value-fn label-fn hiccup-fn] :as with}
-        (edit/with-pending search [vuffer vaffer] kind)]
-    (is (= search (edit/with-pending search [] kind))
+        (edit/with-pending search [vuffer vaffer])]
+    (is (= search (edit/with-pending search []))
         "a search stays as it is when there are no new entries")
     (is (= [vuffer vaffer] (results-fn ""))
         "every new entry is listed before a text is typed")
@@ -78,8 +82,9 @@
         "a result of the search itself is read as before")
     (is (nil? (label-fn vuffer))
         "the label of a new entry is in the changes")
-    (is (= [:<> [:strong "\"vuffer\""] [:span "Nyt ord"]]
-           (hiccup-fn vuffer {:languages ["da" "en"]}))
+    (is (= [[:<> [:strong "\"vuffer\""] [:span "Nyt ord"]]
+            [:<> [:strong "\"vaf vaf\""] [:span "Nyt flerordsudtryk"]]]
+           (map #(hiccup-fn % {:languages ["da" "en"]}) [vuffer vaffer]))
         "a new entry says what it is after its label")
     (is (= [:strong "hund"] (hiccup-fn {:lemma "hund"} {})))))
 

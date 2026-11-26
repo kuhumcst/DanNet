@@ -12,6 +12,22 @@
   dk.cst.dannet.db.shapes/property-constraints)."
   (:require [dk.cst.dannet.shared :as shared]))
 
+(defn- word-template
+  "The template of a new word of the `class`, which the editor calls `name`
+  in each language, made from a lemma that fits the `pattern`.
+
+  The lemma is the written form of the canonical form of the word, and the
+  label of the word is the lemma in quotes."
+  [class name pattern]
+  {:name name
+   :new  '{?word "word"}
+   :add  (conj '#{[?word :rdfs/label ?label]
+                  [?word :ontolex/canonicalForm _form]
+                  [_form :ontolex/writtenRep ?lemma]}
+               ['?word :rdf/type class])
+   :ask  {'?lemma {:lang "da" :pattern pattern}}
+   :from '{?label [?lemma "\"%s\""]}})
+
 (def rules
   "DanNet's rules for edit mode: which resources have fields, which of their
   properties never do, which languages the dropdown of a text offers, and
@@ -59,40 +75,48 @@
    ;; word without the quotes. A word that evokes a synset has a sense in it
    ;; already, since the build writes that link from the senses.
    :entries
-   '{:ontolex/LexicalSense
-     {:new  {?sense "sense"}
-      :add  #{[?sense :rdf/type :ontolex/LexicalSense]
-              [?sense :rdfs/label ?label]
-              [?word :ontolex/sense ?sense]
-              [?synset :ontolex/lexicalizedSense ?sense]}
-      :ask  {?word   :ontolex/Word
-             ?synset :ontolex/LexicalConcept}
-      :from {?label [?word :rdfs/label #"^\"(.*)\"$"]}
-      :note {:da "En ny betydning knytter ordet til synsettet."
-             :en "A new sense links the word to the synset."}
-      :once {:link   [?word :ontolex/evokes ?synset]
-             :reason {:da "Ordet er allerede i synsettet"
-                      :en "The word is already in the synset"}}}
+   (merge
+     '{:ontolex/LexicalSense
+       {:new  {?sense "sense"}
+        :add  #{[?sense :rdf/type :ontolex/LexicalSense]
+                [?sense :rdfs/label ?label]
+                [?word :ontolex/sense ?sense]
+                [?synset :ontolex/lexicalizedSense ?sense]}
+        :ask  {?word   [:ontolex/Word
+                        :ontolex/MultiwordExpression
+                        :ontolex/Affix]
+               ?synset [:ontolex/LexicalConcept]}
+        :from {?label [?word :rdfs/label #"^\"(.*)\"$"]}
+        :note {:da "En ny betydning knytter ordet til synsettet."
+               :en "A new sense links the word to the synset."}
+        :once {:link   [?word :ontolex/evokes ?synset]
+               :reason {:da "Ordet er allerede i synsettet"
+                        :en "The word is already in the synset"}}}
 
-     ;; A synset has nothing of its own from the start: the build writes its
-     ;; label from its senses (see :derived-labels).
-     :ontolex/LexicalConcept
-     {:name {:da "Nyt synset" :en "New synset"}
-      :new  {?synset "synset"}
-      :add  #{[?synset :rdf/type :ontolex/LexicalConcept]}}
+       ;; A synset has nothing of its own from the start: the build writes
+       ;; its label from its senses (see :derived-labels).
+       :ontolex/LexicalConcept
+       {:name {:da "Nyt synset" :en "New synset"}
+        :new  {?synset "synset"}
+        :add  #{[?synset :rdf/type :ontolex/LexicalConcept]}}}
 
-     ;; A word is made from its lemma, which is the written form of its
-     ;; canonical form, and its label in quotes. A lemma with a space is a
-     ;; multiword expression, which is a class of its own without a template.
-     :ontolex/Word
-     {:name {:da "Nyt ord" :en "New word"}
-      :new  {?word "word"}
-      :add  #{[?word :rdf/type :ontolex/Word]
-              [?word :rdfs/label ?label]
-              [?word :ontolex/canonicalForm _form]
-              [_form :ontolex/writtenRep ?lemma]}
-      :ask  {?lemma {:lang "da" :pattern #"^\S+$"}}
-      :from {?label [?lemma "\"%s\""]}}}
+     ;; A word has one of three classes, which follows from its lemma, as it
+     ;; does for every word in the data: a lemma with a space is a multiword
+     ;; expression, and one with a hyphen at either end is an affix.
+     {:ontolex/Word
+      (word-template :ontolex/Word
+                     {:da "Nyt ord" :en "New word"}
+                     #"^[^\s-](\S*[^\s-])?$")
+
+      :ontolex/MultiwordExpression
+      (word-template :ontolex/MultiwordExpression
+                     {:da "Nyt flerordsudtryk" :en "New multiword expression"}
+                     #"^\S+( \S+)+$")
+
+      :ontolex/Affix
+      (word-template :ontolex/Affix
+                     {:da "Nyt affiks" :en "New affix"}
+                     #"^(-\S+|\S+-)$")})
 
    ;; The labels that the build writes, which a new entry is shown with
    ;; until then: for each class, the property that leads to the entries

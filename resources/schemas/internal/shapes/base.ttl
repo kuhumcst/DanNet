@@ -8,10 +8,10 @@
 #   DanNet only controls the dn: dataset, so shapes use SPARQL-based targets
 #   (SHACL-AF) scoped to the dn: namespace rather than sh:targetClass. This
 #   deliberately excludes companion datasets (COR, OEWN) that follow their own
-#   conventions. Note that dn: words are typed ontolex:Word or
-#   ontolex:MultiwordExpression (never ontolex:LexicalEntry directly), and
-#   the asserted graph contains no ontolex subClassOf triples, so an
-#   sh:targetClass would miss them entirely.
+#   conventions. Note that dn: words are typed ontolex:Word,
+#   ontolex:MultiwordExpression or ontolex:Affix (never ontolex:LexicalEntry
+#   directly), and the asserted graph contains no ontolex subClassOf triples,
+#   so an sh:targetClass would miss them entirely.
 #
 # IMPORTANT (base vs. inferred graph):
 #   Validate these against the BASE (asserted) model. Relation-completeness
@@ -61,7 +61,8 @@ dns:DanNetEntryTarget a sh:SPARQLTarget ;
     sh:prefixes dns:DanNetPrefixes ;
     sh:select """
 SELECT ?this WHERE {
-  VALUES ?type { ontolex:LexicalEntry ontolex:Word ontolex:MultiwordExpression }
+  VALUES ?type { ontolex:LexicalEntry ontolex:Word
+                 ontolex:MultiwordExpression ontolex:Affix }
   ?this a ?type .
   FILTER(strstarts(str(?this), str(dn:)))
 }""" .
@@ -93,7 +94,7 @@ SELECT DISTINCT ?this WHERE {
 }""" .
 
 ## ---------------------------------------------------------------------------
-## LexicalEntry (dn: words & multiword expressions)
+## LexicalEntry (dn: words, multiword expressions & affixes)
 ## ---------------------------------------------------------------------------
 dns:LexicalEntryShape a sh:NodeShape ;
     sh:target dns:DanNetEntryTarget ;

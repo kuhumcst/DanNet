@@ -10,10 +10,11 @@
   - :add, the triples of a new entry, with a ?symbol for each gap;
   - :new, the gaps that are new entries, each with the kind that its
     temporary ID names;
-  - :ask, the gaps that the editor asks for. A gap with a class is an
-    entry of DanNet: the page of an entry fills its own gap, and the other
-    is found, or made from the template of its class when it has one. A gap
-    with a map is a text, in its :lang and of its :pattern;
+  - :ask, the gaps that the editor asks for. A gap with classes is an
+    entry of DanNet of one of them: the page of an entry fills its own gap,
+    and the other is found, or made from the template of a class that the
+    typed text fits. A gap with a map is a text, in its :lang and of its
+    :pattern;
   - :from, the gaps that start as a value of another gap, each with that
     gap and the steps that lead from its value: a property to read, a
     pattern whose first group is kept, or a text with %s for the value;
@@ -55,7 +56,7 @@
 
 (defn asked
   "The gaps of the `template` that the editor asks for when the gaps in
-  `given` have values already, as a map of a gap to its class."
+  `given` have values already, as a map of a gap to its classes."
   [{:keys [ask] :as template} given]
   (apply dissoc ask given))
 
@@ -239,7 +240,9 @@
   gap of another template: a map of its temporary :id and the :change that
   makes it. The `text` is the one that the template asks for, when it asks
   for one, and `labels` are labels for its blank nodes that the session
-  doesn't have. Nil when the text doesn't fit the template."
+  doesn't have. Nil when the text doesn't fit the template.
+
+  An entry that is made from a text also has the trimmed :text."
   [{:keys [new add ask] :as template} changes text labels]
   (let [[gap {:keys [lang pattern]}] (first (filter (comp map? val) ask))
         value  (when gap
@@ -247,11 +250,12 @@
         blanks (distinct (filter term/blank-node? (apply concat add)))]
     (when (or (nil? gap)
               (and value (or (nil? pattern) (re-find pattern (str value)))))
-      {:id     (change/temporary-id changes (val (first new)))
-       :change (fill template changes
-                     (merge (when gap {gap value})
-                            (starting template {gap value})
-                            (zipmap blanks labels)))})))
+      (cond-> {:id     (change/temporary-id changes (val (first new)))
+               :change (fill template changes
+                             (merge (when gap {gap value})
+                                    (starting template {gap value})
+                                    (zipmap blanks labels)))}
+        value (assoc :text (str value))))))
 
 (defn fill-around
   "The one change that makes the new entry `made` (see new-entry) and fills

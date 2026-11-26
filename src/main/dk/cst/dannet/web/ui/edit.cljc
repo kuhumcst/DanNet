@@ -202,25 +202,23 @@
   that the search refuses can't be chosen, and it says why. Neither can an
   entry that the pending changes remove as a whole.
 
-  With `new`, the dialog also offers to make a value, on a line before the
-  results: a map of its :name in each language, and of :fits?, a function
-  of the typed text that says whether a value can be made of it. The line
-  shows the text when the value is made of it, which :text? says. `on-new`
-  gets the text."
+  With `new-fn`, the dialog also offers to make a value, on a line before
+  the results. The function takes the typed text and returns what can be
+  made from it, or nil: a map of its :name in each language and, when the
+  value is made from the text, that :text. The line shows both, and
+  `on-new` gets the typed text."
   [state {:keys [languages changes] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
            heading placeholder note]
     :as   search}
-   {:keys [on-value on-result on-close new on-new]}]
+   {:keys [on-value on-result on-close new-fn on-new]}]
   (let [results  (::results state)
         searches (::searches state)
         text     (::text state)
         localize #(i18n/da-en languages (:da %) (:en %))
         refusal  #(or (when refuse-fn (refuse-fn opts %))
                       (removal-reason languages changes (value-fn %)))
-        ;; the text that a new value is made of, when it is made of one
-        made-of  #(when (:text? new)
-                    (not-empty (str/trim @text)))
+        offer    (when new-fn (new-fn @text))
         ;; Only the results of the latest search are shown, and a search
         ;; waits until the typing pauses. Each list of results is tagged
         ;; with its search.
@@ -272,12 +270,12 @@
                                                              (first))]
                                         (.preventDefault e)
                                         (choose! result))))}]
-       (when (and new ((:fits? new) @text))
+       (when offer
          [:button.search-dialog__new {:type     "button"
                                       :on-click #(on-new @text)}
           [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
-          (localize (:name new))
-          (when-let [s (made-of)]
+          (localize (:name offer))
+          (when-let [s (:text offer)]
             [:<> ": " [:strong s]])])
        ;; the number of results is announced, not every result, and so is the
        ;; line that offers to make a value of the text
@@ -286,9 +284,9 @@
           (str (i18n/da-en languages
                  (str n (if (= n 1) " resultat" " resultater"))
                  (str n (if (= n 1) " result" " results")))
-               (when (and new ((:fits? new) @text))
-                 (str ". " (localize (:name new))
-                      (some->> (made-of) (str ": "))))))]
+               (when offer
+                 (str ". " (localize (:name offer))
+                      (some->> (:text offer) (str ": "))))))]
        [:div.search-dialog__body
         (cond
           (nil? @results)
@@ -1213,10 +1211,10 @@
   results, before the ones that it finds itself: those whose label has the
   typed text in it, and all of them before a text is typed.
 
-  A pending result is a map of the :pending ID of a new entry and its
-  :label. The `kind` is what such an entry is called in each language,
-  which a result says after its label."
-  [{:keys [results-fn value-fn label-fn hiccup-fn] :as search} pending kind]
+  A pending result is a map of the :pending ID of a new entry, its :label
+  and its :kind, which is what such an entry is called in each language.
+  The result says it after its label."
+  [{:keys [results-fn value-fn label-fn hiccup-fn] :as search} pending]
   (let [matching (fn [s]
                    (let [s (str/lower-case (str/trim s))]
                      (filter #(str/includes? (str/lower-case (str (:label %)))
@@ -1234,10 +1232,11 @@
         :value-fn   #(or (:pending %) (value-fn %))
         :label-fn   #(when (and label-fn (not (:pending %)))
                        (label-fn %))
-        :hiccup-fn  (fn [result {:keys [languages] :as opts}]
+        :hiccup-fn  (fn [{:keys [label kind] :as result}
+                         {:keys [languages] :as opts}]
                       (if (:pending result)
                         [:<>
-                         [:strong (str (:label result))]
+                         [:strong (str label)]
                          [:span (i18n/da-en languages (:da kind) (:en kind))]]
                         (hiccup-fn result opts)))))))
 
@@ -1248,23 +1247,29 @@
   fills the template (see ui.edit.entry, where for-row gives `row-entry`).
 
   The dialog says what the template adds besides, and it lists the new
-  entries of the class. It refuses an answer that shares an entry of the
-  template with the subject already. It offers to make the answer when its
-  class has a template too, and a made answer is shown on its own page."
+  entries of the classes of the gap. It refuses an answer that shares an
+  entry of the template with the subject already. It offers to make the
+  answer when the template of one of the classes fits the typed text, e.g.
+  a multiword expression from a text with a space, and a made answer is
+  shown on its own page."
   [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
    k {:keys [template subject] :as row-entry}]
   (let [choosing? (::choosing? state)
         s         (subject-of opts)
-        [gap class] (first (entry/asked template [subject]))
-        ;; a new answer is made from the template of its class
-        answer    (get (:entries edit-rules) class)
+        entries   (:entries edit-rules)
+        [gap classes] (first (entry/asked template [subject]))
+        ;; a new answer is made from the template that the typed text fits
+        answers   (keep entries classes)
         labels    (entry/labels changes (:derived-labels edit-rules))
-        pending   (for [id (entry/of-class changes class)]
-                    {:pending id :label (get labels id)})
-        search    (with-pending (:search (get input-type/class-input-types
-                                              class))
-                                pending
-                                (:name answer))
+        pending   (sort-by :pending
+                           (for [class classes
+                                 id    (entry/of-class changes class)]
+                             {:pending id
+                              :label   (get labels id)
+                              :kind    (:name (get entries class))}))
+        search    (with-pending (:search (some input-type/class-input-types
+                                               classes))
+                                pending)
         value-fn  (:value-fn search)
         taken     (when (:once template)
                     (into (entry/known template inverses entity subject gap)
@@ -1291,7 +1296,12 @@
                           change   (entry/fill template changes values)]
                       (update-changes! opts conj change)
                       (focus! change)))
-        make      #(entry/new-entry answer changes % (new-labels nodes))
+        make      (fn [text]
+                    (some (fn [{:keys [name] :as answer}]
+                            (some-> (entry/new-entry answer changes text
+                                                     (new-labels nodes))
+                                    (assoc :name name)))
+                          answers))
         make!     (fn [text]
                     (let [{:keys [id] :as made} (make text)
                           change (entry/fill-around template changes gap made
@@ -1319,10 +1329,8 @@
          {:on-result (fn [result]
                        (reset! choosing? false)
                        (add! result))
-          :new       (when answer
-                       {:name  (:name answer)
-                        :text? (some map? (vals (:ask answer)))
-                        :fits? #(some? (make %))})
+          :new-fn    (when (seq answers)
+                       make)
           :on-new    (fn [text]
                        (reset! choosing? false)
                        (make! text))

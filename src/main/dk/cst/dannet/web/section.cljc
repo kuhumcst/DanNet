@@ -12,6 +12,7 @@
     :ontolex/LexicalEntry
     :ontolex/Word
     :ontolex/MultiwordExpression
+    :ontolex/Affix
     :dns/OntologicalType
     :dns/PolysemyPattern})
 
@@ -23,6 +24,7 @@
   (-> (make-hierarchy)
       (derive :ontolex/Word :ontolex/LexicalEntry)
       (derive :ontolex/MultiwordExpression :ontolex/LexicalEntry)
+      (derive :ontolex/Affix :ontolex/LexicalEntry)
       (derive :pmofn/CoreFrameElement :pmofn/FrameElement)
       (derive :pmofn/PeripheralFrameElement :pmofn/FrameElement)
       (derive :pmofn/ExtraThematicFrameElement :pmofn/FrameElement)
@@ -194,8 +196,9 @@
 
 (defmethod defined-sections :ontolex/LexicalEntry
   [entity]
-  ;; Also covers ontolex:Word and ontolex:MultiwordExpression (DanNet) through
-  ;; `shape-hierarchy`; the OEWN types its entries as ontolex:LexicalEntry.
+  ;; Also covers ontolex:Word, ontolex:MultiwordExpression and ontolex:Affix
+  ;; (DanNet) through `shape-hierarchy`; the OEWN types its entries as
+  ;; ontolex:LexicalEntry.
   [[:top [:rdf/type
           :lexinfo/partOfSpeech
           :wn/partOfSpeech

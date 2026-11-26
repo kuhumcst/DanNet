@@ -26,7 +26,12 @@
 (def sense
   (:ontolex/LexicalSense templates))
 
+(def word-classes
+  "The classes of a word, as the template of a sense asks for them."
+  (get (entry/asked sense '[?synset]) '?word))
+
 (def words
+  "The words of the data, one of each class."
   [:dn/word-1 :dn/word-2 :dn/word-3])
 
 (def synsets
@@ -53,14 +58,15 @@
   three values of each entry, the links of each sense, and a relation
   between two synsets."
   (set (concat
-         (for [[type ids] {:ontolex/Word           words
-                           :ontolex/LexicalConcept synsets
-                           :ontolex/LexicalSense   (keys senses)}
-               id         ids
-               t          (into [[id :rdf/type type]
-                                 [id :rdfs/label (da (name id))]]
-                                (for [n (range 3)]
-                                  [id :wn/lexfile (str "old" n)]))]
+         (for [[id type] (merge (zipmap words word-classes)
+                                (zipmap synsets
+                                        (repeat :ontolex/LexicalConcept))
+                                (zipmap (keys senses)
+                                        (repeat :ontolex/LexicalSense)))
+               t         (into [[id :rdf/type type]
+                                [id :rdfs/label (da (name id))]]
+                               (for [n (range 3)]
+                                 [id :wn/lexfile (str "old" n)]))]
            t)
          (for [[id [w x]] senses
                t          [[w :ontolex/sense id]
@@ -105,12 +111,12 @@
         (:add (change/net changes))))
 
 (defn- entries
-  "The entries of the `type` that an edit can be made to: the ones `known`
+  "The entries of the `types` that an edit can be made to: the ones `known`
   in the data that aren't removed, and the new ones that the `changes`
   make."
-  [changes type known]
+  [changes types known]
   (concat (remove (removed changes) known)
-          (keep (fn [[id t]] (when (= t type) id)) (made changes))))
+          (keep (fn [[id t]] (when (some #{t} types) id)) (made changes))))
 
 (defn- links
   "The words and the synsets that point to each new sense in the `changes`,
@@ -206,8 +212,8 @@
   "A new sense for a word in a synset that has none of its senses, new or
   in the data. A removed sense of the data counts, since it can be put back."
   [{:keys [changes] :as state} rng]
-  (let [w (pick rng (entries changes :ontolex/Word words))
-        x (pick rng (entries changes :ontolex/LexicalConcept synsets))]
+  (let [w (pick rng (entries changes word-classes words))
+        x (pick rng (entries changes [:ontolex/LexicalConcept] synsets))]
     (when (and w x
                (not-any? (fn [[ws xs]] (and (ws w) (xs x)))
                          (vals (links changes)))
@@ -221,7 +227,7 @@
 (defn- new-synset
   "A new synset for a new sense of a word."
   [{:keys [changes] :as state} rng]
-  (when-let [w (pick rng (entries changes :ontolex/Word words))]
+  (when-let [w (pick rng (entries changes word-classes words))]
     (let [label (da (str "\"" (name w) "\""))
           made  (entry/new-entry (:ontolex/LexicalConcept templates)
                                  changes nil nil)]
@@ -231,12 +237,16 @@
                                              {'?word {:rdfs/label label}}))])))
 
 (defn- new-word
-  "A new word for a new sense in a synset, with its canonical form."
+  "A new word for a new sense in a synset, with its canonical form. Its
+  lemma is that of a word, a multiword expression or an affix, and it is
+  made from the template that the lemma fits, as the editor makes it."
   [{:keys [changes nodes] :as state} rng]
-  (when-let [x (pick rng (entries changes :ontolex/LexicalConcept synsets))]
-    (let [made (entry/new-entry (:ontolex/Word templates) changes
-                                (str "ord" (.nextInt rng 1000))
-                                (edit/new-labels nodes))]
+  (when-let [x (pick rng (entries changes [:ontolex/LexicalConcept] synsets))]
+    (let [n     (.nextInt rng 1000)
+          lemma (pick rng [(str "ord" n) (str "to ord" n) (str "ord" n "-")])
+          made  (some #(entry/new-entry (get templates %) changes lemma
+                                        (edit/new-labels nodes))
+                      word-classes)]
       [[:new-word x]
        (with-change state (entry/fill-around sense changes '?word made
                                              {'?synset x} {}))])))
@@ -301,7 +311,7 @@
 (defn- new-node
   "Another form of a word, as a new blank node with a value."
   [{:keys [changes nodes] :as state} rng]
-  (when-let [w (pick rng (entries changes :ontolex/Word words))]
+  (when-let [w (pick rng (entries changes word-classes words))]
     (let [label (first (edit/new-labels nodes))
           form  (da (str "form" (.nextInt rng 100)))]
       [[:new-node w label]

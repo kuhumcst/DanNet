@@ -555,6 +555,15 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                        :new-word
                        (entry/fill-around
                          sense [] '?word (made :ontolex/Word "vovse")
+                         {'?synset :dn/synset-2} {})
+                       :new-multiword
+                       (entry/fill-around
+                         sense [] '?word
+                         (made :ontolex/MultiwordExpression "vov vov")
+                         {'?synset :dn/synset-2} {})
+                       :new-affix
+                       (entry/fill-around
+                         sense [] '?word (made :ontolex/Affix "vov-")
                          {'?synset :dn/synset-2} {})}
             blocking  (fn [change]
                         (->> (entry-set (:add change))
@@ -568,7 +577,11 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
             "a new synset only lacks what a synset should have")
         (is (= #{:dns/LexicalEntryShape-partOfSpeech}
                (blocking (:new-word flows)))
-            "a new word only lacks its part of speech, which its page asks for")))
+            "a new word only lacks its part of speech, which its page asks for")
+        (is (= [#{:dns/LexicalEntryShape-partOfSpeech}
+                #{:dns/LexicalEntryShape-partOfSpeech}]
+               (map (comp blocking flows) [:new-multiword :new-affix]))
+            "and so do a new multiword expression and a new affix")))
     (testing "the form of a word is checked through the word"
       (let [written (fn [s lang]
                       ['?f :ontolex/writtenRep (->LangString s lang)])

@@ -428,10 +428,10 @@ SELECT $this ?value WHERE {
 }""" .
 
 ## ---------------------------------------------------------------------------
-## Word / MultiwordExpression
+## Word / MultiwordExpression / Affix
 ## ---------------------------------------------------------------------------
 dns:EditorialWordShape a sh:NodeShape ;
-    sh:targetClass ontolex:Word , ontolex:MultiwordExpression ;
+    sh:targetClass ontolex:Word , ontolex:MultiwordExpression , ontolex:Affix ;
     sh:node dns:LexicalEntryShape ;
     sh:property dns:EditorialWordShape-label ,
                 dns:EditorialWordShape-partOfSpeech ,
@@ -439,7 +439,7 @@ dns:EditorialWordShape a sh:NodeShape ;
                 dns:EditorialWordShape-otherForm ;
     sh:sparql dns:EditorialWordShape-stressedMatchesWritten .
 
-## All 61994 word labels are a single @da literal in ASCII double quotes.
+## All 62039 word labels are a single @da literal in ASCII double quotes.
 dns:EditorialWordShape-label a sh:PropertyShape ;
     sh:path rdfs:label ;
     sh:maxCount 1 ;
