@@ -22,8 +22,8 @@
   - :heading, the title as content, when it holds more than text;
   - :list-all?, true when the dialog lists every result before a text is
     typed;
-  - :refuse-fn, a function of the opts and a result to the reason why the
-    result can't be chosen, or nil when it can be;
+  - :refuse-fn, a function of a result to the reason why the result
+    can't be chosen, or nil when it can be;
   - :one-line?, true when a result is a name and a short note, which are
     shown on one line;
   - :note, what choosing a result does besides, as a map of :da and :en.
@@ -206,8 +206,8 @@
 
 (def class-input-types
   "The input type of a value of each class that has one of its own. Its
-  search is also how the editor asks for an entry of the class when it
-  fills a template (see ui.edit.entry)."
+  search also finds an entry of the class for the gap of a template (see
+  ui.edit.entry)."
   {:dns/OntologicalType    ontological-type
    :ontolex/LexicalConcept synset
    :ontolex/Word           word})

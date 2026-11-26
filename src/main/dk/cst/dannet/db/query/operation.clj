@@ -85,6 +85,13 @@
        { ?ontotype rdfs:label ?label ; rdf:type dns:OntologicalType . }
      }"))
 
+(def ontological-types
+  "Every ontological type with its label."
+  (sparql
+    "SELECT ?t ?label
+     WHERE { ?t rdf:type dns:OntologicalType ;
+                rdfs:label ?label }"))
+
 (def written-representations
   (sparql
     "SELECT ?form ?writtenRep WHERE { ?form ontolex:writtenRep ?writtenRep }"))

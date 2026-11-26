@@ -37,8 +37,8 @@
 @prefix dns:     <https://wordnet.dk/dannet/schema/> .
 @prefix marl:    <http://www.gsi.upm.es/ontologies/marl/ns#> .
 
-## dns:DanNetPrefixes (base.ttl, always loaded alongside this file) declares
-## dn/dns/ili/ontolex/wn; the constraints here additionally need rdf and dnc.
+## The SPARQL constraints here get their prefixes from this declaration;
+## dns:DanNetPrefixes (base.ttl) is for the targets and constraints there.
 dns:EditorialPrefixes
     sh:declare [ sh:prefix "rdf" ;
                  sh:namespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"^^xsd:anyURI ] ;
@@ -49,9 +49,6 @@ dns:EditorialPrefixes
     sh:declare [ sh:prefix "ontolex" ;
                  sh:namespace "http://www.w3.org/ns/lemon/ontolex#"^^xsd:anyURI ] .
 
-## ---------------------------------------------------------------------------
-## LexicalConcept (synset)
-## ---------------------------------------------------------------------------
 dns:EditorialConceptShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalConcept ;
     sh:node dns:LexicalConceptShape ;
@@ -408,10 +405,8 @@ dns:EditorialSentimentShape-hasPolarity a sh:PropertyShape ;
     sh:severity sh:Violation ;
     sh:message "marl:hasPolarity must be marl:Positive or marl:Negative." .
 
-## ---------------------------------------------------------------------------
-## OntologicalType (dnt:): all 667 member atoms across the live dnt: bags are
-## dnc: concepts; a newly minted ontotype must keep it that way.
-## ---------------------------------------------------------------------------
+## All 667 member atoms across the live dnt: bags are dnc: concepts; a newly
+## minted ontotype must keep it that way.
 dns:EditorialOntotypeShape a sh:NodeShape ;
     sh:targetClass dns:OntologicalType ;
     sh:severity sh:Violation ;
@@ -427,9 +422,6 @@ SELECT $this ?value WHERE {
   FILTER(!strstarts(str(?value), str(dnc:)))
 }""" .
 
-## ---------------------------------------------------------------------------
-## Word / MultiwordExpression / Affix
-## ---------------------------------------------------------------------------
 dns:EditorialWordShape a sh:NodeShape ;
     sh:targetClass ontolex:Word , ontolex:MultiwordExpression , ontolex:Affix ;
     sh:node dns:LexicalEntryShape ;
@@ -512,9 +504,6 @@ SELECT $this ?value WHERE {
   FILTER(replace(str(?value), "ˈ", "") != str(?written))
 }""" .
 
-## ---------------------------------------------------------------------------
-## LexicalSense
-## ---------------------------------------------------------------------------
 dns:EditorialSenseShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalSense ;
     sh:node dns:LexicalSenseShape ;

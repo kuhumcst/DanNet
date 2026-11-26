@@ -15,6 +15,7 @@
     :nodes         the places of the blank nodes that those changes are to
     :labels        the labels of the resources in those changes
     :check         what the server last said about those changes
+    :references    how many triples point to what those changes unreference
     :search        the search input and its completions (in the browser)
     :section       the display mode of each entity page section
     :k->label      a label for each resource on the page
@@ -22,9 +23,19 @@
     :inherited     the relations that the entity inherits from its hypernym
     :comments      the notes that explain the markers in the tables
 
+  Edit mode also reads these keys of the page data:
+
+    :constraints     what the shapes say about the properties of the entity
+    :origins         where each value of the entity comes from
+    :default-origin  the graph that changes go to
+    :inverses        the inverse of each property that links new entries
+    :draft?          whether the page is that of a new entry
+
   Components add a few keys of their own on the way down, e.g. :attr-key, the
-  predicate whose values are being rendered, and :blank-node, the place of a
-  nested table in the entity: its node and the property that holds it."
+  predicate whose values are being rendered, :blank-node, the place of a
+  nested table in the entity (its node and the property that holds it),
+  :addable, the properties that a row can be added for, and :open-row?,
+  whether a row takes a new value though it has none that can be edited."
   (:require [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]

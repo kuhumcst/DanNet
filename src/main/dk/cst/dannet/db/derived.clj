@@ -3,10 +3,7 @@
   label of a synset, the synsets of a word and the scheme of a resource.
 
   Each is found as a plain change (see dk.cst.dannet.change) that brings
-  the graph up to date, for the whole graph or for some resources. The
-  release build writes them all. The check of pending changes writes them
-  to its copy of the graph with derive!, so that a new entry isn't reported
-  for lacking what the build adds."
+  the graph up to date, for the whole graph or for some resources."
   (:require [clojure.set :as set]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]
@@ -103,7 +100,8 @@
 
 (defn derive!
   "Write the derived values of the resources in the plain `changes` to the
-  dn: graph `g`, as the release build would leave them.
+  dn: graph `g`, as the release build would leave them. A check of the
+  changes then doesn't report a new entry for lacking what the build adds.
 
   A resource is the subject or the object of a changed triple. A sense
   among them also counts for its synsets and its word, since their derived

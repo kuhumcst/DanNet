@@ -20,7 +20,7 @@
 
 ;; The row of members lists the values of the rdf:_N properties of a
 ;; container (see shared/member-row), and a change is made to the property
-;; that holds a value. So these functions take pairs of a property and a value.
+;; that holds a value.
 
 (defn properties
   "The properties whose values the row of the property `k` in `opts` lists:
@@ -60,9 +60,8 @@
   A changed value has its :status: :added, :retracted, :edited with the
   :original value that it replaces, or :moved with the property that it is
   :moved-from (see change/moves). In the row that a moved value left, it is
-  :retracted with the property that it is :moved-to. A value is :retracted
-  too when it is a resource that the changes unreference, since that takes
-  every triple that points to it. The fields are in the order of
+  :retracted with the property that it is :moved-to. A resource that the
+  changes unreference is :retracted too. The fields are in the order of
   `properties` and then of value-order."
   [changes s properties entries]
   (let [p->vs (update-vals (group-by first entries) #(map second %))

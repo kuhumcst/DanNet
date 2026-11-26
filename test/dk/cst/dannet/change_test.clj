@@ -29,11 +29,7 @@
            (-> []
                (change/replace old-hypernym new-hypernym)
                (change/replace old-hypernym new-hypernym)))))
-  (testing "undo drops the change at an index"
-    (is (= [{:add #{new-hypernym}}]
-           (change/undo [{:retract #{old-hypernym}} {:add #{new-hypernym}}]
-                        0))))
-  (testing "or the changes that a triple is part of"
+  (testing "an edit is undone by a triple that it is part of"
     (is (= [{:retract #{old-hypernym}}]
            (-> []
                (change/retract old-hypernym)
@@ -133,34 +129,6 @@
             :retract #{['?f :ontolex/writtenRep hund]}
             :add     #{['?f :ontolex/writtenRep hunde]}}
            {'?f '_b1}))))
-
-(deftest previews
-  (let [entity    {:wn/hypernym              :dn/synset-2
-                   :ontolex/lexicalizedSense #{:dn/sense-1 :dn/sense-2}
-                   :wn/hyponym               [:dn/synset-4 :dn/synset-5]}
-        changes   [{:retract #{old-hypernym}}
-                   {:add #{new-hypernym}}
-                   {:retract #{[:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-2]}}
-                   {:add #{[:dn/synset-1 :wn/hyponym :dn/synset-6]}}
-                   {:add #{[:dn/synset-9 :wn/hypernym :dn/synset-1]}}
-                   {:where [[:dn/synset-1 :wn/hypernym '?h]]
-                    :add   #{['?h :rdfs/comment "?"]}}
-                   {:retract #{[:dn/synset-1 :wn/hyponym '?x]}}]
-        previewed (change/preview entity :dn/synset-1 changes)]
-    (testing "the subject's own triples are changed"
-      (is (= :dn/synset-3 (:wn/hypernym previewed)))
-      (is (= #{:dn/sense-1} (:ontolex/lexicalizedSense previewed))))
-    (testing "an ordered relation keeps its order"
-      (is (= [:dn/synset-4 :dn/synset-5 :dn/synset-6] (:wn/hyponym previewed))))
-    (testing "the metadata marks what was added and retracted"
-      (is (= {:wn/hypernym #{:dn/synset-3}
-              :wn/hyponym  #{:dn/synset-6}}
-             (::change/added (meta previewed))))
-      (is (= {:wn/hypernym              #{:dn/synset-2}
-              :ontolex/lexicalizedSense #{:dn/sense-2}}
-             (::change/retracted (meta previewed)))))
-    (testing "other subjects and changes that aren't plain are left out"
-      (is (not (contains? previewed :rdfs/comment))))))
 
 (deftest checking-changes
   (let [problems #(set (map :problem (change/problems %)))]

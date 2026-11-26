@@ -657,6 +657,11 @@
          response-body-ic]
    :route-name ::autocomplete])
 
+(defn- query-param
+  "The query parameter `k` of the request in `ctx`, decoded."
+  [ctx k]
+  (some-> (get-in ctx [:request :query-params k]) (decode-query-part)))
+
 (def ontological-types-path
   (str (prefix/uri->path prefix/dannet-root) "edit/ontological-types"))
 
@@ -668,10 +673,7 @@
             (assoc ctx
               :content
               {:ontological-types
-               (->> (theo/q (:inference @instance/db)
-                            "SELECT ?t ?label
-                             WHERE { ?t rdf:type dns:OntologicalType ;
-                                        rdfs:label ?label }")
+               (->> (theo/q (:inference @instance/db) op/ontological-types)
                     (map (fn [{:syms [?t ?label]}]
                            {:rdf/about ?t :rdfs/label ?label}))
                     (sort-by (comp str :rdfs/label))
@@ -704,10 +706,11 @@
   search finds them: those of the word `s` itself first, then those of the
   first few words that the autocompletion has for `s`, 30 at most."
   [g s]
-  (let [synsets (->> (keep #(look-up-any-case g %) (prefix-lemmas s))
-                     (reduce (fn [acc m] (if acc (into acc m) m)) nil))]
-    (when synsets
-      (into (empty synsets) (take 30) synsets))))
+  (when-let [synsets (some->> (prefix-lemmas s)
+                              (keep #(look-up-any-case g %))
+                              (seq)
+                              (reduce into))]
+    (into (empty synsets) (take 30) synsets)))
 
 (def synsets-ic
   "The synsets of the words that start with the lemma in the request, for
@@ -715,8 +718,7 @@
   synset, where the search page would go to its page."
   {:name  ::synsets
    :enter (fn [ctx]
-            (let [lemma (decode-query-part
-                          (get-in ctx [:request :query-params :lemma]))]
+            (let [lemma (query-param ctx :lemma)]
               (assoc ctx
                 :content {:synsets (when (not-empty lemma)
                                      (prefix-synsets (:inference @instance/db)
@@ -739,8 +741,7 @@
   the first few words that the autocompletion has for it, 30 at most."
   {:name  ::words
    :enter (fn [ctx]
-            (let [lemma (decode-query-part
-                          (get-in ctx [:request :query-params :lemma]))]
+            (let [lemma (query-param ctx :lemma)]
               (assoc ctx
                 :content
                 {:words (when (not-empty lemma)
@@ -769,9 +770,7 @@
   the :entities."
   {:name  ::entry
    :enter (fn [ctx]
-            (let [type (some-> (get-in ctx [:request :query-params :type])
-                               (decode-query-part)
-                               (prefix/qname->kw))]
+            (let [type (some-> (query-param ctx :type) (prefix/qname->kw))]
               (assoc ctx
                 :content
                 (when type
@@ -791,11 +790,10 @@
 (def removal-path
   (str (prefix/uri->path prefix/dannet-root) "edit/removal"))
 
-(defn- removal-rules
+(def removal-rules
   "What the rules of the editor say goes with an entry that is removed (see
   db.change/removal): what a template links it to, e.g. the senses of a
   word, and the values that the build writes."
-  []
   (let [{:keys [entries derived derived-by-type]} editable/rules]
     {:links   (entry/links entries)
      :derived (into derived (mapcat val) derived-by-type)}))
@@ -806,16 +804,14 @@
   db.change/removal), with the labels of the resources in them as :entities."
   {:name  ::removal
    :enter (fn [ctx]
-            (let [id (some-> (get-in ctx [:request :query-params :id])
-                             (decode-query-part)
-                             (prefix/qname->kw))
+            (let [id (some-> (query-param ctx :id) (prefix/qname->kw))
                   {:keys [dataset inference]} @instance/db
                   {:keys [orphans] :as removal}
                   (when id
                     (db.change/removal
                       (theo/named-graph dataset prefix/dn-graph)
                       id
-                      (removal-rules)))
+                      removal-rules))
                   parts   (cons removal (vals orphans))
                   triples (mapcat :entry parts)]
               (assoc ctx
@@ -834,20 +830,17 @@
 (def references-ic
   "How many triples of other entries point to each of the entries in the
   request, given as prefixed names with commas between them (see
-  db.change/references), with the labels of the resources as :entities.
-  The list of the pending changes shows them for a removal that
-  unreferences what it removes."
+  db.change/references), with the labels of the resources as :entities."
   {:name  ::references
    :enter (fn [ctx]
-            (let [ids (some->> (get-in ctx [:request :query-params :ids])
-                               (decode-query-part)
+            (let [ids (some->> (query-param ctx :ids)
                                (re-seq #"[^,]+")
                                (map prefix/qname->kw))
                   {:keys [dataset inference]} @instance/db
                   counts (db.change/references
                            (theo/named-graph dataset prefix/dn-graph)
                            ids
-                           (removal-rules))]
+                           removal-rules)]
               (assoc ctx
                 :content
                 {:references counts

@@ -51,7 +51,7 @@
   [opts k v]
   (into #{}
         (mapcat #(value-origins opts k %))
-        (if (shared/multi-valued? v) v [v])))
+        (shared/values-of v)))
 
 (defn editable?
   "Is the value `v` in the row of the property `k` in the graph that changes
@@ -87,13 +87,12 @@
   "Why the value `v` in the row of the property `k` in `opts` can't be
   edited, as a key of the :locked comments, or nil when it can be.
 
-  The property is :derived or :fixed; the value is :inferred or
-  :supplemented, or it is :elsewhere, in a graph that changes don't go to;
-  the :resource is outside the namespaces that can be edited; or the value
-  is a blank node that no shape describes, which can't be added or removed
-  :yet. The first reason that holds is the one given. A value in the nested
-  table of a blank node is locked when the node is, for the :lock of the
-  :blank-node in `opts`."
+  The first reason that holds is given: the property is :derived or :fixed;
+  the value is :inferred or :supplemented, or :elsewhere, in a graph that
+  changes don't go to; the :resource is outside the namespaces that can be
+  edited; or the value is a blank node that no shape describes, which
+  can't be added or removed :yet. A value in the nested table of a locked
+  blank node has the :lock of that node."
   [{:keys [blank-node edit-rules constraints] :as opts} k v]
   (cond
     ;; a node that is only locked as :yet has values that can be edited

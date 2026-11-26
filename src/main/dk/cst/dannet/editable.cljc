@@ -32,44 +32,37 @@
   "DanNet's rules for edit mode: which resources have fields, which of their
   properties never do, which languages the dropdown of a text offers, and
   what a new entry is made of."
-  {;; The namespaces of the resources that can be edited. Only the dataset
-   ;; itself is: the ontological types (dnt:), the concepts (dnc:) and the
-   ;; schema (dns:) define what the entries mean, so a change to one of them
-   ;; changes every entry that uses it.
+  {;; Only the dataset itself can be edited: the ontological types (dnt:),
+   ;; the concepts (dnc:) and the schema (dns:) define what the entries
+   ;; mean, so a change to one of them changes every entry that uses it.
    :namespaces      #{"dn"}
 
-   ;; The properties that the release build writes for every resource. An
-   ;; edit to one would be overwritten at the next release.
+   ;; The release build writes these for every resource, so an edit to
+   ;; one would be overwritten at the next release.
    :derived         #{:dns/inherited :skos/inScheme}
 
-   ;; The properties that the release build only writes for the resources
-   ;; of a type. The labels of a synset are made from its senses, while the
-   ;; label of a word is written by hand. The synsets of a word follow from
-   ;; its senses.
+   ;; The labels of a synset are made from its senses, while the label of
+   ;; a word is written by hand. The synsets of a word follow from its
+   ;; senses.
    :derived-by-type {:ontolex/LexicalConcept      #{:rdfs/label :dns/shortLabel}
                      :ontolex/Word                #{:ontolex/evokes}
                      :ontolex/MultiwordExpression #{:ontolex/evokes}
                      :ontolex/Affix               #{:ontolex/evokes}}
 
-   ;; The properties that say what a resource is. A synset stays a synset:
-   ;; its page, its shapes and its place in the dataset all follow from its
-   ;; type.
+   ;; A synset stays a synset: its page, its shapes and its place in the
+   ;; dataset all follow from its type.
    :fixed           #{:rdf/type}
 
-   ;; The languages that the dropdown of a text offers when no shape names
-   ;; those of its property, where nil is none.
+   ;; Danish, English or no language, for a text whose shape names none.
    :languages       ["da" "en" nil]
 
-   ;; The properties whose rows suggest the language that has no text yet.
-   ;; This is a hint and not a rule of the data: a synset may have no subject
-   ;; at all, which SHACL Core can't tell apart from a missing translation.
+   ;; A hint and not a rule of the data: a synset may have no subject at
+   ;; all, which SHACL Core can't tell apart from a missing translation.
    :translated      #{:dc/description :dc/subject :rdfs/comment}
 
-   ;; What the plus of a row adds when its values are new entries: a
-   ;; template for each class of entry, which is a change with gaps (see
-   ;; dk.cst.dannet.web.ui.edit.entry for what each key means). A template
-   ;; only says how the entries are linked and what a value starts as. What
-   ;; an entry must have besides is in the editorial shapes.
+   ;; A template (see dk.cst.dannet.web.ui.edit.entry) only says how the
+   ;; entries are linked and what a value starts as. What an entry must
+   ;; have besides is in the editorial shapes.
    ;;
    ;; The label of a sense starts as the lemma, which is the label of its
    ;; word without the quotes. A word that evokes a synset has a sense in it

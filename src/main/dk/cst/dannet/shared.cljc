@@ -346,6 +346,12 @@
   (and (coll? v)
        (not (map? v))))
 
+(defn values-of
+  "The values of a property as a collection, when `v` is what an entity has
+  for it: the collection itself, or the single value alone."
+  [v]
+  (if (multi-valued? v) v [v]))
+
 (defn unwrap
   "Unwrap a single-element coll, returning the `v` as-is if not a collection."
   [v]

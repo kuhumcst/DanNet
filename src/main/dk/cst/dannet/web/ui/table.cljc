@@ -131,13 +131,15 @@
          (display-options-select opts v-count display-opts))])))
 
 (rum/defc attr-val-row
-  "A single row in the attribute-value table. In edit mode, a row with a
-  value that can be edited lists all its values in fields (see ui.edit), and
-  any other row is faded, with a padlock that says why, unless the whole
-  page is locked. No row is a word cloud then. A row of blank nodes that no
+  "A row of the attribute-value table in `opts`: the property `k` and its
+  value `v`, shown by the `display-opts` of the row.
+
+  In edit mode, a row with a value that can be edited lists all its values
+  in fields (see ui.edit), and any other row is faded, with a padlock that
+  says why, unless the whole page is locked. A row of blank nodes that no
   shape describes isn't locked when their own values can be edited in
-  nested tables. A row that is :open-row? in `opts` takes a new value though
-  it has none that can be edited, as a row that an editor has added does."
+  nested tables. A row that is :open-row? takes a new value though it has
+  none that can be edited, as a row that an editor has added does."
   [{:keys [subject comments inherited edit-mode default-origin blank-node
            open-row? constraints]
     :as   opts}
@@ -157,7 +159,7 @@
         opts+attr-key (assoc opts
                         :attr-key k
                         :display-opt display-opt)
-        vs            (if (shared/multi-valued? v) v [v])
+        vs            (shared/values-of v)
         locks         (when (and edit-mode (some? default-origin))
                         (map #(lock/lock opts k %) vs))
         edit-row?     (and locks (or open-row? (some nil? locks)))
@@ -272,9 +274,9 @@
         fielded      (when addable
                        (for [[k v] subentity
                              :when (some #(nil? (lock/lock opts k %))
-                                         (if (shared/multi-valued? v) v [v]))]
+                                         (shared/values-of v))]
                          k))
-        new-rows     (for [k     (remove (set (map first subentity)) open)]
+        new-rows     (for [k (remove (set (map first subentity)) open)]
                        [k []])]
     [:<>
      ;; Only a table rendered inside a value has :table-component in its opts.

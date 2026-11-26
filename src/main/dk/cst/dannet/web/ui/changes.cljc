@@ -2,14 +2,10 @@
   "The list of the pending changes of an editor (see dk.cst.dannet.change),
   by the entry that each change is made to.
 
-  A value is shown as its field shows it, in the tint of its change, and
-  with the button that its field has: one that undoes the change, or one
-  that takes an added value away. A new entry is one change: its values
-  have no buttons of their own, and one button takes the entry away. An
-  entry that is removed as a whole is one change too, with one button that
-  puts it back. The references to it aren't listed: the change has a rule
-  for them (see :unreference in dk.cst.dannet.change), and the list asks
-  the server how many they are.
+  A value is shown as its field shows it, in the tint of its change, with a
+  button that undoes the change or takes an added value away. A new entry
+  and an entry that is removed as a whole are each one change, with one
+  button for the whole entry.
 
   A check asks the server what the shapes say about the changes, and each
   result is shown with the entry or the row that it is about. Nothing takes
@@ -18,7 +14,6 @@
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit :as edit]
@@ -147,7 +142,7 @@
   name.
 
   An answer is dropped when the changes have changed in the meantime."
-  [{:keys [changes nodes detail-level] :as opts}]
+  [{:keys [changes nodes] :as opts}]
   #?(:cljs
      (let [answer! (fn [check]
                      (app/clear-current-fetch prefix/check-path)
@@ -161,9 +156,7 @@
            (.then (fn [response]
                     (let [{:keys [check entities]}
                           (get-in response [:body :data])]
-                      (app/remember-labels!
-                        (update-vals entities
-                                     (shared/->entity-label-fn detail-level)))
+                      (app/remember-labels! (edit/entity-labels opts entities))
                       (answer! check))))
            (.catch #(answer! {:failed? true}))))))
 
@@ -192,7 +185,7 @@
 
   A request that is ended, e.g. by leaving the page, is made again the next
   time. One that fails isn't, so the list goes without the counts."
-  [{:keys [detail-level] :as opts} ids]
+  [opts ids]
   #?(:cljs
      (let [qnames (map prefix/kw->qname (sort ids))
            url    (str "/dannet/edit/references?ids="
@@ -207,9 +200,7 @@
                       ;; an ended request is cleared by what ended it
                       (when response
                         (app/clear-current-fetch url))
-                      (app/remember-labels!
-                        (update-vals entities
-                                     (shared/->entity-label-fn detail-level)))
+                      (app/remember-labels! (edit/entity-labels opts entities))
                       (cond
                         (not (same?)) nil
                         (nil? response) (swap! app/session dissoc :references)
@@ -218,10 +209,9 @@
            (.catch #(app/clear-current-fetch url))))))
 
 (def look-up-references
-  "A mixin for the list of the pending changes. The references to what the
-  changes unreference aren't in the changes, so the list asks the server
-  how many they are, and again when the changes unreference something
-  else."
+  "A mixin that asks the server how many references there are to what the
+  pending changes unreference, since they aren't in the changes, and asks
+  again when the changes unreference something else."
   (let [look! (fn [state]
                 (let [[{:keys [changes references] :as opts}] (:rum/args state)
                       ids (change/unreferenced changes)]
@@ -230,6 +220,14 @@
                 state)]
     {:did-mount  look!
      :did-update look!}))
+
+(defn- focus-status!
+  "Move the focus to the status of the list, e.g. before an edit that takes
+  the button in focus away with its entry."
+  []
+  #?(:cljs (some-> (.querySelector js/document
+                                   "article.changes [role=status]")
+                   (.focus))))
 
 (def keep-focus
   "A mixin for a value in the list of the pending changes. When the value
@@ -246,20 +244,11 @@
                               js/document
                               "article.changes .edit-value__button"))
                   i       (.indexOf buttons focused)]
-              (some-> (or (aget buttons (inc i))
-                          (aget buttons (dec i))
-                          (.querySelector js/document
-                                          "article.changes [role=status]"))
-                      (.focus))))))
+              (if-some [button (or (aget buttons (inc i))
+                                   (aget buttons (dec i)))]
+                (.focus button)
+                (focus-status!))))))
      state)})
-
-(defn- focus-status!
-  "Move the focus to the status of the list, before an edit that takes the
-  button in focus away with its entry."
-  []
-  #?(:cljs (some-> (.querySelector js/document
-                                   "article.changes [role=status]")
-                   (.focus))))
 
 (defn- remove-entry!
   "Take the new entry with the `id` out of the pending changes in `opts`
@@ -278,15 +267,15 @@
 
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
-  changes to the `entry`, with a button that undoes its change, or that
-  takes it away when it is added. The `field` is the value as row/fields has
-  it. A value that replaces another is shown below the one that it replaces,
-  and a moved one says which row it has moved from or to. A removed value
-  that is an entry says when the whole entry is removed.
+  changes to the `entry`, on a page with `opts`. The `field` is the value
+  (see row/fields). Its button undoes the change, or takes an added value
+  away.
 
-  A value of an entry that is one change has no button (see whole?). A new
-  entry as a value has the button that takes that entry away, as its row on
-  a page has."
+  A value that replaces another is shown below it, a moved one says which
+  row it has moved from or to, and a removed entry says when the whole
+  entry is removed. A value of an entry that is one change has no button
+  (see whole?), and a new entry as a value has the button that takes that
+  entry away."
   [{:keys [languages] :as opts} entry s p
    {:keys [value status original moved-to] :as field}]
   (let [content (fn [tag v class]
@@ -294,9 +283,9 @@
                                #(remove nil? ["edit-value__content" class %]))
                    (rdf/value opts v)])
         text    (if (keyword? value) (rdf/link-label opts value) (str value))
+        whole?  (whole? opts entry)
         note    (or (edit/move-note opts field)
-                    (when (and (= status :retracted)
-                               (not (whole? opts entry)))
+                    (when (and (= status :retracted) (not whole?))
                       (edit/removed-note opts value)))
         main    (case status
                   :retracted (content :del value nil)
@@ -310,7 +299,7 @@
      (if note
        [:span.edit-value__content main note]
        main)
-     (when-not (whole? opts entry)
+     (when-not whole?
        [:span.edit-value__actions
         (cond
           (and (= status :added) (change/temporary? value))
@@ -330,10 +319,10 @@
 
 (rum/defc pending-node < keep-focus
   "A blank node of the property `p` in the list of the pending changes to
-  the `entry`: the values of the node as a nested table, with a button that
-  takes a new node away or puts a removed one back. The `field` is the node
-  as rows has it. A node of an entry that is one change has no button (see
-  whole?)."
+  the `entry`, on a page with `opts`: the values of the node as a nested
+  table, with a button that takes a new node away or puts a removed one
+  back. The `field` is the node (see rows). A node of an entry that is one
+  change has no button (see whole?)."
   [{:keys [languages] :as opts} entry p {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
         text     (edit/node-text opts p (map :value (mapcat :fields rows)))
@@ -356,7 +345,7 @@
 
 (rum/defc changed-rows
   "A table of the `rows` of the pending changes to the `entry` (see
-  entries), with what the check said about each row.
+  entries), on a page with `opts`, with what the check said about each row.
 
   The rows of a blank node that the changes add or remove are a nested
   table in the field of the node, with its status as `node-status`. The
@@ -407,12 +396,12 @@
 
 (rum/defc entry-changes
   "The pending changes to the `entry` as a table of its `rows` (see
-  entries), under a heading that links to the entry and its full IRI. A new
-  entry has a button that takes it away as a whole, and an entry that is
+  entries), on a page with `opts`, under a heading that links to the entry.
+
+  A new entry has a button that takes it away as a whole. An entry that is
   removed as a whole has one that puts it back, and says how many
-  references go with it, once the server has counted them (see
-  look-up-references). An entry without rows only has what the check said
-  about it (see other-problems)."
+  references go with it once the server has counted them. An entry without
+  rows only has what the check said about it (see other-problems)."
   [{:keys [languages check changes] :as opts} entry rows]
   [:section
    [:header
@@ -472,7 +461,7 @@
   "The button that checks the pending changes in `opts`, and what the check
   is doing or last said. A change that can't be made is shown as the server
   read it."
-  [{:keys [languages changes nodes check] :as opts}]
+  [{:keys [languages check] :as opts}]
   (let [{:keys [running? error change]} check]
     [:div.changes-check
      ;; a disabled button would lose the focus
@@ -510,16 +499,10 @@
      (when @submitted?
        [:pre [:code (submission changes nodes)]])]))
 
-(def listed
-  "How many resources without changes have the problems that the check
-  found listed one by one. More than that are summed up by message, since
-  a removal can leave thousands of resources with the same problem."
-  20)
-
 (rum/defc problem-summary
-  "What the check said about resources that no change is made to, when they
-  are too many to list (see listed): each message of the `results` once,
-  with the number of resources that it is about."
+  "What the check said about resources that no change is made to, on a page
+  with `opts`, when they are too many to list: each message of the
+  `results` once, with the number of resources that it is about."
   [{:keys [languages] :as opts} results]
   [:section
    [:header
@@ -554,7 +537,9 @@
         (check-control opts)
         (for [{:keys [entry rows]} entries]
           (rum/with-key (entry-changes opts entry rows) (str entry)))
-        (if (<= (count others) listed)
+        ;; a removal can leave thousands of resources with the same
+        ;; problem, so more than a few are summed up by message
+        (if (<= (count others) 20)
           (for [entry (keys others)]
             (rum/with-key (entry-changes opts entry nil) (str entry)))
           (problem-summary opts (mapcat val others)))

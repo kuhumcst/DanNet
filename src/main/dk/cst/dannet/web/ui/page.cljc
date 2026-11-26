@@ -159,8 +159,9 @@
    (sparql/output opts)])
 
 (rum/defc changes
-  "The pending changes of an editor. They are in the browser, with the
-  :labels of their resources, so the page has no data of its own. A new
+  "The pending changes of an editor, on a page with `opts`. They are in the
+  browser, with the :labels of their resources, so the page has no data of
+  its own. A new
   entry has its label in the changes themselves."
   [{:keys [languages labels changes edit-rules] :as opts}]
   [:article.changes

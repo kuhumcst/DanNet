@@ -3,11 +3,9 @@
   know and to choose before it is made, as the steps of a wizard (see
   dk.cst.dannet.web.ui.dialog), and the change that the answers give.
 
-  The server has the removal in parts (see dk.cst.dannet.db.change/removal):
-  the resource with what it holds, how many references it has, and the
-  orphans, which are the resources that can't stay alone once it is gone,
-  each with parts of its own. The answers are a map of the ID of an orphan
-  to whether that resource goes too.
+  The server has the removal in parts (see dk.cst.dannet.db.change/removal).
+  The answers are a map of the ID of an orphan, a resource that can't stay
+  alone once the other is gone, to whether that resource goes too.
 
   The change names the triples of what goes. The references always go with
   what they point to. They are a rule of the change instead (see
@@ -57,74 +55,80 @@
 
 ;; TODO: a step that moves the references to another resource in place of
 ;;       removing them, e.g. when two synsets are merged.
+
+(defn- figure
+  "The number `n` with what it counts, for a reader with `languages`: the
+  singular or the plural of the Danish pair `da` or the English pair `en`."
+  [languages n da en]
+  (let [form (if (= 1 n) first second)]
+    {:value n
+     :label (i18n/da-en languages (form da) (form en))}))
+
+(defn- orphans-step
+  "The step that asks which of the `orphans` go too, for a reader with
+  `languages`."
+  [languages orphans]
+  (let [da-en #(i18n/da-en languages %1 %2)]
+    {:heading (da-en "Kan ikke stå alene" "Can't stay alone")
+     :figures [(figure languages (count orphans)
+                       ["kan ikke stå alene" "kan ikke stå alene"]
+                       ["can't stay alone" "can't stay alone"])]
+     :text    [(da-en "De valgte fjernes også."
+                      "The chosen ones are removed too.")]
+     :choices (for [orphan (sort (keys orphans))]
+                {:key orphan :label orphan})}))
+
+(defn- confirm-step
+  "The step that sums up the `change` that removes the resource `id`, for a
+  reader with `languages`. The `counts` are how many references to what it
+  removes go too, as a map of a property to a number."
+  [languages id {:keys [retract unreference] :as change} counts]
+  (let [da-en      #(i18n/da-en languages %1 %2)
+        references (reduce + (vals counts))
+        values     (+ (count retract) references)]
+    {:heading (da-en "Bekræft fjernelsen" "Confirm the removal")
+     :figures (cond-> [(figure languages (count unreference)
+                               ["ressource" "ressourcer"]
+                               ["resource" "resources"])]
+                (pos? references)
+                (conj (assoc (figure languages references
+                                     ["henvisning" "henvisninger"]
+                                     ["reference" "references"])
+                        :title (da-en "Henvisninger fra andre ressourcer"
+                                      "References from other resources")))
+
+                true
+                (conj (figure languages values
+                              ["værdi" "værdier"]
+                              ["value" "values"])))
+     :details (cond-> []
+                (next unreference)
+                (conj {:summary (da-en "Vis ressourcerne" "Show the resources")
+                       :items   (cons id (sort (disj unreference id)))})
+
+                (seq counts)
+                (conj {:summary (da-en "Vis henvisningerne"
+                                       "Show the references")
+                       :items   (for [[p n] (sort-by (juxt (comp - val) key)
+                                                     counts)]
+                                  [(str n " ×") p])}))
+     :warning (when (<= large values)
+                (da-en
+                  "Det er en stor fjernelse. Den tager lang tid at tjekke."
+                  "This is a large removal. It takes a long time to check."))}))
+
 (defn steps
   "The steps of the wizard that removes the resource `id` with `parts`, as
   the `answers` so far leave them, for a reader with `languages`.
 
-  A step asks about the orphans when the removal has some. The last step
-  sums up what the answers remove, with the references to it, which the
-  editor confirms. Each step has its numbers as figures and its details
-  folded away, and names a resource by its ID (see
-  dk.cst.dannet.web.ui.dialog). The wizard itself says which resource it is
-  about."
+  A step asks about the orphans when the removal has some, and the last
+  step sums up what the answers remove, which the editor confirms."
   [languages id {:keys [orphans] :as parts} answers]
-  (let [da-en      #(i18n/da-en languages %1 %2)
-        ;; a number with what it counts, in the singular for one
-        figure     (fn [n [da das] [en ens]]
-                     {:value n
-                      :label (if (= 1 n) (da-en da en) (da-en das ens))})
-        {:keys [retract] :as change} (removal parts answers)
-        removed    (change/removed change)
-        referring  (references parts answers)
-        pointers   (reduce + (vals referring))
-        values     (+ (count retract) pointers)]
-    (cond-> []
-      (seq orphans)
-      (conj {:heading (da-en "Kan ikke stå alene" "Can't stay alone")
-             :figures [(figure (count orphans)
-                               ["kan ikke stå alene" "kan ikke stå alene"]
-                               ["can't stay alone" "can't stay alone"])]
-             :text    [(da-en "De valgte fjernes også."
-                              "The chosen ones are removed too.")]
-             :choices (for [orphan (sort (keys orphans))]
-                        {:key orphan :label orphan})})
-
-      true
-      (conj {:heading (da-en "Bekræft fjernelsen" "Confirm the removal")
-             :figures (cond-> [(figure (count removed)
-                                       ["ressource" "ressourcer"]
-                                       ["resource" "resources"])]
-                        (pos? pointers)
-                        (conj (assoc (figure pointers
-                                             ["henvisning" "henvisninger"]
-                                             ["reference" "references"])
-                                :title (da-en
-                                         "Henvisninger fra andre ressourcer"
-                                         "References from other resources")))
-
-                        true
-                        (conj (figure values
-                                      ["værdi" "værdier"]
-                                      ["value" "values"])))
-             :details (cond-> []
-                        (next removed)
-                        (conj {:summary (da-en "Vis ressourcerne"
-                                               "Show the resources")
-                               :items   (cons id (sort (disj removed id)))})
-
-                        (seq referring)
-                        (conj {:summary (da-en "Vis henvisningerne"
-                                               "Show the references")
-                               :items   (for [[p n] (sort-by
-                                                      (juxt (comp - val) key)
-                                                      referring)]
-                                          [(str n " ×") p])}))
-             :warning (when (<= large values)
-                        (da-en
-                          (str "Det er en stor fjernelse. Den tager lang "
-                               "tid at tjekke.")
-                          (str "This is a large removal. It takes a long "
-                               "time to check.")))}))))
+  (cond-> []
+    (seq orphans) (conj (orphans-step languages orphans))
+    true          (conj (confirm-step languages id
+                                      (removal parts answers)
+                                      (references parts answers)))))
 
 (defn flow
   "The flow of the wizard that removes the resource `id` with `parts`, for

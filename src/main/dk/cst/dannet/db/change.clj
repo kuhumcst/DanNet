@@ -115,8 +115,8 @@
 (defn referring
   "The triples of the graph `g` that refer to the resources `ids`, a set:
   every triple that points to one of them. A blank node that only points to
-  them by that property has no reason left, so every triple that names it
-  is among them too."
+  them by that property is of no use without them, so every triple that
+  names it is among them too."
   [g ids]
   (let [incoming (mapcat #(theo/triples g ['_ '_ %]) ids)
         whole?   (fn [[node q _]]
@@ -172,15 +172,14 @@
 (defn resolve-change
   "The `change` as a plain change in `db`: the patterns of its :where and
   :retract together have to match exactly once, and its ?variables take the
-  values of that match. A blank node that it makes gets a label of its own.
-  The triples that refer to what it unreferences are among those that it
-  retracts (see referring). Throws when the change has problems (see
+  values of that match. Throws when the change has problems (see
   change/problems) or doesn't match exactly once.
 
-  The patterns are looked up in parts that share no ?variable, which match
-  once together when each part does. Jena nests an iterator for each
-  pattern of a query, and the removal of an entry can have thousands, which
-  overflows the stack."
+  A blank node that it makes gets a label of its own, and it retracts the
+  triples that refer to what it unreferences (see referring). The patterns
+  are looked up in parts that share no ?variable, since Jena nests an
+  iterator for each pattern of a query, and the thousands of a removal
+  overflow the stack."
   [{:keys [prefixes] :as db} {:keys [where retract unreference] :as change}]
   (when-some [problems (not-empty (change/problems change))]
     (throw (ex-info "Not a valid change"

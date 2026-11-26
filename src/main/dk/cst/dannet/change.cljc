@@ -2,8 +2,8 @@
   "Changes to the DanNet data, as data: what an editor proposes and what a
   release applies.
 
-  A change is a map of [s p o] patterns under up to three keys, and of
-  resources under a fourth:
+  A change is a map with up to four keys. Three hold [s p o] patterns, and
+  the fourth holds resources:
 
   - :where, a vector of patterns that lead to what the change touches;
   - :retract, a set of the triples to retract;
@@ -39,29 +39,21 @@
   The :unreference of a change is a rule and not a list. It retracts every
   triple that points to one of its resources, as the graph has them when
   the change is made, however many they are. A blank node that only pointed
-  to them by that property goes whole. So the removal of a resource names
-  its own triples, which have to match, and leaves what refers to it to the
-  rule:
+  to them by that property goes too, with its values. So the removal of a
+  resource names its own triples, which have to match, and leaves what
+  refers to it to the rule:
 
       {:retract     #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense] ...}
        :unreference #{:dn/sense-1}}
 
-  The problems function checks all of this.
+  The problems function checks all of this. The match binds the ?variables
+  and gives a plain change, of triples only.
 
-  A new entry, e.g. a synset, has no ID until a curator accepts the change
-  that makes it. Until then it goes by a temporary ID in the dn: namespace,
-  e.g. :dn/new-synset-1. A temporary ID is an IRI like any other: the
-  shapes cover the entry, and later changes can name it. A release applies
-  no change that still has one.
-
-  The match binds the ?variables and gives a plain change, of triples only.
-  The pending changes of an editor are a vector of changes, one for each
-  edit, so that each can be undone on its own. A pending change names a
-  blank node by the label that the page has it under, or by a label that
-  the editor made for a new one. When the changes are submitted,
-  locate-nodes writes the ?variable and the :where for a node in the data,
-  and gathers the changes of a new node, of a new entry or of a removed
-  entry into one change."
+  A new entry goes by a temporary ID until a curator accepts the change
+  that makes it (see temporary?). The pending changes of an editor are a
+  vector of changes, one for each edit, so that each can be undone on its
+  own. They name a blank node by its label, and locate-nodes makes them
+  into changes that can be applied."
   (:refer-clojure :exclude [replace])
   (:require [clojure.string :as str]
             [dk.cst.theophrastus.term :as term]
@@ -70,27 +62,26 @@
 ;; An edit made twice is made once, so that a field which enters its value
 ;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
 
+(defn- with-change
+  "The pending `changes` with the `change` made, once: as a change of its
+  own, or by dropping an earlier change that is its `opposite`."
+  [changes change opposite]
+  (cond
+    (some #{opposite} changes) (into [] (remove #{opposite}) changes)
+    (some #{change} changes) (vec changes)
+    :else (conj (vec changes) change)))
+
 (defn add
   "The pending `changes` with the triple `t` added: as a change of its own, or
   by dropping an earlier change that only retracted `t`."
   [changes t]
-  (let [addition   {:add #{t}}
-        retraction {:retract #{t}}]
-    (cond
-      (some #{retraction} changes) (into [] (remove #{retraction}) changes)
-      (some #{addition} changes) (vec changes)
-      :else (conj (vec changes) addition))))
+  (with-change changes {:add #{t}} {:retract #{t}}))
 
 (defn retract
   "The pending `changes` with the triple `t` retracted: as a change of its own,
   or by dropping an earlier change that only added `t`."
   [changes t]
-  (let [addition   {:add #{t}}
-        retraction {:retract #{t}}]
-    (cond
-      (some #{addition} changes) (into [] (remove #{addition}) changes)
-      (some #{retraction} changes) (vec changes)
-      :else (conj (vec changes) retraction))))
+  (with-change changes {:retract #{t}} {:add #{t}}))
 
 (defn replace
   "The pending `changes` with the triple `old` replaced by the triple `new`,
@@ -128,21 +119,6 @@
                      (contains? (:unreference %) (peek t))))
         changes))
 
-(defn without-addition
-  "The pending `changes` without the addition of the triple `t`. A change
-  that only adds `t` is dropped, and one that does more keeps the rest, so
-  that taking a value away puts nothing back."
-  [changes t]
-  (into []
-        (keep (fn [{:keys [add retract] :as change}]
-                (if (contains? add t)
-                  (let [add (disj add t)]
-                    (cond
-                      (seq add) (assoc change :add add)
-                      (seq retract) (dissoc change :add)))
-                  change)))
-        changes))
-
 (defn- without-triples
   "The pending `changes` without the triples that are `named?`, a function
   of the key that a triple is under and the triple. A change keeps its
@@ -156,6 +132,13 @@
                                  [k (set kept)])))
                        (dissoc change :unreference)))]
     (into [] (comp (map others) (filter seq)) changes)))
+
+(defn without-addition
+  "The pending `changes` without the addition of the triple `t`. A change
+  that only adds `t` is dropped, and one that does more keeps the rest, so
+  that taking a value away puts nothing back."
+  [changes t]
+  (without-triples changes (fn [k t'] (and (= k :add) (= t' t)))))
 
 (defn without-node
   "The pending `changes` without the triples that name the blank node
@@ -188,12 +171,6 @@
                         (for [[p vs] values
                               v      vs]
                           [label p v]))}))
-
-(defn undo
-  "The pending `changes` without the change at index `i`."
-  [changes i]
-  (let [changes (vec changes)]
-    (into (subvec changes 0 i) (subvec changes (inc i)))))
 
 (defn variable?
   "Is `x` a ?variable?"
@@ -270,9 +247,8 @@
   "The problems of the `change`, as maps of a :problem and what it concerns,
   e.g. [{:problem :unbound-variable :variable ?g}], or an empty vector when
   it has none. The namespace docstring says what a change can hold."
-  [{:keys [where retract add] :as change}]
-  (let [unreference (:unreference change)
-        triples  (filter triple-form? (concat where retract add))
+  [{:keys [where retract add unreference] :as change}]
+  (let [triples  (filter triple-form? (concat where retract add))
         patterns (filter triple-form? (concat where retract))
         rooted   (reached patterns iri? variable?)
         linked   (reached (filter triple-form? add)
@@ -327,10 +303,10 @@
       retract (assoc :retract (bind retract)))))
 
 (defn- node-patterns
-  "The patterns that find a blank node as `?node`: its place, i.e. the
-  :subject and :property that hold it, and each of its `values` that the
-  change doesn't name in `retracted`, as pairs of a property and a value."
-  [{:keys [subject property]} ?node values retracted]
+  "The patterns that find the blank node at `place` as `?node`: the :subject
+  and :property that hold it, and each of its `values` that the change
+  doesn't name in `retracted`, as pairs of a property and a value."
+  [{:keys [subject property] :as place} ?node values retracted]
   (into [[subject property ?node]]
         ;; sorted, so that the same change always has the same :where
         (sort-by pr-str (for [[p vs] values
@@ -451,11 +427,10 @@
   a node gets a ?variable for the label, and a :where with the place and
   with the values as the changes before it leave them.
 
-  A node that an editor has made is :new?. The changes that name it become
-  one change, and so do the changes that name a new entry. The changes that
-  name an entry which one of them removes as a whole become one too, e.g.
-  the removals of a word and of the synset of its sense, which retract the
-  same triples."
+  The changes that name a :new? node, which an editor has made, become one
+  change. So do the ones that name a new entry, and the ones that name an
+  entry which one of them removes as a whole, e.g. the removals of a word
+  and of the synset of its sense, which retract the same triples."
   [changes nodes]
   (let [new?     #(:new? (get nodes %))
         removed? (into #{} (mapcat removed) changes)
@@ -525,59 +500,3 @@
                             m))
                         {}
                         changes)}))
-
-(defn- with-value
-  "The `entity` with `v` among the values of the property `p`."
-  [entity p v]
-  (let [old (get entity p)]
-    (assoc entity p (cond
-                      (nil? old) v
-                      (set? old) (conj old v)
-                      (sequential? old) (if (some #{v} old) old (conj (vec old) v))
-                      (= old v) old
-                      :else #{old v}))))
-
-(defn- without-value
-  "The `entity` without `v` among the values of the property `p`."
-  [entity p v]
-  (let [old       (get entity p)
-        remaining (cond
-                    (set? old) (not-empty (disj old v))
-                    (sequential? old) (not-empty (into [] (remove #{v}) old))
-                    (= old v) nil
-                    :else old)]
-    (if (nil? remaining)
-      (dissoc entity p)
-      (assoc entity p remaining))))
-
-(defn- plain?
-  "Is the `change` plain, of triples only, without a :where or ?variables?"
-  [{:keys [where retract add]}]
-  (and (empty? where)
-       (not-any? variable? (concat (apply concat retract) (apply concat add)))))
-
-(defn preview
-  "The `entity` of `subject` with the plain `changes` to its own triples made.
-  Its metadata holds the values they add and retract, as maps of property to
-  a set of values under ::added and ::retracted, so that the retracted values
-  can still be shown. Changes that aren't plain are left out, since only the
-  db can resolve them."
-  [entity subject changes]
-  (let [{:keys [add retract]} (net (filter plain? changes))
-        own       (fn [triples]
-                    (reduce (fn [m [s p o]]
-                              (if (= s subject)
-                                (update m p (fnil conj #{}) o)
-                                m))
-                            {}
-                            triples))
-        added     (own add)
-        retracted (own retract)
-        apply-all (fn [entity f by-property]
-                    (reduce-kv (fn [entity p vs] (reduce #(f %1 p %2) entity vs))
-                               entity
-                               by-property))]
-    (-> entity
-        (apply-all without-value retracted)
-        (apply-all with-value added)
-        (vary-meta merge {::added added ::retracted retracted}))))

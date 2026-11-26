@@ -39,6 +39,17 @@
   (boolean (some #(contains? templates %)
                  (shared/setify (:rdf/type entity)))))
 
+(defn- link-triples
+  "The triples of the `template` that point to one of its new entries, e.g.
+  the one that gives a word its new sense."
+  [{:keys [new add] :as template}]
+  (filter (fn [[_ _ o]] (contains? new o)) add))
+
+(defn- additions
+  "The triples that the pending `changes` add in all."
+  [changes]
+  (:add (change/net changes)))
+
 (defn for-row
   "The template in `templates` that makes the new values of the property
   `p`, as a map of the :template and the :subject, which is the gap that
@@ -49,9 +60,9 @@
   points to a new entry. So the template of a sense covers the senses of a
   synset and the senses of a word."
   [templates p]
-  (first (for [{:keys [new add] :as template} (vals templates)
-               [s p' o] add
-               :when (and (= p p') (contains? new o))]
+  (first (for [template (vals templates)
+               [s p']   (link-triples template)
+               :when    (= p p')]
            {:template template :subject s})))
 
 (defn asked
@@ -109,13 +120,11 @@
   "The values that the pending `changes` give the gap `other` of the
   `template`, in the new entries where the gap `given` is `value`, as a
   set."
-  [{:keys [new add] :as template} changes given value other]
-  (let [added (:add (change/net changes))
+  [template changes given value other]
+  (let [added (additions changes)
         link  (fn [gap]
-                (some (fn [[s p o]]
-                        (when (and (= s gap) (contains? new o))
-                          p))
-                      add))
+                (some (fn [[s p]] (when (= s gap) p))
+                      (link-triples template)))
         made  (into #{}
                     (keep (fn [[s p o]]
                             (when (and (= s value)
@@ -160,7 +169,7 @@
   ([changes]
    (labels changes nil))
   ([changes derived]
-   (let [added (:add (change/net changes))
+   (let [added (additions changes)
          own   (into {}
                      (keep (fn [[s p o]]
                              (when (and (= p :rdfs/label) (change/temporary? s))
@@ -184,7 +193,7 @@
   (sort (keep (fn [[s p o]]
                 (when (and (= p :rdf/type) (= o class) (change/temporary? s))
                   s))
-              (:add (change/net changes)))))
+              (additions changes))))
 
 (defn held-by
   "The entries that hold the new entry with the `id` in the pending
@@ -195,45 +204,46 @@
   An entry that the label of the new entry starts as is left out, since the
   label names it already, e.g. the word of a new sense."
   [templates changes id s]
-  (let [added (:add (change/net changes))
+  (let [added (additions changes)
         type  (some (fn [[s' p o]]
                       (when (and (= s' id) (= p :rdf/type))
                         o))
                     added)
-        {:keys [new add from]} (get templates type)
+        {:keys [from] :as template} (get templates type)
         named (into #{} (map first) (vals from))]
-    (sort (for [[gap p o]  add
-                :when      (and (contains? new o) (not (named gap)))
-                [x p' o']  added
-                :when      (and (= p p') (= o' id) (not= x s))]
+    (sort (for [[gap p]   (link-triples template)
+                :when     (not (named gap))
+                [x p' o'] added
+                :when     (and (= p p') (= o' id) (not= x s))]
             x))))
 
 (defn entity
-  "The new entry with the `id` as the pending `changes` leave it: its own
-  values, and the resources that point to it, under the inverse of the
-  property that they do it with, as `inverses` has it. Nil when the changes
-  say nothing about the entry itself.
+  "The new entry with the `id` as the pending `changes` leave it, as a map
+  of its own values. Nil when the changes say nothing about the entry itself.
 
-  A sense then shows its word and its synset, as the page of a sense in the
-  data does."
-  [inverses changes id]
-  (let [{:keys [add]} (change/net changes)
-        own (reduce (fn [entity [s p o]]
-                      (if (= s id)
-                        (update entity p (fnil conj #{}) o)
+  With `inverses`, it also has the resources that point to it, under the
+  inverse of the property that they do it with. A sense then shows its word
+  and its synset, as the page of a sense in the data does."
+  ([changes id]
+   (entity nil changes id))
+  ([inverses changes id]
+   (let [add (additions changes)
+         own (reduce (fn [entity [s p o]]
+                       (if (= s id)
+                         (update entity p (fnil conj #{}) o)
+                         entity))
+                     {}
+                     add)]
+     (when (seq own)
+       (->> (reduce (fn [entity [s p o]]
+                      (if-let [inverse (and (= o id) (get inverses p))]
+                        (update entity inverse (fnil conj #{}) s)
                         entity))
-                    {}
-                    add)]
-    (when (seq own)
-      (->> (reduce (fn [entity [s p o]]
-                     (if-let [inverse (and (= o id) (get inverses p))]
-                       (update entity inverse (fnil conj #{}) s)
-                       entity))
-                   own
-                   add)
-           ;; a single value stands alone, as in the entity of a page
-           (into {} (map (fn [[p vs]]
-                           [p (if (next vs) vs (first vs))])))))))
+                    own
+                    add)
+            ;; a single value stands alone, as in the entity of a page
+            (into {} (map (fn [[p vs]]
+                            [p (if (next vs) vs (first vs))]))))))))
 
 (defn new-entry
   "A new entry made from the `template` of its class, to be the value of a
@@ -262,7 +272,7 @@
   the `template` with it as the value of its `gap`. The `values` and the
   `entities` are those of the other gaps, as fill and starting take them."
   [template changes gap {:keys [id change] :as made} values entities]
-  (let [entities' (assoc entities gap (entity nil [change] id))
+  (let [entities' (assoc entities gap (entity [change] id))
         around    (fill template changes
                         (merge (starting template entities')
                                values
@@ -274,11 +284,7 @@
   those of their triples that point to one, e.g. the property that gives a
   word its sense. An entry can't stay without what holds it by such a link."
   [templates]
-  (into #{}
-        (for [{:keys [new add]} (vals templates)
-              [_ p o]           add
-              :when             (contains? new o)]
-          p)))
+  (into #{} (comp (mapcat link-triples) (map second)) (vals templates)))
 
 (defn without
   "The pending `changes` without the new entry with the `id`: the edits to
@@ -295,11 +301,11 @@
            [x & xs] [id]]
       (if (nil? x)
         changes
-        (let [added   (:add (change/net changes))
+        (let [added   (additions changes)
               kept    (change/without-entry changes x)
               holds?  (fn [id]
                         (some (fn [[s p _]] (and (= s id) (link? p)))
-                              (:add (change/net kept))))
+                              (additions kept)))
               needing (for [[s p o] added
                             :when   (and (= s x)
                                          (or (term/blank-node? o)
@@ -316,15 +322,12 @@
 
 (defn retract
   "The pending `changes` with the change `removal` made, which takes
-  entries of the data out as a whole, e.g. a word and its senses (see
-  db.change/removal).
+  entries of the data out as a whole (see db.change/removal).
 
   The edits made before to what it removes are dropped, with what can't
-  stay without it (see without). A link to it that was removed before
-  stays removed. An earlier removal stays whole, so that each can be
-  undone on its own. Two that retract the same triple are submitted as one
-  change (see change/locate-nodes), and one that the new removal covers is
-  dropped."
+  stay without it (see without), but a link to it that was removed before
+  stays removed. An earlier removal stays whole, so that each can be undone
+  on its own, unless the new one covers it."
   [templates changes removal]
   (let [whole?   (comp seq change/removed)
         covered? #(set/subset? (:retract %) (:retract removal))

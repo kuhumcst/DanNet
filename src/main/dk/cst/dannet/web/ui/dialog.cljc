@@ -17,12 +17,18 @@
 
   A text is in the language of the reader already. A paragraph, an item or
   a label can also be a resource, as a keyword, which the wizard draws with
-  the function that its flow has for it. An item can be a pair of a short
-  lead, e.g. a number, and what the lead is about. The figures are large
-  and in the middle of the step, side by side. The items and the choices
-  are rows of two columns below them, so that they line up: a lead or a
-  checkbox, and then the text or the resource. The answers are a map of a
-  key to true or false, which a wizard starts with and gives back."
+  the :resource-fn of its flow. An item can be a pair of a short lead, e.g.
+  a number, and what the lead is about.
+
+  The flow of a wizard is a map too:
+
+  - :title, the title of the dialog;
+  - :about, what it is about, shown below the title at every step;
+  - :answers, the answers that it starts with, a map of a key to true or
+    false;
+  - :steps-fn, a function of the answers so far that returns the steps;
+  - :resource-fn, a function that draws a resource in a text;
+  - :done, the text of the button that confirms."
   (:require [rum.core :as rum]
             [dk.cst.dannet.web.i18n :as i18n]))
 
@@ -88,8 +94,8 @@
      content]))
 
 (def focus-step
-  "A mixin for the wizard. When the step changes, the focus moves to the
-  new step, so that a screen reader reads it from its start. The time when
+  "A mixin that moves the focus to the new step when the step of a wizard
+  changes, so that a screen reader reads it from its start. The time when
   the step was drawn is kept as ::changed."
   {:will-mount (fn [state]
                  (assoc state
@@ -124,21 +130,11 @@
 (rum/defcs wizard < (rum/local 0 ::step)
                     (rum/local nil ::answers)
                     focus-step
-  "A dialog that leads through the steps of the `flow`, for a reader with
-  `languages`. It calls `on-done` with the answers when the last step is
-  confirmed, and `on-close` when the dialog closes without that.
-
-  The flow is a map of:
-
-  - :title, the title of the dialog;
-  - :about, what it is about, shown below the title at every step;
-  - :answers, the answers that it starts with;
-  - :steps-fn, a function of the answers so far that returns the steps
-    (see the namespace);
-  - :resource-fn, a function that draws a resource in a text;
-  - :done, the text of the button that confirms.
-
-  The focus starts on the first step, never on that button."
+  "A dialog that leads through the steps of the `flow` (see the namespace),
+  for a reader with `languages`. It calls `on-done` with the answers when
+  the last step is confirmed, and `on-close` when the dialog closes without
+  that. The focus starts on the first step, never on the button that
+  confirms."
   [state languages
    {:keys [title about answers steps-fn resource-fn done] :as flow}
    {:keys [on-done on-close]}]
@@ -153,7 +149,7 @@
       {:title    title
        :class    "wizard"
        :on-close on-close
-       ;; how far the wizard is stands beside its title
+       ;; the progress of the wizard is shown next to its title
        :heading  [:<>
                   title
                   ;; a space, so that the two aren't read out as one word

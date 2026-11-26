@@ -232,7 +232,7 @@
   (let [id (input-type/->resource (str input-type/site-root path))]
     (when (change/temporary? id)
       {:id   id
-       :type (-> (entry/entity nil (:changes @app/session) id)
+       :type (-> (entry/entity (:changes @app/session) id)
                  (:rdf/type)
                  (shared/setify)
                  (first))})))

@@ -16,12 +16,8 @@
      it (see field-buttons).
   5. The buttons come in the order edit, undo, remove.
 
-  A blank node that the shapes describe is a field too, around the nested
-  table of its values. It has no input of its own, so its buttons only
-  remove it or put it back.
-
-  A new entry is a field as well, e.g. a new sense of a word in a synset.
-  The word is found in a dialog, and the field shows the label of the sense.
+  A blank node that the shapes describe is a field too (see node-field), and
+  so is a new entry (see entry-field).
 
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
   :languages that the dropdown of a text offers, where nil is none, the
@@ -43,21 +39,27 @@
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.theophrastus.term :as term]))
 
+(defn icon
+  "The icon with the `icon-name`, e.g. \"add\", which a screen reader
+  skips."
+  [icon-name]
+  [:span {:class       ["edit-value__icon" (str "edit-value__icon--" icon-name)]
+          :aria-hidden "true"}])
+
 (defn icon-button
-  "A button with the `icon` that calls `on-click`. The `label` is its name
-  and its tooltip."
-  [icon label on-click]
+  "A button with the `icon-name` that calls `on-click`. The `label` is its
+  name and its tooltip."
+  [icon-name label on-click]
   [:button.edit-value__button {:type     "button"
-                               :key      icon
+                               :key      icon-name
                                :title    label
                                :on-click on-click}
-   [:span {:class       ["edit-value__icon" (str "edit-value__icon--" icon)]
-           :aria-hidden "true"}]
+   (icon icon-name)
    [:span.visually-hidden label]])
 
 (defn plus-label
-  "The name of the plus of the row of the property `k` in `opts`. The plus
-  of every row looks the same, so its name says which row."
+  "The name of the add button in the row of the property `k` in `opts`. The
+  button looks the same in every row, so its name says which row."
   [{:keys [languages] :as opts} k]
   (str (i18n/da-en languages "Tilføj en værdi til" "Add a value to")
        " \"" (rdf/link-label opts k) "\""))
@@ -70,7 +72,7 @@
   [:button.edit-value__add {:type     "button"
                             :title    label
                             :on-click on-click}
-   [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+   (icon "add")
    (when gap
      [:span.edit-value__gap {:aria-hidden "true"} gap])
    [:span.visually-hidden label]])
@@ -96,9 +98,9 @@
     lang))
 
 (defn lang-select
-  "A dropdown of the languages `langs` that shows `lang` as the tag of a
-  text, or that a language can be added. It calls `on-lang` with a chosen
-  language, and `attrs` are added to its attributes."
+  "A dropdown of the languages `langs` in a table with `opts`, which shows
+  `lang` as the tag of a text, or that a language can be added. It calls
+  `on-lang` with a chosen language, and `attrs` are added to its attributes."
   [{:keys [languages] :as opts} langs lang on-lang & [attrs]]
   (let [label (str (i18n/da-en languages "Sprog" "Language") ": "
                    (language-name languages lang))]
@@ -182,8 +184,8 @@
       "The resource is being removed")))
 
 (def list-all
-  "A mixin for the search dialog. A search with :list-all? has few enough
-  results to show them all when the dialog opens, before a text is typed."
+  "A mixin that shows every result of a search with :list-all? when its
+  dialog opens, before a text is typed. Such a search has few results."
   {:did-mount (fn [state]
                 #?(:cljs
                    (let [[_ {:keys [list-all? results-fn]}] (:rum/args state)]
@@ -196,17 +198,15 @@
                            (rum/local 0 ::searches)
                            (rum/local "" ::text)
                            list-all
-  "A dialog that finds a value with the `search` (see ui.input-type). It
-  calls `on-value` with the chosen one, or `on-close` when there is none.
-  With `on-result`, that function gets the chosen result as it is. A result
-  that the search refuses can't be chosen, and it says why. Neither can an
-  entry that the pending changes remove as a whole.
+  "A dialog on a page with `opts` that finds a value with the `search` (see
+  ui.input-type). It calls `on-value` with the chosen value, or `on-result`
+  with the result as it is, and `on-close` when nothing is chosen.
 
-  With `new-fn`, the dialog also offers to make a value, on a line before
-  the results. The function takes the typed text and returns what can be
-  made from it, or nil: a map of its :name in each language and, when the
-  value is made from the text, that :text. The line shows both, and
-  `on-new` gets the typed text."
+  A result that the search refuses says why and can't be chosen, and
+  neither can an entry that the pending changes remove. With `new-fn`, a
+  line before the results offers to make a value: the function takes the
+  typed text and returns nil, or the :name of what it makes in each
+  language and the :text that it is made from. `on-new` gets the text."
   [state {:keys [languages changes] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
            heading placeholder note]
@@ -216,7 +216,7 @@
         searches (::searches state)
         text     (::text state)
         localize #(i18n/da-en languages (:da %) (:en %))
-        refusal  #(or (when refuse-fn (refuse-fn opts %))
+        refusal  #(or (when refuse-fn (refuse-fn %))
                       (removal-reason languages changes (value-fn %)))
         offer    (when new-fn (new-fn @text))
         ;; Only the results of the latest search are shown, and a search
@@ -273,7 +273,7 @@
        (when offer
          [:button.search-dialog__new {:type     "button"
                                       :on-click #(on-new @text)}
-          [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+          (icon "add")
           (localize (:name offer))
           (when-let [s (:text offer)]
             [:<> ": " [:strong s]])])
@@ -311,8 +311,9 @@
                  [:small reason])]])])]])))
 
 (rum/defc options-input
-  "A dropdown of the `options` named by `label`, starting with the `value`.
-  It calls `on-value` with a chosen option, or `on-cancel` when none is."
+  "A dropdown in a table with `opts` of the `options`, named by `label`,
+  that starts with the `value`. It calls `on-value` with a chosen option,
+  or `on-cancel` when none is."
   [opts options {:keys [value label on-value on-cancel]}]
   (let [qname (some-> value prefix/kw->qname)]
     [:select.edit-value__input
@@ -349,18 +350,16 @@
                         (rum/local false ::entering?)
                         (rum/local false ::searching?)
                         (rum/local nil ::chosen)
-  "A text input for a value of the `input-type` (see ui.input-type), named by
-  `label`, that starts out with the `draft` or else the `value`.
+  "A text input in a table with `opts` for a value of the `input-type` (see
+  ui.input-type), named by `label`. It starts with the `draft` or else the
+  `value`, in the language `lang` or one chosen among `langs`.
 
-  Enter or the focus leaving it enters the text. The input then calls
-  `on-value` with a value, `on-invalid` with a text that isn't one and
-  whether the focus is leaving, `on-empty` for an empty text, or `on-cancel`
-  when nothing is new, as Escape does. On Enter, a value among `taken`, an
-  entry that the pending changes remove as a whole, or an empty text with a
-  `keep-reason`, is refused with the reason.
-
-  A text is in the language `lang`, or the one chosen among `langs`. The
-  `undo` and the :remove are each the label and the function of a button."
+  Enter, or the focus leaving, enters the text: the input calls `on-value`
+  with a value, `on-invalid` with a text that isn't one and whether the
+  focus is leaving, `on-empty` for an empty text, or `on-cancel` when
+  nothing is new, as Escape does. On Enter it refuses a value among `taken`,
+  an entry that is being removed, and an empty text with a `keep-reason`.
+  The `undo` and the :remove are each the label and function of a button."
   [state {:keys [languages changes] :as opts}
    {:keys [parse-fn format-fn search] :as input-type}
    {:keys [value draft lang langs label undo taken keep-reason on-value
@@ -494,8 +493,8 @@
                                    (focus-beside! e ".edit-value__input"))}))]))
 
 (defn input
-  "The input for a value of the `input-type` with the `props`: a dropdown of
-  its options, or else a text input."
+  "The input in a table with `opts` for a value of the `input-type`, with
+  the `props`: a dropdown of its options, or else a text input."
   [opts {:keys [options] :as input-type} props]
   (if options
     (options-input opts options props)
@@ -521,8 +520,8 @@
   "A mixin for a field. When the field goes away while the focus is in it,
   e.g. when an added value is taken away or when its row is full, the focus
   moves to the nearest control that is on the page once it is drawn again:
-  a button of the field after it, the plus of its row, a button of the last
-  field in its row, or the button that adds a row to its table."
+  a button of the field after it, the add button of its row, a button of
+  the last field in its row, or the button that adds a row to its table."
   {:will-unmount
    (fn [state]
      #?(:cljs
@@ -585,8 +584,8 @@
   input and by its `tint`: nil, :edited, :moved, :added or :retracted.
 
   - :edit opens the input: on a closed field, unless its value is removed.
-  - :undo puts the field back as the data has it: on an edited, a moved or
-    a removed value.
+  - :undo puts the value of the data back: on an edited, a moved or a
+    removed value.
   - :remove takes the value away: on an added value, and on a closed field
     with no tint, an edited or a moved one."
   [open? tint]
@@ -600,14 +599,14 @@
 (defn- buttons
   "The buttons of a closed field with the `tint` (see field-buttons), from
   `actions`, a map of a button to its label and function. A button that
-  isn't among them is left out. A button in `marks` has its mark there in
-  its place, e.g. the count of a row that must keep the value in place of
-  the button that removes it."
-  [tint actions & [marks]]
+  isn't among them is left out. With `required`, the mark of a value that
+  its row must keep, the mark is there in place of the button that removes
+  the value."
+  [tint actions & [required]]
   [:span.edit-value__actions
    (for [button (field-buttons false tint)
          :let   [[label f :as action] (get actions button)
-                 mark (get marks button)]
+                 mark (when (= button :remove) required)]
          :when  (or action mark)]
      (or mark (icon-button (name button) label f)))])
 
@@ -686,8 +685,8 @@
 
 (defn move-note
   "The note of a value that has moved from one row to another, for a reader
-  of a table with `opts`: the property that it has :moved-from or :moved-to,
-  as the `field` has it (see row/fields), or nil."
+  of a table with `opts`: the property that the `field` (see row/fields)
+  has it :moved-from or :moved-to, or nil."
   [{:keys [languages] :as opts} {:keys [moved-from moved-to] :as field}]
   (cond
     moved-from [:small.edit-value__note
@@ -706,10 +705,11 @@
     [:small.edit-value__note
      (i18n/da-en languages
        "Hele ressourcen fjernes"
-       "The whole resource is removed")]))
+       "The whole resource is being removed")]))
 
 (defn- value-text
-  "The value `v` as the text that names it in a label or a tooltip."
+  "The value `v` as the text that names it in a label or a tooltip, in a
+  table with `opts`."
   [opts v]
   (if (keyword? v)
     (rdf/link-label opts v)
@@ -722,12 +722,11 @@
   "A field for the value `v` of the property `k` in `opts`, which is an
   rdf:_N property in the row of members.
 
-  The `props` are the field as row/fields has it, with the :input-type of
-  its input, the :langs of a text and :required, the constraints of a row
-  that must keep the value. With :on-remove, the cross calls that function,
-  e.g. to remove the blank node that holds the value. An entered text that
-  isn't a value is kept as a draft and shown as an edit. The tag of a text
-  is a dropdown that changes its language."
+  The `props` are the field (see row/fields), with the :input-type of its
+  input, the :langs of a text and :required, the constraints of a row that
+  must keep the value. With :on-remove, the remove button calls that
+  function, e.g. to remove the blank node that holds the value. An entered
+  text that isn't a value is kept as a draft and shown as an edit."
   [state {:keys [languages comments] :as opts}
    k v {:keys [input-type status original langs required moved-to on-remove]
         :as   props}]
@@ -834,7 +833,6 @@
        @draft
        (invalid-content @draft message)
 
-       ;; a removed value is a <del>, any other pending one an <ins>
        :else
        (let [content [(case status
                         :retracted :del
@@ -857,7 +855,7 @@
                       :undo   undo
                       :remove removal}
                 (when required
-                  {:remove (required-mark languages required)})))]))
+                  (required-mark languages required))))]))
 
 (rum/defcs new-value-field < (rum/local false ::adding?)
                              (rum/local nil ::draft)
@@ -884,7 +882,7 @@
                   (vreset! (::refocus state) "button")
                   (reset! adding? false))
         open!   (fn [e]
-                  (when (and (not @adding?) (opens-input? e))
+                  (when (opens-input? e)
                     (reset! adding? true)))
         drop!   (fn [& _]
                   (reset! draft nil)
@@ -948,8 +946,9 @@
                          keep-focus
   "A field for the new entry with the temporary ID `id` in a row of a table
   with `opts`: the label that the pending changes give the entry, as a link
-  to the page of the entry. The label can be edited here too. The cross
-  takes the entry away, with what can't stay without it (see entry/without).
+  to the page of the entry. The label can be edited here too. The remove
+  button takes the entry away, with what can't stay without it (see
+  entry/without).
 
   The field also names the other entries that hold the entry, e.g. the
   synset of a new sense in the row of a word, which tells two senses with
@@ -972,8 +971,7 @@
                     (update-changes! opts without)
                     ;; the page of a new entry that went with it is empty
                     (when (and draft?
-                               (nil? (entry/entity nil
-                                                   (without changes)
+                               (nil? (entry/entity (without changes)
                                                    subject)))
                       (app/navigate-to prefix/changes-path
                                        {:replace? true})))]]
@@ -1078,10 +1076,10 @@
                      (app/clear-current-fetch url)
                      nil))))))
 
-(defn- removal-labels
-  "The labels of the resources in the `parts` of a removal, as a page with
-  `opts` shows them."
-  [{:keys [detail-level] :as opts} {:keys [entities] :as parts}]
+(defn entity-labels
+  "The label of each resource in `entities`, a map of a resource to its
+  entity as the server sends it, as a page with `opts` shows them."
+  [{:keys [detail-level] :as opts} entities]
   (update-vals entities (shared/->entity-label-fn detail-level)))
 
 (defn- retract-entry!
@@ -1093,14 +1091,14 @@
   [{:keys [edit-rules] :as opts} parts answers]
   (doseq [[label place] (removal/nodes parts)]
     (app/remember-node! label place))
-  (app/remember-labels! (removal-labels opts parts))
+  (app/remember-labels! (entity-labels opts (:entities parts)))
   (update-changes! opts #(entry/retract (:entries edit-rules) %
                                         (removal/removal parts answers))))
 
 (def fetch-parts
-  "A mixin for the wizard of a removal. When the wizard is drawn, it asks
-  the server for the parts of the removal and keeps them as ::parts. The
-  wizard closes when the data has no such entry."
+  "A mixin that asks the server for the parts of a removal when its wizard
+  is drawn, and keeps them as ::parts. The wizard closes when the data has
+  no such entry."
   {:did-mount (fn [state]
                 #?(:cljs
                    (let [[_ id {:keys [on-close]}] (:rum/args state)]
@@ -1122,7 +1120,7 @@
   [state {:keys [languages] :as opts} id {:keys [on-done on-close]}]
   (when-let [parts @(::parts state)]
     (let [labelled (update opts :k->label
-                           #(merge (removal-labels opts parts) %))]
+                           #(merge (entity-labels opts (:entities parts)) %))]
       (dialog/wizard
         languages
         (assoc (removal/flow languages id parts)
@@ -1165,14 +1163,13 @@
                               refocus
                               keep-focus
   "A field for the entry `v` of the data in the row of the property `k` in
-  `opts`, when the row takes new entries, e.g. a sense of a synset. Its
-  cross removes the whole entry, since a link to the entry is part of what
-  the entry is made of. It opens the wizard of the removal, which has to be
-  confirmed (see removal-wizard). A removed entry says so, and its button
-  puts it back.
+  `opts`, when the row takes new entries, e.g. a sense of a synset. The
+  `props` are the field (see row/fields), with :required, the constraints
+  of a row that must keep the value.
 
-  The `props` are the field as row/fields has it, with :required, the
-  constraints of a row that must keep the value."
+  The remove button removes the whole entry, since an entry without the
+  link would be broken. It opens the wizard of the removal (see
+  removal-wizard). A removed entry says so, and its button puts it back."
   [state {:keys [languages] :as opts} k v {:keys [status required]}]
   (let [removing? (::removing? state)
         removed?  (= status :retracted)
@@ -1198,7 +1195,7 @@
                              ": " text)
                         #(reset! removing? true)]}
               (when required
-                {:remove (required-mark languages required)}))
+                (required-mark languages required)))
      (when @removing?
        (removal-wizard opts v
                        {:on-done  (fn []
@@ -1242,16 +1239,15 @@
 
 (rum/defcs new-entry-field < (rum/local false ::choosing?)
   "The field for a new entry in the row of the property `k` in `opts`: a
-  button that asks for the gap of the template of the `row-entry` that the
-  subject of the row doesn't fill, with the search of its class. The answer
-  fills the template (see ui.edit.entry, where for-row gives `row-entry`).
+  button that opens a dialog, which asks for the gap of the template of
+  `row-entry` that the subject of the row doesn't fill (see entry/for-row).
+  The answer fills the template.
 
-  The dialog says what the template adds besides, and it lists the new
-  entries of the classes of the gap. It refuses an answer that shares an
-  entry of the template with the subject already. It offers to make the
-  answer when the template of one of the classes fits the typed text, e.g.
-  a multiword expression from a text with a space, and a made answer is
-  shown on its own page."
+  The dialog says what the template adds besides, lists the new entries of
+  the classes of the gap, and refuses an answer that already shares an
+  entry of the template with the subject. It offers to make the answer
+  when the typed text fits the template of one of the classes, and a made
+  answer is shown on its own page."
   [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
    k {:keys [template subject] :as row-entry}]
   (let [choosing? (::choosing? state)
@@ -1286,7 +1282,7 @@
                            #(.focus %)))))
         add!      (fn [result]
                     (let [found    (or (some->> (:pending result)
-                                                (entry/entity nil changes))
+                                                (entry/entity changes))
                                        result)
                           starting (entry/starting template {subject entity
                                                              gap     found})
@@ -1322,7 +1318,7 @@
          opts
          (cond-> (assoc search :note (:note template))
            taken (assoc :refuse-fn
-                        (fn [_ result]
+                        (fn [result]
                           (when (contains? taken (value-fn result))
                             (i18n/da-en languages
                               (:da reason) (:en reason))))))
@@ -1373,10 +1369,10 @@
   "A field for the blank node with the `label` in the row of the property
   `k` in `opts`: its nested table, and a button that removes the node.
 
-  The `props` are the field as row/fields has it, with the :node as the
-  page has it, which a new node lacks, and :required, the constraints of a
-  row that must keep the node. A removed node shows its values as the data
-  has them, with a button that puts it back."
+  The `props` are the field (see row/fields), with the :node of the page,
+  which a new node lacks, and :required, the constraints of a row that
+  must keep the node. A removed node shows the values that it has in the
+  data, with a button that puts it back."
   [state {:keys [languages default-origin changes] :as opts}
    k label {:keys [status node required]}]
   (let [place    (when node
@@ -1421,15 +1417,15 @@
                :remove [(str (i18n/da-en languages "Fjern" "Remove") ": " text)
                         remove!]}
               (when required
-                {:remove (required-mark languages required)}))]))
+                (required-mark languages required)))]))
 
 (defn- sole-field
   "The field of a blank node that only holds the value of the property
   `sole` (see row/sole-property), in the row of the property `k` in `opts`:
-  the field of that value, whose cross removes the node with it.
+  the field of that value, whose remove button removes the node with it.
 
-  The node has the `label`, and `node` is the node as the page has it, which
-  a new node lacks. With `required`, the row must keep the node. Nil when
+  The node has the `label`, and `node` is the node of the page, which a new
+  node lacks. With `required`, the row must keep the node. Nil when
   the node has no such value."
   [{:keys [changes default-origin] :as opts} k sole label node required]
   (let [nested (-> (rdf/node-opts opts (or node
@@ -1526,13 +1522,11 @@
   one, and last the locked values with a padlock that says why.
 
   A set of values is sorted by language, the reader's preferred one first,
-  and then by text. The :constraints of the table shape the fields: the
-  languages and the form of a text, the values to choose between, and
-  whether the row can take another value or lose one (see
+  and then by text. The :constraints of the table shape the fields (see
   dk.cst.dannet.db.shapes/property-constraints). A new entry among the
-  values has a field of its own, and so does a row that takes new entries
-  (see entry-field and new-entry-field). An entry of the data in such a row
-  is removed as a whole (see data-entry-field)."
+  values, a row that takes new entries and an entry of the data in such a
+  row each have a field of their own (see entry-field, new-entry-field and
+  data-entry-field)."
   [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
   (let [subject     (subject-of opts)
         {:keys [must should]} (get constraints k)
@@ -1605,7 +1599,6 @@
                                        :required required)))
                       (item-key property (if (some? original) original value))))
       (cond
-        ;; a row that is full, or whose options are all taken, takes no more
         (or full? (some-> (:options new-type) empty?))
         nil
 
@@ -1670,7 +1663,7 @@
     [:div.edit-add-row
      [:button {:type     "button"
                :on-click #(reset! choosing? true)}
-      [:span.edit-value__icon.edit-value__icon--add {:aria-hidden "true"}]
+      (icon "add")
       (i18n/da-en languages (:da title) (:en title))]
      (when @choosing?
        (search-dialog opts

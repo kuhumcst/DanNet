@@ -19,7 +19,8 @@
   the pending changes of an editor (see dk.cst.dannet.change), the :nodes
   are the places of the blank nodes that they change, and the :labels are
   those of the resources in the changes, for a page that doesn't have them.
-  The :check is what the server last said about the changes."
+  The :check is what the server last said about the changes, and the
+  :references are how many triples point to what the changes unreference."
   {:languages    nil
    :search       {:completion {}
                   :s          ""}
@@ -211,8 +212,9 @@
   #?(:cljs (update-cookie! :edit-mode not)))
 
 (defn remember-node!
-  "Keep the `place` of the blank node with the `label` in the session, for
-  change/locate-nodes to find the node by when the changes are submitted."
+  "Keep the `place` of the blank node with the `label` in the session. A
+  change to the node is located by it when the changes are submitted (see
+  change/locate-nodes)."
   [label place]
   (swap! session assoc-in [:nodes label] place))
 

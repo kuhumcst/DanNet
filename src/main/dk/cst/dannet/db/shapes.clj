@@ -7,14 +7,17 @@
 
     * base.ttl      - invariants of the asserted (base) graph
     * inferred.ttl  - relation completeness; INFERRED model only
-    * editorial.ttl - stricter rules gating newly edited data (validate-node)
+    * editorial.ttl - stricter rules for edited data, which the editor
+                      also reads its fields from (property-constraints)
 
   Current uses:
     * clojure.test assertions over small fixtures (see test ns),
     * a non-fatal bootstrap/CI check that logs anomalies via Telemere,
       comparing violation counts to a known baseline (shapes-baseline.edn), and
     * a release gate aborting RDF exports on baseline regressions
-      (`validate-export!`, called from dk.cst.dannet.db.export.rdf)."
+      (`validate-export!`, called from dk.cst.dannet.db.export.rdf), and
+    * the check of proposed changes against the editorial shapes
+      (`validate-changes`)."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [dk.cst.theophrastus :as theo]
@@ -217,7 +220,7 @@
 (defn validate-node
   "Validate a single focus `node` of `db` against `shapes` in a read
   transaction. Only shapes targeting the node are checked, making this cheap
-  enough to gate individual writes (e.g. an RDF Patch).
+  enough to gate individual writes (e.g. a change).
 
   The `node` may be a Jena Node, a prefixed keyword (e.g. :dn/synset-999), or
   an IRI in angle brackets. Returns the same result map as `validate`."
@@ -270,8 +273,8 @@
        (nil? path)))
 
 (defn- linked-properties
-  "The properties that `shapes` have a rule about the links to a resource
-  for, as a set of Jena Nodes: the values of sh:inversePath."
+  "The properties that a rule of `shapes` reads backwards, from a value to
+  what points to it, as a set of Jena Nodes: the values of sh:inversePath."
   [^Shapes shapes]
   (let [inverse-path (NodeFactory/createURI
                        "http://www.w3.org/ns/shacl#inversePath")]
@@ -279,61 +282,64 @@
           (map #(.getObject ^Triple %))
           (.toList (.find (.getGraph shapes) Node/ANY inverse-path Node/ANY)))))
 
+(defn- touched
+  "The nodes of the Graph `union` that the plain changes `made` touch, to be
+  validated: the subject of each changed triple, and for a blank node the
+  named resources that it hangs off, since their shapes cover it.
+
+  The resource that a changed triple points to is touched too when its
+  property is one of `linked` (see linked-properties), e.g. a sense that a
+  synset no longer points to."
+  [^Graph union linked prefixes made]
+  (->> (convert/triples (mapcat #(concat (:retract %) (:add %)) made)
+                        prefixes)
+       (mapcat (fn [^Triple t]
+                 (let [s (.getSubject t)
+                       o (.getObject t)]
+                   (cond-> (if (.isBlank s)
+                             (vec (owners union s))
+                             [s])
+                     (and (.isURI o)
+                          (contains? linked (.getPredicate t)))
+                     (conj o)))))
+       (distinct)))
+
 (defn validate-changes
   "Validate the `changes` to the dn: graph of `db`, a db of a Dataset,
-  against `shapes` (the editorial shapes by default), without writing
-  anything, in a read transaction.
+  against the editorial shapes, without writing anything, in a read
+  transaction. Returns the same result map as `validate`.
 
-  The changes are made in order on a copy in memory of the dn: graph, as
-  db.change/apply-change! makes them, so each has to match exactly once in
-  the graph that the ones before it leave. The copy then gets the values
-  that the release build derives for the resources in the changes (see
-  derived/derive!), e.g. the label of a new synset. Then validate-node
-  checks the union of the graphs: the subject of every changed triple, and
-  for a blank node the named resources it hangs off, since their shapes
-  cover it. The resource that a changed triple points to is checked too
-  when the shapes have a rule about the links to a resource for its
-  property, e.g. a sense that a synset no longer points to. A result that a
-  resource already had before the changes is left out, so an old problem in
-  the data doesn't count against them. Returns the same result map as
-  `validate`, so shacl/violations? and shacl/by-severity apply."
-  ([db changes]
-   (validate-changes db @editorial-shapes changes))
-  ([{:keys [^Dataset dataset prefixes] :as db} ^Shapes shapes changes]
-   (txn/with-read-transaction db
-     (let [dsg     (.asDatasetGraph dataset)
-           dn      (NodeFactory/createURI prefix/dn-uri)
-           delta   (Delta. (.getGraph dsg dn))
-           dn-db   (graph-db delta prefixes)
-           made    (mapv #(db.change/apply-change! dn-db %) changes)
-           _       (derived/derive! dn-db made)
-           union   (.getUnionGraph (with-graph dsg dn delta))
-           linked  (linked-properties shapes)
-           before  (graph-db (.getUnionGraph dsg) prefixes)
-           after   (graph-db union prefixes)
-           found   (fn [db node]
-                     (remove link-result?
-                             (:results (validate-node db shapes node))))
-           ;; a node is only validated as it was when it has results now
-           brought (fn [node]
-                     (when-some [now (not-empty (found after node))]
-                       (remove (set (found before node)) now)))
-           results (->> (convert/triples (mapcat #(concat (:retract %) (:add %))
-                                                 made)
-                                         prefixes)
-                        (mapcat (fn [^Triple t]
-                                  (let [s (.getSubject t)
-                                        o (.getObject t)]
-                                    (cond-> (if (.isBlank s)
-                                              (vec (owners union s))
-                                              [s])
-                                      (and (.isURI o)
-                                           (contains? linked (.getPredicate t)))
-                                      (conj o)))))
-                        (distinct)
-                        (into [] (mapcat brought)))]
-       {:conforms? (empty? results)
-        :results   results}))))
+  The changes are made in order on a copy in memory of the dn: graph (see
+  db.change/apply-change!), so each has to match exactly once in the graph
+  that the ones before it leave. The copy then gets the values that the
+  release build derives (see derived/derive!). Then every node that the
+  changes touch is validated in the union of the graphs. A result that a
+  node already had before the changes is left out."
+  [{:keys [^Dataset dataset prefixes] :as db} changes]
+  (txn/with-read-transaction db
+    (let [shapes  @editorial-shapes
+          dsg     (.asDatasetGraph dataset)
+          dn      (NodeFactory/createURI prefix/dn-uri)
+          delta   (Delta. (.getGraph dsg dn))
+          dn-db   (graph-db delta prefixes)
+          made    (mapv #(db.change/apply-change! dn-db %) changes)
+          _       (derived/derive! dn-db made)
+          union   (.getUnionGraph (with-graph dsg dn delta))
+          before  (graph-db (.getUnionGraph dsg) prefixes)
+          after   (graph-db union prefixes)
+          found   (fn [db node]
+                    (remove link-result?
+                            (:results (validate-node db shapes node))))
+          ;; a node is only validated as it was when it has results now
+          brought (fn [node]
+                    (when-some [now (not-empty (found after node))]
+                      (remove (set (found before node)) now)))
+          results (into []
+                        (mapcat brought)
+                        (touched union (linked-properties shapes) prefixes
+                                 made))]
+      {:conforms? (empty? results)
+       :results   results})))
 
 (defn check-changes
   "What validate-changes says about the `changes` to the dn: graph of `db`,
