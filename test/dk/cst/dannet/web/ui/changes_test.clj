@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.changes-test
   "Tests for the list of the pending changes as data: which sections it has,
-  which rows each of them has, and the text that is submitted."
+  which rows each of them has, what a check says and the text that is
+  submitted."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [rum.core :as rum]
@@ -116,6 +117,27 @@
         "a result about a resource without changes is listed by that one")
     (is (empty? (changes/other-problems results [{:resource :dn/word-1}
                                                  {:resource :dn/synset-1}])))))
+
+(deftest check-summaries
+  (let [summary #(#'changes/check-summary ["en"] %)
+        error   {:severity :sh/Violation}
+        warning {:severity :sh/Warning}]
+    (is (nil? (summary nil))
+        "nothing is said before the first check")
+    (is (= "Checking the changes …" (summary {:running? true})))
+    (is (= "The changes couldn't be checked." (summary {:failed? true}))
+        "a check that the server didn't answer")
+    (is (= "A change can't be made to the data as it is."
+           (summary {:error "no match"}))
+        "a change that doesn't match the data")
+    (is (= "No problems found." (summary {:results []})))
+    (is (= "1 error and 2 warnings."
+           (summary {:results [error warning warning]}))
+        "the results are counted by their severity")
+    (is (= "2 errors and 1 warning."
+           (summary {:results [error error warning]})))
+    (is (= "1 fejl og 1 advarsel."
+           (#'changes/check-summary ["da"] {:results [error warning]})))))
 
 (deftest submission
   (let [db      (util/ttl->dataset "

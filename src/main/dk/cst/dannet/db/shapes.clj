@@ -211,7 +211,18 @@
   "Validate `db` against `shapes` (a Jena `Shapes`) in a read transaction,
   returning
 
-    {:conforms? boolean, :results [{:focus-node ...} ...]}."
+    {:conforms? boolean, :results [{:focus-node ...} ...]}.
+
+  A result is a map from dk.cst.theophrastus.shacl:
+
+  - :focus-node, the resource that breaks a rule;
+  - :path, the property that the rule is about as a keyword, a longer path
+    as a string, or nil when the rule is about the resource as a whole;
+  - :value, the value that breaks the rule, or nil when it is one that the
+    resource lacks;
+  - :source-shape and :constraint-component, the shape and its kind of rule;
+  - :severity, :sh/Violation or :sh/Warning;
+  - :message, the text of the shape, which is in English."
   ([db]
    (validate db @shapes))
   ([db ^Shapes shapes]
