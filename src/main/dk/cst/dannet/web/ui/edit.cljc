@@ -36,8 +36,7 @@
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.lock :as lock]
-            [dk.cst.dannet.web.ui.rdf :as rdf]
-            [dk.cst.theophrastus.term :as term]))
+            [dk.cst.dannet.web.ui.rdf :as rdf]))
 
 (defn icon
   "The icon with the `icon-name`, e.g. \"add\", which a screen reader
@@ -695,27 +694,6 @@
     (:rdf/about blank-node)
     subject))
 
-(defn node-place
-  "The place of the blank node of a nested table with `opts`, as
-  change/locate-nodes takes it: the :subject and :property that hold the
-  node, and those of its :values that can be edited. A node that an editor
-  has made is :new? and has no values in the data."
-  [{:keys [subject blank-node] :as opts}]
-  (let [{:keys [property entity new?]} blank-node
-        editable (fn [k vs]
-                   (into #{}
-                         (filter #(nil? (lock/lock opts k %)))
-                         (shared/setify vs)))]
-    (if new?
-      {:subject subject :property property :new? true}
-      {:subject  subject
-       :property property
-       :values   (into {}
-                       (keep (fn [[k vs]]
-                               (when-let [vs (not-empty (editable k vs))]
-                                 [k vs])))
-                       entity)})))
-
 (defn edit!
   "Apply `f` and `args` to the pending changes, for an edit in a table with
   `opts`. An edit in the nested table of a blank node also keeps the place
@@ -725,7 +703,7 @@
   the changes shows them on a page of its own (see ui.changes)."
   [{:keys [blank-node subject k->label] :as opts} f & args]
   (when blank-node
-    (app/remember-node! (:rdf/about blank-node) (node-place opts)))
+    (app/remember-node! (:rdf/about blank-node) (row/node-place opts)))
   (let [{:keys [changes]} (apply app/update-changes! f args)]
     (app/remember-labels!
       (select-keys k->label (conj (change/resources changes)
@@ -1015,13 +993,6 @@
 
        :else
        (add-button label #(reset! adding? true) (when gap? lang)))]))
-
-(defn new-labels
-  "Labels for new blank nodes that none of the `nodes` of the session has
-  yet, e.g. _new3 as the first one after two new nodes."
-  [nodes]
-  (let [n (count (filter :new? (vals nodes)))]
-    (map #(symbol (str "_new" (+ n % 1))) (range))))
 
 (rum/defcs entry-field < (rum/local false ::editing?)
                          refocus
@@ -1324,8 +1295,6 @@
         s         (subject-of opts)
         entries   (:entries edit-rules)
         [gap classes] (first (entry/asked template [given]))
-        ;; a new answer is made from the template that the typed text fits
-        answers   (keep entries classes)
         labels    (entry/labels changes (:derived-labels edit-rules))
         pending   (sort-by :pending
                            (for [class classes
@@ -1351,34 +1320,27 @@
                                    "\"] button"))
                            #(.focus %)))))
         add!      (fn [result]
-                    (let [found    (or (some->> (:pending result)
-                                                (entry/entity changes))
-                                       result)
-                          starting (entry/starting template {given entity
-                                                             gap   found})
-                          values   (assoc starting
-                                     given s
-                                     gap (value-fn result))
-                          change   (entry/fill template changes values)]
+                    (let [found  (or (some->> (:pending result)
+                                              (entry/entity changes))
+                                     result)
+                          change (entry/fill-from template changes
+                                                  {given s
+                                                   gap   (value-fn result)}
+                                                  {given entity
+                                                   gap   found})]
                       (edit! opts conj change)
                       (focus! change)))
-        make      (fn [text]
-                    (some (fn [{:keys [name] :as answer}]
-                            (some-> (entry/new-entry answer changes text
-                                                     (new-labels nodes))
-                                    (assoc :name name)))
-                          answers))
+        ;; a new answer is made from the template that the typed text fits
+        make      #(entry/new-entry-of entries classes changes %
+                                       (change/new-labels nodes))
         make!     (fn [text]
                     (let [{:keys [id] :as made} (make text)
                           change (entry/fill-around template changes gap made
                                                     {given s}
                                                     {given entity})]
                       ;; a new blank node has its place in the session
-                      (doseq [[s' p o] (:add change)
-                              :when (term/blank-node? o)]
-                        (app/remember-node! o {:subject  s'
-                                               :property p
-                                               :new?     true}))
+                      (doseq [[label place] (change/new-places change)]
+                        (app/remember-node! label place))
                       (edit! opts conj change)
                       (app/navigate-to (prefix/resolve-href id))))]
     [:li.edit-value.edit-value--new
@@ -1394,7 +1356,7 @@
          {:on-result (fn [result]
                        (reset! choosing? false)
                        (add! result))
-          :new-fn    (when (seq answers)
+          :new-fn    (when (some entries classes)
                        make)
           :on-new    (fn [text]
                        (reset! choosing? false)
@@ -1417,19 +1379,38 @@
   With `value`, a pair of a property and a value, the node is added with
   that value as one change. Without it, the first field of the node is
   opened once the page is drawn with it."
-  [{:keys [nodes] :as opts} k & [[p v :as value]]]
-  (let [subject (subject-of opts)
-        label   (first (new-labels nodes))
-        link    [subject k label]]
-    (app/remember-node! label {:subject subject :property k :new? true})
-    (if value
-      (edit! opts conj {:add #{link [label p v]}})
-      (do
-        (edit! opts change/add link)
-        #?(:cljs (when-drawn! #(.querySelector js/document
-                                               (str (node-selector label)
-                                                    " .edit-value__add"))
-                              #(.click %)))))))
+  [{:keys [nodes] :as opts} k & [value]]
+  (let [label  (first (change/new-labels nodes))
+        change (row/node-addition (subject-of opts) k label value)]
+    (doseq [[label place] (change/new-places change)]
+      (app/remember-node! label place))
+    (edit! opts conj change)
+    (when-not value
+      #?(:cljs (when-drawn! #(.querySelector js/document
+                                             (str (node-selector label)
+                                                  " .edit-value__add"))
+                            #(.click %))))))
+
+(defn new-node
+  "The node of a new blank node with the `label`, as the page has a node of
+  the data: only its label, marked as :new? and with the `default-origin`
+  of its values."
+  [default-origin label]
+  (with-meta {:rdf/about label}
+             {:default-origin default-origin
+              :new?           true}))
+
+(defn remove-node!
+  "Remove the blank node with the `label` in a table with `opts`. A node of
+  the data is retracted from its `place`, which is kept for when the changes
+  are submitted. Without a place the node is a new one, which is taken out
+  of the pending changes."
+  [opts label place]
+  (if place
+    (do
+      (app/remember-node! label place)
+      (edit! opts change/retract-node label place))
+    (edit! opts change/without-node label)))
 
 (rum/defcs node-field < refocus
                         keep-focus
@@ -1443,7 +1424,7 @@
   [state {:keys [languages default-origin changes] :as opts}
    k label {:keys [status node required]}]
   (let [place    (when node
-                   (node-place (rdf/node-opts opts node)))
+                   (row/node-place (rdf/node-opts opts node)))
         ;; a removed node is named by its values in the data
         text     (node-text opts k
                             (row/node-values (when-not (= status :retracted)
@@ -1454,12 +1435,9 @@
         ;; a new status replaces the button in focus with another
         button   ":scope > .edit-value__actions button"
         remove!  (fn [_]
-                   (if node
-                     (do
-                       (refocus! state button)
-                       (app/remember-node! label place)
-                       (edit! opts change/retract-node label place))
-                     (edit! opts change/without-node label)))]
+                   (when node
+                     (refocus! state button))
+                   (remove-node! opts label place))]
     [:li.edit-value.edit-node
      (cond-> {:data-node (str label)}
        status (assoc :class (str "edit-value--" (name status))))
@@ -1472,9 +1450,7 @@
         ;; as the read page shows the node, which can be without a table
         (= status :retracted) (rdf/value (assoc opts :edit-mode false) node)
         node (rdf/node-table opts node)
-        :else (rdf/node-table opts (with-meta {:rdf/about label}
-                                              {:default-origin default-origin
-                                               :new?           true})))]
+        :else (rdf/node-table opts (new-node default-origin label)))]
      (buttons status
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
@@ -1493,13 +1469,10 @@
   node lacks. With `required`, the row must keep the node. Nil when
   the node has no such value."
   [{:keys [changes default-origin] :as opts} k sole label node required]
-  (let [nested (-> (rdf/node-opts opts (or node
-                                           (with-meta
-                                             {:rdf/about label}
-                                             {:default-origin default-origin
-                                              :new?           true})))
+  (let [nested (-> (rdf/node-opts opts
+                                  (or node (new-node default-origin label)))
                    (assoc :attr-key sole))
-        place  (node-place nested)
+        place  (row/node-place nested)
         must   (get-in nested [:constraints sole :must])
         [{:keys [value] :as field}]
         (row/fields changes label [sole]
@@ -1510,12 +1483,17 @@
         (assoc field
           :input-type (input-type/input-type [value] must)
           :required required
-          :on-remove (fn []
-                       (if node
-                         (do
-                           (app/remember-node! label place)
-                           (edit! opts change/retract-node label place))
-                         (edit! opts change/without-node label))))))))
+          :on-remove #(remove-node! opts label (when node place)))))))
+
+(defn locked-value
+  "The list item of the value `v` that can't be edited, in a table with
+  `opts`: the value after a padlock that says `why` it is locked (see
+  lock/lock). The item has the `react-key`."
+  [{:keys [comments] :as opts} v why react-key]
+  [:li.edit-value.edit-value--locked
+   (assoc (rdf/lone-value-attrs v) :key react-key)
+   (padlock (get-in comments [:locked why]))
+   (rdf/value opts v)])
 
 (rum/defc node-cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
@@ -1526,7 +1504,7 @@
   The :constraints of the table say whether the row can take another node
   or lose one. A node that only holds one value is the field of that value
   (see sole-field), and a new one is added with its value."
-  [{:keys [changes comments languages constraints] :as opts} k vs]
+  [{:keys [changes constraints] :as opts} k vs]
   (let [subject  (subject-of opts)
         {:keys [must] shape :node} (get constraints k)
         sole     (row/sole-property shape)
@@ -1539,11 +1517,9 @@
                        (remove (set locked) sorted))
         fields   (row/fields changes subject [k]
                              (map #(vector k %) (keys by-label)))
-        current  (+ (count locked)
-                    (count (remove (comp #{:retracted} :status) fields)))
-        full?    (some-> (:max must) (<= current))
-        required (when (and (= 1 (:min must)) (>= 1 current))
-                   must)
+        current  (+ (count locked) (count (row/kept fields)))
+        full?    (row/full? must current)
+        required (row/required must current)
         label    (plus-label opts k)]
     [:td
      [:ul.edit-values
@@ -1574,10 +1550,7 @@
         [:li.edit-value.edit-value--new {:key "new"}
          (add-button label #(add-node! opts k))])
       (for [v locked]
-        [:li.edit-value.edit-value--locked
-         (assoc (rdf/lone-value-attrs v) :key (pr-str (about v)))
-         (padlock (get-in comments [:locked (lock/lock opts k v)]))
-         (rdf/value opts v)])]]))
+        (locked-value opts v (lock/lock opts k v) (pr-str (about v))))]]))
 
 (rum/defc cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
@@ -1590,54 +1563,20 @@
   values, a row that takes new entries and an entry of the data in such a
   row each have a field of their own (see entry-field, new-entry-field and
   data-entry-field)."
-  [{:keys [changes comments languages edit-rules constraints] :as opts} k vs]
-  (let [subject     (subject-of opts)
-        {:keys [must should]} (get constraints k)
-        rank        (row/lang-rank languages)
-        sorted      (if (set? vs)
-                      (sort-by (juxt (comp rank i18n/lang)
-                                     (rdf/label-sortkey-fn opts))
-                               vs)
-                      vs)
-        pairs       (distinct (for [v sorted
-                                    p (lock/value-properties opts k v)]
-                                [p v]))
-        pair->lock  (into {}
-                          (map (fn [[p v :as pair]]
-                                 [pair (lock/lock opts p v)]))
-                          pairs)
-        properties  (row/properties opts k)
-        fields      (row/fields changes subject properties
-                                (remove pair->lock pairs))
-        input-type  (input-type/input-type vs must)
-        locked      (map second (filter pair->lock pairs))
-        values      (concat (map :value fields) locked)
-        ;; the values of the row as the pending changes leave them
-        current     (->> (remove (comp #{:retracted} :status) fields)
-                         (map :value)
-                         (concat locked))
-        ;; a text with a datatype of its own is a code, without a language
-        langs       (when (and (:lang? input-type) (not (:datatype must)))
-                      (not-empty (sort-by rank (or (:languages must)
-                                                   (:languages edit-rules)))))
-        gap         (when (and langs (contains? (:translated edit-rules) k))
-                      (row/missing-lang langs current))
-        expected    (sort-by rank (or (:languages must) (:languages should)))
-        full?       (some-> (:max must) (<= (count current)))
-        ;; a row keeps the one value that it must have
-        required    (when (and (= 1 (:min must)) (>= 1 (count current)))
-                      must)
-        ;; a new value is one of the options that the row doesn't have
-        new-type    (cond-> input-type
-                      (:options input-type) (update :options
-                                                    #(remove (set values) %)))
-        ;; or a new entry, in a row that takes those
-        row-entry   (entry/for-row (:entries edit-rules) k)
-        ;; A locked value can be added, since the graph that changes go to
-        ;; doesn't hold it, and a container can hold a member twice.
-        taken       (when-not (= k shared/member-row)
-                      (map :value fields))
-        item-key    (fn [p v] (pr-str [p (if (map? v) (:rdf/about v) v)]))]
+  [{:keys [languages edit-rules constraints] :as opts} k vs]
+  (let [rank       (row/lang-rank languages)
+        sorted     (if (set? vs)
+                     (sort-by (juxt (comp rank i18n/lang)
+                                    (rdf/label-sortkey-fn opts))
+                              vs)
+                     vs)
+        input-type (input-type/input-type vs (get-in constraints [k :must]))
+        {:keys [properties fields locked langs gap expected full? required
+                new-type taken]}
+        (row/cell opts (subject-of opts) k sorted input-type)
+        ;; a row that takes new entries has a field of its own for those
+        row-entry  (entry/for-row (:entries edit-rules) k)
+        item-key   (fn [p v] (pr-str [p (if (map? v) (:rdf/about v) v)]))]
     [:td
      [:ul.edit-values
       (for [{:keys [property value original status] :as field} fields]
@@ -1677,11 +1616,8 @@
                                                                 expected))
                          :gap?       (some? gap)})
                       "new"))
-      (for [[p v :as pair] (filter pair->lock pairs)]
-        [:li.edit-value.edit-value--locked
-         (assoc (rdf/lone-value-attrs v) :key (item-key p v))
-         (padlock (get-in comments [:locked (pair->lock pair)]))
-         (rdf/value opts v)])]]))
+      (for [{:keys [property value] why :lock} locked]
+        (locked-value opts value why (item-key property value)))]]))
 
 (defn property-search
   "A search among the properties `ks` of a table with `opts`, in a dialog
@@ -1742,16 +1678,6 @@
   [subject k]
   (when-drawn! #(in-row subject k row-plus) #(.click %)))
 
-(defn- movable
-  "The values in the row of the property `k` in `opts` that can move to
-  another property: those of its values `vs` that can be edited and the
-  ones that the pending changes add, but not the ones that they remove."
-  [{:keys [changes] :as opts} k vs]
-  (->> (for [v vs :when (nil? (lock/lock opts k v))] [k v])
-       (row/fields changes (subject-of opts) [k])
-       (remove (comp #{:retracted} :status))
-       (map :value)))
-
 (defn focus-row!
   "Move the focus to the first button of a value in the row of the property
   `k` of `subject`, once the page is drawn with it."
@@ -1770,7 +1696,7 @@
   [state {:keys [languages constraints entity blank-node] :as opts} k vs]
   (let [choosing? (::choosing? state)
         subject   (subject-of opts)
-        values    (when-not blank-node (movable opts k vs))
+        values    (when-not blank-node (row/movable opts subject k vs))
         ks        (when (seq values)
                     (row/alternatives constraints (row/addable opts) entity
                                       k (count values)))
@@ -1794,12 +1720,6 @@
              :heading [:<> before (rdf/resource-name k opts) after])
            {:on-value (fn [k']
                         (reset! choosing? false)
-                        (edit! opts
-                               (fn [changes]
-                                 (reduce #(change/replace %1
-                                                          [subject k %2]
-                                                          [subject k' %2])
-                                         changes
-                                         values)))
+                        (edit! opts row/move subject k k' values)
                         (focus-row! subject k'))
             :on-close (close-fn choosing? ".edit-value__button")}))])))

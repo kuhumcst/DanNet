@@ -2,8 +2,9 @@
   "Tests for the order of the fields of an edit row, for the properties that
   its changes are made to, for the languages of its texts and for the rows
   that can be added to a table."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.ui.edit.row :as row]))
 
 (deftest value-order
@@ -320,3 +321,129 @@
         "nor one whose values have no shape")
     (is (empty? (to :lexinfo/senseExample 1))
         "a text isn't moved, though another property takes the same texts")))
+
+(deftest kept
+  (is (= [{:value "a"} {:value "b" :status :added}]
+         (row/kept [{:value "a"}
+                    {:value "x" :status :retracted}
+                    {:value "b" :status :added}]))
+      "a removed value isn't kept, and a new one is"))
+
+(deftest limits
+  (is (row/full? {:max 1} 1)
+      "a row with as many values as it may hold is full")
+  (is (not (row/full? {:max 2} 1)))
+  (is (not (row/full? {} 5))
+      "and a row without a maximum never is")
+  (is (= {:min 1 :max 1} (row/required {:min 1 :max 1} 1))
+      "a row keeps the one value that it must have")
+  (is (nil? (row/required {:min 1} 2))
+      "a value among several can be removed")
+  (is (nil? (row/required {:max 1} 1))
+      "and so can the value of a row that may be empty"))
+
+(deftest cell
+  (let [da     #rdf/langstring ["hund" "da"]
+        en     #rdf/langstring ["dog" "en"]
+        s      :dn/synset-1
+        opts   {:subject        s
+                :languages      ["da" "en"]
+                :default-origin :dn
+                :origins        {:wn/hyponym :inferred}
+                :edit-rules     {:languages  ["en" "da" nil]
+                                 :translated #{:rdfs/comment}}
+                :constraints    {:skos/definition {:must {:min 1 :max 1}}
+                                 :wn/lexfile      {:must
+                                                   {:datatype :xsd/string}}
+                                 :skos/note       {:must   {}
+                                                   :should {:languages ["da"]}}
+                                 :dc/subject      {:must {:languages ["en"]}}}
+                :changes        []}
+        text   {:lang? true}
+        cell   (fn [opts k vs & [input-type]]
+                 (row/cell opts s k vs (or input-type {})))]
+    (testing "the values of the row"
+      (is (= [{:property :wn/hypernym :value :dn/synset-2}]
+             (:fields (cell opts :wn/hypernym [:dn/synset-2])))
+          "a value that can be edited is a field")
+      (is (= [{:property :wn/hyponym :value :dn/synset-3 :lock :inferred}]
+             (:locked (cell opts :wn/hyponym [:dn/synset-3])))
+          "one that can't be is locked, and says why")
+      (is (empty? (:fields (cell opts :wn/hyponym [:dn/synset-3]))))
+      (is (= [:wn/hypernym] (:properties (cell opts :wn/hypernym [])))))
+    (testing "how many values the row takes"
+      (let [removed (assoc opts :changes
+                                (change/retract [] [s :skos/definition da]))]
+        (is (:full? (cell opts :skos/definition [da]))
+            "a row with as many values as it may hold is full")
+        (is (some? (:required (cell opts :skos/definition [da])))
+            "and it keeps the one value that it must have")
+        (is (not (:full? (cell removed :skos/definition [da])))
+            "a value that the pending changes remove doesn't count")
+        (is (not (:full? (cell opts :wn/hypernym [:dn/synset-2]))))
+        (is (nil? (:required (cell opts :wn/hypernym [:dn/synset-2]))))))
+    (testing "the languages of a text"
+      (is (= ["da" "en" nil] (:langs (cell opts :rdfs/comment [da] text)))
+          "are those of the rules, in the order that the reader prefers")
+      (is (= ["en"] (:langs (cell opts :dc/subject [en] text)))
+          "or the ones that the shape names")
+      (is (nil? (:langs (cell opts :wn/lexfile ["noun.animal"] text)))
+          "a text with a datatype of its own is a code, without a language")
+      (is (nil? (:langs (cell opts :wn/hypernym [:dn/synset-2])))
+          "and a resource has none")
+      (is (= "en" (:gap (cell opts :rdfs/comment [da] text)))
+          "a translated property says which language has no text yet")
+      (is (nil? (:gap (cell opts :rdfs/comment [da en] text))))
+      (is (nil? (:gap (cell opts :skos/note [da] text)))
+          "a property that isn't translated has no gap")
+      (is (= ["da"] (:expected (cell opts :skos/note [da] text)))
+          "the shapes can expect a language that they don't demand"))
+    (testing "a new value"
+      (is (= [:dn/synset-2] (:taken (cell opts :wn/hypernym [:dn/synset-2])))
+          "can't repeat a value of the row")
+      (is (nil? (:taken (cell opts shared/member-row [:dnc/Animal])))
+          "but a container can hold a member twice")
+      (is (= [:wn/noun]
+             (get-in (cell opts :wn/partOfSpeech [:wn/verb]
+                           {:options [:wn/noun :wn/verb]})
+                     [:new-type :options]))
+          "and it is one of the options that the row doesn't have"))))
+
+(deftest movable
+  (let [s       :dn/synset-1
+        opts    {:subject        s
+                 :default-origin :dn
+                 :origins        {:wn/hyponym :inferred}
+                 :changes        (-> []
+                                     (change/retract [s :wn/hypernym
+                                                      :dn/synset-2])
+                                     (change/add [s :wn/hypernym
+                                                  :dn/synset-4]))}
+        movable #(row/movable opts s %1 %2)]
+    (is (= [:dn/synset-3 :dn/synset-4]
+           (movable :wn/hypernym [:dn/synset-2 :dn/synset-3]))
+        "the values that can be edited and the added ones, but no removed one")
+    (is (empty? (movable :wn/hyponym [:dn/synset-5]))
+        "a locked value doesn't move")))
+
+(deftest move
+  (let [s     :dn/synset-1
+        moved (row/move [] s :wn/hypernym :wn/similar
+                        [:dn/synset-2 :dn/synset-3])]
+    (is (= [{:retract #{[s :wn/hypernym :dn/synset-2]}
+             :add     #{[s :wn/similar :dn/synset-2]}}
+            {:retract #{[s :wn/hypernym :dn/synset-3]}
+             :add     #{[s :wn/similar :dn/synset-3]}}]
+           moved)
+        "each value moves as a change of its own")
+    (is (= [:wn/similar :wn/similar] (map :to (change/moves moved s))))))
+
+(deftest node-addition
+  (let [link [:dn/word-1 :ontolex/otherForm '_new1]
+        rep  [:ontolex/writtenRep "hunde"]]
+    (is (= {:add #{link}}
+           (row/node-addition :dn/word-1 :ontolex/otherForm '_new1))
+        "a new blank node is a value of its row")
+    (is (= {:add #{link ['_new1 :ontolex/writtenRep "hunde"]}}
+           (row/node-addition :dn/word-1 :ontolex/otherForm '_new1 rep))
+        "and it is added with its value as one change")))

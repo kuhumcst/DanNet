@@ -15,8 +15,8 @@
             [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.changes :as changes]
-            [dk.cst.dannet.web.ui.edit :as edit]
-            [dk.cst.dannet.web.ui.edit.entry :as entry])
+            [dk.cst.dannet.web.ui.edit.entry :as entry]
+            [dk.cst.dannet.web.ui.edit.row :as row])
   (:import [java.io StringReader]
            [java.util Random]))
 
@@ -149,12 +149,8 @@
   "The `state` with the `change` made, and with the place of each blank
   node that it makes, as the editor keeps them."
   [state change]
-  (reduce (fn [state [s p o]]
-            (cond-> state
-              (term/blank-node? o)
-              (assoc-in [:nodes o] {:subject s :property p :new? true})))
-          (update state :changes conj change)
-          (:add change)))
+  (-> (update state :changes conj change)
+      (update :nodes merge (change/new-places change))))
 
 ;; The rule of entry/without, written out for the three classes: a word or
 ;; a synset takes its senses with it, and it goes with its last sense.
@@ -219,10 +215,11 @@
                          (vals (links changes)))
                (not-any? #{[w x]} (vals senses)))
       [[:new-sense w x]
-       (with-change state (entry/fill sense changes
-                                      {'?word   w
-                                       '?synset x
-                                       '?label  (da (name w))}))])))
+       (with-change state (entry/fill-from
+                            sense changes
+                            {'?word w '?synset x}
+                            {'?word {:rdfs/label
+                                     (da (str "\"" (name w) "\""))}}))])))
 
 (defn- new-synset
   "A new synset for a new sense of a word."
@@ -244,9 +241,8 @@
   (when-let [x (pick rng (entries changes [:ontolex/LexicalConcept] synsets))]
     (let [n     (.nextInt rng 1000)
           lemma (pick rng [(str "ord" n) (str "to ord" n) (str "ord" n "-")])
-          made  (some #(entry/new-entry (get templates %) changes lemma
-                                        (edit/new-labels nodes))
-                      word-classes)]
+          made  (entry/new-entry-of templates word-classes changes lemma
+                                    (change/new-labels nodes))]
       [[:new-word x]
        (with-change state (entry/fill-around sense changes '?word made
                                              {'?synset x} {}))])))
@@ -312,11 +308,11 @@
   "Another form of a word, as a new blank node with a value."
   [{:keys [changes nodes] :as state} rng]
   (when-let [w (pick rng (entries changes word-classes words))]
-    (let [label (first (edit/new-labels nodes))
+    (let [label (first (change/new-labels nodes))
           form  (da (str "form" (.nextInt rng 100)))]
       [[:new-node w label]
-       (with-change state {:add #{[w :ontolex/otherForm label]
-                                  [label :ontolex/writtenRep form]}})])))
+       (with-change state (row/node-addition w :ontolex/otherForm label
+                                             [:ontolex/writtenRep form]))])))
 
 (defn- node-value
   "A value of a new blank node."
@@ -429,7 +425,7 @@
         located (vec (change/locate-nodes changes nodes))
         names   (fn [{:keys [add retract]}]
                   (into #{} (mapcat (juxt first peek)) (concat add retract)))
-        text    (changes/submission changes nodes)]
+        text    (change/submission changes nodes)]
     (concat
       ;; every new entry is made, and every new blank node is held
       (for [id ids :when (not (contains? made id))]

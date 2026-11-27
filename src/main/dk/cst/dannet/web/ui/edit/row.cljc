@@ -95,6 +95,12 @@
         (and (= status :retracted) (contains? moved-to v))
         (assoc :moved-to (get moved-to v))))))
 
+(defn kept
+  "Those of the `fields` (see fields) whose values the pending changes don't
+  remove."
+  [fields]
+  (remove (comp #{:retracted} :status) fields))
+
 (defn node-values
   "The values of the blank node with the `label` as its nested table shows
   them: its `values` in the data, a map of a property to its values, with
@@ -107,9 +113,56 @@
                      p)
         properties (distinct (concat (keys values) changed))]
     (for [p     properties
-          field (fields changes label [p] (map #(vector p %) (get values p)))
-          :when (not= :retracted (:status field))]
+          field (kept (fields changes label [p]
+                              (map #(vector p %) (get values p))))]
       (:value field))))
+
+(defn node-place
+  "The place of the blank node of a nested table with `opts`, as
+  change/locate-nodes takes it: the :subject and :property that hold the
+  node, and those of its :values that can be edited. A node that an editor
+  has made is :new? and has no values in the data."
+  [{:keys [subject blank-node] :as opts}]
+  (let [{:keys [property entity new?]} blank-node
+        editable (fn [k vs]
+                   (into #{}
+                         (filter #(nil? (lock/lock opts k %)))
+                         (shared/setify vs)))]
+    (if new?
+      {:subject subject :property property :new? true}
+      {:subject  subject
+       :property property
+       :values   (into {}
+                       (keep (fn [[k vs]]
+                               (when-let [vs (not-empty (editable k vs))]
+                                 [k vs])))
+                       entity)})))
+
+(defn movable
+  "The values in the row of the property `k` of the subject `s` that can
+  move to another property, in a table with `opts`: those of its values `vs`
+  that can be edited and the ones that the pending changes add, but not the
+  ones that they remove."
+  [{:keys [changes] :as opts} s k vs]
+  (->> (for [v vs :when (nil? (lock/lock opts k v))] [k v])
+       (fields changes s [k])
+       (kept)
+       (map :value)))
+
+(defn move
+  "The pending `changes` with the values `vs` of the subject `s` moved from
+  the property `k` to the property `k'`, each as a change of its own, so
+  that it can be undone on its own."
+  [changes s k k' vs]
+  (reduce #(change/replace %1 [s k %2] [s k' %2]) changes vs))
+
+(defn node-addition
+  "The change that adds a new blank node with the `label` as a value of the
+  property `k` of the subject `s`. With `value`, a pair of a property and a
+  value, the node is added with that value."
+  [s k label & [[p v :as value]]]
+  {:add (cond-> #{[s k label]}
+          value (conj [label p v]))})
 
 (defn lang-rank
   "A function that ranks a language by its place in `languages`, the
@@ -221,3 +274,76 @@
                     (= shape (value-shape (must %)))
                     (room? constraints entity % n))
               ks))))
+
+(defn full?
+  "Does a row with `n` values hold as many as it may, by the constraints
+  that it `must` meet?"
+  [must n]
+  (some-> (:max must) (<= n)))
+
+(defn required
+  "The constraints that a row with `n` values `must` meet, when they make
+  it keep the value that it has: it has to hold one, and it holds no more.
+  Nil when a value of the row can be removed."
+  [must n]
+  (when (and (= 1 (:min must)) (>= 1 n))
+    must))
+
+(defn cell
+  "The cell of the row of the property `k` in edit mode as data, in a table
+  with `opts` whose subject is `s`. The values `vs` are in the order that
+  they are shown in, and `input-type` is that of a value of the row (see
+  ui.input-type). The cell is a map of:
+
+  - :properties, the properties that hold the values (see properties);
+  - :fields, the values that can be edited, with the pending changes made
+    (see fields);
+  - :locked, the values that can't, as maps of the :property, the :value
+    and the :lock that says why (see lock/lock);
+  - :langs, the languages that a text of the row can be in, and :gap, the
+    first of them that a :translated property has no text in;
+  - :expected, the languages that the shapes expect the texts in;
+  - :full? and :required, by the values that the pending changes leave (see
+    full? and required);
+  - :new-type, the input type of a new value, and :taken, the values that
+    it can't repeat."
+  [{:keys [changes languages edit-rules constraints] :as opts}
+   s k vs input-type]
+  (let [{:keys [must should]} (get constraints k)
+        rank       (lang-rank languages)
+        pairs      (distinct (for [v vs
+                                   p (lock/value-properties opts k v)]
+                               [p v]))
+        pair->lock (into {}
+                         (map (fn [[p v :as pair]]
+                                [pair (lock/lock opts p v)]))
+                         pairs)
+        ps         (properties opts k)
+        editable   (fields changes s ps (remove pair->lock pairs))
+        locked     (for [[p v :as pair] pairs
+                         :when (pair->lock pair)]
+                     {:property p :value v :lock (pair->lock pair)})
+        values     (concat (map :value editable) (map :value locked))
+        ;; the values of the row as the pending changes leave them
+        current    (concat (map :value (kept editable)) (map :value locked))
+        ;; a text with a datatype of its own is a code, without a language
+        langs      (when (and (:lang? input-type) (not (:datatype must)))
+                     (not-empty (sort-by rank (or (:languages must)
+                                                  (:languages edit-rules)))))]
+    {:properties ps
+     :fields     editable
+     :locked     locked
+     :langs      langs
+     :gap        (when (and langs (contains? (:translated edit-rules) k))
+                   (missing-lang langs current))
+     :expected   (sort-by rank (or (:languages must) (:languages should)))
+     :full?      (full? must (count current))
+     :required   (required must (count current))
+     ;; a new value is one of the options that the row doesn't have
+     :new-type   (cond-> input-type
+                   (:options input-type) (update :options
+                                                 #(remove (set values) %)))
+     ;; A locked value can be added, since the graph that changes go to
+     ;; doesn't hold it, and a container can hold a member twice.
+     :taken      (when-not (= k shared/member-row)
+                   (map :value editable))}))

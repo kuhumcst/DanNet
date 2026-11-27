@@ -131,7 +131,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                     (change/replace [form :ontolex/writtenRep hund]
                                     [form :ontolex/writtenRep hunde])
                     (change/add [:dn/word-1 :wn/partOfSpeech :wn/noun]))
-        text    (changes/submission pending nodes)
+        text    (change/submission pending nodes)
         read    (db.change/read-changes (StringReader. text))]
     (is (= (change/locate-nodes pending nodes) read)
         "the text reads back as the changes with their blank nodes located")
@@ -152,7 +152,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                       (change/add [:dn/word-1 :ontolex/otherForm '_new1])
                       (change/add ['_new1 :ontolex/writtenRep hunde])
                       (change/retract-node form (get nodes form)))
-          text    (changes/submission pending nodes)]
+          text    (change/submission pending nodes)]
       (is (= (str "[{:add #{[:dn/word-1 :ontolex/otherForm _new1]"
                   " [_new1 :ontolex/writtenRep"
                   " #rdf/langstring [\"hunde\" \"da\"]]}}\n"
@@ -169,7 +169,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                 " #rdf/langstring [\"hund\" \"da\"]]"
                 " [:dn/word-1 :ontolex/sense :dn/new-sense-1]}}\n"
                 " {:add #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}]")
-           (changes/submission
+           (change/submission
              [{:add #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
                       [:dn/word-1 :ontolex/sense :dn/new-sense-1]}}
               {:add #{[:dn/word-1 :wn/partOfSpeech :wn/noun]}}
@@ -203,7 +203,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                 " [:dn/sense-1 :rdfs/label #rdf/langstring [\"hund\" \"da\"]]"
                 " [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]"
                 " [:dn/word-1 :ontolex/sense :dn/sense-1]}}]")
-           (changes/submission pending {}))
+           (change/submission pending {}))
         "the removal is submitted as one change")
     (testing "two removals that share an entry"
       (let [word    (update removal :retract conj
@@ -218,7 +218,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
         (is (= (into (:retract word) (:retract synset)) (set shown)))
         (is (apply distinct? shown)
             "are listed with each of their triples once")
-        (is (= 1 (count (re-seq #":retract" (changes/submission pending {}))))
+        (is (= 1 (count (re-seq #":retract" (change/submission pending {}))))
             "and are submitted as one change")))))
 
 (deftest unreferenced-resources
@@ -236,7 +236,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                    :message    "should have a hypernym"})]
     (is (= [:dn/synset-1] (map :resource (changes/sections [removal] {})))
         "a resource that only refers to a removed one has no section")
-    (is (str/includes? (changes/submission [removal] {})
+    (is (str/includes? (change/submission [removal] {})
                        ":unreference #{:dn/synset-1}")
         "the submitted change has the rule, and not the references")
     (is (not (str/includes? (html opts) "Henvisninger hertil"))

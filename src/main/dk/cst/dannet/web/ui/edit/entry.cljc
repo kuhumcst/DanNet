@@ -116,6 +116,13 @@
                             triple'))))
                 add)}))
 
+(defn fill-from
+  "The change that fills the `template` as fill does, with the `values` of
+  its gaps and with what its other gaps start as, by the `entities` (see
+  starting)."
+  [template changes values entities]
+  (fill template changes (merge (starting template entities) values)))
+
 (defn linked
   "The values that the pending `changes` give the gap `other` of the
   `template`, in the new entries where the gap `given` is `value`, as a
@@ -267,16 +274,24 @@
                                     (zipmap blanks node-labels)))}
         value (assoc :text (str value))))))
 
+(defn new-entry-of
+  "The new entry that the `text` makes of the first of the `classes` whose
+  template in `templates` it fits (see new-entry), with the :name of that
+  template. Nil when it fits none of them."
+  [templates classes changes text node-labels]
+  (some (fn [{:keys [name] :as template}]
+          (some-> (new-entry template changes text node-labels)
+                  (assoc :name name)))
+        (keep templates classes)))
+
 (defn fill-around
   "The one change that makes the new entry `made` (see new-entry) and fills
   the `template` with it as the value of its `gap`. The `values` and the
-  `entities` are those of the other gaps, as fill and starting take them."
+  `entities` are those of the other gaps, as fill-from takes them."
   [template changes gap {:keys [id change] :as made} values entities]
-  (let [entities' (assoc entities gap (entity [change] id))
-        around    (fill template changes
-                        (merge (starting template entities')
-                               values
-                               {gap id}))]
+  (let [around (fill-from template changes
+                          (assoc values gap id)
+                          (assoc entities gap (entity [change] id)))]
     {:add (into (:add change) (:add around))}))
 
 (defn links

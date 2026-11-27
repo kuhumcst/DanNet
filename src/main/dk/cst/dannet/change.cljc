@@ -214,6 +214,16 @@
         (comp (filter triple-form?) cat (filter term/blank-node?))
         add))
 
+(defn new-places
+  "The place of each blank node that the `change` makes, as a map of its
+  label to the :subject and the :property that hold it. Such a place is
+  :new? (see locate-nodes)."
+  [{:keys [add] :as change}]
+  (into {}
+        (for [[s p o] add
+              :when   (term/blank-node? o)]
+          [o {:subject s :property p :new? true}])))
+
 (defn temporary?
   "Is `x` the temporary ID of a new entry, e.g. :dn/new-synset-1?"
   [x]
@@ -242,6 +252,13 @@
        (map #(keyword "dn" (str "new-" kind "-" %)))
        (remove (temporary-ids changes))
        (first)))
+
+(defn new-labels
+  "Labels for new blank nodes that none of the `nodes` of the session has
+  yet, e.g. _new3 as the first one after two new nodes."
+  [nodes]
+  (let [n (count (filter :new? (vals nodes)))]
+    (map #(symbol (str "_new" (+ n % 1))) (range))))
 
 (defn problems
   "The problems of the `change`, as maps of a :problem and what it concerns,
@@ -444,6 +461,36 @@
                                  (filter of-node? add))])
               [[] (update-vals nodes :values)]
               (gather changes (some-fn new? temporary? removed?))))))
+
+(defn- triples-text
+  "The `triples` under a key of a change as EDN text: the patterns of a
+  :where in their order, and a set of triples sorted, so that a change
+  always has the same text."
+  [triples]
+  (if (set? triples)
+    (str "#{" (str/join " " (sort (map pr-str triples))) "}")
+    (pr-str triples)))
+
+(defn- change-text
+  "The `change` as EDN text, with each of its keys on a line of its own and
+  their values in a column."
+  [change]
+  (let [ks    (filter #(contains? change %)
+                      [:where :retract :add :unreference])
+        width (apply max 0 (map #(count (str %)) ks))
+        pad   #(apply str % (repeat (- width (count (str %))) " "))]
+    (str "{"
+         (str/join "\n  "
+                   (map #(str (pad %) " " (triples-text (get change %))) ks))
+         "}")))
+
+(defn submission
+  "The pending `changes` as they are submitted: the EDN text of a change
+  file, with their blank nodes located by `nodes` (see locate-nodes)."
+  [changes nodes]
+  (str "["
+       (str/join "\n " (map change-text (locate-nodes changes nodes)))
+       "]"))
 
 (defn resources
   "The IRIs in the pending `changes`, as a set: every subject, property and

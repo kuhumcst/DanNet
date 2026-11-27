@@ -105,42 +105,12 @@
   (->> (remove (comp (set (map :resource sections)) :focus-node) results)
        (group-by :focus-node)))
 
-(defn- triples-text
-  "The `triples` under a key of a change as EDN text: the patterns of a
-  :where in their order, and a set of triples sorted, so that a change
-  always has the same text."
-  [triples]
-  (if (set? triples)
-    (str "#{" (str/join " " (sort (map pr-str triples))) "}")
-    (pr-str triples)))
-
-(defn- change-text
-  "The `change` as EDN text, with each of its keys on a line of its own and
-  their values in a column."
-  [change]
-  (let [ks    (filter #(contains? change %)
-                      [:where :retract :add :unreference])
-        width (apply max 0 (map #(count (str %)) ks))
-        pad   #(apply str % (repeat (- width (count (str %))) " "))]
-    (str "{"
-         (str/join "\n  "
-                   (map #(str (pad %) " " (triples-text (get change %))) ks))
-         "}")))
-
-(defn submission
-  "The pending `changes` as they are submitted: the EDN text of a change
-  file, with their blank nodes located by `nodes` (see change/locate-nodes)."
-  [changes nodes]
-  (str "["
-       (str/join "\n " (map change-text (change/locate-nodes changes nodes)))
-       "]"))
-
 (defn check!
   "Ask the server what the shapes say about the pending changes in `opts`,
-  sent as they are submitted (see submission), and keep the answer as the
-  :check of the session. The labels of the resources that it is about are
-  kept too, since a change can break a rule of a resource that it doesn't
-  name.
+  sent as they are submitted (see change/submission), and keep the answer as
+  the :check of the session. The labels of the resources that it is about
+  are kept too, since a change can break a rule of a resource that it
+  doesn't name.
 
   An answer is dropped when the changes have changed in the meantime."
   [{:keys [changes nodes] :as opts}]
@@ -153,7 +123,7 @@
        (-> (app/fetch! prefix/check-path
                        {:method       :post
                         :content-type :edn
-                        :body         (submission changes nodes)})
+                        :body         (change/submission changes nodes)})
            (.then (fn [response]
                     (let [{:keys [check entities]}
                           (get-in response [:body :data])]
@@ -477,7 +447,7 @@
 
 (rum/defcs submit-control < (rum/local false ::submitted?)
   "The button that submits the pending changes in `opts`. For now it shows
-  the text that would be submitted (see submission)."
+  the text that would be submitted (see change/submission)."
   [state {:keys [languages changes nodes] :as opts}]
   (let [submitted? (::submitted? state)]
     [:div.changes-submit
@@ -492,7 +462,7 @@
           "Ændringer kan ikke indsendes endnu. Dette ville blive indsendt:"
           "Changes can't be submitted yet. This would be submitted:"))]
      (when @submitted?
-       [:pre [:code (submission changes nodes)]])]))
+       [:pre [:code (change/submission changes nodes)]])]))
 
 (rum/defc problem-summary
   "What the check said about resources that no change is made to, on a page

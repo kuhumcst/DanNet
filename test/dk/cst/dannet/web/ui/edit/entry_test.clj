@@ -81,6 +81,12 @@
         "under an ID that the pending changes don't have yet")
     (is (= 3 (count (:add (new-sense [] :dn/synset-1 :dn/word-1 nil))))
         "a triple with a gap that has no value is left out")
+    (is (= added
+           (entry/fill-from sense []
+                            {'?synset :dn/synset-1 '?word :dn/word-1}
+                            {'?word {:rdfs/label
+                                     #rdf/langstring ["\"vovse\"" "da"]}}))
+        "a gap that has no value starts as what the other entries give it")
     (testing "the label of a new entry is the one that the changes leave it"
       (is (= {:dn/new-sense-1 vovse} (entry/labels changes)))
       (is (= {:dn/new-sense-1 "vovse_§2"}
@@ -191,6 +197,14 @@
             "and one with a hyphen at either end is an affix")
         (is (= [[] [] []] (map fitting ["-" "slå  til" ""]))
             "a text that is none of them makes nothing")
+        (let [made #(entry/new-entry-of templates classes [] % '[_new1])]
+          (is (= [:dn/new-word-1 "slå til"]
+                 ((juxt :id :text) (made "slå til")))
+              "a text makes an entry of the first class that it fits")
+          (is (= (:name (:ontolex/MultiwordExpression templates))
+                 (:name (made "slå til")))
+              "which says what such an entry is called")
+          (is (nil? (made "slå  til"))))
         (is (= #{[:dn/new-word-1 :rdf/type :ontolex/MultiwordExpression]
                  [:dn/new-word-1 :rdfs/label
                   #rdf/langstring ["\"slå til\"" "da"]]

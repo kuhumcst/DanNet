@@ -197,6 +197,20 @@
     (is (empty? (mapcat change/problems changes))
         "a temporary ID is an IRI like any other")))
 
+(deftest new-nodes
+  (let [link   [:dn/word-1 :ontolex/otherForm '_new1]
+        change {:add #{link ['_new1 :ontolex/writtenRep hunde]}}]
+    (is (= {'_new1 {:subject  :dn/word-1
+                    :property :ontolex/otherForm
+                    :new?     true}}
+           (change/new-places change))
+        "a new blank node has its place where the change links it")
+    (is (empty? (change/new-places {:add #{new-hypernym}})))
+    (is (= '[_new1 _new2] (take 2 (change/new-labels {})))
+        "the label of a new node is one that the session doesn't have")
+    (is (= '_new2 (first (change/new-labels (change/new-places change))))
+        "so the next one counts on from the new nodes that it has")))
+
 (deftest nodes-in-pending-changes
   (let [link    [:dn/word-1 :ontolex/otherForm '_form]
         place   {:subject  :dn/word-1
