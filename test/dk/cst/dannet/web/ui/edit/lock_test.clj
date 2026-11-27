@@ -1,26 +1,8 @@
-(ns dk.cst.dannet.web.ui.lock-test
-  "Tests for the origins of the values of a row and for which can be edited."
+(ns dk.cst.dannet.web.ui.edit.lock-test
+  "Tests for which values of a row can be edited."
   (:require [clojure.test :refer [deftest is]]
             [dk.cst.dannet.editable :as editable]
-            [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.ui.lock :as lock]))
-
-(deftest row-origins
-  (let [opts {:origins        {:wn/hyponym  :inferred
-                               :wn/hypernym {:dn/synset-2 :inferred}
-                               :rdfs/label  {"hund" #{:dn :other}}}
-              :default-origin :dn}]
-    (is (= #{:dn} (lock/row-origins opts :skos/definition "et dyr"))
-        "the default origin of a property without an entry")
-    (is (= #{:inferred}
-           (lock/row-origins opts :wn/hyponym [:dn/synset-3 :dn/synset-4]))
-        "one origin for every value")
-    (is (= #{:dn :inferred}
-           (lock/row-origins opts :wn/hypernym #{:dn/synset-1 :dn/synset-2})))
-    (is (= #{:dn} (lock/row-origins opts :wn/hypernym #{:dn/synset-1}))
-        "only the origins of the values shown")
-    (is (= #{:dn :other} (lock/row-origins opts :rdfs/label "hund"))
-        "a value that several graphs hold")))
+            [dk.cst.dannet.web.ui.edit.lock :as lock]))
 
 (deftest locks
   (let [opts   {:origins        {:wn/hyponym      :inferred
@@ -141,23 +123,6 @@
                                :rdf/_2  :inferred
                                :rdf/_10 {:dnc/Animal #{:dn :other}}}
               :default-origin :dn}]
-    (is (= [:rdf/_2] (lock/value-properties opts :rdfs/member :dnc/Object))
-        "a member is held by its rdf:_N property")
-    (is (= [:rdf/_1 :rdf/_10]
-           (lock/value-properties opts :rdfs/member :dnc/Animal))
-        "or by several, in the order of their ordinals")
-    (is (= [:rdf/type] (lock/value-properties opts :rdf/type :dnc/Animal))
-        "any other value is held by the property of its row")
-    (is (= [:rdfs/member] (lock/value-properties opts :rdfs/member :dnc/Plant))
-        "and so is a member that no rdf:_N property has")
-    (is (= [true true false false false false]
-           (map shared/member-property?
-                [:rdf/_1 :rdf/_10 :rdf/_0 :rdf/_x :rdf/_ :rdfs/_1]))
-        "only rdf:_ and a number from 1 is a member property")
-    (is (= #{:dn :other} (lock/value-origins opts :rdfs/member :dnc/Animal))
-        "a member has the origins of the properties that hold it")
-    (is (= #{:dn :other :inferred}
-           (lock/row-origins opts :rdfs/member [:dnc/Animal :dnc/Object])))
     (is (nil? (lock/lock opts :rdfs/member :dnc/Animal))
         "a member can be edited when one of its properties can be")
     (is (= :elsewhere (lock/lock opts :rdf/_1 :dnc/Animal))

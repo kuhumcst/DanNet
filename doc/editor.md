@@ -16,6 +16,12 @@ In edit mode, an entry page shows each of its sections as a table. A row
 with a value that you can edit shows its values as fields. Every other row is
 faded, with a padlock that says why it's locked.
 
+The code that only the editor uses is kept apart from the site's. Its
+components are in `web/ui/edit/`, its routes are in `web/edit.clj` and
+`web/edit/`, and its styles are in `edit.css`. The components of the site
+only call into it where a page differs in edit mode, e.g. the table calls
+`ui.edit` for a row and the header of an entry calls `ui.edit.header`.
+
 ## Changes
 
 A change is a map of the triples to `:retract` and the triples to `:add`. The
@@ -40,8 +46,8 @@ memory, so you lose the changes when you reload the page. The docstring of
 
 1. You click a field, type a text in its input and press Enter.
 2. The input parses the text with the input type of the row (see
-   [ui.input-type](/src/main/dk/cst/dannet/web/ui/input_type.cljc)), e.g. as
-   a text in a language, or as a resource that has to exist.
+   [ui.edit.input-type](/src/main/dk/cst/dannet/web/ui/edit/input_type.cljc)),
+   e.g. as a text in a language, or as a resource that has to exist.
 3. The field passes a function such as `change/replace` to `value/edit!`,
    which applies it to the pending changes.
 4. The session has changed, so Rum draws the page again from `render-opts`
@@ -116,8 +122,8 @@ Theophrastus returns each value of an entity with its origins, which say
 where the value comes from, e.g. the `dn:` graph or inference. The page data
 has them as `:origins`. You can only edit a value that the `dn:` graph
 holds, since that's where changes go. For any other value, `lock` in
-[ui.lock](/src/main/dk/cst/dannet/web/ui/lock.cljc) returns the reason that
-the padlock shows, e.g. that the value is inferred.
+[ui.edit.lock](/src/main/dk/cst/dannet/web/ui/edit/lock.cljc) returns the
+reason that the padlock shows, e.g. that the value is inferred.
 
 ## New entries
 
@@ -150,13 +156,13 @@ an entry of the data, and you discard a new entry.
 ## Checking and submitting
 
 The changes page lists the pending changes by resource (see
-[ui.changes](/src/main/dk/cst/dannet/web/ui/changes.cljc)). Its check button
-posts them to `/dannet/edit/check` as the text of a change file. The server
-then calls `validate-changes` in db.shapes. It makes the changes in a copy
-of the `dn:` graph in memory, adds the values that the release build would
-derive and validates every resource that the changes touch. It leaves out
-the problems that a resource already had, so you only see what your changes
-break.
+[ui.edit.changes](/src/main/dk/cst/dannet/web/ui/edit/changes.cljc)). Its
+check button posts them to `/dannet/edit/check` as the text of a change
+file. The server then calls `validate-changes` in db.shapes. It makes the
+changes in a copy of the `dn:` graph in memory, adds the values that the
+release build would derive and validates every resource that the changes
+touch. It leaves out the problems that a resource already had, so you only
+see what your changes break.
 
 Blank nodes need a step of their own, since their labels don't last from one
 release to the next. A pending change names a blank node by its label on the

@@ -19,7 +19,8 @@
   A blank node that the shapes describe is a field too (see
   node/node-field), and so is a new entry (see entry-field/entry-field).
 
-  The cells of the table are here. The fields are in ui.edit.value,
+  The cells of the table are here, with what the table reads about a row
+  and about the rows that edit mode adds. The fields are in ui.edit.value,
   ui.edit.entry and ui.edit.node, and they share the inputs of
   ui.edit.input, the buttons of ui.edit.control and the focus handling of
   ui.edit.focus.
@@ -34,17 +35,94 @@
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
+            [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit.control :as control]
             [dk.cst.dannet.web.ui.edit.entry :as entry-field]
             [dk.cst.dannet.web.ui.edit.focus :as focus]
             [dk.cst.dannet.web.ui.edit.input :as input]
+            [dk.cst.dannet.web.ui.edit.input-type :as input-type]
+            [dk.cst.dannet.web.ui.edit.lock :as lock]
             [dk.cst.dannet.web.ui.edit.node :as node]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.edit.value :as value]
-            [dk.cst.dannet.web.ui.input-type :as input-type]
-            [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
+
+(defn row-lock
+  "What edit mode makes of the row of the property `k` with the value `v`
+  in a table with `opts`, as a map, or nil when the table isn't edited:
+
+  - :edit?, when the row lists its values as fields, since one of them can
+    be edited or the row is :open-row?;
+  - :locked?, when the row is faded, since none of them can be;
+  - :why, the reasons that a locked row has, as the text of its padlock.
+
+  A row of blank nodes that no shape describes is neither, when the values
+  of its nodes can be edited in nested tables."
+  [{:keys [comments edit-mode default-origin blank-node open-row?] :as opts}
+   k v]
+  (when (and edit-mode (some? default-origin))
+    (let [vs      (shared/values-of v)
+          locks   (map #(lock/lock opts k %) vs)
+          edit?   (or open-row? (some nil? locks))
+          nodes?  (and (every? #{:yet} locks)
+                       (every? (every-pred lock/node? rdf/table-node?) vs))
+          locked? (and (not edit?) (not nodes?))]
+      {:edit?   edit?
+       :locked? locked?
+       ;; The padlock of the page says that its resource is locked (see
+       ;; ui.edit.header), and that of a row of blank nodes says why the
+       ;; nodes are, so a row only says what else locks it.
+       :why     (when locked?
+                  (->> (distinct locks)
+                       (remove #{:resource (:lock blank-node)})
+                       (map #(get-in comments [:locked %]))
+                       (str/join "; ")
+                       (not-empty)))})))
+
+(defn table-rows
+  "What edit mode adds to the table of the `subentity` in `opts`, as a map.
+  The atom `added` has the properties that the editor has added a row for,
+  by the subject of each table.
+
+  - :open, the properties whose rows are open for a new value (see
+    row/open-rows);
+  - :new, those of them that have no row in the data, which are listed last;
+  - :addable, the properties that the button below the table adds a row
+    for, or nil when it adds none;
+  - :on-add, the function that adds the row of a property and opens its
+    field.
+
+  A new blank node starts out with the rows that it must have, and the page
+  of a new entry with the rows that it must and should have. A row that is
+  full of values that can't be edited takes no more, so it isn't added."
+  [{:keys [addable changes blank-node constraints draft?] :as opts}
+   subentity added]
+  (let [s        (value/subject-of opts)
+        ;; a nested table works out its own rows, so it is passed none
+        addable  (if blank-node (row/addable opts) addable)
+        starting (cond
+                   (:new? blank-node)
+                   (filter #(= :must (row/expected constraints %)) addable)
+
+                   (and draft? (not blank-node))
+                   (filter #(row/expected constraints %) addable))
+        open     (row/open-rows addable changes s
+                                (concat starting (get @added s)))
+        fielded  (when addable
+                   (for [[k v] subentity
+                         :when (some #(nil? (lock/lock opts k %))
+                                     (shared/values-of v))]
+                     k))]
+    {:open    open
+     :new     (remove (set (map first subentity)) open)
+     :addable (->> addable
+                   (remove (set (concat fielded open)))
+                   (filter #(row/room? constraints (into {} subentity) % 1))
+                   (seq))
+     :on-add  (fn [k]
+                (swap! added update s (fnil conj []) k)
+                (focus/open-new-value! s k))}))
 
 (rum/defc node-cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
@@ -175,8 +253,8 @@
 
 (defn property-search
   "A search among the properties `ks` of a table with `opts`, in a dialog
-  with the `title` in each language (see ui.input-type for what a search
-  is). It finds a property by its label or its prefixed name. With
+  with the `title` in each language (see ui.edit.input-type for what a
+  search is). It finds a property by its label or its prefixed name. With
   `missing?`, the properties are ones that the entry lacks, so those that
   it is expected to have come first and say so (see row/expected)."
   [{:keys [languages constraints] :as opts} ks title missing?]

@@ -2,7 +2,7 @@
   "What edit mode lets an editor change and what it offers, as data.
 
   Edit mode knows nothing about DanNet: its locks and fields read these
-  rules from the :edit-rules of the page (see dk.cst.dannet.web.ui.lock and
+  rules from the :edit-rules of the page (see dk.cst.dannet.web.ui.edit.lock and
   dk.cst.dannet.web.ui.edit, which say what each key means). To let more of
   the data be edited, change the rules.
 
@@ -130,7 +130,7 @@
                                               shared/synset-label]}
 
    ;; A value of one of these classes has an input type of its own (see
-   ;; dk.cst.dannet.web.ui.input-type), whose search also finds an entry of
+   ;; dk.cst.dannet.web.ui.edit.input-type), whose search also finds an entry of
    ;; the class for the gap of a template.
    :input-types     {:dns/OntologicalType    input-types/ontological-type
                      :ontolex/LexicalConcept input-types/synset

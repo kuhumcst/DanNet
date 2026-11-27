@@ -8,7 +8,6 @@
             [dk.cst.dannet.web.ui.search :as search]
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
-            [dk.cst.dannet.web.ui.changes :as changes]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.relations :as rels]
             [dk.cst.dannet.web.ui.sparql :as sparql]
@@ -157,20 +156,6 @@
       [:<> "; see also the overview of " [:a {:href prefix/relations-path} "synset relations"] "."])]
    (sparql/editor opts)
    (sparql/output opts)])
-
-(rum/defc changes
-  "The pending changes of an editor, on a page with `opts`. They are in the
-  browser, with the :labels of their resources, so the page has no data of
-  its own. A new
-  entry has its label in the changes themselves."
-  [{:keys [languages labels changes edit-rules] :as opts}]
-  [:article.changes
-   [:header.page-header
-    [:h1 (i18n/da-en languages "Ændringer" "Changes")]]
-   (changes/changes-list
-     (->> (entry/labels changes (:derived-labels edit-rules))
-          (merge labels)
-          (assoc opts :k->label)))])
 
 (rum/defc error
   "User-friendly error page shown when a page component fails to render.

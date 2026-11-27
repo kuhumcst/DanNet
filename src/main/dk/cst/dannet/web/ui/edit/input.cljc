@@ -1,16 +1,16 @@
 (ns dk.cst.dannet.web.ui.edit.input
   "The inputs of the fields of edit mode (see ui.edit): a text input or a
   dropdown for a value of an input type, and the dialog that searches for a
-  value (see ui.input-type)."
+  value (see ui.edit.input-type)."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.dialog :as dialog]
             [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.dialog :as dialog]
             [dk.cst.dannet.web.ui.edit.focus :as focus]
+            [dk.cst.dannet.web.ui.edit.session :as session]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
 (defn removal-reason
@@ -40,7 +40,7 @@
                            (rum/local false ::failed?)
                            list-all
   "A dialog on a page with `opts` that finds a value with the `search` (see
-  ui.input-type). It calls `on-value` with the chosen value, or `on-result`
+  ui.edit.input-type). It calls `on-value` with the chosen value, or `on-result`
   with the result as it is, and `on-close` when nothing is chosen.
 
   A result that the search refuses says why and can't be chosen, and
@@ -87,7 +87,7 @@
         choose!  (fn [result]
                    (let [v (value-fn result)]
                      (when-let [label (and label-fn (label-fn result))]
-                       (app/remember-labels! {v label}))
+                       (session/remember-labels! {v label}))
                      (if on-result
                        (on-result result)
                        (on-value v))))]
@@ -249,7 +249,7 @@
                         (rum/local false ::searching?)
                         (rum/local nil ::chosen)
   "A text input in a table with `opts` for a value of the `input-type` (see
-  ui.input-type), named by `label`. It starts with the `draft` or else the
+  ui.edit.input-type), named by `label`. It starts with the `draft` or else the
   `value`, in the language `lang` or one chosen among `langs`.
 
   Enter, or the focus leaving, enters the text (see entered-text and

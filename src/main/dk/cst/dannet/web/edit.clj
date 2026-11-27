@@ -17,6 +17,7 @@
             [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
+            [dk.cst.dannet.web.edit.content :as content]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
@@ -95,7 +96,7 @@
 (def entry-ic
   "What the editor needs to show a new entry of the class in the request,
   given as a prefixed name: what it reads from the shapes and the schemas
-  for the class (see resources/editor-content), with the label of the class
+  for the class (see content/editor-content), with the label of the class
   among the :entities."
   {:name  ::entry
    :enter (fn [ctx]
@@ -103,7 +104,7 @@
               (assoc ctx
                 :content
                 (when class
-                  (update (res/editor-content #{class})
+                  (update (content/editor-content #{class})
                           :entities merge
                           (q/resource-labels (:inference @instance/db)
                                              #{class}))))))})

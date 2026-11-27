@@ -6,7 +6,8 @@
   (:require [dk.cst.dannet.change :as change]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.lock :as lock]))
+            [dk.cst.dannet.web.ui.edit.lock :as lock]
+            [dk.cst.dannet.web.ui.origin :as origin]))
 
 (defn value-order
   "The values `vs` of a property in the order of its fields, with the
@@ -293,7 +294,7 @@
   "The cell of the row of the property `k` in edit mode as data, in a table
   with `opts` whose subject is `s`. The values `vs` are in the order that
   they are shown in, and `input-type` is that of a value of the row (see
-  ui.input-type). The cell is a map of:
+  ui.edit.input-type). The cell is a map of:
 
   - :properties, the properties that hold the values (see properties);
   - :fields, the values that can be edited, with the pending changes made
@@ -312,7 +313,7 @@
   (let [{:keys [must should]} (get constraints k)
         rank       (lang-rank languages)
         pairs      (distinct (for [v vs
-                                   p (lock/value-properties opts k v)]
+                                   p (origin/value-properties opts k v)]
                                [p v]))
         pair->lock (into {}
                          (map (fn [[p v :as pair]]

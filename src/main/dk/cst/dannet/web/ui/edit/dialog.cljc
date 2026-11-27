@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.ui.dialog
+(ns dk.cst.dannet.web.ui.edit.dialog
   "Modal dialogs: a dialog with a title, and a wizard that leads through the
   steps of a choice that has to be confirmed.
 

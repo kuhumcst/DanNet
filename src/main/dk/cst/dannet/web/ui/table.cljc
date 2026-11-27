@@ -1,7 +1,6 @@
 (ns dk.cst.dannet.web.ui.table
   "Table rendering functions for RDF data."
-  (:require [clojure.string :as str]
-            [rum.core :as rum]
+  (:require [rum.core :as rum]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -9,10 +8,8 @@
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.edit :as edit]
             [dk.cst.dannet.web.ui.edit.control :as control]
-            [dk.cst.dannet.web.ui.edit.focus :as focus]
-            [dk.cst.dannet.web.ui.edit.row :as row]
-            [dk.cst.dannet.web.ui.edit.value :as value]
-            [dk.cst.dannet.web.ui.lock :as lock]
+            [dk.cst.dannet.web.ui.edit.node :as node]
+            [dk.cst.dannet.web.ui.origin :as origin]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
 
@@ -138,16 +135,11 @@
   value `v`, shown by the `display-opts` of the row.
 
   In edit mode, a row with a value that can be edited lists all its values
-  in fields (see ui.edit), and any other row is faded, with a padlock that
-  says why, unless the whole page is locked. A row of blank nodes that no
-  shape describes isn't locked when their own values can be edited in
-  nested tables. A row that is :open-row? takes a new value though it has
-  none that can be edited, as a row that an editor has added does."
-  [{:keys [subject comments inherited edit-mode default-origin blank-node
-           open-row? constraints]
-    :as   opts}
+  in fields, and any other row is faded, with a padlock that says why (see
+  edit/row-lock)."
+  [{:keys [subject comments inherited edit-mode constraints] :as opts}
    k v display-opts]
-  (let [origins       (lock/row-origins opts k v)
+  (let [origins       (origin/row-origins opts k v)
         inherited?    (get inherited k)
         inferred?     (contains? origins :inferred)
         supplemented? (contains? origins :supplemented)
@@ -163,21 +155,7 @@
                         :attr-key k
                         :display-opt display-opt)
         vs            (shared/values-of v)
-        locks         (when (and edit-mode (some? default-origin))
-                        (map #(lock/lock opts k %) vs))
-        edit-row?     (and locks (or open-row? (some nil? locks)))
-        nodes?        (and (every? #{:yet} locks)
-                           (every? (every-pred lock/node? rdf/table-node?) vs))
-        locked?       (and locks (not edit-row?) (not nodes?))
-        ;; The padlock of the page says that its resource is locked (see
-        ;; ui.entity/entity-header), and that of a row of blank nodes says
-        ;; why the nodes are, so a row only says what else locks it.
-        why           (when locked?
-                        (->> (distinct locks)
-                             (remove #{:resource (:lock blank-node)})
-                             (map #(get-in comments [:locked %]))
-                             (str/join "; ")
-                             (not-empty)))]
+        {:keys [locked? why] edit-row? :edit?} (edit/row-lock opts k v)]
     [:tr (cond-> {:key (str k)}
            (keyword? k) (assoc :property (prefix/kw->qname k))
            inferred? (update :class conj "inferred")
@@ -241,46 +219,24 @@
               rows))
       subentity)))
 
+(declare node-table)
+
 (rum/defcs attr-val-table < (rum/local {} ::display-opts)
                             (rum/local {} ::added)
   "A table which lists attributes and corresponding values of an RDF resource.
 
-  In edit mode, a button below the table adds a row: for one of the :addable
-  properties in `opts` in the table of an entity, and for one that the
-  shapes describe in the nested table of a blank node (see row/addable). A
-  row that has no values in the data is listed last, while it has pending
-  changes or since the editor added it. A new blank node starts out with
-  the rows that it must have, and the page of a new entry with the rows that
-  it must and should have."
-  [state
-   {:keys [subject languages addable changes blank-node constraints draft?]
-    :as   opts}
-   subentity]
+  In edit mode, the rows that have no values in the data are listed last,
+  and a button below the table adds a row (see edit/table-rows)."
+  [state {:keys [subject languages edit-mode] :as opts} subentity]
   (let [display-opts (::display-opts state)
-        ;; by the subject of the table, since a table outlives a change of page
-        added        (::added state)
-        s            (value/subject-of opts)
         subentity    (fold-member-rows subentity)
+        ;; the rows that an editor has added, which a table outlives a change
+        ;; of page with
+        {:keys [open addable on-add] new-ks :new}
+        (when edit-mode
+          (edit/table-rows opts subentity (::added state)))
         ;; a nested table works out its own rows, so it is passed none
-        addable      (if blank-node (row/addable opts) addable)
-        opts         (dissoc opts :addable)
-        ;; A new blank node starts out with the rows that it must have. A
-        ;; new entry is a page of its own, with room for what it should have.
-        starting     (cond
-                       (:new? blank-node)
-                       (filter #(= :must (row/expected constraints %)) addable)
-
-                       (and draft? (not blank-node))
-                       (filter #(row/expected constraints %) addable))
-        open         (row/open-rows addable changes s
-                                    (concat starting (get @added s)))
-        fielded      (when addable
-                       (for [[k v] subentity
-                             :when (some #(nil? (lock/lock opts k %))
-                                         (shared/values-of v))]
-                         k))
-        new-rows     (for [k (remove (set (map first subentity)) open)]
-                       [k []])]
+        opts         (dissoc opts :addable)]
     [:<>
      ;; Only a table rendered inside a value has :table-component in its opts.
      [:table.attr-val (cond-> {}
@@ -297,18 +253,21 @@
        [:col {:aria-label (i18n/da-en languages "Navn (nøgle)" "Name (key)")}]
        [:col {:aria-label (i18n/da-en languages "Værdi" "Value")}]]
       [:tbody
-       (for [[k v] (concat subentity new-rows)]
+       (for [[k v] (concat subentity (map #(vector % []) new-ks))]
          (rum/with-key (attr-val-row (assoc opts
-                                       :table-component attr-val-table
+                                       :table-component node-table
                                        :open-row? (boolean (some #{k} open)))
                                      k v display-opts)
                        k))]]
-     ;; a row that is full of values that can't be edited takes no more
-     (when-let [ks (seq (->> addable
-                             (remove (set (concat fielded open)))
-                             (filter #(row/room? constraints
-                                                 (into {} subentity) % 1))))]
-       (edit/row-adder opts ks
-                       (fn [k]
-                         (swap! added update s (fnil conj []) k)
-                         (focus/open-new-value! s k))))]))
+     (when addable
+       (edit/row-adder opts addable on-add))]))
+
+(defn node-table
+  "The nested table of the blank node `m`, a value of the row in `opts`. It
+  has the opts of its node (see rdf/node-opts), and in edit mode what the
+  editor adds to them (see node/node-opts)."
+  [{:keys [edit-mode] :as opts} m]
+  (attr-val-table (if edit-mode
+                    (node/node-opts opts m)
+                    (rdf/node-opts opts m))
+                  (dissoc m :rdf/about)))

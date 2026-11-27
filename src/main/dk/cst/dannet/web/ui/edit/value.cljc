@@ -6,13 +6,13 @@
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.entry :as entry]
-            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.edit.control :as control]
             [dk.cst.dannet.web.ui.edit.focus :as focus]
             [dk.cst.dannet.web.ui.edit.input :as input]
             [dk.cst.dannet.web.ui.edit.row :as row]
-            [dk.cst.dannet.web.ui.lock :as lock]
+            [dk.cst.dannet.web.ui.edit.session :as session]
+            [dk.cst.dannet.web.ui.origin :as origin]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
 (defn subject-of
@@ -29,12 +29,12 @@
   of the node, which its changes are located by when they are submitted.
 
   The labels of the resources in the changes are kept too, since the list of
-  the changes shows them on a page of its own (see ui.changes)."
+  the changes shows them on a page of its own (see ui.edit.changes)."
   [{:keys [blank-node subject k->label] :as opts} f & args]
   (when blank-node
-    (app/remember-node! (:rdf/about blank-node) (row/node-place opts)))
-  (let [{:keys [changes]} (apply app/update-changes! f args)]
-    (app/remember-labels!
+    (session/remember-node! (:rdf/about blank-node) (row/node-place opts)))
+  (let [{:keys [changes]} (apply session/update-changes! f args)]
+    (session/remember-labels!
       (select-keys k->label (conj (change/resources changes)
                                   subject
                                   (:property blank-node))))))
@@ -131,7 +131,7 @@
         required (when-not (#{:added :moved} status) required)
         ;; a pending value isn't in the data yet, so it has no origins
         shared?  (and (not (contains? #{:added :edited :moved} status))
-                      (next (lock/value-origins opts k v)))
+                      (next (origin/value-origins opts k v)))
         text     (or @draft (value-text opts v))
         close!   (fn []
                    (focus/refocus! state "button")

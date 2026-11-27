@@ -1,9 +1,9 @@
-(ns dk.cst.dannet.web.ui.dialog-test
+(ns dk.cst.dannet.web.ui.edit.dialog-test
   "Tests for the generic dialog and for the wizard, as the server draws them."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [rum.core :as rum]
-            [dk.cst.dannet.web.ui.dialog :as dialog]))
+            [dk.cst.dannet.web.ui.edit.dialog :as dialog]))
 
 (defn- html
   "The wizard of the `flow` as the server draws it, for a Danish reader."

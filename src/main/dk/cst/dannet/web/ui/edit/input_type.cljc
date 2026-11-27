@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.ui.input-type
+(ns dk.cst.dannet.web.ui.edit.input-type
   "The input types of edit mode.
 
   An input type is a map that says how a kind of value is entered:
@@ -34,7 +34,8 @@
   (:require [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
-            [dk.cst.dannet.web.i18n :as i18n]))
+            [dk.cst.dannet.web.i18n :as i18n]
+            [dk.cst.dannet.web.ui.edit.session :as session]))
 
 (defn fetch-data
   "A promise of what the server has under the key `k` of its :data at `url`
@@ -78,7 +79,7 @@
                                   (fn [entity]
                                     (when entity
                                       (when-let [label (:rdfs/label entity)]
-                                        (app/remember-labels! {k label}))
+                                        (session/remember-labels! {k label}))
                                       k))))))})
 
 (defn fitting

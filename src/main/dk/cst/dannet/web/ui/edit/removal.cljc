@@ -1,7 +1,7 @@
 (ns dk.cst.dannet.web.ui.edit.removal
   "The removal of a resource of the data as a flow: what an editor has to
   know and to choose before it is made, as the steps of a wizard (see
-  dk.cst.dannet.web.ui.dialog), and the change that the answers give.
+  dk.cst.dannet.web.ui.edit.dialog), and the change that the answers give.
 
   The server has the removal in parts (see
   dk.cst.dannet.db.change/removal-parts). The answers are a map of the ID of
@@ -134,7 +134,7 @@
 (defn flow
   "The flow of the wizard that removes the resource `id` with `parts`, for
   a reader with `languages`: its texts, the answers that it starts with and
-  its steps (see dk.cst.dannet.web.ui.dialog/wizard)."
+  its steps (see dk.cst.dannet.web.ui.edit.dialog/wizard)."
   [languages id parts]
   {:title    (i18n/da-en languages "Fjern ressourcen" "Remove the resource")
    :about    id

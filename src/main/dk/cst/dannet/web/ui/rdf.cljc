@@ -11,7 +11,6 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.lock :as lock]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             #?(:clj [better-cond.core :refer [cond]])
@@ -443,33 +442,21 @@
            (keyword? (some-> (get m :dns/inheritedRelation) shared/unwrap)))))
 
 (defn node-opts
-  "The `opts` of the nested table of the blank node `m`, a value of the
-  :attr-key of `opts`.
-
-  The table uses the folded relations and the origins in the metadata of
-  its node, not those of the outer entity, cf. #195. It gets the constraints
-  on the values of its node, and its place as :blank-node: the node, the
-  property that holds it, and in edit mode why the node is locked. A node
-  that an editor has made is :new? and never locked."
-  [{:keys [attr-key] :as opts} m]
-  (let [{:keys [folded origins default-origin new?]} (meta m)]
+  "The `opts` of the nested table of the blank node `m`. The table uses the
+  folded relations and the origins in the metadata of its node, not those of
+  the outer entity, cf. #195."
+  [opts m]
+  (let [{:keys [folded origins default-origin]} (meta m)]
     (assoc opts
       :folded folded
       :origins origins
-      :default-origin default-origin
-      :constraints (get-in opts [:constraints attr-key :node])
-      :blank-node (cond-> {:rdf/about (:rdf/about m)
-                           :property  attr-key
-                           :entity    (dissoc m :rdf/about)}
-                    new? (assoc :new? true)
-                    (and (:edit-mode opts) (not new?))
-                    (assoc :lock (lock/lock opts attr-key m))))))
+      :default-origin default-origin)))
 
 (defn node-table
   "The nested table of the blank node `m`, a value of the :attr-key of
   `opts`, drawn by the :table-component of `opts`."
   [{:keys [table-component] :as opts} m]
-  (table-component (node-opts opts m) (dissoc m :rdf/about)))
+  (table-component opts m))
 
 (defn blank-node
   "Display blank node based on map `m` in a specialised way based on `opts`."

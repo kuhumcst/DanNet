@@ -1,0 +1,880 @@
+/* The styles of edit mode (see ui.edit): the fields of a table, the page of
+   the pending changes, the dialogs and what edit mode adds to the header of
+   a page. The editor is a preview, so the file is only loaded in development,
+   right after components.css, whose layer it adds to. */
+@layer components {
+
+/* The switch that turns edit mode on and off (see
+   ui.edit.header/edit-mode-switch) is an icon in the upper right corner of
+   the page content, a few pixels from its edges, and it scrolls away with
+   the content. While edit mode is on, it is filled like a selected tab, from
+   the nav's colour class on the button. */
+#content {
+    position: relative;
+}
+
+.edit-mode-switch {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: var(--color-dark);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
+    opacity: var(--opacity-interactive);
+    transition: opacity var(--transition-base), transform var(--transition-base);
+}
+
+/* It grows a little on hover, as the icons of the nav do. */
+.edit-mode-switch:hover,
+.edit-mode-switch:focus-visible {
+    opacity: var(--opacity-interactive-hover);
+    transform: scale(110%);
+}
+
+.edit-mode-switch[aria-pressed="true"] {
+    color: white;
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    opacity: var(--opacity-interactive-hover);
+}
+
+.edit-mode-switch__icon {
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    mask: url('/images/edit.svg') center / contain no-repeat;
+}
+
+/* The number of pending changes (see ui.edit.header/pending-changes-link) is a
+   link to their list. It sits to the left of the edit mode switch and is
+   filled as the switch is while edit mode is on. The digits are in the
+   monospace font, since those of Georgia vary in height. */
+.pending-changes {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: calc(26px + 2 * var(--spacing-xs));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 var(--spacing-xs);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: white;
+    text-decoration: none;
+    background: var(--ns-color, var(--color-dark)) var(--bg-texture);
+    border-radius: var(--border-radius-s);
+}
+
+/* In the list of the pending changes (see ui.edit.changes), an entry has a
+   small heading with its full IRI below it, both centred, above the table of
+   its changes. Space alone separates an entry from the one before it, so
+   there is much more of it than between a heading and its table. */
+article.changes section + section {
+    margin-top: calc(2 * var(--spacing-xl));
+}
+
+article.changes section > header {
+    margin-bottom: var(--spacing-m);
+    text-align: center;
+}
+
+article.changes section h2 {
+    font-size: var(--font-size-m-l);
+    margin: 0 0 var(--spacing-xs) 0;
+}
+
+/* The button that checks the changes is centred above the list, and the one
+   that submits them is centred below it (see ui.edit.changes). Each has its
+   answer below it. A rule like that of the page footer separates the top of
+   the page from the list. */
+.changes-check,
+.changes-submit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-s);
+}
+
+.changes-check {
+    margin-bottom: var(--spacing-xxl);
+    padding-bottom: var(--spacing-l);
+    border-bottom: var(--normal-border);
+}
+
+.changes-submit {
+    margin-top: var(--spacing-xxl);
+}
+
+:is(.changes-check, .changes-submit) button,
+.entry-button {
+    padding: var(--spacing-xs) var(--spacing-m);
+}
+
+/* An entry has a button below its IRI, on its own page and in the list of
+   the pending changes: one that takes a new entry away, or one that puts a
+   removed entry back. The page of a removed entry says above the button
+   that the entry is being removed. */
+.entry-button {
+    display: block;
+    margin: var(--spacing-s) auto 0 auto;
+}
+
+.entry-removed,
+.entry-references {
+    margin: var(--spacing-s) 0 0 0;
+    text-align: center;
+    color: var(--color-muted);
+}
+
+/* While a check runs, its button keeps the focus but looks disabled. */
+.changes-check button[aria-disabled="true"] {
+    opacity: var(--opacity-muted);
+    cursor: progress;
+}
+
+:is(.changes-check, .changes-submit) p {
+    margin: 0;
+}
+
+/* The text that would be submitted is as wide as the list, and a long line
+   wraps, so that the text never has to be scrolled sideways. */
+.changes-submit pre {
+    align-self: stretch;
+    margin: 0;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* After a check, a change that breaks a rule has the message of the rule
+   below it. An error blocks the change, and a warning doesn't. */
+.check-problem {
+    margin: var(--spacing-xs) 0 0 0;
+    font-size: var(--font-size-s);
+    color: var(--color-dannet);
+}
+
+.check-problem--warning {
+    color: var(--color-muted);
+}
+
+/* A value that replaces another is shown below the one that it replaces,
+   as far from it as one field is from the next. */
+.edit-value__old {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-muted);
+}
+
+/* Edit mode (see ui.edit). The values of a row are a list of fields, one to
+   a line. The tints of a pending change are those of a diff. */
+ul.edit-values {
+    --tint-edited: #fff9d9;
+    --tint-retracted: #fdeceb;
+    --tint-added: #ebf6e7;
+
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.edit-value + .edit-value {
+    margin-top: var(--spacing-xs);
+}
+
+/* A value that can be edited is framed like an input field, with its
+   buttons at its end (see ui.edit.value/value-field). */
+.edit-value {
+    display: flex;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s) var(--spacing-s) var(--spacing-s) var(--spacing-m);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    background: white;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,var(--border-opacity-very-subtle));
+}
+
+/* The field of a blank node (see ui.edit.node/node-field) is only framed while
+   the node has a pending change, since the tint needs an area. An untouched
+   node is its table, with its button next to it. */
+.edit-node:not(.edit-value--added, .edit-value--retracted) {
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+
+/* The field of a blank node holds the fields of its values, so only the
+   innermost field with the focus is marked. */
+.edit-value:focus-within:not(:has(.edit-value:focus-within)) {
+    border-color: var(--color-link);
+}
+
+/* A click in the field opens its input, so the pointer is that of a text. */
+.edit-value--clickable {
+    cursor: text;
+}
+
+/* A pending change tints the value: yellow for an edited or a moved one,
+   red for a removed one and green for an added one. */
+.edit-value--edited,
+.edit-value--moved { background: var(--tint-edited); }
+.edit-value--retracted { background: var(--tint-retracted); }
+.edit-value--added { background: var(--tint-added); }
+
+.edit-value__content,
+.edit-value__input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A removed value is struck through as well. Its links are named too, since
+   the line of the <del> doesn't reach into the flex box of a resource. Its
+   language tag is an inline-block, so that the line stops at the text. */
+del.edit-value__content,
+del.edit-value__content a {
+    text-decoration: line-through;
+}
+
+del.edit-value__content::after,
+del.edit-value__content [lang]::after {
+    display: inline-block;
+}
+
+/* A removed blank node strikes out its values, not the names of its rows. */
+.edit-node > del.edit-value__content,
+.edit-node > del.edit-value__content :is(.attr-prefix, .attr-name) a {
+    text-decoration: none;
+}
+
+.edit-node > del.edit-value__content td:not(.attr-prefix, .attr-name) {
+    text-decoration: line-through;
+}
+
+ins.edit-value__content {
+    text-decoration: none;
+}
+
+/* The input and its controls are parts of the field, in the same line as
+   the content and the buttons of a closed field. */
+.edit-value__wrapper {
+    display: contents;
+}
+
+/* An input looks like the text that it replaces. */
+.edit-value__input {
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    outline: none;
+}
+
+/* The input of a text grows with the text. It has room below the text for
+   the line of an invalid one, which its box would otherwise cut off, taken
+   back by its margin so that the field is as tall as before. */
+textarea.edit-value__input {
+    field-sizing: content;
+    resize: none;
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: calc(-1 * var(--spacing-xs));
+}
+
+/* An entered text that isn't a value stays as it was typed, with a wavy red
+   line under it, as a misspelt word has: in the input, and in the closed
+   field that keeps it (see ui.edit.input/text-input). */
+.edit-value__input[aria-invalid="true"],
+ins.edit-value__content--invalid {
+    text-decoration: underline wavy var(--color-dannet);
+    text-decoration-skip-ink: none;
+}
+
+/* The buttons are in the middle of the first line, however tall they are. */
+.edit-value__actions {
+    display: flex;
+    align-items: center;
+    height: 1lh;
+}
+
+/* The buttons of a field are faint until the pointer or the focus is on
+   them. */
+.edit-value__button,
+.edit-value__add,
+.edit-value__required {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    /* a button has a font of its own, which would make its 1lh a shorter line */
+    font: inherit;
+    color: var(--color-icon);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+.edit-value__button,
+.edit-value__required {
+    justify-content: center;
+    width: var(--spacing-l);
+    height: var(--spacing-l);
+    border-radius: var(--border-radius-s);
+}
+
+.edit-value__button:hover,
+.edit-value__button:focus-visible,
+.edit-value--new:hover > .edit-value__add,
+.edit-value__add:focus-visible,
+.edit-value__required:hover {
+    color: var(--color-dark);
+}
+
+.edit-value__icon {
+    width: var(--font-size-xs);
+    height: var(--font-size-xs);
+    background-color: currentColor;
+}
+
+.edit-value__icon--edit { mask: url('/images/edit.svg') center / contain no-repeat; }
+.edit-value__icon--remove { mask: url('/images/remove.svg') center / contain no-repeat; }
+.edit-value__icon--undo { mask: url('/images/undo.svg') center / contain no-repeat; }
+.edit-value__icon--search { mask: url('/images/search.svg') center / contain no-repeat; }
+.edit-value__icon--add { mask: url('/images/add.svg') center / contain no-repeat; }
+
+/* A value that its row must keep has a 1 in a ring where the cross would be,
+   and its tooltip says why (see ui.edit.control/required-mark). */
+.edit-value__required {
+    cursor: help;
+}
+
+/* The ring is a little larger than the other icons, so that the digit has
+   room. */
+.edit-value__icon--one {
+    width: var(--font-size-s);
+    height: var(--font-size-s);
+    mask: url('/images/one.svg') center / contain no-repeat;
+}
+
+/* The field for adding a value (see ui.edit.value/new-value-field) has no frame
+   until its button is pressed, only a dashed outline while the pointer or
+   the focus is on it. */
+.edit-value--new {
+    border-style: dashed;
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+}
+
+.edit-value--new:is(:hover, :focus-within) {
+    border-color: var(--color-subtle);
+}
+
+/* Its button fills it and is as tall as a line of text, so that opening the
+   input moves nothing. */
+.edit-value__add {
+    flex: 1;
+    min-height: 1lh;
+}
+
+/* A value that can't be edited has no frame, and its padlock says why (see
+   ui.edit.control/padlock). */
+.edit-value--locked {
+    display: block;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+
+.padlock {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    background-color: var(--color-muted);
+    mask: url('/images/lock.svg') center / contain no-repeat;
+    cursor: help;
+}
+
+td.attr-name > .padlock {
+    margin-left: var(--spacing-xs);
+}
+
+.edit-value--locked > .padlock {
+    margin-right: var(--spacing-xs);
+}
+
+/* The heading of a page whose resource can't be edited has no colour in
+   its prefix badge, and a padlock before its label (see
+   ui.entity/entity-header). The padlock is as tall as a capital and part
+   of the text, so that it stays by the first word of a label that takes
+   several lines. */
+.page-header h1.locked span.prefix {
+    --ns-color: var(--color-subtle);
+}
+
+.page-header h1 .padlock {
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: var(--spacing-m);
+}
+
+/* A row or a value that can't be edited has faded text with no colour in
+   its links, markers and prefix badges. The grey is below a contrast of
+   4.5:1, as disabled controls are.
+
+   TODO: find a way to mark these that keeps the text at 4.5:1, since they
+         are still read. */
+table.attr-val tr.locked > td,
+table.attr-val tr.locked > td :is(a, .marker),
+.edit-value--locked,
+.edit-value--locked :is(a, .marker) {
+    color: var(--color-subtle);
+}
+
+table.attr-val tr.locked > td span.prefix,
+.edit-value--locked span.prefix {
+    --ns-color: var(--color-subtle);
+}
+
+/* Edit mode shows the language tag of every value that is a text, also in
+   the language of the page, where base.css hides it. The label of a resource
+   isn't a value, so its tag stays hidden. */
+.edit-value--locked[lang]::after,
+.edit-value__content[lang]::after,
+table.attr-val tr.locked > td:last-child[lang]::after,
+table.attr-val tr.locked > td:last-child > ul > li[lang]::after,
+table.attr-val tr.locked > td:last-child > span[lang]:not(.set-link)::after {
+    content: attr(lang);
+}
+
+/* A text that can be edited has a dropdown of the languages in place of its
+   tag (see ui.edit.control/lang-select). The dropdown looks like the tag. */
+.edit-value__content:has(> .edit-value__lang)::after {
+    content: none;
+}
+
+.edit-value__lang {
+    appearance: none;
+    field-sizing: content;
+    align-self: flex-start;
+    margin: 0 0 0 0.4ch;
+    padding: 0;
+    vertical-align: top;
+    font: inherit;
+    font-size: 60%;
+    font-variant: small-caps;
+    letter-spacing: inherit;
+    color: inherit;
+    opacity: var(--opacity-muted);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+}
+
+.edit-value__lang:hover,
+.edit-value__lang:focus-visible {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* When a row is missing a text in one language, the field for adding a
+   value keeps its outline and its button shows that language as a tag. */
+.edit-value--gap {
+    border-color: var(--color-subtle);
+}
+
+.edit-value__gap {
+    margin-left: var(--spacing-xs);
+    font-size: 60%;
+    font-variant: small-caps;
+}
+
+/* A modal dialog (see ui.edit.dialog/dialog) is a column of its header and its
+   content. It is drawn where its button is, e.g. in a centred header, so it
+   sets the look of its own text. */
+.dialog {
+    box-sizing: border-box;
+    width: min(calc(60ch + 2 * var(--spacing-l)), calc(100vw - var(--spacing-l)));
+    max-height: min(80vh, 60rem);
+    padding: var(--spacing-l);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    box-shadow: var(--shadow-nav);
+    color: var(--color-dark);
+    line-height: 1.5;
+    text-align: start;
+    text-shadow: none;
+}
+
+.dialog[open] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-m);
+}
+
+.dialog::backdrop {
+    background: rgba(0,0,0,0.5);
+}
+
+.dialog > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dialog h2 {
+    margin: 0;
+    font-size: var(--font-size-m-l);
+    text-align: start;
+}
+
+/* A wizard (see ui.edit.dialog/wizard) has the same frame at every step, so
+   that nothing jumps from one step to the next: its title and what it is
+   about at the top, its buttons at the bottom, and the step between them. */
+.wizard {
+    height: min(calc(30rem + 2 * var(--spacing-l)), 84vh);
+    margin-top: 10vh;
+}
+
+/* The title is at one end of the header and how far the wizard is at the
+   other, before the button that closes it. */
+.wizard > header h2 {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-right: var(--spacing-m);
+}
+
+.wizard__progress {
+    font-size: var(--font-size-s);
+    font-variant: normal;
+    color: var(--color-muted);
+}
+
+.wizard p,
+.wizard ul,
+.wizard dl,
+.wizard dd,
+.wizard fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: none;
+}
+
+.wizard__about {
+    padding-bottom: var(--spacing-m);
+    border-bottom: var(--subtle-border);
+}
+
+/* A step is in the middle of the space between the top and the buttons,
+   across and down, so that its parts don't crowd one corner. It stays in
+   the middle when its details unfold, as long as there is room. A step
+   that is too long for that starts at the top and scrolls. */
+.wizard__step {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-l);
+    align-items: safe center;
+    justify-content: safe center;
+    min-height: 0;
+    overflow-y: auto;
+    text-align: center;
+}
+
+/* The outline of a step is inside it, where the step doesn't cut it off. */
+.wizard__step:focus-visible {
+    outline-offset: -2px;
+}
+
+/* The figures of a step are tiles side by side: a large number above what
+   it counts. The list has the name first, so each tile is turned around.
+   The tiles go on more lines when the dialog is too narrow for one. */
+.wizard__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-m);
+    justify-content: center;
+    max-width: 100%;
+}
+
+.wizard__figures > div {
+    display: flex;
+    flex: 1;
+    flex-direction: column-reverse;
+    min-width: 7rem;
+    padding: var(--spacing-m) var(--spacing-l);
+    background: var(--color-bg-alt);
+    border-radius: var(--border-radius-s);
+}
+
+.wizard__figures dt {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
+.wizard__figures dd {
+    font-size: var(--font-size-xl);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+/* The items and the choices of a step are rows of the same two columns: a
+   narrow one for a number or a checkbox, which end at the same edge, and
+   one for what the row is about. The rows are centred as a block. */
+.wizard__rows {
+    display: grid;
+    grid-template-columns: max-content minmax(0, max-content);
+    gap: var(--spacing-s) var(--spacing-m);
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    text-align: start;
+}
+
+/* A row takes the columns of its list, and so does the label in it. */
+.wizard__rows > li,
+.wizard__rows > li > label {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+}
+
+.wizard__rows .wizard__lead,
+.wizard__rows input {
+    justify-self: end;
+    margin: 0;
+}
+
+.wizard__lead {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The details are folded away until they are asked for. Their summaries
+   start at the same edge, as a block in the middle of the step. */
+.wizard__folds {
+    display: grid;
+    gap: var(--spacing-s);
+    justify-content: center;
+    max-width: 100%;
+    text-align: start;
+}
+
+.wizard__details > summary {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.wizard__details > .wizard__rows {
+    margin-top: var(--spacing-m);
+}
+
+/* A warning has the colour of an error of the check (see .check-problem). */
+.wizard__warning {
+    color: var(--color-dannet);
+}
+
+/* The buttons of a wizard are in a row below a line. The one that confirms
+   is last and stands out. */
+.wizard > footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-s);
+    padding-top: var(--spacing-m);
+    border-top: var(--subtle-border);
+}
+
+.wizard > footer button {
+    padding: var(--spacing-xs) var(--spacing-m);
+    font: inherit;
+    font-size: var(--font-size-s);
+    color: inherit;
+    background: var(--color-bg-alt);
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+}
+
+.wizard > footer button.wizard__done {
+    color: white;
+    background: var(--color-dannet);
+    border-color: var(--color-dannet);
+}
+
+/* The dialog that finds a value (see ui.edit.input/search-dialog): its input,
+   and its results, which scroll. */
+.search-dialog input {
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    letter-spacing: inherit;
+    border: var(--normal-border);
+    border-radius: var(--border-radius-s);
+}
+
+/* What choosing a result does besides, said before the search. */
+.search-dialog__note {
+    margin: 0;
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
+/* The line that offers to make a value, with the plus of a row before its
+   name (see ui.edit.input/search-dialog). It looks like a result. */
+.search-dialog__new {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    border: var(--subtle-border);
+    border-radius: var(--border-radius-s);
+}
+
+.search-dialog__body {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.search-dialog__results {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A result and the line that makes a value are buttons that look like
+   lines of text. */
+.search-dialog__results button,
+.search-dialog__new {
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+}
+
+.search-dialog__results button:hover,
+.search-dialog__results button:focus-visible,
+.search-dialog__new:hover,
+.search-dialog__new:focus-visible {
+    background: var(--color-bg-alt);
+}
+
+/* A result has its label, description and type on lines of their own. */
+.search-dialog__results button {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xxs);
+    width: 100%;
+    border: none;
+    border-top: var(--subtle-border);
+}
+
+.search-dialog__results small {
+    color: var(--color-muted);
+}
+
+/* A result on one line: its name, a short note after it, and at the right
+   the reason why it can't be chosen. */
+.search-dialog__results--one-line button {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--spacing-m);
+}
+
+.search-dialog__results--one-line span,
+.search-dialog__results--one-line small {
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}
+
+.search-dialog__results--one-line small {
+    margin-left: auto;
+}
+
+.search-dialog__results sup {
+    font-size: 0.7em;
+}
+
+/* A result that can't be chosen is faded, apart from the reason, which is
+   its last part. It can still take the focus, so that the reason is read. */
+.search-dialog__results button[aria-disabled="true"] {
+    cursor: default;
+}
+
+.search-dialog__results button[aria-disabled="true"]:hover:not(:focus-visible) {
+    background: none;
+}
+
+.search-dialog__results button[aria-disabled="true"] > :not(:last-child) {
+    opacity: 0.5;
+}
+
+}
+
+/* The button below a table that adds a row (see ui.edit/row-adder). It looks
+   like the field for a new value, without a frame until the pointer or the
+   focus is on it. */
+.edit-add-row {
+    margin-top: var(--spacing-s);
+}
+
+.edit-add-row > button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s) var(--spacing-m);
+    font: inherit;
+    color: var(--color-muted);
+    background: none;
+    border: 1px dashed transparent;
+    border-radius: var(--border-radius-s);
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+.edit-add-row > button:is(:hover, :focus-visible) {
+    color: var(--color-dark);
+    border-color: var(--color-subtle);
+}
+
+/* The button by the name of a row that moves its values to another relation
+   (see ui.edit/value-mover) stays with the last word of the name: the
+   name leaves room for it, which the button moves back into. */
+td.attr-name:has(> .edit-value__button) > a {
+    padding-right: var(--spacing-l);
+}
+
+td.attr-name > .edit-value__button {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: calc(-1 * var(--spacing-l));
+}
+
+/* A value has a note below it when there is more to say about it: the row
+   that it has moved from or to (see ui.edit.value/move-note), the other entries
+   that hold a new entry (see ui.edit.entry/entry-field), or that its entry is
+   removed as a whole (see ui.edit.entry/data-entry-field). */
+.edit-value__note {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-s);
+    color: var(--color-muted);
+}

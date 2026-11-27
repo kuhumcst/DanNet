@@ -12,13 +12,14 @@
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.dialog :as dialog]
             [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.dialog :as dialog]
             [dk.cst.dannet.web.ui.edit.focus :as focus]
             [dk.cst.dannet.web.ui.edit.input :as input]
+            [dk.cst.dannet.web.ui.edit.input-type :as input-type]
             [dk.cst.dannet.web.ui.edit.removal :as removal]
+            [dk.cst.dannet.web.ui.edit.session :as session]
             [dk.cst.dannet.web.ui.edit.value :as value]
-            [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
 (rum/defcs entry-field < (rum/local false ::editing?)
@@ -91,7 +92,7 @@
   "Take the new entry with the `id` out of the pending changes of a page
   with `opts`, with what can't stay without it (see entry/without)."
   [{:keys [edit-rules] :as opts} id]
-  (app/update-changes! #(entry/without (:entries edit-rules) % id)))
+  (session/update-changes! #(entry/without (:entries edit-rules) % id)))
 
 (defn entry-button
   "A button with the `text` that acts on the whole entry with the `id`, on a
@@ -117,7 +118,7 @@
   "Put the removed entry `id` of the data back: drop the pending change that
   removes it as a whole (see entry/without-removal)."
   [id]
-  (app/update-changes! entry/without-removal id))
+  (session/update-changes! entry/without-removal id))
 
 (defn restore-entry-button
   "The button that puts the removed entry with the `id` back, on a page
@@ -164,8 +165,8 @@
   the list of the changes needs."
   [{:keys [edit-rules] :as opts} parts answers]
   (doseq [[label place] (removal/nodes parts)]
-    (app/remember-node! label place))
-  (app/remember-labels! (entity-labels opts (:entities parts)))
+    (session/remember-node! label place))
+  (session/remember-labels! (entity-labels opts (:entities parts)))
   (value/edit! opts #(entry/with-removal (:entries edit-rules) %
                                          (removal/removal parts answers))))
 
@@ -373,7 +374,7 @@
                                                     {given entity})]
                       ;; a new blank node has its place in the session
                       (doseq [[label place] (change/new-places change)]
-                        (app/remember-node! label place))
+                        (session/remember-node! label place))
                       (value/edit! opts conj change)
                       (app/navigate-to (prefix/resolve-href id))))]
     [:li.edit-value.edit-value--new

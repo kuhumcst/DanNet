@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.ui.changes
+(ns dk.cst.dannet.web.ui.edit.changes
   "The list of the pending changes of an editor (see dk.cst.dannet.change),
   by the resource that each change is made to.
 
@@ -21,6 +21,7 @@
             [dk.cst.dannet.web.ui.edit.entry :as entry-field]
             [dk.cst.dannet.web.ui.edit.node :as node]
             [dk.cst.dannet.web.ui.edit.row :as row]
+            [dk.cst.dannet.web.ui.edit.session :as session]
             [dk.cst.dannet.web.ui.edit.value :as value]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
@@ -130,7 +131,7 @@
            (.then (fn [response]
                     (let [{:keys [check entities]}
                           (get-in response [:body :data])]
-                      (app/remember-labels!
+                      (session/remember-labels!
                         (entry-field/entity-labels opts entities))
                       (answer! check))))
            (.catch #(answer! {:failed? true}))))))
@@ -175,7 +176,7 @@
                       ;; an ended request is cleared by what ended it
                       (when response
                         (app/clear-current-fetch url))
-                      (app/remember-labels!
+                      (session/remember-labels!
                         (entry-field/entity-labels opts entities))
                       (cond
                         (not (same?)) nil
@@ -271,14 +272,15 @@
                                  (entry-field/discard-entry! opts value)))
 
           (= status :added)
-          (control/icon-button "remove" label
-                               #(app/update-changes! change/without-addition t))
+          (control/icon-button
+            "remove" label
+            #(session/update-changes! change/without-addition t))
 
           :else
           (control/icon-button
             "undo"
             (control/undo-label languages (if moved-to :moved status) text)
-            #(app/update-changes! change/without-triple t)))])]))
+            #(session/update-changes! change/without-triple t)))])]))
 
 (declare changed-rows)
 
@@ -292,7 +294,7 @@
    {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
         text     (node/node-text opts p (map :value (mapcat :fields rows)))
-        undo!    #(app/update-changes! change/without-node value)]
+        undo!    #(session/update-changes! change/without-node value)]
     [:li.edit-value.edit-node {:class (str "edit-value--" (name status))}
      [(if removed? :del :ins) {:class "edit-value__content"}
       (if (seq rows)
@@ -516,3 +518,16 @@
             (rum/with-key (section opts resource nil) (str resource)))
           (problem-summary opts (mapcat val others)))
         (submit-control opts)])]))
+
+(rum/defc page
+  "The page of the pending changes of an editor, with `opts`. The changes
+  are in the browser, with the :labels of their resources, so the page has
+  no data of its own. A new entry has its label in the changes themselves."
+  [{:keys [languages labels changes edit-rules] :as opts}]
+  [:article.changes
+   [:header.page-header
+    [:h1 (i18n/da-en languages "Ændringer" "Changes")]]
+   (changes-list
+     (->> (entry/labels changes (:derived-labels edit-rules))
+          (merge labels)
+          (assoc opts :k->label)))])

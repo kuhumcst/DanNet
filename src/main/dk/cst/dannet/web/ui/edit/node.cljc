@@ -5,13 +5,33 @@
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
-            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.ui.edit.control :as control]
             [dk.cst.dannet.web.ui.edit.focus :as focus]
+            [dk.cst.dannet.web.ui.edit.input-type :as input-type]
+            [dk.cst.dannet.web.ui.edit.lock :as lock]
             [dk.cst.dannet.web.ui.edit.row :as row]
+            [dk.cst.dannet.web.ui.edit.session :as session]
             [dk.cst.dannet.web.ui.edit.value :as value]
-            [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
+
+(defn node-opts
+  "The `opts` of the nested table of the blank node `m`, a value of the
+  :attr-key of `opts`, in edit mode.
+
+  Next to what any nested table has (see rdf/node-opts), the table gets the
+  constraints on the values of its node, and its place as :blank-node: the
+  node, the property that holds it and why the node is locked. A node that
+  an editor has made is :new? and never locked."
+  [{:keys [attr-key] :as opts} m]
+  (let [new? (:new? (meta m))]
+    (assoc (rdf/node-opts opts m)
+      :constraints (get-in opts [:constraints attr-key :node])
+      :blank-node (cond-> {:rdf/about (:rdf/about m)
+                           :property  attr-key
+                           :entity    (dissoc m :rdf/about)}
+                    new? (assoc :new? true)
+                    (and (:edit-mode opts) (not new?))
+                    (assoc :lock (lock/lock opts attr-key m))))))
 
 (defn node-text
   "The text that names a blank node in the row of the property `k` in
@@ -33,7 +53,7 @@
   (let [label  (first (change/new-labels nodes))
         change (row/node-addition (value/subject-of opts) k label value)]
     (doseq [[label place] (change/new-places change)]
-      (app/remember-node! label place))
+      (session/remember-node! label place))
     (value/edit! opts conj change)
     (when-not value
       #?(:cljs (focus/when-drawn!
@@ -59,7 +79,7 @@
   [opts label place]
   (if place
     (do
-      (app/remember-node! label place)
+      (session/remember-node! label place)
       (value/edit! opts change/retract-node label place))
     (value/edit! opts change/without-node label)))
 
@@ -75,7 +95,7 @@
   [state {:keys [languages default-origin changes] :as opts}
    k label {:keys [status node required]}]
   (let [place    (when node
-                   (row/node-place (rdf/node-opts opts node)))
+                   (row/node-place (node-opts opts node)))
         ;; a removed node is named by its values in the data
         text     (node-text opts k
                             (row/node-values (when-not (= status :retracted)
@@ -122,8 +142,7 @@
   the node has no such value."
   [{:keys [changes default-origin edit-rules] :as opts}
    k sole label node required]
-  (let [nested (-> (rdf/node-opts opts
-                                  (or node (new-node default-origin label)))
+  (let [nested (-> (node-opts opts (or node (new-node default-origin label)))
                    (assoc :attr-key sole))
         place  (row/node-place nested)
         must   (get-in nested [:constraints sole :must])

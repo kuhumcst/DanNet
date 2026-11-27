@@ -1,9 +1,9 @@
-(ns dk.cst.dannet.web.ui.lock
+(ns dk.cst.dannet.web.ui.edit.lock
   "Which values of an entity can be edited, and why the others can't.
 
   A value can be edited when the graph that changes go to holds it, which
-  the origins in the page data say (see dk.cst.theophrastus.origin). Any
-  other value is locked, and so is one that edit mode has no input for yet.
+  the origins in the page data say (see ui.origin). Any other value is
+  locked, and so is one that edit mode has no input for yet.
 
   The :edit-rules of the page lock more. They are the rules of the dataset,
   a map with any of these keys (see dk.cst.dannet.editable for DanNet's):
@@ -16,49 +16,15 @@
     writes for the resources of that class.
   - :fixed, the properties that say what a resource is, e.g. its type, which
     an edit never changes."
-  (:require [dk.cst.theophrastus.origin :as origin]
-            [dk.cst.dannet.shared :as shared]))
-
-(defn value-properties
-  "The properties of the entity in `opts` that hold the value `v`, which is
-  listed in the row of the property `k`.
-
-  That is `k` itself, except in the row of members (see shared/member-row),
-  where it is the rdf:_N properties that have `v`, in the order of their
-  ordinals. A member that none of them has is a value of rdfs:member itself."
-  [{:keys [entity] :as opts} k v]
-  (or (when (= k shared/member-row)
-        (->> (keys entity)
-             (filter #(and (shared/member-property? %)
-                           (= v (shared/unwrap (get entity %)))))
-             (sort-by shared/member-ordinal)
-             (seq)))
-      [k]))
-
-(defn value-origins
-  "The origins of the value `v` in the row of the property `k` as a set, as
-  the page data in `opts` has them for the properties that hold it."
-  [opts k v]
-  (into #{}
-        (mapcat (fn [p]
-                  (let [o (origin/origin opts p v)]
-                    (if (set? o) o #{o}))))
-        (value-properties opts k v)))
-
-(defn row-origins
-  "The origins of the values `v` in the row of the property `k`, as the page
-  data in `opts` has them, e.g. #{:inferred} for a row of inferred values."
-  [opts k v]
-  (into #{}
-        (mapcat #(value-origins opts k %))
-        (shared/values-of v)))
+  (:require [dk.cst.dannet.shared :as shared]
+            [dk.cst.dannet.web.ui.origin :as origin]))
 
 (defn editable?
   "Is the value `v` in the row of the property `k` in the graph that changes
   go to? That graph is the :default-origin of `opts`."
   [{:keys [default-origin] :as opts} k v]
   (and (some? default-origin)
-       (contains? (value-origins opts k v) default-origin)))
+       (contains? (origin/value-origins opts k v) default-origin)))
 
 (defn derived?
   "Does a build write the property `k` of the entity in `opts`, according to
@@ -107,7 +73,7 @@
     :fixed
 
     (not (editable? opts k v))
-    (let [origins (value-origins opts k v)]
+    (let [origins (origin/value-origins opts k v)]
       (cond
         (contains? origins :inferred)     :inferred
         (contains? origins :supplemented) :supplemented

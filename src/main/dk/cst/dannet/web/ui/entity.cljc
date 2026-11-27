@@ -3,18 +3,15 @@
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
-            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.section :as section]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
-            [dk.cst.dannet.web.ui.edit.control :as control]
-            [dk.cst.dannet.web.ui.edit.entry :as entry-field]
+            [dk.cst.dannet.web.ui.edit.header :as header]
             [dk.cst.dannet.web.ui.edit.row :as row]
-            [dk.cst.dannet.web.ui.lock :as lock]
+            [dk.cst.dannet.web.ui.origin :as origin]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.table :as table]
             [dk.cst.dannet.web.ui.tabs :as tabs]
@@ -51,82 +48,12 @@
             (sort-by (rdf/label-sortkey-fn opts)
                      (filter ks entity))))))
 
-(rum/defc edit-mode-switch
-  "A button that turns edit mode on and off, drawn as an icon. It is pressed
-  while edit mode is on in `opts`."
-  [{:keys [languages edit-mode nav-class] :as opts}]
-  (let [label (i18n/da-en languages "Redigér" "Edit")]
-    [:button.edit-mode-switch {:type         "button"
-                               :class        nav-class
-                               :title        label
-                               :aria-pressed (str (boolean edit-mode))
-                               :on-click     #(app/toggle-edit-mode!)}
-     [:span.edit-mode-switch__icon {:aria-hidden "true"}]
-     ;; The label names the button; its title is only a tooltip.
-     [:span.visually-hidden label]]))
-
-(rum/defc pending-changes-link
-  "The number of the pending changes in `opts`: a status that is read out
-  when the number changes, since an edit says nothing else, and a link to
-  the list of the changes, drawn as the number, while something is pending."
-  [{:keys [languages changes nav-class] :as opts}]
-  (let [n     (count changes)
-        label (i18n/da-en languages
-                (str n (if (= n 1) " ændring" " ændringer"))
-                (str n (if (= n 1) " change" " changes")))]
-    [:<>
-     [:span.visually-hidden {:role "status"} label]
-     (when (seq changes)
-       [:a.pending-changes {:href  prefix/changes-path
-                            :class nav-class
-                            :title label}
-        [:span {:aria-hidden "true"} n]
-        [:span.visually-hidden label]])]))
-
-(defn entry-controls
-  "The controls of the page header that act on the whole entry in `opts`,
-  in edit mode. No entry of the data has them when the resource is `locked?`.
-
-  A new entry has the button that takes it away, which leaves its page for
-  the list of the pending changes. An entry of the data that a template
-  describes has the button that removes it as a whole. An entry that is
-  :removed? says so, with the button that puts it back."
-  [{:keys [subject languages entity edit-mode draft? removed? edit-rules]
-    :as   opts}
-   locked?]
-  [:<>
-   (when (and edit-mode draft?)
-     (entry-field/discard-entry-button
-       opts subject
-       (fn [_]
-         (entry-field/discard-entry! opts subject)
-         (app/navigate-to prefix/changes-path {:replace? true}))))
-   (when (and edit-mode
-              (not (or draft? removed? locked?))
-              (entry/described? (:entries edit-rules) entity))
-     (entry-field/remove-entry-button opts subject))
-   (when removed?
-     [:<>
-      [:p.entry-removed
-       (i18n/da-en languages
-         "Denne ressource fjernes."
-         "This resource is being removed.")]
-      (entry-field/restore-entry-button
-        opts subject
-        (fn [e]
-          ;; the button goes away, so a link of the header gets the focus
-          #?(:cljs (some-> (.closest (.-currentTarget e) "header")
-                           (.querySelector "a")
-                           (.focus)))
-          (entry-field/restore-entry! subject)))])])
-
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
   edit mode, a resource that can't be edited has a grey prefix badge and a
-  padlock before its label, and an entry has the controls that act on all
-  of it (see entry-controls)."
-  [{:keys [subject languages entity k->label detail-level edit-mode comments]
-    :as   opts}]
+  padlock before its label, and the header has the controls of edit mode
+  (see ui.edit.header)."
+  [{:keys [subject languages entity k->label detail-level] :as opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
         ;; detailed label (usually rdfs:label).
@@ -140,7 +67,7 @@
         label-lang    (i18n/lang label)
         uri-only?     (and (not label) (= local-name rdf-uri))
         uri-link      (rdf/uri-link subject opts)
-        locked?       (and edit-mode (not (lock/editable-resource? opts)))]
+        locked?       (header/locked? opts)]
     [:header.page-header
      [:h1 (when locked? {:class "locked"})
       (rdf/prefix-badge prefix)
@@ -155,7 +82,7 @@
        ;; inside the label, so that it stays by the first word when the
        ;; label takes several lines
        (when locked?
-         (control/padlock (get-in comments [:locked :resource])))
+         (header/padlock opts))
        (if label
          (rdf/transform-val label opts)
          (if uri-only?
@@ -168,18 +95,13 @@
         [:sup label-lang])]
      (when-not uri-only?
        uri-link)
-     (entry-controls opts locked?)
-     ;; the editor is a preview in development only
-     (when shared/development?
-       [:<>
-        (pending-changes-link opts)
-        (edit-mode-switch opts)])]))
+     (header/controls opts locked?)]))
 
 (rum/defc entity-notes
   [{:keys [href languages comments entity inherited] :as opts}]
   (let [format-href #(str href (if (re-find #"\?" href) "&" "?") "format=" %)
         origins     (into #{}
-                          (mapcat (fn [[k v]] (lock/row-origins opts k v)))
+                          (mapcat (fn [[k v]] (origin/row-origins opts k v)))
                           entity)]
     [:aside.notes
      (when (contains? origins :inferred)

@@ -1,4 +1,4 @@
-(ns dk.cst.dannet.web.ui.changes-test
+(ns dk.cst.dannet.web.ui.edit.changes-test
   "Tests for the list of the pending changes as data: which sections it has,
   which rows each of them has, what a check says and the text that is
   submitted."
@@ -11,7 +11,7 @@
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.test-util :as util]
-            [dk.cst.dannet.web.ui.changes :as changes])
+            [dk.cst.dannet.web.ui.edit.changes :as changes])
   (:import [java.io StringReader]))
 
 (def ^:private hund #rdf/langstring ["hund" "da"])

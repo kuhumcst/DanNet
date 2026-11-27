@@ -205,30 +205,3 @@
              (update-cookie! :full-screen not)
              (some-> (js/document.getElementById "content")
                      (.scroll #js {:top 0})))))
-
-(defn toggle-edit-mode!
-  "Toggle the `:edit-mode` cookie."
-  []
-  #?(:cljs (update-cookie! :edit-mode not)))
-
-(defn remember-node!
-  "Keep the `place` of the blank node with the `label` in the session. A
-  change to the node is located by it when the changes are submitted (see
-  change/locate-nodes)."
-  [label place]
-  (swap! session assoc-in [:nodes label] place))
-
-(defn remember-labels!
-  "Keep the labels in `k->label`, a map of a resource to its label, in the
-  session, so that another page can show the resources."
-  [k->label]
-  (swap! session update :labels merge k->label))
-
-(defn update-changes!
-  "Apply `f` to the pending changes of the session and `args`, e.g. a
-  function of dk.cst.dannet.change and a triple. The changes are only kept
-  in memory, so loading the page again loses them."
-  [f & args]
-  ;; a check of other changes says nothing about these
-  (swap! session #(-> (apply update % :changes f args)
-                      (dissoc :check))))

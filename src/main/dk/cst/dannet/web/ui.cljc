@@ -7,6 +7,7 @@
             [dk.cst.dannet.web.app :as app]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
+            [dk.cst.dannet.web.ui.edit.changes :as changes]
             [dk.cst.dannet.web.ui.model :as model]
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.ui.rdf :as rdf]
@@ -148,7 +149,7 @@
    :sparql    {:render page/sparql :nav-class "w3c"}
    :metadata  {:render page/metadata :nav-class "meta"}
    :relations {:render page/relations :nav-class "wordnet"}
-   :changes   {:render page/changes :nav-class "dannet"}
+   :changes   {:render changes/page :nav-class "dannet"}
    :error     {:render page/error}})
 
 (rum/defc page-shell < rum/reactive

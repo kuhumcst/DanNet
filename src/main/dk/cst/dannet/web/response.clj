@@ -39,8 +39,12 @@
   "The CSS files in resources/public/css, in load order.
 
   base.css comes first, since it declares the order of the CSS layers that
-  the other files put their rules in; sparql.css is not in a layer."
-  ["base" "layout" "components" "sparql" "diagrams" "utilities"])
+  the other files put their rules in; sparql.css is not in a layer. edit.css
+  has the styles of the editor, which is a preview in development only. It
+  adds to the layer of components.css, so it comes right after that file."
+  (concat ["base" "layout" "components"]
+          (when shared/development? ["edit"])
+          ["sparql" "diagrams" "utilities"]))
 
 (declare ->transit)
 

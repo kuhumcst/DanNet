@@ -319,7 +319,7 @@
                        (take limit rows)
                        rows)
         offset'      (or offset 0)
-        opts'        (assoc opts :table-component table/attr-val-table)]
+        opts'        (assoc opts :table-component table/node-table)]
     [:table.sparql-results
      [:thead
       [:tr

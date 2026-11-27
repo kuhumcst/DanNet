@@ -51,7 +51,7 @@
 (defn locked-value
   "The list item of the value `v` that can't be edited, in a table with
   `opts`: the value after a padlock that says `why` it is locked (see
-  ui.lock/lock). The item has the `react-key`."
+  ui.edit.lock/lock). The item has the `react-key`."
   [{:keys [comments] :as opts} v why react-key]
   [:li.edit-value.edit-value--locked
    (assoc (rdf/lone-value-attrs v) :key react-key)

@@ -1,14 +1,14 @@
 (ns dk.cst.dannet.editable.input-types
   "The input types of the classes of DanNet that have one of their own: a
   resource with a search for a synset, an ontological type or a word (see
-  dk.cst.dannet.web.ui.input-type for what an input type and a search are).
+  dk.cst.dannet.web.ui.edit.input-type for what an input type and a search are).
 
   The rules of the editor say which class each is for (see the :input-types
   of dk.cst.dannet.editable)."
   (:require [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.input-type :as input-type]))
+            [dk.cst.dannet.web.ui.edit.input-type :as input-type]))
 
 (def synset
   "A synset, typed as its ID or found by the start of one of its words,

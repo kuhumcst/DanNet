@@ -1,7 +1,7 @@
-(ns dk.cst.dannet.web.ui.input-type-test
+(ns dk.cst.dannet.web.ui.edit.input-type-test
   "Tests for the input types of edit mode."
   (:require [clojure.test :refer [deftest is testing]]
-            [dk.cst.dannet.web.ui.input-type :as input-type]))
+            [dk.cst.dannet.web.ui.edit.input-type :as input-type]))
 
 (def synset
   "The input type of a class that has one of its own, with a search."
