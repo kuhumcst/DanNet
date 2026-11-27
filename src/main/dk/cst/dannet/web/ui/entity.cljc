@@ -82,16 +82,49 @@
         [:span {:aria-hidden "true"} n]
         [:span.visually-hidden label]])]))
 
+(defn entry-controls
+  "The controls of the page header that act on the whole entry in `opts`,
+  in edit mode. No entry of the data has them when the resource is `locked?`.
+
+  A new entry has the button that takes it away, which leaves its page for
+  the list of the pending changes. An entry of the data that a template
+  describes has the button that removes it as a whole. An entry that is
+  :removed? says so, with the button that puts it back."
+  [{:keys [subject languages entity edit-mode draft? removed? edit-rules]
+    :as   opts}
+   locked?]
+  [:<>
+   (when (and edit-mode draft?)
+     (edit/discard-entry-button
+       opts subject
+       (fn [_]
+         (edit/discard-entry! opts subject)
+         (app/navigate-to prefix/changes-path {:replace? true}))))
+   (when (and edit-mode
+              (not (or draft? removed? locked?))
+              (entry/described? (:entries edit-rules) entity))
+     (edit/remove-entry-button opts subject))
+   (when removed?
+     [:<>
+      [:p.entry-removed
+       (i18n/da-en languages
+         "Denne ressource fjernes."
+         "This resource is being removed.")]
+      (edit/restore-entry-button
+        opts subject
+        (fn [e]
+          ;; the button goes away, so a link of the header gets the focus
+          #?(:cljs (some-> (.closest (.-currentTarget e) "header")
+                           (.querySelector "a")
+                           (.focus)))
+          (edit/restore-entry! subject)))])])
+
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
   edit mode, a resource that can't be edited has a grey prefix badge and a
-  padlock before its label, and a new entry has the button that takes it
-  away, which leaves its page for the list of the pending changes. An entry
-  of the data that a template describes has the button that removes it as a
-  whole. An entry that is :removed? says so, with the button that puts it
-  back."
-  [{:keys [subject languages entity k->label detail-level edit-mode comments
-           draft? removed? edit-rules]
+  padlock before its label, and an entry has the controls that act on all
+  of it (see entry-controls)."
+  [{:keys [subject languages entity k->label detail-level edit-mode comments]
     :as   opts}]
   (let [[prefix local-name rdf-uri] (rdf/parse-rdf-term subject)
         ;; Bypass the default use of dns:shortLabel in case the user wants the
@@ -134,30 +167,7 @@
         [:sup label-lang])]
      (when-not uri-only?
        uri-link)
-     (when (and edit-mode draft?)
-       (edit/discard-entry-button
-         opts subject
-         (fn [_]
-           (edit/discard-entry! opts subject)
-           (app/navigate-to prefix/changes-path {:replace? true}))))
-     (when (and edit-mode
-                (not (or draft? removed? locked?))
-                (entry/described? (:entries edit-rules) entity))
-       (edit/remove-entry-button opts subject))
-     (when removed?
-       [:<>
-        [:p.entry-removed
-         (i18n/da-en languages
-           "Denne ressource fjernes."
-           "This resource is being removed.")]
-        (edit/restore-entry-button
-          opts subject
-          (fn [e]
-            ;; the button goes away, so a link of the header gets the focus
-            #?(:cljs (some-> (.closest (.-currentTarget e) "header")
-                             (.querySelector "a")
-                             (.focus)))
-            (edit/restore-entry! subject)))])
+     (entry-controls opts locked?)
      ;; the editor is a preview in development only
      (when shared/development?
        [:<>

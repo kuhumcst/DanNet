@@ -127,6 +127,59 @@
              label)]
       [:dd value]])])
 
+(defn- choices-list
+  "The `choices` of a step as checkboxes, ticked by the `answers` so far. A
+  label is drawn with `draw`, and `on-answer` gets the key of a choice and
+  whether it is ticked now."
+  [choices answers draw on-answer]
+  [:fieldset {:aria-labelledby "wizard-step"}
+   [:ul.wizard__rows
+    (for [{:keys [key label]} choices]
+      [:li {:key (pr-str key)}
+       [:label
+        [:input {:type      "checkbox"
+                 :checked   (boolean (get answers key))
+                 :on-change #(on-answer key (.. % -target -checked))}]
+        [:span (draw label)]]])]])
+
+(defn- details-list
+  "The `details` of a step as lists that are folded away until they are
+  asked for. What an item is about is drawn with `draw`."
+  [details draw]
+  [:div.wizard__folds
+   (for [[n {:keys [summary items]}] (map-indexed vector details)]
+     [:details.wizard__details {:key n}
+      [:summary summary]
+      [:ul.wizard__rows
+       (for [[n item] (map-indexed vector items)
+             :let [[lead about] (if (vector? item) item [nil item])]]
+         [:li {:key n}
+          [:span.wizard__lead lead]
+          [:span (draw about)]])]])])
+
+(defn- footer
+  "The buttons below a step, for a reader with `languages`: one that closes
+  the dialog, one that goes back with `on-back`, and one that goes on with
+  `on-next`. The last step has no `on-next`, and the button with the text
+  `done` confirms with `on-done` in its place. With `warning?`, that button
+  is described by the warning of the step."
+  [languages {:keys [on-back on-next on-done done warning?]}]
+  [:footer
+   [:button {:type "button" :on-click close!}
+    (i18n/da-en languages "Annullér" "Cancel")]
+   (when on-back
+     [:button {:type "button" :on-click on-back}
+      (i18n/da-en languages "Tilbage" "Back")])
+   (if on-next
+     [:button {:type "button" :key "next" :on-click on-next}
+      (i18n/da-en languages "Næste" "Next")]
+     [:button.wizard__done
+      {:type             "button"
+       :key              "done"
+       :aria-describedby (when warning? "wizard-warning")
+       :on-click         on-done}
+      done])])
+
 (rum/defcs wizard < (rum/local 0 ::step)
                     (rum/local nil ::answers)
                     focus-step
@@ -142,6 +195,7 @@
         current (or @(::answers state) answers)
         steps   (vec (steps-fn current))
         i       (min @step (dec (count steps)))
+        last?   (= i (dec (count steps)))
         draw    #(if (keyword? %) ((or resource-fn str) %) %)
         {:keys [heading figures text details choices warning]} (get steps i)]
     (dialog
@@ -179,48 +233,23 @@
         (for [[n paragraph] (map-indexed vector text)]
           [:p {:key n} (draw paragraph)])
         (when (seq choices)
-          [:fieldset {:aria-labelledby "wizard-step"}
-           [:ul.wizard__rows
-            (for [{:keys [key label]} choices]
-              [:li {:key (pr-str key)}
-               [:label
-                [:input {:type      "checkbox"
-                         :checked   (boolean (get current key))
-                         :on-change #(reset! (::answers state)
-                                             (assoc current
-                                               key (.. % -target -checked)))}]
-                [:span (draw label)]]])]])
+          (choices-list choices current draw
+                        #(reset! (::answers state) (assoc current %1 %2))))
         (when warning
           [:p#wizard-warning.wizard__warning warning])
         (when (seq details)
-          [:div.wizard__folds
-           (for [[n {:keys [summary items]}] (map-indexed vector details)]
-             [:details.wizard__details {:key n}
-              [:summary summary]
-              [:ul.wizard__rows
-               (for [[n item] (map-indexed vector items)
-                     :let [[lead about] (if (vector? item) item [nil item])]]
-                 [:li {:key n}
-                  [:span.wizard__lead lead]
-                  [:span (draw about)]])]])])]
-       [:footer
-        [:button {:type "button" :on-click close!}
-         (i18n/da-en languages "Annullér" "Cancel")]
-        (when (pos? i)
-          [:button {:type "button" :on-click #(reset! step (dec i))}
-           (i18n/da-en languages "Tilbage" "Back")])
-        (if (= i (dec (count steps)))
-          ;; The button can be where the one for the next step was, or the
-          ;; one that opened the wizard, so it leaves out the second click of
-          ;; a double click on that.
-          [:button.wizard__done
-           {:type             "button"
-            :key              "done"
-            :aria-describedby (when warning "wizard-warning")
-            :on-click         #?(:clj  nil
-                                 :cljs #(when (< 500 (- (js/Date.now)
-                                                        @(::changed state)))
-                                          (on-done current)))}
-           done]
-          [:button {:type "button" :key "next" :on-click #(reset! step (inc i))}
-           (i18n/da-en languages "Næste" "Next")])]])))
+          (details-list details draw))]
+       (footer languages
+               {:on-back  (when (pos? i)
+                            #(reset! step (dec i)))
+                :on-next  (when-not last?
+                            #(reset! step (inc i)))
+                :done     done
+                :warning? (some? warning)
+                ;; The button can be where the one for the next step was, or
+                ;; the one that opened the wizard, so it leaves out the
+                ;; second click of a double click on that.
+                :on-done  #?(:clj  nil
+                             :cljs #(when (< 500 (- (js/Date.now)
+                                                    @(::changed state)))
+                                      (on-done current)))})])))

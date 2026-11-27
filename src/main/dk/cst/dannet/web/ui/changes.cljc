@@ -272,38 +272,31 @@
   entry away."
   [{:keys [languages] :as opts} resource s p
    {:keys [value status original moved-to] :as field}]
-  (let [content (fn [tag v class]
-                  [tag (update (rdf/lone-value-attrs v) :class
-                               #(remove nil? ["edit-value__content" class %]))
-                   (rdf/value opts v)])
-        text    (if (keyword? value) (rdf/link-label opts value) (str value))
+  (let [text    (edit/value-text opts value)
         whole?  (whole? opts resource)
         note    (or (edit/move-note opts field)
                     (when (and (= status :retracted) (not whole?))
                       (edit/removed-note opts value)))
-        main    (case status
-                  :retracted (content :del value nil)
-                  (:added :moved) (content :ins value nil)
-                  :edited [:span.edit-value__content
-                           (content :del original "edit-value__old")
-                           (content :ins value nil)])
+        main    (if (= status :edited)
+                  [:span.edit-value__content
+                   (edit/value-content opts :del original "edit-value__old")
+                   (edit/value-content opts :ins value)]
+                  (edit/value-content opts (edit/status-tag status) value))
         t       [s p value]
-        removal (str (i18n/da-en languages "Fjern" "Remove") ": " text)]
+        label   (edit/remove-label languages text)]
     [:li.edit-value {:class (str "edit-value--" (name status))}
-     (if note
-       [:span.edit-value__content main note]
-       main)
+     (edit/with-note main note)
      (when-not whole?
        [:span.edit-value__actions
         (cond
           (and (= status :added) (change/temporary? value))
-          (edit/icon-button "remove" removal
+          (edit/icon-button "remove" label
                             (fn [_]
                               (focus-status!)
                               (edit/discard-entry! opts value)))
 
           (= status :added)
-          (edit/icon-button "remove" removal
+          (edit/icon-button "remove" label
                             #(app/update-changes! change/without-addition t))
 
           :else
@@ -337,8 +330,7 @@
                             (edit/undo-label languages :retracted text)
                             undo!)
           (edit/icon-button "remove"
-                            (str (i18n/da-en languages "Fjern" "Remove")
-                                 ": " text)
+                            (edit/remove-label languages text)
                             undo!))])]))
 
 (rum/defc changed-rows

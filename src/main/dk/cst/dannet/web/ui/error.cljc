@@ -62,7 +62,7 @@
   The anomaly map should contain ::anom/category, :message {:da ... :en ...},
   :retry?, and optionally :details."
   [{::anom/keys [category] :keys [message retry? details]} languages]
-  (let [msg (i18n/da-en languages (:da message) (:en message))]
+  (let [msg (i18n/localize languages message)]
     [:details.render-error
      [:summary "⚠️ " msg]
      ;; TODO: is this needed?

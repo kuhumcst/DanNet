@@ -80,8 +80,8 @@
        [:section {:key (str (or group-key "other"))}
         [:h2 (if (string? title)
                title
-               (i18n/da-en languages (:da title) (:en title)))]
-        [:p.subheading (i18n/da-en languages (:da desc) (:en desc))]
+               (i18n/localize languages title))]
+        [:p.subheading (i18n/localize languages desc)]
         [:table.attr-val
          [:colgroup
           [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]

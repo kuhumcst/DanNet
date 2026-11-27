@@ -26,6 +26,12 @@
     da
     en))
 
+(defn localize
+  "Return the :da of the map `m` when Danish comes first in `languages`,
+  otherwise its :en."
+  [languages m]
+  (da-en languages (:da m) (:en m)))
+
 (def rdf-string?
   "Tests whether the input is an RDF string value."
   (some-fn string? #(instance? LangString %)))

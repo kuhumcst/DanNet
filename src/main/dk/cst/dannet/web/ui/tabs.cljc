@@ -69,7 +69,7 @@
         view-ids (mapv :id views)
         card?    (:card? view true)
         content  ((:render view) subentity opts)
-        localize #(i18n/da-en languages (:da %) (:en %))]
+        localize #(i18n/localize languages %)]
     (if (and edit-mode (:editable? view))
       (if card?
         [:div.card content]

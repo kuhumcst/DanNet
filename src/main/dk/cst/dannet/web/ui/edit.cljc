@@ -174,6 +174,15 @@
   [e selector]
   (some-> (.. e -target -parentNode) (.querySelector selector) (.focus)))
 
+(defn close-fn
+  "A function for the :on-close of a dialog, which sets the flag `showing?`
+  of the dialog to false and moves the focus to the control next to the
+  dialog that the CSS `selector` matches (see focus-beside!)."
+  [showing? selector]
+  (fn [e]
+    (reset! showing? false)
+    (focus-beside! e selector)))
+
 (defn removal-reason
   "Why the entry `v` can't be chosen as a value when the pending `changes`
   remove it as a whole, for a reader with `languages`. Nil when they don't."
@@ -215,7 +224,7 @@
   (let [results  (::results state)
         searches (::searches state)
         text     (::text state)
-        localize #(i18n/da-en languages (:da %) (:en %))
+        localize #(i18n/localize languages %)
         refusal  #(or (when refuse-fn (refuse-fn %))
                       (removal-reason languages changes (value-fn %)))
         offer    (when new-fn (new-fn @text))
@@ -345,6 +354,45 @@
   (or (some->> description (i18n/select-label languages) (str))
       (i18n/da-en languages "Ikke en gyldig værdi" "Not a valid value")))
 
+(defn entered-text
+  "What an input does with the trimmed text `s` that is entered in it, by
+  how its `props` set it up, before the text is parsed:
+
+  - :empty, an empty text takes the value away, when it is :removable?;
+  - :refuse, an empty text is refused, when the value is :required?;
+  - :cancel, nothing is new: another empty text, or the :start text of the
+    input, unless it is :retagged? with another language;
+  - :parse, any other text is parsed as a value.
+
+  Nothing is refused when the focus is :leaving? the input."
+  [s {:keys [start retagged? removable? required? leaving?] :as props}]
+  (cond
+    (and (empty? s) removable?) :empty
+    (and (empty? s) required? (not leaving?)) :refuse
+    (or (empty? s) (and (= s start) (not retagged?))) :cancel
+    :else :parse))
+
+(defn entered-value
+  "What an input does with `v`, the value that an entered text is parsed
+  as, by how its `props` set it up:
+
+  - :invalid, the text isn't a value, so `v` is nil;
+  - :value, the value is entered;
+  - :cancel, a value that can't be entered is dropped, when the focus is
+    :leaving? the input;
+  - :refuse, it is refused otherwise.
+
+  A value can't be entered when it is among :taken, or when it is an entry
+  that the pending :changes remove."
+  [v {:keys [taken changes leaving?] :as props}]
+  (cond
+    (nil? v) :invalid
+    (and (not-any? #{v} taken) (not (entry/removed? changes v))) :value
+    leaving? :cancel
+    :else :refuse))
+
+(declare action-buttons)
+
 (rum/defcs text-input < (rum/local nil ::invalid?)
                         (rum/local nil ::refusal)
                         (rum/local false ::entering?)
@@ -354,17 +402,17 @@
   ui.input-type), named by `label`. It starts with the `draft` or else the
   `value`, in the language `lang` or one chosen among `langs`.
 
-  Enter, or the focus leaving, enters the text: the input calls `on-value`
-  with a value, `on-invalid` with a text that isn't one and whether the
-  focus is leaving, `on-empty` for an empty text, or `on-cancel` when
-  nothing is new, as Escape does. On Enter it refuses a value among `taken`,
-  an entry that is being removed, and an empty text with a `keep-reason`.
-  The `undo` and the :remove are each the label and function of a button."
+  Enter, or the focus leaving, enters the text (see entered-text and
+  entered-value): the input calls `on-value` with a value, `on-invalid` with
+  a text that isn't one and whether the focus is leaving, `on-empty` for an
+  empty text, or `on-cancel` when nothing is new, as Escape does. On Enter
+  it refuses a value among `taken`, an entry that is being removed, and an
+  empty text with a `keep-reason`. Its buttons are those of an open field
+  with the `tint`, from `actions` (see action-buttons)."
   [state {:keys [languages changes] :as opts}
    {:keys [parse-fn format-fn search] :as input-type}
-   {:keys [value draft lang langs label undo taken keep-reason on-value
-           on-cancel on-invalid on-empty]
-    removal :remove}]
+   {:keys [value draft lang langs label tint actions taken keep-reason
+           on-value on-cancel on-invalid on-empty]}]
   (let [entering?  (::entering? state)
         searching? (::searching? state)
         ;; nil until the text is checked or typed in: a draft is invalid
@@ -378,65 +426,55 @@
         taken-reason (i18n/da-en languages
                        "Rækken har allerede denne værdi"
                        "The row already has this value")
+        own        (action-buttons true tint actions)
         ;; why the entered text is refused, when it isn't for its form
         refusal    (::refusal state)
-        refuse!    (fn [input why]
+        ;; a text that isn't entered has `why` as its validity message
+        flag!      (fn [input why]
                      (reset! entering? false)
-                     (reset! refusal why)
                      (reset! invalid? true)
-                     (.setCustomValidity input why)
+                     (.setCustomValidity input why))
+        refuse!    (fn [input why]
+                     (reset! refusal why)
+                     (flag! input why)
                      (.reportValidity input))
-        ;; A text is entered once, though the focus may leave right after
-        ;; Enter. The browser's report takes the focus, so it is for Enter.
+        setup      {;; nothing is new since a text was last entered
+                    :start      (or draft old-text)
+                    :retagged?  (not= lang' lang)
+                    :removable? (some? on-empty)
+                    :required?  (some? keep-reason)}
+        ;; the browser's report takes the focus, so it is for Enter
+        parsed!    (fn [input s v leaving?]
+                     (case (entered-value v {:taken    taken
+                                             :changes  changes
+                                             :leaving? leaving?})
+                       :invalid (do (flag! input message)
+                                    (on-invalid s leaving?)
+                                    (when-not leaving?
+                                      (.reportValidity input)))
+                       :value (on-value v)
+                       :cancel (on-cancel)
+                       :refuse (refuse! input
+                                        (or (removal-reason languages changes v)
+                                            taken-reason))))
+        ;; a text is entered once, though the focus may leave right after
+        ;; Enter
         enter!     (fn [input leaving?]
                      (let [s (str/trim (.-value input))]
-                       (cond
-                         @entering?
-                         nil
-
-                         (and (empty? s) on-empty)
-                         (do (reset! entering? true)
-                             (on-empty))
-
-                         (and (empty? s) keep-reason (not leaving?))
-                         (refuse! input keep-reason)
-
-                         ;; nothing new since a text was last entered
-                         (or (empty? s)
-                             (and (= s (or draft old-text)) (= lang' lang)))
-                         (on-cancel)
-
-                         :else
-                         #?(:clj nil
-                            :cljs
-                            (do
-                              (reset! entering? true)
-                              (.then (js/Promise.resolve (parse-fn s lang'))
-                                     (fn [v]
-                                       (cond
-                                         (nil? v)
-                                         (do
-                                           (reset! entering? false)
-                                           (reset! invalid? true)
-                                           (.setCustomValidity input message)
-                                           (on-invalid s leaving?)
-                                           (when-not leaving?
-                                             (.reportValidity input)))
-
-                                         (and (not-any? #{v} taken)
-                                              (not (entry/removed? changes
-                                                                     v)))
-                                         (on-value v)
-
-                                         leaving?
-                                         (on-cancel)
-
-                                         :else
-                                         (refuse!
-                                           input
-                                           (or (removal-reason languages
-                                                               changes v)
-                                               taken-reason))))))))))
+                       (when-not @entering?
+                         (case (entered-text s (assoc setup
+                                                 :leaving? leaving?))
+                           :empty (do (reset! entering? true)
+                                      (on-empty))
+                           :refuse (refuse! input keep-reason)
+                           :cancel (on-cancel)
+                           :parse
+                           #?(:clj nil
+                              :cljs
+                              (do
+                                (reset! entering? true)
+                                (.then (js/Promise.resolve (parse-fn s lang'))
+                                       #(parsed! input s % leaving?))))))))
         cancel!    (fn []
                      (reset! entering? true)
                      (on-cancel))
@@ -476,21 +514,17 @@
                     {:on-key-down (fn [e]
                                     (when (= "Escape" (.-key e))
                                       (cancel!)))}))
-     (when (or undo removal search)
+     (when (or (seq own) search)
        [:span.edit-value__actions
-        (when-let [[label f] undo]
-          (icon-button "undo" label f))
-        (when-let [[label f] removal]
-          (icon-button "remove" label f))
+        own
         (when search
           (icon-button "search" (i18n/da-en languages "Søg" "Search")
                        #(reset! searching? true)))])
      (when @searching?
        (search-dialog opts search
                       {:on-value on-value
-                       :on-close (fn [e]
-                                   (reset! searching? false)
-                                   (focus-beside! e ".edit-value__input"))}))]))
+                       :on-close (close-fn searching?
+                                           ".edit-value__input")}))]))
 
 (defn input
   "The input in a table with `opts` for a value of the `input-type`, with
@@ -515,6 +549,12 @@
                                 (.querySelector selector)
                                 (.focus)))))
                  state)})
+
+(defn refocus!
+  "Have the field with the component `state` move the focus to its control
+  that the CSS `selector` matches, once it is drawn again (see refocus)."
+  [state selector]
+  (vreset! (::refocus state) selector))
 
 (def keep-focus
   "A mixin for a field. When the field goes away while the focus is in it,
@@ -600,19 +640,25 @@
         (and (not open?) (contains? #{nil :edited :moved} tint)))
     (conj :remove)))
 
+(defn action-buttons
+  "The buttons of a field with the `tint`, by whether it is `open?` as an
+  input (see field-buttons), from `actions`, a map of a button to its label
+  and function. A button that isn't among them is left out.
+
+  With `required`, the mark of a value that its row must keep, the mark is
+  there in place of the button that removes the value."
+  [open? tint actions & [required]]
+  (for [button (field-buttons open? tint)
+        :let   [[label f :as action] (get actions button)
+                mark (when (= button :remove) required)]
+        :when  (or action mark)]
+    (or mark (icon-button (name button) label f))))
+
 (defn buttons
-  "The buttons of a closed field with the `tint` (see field-buttons), from
-  `actions`, a map of a button to its label and function. A button that
-  isn't among them is left out. With `required`, the mark of a value that
-  its row must keep, the mark is there in place of the button that removes
-  the value."
+  "The buttons of a closed field with the `tint`, from `actions` and with
+  the mark `required` (see action-buttons)."
   [tint actions & [required]]
-  [:span.edit-value__actions
-   (for [button (field-buttons false tint)
-         :let   [[label f :as action] (get actions button)
-                 mark (when (= button :remove) required)]
-         :when  (or action mark)]
-     (or mark (icon-button (name button) label f)))])
+  [:span.edit-value__actions (action-buttons false tint actions required)])
 
 (defn opens-input?
   "Does the click `e` open the input of a closed field? Not on a link or a
@@ -687,6 +733,18 @@
            "Fortryd rettelse af" "Undo edit of"))
        ": " text))
 
+(defn edit-label
+  "The name of the button that opens the input of the value that `text`
+  names, for a reader with `languages`."
+  [languages text]
+  (str (i18n/da-en languages "Ret" "Edit") ": " text))
+
+(defn remove-label
+  "The name of the button that takes away the value that `text` names, for
+  a reader with `languages`."
+  [languages text]
+  (str (i18n/da-en languages "Fjern" "Remove") ": " text))
+
 (defn move-note
   "The note of a value that has moved from one row to another, for a reader
   of a table with `opts`: the property that the `field` (see row/fields)
@@ -719,6 +777,32 @@
     (rdf/link-label opts v)
     (str v)))
 
+(defn status-tag
+  "The element that marks a value with the `status` (see row/fields) as a
+  change: :del for a removed one and :ins for an added, an edited or a moved
+  one. Nil for a value of the data."
+  [status]
+  (case status
+    :retracted :del
+    (:added :edited :moved) :ins
+    nil))
+
+(defn value-content
+  "The content of a field in a table with `opts`: an element with the `tag`
+  that holds the value `v`. With `class`, it has that class too."
+  [opts tag v & [class]]
+  [tag
+   (update (rdf/lone-value-attrs v) :class
+           #(remove nil? ["edit-value__content" class %]))
+   (rdf/value opts v)])
+
+(defn with-note
+  "The `content` of a field with the `note` after it, when it has one."
+  [content note]
+  (if note
+    [:span.edit-value__content content note]
+    content))
+
 (rum/defcs value-field < (rum/local false ::editing?)
                          (rum/local nil ::draft)
                          refocus
@@ -747,37 +831,36 @@
         ;; a pending value isn't in the data yet, so it has no origins
         shared?  (and (not (contains? #{:added :edited :moved} status))
                       (next (lock/value-origins opts k v)))
-        label    #(str (i18n/da-en languages %1 %2) ": "
-                       (or @draft (value-text opts v)))
+        text     (or @draft (value-text opts v))
         close!   (fn []
-                   (vreset! (::refocus state) "button")
+                   (refocus! state "button")
                    (reset! editing? false))
         open!    (fn [e]
                    (when (and (not @editing?) (opens-input? e))
                      (reset! editing? true)))
         ;; a new status replaces the content, and with it the control in focus
         retag!   (fn [lang']
-                   (vreset! (::refocus state) (if lang' "select" "button"))
+                   (refocus! state (if lang' "select" "button"))
                    (edit! opts change/replace
                           t [subject k (i18n/with-lang v lang')]))
-        undo     [(undo-label languages (if moved-to :moved tint)
-                              (or @draft (value-text opts v)))
-                  (fn [_]
-                    (reset! draft nil)
-                    (close!)
-                    (when status
-                      (edit! opts change/without-triple t)))]
         ;; A pending value is taken away, and what its change removes stays
         ;; removed: the value that it replaces, or the one in its old row.
         remove!  (fn [& _]
                    (reset! draft nil)
                    ;; a removed value keeps its field, with other buttons
-                   (vreset! (::refocus state) "button")
+                   (refocus! state "button")
                    (cond
                      on-remove (on-remove)
                      status (edit! opts change/without-addition t)
                      :else (edit! opts change/retract t)))
-        removal  [(label "Fjern" "Remove") remove!]
+        actions  {:edit   [(edit-label languages text) #(reset! editing? true)]
+                  :undo   [(undo-label languages (if moved-to :moved tint) text)
+                           (fn [_]
+                             (reset! draft nil)
+                             (close!)
+                             (when status
+                               (edit! opts change/without-triple t)))]
+                  :remove [(remove-label languages text) remove!]}
         note     (or (move-note opts props)
                      (when (= status :retracted)
                        (removed-note opts v)))
@@ -811,11 +894,9 @@
                :draft      @draft
                :lang       lang
                :langs      langs
-               :label      (label "Ret" "Edit")
-               :undo       (when (some #{:undo} (field-buttons true tint))
-                             undo)
-               :remove     (when (some #{:remove} (field-buttons true tint))
-                             removal)
+               :label      (edit-label languages text)
+               :tint       tint
+               :actions    actions
                :on-cancel  close!
                :on-empty   (when-not required
                              (fn []
@@ -836,26 +917,17 @@
        (invalid-content @draft message)
 
        :else
-       (let [content [(case status
-                        :retracted :del
-                        (:added :edited :moved) :ins
-                        :span)
-                      (update (rdf/lone-value-attrs v) :class
-                              #(remove nil? ["edit-value__content" %]))
-                      (rdf/value opts v)
-                      ;; A text without a tag gets its dropdown in the input,
-                      ;; and a text that can only be in its own language
-                      ;; keeps the plain tag.
-                      (when (and langs lang (not= langs [lang])
-                                 (not= status :retracted))
-                        (lang-select opts langs lang retag!))]]
-         (if note
-           [:span.edit-value__content content note]
-           content)))
+       (with-note
+         (conj (value-content opts (or (status-tag status) :span) v)
+               ;; A text without a tag gets its dropdown in the input, and a
+               ;; text that can only be in its own language keeps the plain
+               ;; tag.
+               (when (and langs lang (not= langs [lang])
+                          (not= status :retracted))
+                 (lang-select opts langs lang retag!)))
+         note))
      (when-not @editing?
-       (buttons tint {:edit   [(label "Ret" "Edit") #(reset! editing? true)]
-                      :undo   undo
-                      :remove removal}
+       (buttons tint actions
                 (when required
                   (required-mark languages required))))]))
 
@@ -881,7 +953,7 @@
                   gap? (str " " (i18n/da-en languages "på" "in")
                             " " (language-name languages lang)))
         close!  (fn []
-                  (vreset! (::refocus state) "button")
+                  (refocus! state "button")
                   (reset! adding? false))
         open!   (fn [e]
                   (when (opens-input? e)
@@ -889,8 +961,8 @@
         drop!   (fn [& _]
                   (reset! draft nil)
                   (close!))
-        removal [(str (i18n/da-en languages "Fjern" "Remove") ": " @draft)
-                 drop!]
+        actions {:edit   [(edit-label languages @draft) #(reset! adding? true)]
+                 :remove [(remove-label languages @draft) drop!]}
         message (invalid-message languages input-type)]
     [:li.edit-value
      (cond
@@ -908,8 +980,8 @@
                :langs      langs
                :label      label
                :taken      taken
-               :remove     (when (some #{:remove} (field-buttons true tint))
-                             removal)
+               :tint       tint
+               :actions    actions
                :on-cancel  close!
                :on-empty   (when @draft drop!)
                :on-invalid (fn [s leaving?]
@@ -927,10 +999,7 @@
        @draft
        [:<>
         (invalid-content @draft message)
-        (buttons tint {:edit   [(str (i18n/da-en languages "Ret" "Edit")
-                                     ": " @draft)
-                                #(reset! adding? true)]
-                       :remove removal})]
+        (buttons tint actions)]
 
        :else
        (add-button label #(reset! adding? true) (when gap? lang)))]))
@@ -963,19 +1032,17 @@
                                      (subject-of opts)))
         text     (cond-> (if label (str label) (prefix/kw->qname id))
                    (seq others) (str " (" (str/join ", " others) ")"))
-        named    #(str (i18n/da-en languages %1 %2) ": " text)
         close!   (fn []
-                   (vreset! (::refocus state) "button")
+                   (refocus! state "button")
                    (reset! editing? false))
-        removal  [(named "Fjern" "Remove")
-                  (fn [& _]
-                    (edit! opts without)
-                    ;; the page of a new entry that went with it is empty
-                    (when (and draft?
-                               (nil? (entry/entity (without changes)
-                                                   subject)))
-                      (app/navigate-to prefix/changes-path
-                                       {:replace? true})))]]
+        remove!  (fn [& _]
+                   (edit! opts without)
+                   ;; the page of a new entry that went with it is empty
+                   (when (and draft?
+                              (nil? (entry/entity (without changes) subject)))
+                     (app/navigate-to prefix/changes-path {:replace? true})))
+        actions  {:edit   [(edit-label languages text) #(reset! editing? true)]
+                  :remove [(remove-label languages text) remove!]}]
     [:li.edit-value.edit-value--added
      (cond-> {:data-entry (prefix/kw->qname id)}
        (not @editing?) (assoc :class "edit-value--clickable"
@@ -986,8 +1053,9 @@
        (text-input opts input-type/text
                    {:value       label
                     :lang        (i18n/lang label)
-                    :label       (named "Ret" "Edit")
-                    :remove      removal
+                    :label       (edit-label languages text)
+                    :tint        :added
+                    :actions     actions
                     :keep-reason (i18n/da-en languages
                                    "En ny ressource skal have en etiket"
                                    "A new resource needs a label")
@@ -1002,15 +1070,10 @@
                                             [id :rdfs/label label'])))})
        [:<>
         ;; as any other resource in the row, so with a link to its page
-        (let [content [:ins.edit-value__content (rdf/value opts id)]]
-          (if (seq others)
-            [:span.edit-value__content
-             content
-             [:small.edit-value__note (str/join ", " others)]]
-            content))
-        (buttons :added {:edit   [(named "Ret" "Edit")
-                                  #(reset! editing? true)]
-                         :remove removal})])]))
+        (with-note [:ins.edit-value__content (rdf/value opts id)]
+                   (when (seq others)
+                     [:small.edit-value__note (str/join ", " others)]))
+        (buttons :added actions)])]))
 
 (defn discard-entry!
   "Take the new entry with the `id` out of the pending changes of a page
@@ -1174,11 +1237,7 @@
         removed?  (= status :retracted)
         text      (value-text opts v)
         link      [(subject-of opts) k v]
-        refocus!  #(vreset! (::refocus state) "button")
-        content   [(if removed? :del :span)
-                   (update (rdf/lone-value-attrs v) :class
-                           #(remove nil? ["edit-value__content" %]))
-                   (rdf/value opts v)]]
+        content   (value-content opts (or (status-tag status) :span) v)]
     [:li.edit-value (when removed? {:class "edit-value--retracted"})
      (if removed?
        [:span.edit-value__content content (removed-note opts v)]
@@ -1186,7 +1245,7 @@
      (buttons status
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
-                          (refocus!)
+                          (refocus! state "button")
                           (edit! opts change/without-triple link))]
                :remove [(str (i18n/da-en languages
                                "Fjern hele ressourcen"
@@ -1199,7 +1258,7 @@
        (removal-wizard opts v
                        {:on-done  (fn []
                                     (reset! removing? false)
-                                    (refocus!))
+                                    (refocus! state "button"))
                         :on-close #(reset! removing? false)}))]))
 
 (defn with-pending
@@ -1233,7 +1292,7 @@
                       (if (:pending result)
                         [:<>
                          [:strong (str label)]
-                         [:span (i18n/da-en languages (:da kind) (:en kind))]]
+                         [:span (i18n/localize languages kind)]]
                         (hiccup-fn result opts)))))))
 
 (rum/defcs new-entry-field < (rum/local false ::choosing?)
@@ -1319,8 +1378,7 @@
            taken (assoc :refuse-fn
                         (fn [result]
                           (when (contains? taken (value-fn result))
-                            (i18n/da-en languages
-                              (:da reason) (:en reason))))))
+                            (i18n/localize languages reason)))))
          {:on-result (fn [result]
                        (reset! choosing? false)
                        (add! result))
@@ -1329,9 +1387,7 @@
           :on-new    (fn [text]
                        (reset! choosing? false)
                        (make! text))
-          :on-close  (fn [e]
-                       (reset! choosing? false)
-                       (focus-beside! e "button"))}))]))
+          :on-close  (close-fn choosing? "button")}))]))
 
 (defn node-text
   "The text that names a blank node in the row of the property `k` in
@@ -1384,12 +1440,11 @@
                                              (:values place)))
         required (when-not (= status :added) required)
         ;; a new status replaces the button in focus with another
-        refocus! #(vreset! (::refocus state)
-                           ":scope > .edit-value__actions button")
+        button   ":scope > .edit-value__actions button"
         remove!  (fn [_]
                    (if node
                      (do
-                       (refocus!)
+                       (refocus! state button)
                        (app/remember-node! label place)
                        (edit! opts change/retract-node label place))
                      (edit! opts change/without-node label)))]
@@ -1411,10 +1466,9 @@
      (buttons status
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
-                          (refocus!)
+                          (refocus! state button)
                           (edit! opts change/without-node label))]
-               :remove [(str (i18n/da-en languages "Fjern" "Remove") ": " text)
-                        remove!]}
+               :remove [(remove-label languages text) remove!]}
               (when required
                 (required-mark languages required)))]))
 
@@ -1661,16 +1715,14 @@
      [:button {:type     "button"
                :on-click #(reset! choosing? true)}
       (icon "add")
-      (i18n/da-en languages (:da title) (:en title))]
+      (i18n/localize languages title)]
      (when @choosing?
        (search-dialog opts
                       (property-search opts ks title true)
                       {:on-value (fn [k]
                                    (reset! choosing? false)
                                    (on-add k))
-                       :on-close (fn [e]
-                                   (reset! choosing? false)
-                                   (focus-beside! e "button"))}))]))
+                       :on-close (close-fn choosing? "button")}))]))
 
 (defn open-new-value!
   "Open the field for a new value in the row of the property `k` in the
@@ -1717,11 +1769,11 @@
                                (fn [[before after]]
                                  (str before "\"" (rdf/link-label opts k) "\""
                                       after)))
-        [before after] (i18n/da-en languages (:da around) (:en around))]
+        [before after] (i18n/localize languages around)]
     (when (seq ks)
       [:<>
        (icon-button "edit"
-                    (i18n/da-en languages (:da title) (:en title))
+                    (i18n/localize languages title)
                     #(reset! choosing? true))
        (when @choosing?
          (search-dialog
@@ -1738,6 +1790,4 @@
                                          changes
                                          values)))
                         (focus-row! subject k'))
-            :on-close (fn [e]
-                        (reset! choosing? false)
-                        (focus-beside! e ".edit-value__button"))}))])))
+            :on-close (close-fn choosing? ".edit-value__button")}))])))
