@@ -30,12 +30,14 @@
                    (let [[_ {:keys [list-all? results-fn]}] (:rum/args state)]
                      (when list-all?
                        (.then (js/Promise.resolve (results-fn ""))
-                              #(reset! (::results state) (vec %))))))
+                              #(reset! (::results state) (vec %))
+                              #(reset! (::failed? state) true)))))
                 state)})
 
 (rum/defcs search-dialog < (rum/local nil ::results)
                            (rum/local 0 ::searches)
                            (rum/local "" ::text)
+                           (rum/local false ::failed?)
                            list-all
   "A dialog on a page with `opts` that finds a value with the `search` (see
   ui.input-type). It calls `on-value` with the chosen value, or `on-result`
@@ -45,7 +47,9 @@
   neither can an entry that the pending changes remove. With `new-fn`, a
   line before the results offers to make a value: the function takes the
   typed text and returns nil, or the :name of what it makes in each
-  language and the :text that it is made from. `on-new` gets the text."
+  language and the :text that it is made from. `on-new` gets the text.
+
+  When a search fails, the dialog says so, and Enter searches again."
   [state {:keys [languages changes] :as opts}
    {:keys [results-fn value-fn label-fn hiccup-fn refuse-fn one-line? title
            heading placeholder note]
@@ -54,6 +58,10 @@
   (let [results  (::results state)
         searches (::searches state)
         text     (::text state)
+        failed?  (::failed? state)
+        failure  (i18n/da-en languages
+                   "Søgningen mislykkedes. Tryk Enter for at prøve igen."
+                   "The search failed. Press Enter to try again.")
         localize #(i18n/localize languages %)
         refusal  #(or (when refuse-fn (refuse-fn %))
                       (removal-reason languages changes (value-fn %)))
@@ -69,9 +77,12 @@
                             (when (= n @searches)
                               (.then (js/Promise.resolve (results-fn s))
                                      #(when (= n @searches)
+                                        (reset! failed? false)
                                         (reset! results
                                                 (with-meta (vec %)
-                                                           {::search n}))))))
+                                                           {::search n})))
+                                     #(when (= n @searches)
+                                        (reset! failed? true)))))
                           200))))
         choose!  (fn [result]
                    (let [v (value-fn result)]
@@ -99,16 +110,22 @@
                                      (reset! text s)
                                      (search! s))
                 ;; Enter chooses the first result that can be chosen, once
-                ;; the results are those of the text in the input
+                ;; the results are those of the text in the input. After a
+                ;; search that failed, it searches again.
                 :on-key-down      (fn [e]
-                                    (when (and (= "Enter" (.-key e))
-                                               (= @searches
-                                                  (::search (meta @results) 0)))
-                                      (when-let [result (->> @results
-                                                             (remove refusal)
-                                                             (first))]
-                                        (.preventDefault e)
-                                        (choose! result))))}]
+                                    (when (= "Enter" (.-key e))
+                                      (cond
+                                        @failed?
+                                        (do (.preventDefault e)
+                                            (search! @text))
+
+                                        (= @searches
+                                           (::search (meta @results) 0))
+                                        (when-let [result (->> @results
+                                                               (remove refusal)
+                                                               (first))]
+                                          (.preventDefault e)
+                                          (choose! result)))))}]
        (when offer
          [:button.search-dialog__new {:type     "button"
                                       :on-click #(on-new @text)}
@@ -119,15 +136,20 @@
        ;; the number of results is announced, not every result, and so is the
        ;; line that offers to make a value of the text
        [:p.visually-hidden {:role "status"}
-        (when-let [n (some-> @results count)]
-          (str (i18n/da-en languages
-                 (str n (if (= n 1) " resultat" " resultater"))
-                 (str n (if (= n 1) " result" " results")))
-               (when offer
-                 (str ". " (localize (:name offer))
-                      (some->> (:text offer) (str ": "))))))]
+        (if @failed?
+          failure
+          (when-let [n (some-> @results count)]
+            (str (i18n/da-en languages
+                   (str n (if (= n 1) " resultat" " resultater"))
+                   (str n (if (= n 1) " result" " results")))
+                 (when offer
+                   (str ". " (localize (:name offer))
+                        (some->> (:text offer) (str ": ")))))))]
        [:div.search-dialog__body
         (cond
+          @failed?
+          [:p failure]
+
           (nil? @results)
           nil
 
