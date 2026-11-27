@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [flatland.ordered.map :as fop]
             [rum.core :as rum]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
@@ -10,8 +11,8 @@
             [dk.cst.dannet.web.section :as section]
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
-            [dk.cst.dannet.web.ui.edit :as edit]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
+            [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.entry :as entry-field]
             [dk.cst.dannet.web.ui.edit.row :as row]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
@@ -95,29 +96,29 @@
    locked?]
   [:<>
    (when (and edit-mode draft?)
-     (edit/discard-entry-button
+     (entry-field/discard-entry-button
        opts subject
        (fn [_]
-         (edit/discard-entry! opts subject)
+         (entry-field/discard-entry! opts subject)
          (app/navigate-to prefix/changes-path {:replace? true}))))
    (when (and edit-mode
               (not (or draft? removed? locked?))
               (entry/described? (:entries edit-rules) entity))
-     (edit/remove-entry-button opts subject))
+     (entry-field/remove-entry-button opts subject))
    (when removed?
      [:<>
       [:p.entry-removed
        (i18n/da-en languages
          "Denne ressource fjernes."
          "This resource is being removed.")]
-      (edit/restore-entry-button
+      (entry-field/restore-entry-button
         opts subject
         (fn [e]
           ;; the button goes away, so a link of the header gets the focus
           #?(:cljs (some-> (.closest (.-currentTarget e) "header")
                            (.querySelector "a")
                            (.focus)))
-          (edit/restore-entry! subject)))])])
+          (entry-field/restore-entry! subject)))])])
 
 (rum/defc entity-header
   "The header of the page of the entity in `opts`: its label and its IRI. In
@@ -154,7 +155,7 @@
        ;; inside the label, so that it stays by the first word when the
        ;; label takes several lines
        (when locked?
-         (edit/padlock (get-in comments [:locked :resource])))
+         (control/padlock (get-in comments [:locked :resource])))
        (if label
          (rdf/transform-val label opts)
          (if uri-only?

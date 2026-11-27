@@ -2,7 +2,7 @@
   "Tests for the opts that a page renders from."
   (:require [clojure.test :refer [deftest is]]
             [dk.cst.dannet.editable :as editable]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.web.ui.model :as model]))
 
 (def vovse #rdf/langstring ["vovse" "da"])

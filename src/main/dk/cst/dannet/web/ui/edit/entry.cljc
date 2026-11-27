@@ -1,387 +1,397 @@
 (ns dk.cst.dannet.web.ui.edit.entry
-  "The new entries of edit mode as data: the templates that make them, and
-  what the pending changes say about one. A new entry goes by a temporary ID
-  until a curator accepts it (see dk.cst.dannet.change). An entry of the
-  data that a template describes is removed as a whole (see with-removal).
+  "The fields of an entry in edit mode (see ui.edit): the field of a new
+  entry, of an entry of the data and for making an entry, with the buttons
+  and the wizard that take a whole entry away or put it back.
 
-  A template is a change with gaps. The rules of the editor have one for
-  each class of new entry (see dk.cst.dannet.editable). It is a map:
-
-  - :add, the triples of a new entry, with a ?symbol for each gap;
-  - :new, the gaps that are new entries, each with the kind that its
-    temporary ID names;
-  - :ask, the gaps that the editor asks for. A gap with classes is an
-    entry of DanNet of one of them: the page of an entry fills its own gap,
-    and the other is found, or made from the template of a class that the
-    typed text fits. A gap with a map is a text, in its :lang and of its
-    :pattern;
-  - :from, the gaps that start as a value of another gap, each with that
-    gap and the steps that lead from its value: a property to read, a
-    pattern whose first group is kept, or a text with %s for the value;
-  - :name, what a new entry of the class is called where the editor offers
-    to make one, in each language;
-  - :once, when two gaps share at most one new entry: the :link from one
-    to the other in the data, and the :reason, in each language, why a
-    second entry is refused;
-  - :note, what the template adds besides a value of the row, in each
-    language, which the editor says before anything is chosen."
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
+  The entries as data are in dk.cst.dannet.entry."
+  (:require [clojure.string :as str]
+            [rum.core :as rum]
             [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
+            [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.theophrastus.term :as term]))
+            [dk.cst.dannet.web.ui.dialog :as dialog]
+            [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.focus :as focus]
+            [dk.cst.dannet.web.ui.edit.input :as input]
+            [dk.cst.dannet.web.ui.edit.removal :as removal]
+            [dk.cst.dannet.web.ui.edit.value :as value]
+            [dk.cst.dannet.web.ui.input-type :as input-type]
+            [dk.cst.dannet.web.ui.rdf :as rdf]))
 
-(defn described?
-  "Is the `entity` of a class that has a template in `templates`?"
-  [templates entity]
-  (boolean (some #(contains? templates %)
-                 (shared/setify (:rdf/type entity)))))
+(rum/defcs entry-field < (rum/local false ::editing?)
+                         focus/refocus
+                         focus/keep-focus
+  "A field for the new entry with the temporary ID `id` in a row of a table
+  with `opts`: the label that the pending changes give the entry, as a link
+  to the page of the entry. The label can be edited here too. The remove
+  button takes the entry away, with what can't stay without it (see
+  entry/without).
 
-(defn link-triples
-  "The triples of the `template` that point to one of its new entries, e.g.
-  the one that gives a word its new sense."
-  [{:keys [new add] :as template}]
-  (filter (fn [[_ _ o]] (contains? new o)) add))
+  The field also names the other entries that hold the entry, e.g. the
+  synset of a new sense in the row of a word, which tells two senses with
+  the same label apart."
+  [state {:keys [languages changes draft? subject edit-rules] :as opts} id]
+  (let [editing? (::editing? state)
+        without  #(entry/without (:entries edit-rules) % id)
+        label    (get (entry/labels changes) id)
+        others   (map #(rdf/link-label opts %)
+                      (entry/held-by (:entries edit-rules) changes id
+                                     (value/subject-of opts)))
+        text     (cond-> (if label (str label) (prefix/kw->qname id))
+                   (seq others) (str " (" (str/join ", " others) ")"))
+        close!   (fn []
+                   (focus/refocus! state "button")
+                   (reset! editing? false))
+        remove!  (fn [& _]
+                   (value/edit! opts without)
+                   ;; the page of a new entry that went with it is empty
+                   (when (and draft?
+                              (nil? (entry/entity (without changes) subject)))
+                     (app/navigate-to prefix/changes-path {:replace? true})))
+        actions  {:edit   [(control/edit-label languages text)
+                           #(reset! editing? true)]
+                  :remove [(control/remove-label languages text) remove!]}]
+    [:li.edit-value.edit-value--added
+     (cond-> {:data-entry (prefix/kw->qname id)}
+       (not @editing?) (assoc :class "edit-value--clickable"
+                              :on-click (fn [e]
+                                          (when (focus/opens-input? e)
+                                            (reset! editing? true)))))
+     (if @editing?
+       (input/text-input
+         opts input-type/text
+         {:value       label
+          :lang        (i18n/lang label)
+          :label       (control/edit-label languages text)
+          :tint        :added
+          :actions     actions
+          :keep-reason (i18n/da-en languages
+                         "En ny ressource skal have en etiket"
+                         "A new resource needs a label")
+          :on-cancel   close!
+          :on-value    (fn [label']
+                         (close!)
+                         (if label
+                           (value/edit! opts change/replace
+                                        [id :rdfs/label label]
+                                        [id :rdfs/label label'])
+                           (value/edit! opts change/add
+                                        [id :rdfs/label label'])))})
+       [:<>
+        ;; as any other resource in the row, so with a link to its page
+        (value/with-note [:ins.edit-value__content (rdf/value opts id)]
+                         (when (seq others)
+                           [:small.edit-value__note (str/join ", " others)]))
+        (control/buttons :added actions)])]))
 
-(defn additions
-  "The triples that the pending `changes` add in all."
-  [changes]
-  (:add (change/net changes)))
+(defn discard-entry!
+  "Take the new entry with the `id` out of the pending changes of a page
+  with `opts`, with what can't stay without it (see entry/without)."
+  [{:keys [edit-rules] :as opts} id]
+  (app/update-changes! #(entry/without (:entries edit-rules) % id)))
 
-(defn for-row
-  "The template in `templates` that makes the new values of the property
-  `p`, as a map of the :template and the :given gap, which is the one that
-  the entry of the row fills. Nil when the values of the row aren't new
-  entries.
+(defn entry-button
+  "A button with the `text` that acts on the whole entry with the `id`, on a
+  page with `opts`. Its name also says which entry."
+  [opts id text on-click]
+  [:button.entry-button {:type       "button"
+                         :aria-label (str text ": " (rdf/link-label opts id))
+                         :on-click   on-click}
+   text])
 
-  A row takes new entries when a template has a triple of its property that
-  points to a new entry. So the template of a sense covers the senses of a
-  synset and the senses of a word."
-  [templates p]
-  (first (for [template (vals templates)
-               [s p']   (link-triples template)
-               :when    (= p p')]
-           {:template template :given s})))
+(defn discard-entry-button
+  "The button that takes the new entry with the `id` away as a whole, on a
+  page with `opts`. Its `on-click` does that (see discard-entry!), and what
+  the page needs besides, e.g. to move the focus."
+  [{:keys [languages] :as opts} id on-click]
+  (entry-button opts id
+                (i18n/da-en languages
+                  "Fjern den nye ressource"
+                  "Remove the new resource")
+                on-click))
 
-(defn asked
-  "The gaps of the `template` that the editor asks for when the gaps in
-  `filled` have values already, as a map of a gap to its classes."
-  [{:keys [ask] :as template} filled]
-  (apply dissoc ask filled))
+(defn restore-entry!
+  "Put the removed entry `id` of the data back: drop the pending change that
+  removes it as a whole (see entry/without-removal)."
+  [id]
+  (app/update-changes! entry/without-removal id))
 
-(defn- step
-  "The value `v` after a step `x` of a :from, or nil when it gives none: a
-  property of an entity, the first group of a pattern in a text, or a text
-  with the value in place of its %s. A text stays in its language."
-  [v x]
-  (cond
-    (keyword? x) (first (shared/setify (get v x)))
-    (string? x) (i18n/with-lang (str/replace x "%s" (str v)) (i18n/lang v))
-    :else (when-let [[_ s] (re-find x (str v))]
-            (i18n/with-lang s (i18n/lang v)))))
+(defn restore-entry-button
+  "The button that puts the removed entry with the `id` back, on a page
+  with `opts`. Its `on-click` does that (see restore-entry!), and what the
+  page needs besides, e.g. to move the focus."
+  [{:keys [languages] :as opts} id on-click]
+  (entry-button opts id
+                (i18n/da-en languages
+                  "Fortryd fjernelsen af ressourcen"
+                  "Undo the removal of the resource")
+                on-click))
 
-(defn starting
-  "The value that each :from gap of the `template` starts as, as a map of a
-  gap to its value. The `entities` are a map of a gap to what the editor
-  knows of its value: the entity of a page, the result of a search, or a
-  text."
-  [{:keys [from] :as template} entities]
-  (into {}
-        (keep (fn [[gap [source & steps]]]
-                (when-some [v (reduce #(or (step %1 %2) (reduced nil))
-                                      (get entities source)
-                                      steps)]
-                  [gap v])))
-        from))
+(defn fetch-removal
+  "A promise of what the server has for removing the entry `id` of the data
+  (see db.change/removal-parts), or of nil when the data has no such entry
+  or the request fails."
+  [id]
+  #?(:cljs
+     ;; each entry has a URL of its own, so one request doesn't end another
+     (let [url (str prefix/removal-path "?id="
+                    (js/encodeURIComponent (prefix/kw->qname id)))]
+       (-> (app/fetch! url)
+           (.then (fn [response]
+                    (app/clear-current-fetch url)
+                    (let [parts (get-in response [:body :data])]
+                      (when (and (= 200 (:status response))
+                                 (seq (:triples parts)))
+                        parts))))
+           (.catch (fn [_]
+                     (app/clear-current-fetch url)
+                     nil))))))
 
-(defn fill
-  "The change that makes the new entries of the `template`, where `values`
-  is a map of each other gap to its value, and of each blank node of the
-  template to a label that the session doesn't have. A new entry gets a
-  temporary ID that the pending `changes` don't have yet. A triple with a
-  gap that has no value is left out."
-  [{:keys [new add] :as template} changes values]
-  (let [ids     (update-vals new #(change/temporary-id changes %))
-        values' (merge values ids)]
-    {:add (into #{}
-                (keep (fn [triple]
-                        (let [triple' (mapv #(if (or (change/variable? %)
-                                                     (contains? values' %))
-                                               (get values' %)
-                                               %)
-                                            triple)]
-                          (when (every? some? triple')
-                            triple'))))
-                add)}))
+(defn entity-labels
+  "The label of each resource in `entities`, a map of a resource to its
+  entity as the server sends it, as a page with `opts` shows them."
+  [{:keys [detail-level] :as opts} entities]
+  (update-vals entities (shared/->entity-label-fn detail-level)))
 
-(defn fill-from
-  "The change that fills the `template` as fill does, with the `values` of
-  its gaps and with what its other gaps start as, by the `entities` (see
-  starting)."
-  [template changes values entities]
-  (fill template changes (merge (starting template entities) values)))
+(defn remove-entry!
+  "Make the removal of an entry of the data a pending change, on a page
+  with `opts`: the one that the `answers` of the editor make of the `parts`
+  that the server has for it (see ui.edit.removal and entry/with-removal). The
+  places of its blank nodes and the labels of its resources are kept, which
+  the list of the changes needs."
+  [{:keys [edit-rules] :as opts} parts answers]
+  (doseq [[label place] (removal/nodes parts)]
+    (app/remember-node! label place))
+  (app/remember-labels! (entity-labels opts (:entities parts)))
+  (value/edit! opts #(entry/with-removal (:entries edit-rules) %
+                                         (removal/removal parts answers))))
 
-(defn linked
-  "The values that the pending `changes` give the gap `other` of the
-  `template`, in the new entries where the gap `given` is `value`, as a
-  set."
-  [template changes given value other]
-  (let [added (additions changes)
-        link  (fn [gap]
-                (some (fn [[s p]] (when (= s gap) p))
-                      (link-triples template)))
-        made  (into #{}
-                    (keep (fn [[s p o]]
-                            (when (and (= s value)
-                                       (= p (link given))
-                                       (change/temporary? o))
-                              o)))
-                    added)]
-    (into #{}
-          (keep (fn [[s p o]]
-                  (when (and (= p (link other)) (contains? made o))
-                    s)))
-          added)))
+(def fetch-parts
+  "A mixin that asks the server for the parts of a removal when its wizard
+  is drawn, and keeps them as ::parts. The wizard closes when the data has
+  no such entry."
+  {:did-mount (fn [state]
+                #?(:cljs
+                   (let [[_ id {:keys [on-close]}] (:rum/args state)]
+                     (.then (fetch-removal id)
+                            #(if %
+                               (reset! (::parts state) %)
+                               (on-close)))))
+                state)})
 
-(defn known
-  "The values that the data has for the gap `other` of the `template`, as
-  a set, on the page of the `entity` that fills the gap `given`: the other
-  ends of the :link of its :once. A link that points to the entity is read
-  under the inverse of its property, as `inverses` has it."
-  [{:keys [once] :as template} inverses entity given other]
-  (let [[s p o] (:link once)]
-    (set (shared/setify
-           (cond
-             (= [s o] [given other]) (get entity p)
-             (= [s o] [other given]) (get entity (get inverses p)))))))
+(rum/defcs removal-wizard < (rum/local nil ::parts)
+                            fetch-parts
+  "The wizard that removes the entry `id` of the data, on a page with
+  `opts`. It is drawn once the server has given the parts of the removal.
+  Then it says what goes with the entry and asks about the rest (see
+  ui.edit.removal).
 
-(defn properties
-  "The properties that the `templates` name, as a set."
-  [templates]
-  (into #{}
-        (mapcat (fn [{:keys [add once]}]
-                  (map second (cond-> (seq add)
-                                (:link once) (conj (:link once))))))
-        (vals templates)))
+  It calls `on-done` right before the removal is made, e.g. to say where
+  the focus goes, and `on-close` when it closes without one."
+  [state {:keys [languages] :as opts} id {:keys [on-done on-close]}]
+  (when-let [parts @(::parts state)]
+    (let [labelled (update opts :k->label
+                           #(merge (entity-labels opts (:entities parts)) %))]
+      (dialog/wizard
+        languages
+        (assoc (removal/flow languages id parts)
+          ;; a link would leave the page, and the wizard with it
+          :resource-fn #(rdf/resource-name % labelled))
+        {:on-done  (fn [answers]
+                     (on-done)
+                     (remove-entry! opts parts answers))
+         :on-close on-close}))))
 
-(defn labels
-  "The label of each new entry that the pending `changes` give one, as a
-  map of its temporary ID to the label.
+(rum/defcs remove-entry-button < (rum/local nil ::opener)
+  "The button that removes the entry `id` of the data as a whole, on its own
+  page with `opts`. It opens the wizard of the removal, which has to be
+  confirmed (see removal-wizard).
 
-  With `derived`, the :derived-labels of the rules of the editor, a new
-  entry of one of their classes has the label that the build will write,
-  e.g. a new synset the labels of its senses."
-  ([changes]
-   (labels changes nil))
-  ([changes derived]
-   (let [added (additions changes)
-         own   (into {}
-                     (keep (fn [[s p o]]
-                             (when (and (= p :rdfs/label) (change/temporary? s))
-                               [s o])))
-                     added)]
-     (into own
-           (keep (fn [[s p o]]
-                   (when-let [[link label-fn] (and (= p :rdf/type)
-                                                   (change/temporary? s)
-                                                   (get derived o))]
-                     [s (label-fn (keep (fn [[s' p' o']]
-                                          (when (and (= s' s) (= p' link))
-                                            (get own o')))
-                                        added))])))
-           added))))
+  The button that puts the entry back then takes its place and the focus."
+  [state {:keys [languages] :as opts} id]
+  (let [opener (::opener state)]
+    [:<>
+     (entry-button
+       opts id
+       (i18n/da-en languages "Fjern ressourcen" "Remove the resource")
+       #(reset! opener (.-currentTarget %)))
+     (when-let [button @opener]
+       (removal-wizard
+         opts id
+         {:on-done  (fn []
+                      (reset! opener nil)
+                      #?(:cljs
+                         (let [header (.closest button "header")]
+                           ;; the header still has this button at first
+                           (focus/when-drawn!
+                             #(let [other (.querySelector
+                                            header ".entry-button")]
+                                (when (not= other button)
+                                  other))
+                             #(.focus %)))))
+          :on-close #(reset! opener nil)}))]))
 
-(defn of-class
-  "The new entries of the `class` that the pending `changes` make, as
-  their temporary IDs in order."
-  [changes class]
-  (sort (keep (fn [[s p o]]
-                (when (and (= p :rdf/type) (= o class) (change/temporary? s))
-                  s))
-              (additions changes))))
+(rum/defcs data-entry-field < (rum/local false ::removing?)
+                              focus/refocus
+                              focus/keep-focus
+  "A field for the entry `v` of the data in the row of the property `k` in
+  `opts`, when the row takes new entries, e.g. a sense of a synset. The
+  `props` are the field (see ui.edit.row/fields), with :required, the
+  constraints of a row that must keep the value.
 
-(defn held-by
-  "The entries that hold the new entry with the `id` in the pending
-  `changes`, by the template of its class in `templates`, besides the
-  entry `s` whose row it is shown in. A new sense in the row of a word is
-  held by its synset too.
+  The remove button removes the whole entry, since an entry without the
+  link would be broken. It opens the wizard of the removal (see
+  removal-wizard). A removed entry says so, and its button puts it back."
+  [state {:keys [languages] :as opts} k v {:keys [status required]}]
+  (let [removing? (::removing? state)
+        removed?  (= status :retracted)
+        text      (value/value-text opts v)
+        link      [(value/subject-of opts) k v]
+        content   (value/value-content opts
+                                       (or (value/status-tag status) :span)
+                                       v)]
+    [:li.edit-value (when removed? {:class "edit-value--retracted"})
+     (if removed?
+       [:span.edit-value__content content (value/removed-note opts v)]
+       content)
+     (control/buttons
+       status
+       {:undo   [(control/undo-label languages :retracted text)
+                 (fn [_]
+                   (focus/refocus! state "button")
+                   (value/edit! opts change/without-triple link))]
+        :remove [(str (i18n/da-en languages
+                        "Fjern hele ressourcen"
+                        "Remove the whole resource")
+                      ": " text)
+                 #(reset! removing? true)]}
+       (when required
+         (control/required-mark languages required)))
+     (when @removing?
+       (removal-wizard opts v
+                       {:on-done  (fn []
+                                    (reset! removing? false)
+                                    (focus/refocus! state "button"))
+                        :on-close #(reset! removing? false)}))]))
 
-  An entry that the label of the new entry starts as is left out, since the
-  label names it already, e.g. the word of a new sense."
-  [templates changes id s]
-  (let [added (additions changes)
-        class (some (fn [[s' p o]]
-                      (when (and (= s' id) (= p :rdf/type))
-                        o))
-                    added)
-        {:keys [from] :as template} (get templates class)
-        named (into #{} (map first) (vals from))]
-    (sort (for [[gap p]   (link-triples template)
-                :when     (not (named gap))
-                [x p' o'] added
-                :when     (and (= p p') (= o' id) (not= x s))]
-            x))))
+(defn with-pending
+  "The `search` for an entry with the new entries in `pending` among its
+  results, before the ones that it finds itself: those whose label has the
+  typed text in it, and all of them before a text is typed.
 
-(defn entity
-  "The new entry with the `id` as the pending `changes` leave it, as a map
-  of its own values. Nil when the changes say nothing about the entry itself.
+  A pending result is a map of the :pending ID of a new entry, its :label
+  and its :kind, which is what such an entry is called in each language.
+  The result says it after its label."
+  [{:keys [results-fn value-fn label-fn hiccup-fn] :as search} pending]
+  (let [matching (fn [s]
+                   (let [s (str/lower-case (str/trim s))]
+                     (filter #(str/includes? (str/lower-case (str (:label %)))
+                                             s)
+                             pending)))]
+    (if (empty? pending)
+      search
+      (assoc search
+        :list-all?  true
+        ;; the search itself asks the server, which only a browser does
+        :results-fn (fn [s]
+                      #?(:clj  (matching s)
+                         :cljs (.then (js/Promise.resolve (results-fn s))
+                                      #(concat (matching s) %))))
+        :value-fn   #(or (:pending %) (value-fn %))
+        :label-fn   #(when (and label-fn (not (:pending %)))
+                       (label-fn %))
+        :hiccup-fn  (fn [{:keys [label kind] :as result}
+                         {:keys [languages] :as opts}]
+                      (if (:pending result)
+                        [:<>
+                         [:strong (str label)]
+                         [:span (i18n/localize languages kind)]]
+                        (hiccup-fn result opts)))))))
 
-  With `inverses`, it also has the resources that point to it, under the
-  inverse of the property that they do it with. A sense then shows its word
-  and its synset, as the page of a sense in the data does."
-  ([changes id]
-   (entity nil changes id))
-  ([inverses changes id]
-   (let [add (additions changes)
-         own (reduce (fn [entity [s p o]]
-                       (if (= s id)
-                         (update entity p (fnil conj #{}) o)
-                         entity))
-                     {}
-                     add)]
-     (when (seq own)
-       (->> (reduce (fn [entity [s p o]]
-                      (if-let [inverse (and (= o id) (get inverses p))]
-                        (update entity inverse (fnil conj #{}) s)
-                        entity))
-                    own
-                    add)
-            ;; a single value stands alone, as in the entity of a page
-            (into {} (map (fn [[p vs]]
-                            [p (if (next vs) vs (first vs))]))))))))
+(rum/defcs new-entry-field < (rum/local false ::choosing?)
+  "The field for a new entry in the row of the property `k` in `opts`: a
+  button that opens a dialog, which asks for the gap of the template of
+  `row-entry` that the subject of the row doesn't fill (see entry/for-row).
+  The answer fills the template.
 
-(defn new-entry
-  "A new entry made from the `template` of its class, to be the value of a
-  gap of another template: a map of its temporary :id and the :change that
-  makes it. The `text` is the one that the template asks for, when it asks
-  for one, and `node-labels` are labels for its blank nodes that the session
-  doesn't have. Nil when the text doesn't fit the template.
-
-  An entry that is made from a text also has the trimmed :text."
-  [{:keys [new add ask] :as template} changes text node-labels]
-  (let [[gap {:keys [lang pattern]}] (first (filter (comp map? val) ask))
-        value  (when gap
-                 (some-> text str/trim not-empty (i18n/with-lang lang)))
-        blanks (distinct (filter term/blank-node? (apply concat add)))]
-    (when (or (nil? gap)
-              (and value (or (nil? pattern) (re-find pattern (str value)))))
-      (cond-> {:id     (change/temporary-id changes (val (first new)))
-               :change (fill template changes
-                             (merge (when gap {gap value})
-                                    (starting template {gap value})
-                                    (zipmap blanks node-labels)))}
-        value (assoc :text (str value))))))
-
-(defn new-entry-of
-  "The new entry that the `text` makes of the first of the `classes` whose
-  template in `templates` it fits (see new-entry), with the :name of that
-  template. Nil when it fits none of them."
-  [templates classes changes text node-labels]
-  (some (fn [{:keys [name] :as template}]
-          (some-> (new-entry template changes text node-labels)
-                  (assoc :name name)))
-        (keep templates classes)))
-
-(defn fill-around
-  "The one change that makes the new entry `made` (see new-entry) and fills
-  the `template` with it as the value of its `gap`. The `values` and the
-  `entities` are those of the other gaps, as fill-from takes them."
-  [template changes gap {:keys [id change] :as made} values entities]
-  (let [around (fill-from template changes
-                          (assoc values gap id)
-                          (assoc entities gap (entity [change] id)))]
-    {:add (into (:add change) (:add around))}))
-
-(defn links
-  "The properties that the `templates` link a new entry with, as a set:
-  those of their triples that point to one, e.g. the property that gives a
-  word its sense. An entry can't stay without what holds it by such a link."
-  [templates]
-  (into #{} (comp (mapcat link-triples) (map second)) (vals templates)))
-
-(defn without
-  "The pending `changes` without the new entry with the `id`: the edits to
-  it (see change/without-entry), and then what can't stay without it, by
-  the `templates`.
-
-  That is its blank nodes and the new entries that a template links it to,
-  e.g. the new senses of a new word. A new entry that only held the entry
-  goes too, e.g. a new synset when its last sense is taken away. A new
-  entry that still holds another one stays, with every value that it has."
-  [templates changes id]
-  (let [link? (links templates)]
-    (loop [changes  (vec changes)
-           [x & xs] [id]]
-      (if (nil? x)
-        changes
-        (let [added   (additions changes)
-              kept    (change/without-entry changes x)
-              holds?  (fn [id]
-                        (some (fn [[s p _]] (and (= s id) (link? p)))
-                              (additions kept)))
-              needing (for [[s p o] added
-                            :when   (and (= s x)
-                                         (or (term/blank-node? o)
-                                             (and (link? p)
-                                                  (change/temporary? o))))]
-                        o)
-              holders (for [[s p o] added
-                            :when   (and (= o x)
-                                         (link? p)
-                                         (change/temporary? s))]
-                        s)]
-          (recur kept (distinct (concat xs needing
-                                        (remove holds? holders)))))))))
-
-(defn with-removal
-  "The pending `changes` with the change `removal` made, which takes
-  entries of the data out as a whole (see db.change/removal-parts).
-
-  The edits made before to what it removes are dropped, with what can't
-  stay without it (see without), but a link to it that was removed before
-  stays removed. An earlier removal stays whole, so that each can be undone
-  on its own, unless the new one covers it."
-  [templates changes removal]
-  (let [whole?   (comp seq change/removed)
-        covered? #(set/subset? (:retract %) (:retract removal))
-        nodes    (filter term/blank-node? (map peek (:retract removal)))
-        edits    (reduce #(without templates %1 %2)
-                         (remove whole? changes)
-                         (change/removed removal))]
-    (-> (reduce change/without-node edits nodes)
-        (into (remove covered?) (filter whole? changes))
-        (conj removal))))
-
-(defn removes?
-  "Does the `change` remove the entry `id` of the data as a whole?"
-  [change id]
-  (contains? (change/removed change) id))
-
-(defn removed?
-  "Do the pending `changes` remove the entry `id` of the data as a whole
-  (see with-removal)?"
-  [changes id]
-  (boolean (some #(removes? % id) changes)))
-
-(defn without-removal
-  "The pending `changes` without the ones that remove the entry `id` of the
-  data as a whole (see with-removal), which puts back what they removed."
-  [changes id]
-  (into [] (remove #(removes? % id)) changes))
-
-(defn page-data
-  "The data of the page of the new entry with the `id`, as the page of an
-  entry in the data has it, when the server has given the :constraints,
-  the :entities and the :inverses of its type as `content`. The page is a
-  :draft?, so that its entity is made from the pending changes each time it
-  is drawn."
-  [id {:keys [inverses] :as content}]
-  (assoc content
-    :subject id
-    :draft? true
-    ;; the graph that changes go to holds what the entry will have
-    :default-origin prefix/dn-graph
-    ;; a link to the entry isn't a value of the entry itself
-    :origins (zipmap (vals inverses) (repeat :inferred))))
+  The dialog says what the template adds besides, lists the new entries of
+  the classes of the gap, and refuses an answer that already shares an
+  entry of the template with the subject. It offers to make the answer
+  when the typed text fits the template of one of the classes, and a made
+  answer is shown on its own page."
+  [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
+   k {:keys [template given] :as row-entry}]
+  (let [choosing? (::choosing? state)
+        s         (value/subject-of opts)
+        entries   (:entries edit-rules)
+        [gap classes] (first (entry/asked template [given]))
+        labels    (entry/labels changes (:derived-labels edit-rules))
+        pending   (sort-by :pending
+                           (for [class classes
+                                 id    (entry/of-class changes class)]
+                             {:pending id
+                              :label   (get labels id)
+                              :kind    (:name (get entries class))}))
+        search    (with-pending (:search (some input-type/class-input-types
+                                               classes))
+                                pending)
+        value-fn  (:value-fn search)
+        taken     (when (:once template)
+                    (into (entry/known template inverses entity given gap)
+                          (entry/linked template changes given s gap)))
+        reason    (get-in template [:once :reason])
+        focus!    (fn [change]
+                    #?(:cljs
+                       (when-let [id (first (change/temporary-ids [change]))]
+                         (focus/when-drawn!
+                           #(.querySelector
+                              js/document
+                              (str "[data-entry=\"" (prefix/kw->qname id)
+                                   "\"] button"))
+                           #(.focus %)))))
+        add!      (fn [result]
+                    (let [found  (or (some->> (:pending result)
+                                              (entry/entity changes))
+                                     result)
+                          change (entry/fill-from template changes
+                                                  {given s
+                                                   gap   (value-fn result)}
+                                                  {given entity
+                                                   gap   found})]
+                      (value/edit! opts conj change)
+                      (focus! change)))
+        ;; a new answer is made from the template that the typed text fits
+        make      #(entry/new-entry-of entries classes changes %
+                                       (change/new-labels nodes))
+        make!     (fn [text]
+                    (let [{:keys [id] :as made} (make text)
+                          change (entry/fill-around template changes gap made
+                                                    {given s}
+                                                    {given entity})]
+                      ;; a new blank node has its place in the session
+                      (doseq [[label place] (change/new-places change)]
+                        (app/remember-node! label place))
+                      (value/edit! opts conj change)
+                      (app/navigate-to (prefix/resolve-href id))))]
+    [:li.edit-value.edit-value--new
+     (control/add-button (control/plus-label opts k) #(reset! choosing? true))
+     (when @choosing?
+       (input/search-dialog
+         opts
+         (cond-> (assoc search :note (:note template))
+           taken (assoc :refuse-fn
+                        (fn [result]
+                          (when (contains? taken (value-fn result))
+                            (i18n/localize languages reason)))))
+         {:on-result (fn [result]
+                       (reset! choosing? false)
+                       (add! result))
+          :new-fn    (when (some entries classes)
+                       make)
+          :on-new    (fn [text]
+                       (reset! choosing? false)
+                       (make! text))
+          :on-close  (focus/close-fn choosing? "button")}))]))

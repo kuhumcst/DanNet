@@ -11,12 +11,11 @@
             [reitit.frontend.history :as rfh]
             [taoensso.telemere :as t]
             [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.web.ui :as ui]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.error :as error :include-macros true]
-            [dk.cst.dannet.web.ui.input-type :as input-type]
             [dk.cst.dannet.web.ui.page :as page]
             [dk.cst.dannet.web.app :as app]))
 
@@ -229,7 +228,7 @@
   and its :class in the pending changes, or nil when it is the page of
   something else. The class is nil when no change makes the entry any more."
   [path]
-  (let [id (input-type/->resource (str input-type/site-root path))]
+  (let [id (prefix/->resource (str prefix/site-root path))]
     (when (change/temporary? id)
       {:id    id
        :class (-> (entry/entity (:changes @app/session) id)
@@ -265,7 +264,7 @@
         ;; from the pending changes.
         :else
         (fetch-page! path query-params
-                     "/dannet/edit/entry" {:class (prefix/kw->qname class)}
+                     prefix/entry-path {:class (prefix/kw->qname class)}
                      (fn [body]
                        {:page  :entity
                         :title (prefix/kw->qname id)

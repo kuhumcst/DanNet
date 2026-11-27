@@ -1,6 +1,7 @@
 (ns dk.cst.dannet.web.ui.page
   "The different page types rendered in the DanNet UI."
   (:require [rum.core :as rum]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.shared :as shared]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.i18n :as i18n]
@@ -8,7 +9,6 @@
             [dk.cst.dannet.web.ui.entity :as entity]
             [dk.cst.dannet.web.ui.catalog :as catalog]
             [dk.cst.dannet.web.ui.changes :as changes]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.relations :as rels]
             [dk.cst.dannet.web.ui.sparql :as sparql]

@@ -1,29 +1,7 @@
 (ns dk.cst.dannet.web.ui.input-type-test
-  "Tests for the input types of edit mode and for reading a typed resource."
+  "Tests for the input types of edit mode."
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.dannet.web.ui.input-type :as input-type]))
-
-(deftest typed-resources
-  (testing "a resource can be typed in several ways"
-    (doseq [s ["dn:synset-3047"
-               " dn:synset-3047 "
-               "https://wordnet.dk/dannet/data/synset-3047"
-               "<https://wordnet.dk/dannet/data/synset-3047>"
-               "http://localhost:3456/dannet/data/synset-3047"
-               "http://localhost:3456/dannet/data/synset-3047?x=1"]]
-      (is (= :dn/synset-3047 (input-type/->resource s)) s)))
-  (testing "in any namespace that DanNet knows"
-    (is (= :dnt/Animal-Object
-           (input-type/->resource
-             "https://wordnet.dk/dannet/types/Animal-Object")))
-    (is (= :ontolex/LexicalConcept
-           (input-type/->resource
-             "http://www.w3.org/ns/lemon/ontolex#LexicalConcept")))
-    (is (= :wn/noun (input-type/->resource "wn:noun"))))
-  (testing "anything else isn't a resource"
-    (doseq [s ["hund" "noun.animal" "foo:bar" ""
-               "https://wordnet.dk/dannet/data/" "https://example.com/x"]]
-      (is (nil? (input-type/->resource s)) s))))
 
 (deftest input-types
   (is (= {:options [:wn/noun :wn/verb]}

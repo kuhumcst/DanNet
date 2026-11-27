@@ -13,9 +13,9 @@
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.shapes :as shapes]
             [dk.cst.dannet.editable :as editable]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.test-util :as util]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]))
+            [dk.cst.dannet.test-util :as util]))
 
 (def ^:private prefixes "
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .

@@ -13,12 +13,15 @@
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.edit :as edit]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
+            [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.entry :as entry-field]
+            [dk.cst.dannet.web.ui.edit.node :as node]
             [dk.cst.dannet.web.ui.edit.row :as row]
+            [dk.cst.dannet.web.ui.edit.value :as value]
             [dk.cst.dannet.web.ui.rdf :as rdf]))
 
 (defn- subjects
@@ -127,7 +130,8 @@
            (.then (fn [response]
                     (let [{:keys [check entities]}
                           (get-in response [:body :data])]
-                      (app/remember-labels! (edit/entity-labels opts entities))
+                      (app/remember-labels!
+                        (entry-field/entity-labels opts entities))
                       (answer! check))))
            (.catch #(answer! {:failed? true}))))))
 
@@ -159,7 +163,7 @@
   [opts ids]
   #?(:cljs
      (let [qnames (map prefix/kw->qname (sort ids))
-           url    (str "/dannet/edit/references?ids="
+           url    (str prefix/references-path "?ids="
                        (js/encodeURIComponent (str/join "," qnames)))
            ;; an answer is dropped when the changes have changed
            same?  #(= ids (get-in @app/session [:references :ids]))]
@@ -171,7 +175,8 @@
                       ;; an ended request is cleared by what ended it
                       (when response
                         (app/clear-current-fetch url))
-                      (app/remember-labels! (edit/entity-labels opts entities))
+                      (app/remember-labels!
+                        (entry-field/entity-labels opts entities))
                       (cond
                         (not (same?)) nil
                         (nil? response) (swap! app/session dissoc :references)
@@ -242,37 +247,37 @@
   entry away."
   [{:keys [languages] :as opts} resource s p
    {:keys [value status original moved-to] :as field}]
-  (let [text    (edit/value-text opts value)
+  (let [text    (value/value-text opts value)
         whole?  (whole? opts resource)
-        note    (or (edit/move-note opts field)
+        note    (or (value/move-note opts field)
                     (when (and (= status :retracted) (not whole?))
-                      (edit/removed-note opts value)))
+                      (value/removed-note opts value)))
         main    (if (= status :edited)
                   [:span.edit-value__content
-                   (edit/value-content opts :del original "edit-value__old")
-                   (edit/value-content opts :ins value)]
-                  (edit/value-content opts (edit/status-tag status) value))
+                   (value/value-content opts :del original "edit-value__old")
+                   (value/value-content opts :ins value)]
+                  (value/value-content opts (value/status-tag status) value))
         t       [s p value]
-        label   (edit/remove-label languages text)]
+        label   (control/remove-label languages text)]
     [:li.edit-value {:class (str "edit-value--" (name status))}
-     (edit/with-note main note)
+     (value/with-note main note)
      (when-not whole?
        [:span.edit-value__actions
         (cond
           (and (= status :added) (change/temporary? value))
-          (edit/icon-button "remove" label
-                            (fn [_]
-                              (focus-status!)
-                              (edit/discard-entry! opts value)))
+          (control/icon-button "remove" label
+                               (fn [_]
+                                 (focus-status!)
+                                 (entry-field/discard-entry! opts value)))
 
           (= status :added)
-          (edit/icon-button "remove" label
-                            #(app/update-changes! change/without-addition t))
+          (control/icon-button "remove" label
+                               #(app/update-changes! change/without-addition t))
 
           :else
-          (edit/icon-button
+          (control/icon-button
             "undo"
-            (edit/undo-label languages (if moved-to :moved status) text)
+            (control/undo-label languages (if moved-to :moved status) text)
             #(app/update-changes! change/without-triple t)))])]))
 
 (declare changed-rows)
@@ -286,7 +291,7 @@
   [{:keys [languages] :as opts} resource p
    {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
-        text     (edit/node-text opts p (map :value (mapcat :fields rows)))
+        text     (node/node-text opts p (map :value (mapcat :fields rows)))
         undo!    #(app/update-changes! change/without-node value)]
     [:li.edit-value.edit-node {:class (str "edit-value--" (name status))}
      [(if removed? :del :ins) {:class "edit-value__content"}
@@ -296,12 +301,12 @@
      (when-not (whole? opts resource)
        [:span.edit-value__actions
         (if removed?
-          (edit/icon-button "undo"
-                            (edit/undo-label languages :retracted text)
-                            undo!)
-          (edit/icon-button "remove"
-                            (edit/remove-label languages text)
-                            undo!))])]))
+          (control/icon-button "undo"
+                               (control/undo-label languages :retracted text)
+                               undo!)
+          (control/icon-button "remove"
+                               (control/remove-label languages text)
+                               undo!))])]))
 
 (rum/defc changed-rows
   "A table of the `rows` of the pending changes to the `resource` (see
@@ -371,16 +376,18 @@
     (rdf/uri-link resource opts)
     (cond
       (change/temporary? resource)
-      (edit/discard-entry-button opts resource
-                                 (fn [_]
-                                   (focus-status!)
-                                   (edit/discard-entry! opts resource)))
+      (entry-field/discard-entry-button
+        opts resource
+        (fn [_]
+          (focus-status!)
+          (entry-field/discard-entry! opts resource)))
 
       (entry/removed? changes resource)
-      (edit/restore-entry-button opts resource
-                                 (fn [_]
-                                   (focus-status!)
-                                   (edit/restore-entry! resource))))
+      (entry-field/restore-entry-button
+        opts resource
+        (fn [_]
+          (focus-status!)
+          (entry-field/restore-entry! resource))))
     (when-let [counts (reference-counts opts resource)]
       [:p.entry-references
        (i18n/da-en languages

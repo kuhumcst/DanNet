@@ -13,9 +13,9 @@
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.db.change :as db.change]
             [dk.cst.dannet.editable :as editable]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.web.i18n :as i18n]
             [dk.cst.dannet.web.ui.changes :as changes]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
             [dk.cst.dannet.web.ui.edit.row :as row])
   (:import [java.io StringReader]
            [java.util Random]))

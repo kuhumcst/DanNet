@@ -59,119 +59,6 @@
             [dk.cst.theophrastus.term :as term]
             [dk.cst.dannet.prefix :as prefix]))
 
-;; An edit made twice is made once, so that a field which enters its value
-;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
-
-(defn with-change
-  "The pending `changes` with the `change` made, once: as a change of its
-  own, or by dropping an earlier change that is its `opposite`."
-  [changes change opposite]
-  (cond
-    (some #{opposite} changes) (into [] (remove #{opposite}) changes)
-    (some #{change} changes) (vec changes)
-    :else (conj (vec changes) change)))
-
-(defn add
-  "The pending `changes` with the triple `t` added: as a change of its own, or
-  by dropping an earlier change that only retracted `t`."
-  [changes t]
-  (with-change changes {:add #{t}} {:retract #{t}}))
-
-(defn retract
-  "The pending `changes` with the triple `t` retracted: as a change of its own,
-  or by dropping an earlier change that only added `t`."
-  [changes t]
-  (with-change changes {:retract #{t}} {:add #{t}}))
-
-(defn replace
-  "The pending `changes` with the triple `old` replaced by the triple `new`,
-  as one change that retracts `old` and adds `new`.
-
-  When an earlier change added `old`, that change adds `new` in its place,
-  so that replacing a value twice leaves one change. It is dropped when it
-  then retracts what it adds."
-  [changes old new]
-  (cond
-    (some #(contains? (:add %) old) changes)
-    (into []
-          (comp (map (fn [{:keys [add] :as change}]
-                       (if (contains? add old)
-                         (assoc change :add (-> add (disj old) (conj new)))
-                         change)))
-                (remove (fn [{:keys [add retract]}]
-                          (and (seq add) (= add retract)))))
-          changes)
-
-    (some #{{:retract #{old} :add #{new}}} changes)
-    (vec changes)
-
-    :else
-    (conj (vec changes) {:retract #{old} :add #{new}})))
-
-(defn without-triple
-  "The pending `changes` without the ones that add or retract the triple
-  `t`, which undoes the edit that `t` is part of. A change that unreferences
-  what `t` points to retracts it too."
-  [changes t]
-  (into []
-        (remove #(or (contains? (:add %) t)
-                     (contains? (:retract %) t)
-                     (contains? (:unreference %) (peek t))))
-        changes))
-
-(defn without-triples
-  "The pending `changes` without the triples that are `named?`, a function
-  of the key that a triple is under and the triple. A change keeps its
-  other triples, and what it unreferences stays as it is."
-  [changes named?]
-  (let [others (fn [change]
-                 (into (select-keys change [:unreference])
-                       (keep (fn [[k triples]]
-                               (when-let [kept (seq (remove #(named? k %)
-                                                            triples))]
-                                 [k (set kept)])))
-                       (dissoc change :unreference)))]
-    (into [] (comp (map others) (filter seq)) changes)))
-
-(defn without-addition
-  "The pending `changes` without the addition of the triple `t`. A change
-  that only adds `t` is dropped, and one that does more keeps the rest, so
-  that taking a value away puts nothing back."
-  [changes t]
-  (without-triples changes (fn [k t'] (and (= k :add) (= t' t)))))
-
-(defn without-node
-  "The pending `changes` without the triples that name the blank node
-  `label` as a subject or an object. That takes a new node away, and it
-  puts a removed one back. A change keeps its other triples, e.g. the ones
-  of a new word that was made with the node."
-  [changes label]
-  (without-triples changes (fn [_ [s _ o]] (or (= s label) (= o label)))))
-
-(defn without-entry
-  "The pending `changes` without the edits to the entry `id`: the triples
-  that it is the subject of, and the additions that point to it. That takes
-  a new entry away.
-
-  A retraction that points to the entry stays. It is an edit to the entry
-  that had the link, whatever happens to the one that it pointed to."
-  [changes id]
-  (without-triples changes (fn [k [s _ o]]
-                             (or (= s id)
-                                 (and (= o id) (not= k :retract))))))
-
-(defn retract-node
-  "The pending `changes` with the blank node `label` removed from its
-  `place`: the :subject and :property that hold it, and its :values as a
-  map of a property to a set of values. One change retracts the node and
-  all its values, and the changes made to the node before are dropped."
-  [changes label {:keys [subject property values] :as place}]
-  (conj (without-node changes label)
-        {:retract (into #{[subject property label]}
-                        (for [[p vs] values
-                              v      vs]
-                          [label p v]))}))
-
 (defn variable?
   "Is `x` a ?variable?"
   [x]
@@ -186,6 +73,15 @@
   "Is `x` an [s p o] vector of terms?"
   [x]
   (and (vector? x) (= 3 (count x)) (not-any? coll? x)))
+
+(defn temporary?
+  "Is `x` the temporary ID of a new entry, e.g. :dn/new-synset-1?"
+  [x]
+  (cond
+    (keyword? x) (and (= "dn" (namespace x))
+                      (str/starts-with? (name x) "new-"))
+    (string? x) (str/starts-with? x (str "<" prefix/dn-uri "new-"))
+    :else false))
 
 ;; TODO: the dn: graph also has blank nodes that nothing points to, mostly
 ;; owl:NegativePropertyAssertion nodes, and no change can reach them. To
@@ -213,52 +109,6 @@
   (into #{}
         (comp (filter triple-form?) cat (filter term/blank-node?))
         add))
-
-(defn new-places
-  "The place of each blank node that the `change` makes, as a map of its
-  label to the :subject and the :property that hold it. Such a place is
-  :new? (see locate-nodes)."
-  [{:keys [add] :as change}]
-  (into {}
-        (for [[s p o] add
-              :when   (term/blank-node? o)]
-          [o {:subject s :property p :new? true}])))
-
-(defn temporary?
-  "Is `x` the temporary ID of a new entry, e.g. :dn/new-synset-1?"
-  [x]
-  (cond
-    (keyword? x) (and (= "dn" (namespace x))
-                      (str/starts-with? (name x) "new-"))
-    (string? x) (str/starts-with? x (str "<" prefix/dn-uri "new-"))
-    :else false))
-
-(defn temporary-ids
-  "The temporary IDs in the `changes`, as a set."
-  [changes]
-  (into #{}
-        (comp (mapcat (juxt :where :retract :add))
-              cat
-              (filter triple-form?)
-              cat
-              (filter temporary?))
-        changes))
-
-(defn temporary-id
-  "A temporary ID for a new entry of the `kind`, e.g. \"synset\", that the
-  pending `changes` don't have yet: :dn/new-synset-1, then :dn/new-synset-2."
-  [changes kind]
-  (->> (iterate inc 1)
-       (map #(keyword "dn" (str "new-" kind "-" %)))
-       (remove (temporary-ids changes))
-       (first)))
-
-(defn new-labels
-  "Labels for new blank nodes that none of the `nodes` of the session has
-  yet, e.g. _new3 as the first one after two new nodes."
-  [nodes]
-  (let [n (count (filter :new? (vals nodes)))]
-    (map #(symbol (str "_new" (+ n % 1))) (range))))
 
 (defn problems
   "The problems of the `change`, as maps of a :problem and what it concerns,
@@ -491,6 +341,156 @@
   (str "["
        (str/join "\n " (map change-text (locate-nodes changes nodes)))
        "]"))
+
+;; An edit made twice is made once, so that a field which enters its value
+;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
+
+(defn with-change
+  "The pending `changes` with the `change` made, once: as a change of its
+  own, or by dropping an earlier change that is its `opposite`."
+  [changes change opposite]
+  (cond
+    (some #{opposite} changes) (into [] (remove #{opposite}) changes)
+    (some #{change} changes) (vec changes)
+    :else (conj (vec changes) change)))
+
+(defn add
+  "The pending `changes` with the triple `t` added: as a change of its own, or
+  by dropping an earlier change that only retracted `t`."
+  [changes t]
+  (with-change changes {:add #{t}} {:retract #{t}}))
+
+(defn retract
+  "The pending `changes` with the triple `t` retracted: as a change of its own,
+  or by dropping an earlier change that only added `t`."
+  [changes t]
+  (with-change changes {:retract #{t}} {:add #{t}}))
+
+(defn replace
+  "The pending `changes` with the triple `old` replaced by the triple `new`,
+  as one change that retracts `old` and adds `new`.
+
+  When an earlier change added `old`, that change adds `new` in its place,
+  so that replacing a value twice leaves one change. It is dropped when it
+  then retracts what it adds."
+  [changes old new]
+  (cond
+    (some #(contains? (:add %) old) changes)
+    (into []
+          (comp (map (fn [{:keys [add] :as change}]
+                       (if (contains? add old)
+                         (assoc change :add (-> add (disj old) (conj new)))
+                         change)))
+                (remove (fn [{:keys [add retract]}]
+                          (and (seq add) (= add retract)))))
+          changes)
+
+    (some #{{:retract #{old} :add #{new}}} changes)
+    (vec changes)
+
+    :else
+    (conj (vec changes) {:retract #{old} :add #{new}})))
+
+(defn without-triple
+  "The pending `changes` without the ones that add or retract the triple
+  `t`, which undoes the edit that `t` is part of. A change that unreferences
+  what `t` points to retracts it too."
+  [changes t]
+  (into []
+        (remove #(or (contains? (:add %) t)
+                     (contains? (:retract %) t)
+                     (contains? (:unreference %) (peek t))))
+        changes))
+
+(defn without-triples
+  "The pending `changes` without the triples that are `named?`, a function
+  of the key that a triple is under and the triple. A change keeps its
+  other triples, and what it unreferences stays as it is."
+  [changes named?]
+  (let [others (fn [change]
+                 (into (select-keys change [:unreference])
+                       (keep (fn [[k triples]]
+                               (when-let [kept (seq (remove #(named? k %)
+                                                            triples))]
+                                 [k (set kept)])))
+                       (dissoc change :unreference)))]
+    (into [] (comp (map others) (filter seq)) changes)))
+
+(defn without-addition
+  "The pending `changes` without the addition of the triple `t`. A change
+  that only adds `t` is dropped, and one that does more keeps the rest, so
+  that taking a value away puts nothing back."
+  [changes t]
+  (without-triples changes (fn [k t'] (and (= k :add) (= t' t)))))
+
+(defn without-node
+  "The pending `changes` without the triples that name the blank node
+  `label` as a subject or an object. That takes a new node away, and it
+  puts a removed one back. A change keeps its other triples, e.g. the ones
+  of a new word that was made with the node."
+  [changes label]
+  (without-triples changes (fn [_ [s _ o]] (or (= s label) (= o label)))))
+
+(defn without-entry
+  "The pending `changes` without the edits to the entry `id`: the triples
+  that it is the subject of, and the additions that point to it. That takes
+  a new entry away.
+
+  A retraction that points to the entry stays. It is an edit to the entry
+  that had the link, whatever happens to the one that it pointed to."
+  [changes id]
+  (without-triples changes (fn [k [s _ o]]
+                             (or (= s id)
+                                 (and (= o id) (not= k :retract))))))
+
+(defn retract-node
+  "The pending `changes` with the blank node `label` removed from its
+  `place`: the :subject and :property that hold it, and its :values as a
+  map of a property to a set of values. One change retracts the node and
+  all its values, and the changes made to the node before are dropped."
+  [changes label {:keys [subject property values] :as place}]
+  (conj (without-node changes label)
+        {:retract (into #{[subject property label]}
+                        (for [[p vs] values
+                              v      vs]
+                          [label p v]))}))
+
+(defn new-places
+  "The place of each blank node that the `change` makes, as a map of its
+  label to the :subject and the :property that hold it. Such a place is
+  :new? (see locate-nodes)."
+  [{:keys [add] :as change}]
+  (into {}
+        (for [[s p o] add
+              :when   (term/blank-node? o)]
+          [o {:subject s :property p :new? true}])))
+
+(defn temporary-ids
+  "The temporary IDs in the `changes`, as a set."
+  [changes]
+  (into #{}
+        (comp (mapcat (juxt :where :retract :add))
+              cat
+              (filter triple-form?)
+              cat
+              (filter temporary?))
+        changes))
+
+(defn temporary-id
+  "A temporary ID for a new entry of the `kind`, e.g. \"synset\", that the
+  pending `changes` don't have yet: :dn/new-synset-1, then :dn/new-synset-2."
+  [changes kind]
+  (->> (iterate inc 1)
+       (map #(keyword "dn" (str "new-" kind "-" %)))
+       (remove (temporary-ids changes))
+       (first)))
+
+(defn new-labels
+  "Labels for new blank nodes that none of the `nodes` of the session has
+  yet, e.g. _new3 as the first one after two new nodes."
+  [nodes]
+  (let [n (count (filter :new? (vals nodes)))]
+    (map #(symbol (str "_new" (+ n % 1))) (range))))
 
 (defn resources
   "The IRIs in the pending `changes`, as a set: every subject, property and

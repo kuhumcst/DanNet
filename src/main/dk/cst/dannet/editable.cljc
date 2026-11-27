@@ -61,9 +61,9 @@
    ;; all, which SHACL Core can't tell apart from a missing translation.
    :translated      #{:dc/description :dc/subject :rdfs/comment}
 
-   ;; A template (see dk.cst.dannet.web.ui.edit.entry) only says how the
-   ;; entries are linked and what a value starts as. What an entry must
-   ;; have besides is in the editorial shapes.
+   ;; A template (see dk.cst.dannet.entry) only says how the entries are
+   ;; linked and what a value starts as. What an entry must have besides is
+   ;; in the editorial shapes.
    ;;
    ;; The label of a sense starts as the lemma, which is the label of its
    ;; word without the quotes. A word that evokes a synset has a sense in it

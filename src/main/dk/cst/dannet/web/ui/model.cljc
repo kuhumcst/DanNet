@@ -37,9 +37,9 @@
   :addable, the properties that a row can be added for, and :open-row?,
   whether a row takes a new value though it has none that can be edited."
   (:require [dk.cst.dannet.editable :as editable]
+            [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.shared :as shared]
-            [dk.cst.dannet.web.i18n :as i18n]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]))
+            [dk.cst.dannet.web.i18n :as i18n]))
 
 (defn- comments
   "The notes that explain the markers in the tables, in `languages`, and

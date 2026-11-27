@@ -227,6 +227,45 @@
     (let [[prefix local-name] (str/split qname #":")]
       (keyword prefix local-name))))
 
+(def site-root
+  "The scheme and domain of the DanNet site, e.g. \"https://wordnet.dk\"."
+  (re-find #"^https?://[^/]+" dannet-root))
+
+(def local-page
+  "The address of a page of a local copy of the site, with its path as the
+  group."
+  #"https?://localhost(?::\d+)?(/.*)")
+
+(def namespaces
+  "The prefix and IRI of every namespace that DanNet knows, the longest IRI
+  first, so that an IRI is matched to its most specific namespace."
+  (->> schemas
+       (keep (fn [[prefix {:keys [uri]}]]
+               (when uri
+                 [prefix uri])))
+       (sort-by (comp count second) >)))
+
+(defn ->resource
+  "The resource that the text `s` names, as a keyword, or nil when it names
+  none: a prefixed name such as dn:synset-3047, an IRI with or without angle
+  brackets, or the address of a page of the site or of a local copy of it."
+  [s]
+  (let [s   (-> (str/trim s)
+                (str/replace #"^<|>$" "")
+                (str/replace #"\?.*$" ""))
+        iri (if-let [[_ path] (re-matches local-page s)]
+              (str site-root path)
+              s)
+        [prefix uri] (first (filter (fn [[_ uri]]
+                                      (and (str/starts-with? iri uri)
+                                           (not= iri uri)))
+                                    namespaces))]
+    (if prefix
+      (keyword (str prefix) (subs iri (count uri)))
+      (when-let [[_ prefix local-name] (re-matches #"([A-Za-z][\w-]*):(\S+)" s)]
+        (when (contains? schemas (symbol prefix))
+          (keyword prefix local-name))))))
+
 ;; https://github.com/pedestal/pedestal/issues/477#issuecomment-256168954
 (defn remove-trailing-separator
   "Remove trailing separator (/ or #) from `uri`."
@@ -492,6 +531,24 @@
 
 (def check-path
   (str (uri->path dannet-root) "edit/check"))
+
+(def ontological-types-path
+  (str (uri->path dannet-root) "edit/ontological-types"))
+
+(def synsets-path
+  (str (uri->path dannet-root) "edit/synsets"))
+
+(def words-path
+  (str (uri->path dannet-root) "edit/words"))
+
+(def entry-path
+  (str (uri->path dannet-root) "edit/entry"))
+
+(def removal-path
+  (str (uri->path dannet-root) "edit/removal"))
+
+(def references-path
+  (str (uri->path dannet-root) "edit/references"))
 
 (defn resource-path
   [rdf-resource]

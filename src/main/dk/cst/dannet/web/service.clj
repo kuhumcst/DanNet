@@ -10,6 +10,7 @@
             [taoensso.telemere :as t]
             [taoensso.telemere.utils :as tu]
             [dk.simongray.ratelimit.pedestal :as ratelimit.pedestal]
+            [dk.cst.dannet.web.edit :as edit]
             [dk.cst.dannet.web.instance :as instance]
             [dk.cst.dannet.web.resources :as res]
             [dk.cst.dannet.web.response :as resp]
@@ -62,14 +63,7 @@
         (res/prefix->dataset-entity-route 'dnc)}
 
       ;; The editor is a preview that only exists in development.
-      shared/development? (conj res/ontological-types-route
-                                res/synsets-route
-                                res/words-route
-                                res/entry-route
-                                res/removal-route
-                                res/references-route
-                                res/changes-route
-                                res/check-route))))
+      shared/development? (into edit/routes))))
 
 (defn remove-trailing-slash
   [s]

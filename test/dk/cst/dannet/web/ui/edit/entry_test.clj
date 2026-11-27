@@ -1,430 +1,85 @@
 (ns dk.cst.dannet.web.ui.edit.entry-test
-  "Tests for the templates that make new entries, for what the pending
-  changes say about a new entry, and for removing an entry of the data."
-  (:require [clojure.test :refer [deftest is testing]]
-            [dk.cst.dannet.change :as change]
-            [dk.cst.dannet.editable :as editable]
-            [dk.cst.dannet.web.ui.edit.entry :as entry]
-            [dk.cst.dannet.web.ui.input-type :as input-type]))
+  "Tests for the fields and the buttons of an entry in edit mode."
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
+            [rum.core :as rum]
+            [dk.cst.dannet.web.ui.edit.entry :as entry-field]))
 
-(def vovse #rdf/langstring ["vovse" "da"])
+(deftest pending-entries
+  (let [search  {:results-fn (constantly [])
+                 :value-fn   :rdf/about
+                 :label-fn   :rdfs/label
+                 :hiccup-fn  (fn [{:keys [lemma]} _] [:strong lemma])}
+        vuffer  {:pending :dn/new-word-1
+                 :label   "\"vuffer\""
+                 :kind    {:da "Nyt ord" :en "New word"}}
+        vaffer  {:pending :dn/new-word-2
+                 :label   "\"vaf vaf\""
+                 :kind    {:da "Nyt flerordsudtryk"
+                           :en "New multiword expression"}}
+        {:keys [results-fn value-fn label-fn hiccup-fn] :as with}
+        (entry-field/with-pending search [vuffer vaffer])]
+    (is (= search (entry-field/with-pending search []))
+        "a search stays as it is when there are no new entries")
+    (is (= [vuffer vaffer] (results-fn ""))
+        "every new entry is listed before a text is typed")
+    (is (:list-all? with))
+    (is (= [vuffer] (results-fn " VUF "))
+        "and then the ones whose label has the text in it")
+    (is (= :dn/new-word-1 (value-fn vuffer)))
+    (is (= :dn/word-1 (value-fn {:rdf/about :dn/word-1}))
+        "a result of the search itself is read as before")
+    (is (nil? (label-fn vuffer))
+        "the label of a new entry is in the changes")
+    (is (= [[:<> [:strong "\"vuffer\""] [:span "Nyt ord"]]
+            [:<> [:strong "\"vaf vaf\""] [:span "Nyt flerordsudtryk"]]]
+           (map #(hiccup-fn % {:languages ["da" "en"]}) [vuffer vaffer]))
+        "a new entry says what it is after its label")
+    (is (= [:strong "hund"] (hiccup-fn {:lemma "hund"} {})))))
 
-(def templates
-  (:entries editable/rules))
-
-(def sense
-  (:ontolex/LexicalSense templates))
-
-(def inverses
-  {:ontolex/sense            :ontolex/isSenseOf
-   :ontolex/lexicalizedSense :ontolex/isLexicalizedSenseOf
-   :ontolex/evokes           :ontolex/isEvokedBy})
-
-(defn new-sense
-  "The change that fills the template of a sense for the `word` in the
-  `synset`, with the `label`."
-  [changes synset word label]
-  (entry/fill sense changes {'?synset synset '?word word '?label label}))
-
-(deftest rows
-  (is (= {:template sense :given '?synset}
-         (entry/for-row templates :ontolex/lexicalizedSense))
-      "the senses of a synset are new senses, and the synset fills its gap")
-  (is (= '?word (:given (entry/for-row templates :ontolex/sense)))
-      "one template covers the senses of a word too")
-  (is (nil? (entry/for-row templates :wn/hypernym)))
-  (is (nil? (entry/for-row templates :rdfs/label))
-      "a gap that isn't a new entry doesn't make its row take entries"))
-
-(deftest questions
-  (is (= '{?synset [:ontolex/LexicalConcept]} (entry/asked sense '[?word]))
-      "the page fills its own gap, and the editor asks for the other")
-  (is (= '{?word [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]}
-         (entry/asked sense '[?synset]))
-      "a gap can take an entry of several classes")
-  (is (empty? (entry/asked sense '[?word ?synset])))
-  (is (every? (fn [{:keys [new add] :as template}]
-                (every? (fn [[s _ o]]
-                          (or (not (contains? new o))
-                              (= 1 (count (entry/asked template [s])))))
-                        add))
-              (vals templates))
-      "every row of a template leaves one gap to ask for")
-  (is (every? #(:search (some input-type/class-input-types %))
-              (filter vector? (mapcat (comp vals :ask) (vals templates))))
-      "every entry that a template asks for has a search")
-  (testing "a value that starts as a value of another gap"
-    (let [quoted #rdf/langstring ["\"vovse\"" "da"]]
-      (is (= {'?label vovse}
-             (entry/starting sense {'?word {:rdfs/label quoted}}))
-          "the label of a sense is the label of its word without the quotes")
-      (is (= {'?label vovse}
-             (entry/starting sense {'?word {:rdfs/label #{quoted}}})))
-      (is (= {} (entry/starting sense {'?word {:rdfs/label vovse}}))
-          "none when the pattern doesn't match")
-      (is (= {} (entry/starting sense {'?synset {:rdfs/label quoted}}))))))
-
-(deftest filling
-  (let [added   (new-sense [] :dn/synset-1 :dn/word-1 vovse)
-        changes [added
-                 {:add #{[:dn/synset-1 :skos/definition "et dyr"]}}]
-        second  (new-sense changes :dn/synset-2 :dn/word-2 vovse)]
-    (is (= {:add #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
-                   [:dn/new-sense-1 :rdfs/label vovse]
-                   [:dn/word-1 :ontolex/sense :dn/new-sense-1]
-                   [:dn/synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]}}
-           added)
-        "a sense is the link between a word and a synset")
-    (is (empty? (change/problems added)))
-    (is (contains? (:add second)
-                   [:dn/synset-2 :ontolex/lexicalizedSense :dn/new-sense-2])
-        "under an ID that the pending changes don't have yet")
-    (is (= 3 (count (:add (new-sense [] :dn/synset-1 :dn/word-1 nil))))
-        "a triple with a gap that has no value is left out")
-    (is (= added
-           (entry/fill-from sense []
-                            {'?synset :dn/synset-1 '?word :dn/word-1}
-                            {'?word {:rdfs/label
-                                     #rdf/langstring ["\"vovse\"" "da"]}}))
-        "a gap that has no value starts as what the other entries give it")
-    (testing "the label of a new entry is the one that the changes leave it"
-      (is (= {:dn/new-sense-1 vovse} (entry/labels changes)))
-      (is (= {:dn/new-sense-1 "vovse_§2"}
-             (entry/labels (change/replace
-                             changes
-                             [:dn/new-sense-1 :rdfs/label vovse]
-                             [:dn/new-sense-1 :rdfs/label "vovse_§2"]))))
-      (is (= {} (entry/labels [{:add #{[:dn/synset-1 :rdfs/label "{x}"]}}]))
-          "an entry in the data has its label there"))
-    (testing "the other ends of the new entries of a page"
-      (let [words   #(entry/linked sense %1 '?synset %2 '?word)
-            synsets #(entry/linked sense %1 '?word %2 '?synset)]
-        (is (= #{:dn/word-1} (words changes :dn/synset-1)))
-        (is (= #{} (words changes :dn/synset-2)))
-        (is (= #{:dn/word-2} (words (conj changes second) :dn/synset-2)))
-        (is (= #{:dn/synset-1} (synsets changes :dn/word-1))
-            "from the page of the word too")
-        (is (= #{}
-               (words (entry/without templates changes :dn/new-sense-1)
-                      :dn/synset-1))
-            "not one whose new sense is taken away")))
-    (testing "the other ends that the data has already"
-      (is (= #{:dn/word-1 :dn/word-2}
-             (entry/known sense inverses
-                          {:ontolex/isEvokedBy #{:dn/word-1 :dn/word-2}}
-                          '?synset '?word))
-          "a link that points to the page is read under its inverse")
-      (is (= #{:dn/synset-1}
-             (entry/known sense inverses {:ontolex/evokes :dn/synset-1}
-                          '?word '?synset)))
-      (is (= #{} (entry/known sense inverses {} '?word '?synset)))
-      (is (= #{} (entry/known (dissoc sense :once) inverses
-                              {:ontolex/evokes :dn/synset-1}
-                              '?word '?synset))))
-    (is (= #{:rdf/type :rdfs/label :ontolex/sense :ontolex/lexicalizedSense
-             :ontolex/evokes :ontolex/canonicalForm :ontolex/writtenRep}
-           (entry/properties templates)))))
-
-(deftest new-synsets
-  (let [synset (:ontolex/LexicalConcept templates)
-        quoted #rdf/langstring ["\"vovse\"" "da"]
-        made   (entry/new-entry synset [] nil nil)
-        change (entry/fill-around sense [] '?synset made
-                                  {'?word :dn/word-1}
-                                  {'?word {:rdfs/label quoted}})]
-    (is (= {:id     :dn/new-synset-1
-            :change {:add #{[:dn/new-synset-1 :rdf/type
-                             :ontolex/LexicalConcept]}}}
-           made)
-        "a synset needs no text")
-    (is (= #{[:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]
-             [:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
-             [:dn/new-sense-1 :rdfs/label vovse]
-             [:dn/word-1 :ontolex/sense :dn/new-sense-1]
-             [:dn/new-synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]}
-           (:add change))
-        "a new synset and the new sense of a word are one change")
-    (is (empty? (change/problems change)))
-    (testing "a new synset is named by its senses until the build names it"
-      (is (= {:dn/new-sense-1 vovse :dn/new-synset-1 "{vovse}"}
-             (entry/labels [change] (:derived-labels editable/rules))))
-      (is (= {:dn/new-sense-1 vovse} (entry/labels [change]))
-          "its own labels are the ones in the changes"))
-    (testing "taking a new entry away takes what was made with it"
-      (let [changes [change
-                     {:add #{[:dn/new-synset-1 :skos/definition "x"]}}
-                     {:add #{[:dn/synset-1 :skos/definition "y"]}}]]
-        (is (= [(peek changes)]
-               (entry/without templates changes :dn/new-sense-1))
-            "the definition of the new synset goes with its sense")
-        (is (= [(peek changes)]
-               (entry/without templates changes :dn/new-synset-1)))
-        (is (= (pop changes) (entry/without templates changes :dn/synset-1))
-            "an entry in the data only loses its own changes")))))
-
-(deftest new-words
-  (let [word   (:ontolex/Word templates)
-        quoted #rdf/langstring ["\"vovse\"" "da"]
-        made   (entry/new-entry word [] " vovse " '[_new1 _new2])
-        change (entry/fill-around sense [] '?word made
-                                  {'?synset :dn/synset-1} {})]
-    (is (= {'?label quoted} (entry/starting word {'?lemma vovse}))
-        "the label of a word is its lemma in quotes")
-    (is (= {:id     :dn/new-word-1
-            :change {:add #{[:dn/new-word-1 :rdf/type :ontolex/Word]
-                            [:dn/new-word-1 :rdfs/label quoted]
-                            [:dn/new-word-1 :ontolex/canonicalForm '_new1]
-                            ['_new1 :ontolex/writtenRep vovse]}}
-            :text   "vovse"}
-           made)
-        "a word is made from its lemma, with a blank node under a new label")
-    (is (nil? (entry/new-entry word [] "to ord" '[_new1]))
-        "a lemma with a space isn't a word")
-    (is (nil? (entry/new-entry word [] " " '[_new1])))
-    (testing "the class of a word follows from its lemma"
-      (let [classes (get (entry/asked sense '[?synset]) '?word)
-            fitting (fn [text]
-                      (filter #(entry/new-entry (get templates %) [] text
-                                                '[_new1])
-                              classes))]
-        (is (= [[:ontolex/Word] [:ontolex/Word] [:ontolex/Word]]
-               (map fitting ["vovse" "e-mail" "å"])))
-        (is (= [[:ontolex/MultiwordExpression] [:ontolex/MultiwordExpression]]
-               (map fitting ["slå til" "gentage sig (selv)"]))
-            "a lemma with a space is a multiword expression")
-        (is (= [[:ontolex/Affix] [:ontolex/Affix]]
-               (map fitting ["-agtig" "hånd-"]))
-            "and one with a hyphen at either end is an affix")
-        (is (= [[] [] []] (map fitting ["-" "slå  til" ""]))
-            "a text that is none of them makes nothing")
-        (let [made #(entry/new-entry-of templates classes [] % '[_new1])]
-          (is (= [:dn/new-word-1 "slå til"]
-                 ((juxt :id :text) (made "slå til")))
-              "a text makes an entry of the first class that it fits")
-          (is (= (:name (:ontolex/MultiwordExpression templates))
-                 (:name (made "slå til")))
-              "which says what such an entry is called")
-          (is (nil? (made "slå  til"))))
-        (is (= #{[:dn/new-word-1 :rdf/type :ontolex/MultiwordExpression]
-                 [:dn/new-word-1 :rdfs/label
-                  #rdf/langstring ["\"slå til\"" "da"]]
-                 [:dn/new-word-1 :ontolex/canonicalForm '_new1]
-                 ['_new1 :ontolex/writtenRep #rdf/langstring ["slå til" "da"]]}
-               (-> (:ontolex/MultiwordExpression templates)
-                   (entry/new-entry [] "slå til" '[_new1])
-                   (get-in [:change :add])))
-            "the entries are alike besides their class")))
-    (is (= (into (:add (:change made))
-                 #{[:dn/new-sense-1 :rdf/type :ontolex/LexicalSense]
-                   [:dn/new-sense-1 :rdfs/label vovse]
-                   [:dn/new-word-1 :ontolex/sense :dn/new-sense-1]
-                   [:dn/synset-1 :ontolex/lexicalizedSense :dn/new-sense-1]})
-           (:add change))
-        "a new word and its sense in a synset are one change")
-    (is (empty? (change/problems change)))
-    (testing "taking a new word away takes its blank nodes"
-      (let [changes [change
-                     {:add #{['_new1 :ontolex/phoneticRep "vovse"]}}
-                     {:add #{[:dn/new-word-1 :ontolex/otherForm '_new2]
-                             ['_new2 :ontolex/writtenRep vovse]}}
-                     {:add #{['_new2 :ontolex/phoneticRep "vovse"]}}
-                     {:add #{['_b1 :ontolex/phoneticRep "vovse"]}}]]
-        (is (= [(peek changes)]
-               (entry/without templates changes :dn/new-word-1))
-            "also the changes that only name a node of the word")
-        (is (= [(peek changes)]
-               (entry/without templates changes :dn/new-sense-1))
-            "and so does taking away the sense that it was made with")
-        (is (= [{:add (disj (:add change)
-                            [:dn/new-word-1 :ontolex/canonicalForm '_new1]
-                            ['_new1 :ontolex/writtenRep vovse])}]
-               (take 1 (change/without-node changes '_new1)))
-            "a node of a new word goes without the word")))))
-
-(deftest taking-entries-away
-  (let [quoted   #rdf/langstring ["\"vovse\"" "da"]
-        synset   (entry/new-entry (:ontolex/LexicalConcept templates)
-                                  [] nil nil)
-        ;; a new synset for a word of the data, with the sense 1
-        first    (entry/fill-around sense [] '?synset synset
-                                    {'?word :dn/word-1}
-                                    {'?word {:rdfs/label quoted}})
-        word     (entry/new-entry (:ontolex/Word templates) [first] "vuffer"
-                                  '[_new1])
-        ;; a new word in the new synset, with the sense 2
-        second   (entry/fill-around sense [first] '?word word
-                                    {'?synset :dn/new-synset-1} {})
-        ;; the new word in a synset of the data, with the sense 3
-        third    (new-sense [first second] :dn/synset-2 :dn/new-word-1 vovse)
-        defined  [:dn/new-synset-1 :skos/definition "x"]
-        written  ['_new1 :ontolex/phoneticRep "vuffer"]
-        changes  [first second third {:add #{defined}} {:add #{written}}]
-        without  #(entry/without templates %1 %2)
-        left     (comp change/temporary-ids without)
-        added    (comp :add change/net)]
-    (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-2
-             :dn/new-sense-3}
-           (change/temporary-ids changes)))
-    (testing "a sense goes alone while its word and its synset hold another"
-      (is (= #{:dn/new-synset-1 :dn/new-word-1 :dn/new-sense-2 :dn/new-sense-3}
-             (left changes :dn/new-sense-1)))
-      (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-3}
-             (left changes :dn/new-sense-2)))
-      (is (= #{:dn/new-synset-1 :dn/new-sense-1 :dn/new-word-1 :dn/new-sense-2}
-             (left changes :dn/new-sense-3)))
-      (is (every? (added (without changes :dn/new-sense-1))
-                  [defined written [:dn/new-word-1 :rdf/type :ontolex/Word]
-                   [:dn/new-synset-1 :rdf/type :ontolex/LexicalConcept]])
-          "and what stays keeps every value, also those made with the sense"))
-    (testing "a word or a synset takes its senses with it"
-      (is (= #{:dn/new-synset-1 :dn/new-sense-1}
-             (left changes :dn/new-word-1))
-          "the synset stays, since it holds the sense of another word")
-      (is (not-any? #(some #{'_new1} %)
-                    (added (without changes :dn/new-word-1)))
-          "the blank nodes of the word go with it")
-      (is (= #{:dn/new-word-1 :dn/new-sense-3}
-             (left changes :dn/new-synset-1))
-          "the word stays, since it has a sense in another synset")
-      (is (not (contains? (added (without changes :dn/new-synset-1)) defined))))
-    (testing "a word or a synset goes with its last sense"
-      (is (= #{:dn/new-word-1 :dn/new-sense-3}
-             (left (without changes :dn/new-sense-1) :dn/new-sense-2)))
-      (is (= #{:dn/new-synset-1 :dn/new-sense-1}
-             (left (without changes :dn/new-sense-2) :dn/new-sense-3)))
-      (is (= [] (reduce without changes [:dn/new-sense-1 :dn/new-sense-2
-                                         :dn/new-sense-3]))))))
+(deftest removing-a-new-entry
+  (let [[_ {:keys [aria-label]} text]
+        (entry-field/discard-entry-button
+          {:languages ["da" "en"]
+           :k->label  {:dn/new-word-1 "\"vuffer\""}}
+          :dn/new-word-1
+          identity)]
+    (is (= "Fjern den nye ressource" text))
+    (is (= "Fjern den nye ressource: \"vuffer\"" aria-label)
+        "the name of the button has its text, and says which entry")))
 
 (deftest entries-of-the-data
-  (let [vuf          #rdf/langstring ["vuf" "da"]
-        removal      {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
-                                 [:dn/sense-1 :rdfs/label vovse]
-                                 [:dn/word-1 :ontolex/sense :dn/sense-1]
-                                 [:dn/synset-1 :ontolex/lexicalizedSense
-                                  :dn/sense-1]}}
-        relabel      {:retract #{[:dn/sense-1 :rdfs/label vovse]}
-                      :add     #{[:dn/sense-1 :rdfs/label vuf]}}
-        example      {:add #{[:dn/sense-1 :lexinfo/senseExample "en vovse"]}}
-        other        {:add #{[:dn/synset-1 :skos/definition "et dyr"]}}
-        with-removal #(entry/with-removal templates %1 %2)
-        changes      (with-removal [relabel example other] removal)]
-    (testing "an entry is removed as one change"
-      (is (= [other removal] changes)
-          "and the changes made to it before are dropped")
-      (is (= changes (with-removal changes removal))
-          "removing it twice changes nothing")
-      (is (entry/removed? changes :dn/sense-1))
-      (is (not (entry/removed? changes :dn/synset-1))
-          "an entry that only loses a link isn't removed itself")
-      (is (not (entry/removed? [relabel] :dn/sense-1)))
-      (is (= [other] (entry/without-removal changes :dn/sense-1))
-          "putting it back leaves the other changes")
-      (is (= [relabel] (entry/without-removal [relabel] :dn/sense-1))))
-    (testing "what can't stay without the entry goes with it"
-      (let [word    {:retract #{[:dn/word-1 :rdf/type :ontolex/Word]
-                                [:dn/word-1 :ontolex/canonicalForm '_b1]
-                                ['_b1 :ontolex/writtenRep vovse]}}
-            rewrite {:retract #{['_b1 :ontolex/writtenRep vovse]}
-                     :add     #{['_b1 :ontolex/writtenRep vuf]}}
-            form    {:add #{[:dn/word-1 :ontolex/otherForm '_new1]
-                            ['_new1 :ontolex/writtenRep vuf]}}
-            joined  (new-sense [] :dn/synset-2 :dn/word-1 vovse)]
-        (is (= [other word]
-               (with-removal [rewrite form joined other] word))
-            "an edit to its blank node, a new node and a new sense of it")))
-    (testing "an entry goes with the entries that it holds"
-      (let [word    (update removal :retract conj
-                            [:dn/word-1 :rdf/type :ontolex/Word])
-            synset  (update removal :retract conj
-                            [:dn/synset-1 :rdf/type :ontolex/LexicalConcept]
-                            [:dn/synset-2 :wn/hypernym :dn/synset-1])
-            pointer {:add #{[:dn/synset-3 :wn/hypernym :dn/synset-1]}}
-            both    (with-removal (with-removal [] word) synset)]
-        (is (= [word] (with-removal [removal] word))
-            "the removal of a word covers that of its sense")
-        (is (= [word synset] both)
-            "two removals that share a sense both stay whole")
-        (is (= [synset] (with-removal [pointer] synset))
-            "a new link to a removed entry is dropped")
-        (let [unlinked {:retract #{[:dn/synset-3 :wn/also :dn/synset-1]}}
-              replaced {:retract #{[:dn/synset-3 :wn/also :dn/synset-1]}
-                        :add     #{[:dn/synset-3 :wn/also :dn/synset-2]}}]
-          (is (= [unlinked synset] (with-removal [unlinked] synset))
-              "but a link to it that was removed before stays removed")
-          (is (= [replaced synset] (with-removal [replaced] synset))
-              "also when another link took its place"))
-        (is (= [word] (entry/without-removal both :dn/synset-1))
-            "putting the synset back leaves the word and the sense removed")
-        (is (= [] (entry/without-removal both :dn/sense-1)))))
-    (testing "the classes with a template can be removed"
-      (is (= #{:ontolex/sense :ontolex/lexicalizedSense}
-             (entry/links templates)))
-      (is (entry/described? templates
-                            {:rdf/type #{:ontolex/Word :ontolex/LexicalEntry}}))
-      (is (every? #(entry/described? templates {:rdf/type %})
-                  [:ontolex/MultiwordExpression :ontolex/Affix])
-          "a multiword expression and an affix too")
-      (is (not (entry/described? templates
-                                 {:rdf/type :dns/OntologicalType}))))))
-
-(deftest new-entries-in-rows
-  (let [first   (new-sense [] :dn/synset-1 :dn/word-1 vovse)
-        changes [first (new-sense [first] :dn/synset-2 :dn/word-1 vovse)]]
-    (is (= [:dn/new-sense-1 :dn/new-sense-2]
-           (entry/of-class changes :ontolex/LexicalSense)))
-    (is (empty? (entry/of-class changes :ontolex/Word))
-        "an entry in the data isn't a new one")
-    (is (= [:dn/synset-1]
-           (entry/held-by templates changes :dn/new-sense-1 :dn/word-1))
-        "in the row of a word, its synset tells a new sense apart")
-    (is (= [:dn/synset-2]
-           (entry/held-by templates changes :dn/new-sense-2 :dn/word-1)))
-    (is (empty? (entry/held-by templates changes :dn/new-sense-1 :dn/synset-1))
-        "in the row of a synset, the label of the sense names its word")
-    (is (empty? (entry/held-by templates changes :dn/new-sense-9 :dn/word-1)))))
-
-(deftest pages-of-new-entries
-  (let [example [:dn/new-sense-1 :lexinfo/senseExample "en vovse"]
-        changes [(new-sense [] :dn/synset-1 :dn/word-1 vovse)
-                 {:add #{example}}
-                 {:add #{[:dn/new-sense-1 :lexinfo/senseExample "to vovser"]}}
-                 {:add #{[:dn/synset-1 :skos/definition "et dyr"]}}]]
-    (testing "a new entry is what the changes say about it"
-      (is (= {:rdf/type                     :ontolex/LexicalSense
-              :rdfs/label                   vovse
-              :lexinfo/senseExample         #{"en vovse" "to vovser"}
-              :ontolex/isSenseOf            :dn/word-1
-              :ontolex/isLexicalizedSenseOf :dn/synset-1}
-             (entry/entity inverses changes :dn/new-sense-1))
-          "with the word and the synset that point to it")
-      (is (= :ontolex/LexicalSense
-             (:rdf/type (entry/entity nil changes :dn/new-sense-1)))
-          "its own values need no inverses")
-      (is (= "en vovse"
-             (:lexinfo/senseExample
-               (entry/entity inverses
-                             (change/without-addition
-                               changes
-                               [:dn/new-sense-1 :lexinfo/senseExample
-                                "to vovser"])
-                             :dn/new-sense-1)))
-          "a single value stands alone")
-      (is (nil? (entry/entity inverses changes :dn/new-sense-2)))
-      (is (nil? (entry/entity inverses
-                              (entry/without templates changes :dn/new-sense-1)
-                              :dn/new-sense-1))
-          "an entry that is taken away is gone"))
-    (testing "the page has what the server knows of the type"
-      (let [content {:constraints {:rdfs/label {:must {:min 1}}}
-                     :entities    {:rdfs/label {:rdfs/label #{"label"}}}
-                     :inverses    inverses}
-            data    (entry/page-data :dn/new-sense-1 content)]
-        (is (= content (select-keys data [:constraints :entities :inverses])))
-        (is (= :dn/new-sense-1 (:subject data)))
-        (is (:draft? data))
-        (is (some? (:default-origin data))
-            "so that its values can be edited")
-        (is (= :inferred (get-in data [:origins :ontolex/isSenseOf]))
-            "a link to the entry is locked, as on the page of a sense")
-        (is (nil? (get-in data [:origins :ontolex/sense]))
-            "but a link from the entry is a value of its own")))))
+  (let [removal {:retract #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]
+                            [:dn/synset-1 :ontolex/lexicalizedSense
+                             :dn/sense-1]}}
+        opts    {:languages ["da" "en"]
+                 :subject   :dn/synset-1
+                 :k->label  {:dn/sense-1 "hund_1§1"}}
+        opts'   (assoc opts :changes [removal])
+        html    (fn [{:keys [status] :as props}]
+                  (rum/render-static-markup
+                    (entry-field/data-entry-field (if status opts' opts)
+                                                  :ontolex/lexicalizedSense
+                                                  :dn/sense-1 props)))]
+    (is (str/includes? (html {}) "Fjern hele ressourcen: hund_1§1")
+        "the cross of an entry in a row says that the whole entry goes")
+    (is (not (str/includes? (html {}) "edit-value__icon--edit"))
+        "and the entry is edited on its own page, so the field has no pencil")
+    (let [removed (html {:status :retracted})]
+      (is (str/includes? removed "Hele ressourcen fjernes")
+          "a removed entry says that all of it is removed")
+      (is (str/includes? removed "Fortryd fjernelse af: hund_1§1"))
+      (is (not (str/includes? removed "Fjern hele ressourcen"))))
+    (let [last-one (html {:required {:min 1}})]
+      (is (str/includes? last-one "Rækken skal have mindst én værdi"))
+      (is (not (str/includes? last-one "Fjern hele ressourcen"))
+          "the last entry of a row that needs one has the mark for its cross"))
+    (let [[_ {:keys [aria-label]} text]
+          (entry-field/restore-entry-button opts :dn/sense-1 identity)]
+      (is (= "Fortryd fjernelsen af ressourcen" text))
+      (is (= "Fortryd fjernelsen af ressourcen: hund_1§1" aria-label)
+          "the button that puts a removed entry back says which entry"))
+    (is (str/includes? (rum/render-static-markup
+                         (entry-field/remove-entry-button opts :dn/sense-1))
+                       "aria-label=\"Fjern ressourcen: hund_1§1\"")
+        "and so does the button that removes an entry on its own page")))

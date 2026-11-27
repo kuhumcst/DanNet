@@ -8,7 +8,10 @@
             #?(:clj  [dk.cst.dannet.web.ui.error :as error]
                :cljs [dk.cst.dannet.web.ui.error :as error :include-macros true])
             [dk.cst.dannet.web.ui.edit :as edit]
+            [dk.cst.dannet.web.ui.edit.control :as control]
+            [dk.cst.dannet.web.ui.edit.focus :as focus]
             [dk.cst.dannet.web.ui.edit.row :as row]
+            [dk.cst.dannet.web.ui.edit.value :as value]
             [dk.cst.dannet.web.ui.lock :as lock]
             [dk.cst.dannet.web.ui.rdf :as rdf]
             [dk.cst.dannet.web.ui.visualization :as viz]))
@@ -194,7 +197,7 @@
       (when edit-row?
         (edit/value-mover opts k vs))
       (when why
-        (edit/padlock why))
+        (control/padlock why))
       ;; edit mode has no word clouds, so no display options either
       (attr-name-extras opts+attr-key (when-not edit-mode v) display-opts)]
      (cond
@@ -256,7 +259,7 @@
   (let [display-opts (::display-opts state)
         ;; by the subject of the table, since a table outlives a change of page
         added        (::added state)
-        s            (edit/subject-of opts)
+        s            (value/subject-of opts)
         subentity    (fold-member-rows subentity)
         ;; a nested table works out its own rows, so it is passed none
         addable      (if blank-node (row/addable opts) addable)
@@ -308,4 +311,4 @@
        (edit/row-adder opts ks
                        (fn [k]
                          (swap! added update s (fnil conj []) k)
-                         (edit/open-new-value! s k))))]))
+                         (focus/open-new-value! s k))))]))

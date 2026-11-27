@@ -28,51 +28,12 @@
     shown on one line;
   - :note, what choosing a result does besides, as a map of :da and :en.
 
-  The input and the dialog of ui.edit only know these maps, so a new input
+  The input and the dialog of ui.edit.input only know these maps, so a new input
   type or a new search needs no change to either."
   (:require [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
             [dk.cst.dannet.web.i18n :as i18n]))
-
-(def site-root
-  "The scheme and domain of the DanNet site, e.g. \"https://wordnet.dk\"."
-  (re-find #"^https?://[^/]+" prefix/dannet-root))
-
-(def local-page
-  "The address of a page of a local copy of the site, with its path as the
-  group."
-  #"https?://localhost(?::\d+)?(/.*)")
-
-(def namespaces
-  "The prefix and IRI of every namespace that DanNet knows, the longest IRI
-  first, so that an IRI is matched to its most specific namespace."
-  (->> prefix/schemas
-       (keep (fn [[prefix {:keys [uri]}]]
-               (when uri
-                 [prefix uri])))
-       (sort-by (comp count second) >)))
-
-(defn ->resource
-  "The resource that the text `s` names, as a keyword, or nil when it names
-  none: a prefixed name such as dn:synset-3047, an IRI with or without angle
-  brackets, or the address of a page of the site or of a local copy of it."
-  [s]
-  (let [s   (-> (str/trim s)
-                (str/replace #"^<|>$" "")
-                (str/replace #"\?.*$" ""))
-        iri (if-let [[_ path] (re-matches local-page s)]
-              (str site-root path)
-              s)
-        [prefix uri] (first (filter (fn [[_ uri]]
-                                      (and (str/starts-with? iri uri)
-                                           (not= iri uri)))
-                                    namespaces))]
-    (if prefix
-      (keyword (str prefix) (subs iri (count uri)))
-      (when-let [[_ prefix local-name] (re-matches #"([A-Za-z][\w-]*):(\S+)" s)]
-        (when (contains? prefix/schemas (symbol prefix))
-          (keyword prefix local-name))))))
 
 (defn fetch-data
   "A promise of what the server has under the key `k` of its :data at `url`
@@ -110,7 +71,7 @@
   that it is shown with."
   {:format-fn prefix/kw->qname
    :parse-fn  (fn [s _]
-                (when-let [k (->resource s)]
+                (when-let [k (prefix/->resource s)]
                   #?(:clj  k
                      :cljs (.then (fetch-data (prefix/resolve-href k) :entity)
                                   (fn [entity]
@@ -127,7 +88,7 @@
              :placeholder {:da "skriv et ord..." :en "write a word..."}
              :results-fn  (fn [s]
                             (when-let [lemma (not-empty (str/trim s))]
-                              (fetch-data "/dannet/edit/synsets" :synsets
+                              (fetch-data prefix/synsets-path :synsets
                                           {:lemma lemma})))
              :value-fn    key
              ;; the labels of a result are in the metadata of its entity
@@ -159,7 +120,7 @@
                              (str/includes? s))]
              (.then (if-let [types @ontological-types]
                       (js/Promise.resolve types)
-                      (.then (fetch-data "/dannet/edit/ontological-types"
+                      (.then (fetch-data prefix/ontological-types-path
                                          :ontological-types)
                              #(reset! ontological-types %)))
                     #(filter match? %)))))
@@ -189,7 +150,7 @@
              :one-line?   true
              :results-fn  (fn [s]
                             (when-let [lemma (not-empty (str/trim s))]
-                              (fetch-data "/dannet/edit/words" :words
+                              (fetch-data prefix/words-path :words
                                           {:lemma lemma})))
              :value-fn    :rdf/about
              :label-fn    :rdfs/label
@@ -207,7 +168,7 @@
 (def class-input-types
   "The input type of a value of each class that has one of its own. Its
   search also finds an entry of the class for the gap of a template (see
-  ui.edit.entry)."
+  dk.cst.dannet.entry)."
   {:dns/OntologicalType    ontological-type
    :ontolex/LexicalConcept synset
    :ontolex/Word           word})
@@ -224,7 +185,7 @@
     (cond-> (assoc input-type
               :description description
               :parse-fn (fn [s lang]
-                          (when (some-> (->resource s) fits?)
+                          (when (some-> (prefix/->resource s) fits?)
                             (parse-fn s lang))))
       (not (re-find re prefix/dn-uri)) (dissoc :search))))
 
