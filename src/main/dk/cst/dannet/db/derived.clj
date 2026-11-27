@@ -3,7 +3,10 @@
   label of a synset, the synsets of a word and the scheme of a resource.
 
   Each is found as a plain change (see dk.cst.dannet.change) that brings
-  the graph up to date, for the whole graph or for some resources."
+  the graph up to date, for the whole graph or for some resources.
+
+  The editor has no fields for these values: its rules lock their
+  properties (see :derived and :derived-by-class in dk.cst.dannet.editable)."
   (:require [clojure.set :as set]
             [dk.cst.theophrastus :as theo]
             [dk.cst.theophrastus.term :as term]

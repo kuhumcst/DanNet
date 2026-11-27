@@ -250,8 +250,10 @@
   "The entries that the `change` removes as a whole, as a set: the named
   subjects whose type it retracts.
 
-  No other edit retracts a type. A change that does retracts every triple of
-  the data that names the entry (see dk.cst.dannet.db.change/removal-parts)."
+  No other edit retracts a type, since the rules of the editor keep it fixed
+  (see :fixed in dk.cst.dannet.editable). A change that does retracts every
+  triple of the data that names the entry (see
+  dk.cst.dannet.db.change/removal-parts)."
   [{:keys [retract] :as change}]
   (into #{}
         (keep (fn [[s p _]]

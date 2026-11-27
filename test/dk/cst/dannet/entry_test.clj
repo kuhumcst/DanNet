@@ -4,8 +4,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.dannet.change :as change]
             [dk.cst.dannet.editable :as editable]
-            [dk.cst.dannet.entry :as entry]
-            [dk.cst.dannet.web.ui.input-type :as input-type]))
+            [dk.cst.dannet.entry :as entry]))
 
 (def vovse #rdf/langstring ["vovse" "da"])
 
@@ -50,7 +49,7 @@
                         add))
               (vals templates))
       "every row of a template leaves one gap to ask for")
-  (is (every? #(:search (some input-type/class-input-types %))
+  (is (every? #(:search (some (:input-types editable/rules) %))
               (filter vector? (mapcat (comp vals :ask) (vals templates))))
       "every entry that a template asks for has a search")
   (testing "a value that starts as a value of another gap"
@@ -317,6 +316,8 @@
       (is (not (entry/removed? changes :dn/synset-1))
           "an entry that only loses a link isn't removed itself")
       (is (not (entry/removed? [relabel] :dn/sense-1)))
+      (is (contains? (:fixed editable/rules) :rdf/type)
+          "no field retracts a type, so a retracted type is a removed entry")
       (is (= [other] (entry/without-removal changes :dn/sense-1))
           "putting it back leaves the other changes")
       (is (= [relabel] (entry/without-removal [relabel] :dn/sense-1))))

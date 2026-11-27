@@ -27,7 +27,8 @@
   The :edit-rules of the page (see dk.cst.dannet.editable) name the
   :languages that the dropdown of a text offers, where nil is none, the
   :translated properties, whose rows show which language has no text yet,
-  and the :entries, which are the templates of the new entries."
+  the :entries, which are the templates of the new entries, and the
+  :input-types of the classes whose values have a search."
   (:require [clojure.string :as str]
             [rum.core :as rum]
             [dk.cst.dannet.change :as change]
@@ -54,7 +55,7 @@
   The :constraints of the table say whether the row can take another node
   or lose one. A node that only holds one value is the field of that value
   (see node/sole-field), and a new one is added with its value."
-  [{:keys [changes constraints] :as opts} k vs]
+  [{:keys [changes constraints edit-rules] :as opts} k vs]
   (let [subject  (value/subject-of opts)
         {:keys [must] shape :node} (get constraints k)
         sole     (row/sole-property shape)
@@ -92,7 +93,8 @@
         (rum/with-key
           (value/new-value-field
             opts k nil
-            {:input-type (input-type/input-type [] (get-in shape [sole :must]))
+            {:input-type (input-type/input-type (:input-types edit-rules) []
+                                                (get-in shape [sole :must]))
              :on-add     #(node/add-node! opts k [sole %])})
           "new")
 
@@ -120,7 +122,8 @@
                                     (rdf/label-sortkey-fn opts))
                               vs)
                      vs)
-        input-type (input-type/input-type vs (get-in constraints [k :must]))
+        input-type (input-type/input-type (:input-types edit-rules) vs
+                                          (get-in constraints [k :must]))
         {:keys [properties fields locked langs gap expected full? required
                 new-type taken]}
         (row/cell opts (value/subject-of opts) k sorted input-type)

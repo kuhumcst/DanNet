@@ -10,7 +10,8 @@
   RDF schemas, and what a valid entry looks like belongs in the editorial
   shapes, which edit mode reads as the constraints of a page (see
   dk.cst.dannet.db.shapes/property-constraints)."
-  (:require [dk.cst.dannet.shared :as shared]))
+  (:require [dk.cst.dannet.editable.input-types :as input-types]
+            [dk.cst.dannet.shared :as shared]))
 
 (defn- word-template
   "The template of a new word of the `class`, which the editor calls `name`
@@ -30,15 +31,23 @@
 
 (def rules
   "DanNet's rules for edit mode: which resources have fields, which of their
-  properties never do, which languages the dropdown of a text offers, and
-  what a new entry is made of."
+  properties never do, which languages the dropdown of a text offers, what
+  a new entry is made of, and which classes have an input type of their own."
   {;; Only the dataset itself can be edited: the ontological types (dnt:),
    ;; the concepts (dnc:) and the schema (dns:) define what the entries
    ;; mean, so a change to one of them changes every entry that uses it.
    :namespaces      #{"dn"}
 
-   ;; The release build writes these for every resource, so an edit to
-   ;; one would be overwritten at the next release.
+   ;; The release build writes skos:inScheme for every resource, so an edit
+   ;; to it would be overwritten at the next release. What the build writes
+   ;; here and under :derived-by-class is in dk.cst.dannet.db.derived, and
+   ;; a test there checks that the two agree.
+   ;;
+   ;; dns:inherited is a legacy property, which marks the values that were
+   ;; inherited in the original dataset. No build writes it, but it is
+   ;; locked in the same way.
+   ;; TODO: maybe have the build write it again, to mark what new data
+   ;; inherits.
    :derived         #{:dns/inherited :skos/inScheme}
 
    ;; The labels of a synset are made from its senses, while the label of
@@ -51,7 +60,9 @@
     :ontolex/Affix               #{:ontolex/evokes}}
 
    ;; A synset stays a synset: its page, its shapes and its place in the
-   ;; dataset all follow from its type.
+   ;; dataset all follow from its type. Only the removal of a whole entry
+   ;; retracts a type, which is how such a change is told from any other
+   ;; (see dk.cst.dannet.change/removed).
    :fixed           #{:rdf/type}
 
    ;; Danish, English or no language, for a text whose shape names none.
@@ -116,4 +127,11 @@
    ;; until then: for each class, the property that leads to the entries
    ;; whose labels it is made of, and the function that makes it of them.
    :derived-labels  {:ontolex/LexicalConcept [:ontolex/lexicalizedSense
-                                              shared/synset-label]}})
+                                              shared/synset-label]}
+
+   ;; A value of one of these classes has an input type of its own (see
+   ;; dk.cst.dannet.web.ui.input-type), whose search also finds an entry of
+   ;; the class for the gap of a template.
+   :input-types     {:dns/OntologicalType    input-types/ontological-type
+                     :ontolex/LexicalConcept input-types/synset
+                     :ontolex/Word           input-types/word}})

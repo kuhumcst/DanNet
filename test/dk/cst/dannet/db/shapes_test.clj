@@ -15,7 +15,8 @@
             [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.entry :as entry]
             [dk.cst.dannet.prefix :as prefix]
-            [dk.cst.dannet.test-util :as util]))
+            [dk.cst.dannet.test-util :as util])
+  (:import [org.apache.jena.rdf.model ModelFactory]))
 
 (def ^:private prefixes "
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -462,6 +463,30 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                                   [:dnt/Fish-Object :rdf/_1 :dnc/Object]
                                   [:dnt/Fish-Object :rdf/_2 :dn/synset-1]})
                      [:dnt/Fish-Object :dns/EditorialOntotypeShape :sh/Violation])))
+    (testing "the lemma of a new word fits the class of the word"
+      (let [results (fn [class lemma]
+                      (entry-set #{[:dn/word-2 :rdf/type class]
+                                   [:dn/word-2 :ontolex/canonicalForm '_form]
+                                   ['_form :ontolex/writtenRep
+                                    (->LangString lemma "da")]}))
+            blocked (fn [shape]
+                      [:dn/word-2 shape :sh/Violation])
+            word    (blocked :dns/EditorialWordLemmaShape-writtenRep)
+            mwe     (blocked :dns/EditorialMultiwordLemmaShape-writtenRep)
+            affix   (blocked :dns/EditorialAffixLemmaShape-writtenRep)]
+        (is (not (contains? (results :ontolex/Word "kat") word)))
+        (is (contains? (results :ontolex/Word "i dag") word)
+            "a lemma with a space isn't a word")
+        (is (contains? (results :ontolex/Word "-agtig") word)
+            "and neither is one with a hyphen at an end")
+        (is (not (contains? (results :ontolex/MultiwordExpression "i dag")
+                            mwe)))
+        (is (contains? (results :ontolex/MultiwordExpression "kat") mwe))
+        (is (contains? (results :ontolex/MultiwordExpression "Vig ") mwe)
+            "a stray space doesn't make a multiword expression")
+        (is (not (contains? (results :ontolex/Affix "-agtig") affix)))
+        (is (not (contains? (results :ontolex/Affix "u-") affix)))
+        (is (contains? (results :ontolex/Affix "kat") affix))))
     (testing "a brace-wrapped sense label blocks"
       (is (contains? (entry-set #{[:dn/sense-2 :rdf/type :ontolex/LexicalSense]
                                   [:dn/sense-2 :rdfs/label (->LangString "{fisk_§1}" "da")]})
@@ -636,6 +661,25 @@ dn:word-3 a ontolex:Word ; rdfs:label \"\\\"kat\\\"\"@da ;
                         g [{:add #{[:dn/word-1 :ontolex/canonicalForm :dn/form-1]
                                    [:dn/word-1 :rdfs/label
                                     (->LangString "\"hund\"" "da")]}}]))))))
+
+(deftest lemma-patterns
+  (let [model   (ModelFactory/createModelForGraph
+                  (.getGraph @shapes/editorial-shapes))
+        pattern (fn [shape]
+                  (-> (.getResource model (prefix/kw->uri shape))
+                      (.getProperty (shapes/sh model "pattern"))
+                      (.getObject)
+                      (shapes/data)))]
+    (doseq [[class shape] {:ontolex/Word
+                           :dns/EditorialWordLemmaShape-writtenRep
+                           :ontolex/MultiwordExpression
+                           :dns/EditorialMultiwordLemmaShape-writtenRep
+                           :ontolex/Affix
+                           :dns/EditorialAffixLemmaShape-writtenRep}]
+      (is (= (str (get-in editable/rules
+                          [:entries class :ask '?lemma :pattern]))
+             (pattern shape))
+          "the shapes have the pattern that the editor asks a new lemma for"))))
 
 (deftest editorial-constraints
   (let [constraints @shapes/editorial-constraints

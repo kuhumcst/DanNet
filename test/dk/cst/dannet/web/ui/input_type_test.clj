@@ -3,30 +3,35 @@
   (:require [clojure.test :refer [deftest is testing]]
             [dk.cst.dannet.web.ui.input-type :as input-type]))
 
+(def synset
+  "The input type of a class that has one of its own, with a search."
+  (assoc input-type/resource :search {:title {:en "Find a synset"}}))
+
+(def input-type-of
+  "The input type of some values and their constraints, when a synset has
+  an input type of its own."
+  (partial input-type/input-type {:ontolex/LexicalConcept synset}))
+
 (deftest input-types
   (is (= {:options [:wn/noun :wn/verb]}
-         (input-type/input-type [:wn/noun] {:in [:wn/noun :wn/verb]}))
+         (input-type-of [:wn/noun] {:in [:wn/noun :wn/verb]}))
       "the values that a shape lets a property choose between")
-  (is (= input-type/ontological-type
-         (input-type/input-type [:dnt/Animal-Object]
-                                {:class :dns/OntologicalType}))
+  (is (= synset (input-type-of [:dn/synset-1] {:class :ontolex/LexicalConcept}))
       "the input type of the class that a shape gives the values")
   (is (= "Must be digits"
-         (:description (input-type/input-type ["12"]
-                                              {:pattern     "^[0-9]+$"
-                                               :description "Must be digits"})))
+         (:description (input-type-of ["12"] {:pattern     "^[0-9]+$"
+                                              :description "Must be digits"})))
       "a text that matches the pattern of a shape, with its description")
-  (is (= input-type/resource (input-type/input-type [] {:iri? true}))
+  (is (= input-type/resource (input-type-of [] {:iri? true}))
       "a value that has to be an IRI is a resource, also in a row without values")
-  (is (= input-type/resource
-         (input-type/input-type [] {:class :ontolex/LexicalSense}))
+  (is (= input-type/resource (input-type-of [] {:class :ontolex/LexicalSense}))
       "and so is a value of a class without an input type of its own")
   (testing "a resource that the pattern of a shape matches"
-    (let [danish  (input-type/input-type
+    (let [danish  (input-type-of
                     [] {:class       :ontolex/LexicalConcept
                         :pattern     "^https://wordnet\\.dk/dannet/data/"
                         :description "Must be a synset in DanNet"})
-          english (input-type/input-type
+          english (input-type-of
                     [] {:class   :ontolex/LexicalConcept
                         :pattern "^https://en-word\\.net/id/"})]
       (is (= "Must be a synset in DanNet" (:description danish)))
@@ -38,14 +43,10 @@
       (is (some? (:search danish)) "a synset of DanNet can be searched for")
       (is (nil? (:search english)) "and an English one can only be typed")))
   (testing "or else the one that fits its values"
-    (is (= input-type/synset (input-type/input-type [:dn/synset-1] nil)))
-    (is (= input-type/resource
-           (input-type/input-type [:ontolex/LexicalConcept] nil)))
-    (is (= input-type/resource
-           (input-type/input-type [:dn/synset-1 :ili/i46360] nil))
-        "resources that aren't all synsets")
-    (is (= input-type/text (input-type/input-type ["et dyr"] nil)))
-    (is (= input-type/text (input-type/input-type [] nil)))))
+    (is (= input-type/resource (input-type-of [:dn/synset-1 :ili/i46360] nil))
+        "resources are typed as an ID when no shape gives their class")
+    (is (= input-type/text (input-type-of ["et dyr"] nil)))
+    (is (= input-type/text (input-type-of [] nil)))))
 
 (deftest texts
   (let [parse (:parse-fn input-type/text)]

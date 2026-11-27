@@ -504,6 +504,47 @@ SELECT $this ?value WHERE {
   FILTER(replace(str(?value), "ˈ", "") != str(?written))
 }""" .
 
+## The class of a word follows from its lemma: a lemma with a space is a
+## multiword expression, one with a hyphen at either end is an affix, and any
+## other is a word. All but two of the 62039 lemmas fit the pattern of their
+## class: " faldereb" and "Vig " have a stray space, which made them
+## multiword expressions (2026-11-27).
+##
+## The forms of the three classes share a shape, so each pattern is on the
+## path from a word to its lemma, which no field can use. The editor asks for
+## the lemma of a new word before there is a word to validate, so its rules
+## have the same patterns (see dk.cst.dannet.editable), and a test checks that
+## the two agree.
+dns:EditorialWordLemmaShape a sh:NodeShape ;
+    sh:targetClass ontolex:Word ;
+    sh:property dns:EditorialWordLemmaShape-writtenRep .
+
+dns:EditorialWordLemmaShape-writtenRep a sh:PropertyShape ;
+    sh:path ( ontolex:canonicalForm ontolex:writtenRep ) ;
+    sh:pattern "^[^\\s-](\\S*[^\\s-])?$" ;
+    sh:severity sh:Violation ;
+    sh:message "The lemma of an ontolex:Word must have no space, and no hyphen at either end." .
+
+dns:EditorialMultiwordLemmaShape a sh:NodeShape ;
+    sh:targetClass ontolex:MultiwordExpression ;
+    sh:property dns:EditorialMultiwordLemmaShape-writtenRep .
+
+dns:EditorialMultiwordLemmaShape-writtenRep a sh:PropertyShape ;
+    sh:path ( ontolex:canonicalForm ontolex:writtenRep ) ;
+    sh:pattern "^\\S+( \\S+)+$" ;
+    sh:severity sh:Violation ;
+    sh:message "The lemma of an ontolex:MultiwordExpression must be words with one space between them." .
+
+dns:EditorialAffixLemmaShape a sh:NodeShape ;
+    sh:targetClass ontolex:Affix ;
+    sh:property dns:EditorialAffixLemmaShape-writtenRep .
+
+dns:EditorialAffixLemmaShape-writtenRep a sh:PropertyShape ;
+    sh:path ( ontolex:canonicalForm ontolex:writtenRep ) ;
+    sh:pattern "^(-\\S+|\\S+-)$" ;
+    sh:severity sh:Violation ;
+    sh:message "The lemma of an ontolex:Affix must have no space, and a hyphen at one end." .
+
 dns:EditorialSenseShape a sh:NodeShape ;
     sh:targetClass ontolex:LexicalSense ;
     sh:node dns:LexicalSenseShape ;

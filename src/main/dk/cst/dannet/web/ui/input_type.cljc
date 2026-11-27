@@ -29,7 +29,8 @@
   - :note, what choosing a result does besides, as a map of :da and :en.
 
   The input and the dialog of ui.edit.input only know these maps, so a new input
-  type or a new search needs no change to either."
+  type or a new search needs no change to either. The input types of DanNet's
+  own classes are in dk.cst.dannet.editable.input-types."
   (:require [clojure.string :as str]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.web.app :as app]
@@ -80,99 +81,6 @@
                                         (app/remember-labels! {k label}))
                                       k))))))})
 
-(def synset
-  "A synset, typed as its ID or found by the start of one of its words,
-  which the server looks up."
-  (assoc resource
-    :search {:title       {:da "Find et synset" :en "Find a synset"}
-             :placeholder {:da "skriv et ord..." :en "write a word..."}
-             :results-fn  (fn [s]
-                            (when-let [lemma (not-empty (str/trim s))]
-                              (fetch-data prefix/synsets-path :synsets
-                                          {:lemma lemma})))
-             :value-fn    key
-             ;; the labels of a result are in the metadata of its entity
-             :label-fn    (fn [[k entity]]
-                            (get (:k->label (meta entity)) k))
-             :hiccup-fn   (fn [[k entity] {:keys [languages] :as opts}]
-                            (let [{:keys [k->label]} (meta entity)
-                                  label #(str (i18n/select-label languages %))
-                                  type  (:dns/ontologicalType entity)]
-                              [:<>
-                               [:strong (label (get k->label k))]
-                               [:span (label (:skos/definition entity))]
-                               (when type
-                                 [:small (label (get k->label type))])]))}))
-
-;; The types are fetched once and then searched in the browser. A fetch that
-;; gives none, e.g. one that a change of page aborts, is made again.
-(defonce ^{:doc "Every ontological type with its label, once fetched."}
-  ontological-types
-  (atom nil))
-
-(defn- matching-types
-  "A promise of the ontological types whose label contains the text `s`, in
-  any case."
-  [s]
-  #?(:cljs (let [s      (str/lower-case (str/trim s))
-                 match? #(-> (str (:rdfs/label %))
-                             (str/lower-case)
-                             (str/includes? s))]
-             (.then (if-let [types @ontological-types]
-                      (js/Promise.resolve types)
-                      (.then (fetch-data prefix/ontological-types-path
-                                         :ontological-types)
-                             #(reset! ontological-types %)))
-                    #(filter match? %)))))
-
-(def ontological-type
-  "An ontological type, typed as its ID or found among the existing types,
-  which the browser has."
-  (assoc resource
-    :search {:title       {:da "Find en ontologisk type"
-                           :en "Find an ontological type"}
-             :placeholder {:da "skriv et begreb..." :en "write a concept..."}
-             :results-fn  matching-types
-             :value-fn    :rdf/about
-             :label-fn    :rdfs/label
-             :hiccup-fn   (fn [{:keys [rdfs/label]} _]
-                            [:strong (str label)])}))
-
-(def word
-  "A word of DanNet, typed as its ID or found by the start of its lemma,
-  which the server looks up.
-
-  A result is the lemma of a word and its part of speech. Words with the
-  same lemma have the number that DDO tells them apart by."
-  (assoc resource
-    :search {:title       {:da "Find et ord" :en "Find a word"}
-             :placeholder {:da "skriv et ord..." :en "write a word..."}
-             :one-line?   true
-             :results-fn  (fn [s]
-                            (when-let [lemma (not-empty (str/trim s))]
-                              (fetch-data prefix/words-path :words
-                                          {:lemma lemma})))
-             :value-fn    :rdf/about
-             :label-fn    :rdfs/label
-             :hiccup-fn   (fn [{:keys [lemma homograph labels]
-                                pos   :wn/partOfSpeech}
-                               {:keys [languages]}]
-                            [:<>
-                             [:strong (str lemma) (when homograph
-                                                    [:sup homograph])]
-                             (when pos
-                               [:span (str (or (i18n/select-label
-                                                 languages (get labels pos))
-                                               (name pos)))])])}))
-
-(def class-input-types
-  "The input type of a value of each class that has one of its own. Its
-  search also finds an entry of the class for the gap of a template (see
-  dk.cst.dannet.entry)."
-  {:dns/OntologicalType    ontological-type
-   :ontolex/LexicalConcept synset
-   :ontolex/Word           word})
-
 (defn fitting
   "The resource `input-type` for the resources whose IRI the `pattern` of a
   shape matches, with the `description` of such a resource in each language.
@@ -189,20 +97,16 @@
                             (parse-fn s lang))))
       (not (re-find re prefix/dn-uri)) (dissoc :search))))
 
-(defn- synset?
-  "Is `v` the ID of a DanNet synset?"
-  [v]
-  (and (keyword? v)
-       (= "dn" (namespace v))
-       (str/starts-with? (name v) "synset-")))
-
 (defn input-type
   "The input type of a property with the values `vs` and the constraints
-  that it `must` meet, as the shapes state them: the values to choose :in,
-  a resource of its :class or one that is an IRI, a value that matches its
-  :pattern, or else the one that fits its values."
-  [vs {:keys [in class iri? pattern description] :as must}]
-  (let [resource' (or (get class-input-types class)
+  that it `must` meet, as the shapes state them, when `input-types` is a map
+  of a class to the input type of its values (see dk.cst.dannet.editable).
+
+  It is the values to choose :in, a resource of its :class or one that is an
+  IRI, a value that matches its :pattern, or else the one that fits its
+  values."
+  [input-types vs {:keys [in class iri? pattern description] :as must}]
+  (let [resource' (or (get input-types class)
                       (when (or class iri?) resource))]
     (cond
       in                      {:options in}
@@ -210,6 +114,5 @@
       resource'               resource'
       pattern                 (matching pattern description)
       (empty? vs)             text
-      (every? synset? vs)     synset
       (every? keyword? vs)    resource
       :else                   text)))

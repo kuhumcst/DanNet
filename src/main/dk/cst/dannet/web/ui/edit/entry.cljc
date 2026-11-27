@@ -335,7 +335,7 @@
                              {:pending id
                               :label   (get labels id)
                               :kind    (:name (get entries class))}))
-        search    (with-pending (:search (some input-type/class-input-types
+        search    (with-pending (:search (some (:input-types edit-rules)
                                                classes))
                                 pending)
         value-fn  (:value-fn search)

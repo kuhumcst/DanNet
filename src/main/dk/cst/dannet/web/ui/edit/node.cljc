@@ -120,7 +120,8 @@
   The node has the `label`, and `node` is the node of the page, which a new
   node lacks. With `required`, the row must keep the node. Nil when
   the node has no such value."
-  [{:keys [changes default-origin] :as opts} k sole label node required]
+  [{:keys [changes default-origin edit-rules] :as opts}
+   k sole label node required]
   (let [nested (-> (rdf/node-opts opts
                                   (or node (new-node default-origin label)))
                    (assoc :attr-key sole))
@@ -133,6 +134,7 @@
       (value/value-field
         nested sole value
         (assoc field
-          :input-type (input-type/input-type [value] must)
+          :input-type (input-type/input-type (:input-types edit-rules)
+                                             [value] must)
           :required required
           :on-remove #(remove-node! opts label (when node place)))))))

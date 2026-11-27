@@ -4,6 +4,7 @@
             [dk.cst.theophrastus :as theo]
             [dk.cst.dannet.db.bootstrap.metadata :as md]
             [dk.cst.dannet.db.derived :as derived]
+            [dk.cst.dannet.editable :as editable]
             [dk.cst.dannet.prefix :as prefix]
             [dk.cst.dannet.test-util :as util]))
 
@@ -78,6 +79,22 @@ dns:Gender a rdfs:Class .")
            (derived/in-scheme g prefix/dn-uri md/<dn>
                               [:dn/word-1 :dn/word-9 :dns/Gender]))
         "only the ones that the graph has")))
+
+(deftest locked-properties
+  (let [g       (graph)
+        written (fn [{:keys [retract add] :as change}]
+                  (into #{} (map second) (concat retract add)))
+        {:keys [derived derived-by-class]} editable/rules]
+    (is (= (disj derived :dns/inherited)
+           (written (derived/in-scheme g prefix/dn-uri md/<dn>)))
+        "what is written for every resource, besides the legacy dns:inherited")
+    (is (= (disj (:ontolex/LexicalConcept derived-by-class) :dns/shortLabel)
+           (written (derived/synset-labels g)))
+        "for a synset, where the bootstrap makes the short label of the label")
+    (doseq [class [:ontolex/Word :ontolex/MultiwordExpression :ontolex/Affix]]
+      (is (= (get derived-by-class class)
+             (written (derived/evoked-synsets g)))
+          "and for a word of each class"))))
 
 (deftest deriving
   (let [triples (fn [g s] (set (theo/triples g [s '_ '_])))]
