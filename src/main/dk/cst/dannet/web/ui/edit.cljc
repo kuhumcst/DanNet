@@ -407,8 +407,9 @@
   a text that isn't one and whether the focus is leaving, `on-empty` for an
   empty text, or `on-cancel` when nothing is new, as Escape does. On Enter
   it refuses a value among `taken`, an entry that is being removed, and an
-  empty text with a `keep-reason`. Its buttons are those of an open field
-  with the `tint`, from `actions` (see action-buttons)."
+  empty text with a `keep-reason`. A text whose lookup fails is refused on
+  Enter too, and dropped when the focus leaves. Its buttons are those of an
+  open field with the `tint`, from `actions` (see action-buttons)."
   [state {:keys [languages changes] :as opts}
    {:keys [parse-fn format-fn search] :as input-type}
    {:keys [value draft lang langs label tint actions taken keep-reason
@@ -426,6 +427,9 @@
         taken-reason (i18n/da-en languages
                        "Rækken har allerede denne værdi"
                        "The row already has this value")
+        failed-reason (i18n/da-en languages
+                        "Værdien kunne ikke slås op. Prøv igen."
+                        "The value couldn't be looked up. Try again.")
         own        (action-buttons true tint actions)
         ;; why the entered text is refused, when it isn't for its form
         refusal    (::refusal state)
@@ -457,6 +461,13 @@
                        :refuse (refuse! input
                                         (or (removal-reason languages changes v)
                                             taken-reason))))
+        ;; A lookup that fails says nothing about the text, so Enter can try
+        ;; again. The text is dropped when the focus leaves, as a value that
+        ;; can't be entered is.
+        failed!    (fn [input leaving?]
+                     (if leaving?
+                       (on-cancel)
+                       (refuse! input failed-reason)))
         ;; a text is entered once, though the focus may leave right after
         ;; Enter
         enter!     (fn [input leaving?]
@@ -474,7 +485,8 @@
                               (do
                                 (reset! entering? true)
                                 (.then (js/Promise.resolve (parse-fn s lang'))
-                                       #(parsed! input s % leaving?))))))))
+                                       #(parsed! input s % leaving?)
+                                       #(failed! input leaving?))))))))
         cancel!    (fn []
                      (reset! entering? true)
                      (on-cancel))
