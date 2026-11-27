@@ -1,0 +1,25 @@
+;; The two words of the dn: graph whose lemma has a stray space, as changes
+;; (see dk.cst.dannet.change).
+;;
+;; A lemma with a space is that of a multiword expression, which both are in
+;; the data, so the changes make them words too. The label of the synset of
+;; "Vig" is made from the label of its sense, which the build does.
+[;; faldereb
+ {:where   [[:dn/word-11012178 :ontolex/canonicalForm ?form]]
+  :retract #{[:dn/word-11012178 :rdf/type :ontolex/MultiwordExpression]
+             [:dn/word-11012178 :rdfs/label #rdf/langstring ["\" faldereb\"" "da"]]
+             [?form :ontolex/writtenRep #rdf/langstring [" faldereb" "da"]]}
+  :add     #{[:dn/word-11012178 :rdf/type :ontolex/Word]
+             [:dn/word-11012178 :rdfs/label #rdf/langstring ["\"faldereb\"" "da"]]
+             [?form :ontolex/writtenRep #rdf/langstring ["faldereb" "da"]]}}
+
+ ;; Vig, the town
+ {:where   [[:dn/word-s23002504 :ontolex/canonicalForm ?form]]
+  :retract #{[:dn/word-s23002504 :rdf/type :ontolex/MultiwordExpression]
+             [:dn/word-s23002504 :rdfs/label #rdf/langstring ["\"Vig \"" "da"]]
+             [:dn/sense-23002504 :rdfs/label #rdf/langstring ["Vig _§1" "da"]]
+             [?form :ontolex/writtenRep #rdf/langstring ["Vig " "da"]]}
+  :add     #{[:dn/word-s23002504 :rdf/type :ontolex/Word]
+             [:dn/word-s23002504 :rdfs/label #rdf/langstring ["\"Vig\"" "da"]]
+             [:dn/sense-23002504 :rdfs/label #rdf/langstring ["Vig_§1" "da"]]
+             [?form :ontolex/writtenRep #rdf/langstring ["Vig" "da"]]}}]

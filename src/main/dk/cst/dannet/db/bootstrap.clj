@@ -196,7 +196,8 @@
   []
   (into []
         (mapcat #(db.change/read-changes (io/resource %)))
-        ["changes/dangling-oewn-links.edn"]))
+        ["changes/dangling-oewn-links.edn"
+         "changes/stray-spaces.edn"]))
 
 (h/defn apply-changes!
   "Make the `changes` in the dn: graph of `dataset`, in order and in one
