@@ -385,17 +385,17 @@
   (delay (q/inverse-properties (:inference @instance/db)
                                (entry/properties (:entries editable/rules)))))
 
-(def editor-constraints
+(def editor-content
   "What the editor reads from the shapes and the schemas for a resource
-  with the set of `types`: the :constraints on its properties (see
+  with the set of `classes`: the :constraints on its properties (see
   shapes/constraints-of), the :inverses of the properties that link new
   entries (see entry-inverses), and the labels of the resources that these
   name as :entities. A property has a label since a row can be added for
   it, and so do the values that it can choose between."
   (memoize
-    (fn [types]
+    (fn [classes]
       (let [constraints (shapes/constraints-of @shapes/editorial-constraints
-                                               types)]
+                                               classes)]
         {:constraints constraints
          :inverses    @entry-inverses
          :entities    (q/resource-labels (:inference @instance/db)
@@ -404,12 +404,11 @@
                                              (set)))}))))
 
 (defn- with-constraints
-  "The page `content` of a resource with the `types`, with what the editor
-  reads from the shapes and the schemas (see editor-constraints). The
-  labels that the page already has are kept."
-  [content types]
-  (let [{:keys [constraints inverses entities]} (editor-constraints
-                                                  (set types))]
+  "The page `content` of a resource with the `classes`, with what the editor
+  reads from the shapes and the schemas (see editor-content). The labels
+  that the page already has are kept."
+  [content classes]
+  (let [{:keys [constraints inverses entities]} (editor-content (set classes))]
     (-> (assoc content :constraints constraints :inverses inverses)
         (update :entities #(merge entities %)))))
 
@@ -657,7 +656,7 @@
          response-body-ic]
    :route-name ::autocomplete])
 
-(defn- query-param
+(defn query-param
   "The query parameter `k` of the request in `ctx`, decoded."
   [ctx k]
   (some-> (get-in ctx [:request :query-params k]) (decode-query-part)))
@@ -690,7 +689,7 @@
 (def synsets-path
   (str (prefix/uri->path prefix/dannet-root) "edit/synsets"))
 
-(defn- prefix-lemmas
+(defn prefix-lemmas
   "The string `s` and the first few words that the autocompletion has for
   it, i.e. words that start with `s`."
   [s]
@@ -764,20 +763,20 @@
   (str (prefix/uri->path prefix/dannet-root) "edit/entry"))
 
 (def entry-ic
-  "What the editor needs to show a new entry of the type in the request,
+  "What the editor needs to show a new entry of the class in the request,
   given as a prefixed name: what it reads from the shapes and the schemas
-  for the type (see editor-constraints), with the label of the type among
+  for the class (see editor-content), with the label of the class among
   the :entities."
   {:name  ::entry
    :enter (fn [ctx]
-            (let [type (some-> (query-param ctx :type) (prefix/qname->kw))]
+            (let [class (some-> (query-param ctx :class) (prefix/qname->kw))]
               (assoc ctx
                 :content
-                (when type
-                  (update (editor-constraints #{type})
+                (when class
+                  (update (editor-content #{class})
                           :entities merge
                           (q/resource-labels (:inference @instance/db)
-                                             #{type}))))))})
+                                             #{class}))))))})
 
 (def entry-route
   "A route of the editor, which only exists in development."
@@ -792,28 +791,29 @@
 
 (def removal-rules
   "What the rules of the editor say goes with an entry that is removed (see
-  db.change/removal): what a template links it to, e.g. the senses of a
-  word, and the values that the build writes."
-  (let [{:keys [entries derived derived-by-type]} editable/rules]
+  db.change/removal-parts): what a template links it to, e.g. the senses of
+  a word, and the values that the build writes."
+  (let [{:keys [entries derived derived-by-class]} editable/rules]
     {:links   (entry/links entries)
-     :derived (into derived (mapcat val) derived-by-type)}))
+     :derived (into derived (mapcat val) derived-by-class)}))
 
 (def removal-ic
   "What the editor needs to remove the entry in the request, given as a
   prefixed name: the parts that take it out of the dn: graph (see
-  db.change/removal), with the labels of the resources in them as :entities."
+  db.change/removal-parts), with the labels of the resources in them as
+  :entities."
   {:name  ::removal
    :enter (fn [ctx]
             (let [id (some-> (query-param ctx :id) (prefix/qname->kw))
                   {:keys [dataset inference]} @instance/db
                   {:keys [orphans] :as removal}
                   (when id
-                    (db.change/removal
+                    (db.change/removal-parts
                       (theo/named-graph dataset prefix/dn-graph)
                       id
                       removal-rules))
                   parts   (cons removal (vals orphans))
-                  triples (mapcat :entry parts)]
+                  triples (mapcat :triples parts)]
               (assoc ctx
                 :content
                 (when removal

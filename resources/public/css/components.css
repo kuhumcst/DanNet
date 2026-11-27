@@ -620,7 +620,7 @@ ins.edit-value__content {
 
 /* The input and its controls are parts of the field, in the same line as
    the content and the buttons of a closed field. */
-.edit-value__entry {
+.edit-value__wrapper {
     display: contents;
 }
 

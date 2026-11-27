@@ -12,8 +12,8 @@
     set of prefixes such as \"dn\". Without it, any resource can be.
   - :derived, the properties that a build writes for every resource, so
     that their values aren't edited by hand.
-  - :derived-by-type, a map of a type to the properties that a build writes
-    for the resources of that type.
+  - :derived-by-class, a map of a class to the properties that a build
+    writes for the resources of that class.
   - :fixed, the properties that say what a resource is, e.g. its type, which
     an edit never changes."
   (:require [dk.cst.theophrastus.origin :as origin]
@@ -62,11 +62,11 @@
 
 (defn derived?
   "Does a build write the property `k` of the entity in `opts`, according to
-  the :derived and :derived-by-type of the :edit-rules?"
+  the :derived and :derived-by-class of the :edit-rules?"
   [{:keys [entity edit-rules] :as opts} k]
-  (let [{:keys [derived derived-by-type]} edit-rules]
+  (let [{:keys [derived derived-by-class]} edit-rules]
     (boolean (or (contains? derived k)
-                 (some #(contains? (get derived-by-type %) k)
+                 (some #(contains? (get derived-by-class %) k)
                        (shared/setify (:rdf/type entity)))))))
 
 (defn editable-resource?
@@ -78,7 +78,7 @@
         (and (keyword? subject)
              (contains? namespaces (namespace subject))))))
 
-(defn- blank-node?
+(defn- blank-value?
   "Is the value `v` a blank node, as a map of its properties or as a symbol?"
   [v]
   (or (map? v) (symbol? v)))
@@ -116,7 +116,7 @@
     (not (editable-resource? opts))
     :resource
 
-    (and (blank-node? v) (not (get-in constraints [k :node])))
+    (and (blank-value? v) (not (get-in constraints [k :node])))
     :yet))
 
 (defn node?

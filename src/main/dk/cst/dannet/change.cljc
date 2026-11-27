@@ -62,7 +62,7 @@
 ;; An edit made twice is made once, so that a field which enters its value
 ;; twice, e.g. on Enter and again as it loses the focus, leaves one change.
 
-(defn- with-change
+(defn with-change
   "The pending `changes` with the `change` made, once: as a change of its
   own, or by dropping an earlier change that is its `opposite`."
   [changes change opposite]
@@ -119,7 +119,7 @@
                      (contains? (:unreference %) (peek t))))
         changes))
 
-(defn- without-triples
+(defn without-triples
   "The pending `changes` without the triples that are `named?`, a function
   of the key that a triple is under and the triple. A change keeps its
   other triples, and what it unreferences stays as it is."
@@ -182,7 +182,7 @@
   [x]
   (or (qualified-keyword? x) (term/iri-string? x)))
 
-(defn- triple-form?
+(defn triple-form?
   "Is `x` an [s p o] vector of terms?"
   [x]
   (and (vector? x) (= 3 (count x)) (not-any? coll? x)))
@@ -384,7 +384,7 @@
   subjects whose type it retracts.
 
   No other edit retracts a type. A change that does retracts every triple of
-  the data that names the entry (see dk.cst.dannet.db.change/removal)."
+  the data that names the entry (see dk.cst.dannet.db.change/removal-parts)."
   [{:keys [retract] :as change}]
   (into #{}
         (keep (fn [[s p _]]

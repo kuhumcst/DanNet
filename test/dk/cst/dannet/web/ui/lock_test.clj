@@ -64,10 +64,10 @@
     (is (not (lock/node? {:rdf/about '_form})))))
 
 (deftest edit-rules
-  (let [rules  {:namespaces      #{"dn"}
-                :derived         #{:skos/inScheme}
-                :derived-by-type {:ontolex/LexicalConcept #{:rdfs/label}}
-                :fixed           #{:rdf/type}}
+  (let [rules  {:namespaces       #{"dn"}
+                :derived          #{:skos/inScheme}
+                :derived-by-class {:ontolex/LexicalConcept #{:rdfs/label}}
+                :fixed            #{:rdf/type}}
         opts   (fn [subject & [entity]]
                  {:subject        subject
                   :entity         entity

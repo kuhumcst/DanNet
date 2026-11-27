@@ -7,14 +7,14 @@
 (def parts
   "The removal of a synset whose sense is the only one of its word, as the
   server has it."
-  {:entry      #{[:dn/synset-1 :rdf/type :ontolex/LexicalConcept]
+  {:triples    #{[:dn/synset-1 :rdf/type :ontolex/LexicalConcept]
                  [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]
                  [:dn/sense-1 :rdf/type :ontolex/LexicalSense]
                  [:dn/word-1 :ontolex/sense :dn/sense-1]}
    :references {:wn/hypernym 2 :dns/inheritedFrom 1}
    :nodes      {}
    :orphans    {:dn/word-1
-                {:entry      #{[:dn/word-1 :rdf/type :ontolex/Word]
+                {:triples    #{[:dn/word-1 :rdf/type :ontolex/Word]
                                [:dn/word-1 :ontolex/canonicalForm '_b2]}
                  :references {}
                  :nodes      {'_b2 {:subject  :dn/word-1
@@ -22,15 +22,15 @@
 
 (deftest answers-and-changes
   (let [answers (removal/answers parts)
-        whole   (into (:entry parts)
-                      (get-in parts [:orphans :dn/word-1 :entry]))]
+        whole   (into (:triples parts)
+                      (get-in parts [:orphans :dn/word-1 :triples]))]
     (is (= {:dn/word-1 true} answers)
         "the orphans go too, until the editor says no")
     (is (= {:retract     whole
             :unreference #{:dn/synset-1 :dn/sense-1 :dn/word-1}}
            (removal/removal parts answers))
         "the change names what goes, and has a rule for what refers to it")
-    (is (= {:retract     (:entry parts)
+    (is (= {:retract     (:triples parts)
             :unreference #{:dn/synset-1 :dn/sense-1}}
            (removal/removal parts {:dn/word-1 false}))
         "an orphan that isn't chosen stays, and so do the references to it")
@@ -68,7 +68,7 @@
              (:items (first (:details (peek (steps parts {}))))))
           "an orphan that isn't chosen stays"))
     (testing "a removal that nothing depends on only has to be confirmed"
-      (let [alone {:entry #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]}}
+      (let [alone {:triples #{[:dn/sense-1 :rdf/type :ontolex/LexicalSense]}}
             [confirm :as all] (steps alone {})]
         (is (= ["Bekræft fjernelsen"] (map :heading all)))
         (is (= [{:value 1 :label "ressource"} {:value 1 :label "værdi"}]

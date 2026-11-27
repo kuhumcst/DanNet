@@ -90,7 +90,7 @@
 
 (deftest removing-a-new-entry
   (let [[_ {:keys [aria-label]} text]
-        (edit/remove-entry-button
+        (edit/discard-entry-button
           {:languages ["da" "en"]
            :k->label  {:dn/new-word-1 "\"vuffer\""}}
           :dn/new-word-1
@@ -131,7 +131,7 @@
       (is (= "Fortryd fjernelsen af ressourcen: hund_1§1" aria-label)
           "the button that puts a removed entry back says which entry"))
     (is (str/includes? (rum/render-static-markup
-                         (edit/retract-entry-button opts :dn/sense-1))
+                         (edit/remove-entry-button opts :dn/sense-1))
                        "aria-label=\"Fjern ressourcen: hund_1§1\"")
         "and so does the button that removes an entry on its own page")
     (testing "a removed link to an entry that is removed as a whole"

@@ -46,7 +46,7 @@
                                    (.focus))))
                 state)})
 
-(defn- close!
+(defn close!
   "Close the dialog that the event `e` comes from."
   [e]
   #?(:cljs (.close (.closest (.-target e) "dialog"))))

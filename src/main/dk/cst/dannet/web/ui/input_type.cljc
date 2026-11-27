@@ -74,7 +74,7 @@
         (when (contains? prefix/schemas (symbol prefix))
           (keyword prefix local-name))))))
 
-(defn- fetch-data
+(defn fetch-data
   "A promise of what the server has under the key `k` of its :data at `url`
   with `query-params`, or of nil when it has none."
   [url k & [query-params]]

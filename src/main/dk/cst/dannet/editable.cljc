@@ -44,10 +44,11 @@
    ;; The labels of a synset are made from its senses, while the label of
    ;; a word is written by hand. The synsets of a word follow from its
    ;; senses.
-   :derived-by-type {:ontolex/LexicalConcept      #{:rdfs/label :dns/shortLabel}
-                     :ontolex/Word                #{:ontolex/evokes}
-                     :ontolex/MultiwordExpression #{:ontolex/evokes}
-                     :ontolex/Affix               #{:ontolex/evokes}}
+   :derived-by-class
+   {:ontolex/LexicalConcept      #{:rdfs/label :dns/shortLabel}
+    :ontolex/Word                #{:ontolex/evokes}
+    :ontolex/MultiwordExpression #{:ontolex/evokes}
+    :ontolex/Affix               #{:ontolex/evokes}}
 
    ;; A synset stays a synset: its page, its shapes and its place in the
    ;; dataset all follow from its type.

@@ -3,9 +3,10 @@
   know and to choose before it is made, as the steps of a wizard (see
   dk.cst.dannet.web.ui.dialog), and the change that the answers give.
 
-  The server has the removal in parts (see dk.cst.dannet.db.change/removal).
-  The answers are a map of the ID of an orphan, a resource that can't stay
-  alone once the other is gone, to whether that resource goes too.
+  The server has the removal in parts (see
+  dk.cst.dannet.db.change/removal-parts). The answers are a map of the ID of
+  an orphan, a resource that can't stay alone once the other is gone, to
+  whether that resource goes too.
 
   The change names the triples of what goes. The references always go with
   what they point to. They are a rule of the change instead (see
@@ -20,7 +21,7 @@
   [{:keys [orphans] :as parts}]
   (zipmap (keys orphans) (repeat true)))
 
-(defn- chosen
+(defn chosen
   "The `parts` that go by the `answers`: the resource, and the orphans that
   are chosen, each as a map of its own parts."
   [{:keys [orphans] :as parts} answers]
@@ -38,7 +39,7 @@
   "The change that the `answers` make of the `parts` of a removal. It
   unreferences what it removes."
   [parts answers]
-  (let [retract (into #{} (mapcat :entry) (chosen parts answers))]
+  (let [retract (into #{} (mapcat :triples) (chosen parts answers))]
     {:retract     retract
      :unreference (change/removed {:retract retract})}))
 
@@ -56,7 +57,7 @@
 ;; TODO: a step that moves the references to another resource in place of
 ;;       removing them, e.g. when two synsets are merged.
 
-(defn- figure
+(defn figure
   "The number `n` with what it counts, for a reader with `languages`: the
   singular or the plural of the Danish pair `da` or the English pair `en`."
   [languages n da en]

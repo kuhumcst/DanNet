@@ -77,8 +77,8 @@
 (defn- removal
   "The change that removes the entry `id` of the data with the senses that
   it holds, as the editor makes it of what the server has (see
-  db.change/removal): it names their triples and the links to them, and
-  unreferences them."
+  db.change/removal-parts): it names their triples and the links to them,
+  and unreferences them."
   [id]
   (let [link? (entry/links templates)
         ids   (into #{id}
@@ -331,11 +331,11 @@
   (when-let [label (pick rng (new-nodes changes nodes))]
     [[:remove-node label] (update state :changes change/without-node label)]))
 
-(defn- remove-entry
+(defn- discard-entry
   "A new entry taken away. The state gets the changes that should be :left."
   [{:keys [changes] :as state} rng]
   (when-let [id (pick rng (keys (made changes)))]
-    [[:remove-entry id]
+    [[:discard-entry id]
      (assoc state
        :changes (entry/without templates changes id)
        :left (left changes (gone changes #{id})))]))
@@ -343,7 +343,7 @@
 (defn- orphans
   "The entries of the data that hold nothing by a link once the `change`
   is made, e.g. the word of its last sense, as the server finds them (see
-  db.change/removal)."
+  db.change/removal-parts)."
   [change]
   (let [gone  (change/removed change)
         link? (entry/links templates)]
@@ -355,7 +355,7 @@
                                                  o')))]
                       h)))))
 
-(defn- retract-entry
+(defn- remove-entry
   "An entry of the data removed as a whole, with the senses that it holds
   and with the edits made to any of them before. Half of the time, the
   entries that it leaves as orphans go in the same change. The state gets
@@ -373,9 +373,9 @@
           wholes (conj (filter whole? changes) change)
           kept   (left (remove whole? changes)
                        (gone changes (change/removed change)))]
-      [[:retract-entry id]
+      [[:remove-entry id]
        (assoc state
-         :changes (entry/retract templates changes change)
+         :changes (entry/with-removal templates changes change)
          :left (-> (update kept :retract into (mapcat :retract) wholes)
                    (assoc :unreference (change/unreferenced wholes))))])))
 
@@ -386,14 +386,14 @@
   (when-let [id (pick rng (removed changes))]
     [[:restore-entry id]
      (assoc state
-       :changes (entry/restored changes id)
+       :changes (entry/without-removal changes id)
        :restored [id (change/net changes)])]))
 
 (def edits
   "The edits of a walk. An edit that is here twice is made twice as often."
   [new-sense new-sense new-synset new-word new-word new-value new-value
    new-label remove-value retraction unlink undo new-node node-value
-   remove-node remove-entry remove-entry retract-entry retract-entry
+   remove-node discard-entry discard-entry remove-entry remove-entry
    restore-entry])
 
 (defn- shown
@@ -409,7 +409,7 @@
                                    [[[subject property original] :retracted]])
                                  (triples (:rows field)))]
               triple))]
-    (mapcat (comp triples :rows) (changes/entries changes nodes))))
+    (mapcat (comp triples :rows) (changes/sections changes nodes))))
 
 (defn- problems
   "What is wrong with the `state` after an edit, as vectors of a keyword

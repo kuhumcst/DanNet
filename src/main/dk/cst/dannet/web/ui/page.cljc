@@ -26,7 +26,7 @@
     :as   opts}]
   (let [[_ _ rdf-uri] (rdf/parse-rdf-term subject)
         typeof   (prefix/rdfa-val (:rdf/type entity))
-        removed? (and edit-mode (entry/retracted? changes subject))
+        removed? (and edit-mode (entry/removed? changes subject))
         shown    (cond-> opts
                    removed? (assoc :edit-mode false))]
     (if (and synset? full-screen)

@@ -1,6 +1,6 @@
 (ns dk.cst.dannet.web.ui.changes
   "The list of the pending changes of an editor (see dk.cst.dannet.change),
-  by the entry that each change is made to.
+  by the resource that each change is made to.
 
   A value is shown as its field shows it, in the tint of its change, with a
   button that undoes the change or takes an added value away. A new entry
@@ -8,7 +8,7 @@
   button for the whole entry.
 
   A check asks the server what the shapes say about the changes, and each
-  result is shown with the entry or the row that it is about. Nothing takes
+  result is shown with the resource or the row that it is about. Nothing takes
   a submitted change yet, so submitting shows the text that would be sent."
   (:require [clojure.string :as str]
             [rum.core :as rum]
@@ -33,7 +33,7 @@
   "The rows of the subject `s` in the list of the pending `changes`: a map
   for each property that they change, of the :subject, the :property and
   its :fields (see row/fields). The row of a blank node in `nodes` also has
-  the :holder, the property of its entry that holds the node.
+  the :holder, the property of its resource that holds the node.
 
   The field of a blank node that the changes add or remove has the :rows of
   the node itself, without a :holder."
@@ -52,56 +52,57 @@
     (cond-> {:subject s :property p :fields fields}
       (contains? nodes s) (assoc :holder (get-in nodes [s :property])))))
 
-(defn entries
-  "The entries that the pending `changes` are made to, in the order of their
-  first change, as maps of the :entry and its :rows (see rows).
+(defn sections
+  "The sections of the list of the pending `changes`, one for each resource
+  that they are made to, in the order of their first change: maps of the
+  :resource and its :rows (see rows).
 
   A change to a blank node in `nodes`, the places of the blank nodes of the
-  session, is listed under the entry that holds the node: in rows of its
+  session, is listed under the resource that holds the node: in rows of its
   own, or in the field of the node when the changes add or remove the node
-  itself. An entry whose changes cancel each other out is left out."
+  itself. A resource whose changes cancel each other out is left out."
   [changes nodes]
-  (let [entry-of #(get-in nodes [% :subject] %)
-        ss       (subjects changes)
-        linked   (into #{}
-                       (for [{:keys [retract add]} changes
-                             [_ _ o]               (concat retract add)
-                             :when                 (contains? nodes o)]
-                         o))]
-    (for [entry (distinct (map entry-of ss))
-          :let  [rows (mapcat #(rows changes nodes %)
-                              (filter #(and (= entry (entry-of %))
-                                            (not (linked %)))
-                                      ss))]
-          :when (seq rows)]
-      {:entry entry :rows rows})))
+  (let [resource-of #(get-in nodes [% :subject] %)
+        ss          (subjects changes)
+        linked      (into #{}
+                          (for [{:keys [retract add]} changes
+                                [_ _ o]               (concat retract add)
+                                :when                 (contains? nodes o)]
+                            o))]
+    (for [resource (distinct (map resource-of ss))
+          :let     [rows (mapcat #(rows changes nodes %)
+                                 (filter #(and (= resource (resource-of %))
+                                               (not (linked %)))
+                                         ss))]
+          :when    (seq rows)]
+      {:resource resource :rows rows})))
 
 (defn row-problems
-  "The `results` of a check that are about the `row` of the `entry` (see
-  entries): those whose path is the property of the row or, for the row of
+  "The `results` of a check that are about the `row` of the `resource` (see
+  sections): those whose path is the property of the row or, for the row of
   a blank node, the property that holds the node."
-  [results entry {:keys [holder property] :as row}]
+  [results resource {:keys [holder property] :as row}]
   (filter (fn [{:keys [focus-node path]}]
-            (and (= focus-node entry)
+            (and (= focus-node resource)
                  (= path (or holder property))))
           results))
 
-(defn entry-problems
-  "The `results` of a check that are about the `entry` and none of its
-  `rows`, e.g. the result of a rule about several of its values."
-  [results entry rows]
+(defn section-problems
+  "The `results` of a check that are about the `resource` of a section and
+  none of its `rows`, e.g. the result of a rule about several of its values."
+  [results resource rows]
   (remove (fn [{:keys [focus-node] :as result}]
-            (or (not= focus-node entry)
-                (some #(seq (row-problems [result] entry %)) rows)))
+            (or (not= focus-node resource)
+                (some #(seq (row-problems [result] resource %)) rows)))
           results))
 
 (defn other-problems
-  "The `results` of a check that are about none of the `entries` that the
-  pending changes are made to, by the entry that each is about. A change
-  can break a rule of an entry that it only points to, e.g. a sense that a
-  synset no longer has."
-  [results entries]
-  (->> (remove (comp (set (map :entry entries)) :focus-node) results)
+  "The `results` of a check that are about none of the `sections` of the
+  pending changes, by the resource that each is about. A change can break a
+  rule of a resource that it only points to, e.g. a sense that a synset no
+  longer has."
+  [results sections]
+  (->> (remove (comp (set (map :resource sections)) :focus-node) results)
        (group-by :focus-node)))
 
 (defn- triples-text
@@ -134,7 +135,7 @@
        (str/join "\n " (map change-text (change/locate-nodes changes nodes)))
        "]"))
 
-(defn- check!
+(defn check!
   "Ask the server what the shapes say about the pending changes in `opts`,
   sent as they are submitted (see submission), and keep the answer as the
   :check of the session. The labels of the resources that it is about are
@@ -160,7 +161,7 @@
                       (answer! check))))
            (.catch #(answer! {:failed? true}))))))
 
-(defn- problem
+(defn problem
   "The message of the `result` of a check, marked as an error or as a
   warning for a reader with `languages`. With `n`, it also says that it is
   about that many resources."
@@ -176,7 +177,7 @@
      (when n
        (str " " (i18n/da-en languages "Ressourcer" "Resources") ": " n))]))
 
-(defn- fetch-references!
+(defn fetch-references!
   "Ask the server how many triples point to each of the resources `ids`,
   which the pending changes in `opts` unreference, and keep the answer as
   the :references of the session: the :ids that it is about, and the
@@ -221,7 +222,7 @@
     {:did-mount  look!
      :did-update look!}))
 
-(defn- focus-status!
+(defn focus-status!
   "Move the focus to the status of the list, e.g. before an edit that takes
   the button in focus away with its entry."
   []
@@ -250,24 +251,17 @@
                 (focus-status!))))))
      state)})
 
-(defn- remove-entry!
-  "Take the new entry with the `id` out of the pending changes in `opts`
-  (see edit/remove-entry!)."
-  [opts id]
-  (focus-status!)
-  (edit/remove-entry! opts id))
-
-(defn- whole?
-  "Is the `entry` one change in the pending changes of `opts`, so that its
-  values have no buttons of their own? A new entry is, and so is an entry
-  of the data that is removed as a whole."
-  [{:keys [changes] :as opts} entry]
-  (or (change/temporary? entry)
-      (entry/retracted? changes entry)))
+(defn whole?
+  "Is the `resource` one change in the pending changes of `opts`, so that
+  its values have no buttons of their own? A new entry is, and so is an
+  entry of the data that is removed as a whole."
+  [{:keys [changes] :as opts} resource]
+  (or (change/temporary? resource)
+      (entry/removed? changes resource)))
 
 (rum/defc pending-value < keep-focus
   "A value of the property `p` of the subject `s` in the list of the pending
-  changes to the `entry`, on a page with `opts`. The `field` is the value
+  changes to the `resource`, on a page with `opts`. The `field` is the value
   (see row/fields). Its button undoes the change, or takes an added value
   away.
 
@@ -276,14 +270,14 @@
   entry is removed. A value of an entry that is one change has no button
   (see whole?), and a new entry as a value has the button that takes that
   entry away."
-  [{:keys [languages] :as opts} entry s p
+  [{:keys [languages] :as opts} resource s p
    {:keys [value status original moved-to] :as field}]
   (let [content (fn [tag v class]
                   [tag (update (rdf/lone-value-attrs v) :class
                                #(remove nil? ["edit-value__content" class %]))
                    (rdf/value opts v)])
         text    (if (keyword? value) (rdf/link-label opts value) (str value))
-        whole?  (whole? opts entry)
+        whole?  (whole? opts resource)
         note    (or (edit/move-note opts field)
                     (when (and (= status :retracted) (not whole?))
                       (edit/removed-note opts value)))
@@ -303,7 +297,10 @@
        [:span.edit-value__actions
         (cond
           (and (= status :added) (change/temporary? value))
-          (edit/icon-button "remove" removal #(remove-entry! opts value))
+          (edit/icon-button "remove" removal
+                            (fn [_]
+                              (focus-status!)
+                              (edit/discard-entry! opts value)))
 
           (= status :added)
           (edit/icon-button "remove" removal
@@ -319,20 +316,21 @@
 
 (rum/defc pending-node < keep-focus
   "A blank node of the property `p` in the list of the pending changes to
-  the `entry`, on a page with `opts`: the values of the node as a nested
+  the `resource`, on a page with `opts`: the values of the node as a nested
   table, with a button that takes a new node away or puts a removed one
   back. The `field` is the node (see rows). A node of an entry that is one
   change has no button (see whole?)."
-  [{:keys [languages] :as opts} entry p {:keys [value status rows] :as field}]
+  [{:keys [languages] :as opts} resource p
+   {:keys [value status rows] :as field}]
   (let [removed? (= status :retracted)
         text     (edit/node-text opts p (map :value (mapcat :fields rows)))
         undo!    #(app/update-changes! change/without-node value)]
     [:li.edit-value.edit-node {:class (str "edit-value--" (name status))}
      [(if removed? :del :ins) {:class "edit-value__content"}
       (if (seq rows)
-        (changed-rows opts entry rows status)
+        (changed-rows opts resource rows status)
         (i18n/da-en languages "Ingen værdier endnu" "No values yet"))]
-     (when-not (whole? opts entry)
+     (when-not (whole? opts resource)
        [:span.edit-value__actions
         (if removed?
           (edit/icon-button "undo"
@@ -344,14 +342,14 @@
                             undo!))])]))
 
 (rum/defc changed-rows
-  "A table of the `rows` of the pending changes to the `entry` (see
-  entries), on a page with `opts`, with what the check said about each row.
+  "A table of the `rows` of the pending changes to the `resource` (see
+  sections), on a page with `opts`, with what the check said about each row.
 
   The rows of a blank node that the changes add or remove are a nested
   table in the field of the node, with its status as `node-status`. The
   values of a removed node have no buttons of their own, since the node is
   put back as a whole."
-  [{:keys [languages check] :as opts} entry rows node-status]
+  [{:keys [languages check] :as opts} resource rows node-status]
   [:table.attr-val (when node-status {:class "attr-val--nested"})
    [:colgroup
     [:col {:aria-label (i18n/da-en languages "RDF-præfix" "RDF prefix")}]
@@ -372,51 +370,56 @@
                :let [k (pr-str value)]]
            (cond
              (contains? field :rows)
-             (rum/with-key (pending-node opts entry property field) k)
+             (rum/with-key (pending-node opts resource property field) k)
 
              (= node-status :retracted)
              [:li (assoc (rdf/lone-value-attrs value) :key k)
               (rdf/value opts value)]
 
              :else
-             (rum/with-key (pending-value opts entry subject property field)
-                           k)))]
+             (rum/with-key
+               (pending-value opts resource subject property field)
+               k)))]
         (when-not node-status
           (map #(problem languages %)
-               (row-problems (:results check) entry row)))]])]])
+               (row-problems (:results check) resource row)))]])]])
 
 (defn- reference-counts
-  "The number of triples that point to the `entry`, which the pending
+  "The number of triples that point to the `resource`, which the pending
   changes in `opts` unreference, as a map of a property to a number. It is
   what the server last counted (see look-up-references), or nil when that
   count was made for other changes."
-  [{:keys [changes references] :as opts} entry]
+  [{:keys [changes references] :as opts} resource]
   (when (= (:ids references) (change/unreferenced changes))
-    (get-in references [:counts entry])))
+    (get-in references [:counts resource])))
 
-(rum/defc entry-changes
-  "The pending changes to the `entry` as a table of its `rows` (see
-  entries), on a page with `opts`, under a heading that links to the entry.
+(rum/defc section
+  "The pending changes to the `resource` as a table of its `rows` (see
+  sections), on a page with `opts`, under a heading that links to the
+  resource.
 
   A new entry has a button that takes it away as a whole. An entry that is
   removed as a whole has one that puts it back, and says how many
-  references go with it once the server has counted them. An entry without
-  rows only has what the check said about it (see other-problems)."
-  [{:keys [languages check changes] :as opts} entry rows]
+  references go with it once the server has counted them. A resource
+  without rows only has what the check said about it (see other-problems)."
+  [{:keys [languages check changes] :as opts} resource rows]
   [:section
    [:header
-    [:h2 (rdf/resource-hyperlink entry opts)]
-    (rdf/uri-link entry opts)
+    [:h2 (rdf/resource-hyperlink resource opts)]
+    (rdf/uri-link resource opts)
     (cond
-      (change/temporary? entry)
-      (edit/remove-entry-button opts entry #(remove-entry! opts entry))
-
-      (entry/retracted? changes entry)
-      (edit/restore-entry-button opts entry
+      (change/temporary? resource)
+      (edit/discard-entry-button opts resource
                                  (fn [_]
                                    (focus-status!)
-                                   (edit/restore-entry! entry))))
-    (when-let [counts (reference-counts opts entry)]
+                                   (edit/discard-entry! opts resource)))
+
+      (entry/removed? changes resource)
+      (edit/restore-entry-button opts resource
+                                 (fn [_]
+                                   (focus-status!)
+                                   (edit/restore-entry! resource))))
+    (when-let [counts (reference-counts opts resource)]
       [:p.entry-references
        (i18n/da-en languages
          "Henvisninger hertil fjernes også"
@@ -425,9 +428,9 @@
        (str/join ", " (for [[p n] (sort-by (juxt (comp - val) key) counts)]
                         (str n " × " (rdf/link-label opts p))))])
     (map #(problem languages %)
-         (entry-problems (:results check) entry rows))]
+         (section-problems (:results check) resource rows))]
    (when (seq rows)
-     (changed-rows opts entry rows nil))])
+     (changed-rows opts resource rows nil))])
 
 (defn- check-summary
   "What the `check` of the pending changes is doing or said, in a few words
@@ -513,34 +516,34 @@
                (count (distinct (map :focus-node about)))))]])
 
 (rum/defc changes-list < look-up-references
-  "The pending changes in `opts`, by the entry that each is made to, or a
-  note that there are none. Their number is a status, so that an undo is
+  "The pending changes in `opts`, by the resource that each is made to, or
+  a note that there are none. Their number is a status, so that an undo is
   read out, and it can take the focus when the last change is undone."
   [{:keys [languages changes nodes check] :as opts}]
-  (let [entries (entries changes nodes)
-        others  (other-problems (:results check) entries)
-        n       (count changes)
-        one?    (= 1 (count entries))]
+  (let [sections (sections changes nodes)
+        others   (other-problems (:results check) sections)
+        n        (count changes)
+        one?     (= 1 (count sections))]
     [:<>
      [:p.subheading {:role "status" :tab-index -1}
-      (if (empty? entries)
+      (if (empty? sections)
         (i18n/da-en languages
           "Der er ingen ændringer endnu."
           "There are no changes yet.")
         (i18n/da-en languages
           (str n (if (= n 1) " ændring i " " ændringer i ")
-               (count entries) (if one? " ressource" " ressourcer"))
+               (count sections) (if one? " ressource" " ressourcer"))
           (str n (if (= n 1) " change to " " changes to ")
-               (count entries) (if one? " resource" " resources"))))]
-     (when (seq entries)
+               (count sections) (if one? " resource" " resources"))))]
+     (when (seq sections)
        [:<>
         (check-control opts)
-        (for [{:keys [entry rows]} entries]
-          (rum/with-key (entry-changes opts entry rows) (str entry)))
+        (for [{:keys [resource rows]} sections]
+          (rum/with-key (section opts resource rows) (str resource)))
         ;; a removal can leave thousands of resources with the same
         ;; problem, so more than a few are summed up by message
         (if (<= (count others) 20)
-          (for [entry (keys others)]
-            (rum/with-key (entry-changes opts entry nil) (str entry)))
+          (for [resource (keys others)]
+            (rum/with-key (section opts resource nil) (str resource)))
           (problem-summary opts (mapcat val others)))
         (submit-control opts)])]))

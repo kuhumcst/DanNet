@@ -147,18 +147,18 @@ dn:sense-1 a ontolex:LexicalSense ;
                  [:dn/sense-1 :rdfs/label hund]
                  [:dn/word-1 :ontolex/sense :dn/sense-1]
                  [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-1]}
-        removal #(db.change/removal db % rules)
-        synset (removal :dn/synset-1)
-        word   (removal :dn/word-1)]
+        parts  #(db.change/removal-parts db % rules)
+        synset (parts :dn/synset-1)
+        word   (parts :dn/word-1)]
     (testing "a sense goes with the links to it"
-      (is (= sense (:entry (removal :dn/sense-1)))
+      (is (= sense (:triples (parts :dn/sense-1)))
           "every triple that names it, as a subject or as an object")
-      (is (empty? (:references (removal :dn/sense-1))))
-      (is (= [:dn/word-1] (keys (:orphans (removal :dn/sense-1))))
+      (is (empty? (:references (parts :dn/sense-1))))
+      (is (= [:dn/word-1] (keys (:orphans (parts :dn/sense-1))))
           "and its word is an orphan, since the word has no other sense")
-      (is (empty? (:orphans (removal :dn/sense-2)))
+      (is (empty? (:orphans (parts :dn/sense-2)))
           "a word and a synset with another sense aren't orphans")
-      (is (nil? (removal :dn/sense-9))
+      (is (nil? (parts :dn/sense-9))
           "nothing removes an entry that the graph doesn't name"))
     (testing "a synset goes with its senses and with what the build wrote"
       (is (= (conj sense
@@ -166,13 +166,13 @@ dn:sense-1 a ontolex:LexicalSense ;
                    [:dn/synset-1 :ontolex/lexicalizedSense :dn/sense-2]
                    [:dn/word-2 :ontolex/sense :dn/sense-2]
                    [:dn/word-1 :ontolex/evokes :dn/synset-1])
-             (:entry synset)))
+             (:triples synset)))
       (is (= [:dn/word-1] (keys (:orphans synset)))))
     (testing "the references to a synset are counted, not listed"
       (is (= {:wn/hypernym 1 :dns/inheritedFrom 2 :owl/sourceIndividual 1}
              (:references synset))
           "by the property that they point to it with")
-      (is (not-any? #(= :wn/hypernym (second %)) (:entry synset)))
+      (is (not-any? #(= :wn/hypernym (second %)) (:triples synset)))
       (is (= {:dn/synset-1 (:references synset)}
              (db.change/references db [:dn/synset-1 :dn/sense-1] rules))
           "also on their own, for each resource that something points to")
@@ -181,9 +181,10 @@ dn:sense-1 a ontolex:LexicalSense ;
           "a resource that goes too doesn't refer to it, nor do the blank
           nodes that it holds"))
     (testing "a word goes with its senses and its blank nodes"
-      (let [{:keys [entry nodes orphans]} word
+      (let [{:keys [triples nodes orphans]} word
             [form place] (first nodes)
-            change {:retract (into entry (:entry (get orphans :dn/synset-1)))}]
+            change {:retract (into triples
+                                   (:triples (get orphans :dn/synset-1)))}]
         (is (= {:subject  :dn/word-1
                 :property :ontolex/canonicalForm
                 :values   {:ontolex/writtenRep #{hund}}}
@@ -193,12 +194,12 @@ dn:sense-1 a ontolex:LexicalSense ;
                      [:dn/word-1 :ontolex/canonicalForm form]
                      [form :ontolex/writtenRep hund]
                      [:dn/word-1 :ontolex/evokes :dn/synset-1])
-               entry))
+               triples))
         (is (empty? orphans)
             "its synset isn't an orphan, since the synset has another sense")
         (is (= 1 (count nodes)))
         (run! #(db.change/apply-change! db %)
-              (change/locate-nodes [{:retract entry}] nodes))
+              (change/locate-nodes [{:retract triples}] nodes))
         (is (empty? (theo/triples db '[:dn/word-1 _ _])))
         (is (empty? (theo/triples db ['_ :ontolex/writtenRep hund])))
         (is (empty? (theo/triples db '[:dn/sense-1 _ _])))

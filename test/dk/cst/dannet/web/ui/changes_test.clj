@@ -1,5 +1,5 @@
 (ns dk.cst.dannet.web.ui.changes-test
-  "Tests for the list of the pending changes as data: which entries it has,
+  "Tests for the list of the pending changes as data: which sections it has,
   which rows each of them has, and the text that is submitted."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -16,7 +16,7 @@
 (def ^:private hund #rdf/langstring ["hund" "da"])
 (def ^:private hunde #rdf/langstring ["hunde" "da"])
 
-(deftest entries
+(deftest sections
   (let [nodes   {'_b1 {:subject  :dn/word-1
                        :property :ontolex/canonicalForm}}
         pending (-> []
@@ -26,9 +26,9 @@
                     (change/add [:dn/synset-1 :wn/hypernym :dn/synset-2])
                     (change/add [:dn/word-1 :wn/partOfSpeech :wn/noun]))]
     (is (= [:dn/synset-1 :dn/word-1]
-           (map :entry (changes/entries pending nodes)))
-        "the entries in the order of their first change, with a blank node
-        under the entry that holds it")
+           (map :resource (changes/sections pending nodes)))
+        "the resources in the order of their first change, with a blank node
+        under the resource that holds it")
     (is (= [{:subject  :dn/synset-1
              :property :wn/hypernym
              :fields   [{:property :wn/hypernym
@@ -39,7 +39,7 @@
              :fields   [{:property :wn/lexfile
                          :value    "noun.animal"
                          :status   :retracted}]}]
-           (:rows (first (changes/entries pending nodes))))
+           (:rows (first (changes/sections pending nodes))))
         "a row for each property that is changed, with its values as fields")
     (is (= [{:subject  '_b1
              :holder   :ontolex/canonicalForm
@@ -53,7 +53,7 @@
              :fields   [{:property :wn/partOfSpeech
                          :value    :wn/noun
                          :status   :added}]}]
-           (:rows (second (changes/entries pending nodes))))
+           (:rows (second (changes/sections pending nodes))))
         "the row of a blank node names the property that holds the node, and
         a value that replaces another has the one that it replaces")
     (let [nodes   (assoc nodes
@@ -73,21 +73,21 @@
                       :fields   [{:property :ontolex/writtenRep
                                   :value    v
                                   :status   status}]}])]
-      (is (= [{:entry :dn/word-1
-               :rows  [{:subject  :dn/word-1
-                        :property :ontolex/otherForm
-                        :fields   [{:property :ontolex/otherForm
-                                    :value    '_b2
-                                    :status   :retracted
-                                    :rows     (row :retracted hund)}
-                                   {:property :ontolex/otherForm
-                                    :value    '_new1
-                                    :status   :added
-                                    :rows     (row :added hunde)}]}]}]
-             (changes/entries pending nodes))
+      (is (= [{:resource :dn/word-1
+               :rows     [{:subject  :dn/word-1
+                           :property :ontolex/otherForm
+                           :fields   [{:property :ontolex/otherForm
+                                       :value    '_b2
+                                       :status   :retracted
+                                       :rows     (row :retracted hund)}
+                                      {:property :ontolex/otherForm
+                                       :value    '_new1
+                                       :status   :added
+                                       :rows     (row :added hunde)}]}]}]
+             (changes/sections pending nodes))
           "a blank node that is added or removed has its rows in its field"))
-    (is (empty? (changes/entries [] nodes)))
-    (is (empty? (changes/entries
+    (is (empty? (changes/sections [] nodes)))
+    (is (empty? (changes/sections
                   (-> []
                       (change/add [:dn/word-1 :wn/partOfSpeech :wn/noun])
                       (change/retract [:dn/word-1 :wn/partOfSpeech :wn/noun]))
@@ -107,14 +107,15 @@
     (is (= [form] (changes/row-problems results :dn/word-1 (first rows)))
         "a result about a blank node has the property that holds the node")
     (is (= [pos] (changes/row-problems results :dn/word-1 (second rows)))
-        "a result about a row has its property, and its entry")
-    (is (= [cycle] (changes/entry-problems results :dn/word-1 rows))
-        "a result about no row is about the entry")
+        "a result about a row has its property, and its resource")
+    (is (= [cycle] (changes/section-problems results :dn/word-1 rows))
+        "a result about no row is about the resource")
     (is (= {:dn/synset-1 [other]}
-           (changes/other-problems results [{:entry :dn/word-1 :rows rows}]))
-        "a result about an entry without changes is listed by that entry")
-    (is (empty? (changes/other-problems results [{:entry :dn/word-1}
-                                                 {:entry :dn/synset-1}])))))
+           (changes/other-problems results
+                                   [{:resource :dn/word-1 :rows rows}]))
+        "a result about a resource without changes is listed by that one")
+    (is (empty? (changes/other-problems results [{:resource :dn/word-1}
+                                                 {:resource :dn/synset-1}])))))
 
 (deftest submission
   (let [db      (util/ttl->dataset "
@@ -184,8 +185,8 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                              :dn/sense-1]}}
         pending [{:add #{[:dn/synset-1 :skos/definition "et dyr"]}} removal]
         rows    (into {}
-                      (map (juxt :entry :rows))
-                      (changes/entries pending {}))
+                      (map (juxt :resource :rows))
+                      (changes/sections pending {}))
         removed (fn [entry]
                   (for [{:keys [property fields]} (get rows entry)
                         {:keys [value status]}    fields
@@ -210,7 +211,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
             synset  (update removal :retract conj
                             [:dn/synset-1 :rdf/type :ontolex/LexicalConcept])
             pending [word synset]
-            shown   (for [{:keys [rows]} (changes/entries pending {})
+            shown   (for [{:keys [rows]} (changes/sections pending {})
                           {:keys [subject property fields]} rows
                           {:keys [value]} fields]
                       [subject property value])]
@@ -233,7 +234,7 @@ dn:word-1 ontolex:canonicalForm [ ontolex:writtenRep \"hund\"@da ] .")
                   {:focus-node (keyword "dn" (str "synset-9" n))
                    :severity   :sh/Warning
                    :message    "should have a hypernym"})]
-    (is (= [:dn/synset-1] (map :entry (changes/entries [removal] {})))
+    (is (= [:dn/synset-1] (map :resource (changes/sections [removal] {})))
         "a resource that only refers to a removed one has no section")
     (is (str/includes? (changes/submission [removal] {})
                        ":unreference #{:dn/synset-1}")

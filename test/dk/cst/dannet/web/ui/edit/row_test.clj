@@ -212,10 +212,10 @@
               :edit-mode      true
               :default-origin :dn
               :entity         {:rdf/type :ontolex/LexicalConcept}
-              :edit-rules     {:namespaces      #{"dn"}
-                               :derived         #{:skos/inScheme}
-                               :derived-by-type {:ontolex/LexicalConcept
-                                                 #{:rdfs/label}}}
+              :edit-rules     {:namespaces       #{"dn"}
+                               :derived          #{:skos/inScheme}
+                               :derived-by-class {:ontolex/LexicalConcept
+                                                  #{:rdfs/label}}}
               :constraints    {:wn/mero_part          {:must {}}
                                :skos/definition       {:should {:min 1}}
                                :rdfs/label            {:must {:max 1}}

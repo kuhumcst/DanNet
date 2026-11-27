@@ -23,7 +23,7 @@
                               'rdf/literal    term/read-literal}}
                    (slurp source)))
 
-(defn- node-values
+(defn- values-by-property
   "The values of the blank `node` in the graph `g`, as a map of a property
   to a set of values."
   [g node]
@@ -31,10 +31,10 @@
           {}
           (theo/triples g [node '_ '_])))
 
-(defn- removal-parts
+(defn own-parts
   "What removes the entries `ids` from the graph `g` by the `rules`, when
-  the entries in `gone` are the ones that go in all: a map of the :entry,
-  the :nodes and the :references, as removal has them."
+  the entries in `gone` are the ones that go in all: a map of the :triples,
+  the :nodes and the :references, as removal-parts has them."
   [g gone ids {:keys [links derived] :as rules}]
   (let [own      (mapcat #(theo/triples g [% '_ '_]) ids)
         nodes    (into {}
@@ -42,7 +42,7 @@
                              :when      (term/blank-node? node)]
                          [node {:subject  s
                                 :property p
-                                :values   (node-values g node)}]))
+                                :values   (values-by-property g node)}]))
         ;; a blank node belongs to the entries that hold it
         stays?   (fn [s]
                    (not-any? gone (if (term/blank-node? s)
@@ -53,7 +53,7 @@
                        :when (stays? (first t))]
                    t)
         part?    (fn [[_ p _]] (or (contains? links p) (contains? derived p)))]
-    {:entry      (into #{}
+    {:triples    (into #{}
                        (map vec)
                        (concat own
                                (filter part? incoming)
@@ -64,7 +64,7 @@
      :nodes      nodes
      :references (frequencies (map second (remove part? incoming)))}))
 
-(defn removal
+(defn removal-parts
   "What removes the entry `id` from the dn: graph `g` by the `rules`, as a
   map of the parts that an editor chooses between. Nil when no triple of
   the graph names the entry.
@@ -73,7 +73,7 @@
   :derived. An entry goes with what it holds by a link, e.g. a word with
   its senses. The parts are:
 
-  - :entry, the triples of them all, with the values of their blank nodes
+  - :triples, the triples of them all, with the values of their blank nodes
     and with the links and the derived triples that point to them;
   - :nodes, the places of those blank nodes (see change/locate-nodes);
   - :references, how many triples of other entries point to them, as a map
@@ -92,23 +92,23 @@
                                              (not (contains? gone h))
                                              (every? gone (held h p)))]
                             h))
-        parts   (removal-parts g gone ids rules)]
-    (when (seq (:entry parts))
+        parts   (own-parts g gone ids rules)]
+    (when (seq (:triples parts))
       (assoc parts
         :orphans (into {}
                        (for [h orphans]
-                         [h (removal-parts g (conj gone h) [h] rules)]))))))
+                         [h (own-parts g (conj gone h) [h] rules)]))))))
 
 (defn references
   "How many triples of other entries point to each of the entries `ids` in
-  the graph `g`, by the `rules` (see removal), when all of `ids` go: a map
-  of an entry to a map of a property to a number. An entry that nothing
+  the graph `g`, by the `rules` (see removal-parts), when all of `ids` go: a
+  map of an entry to a map of a property to a number. An entry that nothing
   points to is left out."
   [g ids rules]
   (let [gone (set ids)]
     (into {}
           (for [id    ids
-                :let  [counts (:references (removal-parts g gone [id] rules))]
+                :let  [counts (:references (own-parts g gone [id] rules))]
                 :when (seq counts)]
             [id counts]))))
 

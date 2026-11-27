@@ -2,7 +2,7 @@
   "The new entries of edit mode as data: the templates that make them, and
   what the pending changes say about one. A new entry goes by a temporary ID
   until a curator accepts it (see dk.cst.dannet.change). An entry of the
-  data that a template describes is removed as a whole (see retract).
+  data that a template describes is removed as a whole (see with-removal).
 
   A template is a change with gaps. The rules of the editor have one for
   each class of new entry (see dk.cst.dannet.editable). It is a map:
@@ -39,20 +39,20 @@
   (boolean (some #(contains? templates %)
                  (shared/setify (:rdf/type entity)))))
 
-(defn- link-triples
+(defn link-triples
   "The triples of the `template` that point to one of its new entries, e.g.
   the one that gives a word its new sense."
   [{:keys [new add] :as template}]
   (filter (fn [[_ _ o]] (contains? new o)) add))
 
-(defn- additions
+(defn additions
   "The triples that the pending `changes` add in all."
   [changes]
   (:add (change/net changes)))
 
 (defn for-row
   "The template in `templates` that makes the new values of the property
-  `p`, as a map of the :template and the :subject, which is the gap that
+  `p`, as a map of the :template and the :given gap, which is the one that
   the entry of the row fills. Nil when the values of the row aren't new
   entries.
 
@@ -63,13 +63,13 @@
   (first (for [template (vals templates)
                [s p']   (link-triples template)
                :when    (= p p')]
-           {:template template :subject s})))
+           {:template template :given s})))
 
 (defn asked
   "The gaps of the `template` that the editor asks for when the gaps in
-  `given` have values already, as a map of a gap to its classes."
-  [{:keys [ask] :as template} given]
-  (apply dissoc ask given))
+  `filled` have values already, as a map of a gap to its classes."
+  [{:keys [ask] :as template} filled]
+  (apply dissoc ask filled))
 
 (defn- step
   "The value `v` after a step `x` of a :from, or nil when it gives none: a
@@ -205,11 +205,11 @@
   label names it already, e.g. the word of a new sense."
   [templates changes id s]
   (let [added (additions changes)
-        type  (some (fn [[s' p o]]
+        class (some (fn [[s' p o]]
                       (when (and (= s' id) (= p :rdf/type))
                         o))
                     added)
-        {:keys [from] :as template} (get templates type)
+        {:keys [from] :as template} (get templates class)
         named (into #{} (map first) (vals from))]
     (sort (for [[gap p]   (link-triples template)
                 :when     (not (named gap))
@@ -249,11 +249,11 @@
   "A new entry made from the `template` of its class, to be the value of a
   gap of another template: a map of its temporary :id and the :change that
   makes it. The `text` is the one that the template asks for, when it asks
-  for one, and `labels` are labels for its blank nodes that the session
+  for one, and `node-labels` are labels for its blank nodes that the session
   doesn't have. Nil when the text doesn't fit the template.
 
   An entry that is made from a text also has the trimmed :text."
-  [{:keys [new add ask] :as template} changes text labels]
+  [{:keys [new add ask] :as template} changes text node-labels]
   (let [[gap {:keys [lang pattern]}] (first (filter (comp map? val) ask))
         value  (when gap
                  (some-> text str/trim not-empty (i18n/with-lang lang)))
@@ -264,7 +264,7 @@
                :change (fill template changes
                              (merge (when gap {gap value})
                                     (starting template {gap value})
-                                    (zipmap blanks labels)))}
+                                    (zipmap blanks node-labels)))}
         value (assoc :text (str value))))))
 
 (defn fill-around
@@ -320,9 +320,9 @@
           (recur kept (distinct (concat xs needing
                                         (remove holds? holders)))))))))
 
-(defn retract
+(defn with-removal
   "The pending `changes` with the change `removal` made, which takes
-  entries of the data out as a whole (see db.change/removal).
+  entries of the data out as a whole (see db.change/removal-parts).
 
   The edits made before to what it removes are dropped, with what can't
   stay without it (see without), but a link to it that was removed before
@@ -339,20 +339,20 @@
         (into (remove covered?) (filter whole? changes))
         (conj removal))))
 
-(defn- removes?
+(defn removes?
   "Does the `change` remove the entry `id` of the data as a whole?"
   [change id]
   (contains? (change/removed change) id))
 
-(defn retracted?
+(defn removed?
   "Do the pending `changes` remove the entry `id` of the data as a whole
-  (see retract)?"
+  (see with-removal)?"
   [changes id]
   (boolean (some #(removes? % id) changes)))
 
-(defn restored
+(defn without-removal
   "The pending `changes` without the ones that remove the entry `id` of the
-  data as a whole (see retract), which puts back what they removed."
+  data as a whole (see with-removal), which puts back what they removed."
   [changes id]
   (into [] (remove #(removes? % id)) changes))
 

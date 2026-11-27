@@ -10,9 +10,9 @@
 
 (defn value-order
   "The values `vs` of a property in the order of its fields, with the
-  pending `changes` made (see change/property-changes): a replacement takes
+  `property-changes` made (see change/property-changes): a replacement takes
   the place of its value, and the other added values come last."
-  [vs {:keys [added replaced] :as changes}]
+  [vs {:keys [added replaced] :as property-changes}]
   (let [replacing (fn [v] (filter added (get replaced v)))]
     ;; distinct, as a value can be replaced by one that is already there
     (distinct (concat (mapcat #(or (seq (replacing %)) [%]) vs)
@@ -54,8 +54,8 @@
 
 (defn fields
   "The fields of a row as maps of a :property and a :value, with the pending
-  `changes` to the `properties` of the subject `s` made. The `entries` are
-  the pairs of a property and a value that can be edited.
+  `changes` to the `properties` of the subject `s` made. The `pairs` are
+  those of a property and a value that can be edited.
 
   A changed value has its :status: :added, :retracted, :edited with the
   :original value that it replaces, or :moved with the property that it is
@@ -63,8 +63,8 @@
   :retracted with the property that it is :moved-to. A resource that the
   changes unreference is :retracted too. The fields are in the order of
   `properties` and then of value-order."
-  [changes s properties entries]
-  (let [p->vs (update-vals (group-by first entries) #(map second %))
+  [changes s properties pairs]
+  (let [p->vs (update-vals (group-by first pairs) #(map second %))
         moves (change/moves changes s)
         gone  (change/unreferenced changes)]
     (for [p    properties

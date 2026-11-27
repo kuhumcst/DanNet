@@ -135,15 +135,15 @@
      (when-not uri-only?
        uri-link)
      (when (and edit-mode draft?)
-       (edit/remove-entry-button
+       (edit/discard-entry-button
          opts subject
          (fn [_]
-           (edit/remove-entry! opts subject)
+           (edit/discard-entry! opts subject)
            (app/navigate-to prefix/changes-path {:replace? true}))))
      (when (and edit-mode
                 (not (or draft? removed? locked?))
                 (entry/described? (:entries edit-rules) entity))
-       (edit/retract-entry-button opts subject))
+       (edit/remove-entry-button opts subject))
      (when removed?
        [:<>
         [:p.entry-removed

@@ -72,17 +72,17 @@
   (delay (load-shapes (:base shapes-resources)
                       (:editorial shapes-resources))))
 
-(defn- sh
+(defn sh
   "The property of the SHACL vocabulary with the `local-name` in `model`."
   ^Property [^Model model local-name]
   (.createProperty model (str "http://www.w3.org/ns/shacl#" local-name)))
 
-(defn- data
+(defn data
   "The Clojure value of the RDF node `x`, with DanNet's keywords for IRIs."
   [^RDFNode x]
   (convert/data (.asNode x) prefix/prefixes))
 
-(defn- objects
+(defn objects
   "The resources that the resource `r` has as the objects of the SHACL
   property with the `local-name`."
   [^Resource r local-name]
@@ -376,7 +376,7 @@
                     [shape [m n]]))))
         by-shape))
 
-(defn- against-baseline
+(defn against-baseline
   "Add :exceeded to a validation `result` by comparing its :sh/Violation
   results to the known `baseline`; warnings never count against it.
   Also adds :violations (the blocking result count) for logging purposes."

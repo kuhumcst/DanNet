@@ -226,16 +226,16 @@
 
 (defn- new-entry
   "The new entry that `path` is the page of, as a map of its temporary :id
-  and its :type in the pending changes, or nil when it is the page of
-  something else. The type is nil when no change makes the entry any more."
+  and its :class in the pending changes, or nil when it is the page of
+  something else. The class is nil when no change makes the entry any more."
   [path]
   (let [id (input-type/->resource (str input-type/site-root path))]
     (when (change/temporary? id)
-      {:id   id
-       :type (-> (entry/entity (:changes @app/session) id)
-                 (:rdf/type)
-                 (shared/setify)
-                 (first))})))
+      {:id    id
+       :class (-> (entry/entity (:changes @app/session) id)
+                  (:rdf/type)
+                  (shared/setify)
+                  (first))})))
 
 (defn on-navigate
   "The core frontend function; gets called on every path change and shows the
@@ -250,22 +250,22 @@
     (do
       (reset! embedded nil)
       (show-page! path query-params page))
-    (let [{:keys [id type] :as entry} (new-entry path)]
+    (let [{:keys [id class] :as entry} (new-entry path)]
       (cond
         (nil? entry)
         (fetch-page! path query-params path query-params identity)
 
         ;; a new entry that was taken away has no page, e.g. after going
         ;; back to it, so the changes page is shown in its place
-        (nil? type)
+        (nil? class)
         (app/navigate-to prefix/changes-path {:replace? true})
 
         ;; The server has no such entry, so it is only asked for what the
-        ;; editor reads from the shapes of the type, and the page is made
+        ;; editor reads from the shapes of the class, and the page is made
         ;; from the pending changes.
         :else
         (fetch-page! path query-params
-                     "/dannet/edit/entry" {:type (prefix/kw->qname type)}
+                     "/dannet/edit/entry" {:class (prefix/kw->qname class)}
                      (fn [body]
                        {:page  :entity
                         :title (prefix/kw->qname id)

@@ -127,13 +127,13 @@
          [:option {:key "" :value "" :hidden true}
           (i18n/da-en languages "tilføj sprog" "add language")]))]))
 
-(defn- after-redraw!
+(defn after-redraw!
   "Call `f` once the page is drawn again, i.e. after the frame in which a
   change of state is rendered."
   [f]
   #?(:cljs (js/requestAnimationFrame #(js/requestAnimationFrame f))))
 
-(defn- when-drawn!
+(defn when-drawn!
   "Call `f` with the element that the function `find` returns, once the
   page is drawn with it. A change of state can take several frames to draw,
   so `find` is called in each frame, for about a second."
@@ -151,12 +151,12 @@
   tables too."
   "> td > .edit-values > .edit-value > .edit-value__add")
 
-(defn- node-selector
+(defn node-selector
   "A CSS selector for the field of the blank node with the `label`."
   [label]
   (str "[data-node=\"" label "\"]"))
 
-(defn- in-row
+(defn in-row
   "The first element that the CSS `selector` matches in the row of the
   property `k` in the table of `subject`, if any. The subject is the
   resource of the page, or the label of a blank node with a nested table."
@@ -168,17 +168,17 @@
                              (str table " > tbody > tr[property=\""
                                   (prefix/kw->qname k) "\"] " selector)))))
 
-(defn- focus-beside!
+(defn focus-beside!
   "Move the focus to the control next to the dialog that the event `e`
   closes: the one that the CSS `selector` matches."
   [e selector]
   (some-> (.. e -target -parentNode) (.querySelector selector) (.focus)))
 
-(defn- removal-reason
+(defn removal-reason
   "Why the entry `v` can't be chosen as a value when the pending `changes`
   remove it as a whole, for a reader with `languages`. Nil when they don't."
   [languages changes v]
-  (when (entry/retracted? changes v)
+  (when (entry/removed? changes v)
     (i18n/da-en languages
       "Ressourcen fjernes"
       "The resource is being removed")))
@@ -424,7 +424,7 @@
                                              (.reportValidity input)))
 
                                          (and (not-any? #{v} taken)
-                                              (not (entry/retracted? changes
+                                              (not (entry/removed? changes
                                                                      v)))
                                          (on-value v)
 
@@ -442,12 +442,12 @@
                      (on-cancel))
         ;; moving between the input and its controls isn't leaving
         leave!     (fn [e]
-                     (let [entry (.-currentTarget e)]
+                     (let [wrapper (.-currentTarget e)]
                        (when-not (or @searching?
                                      (some->> (.-relatedTarget e)
-                                              (.contains entry)))
-                         (enter! (.querySelector entry "textarea") true))))]
-    [:span.edit-value__entry {:on-blur leave!}
+                                              (.contains wrapper)))
+                         (enter! (.querySelector wrapper "textarea") true))))]
+    [:span.edit-value__wrapper {:on-blur leave!}
      [:textarea.edit-value__input
       {:default-value (or draft old-text)
        :lang          lang'
@@ -583,6 +583,10 @@
   "The buttons of a field in their order, by whether it is `open?` as an
   input and by its `tint`: nil, :edited, :moved, :added or :retracted.
 
+  The tint is the :status of the value (see row/fields). A field with a
+  draft, a typed text that isn't a value yet, is :edited, or :added when
+  its value is new.
+
   - :edit opens the input: on a closed field, unless its value is removed.
   - :undo puts the value of the data back: on an edited, a moved or a
     removed value.
@@ -596,7 +600,7 @@
         (and (not open?) (contains? #{nil :edited :moved} tint)))
     (conj :remove)))
 
-(defn- buttons
+(defn buttons
   "The buttons of a closed field with the `tint` (see field-buttons), from
   `actions`, a map of a button to its label and function. A button that
   isn't among them is left out. With `required`, the mark of a value that
@@ -610,7 +614,7 @@
          :when  (or action mark)]
      (or mark (icon-button (name button) label f)))])
 
-(defn- opens-input?
+(defn opens-input?
   "Does the click `e` open the input of a closed field? Not on a link or a
   control, or when it selects text."
   [e]
@@ -618,7 +622,7 @@
      :cljs (not (or (.closest (.-target e) "a, button, select, [tabindex]")
                     (seq (str (js/getSelection)))))))
 
-(defn- invalid-content
+(defn invalid-content
   "The content of a closed field whose entered text `s` isn't a value. The
   `message` says why to a reader who can't see the wavy line under it."
   [s message]
@@ -633,7 +637,7 @@
     (:rdf/about blank-node)
     subject))
 
-(defn- node-place
+(defn node-place
   "The place of the blank node of a nested table with `opts`, as
   change/locate-nodes takes it: the :subject and :property that hold the
   node, and those of its :values that can be edited. A node that an editor
@@ -654,7 +658,7 @@
                                  [k vs])))
                        entity)})))
 
-(defn- update-changes!
+(defn edit!
   "Apply `f` and `args` to the pending changes, for an edit in a table with
   `opts`. An edit in the nested table of a blank node also keeps the place
   of the node, which its changes are located by when they are submitted.
@@ -701,13 +705,13 @@
   pending changes remove as a whole, or nil. Undoing the removal of such a
   value puts the whole entry back."
   [{:keys [languages changes] :as opts} v]
-  (when (entry/retracted? changes v)
+  (when (entry/removed? changes v)
     [:small.edit-value__note
      (i18n/da-en languages
        "Hele ressourcen fjernes"
        "The whole resource is being removed")]))
 
-(defn- value-text
+(defn value-text
   "The value `v` as the text that names it in a label or a tooltip, in a
   table with `opts`."
   [opts v]
@@ -754,16 +758,15 @@
         ;; a new status replaces the content, and with it the control in focus
         retag!   (fn [lang']
                    (vreset! (::refocus state) (if lang' "select" "button"))
-                   (update-changes!
-                     opts change/replace
-                     t [subject k (i18n/with-lang v lang')]))
+                   (edit! opts change/replace
+                          t [subject k (i18n/with-lang v lang')]))
         undo     [(undo-label languages (if moved-to :moved tint)
                               (or @draft (value-text opts v)))
                   (fn [_]
                     (reset! draft nil)
                     (close!)
                     (when status
-                      (update-changes! opts change/without-triple t)))]
+                      (edit! opts change/without-triple t)))]
         ;; A pending value is taken away, and what its change removes stays
         ;; removed: the value that it replaces, or the one in its old row.
         remove!  (fn [& _]
@@ -772,8 +775,8 @@
                    (vreset! (::refocus state) "button")
                    (cond
                      on-remove (on-remove)
-                     status (update-changes! opts change/without-addition t)
-                     :else (update-changes! opts change/retract t)))
+                     status (edit! opts change/without-addition t)
+                     :else (edit! opts change/retract t)))
         removal  [(label "Fjern" "Remove") remove!]
         note     (or (move-note opts props)
                      (when (= status :retracted)
@@ -827,8 +830,7 @@
                              (reset! draft nil)
                              (close!)
                              (when (not= v v')
-                               (update-changes!
-                                 opts change/replace t [subject k v'])))})
+                               (edit! opts change/replace t [subject k v'])))})
 
        @draft
        (invalid-content @draft message)
@@ -920,8 +922,7 @@
                              (cond
                                (some #{v} taken) nil
                                on-add (on-add v)
-                               :else (update-changes!
-                                       opts change/add [subject k v])))})
+                               :else (edit! opts change/add [subject k v])))})
 
        @draft
        [:<>
@@ -968,7 +969,7 @@
                    (reset! editing? false))
         removal  [(named "Fjern" "Remove")
                   (fn [& _]
-                    (update-changes! opts without)
+                    (edit! opts without)
                     ;; the page of a new entry that went with it is empty
                     (when (and draft?
                                (nil? (entry/entity (without changes)
@@ -994,13 +995,11 @@
                     :on-value    (fn [label']
                                    (close!)
                                    (if label
-                                     (update-changes!
-                                       opts change/replace
-                                       [id :rdfs/label label]
-                                       [id :rdfs/label label'])
-                                     (update-changes!
-                                       opts change/add
-                                       [id :rdfs/label label'])))})
+                                     (edit! opts change/replace
+                                            [id :rdfs/label label]
+                                            [id :rdfs/label label'])
+                                     (edit! opts change/add
+                                            [id :rdfs/label label'])))})
        [:<>
         ;; as any other resource in the row, so with a link to its page
         (let [content [:ins.edit-value__content (rdf/value opts id)]]
@@ -1013,13 +1012,13 @@
                                   #(reset! editing? true)]
                          :remove removal})])]))
 
-(defn remove-entry!
+(defn discard-entry!
   "Take the new entry with the `id` out of the pending changes of a page
   with `opts`, with what can't stay without it (see entry/without)."
   [{:keys [edit-rules] :as opts} id]
   (app/update-changes! #(entry/without (:entries edit-rules) % id)))
 
-(defn- entry-button
+(defn entry-button
   "A button with the `text` that acts on the whole entry with the `id`, on a
   page with `opts`. Its name also says which entry."
   [opts id text on-click]
@@ -1028,9 +1027,9 @@
                          :on-click   on-click}
    text])
 
-(defn remove-entry-button
+(defn discard-entry-button
   "The button that takes the new entry with the `id` away as a whole, on a
-  page with `opts`. Its `on-click` does that (see remove-entry!), and what
+  page with `opts`. Its `on-click` does that (see discard-entry!), and what
   the page needs besides, e.g. to move the focus."
   [{:keys [languages] :as opts} id on-click]
   (entry-button opts id
@@ -1041,9 +1040,9 @@
 
 (defn restore-entry!
   "Put the removed entry `id` of the data back: drop the pending change that
-  removes it as a whole (see entry/restored)."
+  removes it as a whole (see entry/without-removal)."
   [id]
-  (app/update-changes! entry/restored id))
+  (app/update-changes! entry/without-removal id))
 
 (defn restore-entry-button
   "The button that puts the removed entry with the `id` back, on a page
@@ -1056,10 +1055,10 @@
                   "Undo the removal of the resource")
                 on-click))
 
-(defn- fetch-removal
+(defn fetch-removal
   "A promise of what the server has for removing the entry `id` of the data
-  (see db.change/removal), or of nil when the data has no such entry or the
-  request fails."
+  (see db.change/removal-parts), or of nil when the data has no such entry
+  or the request fails."
   [id]
   #?(:cljs
      ;; each entry has a URL of its own, so one request doesn't end another
@@ -1070,7 +1069,7 @@
                     (app/clear-current-fetch url)
                     (let [parts (get-in response [:body :data])]
                       (when (and (= 200 (:status response))
-                                 (seq (:entry parts)))
+                                 (seq (:triples parts)))
                         parts))))
            (.catch (fn [_]
                      (app/clear-current-fetch url)
@@ -1082,18 +1081,18 @@
   [{:keys [detail-level] :as opts} entities]
   (update-vals entities (shared/->entity-label-fn detail-level)))
 
-(defn- retract-entry!
+(defn remove-entry!
   "Make the removal of an entry of the data a pending change, on a page
   with `opts`: the one that the `answers` of the editor make of the `parts`
-  that the server has for it (see ui.edit.removal and entry/retract). The
+  that the server has for it (see ui.edit.removal and entry/with-removal). The
   places of its blank nodes and the labels of its resources are kept, which
   the list of the changes needs."
   [{:keys [edit-rules] :as opts} parts answers]
   (doseq [[label place] (removal/nodes parts)]
     (app/remember-node! label place))
   (app/remember-labels! (entity-labels opts (:entities parts)))
-  (update-changes! opts #(entry/retract (:entries edit-rules) %
-                                        (removal/removal parts answers))))
+  (edit! opts #(entry/with-removal (:entries edit-rules) %
+                                   (removal/removal parts answers))))
 
 (def fetch-parts
   "A mixin that asks the server for the parts of a removal when its wizard
@@ -1128,10 +1127,10 @@
           :resource-fn #(rdf/resource-name % labelled))
         {:on-done  (fn [answers]
                      (on-done)
-                     (retract-entry! opts parts answers))
+                     (remove-entry! opts parts answers))
          :on-close on-close}))))
 
-(rum/defcs retract-entry-button < (rum/local nil ::opener)
+(rum/defcs remove-entry-button < (rum/local nil ::opener)
   "The button that removes the entry `id` of the data as a whole, on its own
   page with `opts`. It opens the wizard of the removal, which has to be
   confirmed (see removal-wizard).
@@ -1188,7 +1187,7 @@
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
                           (refocus!)
-                          (update-changes! opts change/without-triple link))]
+                          (edit! opts change/without-triple link))]
                :remove [(str (i18n/da-en languages
                                "Fjern hele ressourcen"
                                "Remove the whole resource")
@@ -1249,11 +1248,11 @@
   when the typed text fits the template of one of the classes, and a made
   answer is shown on its own page."
   [state {:keys [languages changes entity inverses edit-rules nodes] :as opts}
-   k {:keys [template subject] :as row-entry}]
+   k {:keys [template given] :as row-entry}]
   (let [choosing? (::choosing? state)
         s         (subject-of opts)
         entries   (:entries edit-rules)
-        [gap classes] (first (entry/asked template [subject]))
+        [gap classes] (first (entry/asked template [given]))
         ;; a new answer is made from the template that the typed text fits
         answers   (keep entries classes)
         labels    (entry/labels changes (:derived-labels edit-rules))
@@ -1268,8 +1267,8 @@
                                 pending)
         value-fn  (:value-fn search)
         taken     (when (:once template)
-                    (into (entry/known template inverses entity subject gap)
-                          (entry/linked template changes subject s gap)))
+                    (into (entry/known template inverses entity given gap)
+                          (entry/linked template changes given s gap)))
         reason    (get-in template [:once :reason])
         focus!    (fn [change]
                     #?(:cljs
@@ -1284,13 +1283,13 @@
                     (let [found    (or (some->> (:pending result)
                                                 (entry/entity changes))
                                        result)
-                          starting (entry/starting template {subject entity
-                                                             gap     found})
+                          starting (entry/starting template {given entity
+                                                             gap   found})
                           values   (assoc starting
-                                     subject s
+                                     given s
                                      gap (value-fn result))
                           change   (entry/fill template changes values)]
-                      (update-changes! opts conj change)
+                      (edit! opts conj change)
                       (focus! change)))
         make      (fn [text]
                     (some (fn [{:keys [name] :as answer}]
@@ -1301,15 +1300,15 @@
         make!     (fn [text]
                     (let [{:keys [id] :as made} (make text)
                           change (entry/fill-around template changes gap made
-                                                    {subject s}
-                                                    {subject entity})]
+                                                    {given s}
+                                                    {given entity})]
                       ;; a new blank node has its place in the session
                       (doseq [[s' p o] (:add change)
                               :when (term/blank-node? o)]
                         (app/remember-node! o {:subject  s'
                                                :property p
                                                :new?     true}))
-                      (update-changes! opts conj change)
+                      (edit! opts conj change)
                       (app/navigate-to (prefix/resolve-href id))))]
     [:li.edit-value.edit-value--new
      (add-button (plus-label opts k) #(reset! choosing? true))
@@ -1343,7 +1342,7 @@
     (str/join ", " texts)
     (rdf/link-label opts k)))
 
-(defn- add-node!
+(defn add-node!
   "Add a new blank node as a value of the property `k` in a table with
   `opts`, under a label that no other node of the session has.
 
@@ -1356,9 +1355,9 @@
         link    [subject k label]]
     (app/remember-node! label {:subject subject :property k :new? true})
     (if value
-      (update-changes! opts conj {:add #{link [label p v]}})
+      (edit! opts conj {:add #{link [label p v]}})
       (do
-        (update-changes! opts change/add link)
+        (edit! opts change/add link)
         #?(:cljs (when-drawn! #(.querySelector js/document
                                                (str (node-selector label)
                                                     " .edit-value__add"))
@@ -1392,8 +1391,8 @@
                      (do
                        (refocus!)
                        (app/remember-node! label place)
-                       (update-changes! opts change/retract-node label place))
-                     (update-changes! opts change/without-node label)))]
+                       (edit! opts change/retract-node label place))
+                     (edit! opts change/without-node label)))]
     [:li.edit-value.edit-node
      (cond-> {:data-node (str label)}
        status (assoc :class (str "edit-value--" (name status))))
@@ -1413,7 +1412,7 @@
               {:undo   [(undo-label languages :retracted text)
                         (fn [_]
                           (refocus!)
-                          (update-changes! opts change/without-node label))]
+                          (edit! opts change/without-node label))]
                :remove [(str (i18n/da-en languages "Fjern" "Remove") ": " text)
                         remove!]}
               (when required
@@ -1449,10 +1448,8 @@
                        (if node
                          (do
                            (app/remember-node! label place)
-                           (update-changes! opts change/retract-node
-                                            label place))
-                         (update-changes! opts change/without-node
-                                          label))))))))
+                           (edit! opts change/retract-node label place))
+                         (edit! opts change/without-node label))))))))
 
 (rum/defc node-cell
   "A table cell for the values `vs` in the row of the property `k` in `opts`
@@ -1536,18 +1533,18 @@
                                      (rdf/label-sortkey-fn opts))
                                vs)
                       vs)
-        entries     (distinct (for [v sorted
+        pairs       (distinct (for [v sorted
                                     p (lock/value-properties opts k v)]
                                 [p v]))
-        entry->lock (into {}
-                          (map (fn [[p v :as entry]]
-                                 [entry (lock/lock opts p v)]))
-                          entries)
+        pair->lock  (into {}
+                          (map (fn [[p v :as pair]]
+                                 [pair (lock/lock opts p v)]))
+                          pairs)
         properties  (row/properties opts k)
         fields      (row/fields changes subject properties
-                                (remove entry->lock entries))
+                                (remove pair->lock pairs))
         input-type  (input-type/input-type vs must)
-        locked      (map second (filter entry->lock entries))
+        locked      (map second (filter pair->lock pairs))
         values      (concat (map :value fields) locked)
         ;; the values of the row as the pending changes leave them
         current     (->> (remove (comp #{:retracted} :status) fields)
@@ -1614,13 +1611,13 @@
                                                                 expected))
                          :gap?       (some? gap)})
                       "new"))
-      (for [[p v :as entry] (filter entry->lock entries)]
+      (for [[p v :as pair] (filter pair->lock pairs)]
         [:li.edit-value.edit-value--locked
          (assoc (rdf/lone-value-attrs v) :key (item-key p v))
-         (padlock (get-in comments [:locked (entry->lock entry)]))
+         (padlock (get-in comments [:locked (pair->lock pair)]))
          (rdf/value opts v)])]]))
 
-(defn- property-search
+(defn property-search
   "A search among the properties `ks` of a table with `opts`, in a dialog
   with the `title` in each language (see ui.input-type for what a search
   is). It finds a property by its label or its prefixed name. With
@@ -1691,7 +1688,7 @@
        (remove (comp #{:retracted} :status))
        (map :value)))
 
-(defn- focus-row!
+(defn focus-row!
   "Move the focus to the first button of a value in the row of the property
   `k` of `subject`, once the page is drawn with it."
   [subject k]
@@ -1733,14 +1730,13 @@
              :heading [:<> before (rdf/resource-name k opts) after])
            {:on-value (fn [k']
                         (reset! choosing? false)
-                        (update-changes!
-                          opts
-                          (fn [changes]
-                            (reduce #(change/replace %1
-                                                     [subject k %2]
-                                                     [subject k' %2])
-                                    changes
-                                    values)))
+                        (edit! opts
+                               (fn [changes]
+                                 (reduce #(change/replace %1
+                                                          [subject k %2]
+                                                          [subject k' %2])
+                                         changes
+                                         values)))
                         (focus-row! subject k'))
             :on-close (fn [e]
                         (reset! choosing? false)
